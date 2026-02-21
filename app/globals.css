@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+@theme {
+  --color-ink: 11 15 23;
+}
+
 :root {
   --background: #f8f5f0;
   --foreground: #121417;
@@ -46,7 +50,9 @@ a {
 }
 
 .badge {
-  @apply rounded-full border border-ink/10 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-ink;
+  @apply rounded-full border bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-wider;
+  border-color: rgb(var(--color-ink) / 0.1);
+  color: rgb(var(--color-ink) / 1);
 }
 
 .leaflet-container {

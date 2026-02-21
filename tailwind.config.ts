@@ -9,7 +9,9 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#121417",
+        ink: {
+          DEFAULT: "#0B0F17",
+        },
         sand: "#f5f2ed",
         clay: "#d9c9b8",
         pine: "#1e3a34",

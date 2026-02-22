@@ -22,7 +22,10 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/coming-soon") ||
     pathname === "/favicon.ico" ||
     pathname === "/robots.txt" ||
-    pathname === "/sitemap.xml"
+    pathname === "/sitemap.xml" ||
+    pathname === "/site.webmanifest" ||
+    pathname.startsWith("/apple-touch-icon") ||
+    pathname.startsWith("/icon")
   ) {
     return NextResponse.next();
   }

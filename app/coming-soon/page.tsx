@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 export const revalidate = 86400;
 
 export const metadata: Metadata = {
-  title: "Festivo – Безплатни фестивали в България",
-  description: "Festivo ще ви помага да откривате безплатни фестивали в България. Стартира скоро.",
+  title: "Festivo – Очаквайте скоро",
+  description: "Festivo стартира скоро – платформа за откриване на безплатни фестивали в България.",
   alternates: {
     canonical: "https://festivo.bg/coming-soon",
   },
@@ -13,9 +13,9 @@ export const metadata: Metadata = {
     follow: false,
   },
   openGraph: {
-    title: "Festivo",
-    description: "Открий безплатни фестивали в България.",
-    url: "https://festivo.bg",
+    title: "Festivo – Очаквайте скоро",
+    description: "Платформа за откриване на безплатни фестивали в България. Стартира скоро.",
+    url: "https://festivo.bg/coming-soon",
     siteName: "Festivo",
     locale: "bg_BG",
     type: "website",
@@ -34,11 +34,8 @@ export default function ComingSoonPage() {
     <div className="flex min-h-screen items-center justify-center bg-white px-6 text-center">
       <div>
         <h1 className="text-2xl font-semibold text-ink sm:text-3xl">Очаквайте скоро</h1>
-        <p className="mt-3 text-sm text-muted">
-          Festivo е нова платформа за откриване на безплатни фестивали в България.
-        </p>
         <span className="sr-only">
-          Festivo ще ви помага да откривате безплатни фестивали в България. Стартира скоро.
+          Festivo стартира скоро – платформа за откриване на безплатни фестивали в България.
         </span>
       </div>
 

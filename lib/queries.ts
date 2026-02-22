@@ -23,48 +23,49 @@ const FESTIVAL_FIELDS = [
   "status",
 ].join(",");
 
-function applyFilters(query: any, filters: Filters) {
+function applyFilters<T>(query: T, filters: Filters): T {
   const applied = withDefaultFilters(filters);
 
-  query = query.eq("status", "verified");
+  let typedQuery = query as any;
+  typedQuery = typedQuery.eq("status", "verified");
 
   if (applied.free !== undefined) {
-    query = query.eq("is_free", applied.free);
+    typedQuery = typedQuery.eq("is_free", applied.free);
   }
 
   if (applied.city?.length) {
-    query = query.in("city", applied.city);
+    typedQuery = typedQuery.in("city", applied.city);
   }
 
   if (applied.region?.length) {
-    query = query.in("region", applied.region);
+    typedQuery = typedQuery.in("region", applied.region);
   }
 
   if (applied.cat?.length) {
-    query = query.in("category", applied.cat);
+    typedQuery = typedQuery.in("category", applied.cat);
   }
 
   if (applied.tags?.length) {
-    query = query.contains("tags", applied.tags);
+    typedQuery = typedQuery.contains("tags", applied.tags);
   }
 
   if (applied.from) {
-    query = query.gte("end_date", applied.from);
+    typedQuery = typedQuery.gte("end_date", applied.from);
   }
 
   if (applied.to) {
-    query = query.lte("start_date", applied.to);
+    typedQuery = typedQuery.lte("start_date", applied.to);
   }
 
   if (applied.sort === "curated") {
-    query = query.order("start_date", { ascending: true });
+    typedQuery = typedQuery.order("start_date", { ascending: true });
   } else if (applied.sort === "nearest") {
-    query = query.order("start_date", { ascending: true });
+    typedQuery = typedQuery.order("start_date", { ascending: true });
   } else {
-    query = query.order("start_date", { ascending: true });
+    typedQuery = typedQuery.order("start_date", { ascending: true });
   }
 
-  return query;
+  return typedQuery as T;
 }
 
 export async function getFestivals(filters: Filters, page = 1, pageSize = 12): Promise<PaginatedResult<Festival>> {
@@ -72,9 +73,9 @@ export async function getFestivals(filters: Filters, page = 1, pageSize = 12): P
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let query = supabase.from<Festival>("festivals").select(FESTIVAL_FIELDS, { count: "exact" });
+  let query = supabase.from("festivals").select(FESTIVAL_FIELDS, { count: "exact" });
   query = applyFilters(query, filters);
-  const { data, count, error } = await query.range(from, to);
+  const { data, count, error } = await query.range(from, to).returns<Festival[]>();
 
   if (error) {
     throw new Error(error.message);
@@ -107,24 +108,34 @@ export async function getFestivalBySlug(slug: string): Promise<Festival | null> 
   return data;
 }
 
-export async function getFestivalDetail(slug: string) {
+export async function getFestivalDetail(
+  slug: string
+): Promise<{
+  festival: Festival;
+  media: FestivalMedia[];
+  days: FestivalDay[];
+  scheduleItems: FestivalScheduleItem[];
+} | null> {
   const supabase = supabaseServer();
   const festival = await getFestivalBySlug(slug);
   if (!festival) return null;
 
   const [{ data: media }, { data: days }, { data: scheduleItems }] = await Promise.all([
     supabase
-      .from<FestivalMedia>("festival_media")
+      .from("festival_media")
       .select("id, festival_id, url, type")
+      .returns<FestivalMedia[]>()
       .eq("festival_id", festival.id),
     supabase
-      .from<FestivalDay>("festival_days")
+      .from("festival_days")
       .select("id, festival_id, date, label")
+      .returns<FestivalDay[]>()
       .eq("festival_id", festival.id)
       .order("date", { ascending: true }),
     supabase
-      .from<FestivalScheduleItem>("festival_schedule_items")
+      .from("festival_schedule_items")
       .select("id, festival_id, festival_day_id, time, title, description, location")
+      .returns<FestivalScheduleItem[]>()
       .eq("festival_id", festival.id)
       .order("time", { ascending: true }),
   ]);
@@ -146,14 +157,14 @@ export async function getCalendarMonth(month: string, filters: Filters) {
   const monthStart = startOfMonth(parseISO(`${month}-01`));
   const monthEnd = endOfMonth(monthStart);
 
-  let query = supabase.from<Festival>("festivals").select(FESTIVAL_FIELDS);
+  let query = supabase.from("festivals").select(FESTIVAL_FIELDS);
   query = applyFilters(query, {
     ...filters,
     from: format(monthStart, "yyyy-MM-dd"),
     to: format(monthEnd, "yyyy-MM-dd"),
   });
 
-  const { data, error } = await query;
+  const { data, error } = await query.returns<Festival[]>();
 
   if (error) {
     throw new Error(error.message);
@@ -181,11 +192,12 @@ export async function getCalendarMonth(month: string, filters: Filters) {
   };
 }
 
-export async function getCities() {
+export async function getCities(): Promise<string[]> {
   const supabase = supabaseServer();
   const { data, error } = await supabase
-    .from<{ city: string | null }>("festivals")
+    .from("festivals")
     .select("city")
+    .returns<{ city: string | null }[]>()
     .eq("status", "verified");
 
   if (error) {
@@ -200,11 +212,12 @@ export async function getCities() {
   return Array.from(set).sort();
 }
 
-export async function getFestivalSlugs() {
+export async function getFestivalSlugs(): Promise<string[]> {
   const supabase = supabaseServer();
   const { data, error } = await supabase
-    .from<{ slug: string | null }>("festivals")
+    .from("festivals")
     .select("slug")
+    .returns<{ slug: string | null }[]>()
     .eq("status", "verified");
 
   if (error) {

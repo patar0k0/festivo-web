@@ -8,15 +8,31 @@ export function middleware(request: NextRequest) {
   const { pathname, searchParams } = nextUrl;
 
   if (
-    pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico"
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/coming-soon") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml"
   ) {
     return NextResponse.next();
   }
 
-  if (pathname === "/coming-soon") {
-    return NextResponse.next();
+  const secret = process.env.FESTIVO_PREVIEW_SECRET;
+
+  if (searchParams.get("preview") && secret && searchParams.get("preview") === secret) {
+    const url = nextUrl.clone();
+    url.searchParams.delete("preview");
+    const response = NextResponse.redirect(url);
+    response.cookies.set(COOKIE_NAME, "1", {
+      maxAge: 60 * 60 * 24 * 7,
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+    });
+    response.headers.set("x-festivo-gate", "unlocked");
+    return response;
   }
 
   if (searchParams.get("logout") === "1") {
@@ -29,31 +45,19 @@ export function middleware(request: NextRequest) {
   }
 
   if (cookies.get(COOKIE_NAME)?.value === "1") {
-    return NextResponse.next();
-  }
-
-  const secret = process.env.FESTIVO_PREVIEW_SECRET;
-  const preview = searchParams.get("preview");
-  if (secret && preview && preview === secret) {
-    const url = nextUrl.clone();
-    url.searchParams.delete("preview");
-    const response = NextResponse.redirect(url);
-    response.cookies.set(COOKIE_NAME, "1", {
-      maxAge: 60 * 60 * 24 * 7,
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-    });
+    const response = NextResponse.next();
+    response.headers.set("x-festivo-gate", "bypass-cookie");
     return response;
   }
 
   const rewriteUrl = nextUrl.clone();
   rewriteUrl.pathname = "/coming-soon";
   rewriteUrl.search = "";
-  return NextResponse.rewrite(rewriteUrl);
+  const response = NextResponse.rewrite(rewriteUrl);
+  response.headers.set("x-festivo-gate", "locked");
+  return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|robots.txt|sitemap.xml).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

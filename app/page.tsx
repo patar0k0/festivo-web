@@ -58,19 +58,22 @@ export default async function HomePage() {
       <Section>
         <Container>
           <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-            <AppleCard className="h-full">
-              <AppleCardBody className="space-y-6">
-                <div>
-                  <Heading as="h1" size="h1" className="text-4xl sm:text-5xl">
+            <AppleCard className="h-full rounded-[28px] border border-[color:var(--border2)] bg-[color:var(--surface)] shadow-[var(--shadow)]">
+              <AppleCardBody className="space-y-4">
+                <div className="space-y-4">
+                  <Heading as="h1" size="h1" className="text-4xl font-semibold tracking-[-0.6px] md:text-5xl">
                     Фестивали в България.
                   </Heading>
-                  <Text variant="muted" className="mt-3">
+                  <Text variant="muted">
                     Чисто. Бързо. Само най-важното: дата, град, жанр, цена и план.
                   </Text>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <AppleInput placeholder="Търси фестивали…" />
+                  <AppleInput
+                    placeholder="Търси фестивали…"
+                    className="h-12 rounded-[16px] border border-[color:var(--border2)] bg-[color:var(--surface2)] focus:ring-2 focus:ring-[color:var(--accent)]/20"
+                  />
                   <AppleButton variant="primary">Търси</AppleButton>
                 </div>
 

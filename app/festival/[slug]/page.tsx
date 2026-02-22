@@ -58,10 +58,10 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
   return (
     <Container className="py-10">
       <Stack size="xl">
-        <section className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
+        <section className="grid gap-8 lg:grid-cols-[1.4fr_.6fr]">
           <Stack size="lg">
             <Stack size="sm">
-              <Heading as="h1" size="h1">
+              <Heading as="h1" size="h1" className="text-3xl font-semibold tracking-[-0.4px]">
                 {data.festival.title}
               </Heading>
               <Text variant="muted" size="sm">
@@ -88,7 +88,7 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
                 </Heading>
                 <Text
                   variant="muted"
-                  className="leading-7"
+                  className="max-w-[70ch] leading-7"
                   style={{ display: "-webkit-box", WebkitLineClamp: 8, WebkitBoxOrient: "vertical", overflow: "hidden" }}
                 >
                   {data.festival.description}
@@ -136,51 +136,42 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
           </Stack>
 
           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-            <AppleCard>
-              <AppleCardBody className="space-y-4">
-                <Heading as="h3" size="h3" className="text-lg">
-                  Бързи детайли
-                </Heading>
-                <div className="space-y-3 text-sm text-muted">
+            <div className="rounded-[24px] border border-[color:var(--border2)] bg-[color:var(--surface)] p-6 shadow-[var(--shadow2)]">
+              <div className="space-y-4 text-sm">
+                <div>
+                  <span className="block text-xs uppercase tracking-widest text-ink/60">Дата</span>
+                  <span className="font-semibold text-ink">
+                    {formatDateRange(data.festival.start_date, data.festival.end_date)}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-xs uppercase tracking-widest text-ink/60">Град</span>
+                  <span className="font-semibold text-ink">{data.festival.city ?? "Bulgaria"}</span>
+                </div>
+                {data.festival.category ? (
                   <div>
-                    <span className="block text-xs uppercase tracking-widest text-ink/60">Дата</span>
-                    <span className="font-semibold text-ink">
-                      {formatDateRange(data.festival.start_date, data.festival.end_date)}
-                    </span>
+                    <span className="block text-xs uppercase tracking-widest text-ink/60">Категория</span>
+                    <span className="font-semibold text-ink">{data.festival.category}</span>
                   </div>
-                  <div>
-                    <span className="block text-xs uppercase tracking-widest text-ink/60">Място</span>
-                    <span className="font-semibold text-ink">{data.festival.city ?? "Bulgaria"}</span>
-                  </div>
-                  {data.festival.address ? (
-                    <div>
-                      <span className="block text-xs uppercase tracking-widest text-ink/60">Адрес</span>
-                      <span className="font-semibold text-ink">{data.festival.address}</span>
-                    </div>
-                  ) : null}
-                </div>
+                ) : null}
+              </div>
 
-                <div className="rounded-[var(--radius)] border apple-border bg-[var(--surface2)] p-4 text-xs text-muted">
-                  Map preview
-                </div>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <AppleButton variant="primary">Добави в план</AppleButton>
+                <AppleButton href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}>
+                  Как да стигна
+                </AppleButton>
+              </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <AppleButton variant="primary">Добави в план</AppleButton>
-                  <AppleButton href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}>
-                    Как да стигна
-                  </AppleButton>
-                </div>
-
-                <div className="space-y-2">
-                  <span className="block text-xs uppercase tracking-widest text-ink/60">Напомняне</span>
-                  <select className="w-full rounded-full border apple-border bg-[var(--surface)] px-4 py-2 text-sm">
-                    <option value="none">None</option>
-                    <option value="24h">24h before</option>
-                    <option value="same-day">Same day 09:00</option>
-                  </select>
-                </div>
-              </AppleCardBody>
-            </AppleCard>
+              <div className="mt-6 space-y-2">
+                <span className="block text-xs uppercase tracking-widest text-ink/60">Напомняне</span>
+                <select className="w-full rounded-full border apple-border bg-[var(--surface)] px-4 py-2 text-sm">
+                  <option value="none">None</option>
+                  <option value="24h">24h before</option>
+                  <option value="same-day">Same day 09:00</option>
+                </select>
+              </div>
+            </div>
           </aside>
         </section>
 

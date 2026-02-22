@@ -1,7 +1,11 @@
-﻿import Image from "next/image";
+import Image from "next/image";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { Festival } from "@/lib/types";
+import { Card, CardBody, CardMedia } from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
+import Heading from "@/components/ui/Heading";
+import Text from "@/components/ui/Text";
 
 function formatDateRange(start?: string | null, end?: string | null) {
   if (!start) return "Dates TBA";
@@ -13,45 +17,43 @@ function formatDateRange(start?: string | null, end?: string | null) {
 }
 
 export default function FestivalCard({ festival }: { festival: Festival }) {
-  const tags = Array.isArray(festival.tags)
-    ? festival.tags
-    : festival.tags
-      ? String(festival.tags).split(",").map((tag) => tag.trim()).filter(Boolean)
-      : [];
+  const hasImage = Boolean(festival.hero_image || festival.cover_image);
+  const description = festival.description ?? "";
+
   return (
-    <Link
-      href={`/festival/${festival.slug}`}
-      className="group overflow-hidden rounded-2xl border border-ink/10 bg-white/80 shadow-soft transition hover:-translate-y-1"
-    >
-      <div className="relative h-48 w-full">
-        <Image
-          src={festival.hero_image ?? festival.cover_image ?? "/hero.svg"}
-          alt={festival.title}
-          fill
-          className="object-cover"
-        />
-        {festival.is_free && (
-          <span className="badge absolute left-4 top-4">Free</span>
-        )}
-      </div>
-      <div className="space-y-2 p-5">
-        <p className="text-xs uppercase tracking-widest text-muted">
-          {formatDateRange(festival.start_date, festival.end_date)}
-        </p>
-        <h3 className="text-lg font-semibold tracking-tight">
-          {festival.title}
-        </h3>
-        <p className="text-sm text-muted">{festival.city ?? "Bulgaria"}</p>
-        {tags.length ? (
-          <div className="flex flex-wrap gap-2">
-            {tags.slice(0, 2).map((tag) => (
-              <span key={tag} className="rounded-full bg-sand px-3 py-1 text-[10px] uppercase tracking-widest">
-                {tag}
-              </span>
-            ))}
-          </div>
+    <Link href={`/festival/${festival.slug}`} className="group">
+      <Card className="h-full transition hover:-translate-y-1">
+        {hasImage ? (
+          <CardMedia className="h-48">
+            <Image
+              src={festival.hero_image ?? festival.cover_image ?? "/hero.svg"}
+              alt={festival.title}
+              fill
+              className="object-cover"
+            />
+          </CardMedia>
         ) : null}
-      </div>
+        <CardBody className="space-y-3">
+          <Text variant="muted" size="sm">
+            {festival.city ?? "Bulgaria"} · {formatDateRange(festival.start_date, festival.end_date)}
+          </Text>
+          <Heading as="h3" size="h3" className="text-lg">
+            {festival.title}
+          </Heading>
+          <div className="flex flex-wrap gap-2">
+            {festival.is_free ? <Badge variant="free">Free</Badge> : null}
+            {festival.category ? <Badge variant="category">{festival.category}</Badge> : null}
+          </div>
+          {description ? (
+            <p
+              className="text-sm text-muted"
+              style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+            >
+              {description}
+            </p>
+          ) : null}
+        </CardBody>
+      </Card>
     </Link>
   );
 }

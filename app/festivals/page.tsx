@@ -1,11 +1,16 @@
-﻿import StickySearchBar from "@/components/StickySearchBar";
+import StickySearchBar from "@/components/StickySearchBar";
 import FiltersSidebar from "@/components/FiltersSidebar";
 import MobileFiltersSheet from "@/components/MobileFiltersSheet";
 import FestivalGrid from "@/components/FestivalGrid";
 import Pagination from "@/components/Pagination";
 import ViewToggle from "@/components/ViewToggle";
-import CategoryChips from "@/components/CategoryChips";
-import { parseFilters, withDefaultFilters } from "@/lib/filters";
+import Container from "@/components/ui/Container";
+import Stack from "@/components/ui/Stack";
+import Heading from "@/components/ui/Heading";
+import Text from "@/components/ui/Text";
+import Chip from "@/components/ui/Chip";
+import Divider from "@/components/ui/Divider";
+import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { getFestivals } from "@/lib/queries";
 import { getBaseUrl, listMeta } from "@/lib/seo";
 import { getSupabaseEnv } from "@/lib/supabaseServer";
@@ -32,32 +37,62 @@ export default async function FestivalsPage({
   const data = await getFestivals(filters, Number.isNaN(page) ? 1 : page, 12);
   const { configured } = getSupabaseEnv();
   const showBanner = !configured && process.env.NODE_ENV !== "production";
+  const categoryActive = Boolean(filters.cat?.length);
+  const cityActive = Boolean(filters.city?.length);
+  const freeActive = filters.free === true;
+  const categoryLabel = categoryActive ? `Category: ${filters.cat?.join(", ")}` : "Category";
+  const cityLabel = cityActive ? `City: ${filters.city?.join(", ")}` : "City";
+  const categoryHref = `/festivals${serializeFilters({ ...filters, cat: categoryActive ? undefined : filters.cat })}`;
+  const cityHref = `/festivals${serializeFilters({ ...filters, city: cityActive ? undefined : filters.city })}`;
+  const freeHref = `/festivals${serializeFilters({ ...filters, free: freeActive ? false : true })}`;
 
   return (
-    <div className="container-page space-y-8 py-10">
-      <div className="space-y-4">
+    <Container className="py-10">
+      <Stack size="lg">
+        <Stack size="sm">
+          <Heading as="h1" size="h1">
+            Festivals
+          </Heading>
+          <Text variant="muted" size="sm" className="sr-only sm:not-sr-only">
+            Curated festivals across Bulgaria, updated weekly.
+          </Text>
+        </Stack>
+
         {showBanner ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Supabase env vars are missing. Set them in Vercel or your local environment to load festivals.
           </div>
         ) : null}
-        <StickySearchBar initialFilters={filters} />
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <CategoryChips filters={filters} />
-          <div className="flex items-center gap-3">
-            <MobileFiltersSheet initialFilters={filters} />
-            <ViewToggle active="/festivals" filters={filters} />
-          </div>
-        </div>
-      </div>
 
-      <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
-        <FiltersSidebar initialFilters={filters} className="hidden lg:block" />
-        <div className="space-y-8">
-          <FestivalGrid festivals={data.data} />
-          <Pagination page={data.page} totalPages={data.totalPages} basePath="/festivals" filters={filters} />
+        <Stack size="sm">
+          <StickySearchBar initialFilters={filters} />
+          <div className="flex flex-wrap items-center gap-3">
+            <Chip href={categoryHref} selected={categoryActive}>
+              {categoryLabel}
+            </Chip>
+            <Chip href={cityHref} selected={cityActive}>
+              {cityLabel}
+            </Chip>
+            <Chip href={freeHref} selected={freeActive}>
+              Free
+            </Chip>
+            <div className="ml-auto flex items-center gap-3">
+              <MobileFiltersSheet initialFilters={filters} />
+              <ViewToggle active="/festivals" filters={filters} />
+            </div>
+          </div>
+        </Stack>
+
+        <Divider />
+
+        <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
+          <FiltersSidebar initialFilters={filters} className="hidden lg:block" />
+          <Stack size="lg">
+            <FestivalGrid festivals={data.data} />
+            <Pagination page={data.page} totalPages={data.totalPages} basePath="/festivals" filters={filters} />
+          </Stack>
         </div>
-      </div>
-    </div>
+      </Stack>
+    </Container>
   );
 }

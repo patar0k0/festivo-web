@@ -10,10 +10,10 @@ import Container from "@/components/ui/Container";
 import Stack from "@/components/ui/Stack";
 import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import Divider from "@/components/ui/Divider";
-import { Card, CardBody, CardHeader } from "@/components/ui/Card";
+import AppleButton from "@/components/apple/AppleButton";
+import ApplePill from "@/components/apple/ApplePill";
+import AppleDivider from "@/components/apple/AppleDivider";
+import { AppleCard, AppleCardBody, AppleCardHeader } from "@/components/apple/AppleCard";
 import { getCityFestivals, getFestivalBySlug, getFestivalDetail } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 
@@ -70,22 +70,22 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
                 {data.festival.city ?? "Bulgaria"} · {formatDateRange(data.festival.start_date, data.festival.end_date)}
               </Text>
               <div className="flex flex-wrap gap-2">
-                {data.festival.is_free ? <Badge variant="free">Free</Badge> : null}
-                {data.festival.category ? <Badge variant="category">{data.festival.category}</Badge> : null}
+                {data.festival.is_free ? <ApplePill active>Free</ApplePill> : null}
+                {data.festival.category ? <ApplePill>{data.festival.category}</ApplePill> : null}
               </div>
             </Stack>
 
             {heroImage ? (
-              <Card>
-                <CardHeader className="aspect-[16/10]">
+              <AppleCard>
+                <AppleCardHeader className="aspect-[16/10] border-b apple-border">
                   <Image src={heroImage} alt={data.festival.title} fill className="object-cover" />
-                </CardHeader>
-              </Card>
+                </AppleCardHeader>
+              </AppleCard>
             ) : null}
 
             <div className="flex flex-wrap gap-3">
-              <Button>Open in app</Button>
-              <Button variant="secondary">Save to plan</Button>
+              <AppleButton variant="primary">Open in app</AppleButton>
+              <AppleButton>Save to plan</AppleButton>
             </div>
 
             {data.festival.description ? (
@@ -139,7 +139,7 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
               </section>
             ) : null}
 
-            <Divider />
+            <AppleDivider />
             <FestivalHighlights festival={data.festival} />
             <FestivalProgram days={data.days} items={data.scheduleItems} />
             <FestivalLocation festival={data.festival} />
@@ -147,8 +147,8 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
           </Stack>
 
           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-            <Card>
-              <CardBody className="space-y-4">
+            <AppleCard>
+              <AppleCardBody className="space-y-4">
                 <Heading as="h3" size="h3" className="text-lg">
                   Quick info
                 </Heading>
@@ -200,8 +200,8 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
                     <span className="font-semibold text-ink">{`${getBaseUrl()}/festival/${data.festival.slug}`}</span>
                   </div>
                 </div>
-              </CardBody>
-            </Card>
+              </AppleCardBody>
+            </AppleCard>
           </aside>
         </section>
 

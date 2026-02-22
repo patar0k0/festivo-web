@@ -7,8 +7,9 @@ import Section from "@/components/ui/Section";
 import Stack from "@/components/ui/Stack";
 import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
-import Chip from "@/components/ui/Chip";
-import Divider from "@/components/ui/Divider";
+import ApplePill from "@/components/apple/ApplePill";
+import AppleDivider from "@/components/apple/AppleDivider";
+import { AppleCard, AppleCardBody } from "@/components/apple/AppleCard";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { getCalendarMonth } from "@/lib/queries";
 import { calendarMeta, getBaseUrl } from "@/lib/seo";
@@ -67,25 +68,25 @@ export default async function CalendarMonthPage({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Chip href={`/calendar/${prev}${queryString ? `?${queryString}` : ""}`}>Prev</Chip>
-            <Chip href={`/calendar/${next}${queryString ? `?${queryString}` : ""}`}>Next</Chip>
+            <ApplePill href={`/calendar/${prev}${queryString ? `?${queryString}` : ""}`}>Prev</ApplePill>
+            <ApplePill href={`/calendar/${next}${queryString ? `?${queryString}` : ""}`}>Next</ApplePill>
           </div>
 
-          <Divider />
+          <AppleDivider />
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {days.map((day) => {
               const key = format(day, "yyyy-MM-dd");
               const count = data.days[key]?.length ?? 0;
               return (
-                <a
-                  key={key}
-                  href={`#day-${key}`}
-                  className="rounded-xl border border-ink/10 bg-white p-4 text-sm shadow-soft"
-                >
-                  <p className="text-xs uppercase tracking-widest text-muted">{format(day, "EEE")}</p>
-                  <p className="text-lg font-semibold text-ink">{format(day, "d")}</p>
-                  <p className="text-xs text-muted">{count} festivals</p>
+                <a key={key} href={`#day-${key}`}>
+                  <AppleCard>
+                    <AppleCardBody className="space-y-1 text-sm">
+                      <p className="text-xs uppercase tracking-widest text-muted">{format(day, "EEE")}</p>
+                      <p className="text-lg font-semibold text-ink">{format(day, "d")}</p>
+                      <p className="text-xs text-muted">{count} festivals</p>
+                    </AppleCardBody>
+                  </AppleCard>
                 </a>
               );
             })}

@@ -6,10 +6,13 @@ import Section from "@/components/ui/Section";
 import Stack from "@/components/ui/Stack";
 import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
-import Badge from "@/components/ui/Badge";
-import Button from "@/components/ui/Button";
-import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import { getCities, getFestivals } from "@/lib/queries";
+import AppleButton from "@/components/apple/AppleButton";
+import ApplePill from "@/components/apple/ApplePill";
+import { AppleCard, AppleCardBody, AppleCardHeader } from "@/components/apple/AppleCard";
+import AppleInput from "@/components/apple/AppleInput";
+import AppleSelect from "@/components/apple/AppleSelect";
+import AppleDivider from "@/components/apple/AppleDivider";
+import { getFestivals } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
 
 export const revalidate = 21600;
@@ -33,19 +36,13 @@ function formatDateRange(start?: string | null, end?: string | null) {
   return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
 }
 
-function formatBadgeDate(start?: string | null) {
-  if (!start) return "TBA";
-  const date = parseISO(start);
-  return format(date, "MMM d");
-}
-
 function SkeletonGrid() {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }).map((_, index) => (
         <div
           key={`skeleton-${index}`}
-          className="h-[260px] rounded-xl border border-ink/10 bg-white shadow-soft"
+          className="h-[320px] rounded-[var(--radius)] border apple-border apple-surface apple-shadow2"
         />
       ))}
     </div>
@@ -53,117 +50,141 @@ function SkeletonGrid() {
 }
 
 export default async function HomePage() {
-  const [featured, cities] = await Promise.all([
-    getFestivals({ free: true, sort: "soonest" }, 1, 6),
-    getCities(),
-  ]);
+  const featured = await getFestivals({ free: true, sort: "soonest" }, 1, 6);
   const hasFeatured = featured.data.length > 0;
 
   return (
     <div className="space-y-14">
-      <section className="relative min-h-[420px] overflow-hidden sm:min-h-[520px]">
-        <div className="absolute inset-0 bg-[url('/hero.svg')] bg-cover bg-center" />
-        <div className="absolute inset-0 bg-black/60" />
+      <Section>
+        <Container>
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <AppleCard className="h-full">
+              <AppleCardBody className="space-y-6">
+                <div>
+                  <Heading as="h1" size="h1" className="text-4xl sm:text-5xl">
+                    Фестивали в България.
+                  </Heading>
+                  <Text variant="muted" className="mt-3">
+                    Чисто. Бързо. Само най-важното: дата, град, жанр, цена и план.
+                  </Text>
+                </div>
 
-        <Container className="relative">
-          <div className="flex min-h-[420px] flex-col items-center justify-center text-center text-white sm:min-h-[520px]">
-            <Stack size="sm" className="max-w-2xl">
-              <Heading as="h1" size="h1" className="text-4xl text-white sm:text-5xl">
-                Festivo
-              </Heading>
-              <Text variant="muted" className="text-white/80">
-                Открий безплатни фестивали в България
-              </Text>
-            </Stack>
+                <div className="flex flex-wrap items-center gap-3">
+                  <AppleInput placeholder="Търси фестивали…" />
+                  <AppleButton variant="primary">Търси</AppleButton>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <ApplePill active>Безплатни</ApplePill>
+                  <ApplePill>Тази седмица</ApplePill>
+                  <ApplePill>Джаз</ApplePill>
+                  <ApplePill>Храна</ApplePill>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted">Фестивали</p>
+                    <p className="text-xl font-semibold">{featured.total}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted">Градове</p>
+                    <p className="text-xl font-semibold">25+</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted">Месеци</p>
+                    <p className="text-xl font-semibold">12</p>
+                  </div>
+                </div>
+              </AppleCardBody>
+            </AppleCard>
+
+            <AppleCard>
+              <AppleCardBody className="space-y-4">
+                <Heading as="h2" size="h2" className="text-2xl">
+                  Бързи входове
+                </Heading>
+                <div className="space-y-3">
+                  {["Sofia", "Plovdiv", "Черноморие"].map((label) => (
+                    <Link key={label} href="/festivals" className="block">
+                      <div className="flex items-center justify-between rounded-[var(--radius)] border apple-border bg-[var(--surface2)] px-4 py-3 text-sm">
+                        <span className="font-semibold">{label}</span>
+                        <span className="text-muted">→</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </AppleCardBody>
+            </AppleCard>
           </div>
         </Container>
+      </Section>
 
-        <Container className="relative -mt-16 pb-10">
-          <Card className="bg-white">
-            <CardBody className="space-y-4">
-              <form action="/festivals" className="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_auto]">
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs uppercase tracking-[0.2em] text-muted">Какво</label>
-                  <input
-                    name="q"
-                    type="text"
-                    placeholder="Търси фестивали…"
-                    className="w-full rounded-xl border border-ink/10 bg-white px-4 py-2 text-sm"
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs uppercase tracking-[0.2em] text-muted">Къде</label>
-                  <select name="city" className="w-full rounded-xl border border-ink/10 bg-white px-4 py-2 text-sm">
-                    <option value="">Навсякъде</option>
-                    {cities.length
-                      ? cities.slice(0, 12).map((city) => (
-                          <option key={city} value={city}>
-                            {city}
-                          </option>
-                        ))
-                      : ["Sofia", "Plovdiv", "Varna"].map((city) => (
-                          <option key={city} value={city}>
-                            {city}
-                          </option>
-                        ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs uppercase tracking-[0.2em] text-muted">Кога</label>
-                  <select name="when" className="w-full rounded-xl border border-ink/10 bg-white px-4 py-2 text-sm">
-                    <option value="">Any time</option>
-                    <option value="week">This week</option>
-                    <option value="month">This month</option>
-                  </select>
-                </div>
-                <div className="flex items-end">
-                  <Button type="submit">Търси</Button>
-                </div>
-              </form>
-            </CardBody>
-          </Card>
-        </Container>
-      </section>
+      <AppleDivider />
 
       <Section>
         <Container>
           <Stack size="lg">
-            <Heading as="h2" size="h2">
-              Подбрани
-            </Heading>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap gap-2">
+                <ApplePill active>Подбрани</ApplePill>
+                <ApplePill>Днес</ApplePill>
+                <ApplePill>Уикенд</ApplePill>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <AppleSelect defaultValue="">
+                  <option value="">Сортиране</option>
+                  <option value="soonest">Най-скоро</option>
+                  <option value="curated">Подбрани</option>
+                </AppleSelect>
+                <AppleButton>Филтри</AppleButton>
+              </div>
+            </div>
 
             {hasFeatured ? (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {featured.data.map((festival) => (
-                  <Link key={festival.id} href={`/festival/${festival.slug}`} className="group">
-                    <Card className="h-full transition hover:-translate-y-0.5 hover:shadow-soft">
-                      <CardHeader className="relative aspect-[16/10] border-b border-ink/10">
-                        {festival.image_url ? (
-                          <Image
-                            src={festival.image_url}
-                            alt={festival.title}
-                            fill
-                            className="rounded-t-xl object-cover"
-                          />
-                        ) : null}
-                        <div className="absolute left-3 top-3 rounded-xl bg-white/90 px-2 py-1 text-xs font-semibold text-ink">
-                          {formatBadgeDate(festival.start_date)}
-                        </div>
-                      </CardHeader>
-                      <CardBody className="space-y-3">
-                        <Heading as="h3" size="h3" className="text-lg">
-                          {festival.title}
-                        </Heading>
-                        <Text variant="muted" size="sm">
-                          {festival.city ?? "Bulgaria"} • {formatDateRange(festival.start_date, festival.end_date)}
-                        </Text>
-                        <div className="flex flex-wrap gap-2">
-                          {festival.is_free ? <Badge variant="free">Безплатно</Badge> : null}
-                          {festival.category ? <Badge variant="category">{festival.category}</Badge> : null}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </Link>
+                  <AppleCard key={festival.id} className="h-full">
+                    <AppleCardHeader className="relative aspect-[16/10] border-b apple-border">
+                      {festival.image_url ? (
+                        <Image
+                          src={festival.image_url}
+                          alt={festival.title}
+                          fill
+                          className="rounded-t-[var(--radius)] object-cover"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-[var(--surface2)] to-[var(--bg)]" />
+                      )}
+                      <div className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-[color:var(--text)]">
+                        {festival.is_free ? "FREE" : festival.price_range ?? "PAID"}
+                      </div>
+                      <button
+                        type="button"
+                        className="absolute right-3 top-3 rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-[color:var(--text)]"
+                        aria-label="Bookmark"
+                      >
+                        ★
+                      </button>
+                    </AppleCardHeader>
+                    <AppleCardBody className="space-y-3">
+                      <Heading as="h3" size="h3" className="text-lg">
+                        {festival.title}
+                      </Heading>
+                      <Text variant="muted" size="sm">
+                        {festival.city ?? "Bulgaria"} • {formatDateRange(festival.start_date, festival.end_date)}
+                      </Text>
+                      <div className="flex flex-wrap gap-2">
+                        {festival.is_free ? <ApplePill active>Безплатно</ApplePill> : null}
+                        {festival.category ? <ApplePill>{festival.category}</ApplePill> : null}
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <Link href={`/festival/${festival.slug}`} className="font-semibold">
+                          Детайли →
+                        </Link>
+                        <AppleButton variant="ghost">Добави</AppleButton>
+                      </div>
+                    </AppleCardBody>
+                  </AppleCard>
                 ))}
               </div>
             ) : (

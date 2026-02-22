@@ -9,8 +9,8 @@ import Section from "@/components/ui/Section";
 import Stack from "@/components/ui/Stack";
 import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
-import Chip from "@/components/ui/Chip";
-import Divider from "@/components/ui/Divider";
+import ApplePill from "@/components/apple/ApplePill";
+import AppleDivider from "@/components/apple/AppleDivider";
 import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { getFestivals } from "@/lib/queries";
 import { getBaseUrl, listMeta } from "@/lib/seo";
@@ -69,15 +69,15 @@ export default async function FestivalsPage({
           <Stack size="sm">
             <StickySearchBar initialFilters={filters} />
             <div className="flex flex-wrap items-center gap-3">
-              <Chip href={categoryHref} selected={categoryActive}>
+              <ApplePill href={categoryHref} active={categoryActive}>
                 {categoryLabel}
-              </Chip>
-              <Chip href={cityHref} selected={cityActive}>
+              </ApplePill>
+              <ApplePill href={cityHref} active={cityActive}>
                 {cityLabel}
-              </Chip>
-              <Chip href={freeHref} selected={freeActive}>
+              </ApplePill>
+              <ApplePill href={freeHref} active={freeActive}>
                 Free
-              </Chip>
+              </ApplePill>
               <div className="ml-auto flex items-center gap-3">
                 <MobileFiltersSheet initialFilters={filters} />
                 <ViewToggle active="/festivals" filters={filters} />
@@ -85,7 +85,7 @@ export default async function FestivalsPage({
             </div>
           </Stack>
 
-          <Divider />
+          <AppleDivider />
 
           <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
             <FiltersSidebar initialFilters={filters} className="hidden lg:block" />

@@ -2,8 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { Festival } from "@/lib/types";
-import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import Badge from "@/components/ui/Badge";
+import { AppleCard, AppleCardBody, AppleCardHeader } from "@/components/apple/AppleCard";
+import ApplePill from "@/components/apple/ApplePill";
 import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
 
@@ -22,18 +22,18 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
 
   return (
     <Link href={`/festival/${festival.slug}`} className="group">
-      <Card className="h-full transition hover:-translate-y-1">
+      <AppleCard className="h-full">
         {hasImage ? (
-          <CardHeader className="aspect-[16/10]">
+          <AppleCardHeader className="aspect-[16/10] border-b apple-border">
             <Image
               src={festival.image_url ?? "/hero.svg"}
               alt={festival.title}
               fill
               className="object-cover"
             />
-          </CardHeader>
+          </AppleCardHeader>
         ) : null}
-        <CardBody className="space-y-3">
+        <AppleCardBody className="space-y-3">
           <Text variant="muted" size="sm">
             {festival.city ?? "Bulgaria"} · {formatDateRange(festival.start_date, festival.end_date)}
           </Text>
@@ -41,8 +41,8 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
             {festival.title}
           </Heading>
           <div className="flex flex-wrap gap-2">
-            {festival.is_free ? <Badge variant="free">Free</Badge> : null}
-            {festival.category ? <Badge variant="category">{festival.category}</Badge> : null}
+            {festival.is_free ? <ApplePill active>Free</ApplePill> : null}
+            {festival.category ? <ApplePill>{festival.category}</ApplePill> : null}
           </div>
           {description ? (
             <p
@@ -52,8 +52,8 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
               {description}
             </p>
           ) : null}
-        </CardBody>
-      </Card>
+        </AppleCardBody>
+      </AppleCard>
     </Link>
   );
 }

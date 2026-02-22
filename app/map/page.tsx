@@ -6,6 +6,7 @@ import Section from "@/components/ui/Section";
 import Stack from "@/components/ui/Stack";
 import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
+import { AppleCard } from "@/components/apple/AppleCard";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { getFestivals } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
@@ -50,9 +51,9 @@ export default async function MapPage({
             <div className="space-y-4">
               <FestivalList festivals={data.data} />
             </div>
-            <div className="rounded-xl border border-ink/10 bg-white shadow-soft">
+            <AppleCard>
               <MapViewClient festivals={data.data} />
-            </div>
+            </AppleCard>
           </div>
         </Stack>
       </Section>

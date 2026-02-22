@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
-import Container from "@/components/ui/Container";
 import SiteHeader from "@/app/_components/SiteHeader";
 
 const manrope = Manrope({
@@ -30,18 +29,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="bg">
-      <body className={`${manrope.variable} ${fraunces.variable} bg-white text-ink antialiased`}>
+      <body className={`${manrope.variable} ${fraunces.variable} apple-bg text-[color:var(--text)] antialiased`}>
         <SiteHeader />
-
-        <main>
-          <Container>{children}</Container>
-        </main>
-
-        <footer className="border-t border-ink/10 py-10">
-          <Container>
-            <p className="text-center text-sm text-muted">© Festivo • Безплатни фестивали в България</p>
-          </Container>
-        </footer>
+        <main className="mx-auto max-w-[1240px] px-5">{children}</main>
       </body>
     </html>
   );

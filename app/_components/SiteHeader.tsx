@@ -1,37 +1,34 @@
 import Link from "next/link";
-import Container from "@/components/ui/Container";
+import AppleButton from "@/components/apple/AppleButton";
+import ApplePill from "@/components/apple/ApplePill";
 
 export default function SiteHeader() {
   return (
-    <header className="border-b border-ink/10 bg-white">
-      <Container>
-        <div className="grid min-h-[60px] grid-cols-[auto_1fr_auto] items-center gap-6 py-3">
-          <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-ink">
+    <header className="sticky top-0 z-50 border-b" style={{ borderColor: "var(--border2)" }}>
+      <div className="bg-[rgba(245,245,247,.78)] backdrop-blur">
+        <div className="mx-auto flex max-w-[1240px] items-center justify-between px-5 py-3">
+          <Link href="/" className="flex items-center gap-3 text-sm font-semibold">
+            <span className="h-8 w-8 rounded-xl bg-black/90" aria-hidden="true" />
             Festivo
-            <span className="h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
           </Link>
 
-          <form action="/festivals" className="hidden w-full md:block">
-            <input
-              type="search"
-              name="q"
-              placeholder="Търси фестивали…"
-              className="w-full rounded-full border border-ink/10 bg-white px-4 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-ink/10"
-            />
-          </form>
+          <div className="hidden lg:flex items-center gap-2 rounded-full border apple-border bg-[var(--surface)] p-1 text-xs font-semibold">
+            <ApplePill active href="/festivals">
+              Feed
+            </ApplePill>
+            <ApplePill href="/calendar">Calendar</ApplePill>
+            <ApplePill href="/map">Map</ApplePill>
+          </div>
 
-          <nav className="flex items-center gap-5 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-            <Link href="/" className="hidden sm:inline">
-              Home
-            </Link>
-            <Link href="/festivals">Browse</Link>
-            <Link href="/map">Explore</Link>
-            <Link href="/calendar" className="hidden md:inline">
-              Calendar
-            </Link>
-          </nav>
+          <div className="flex items-center gap-2 text-xs font-semibold">
+            <AppleButton>Филтри</AppleButton>
+            <AppleButton variant="primary">Моят план</AppleButton>
+            <AppleButton variant="ghost" className="text-muted">
+              Вход
+            </AppleButton>
+          </div>
         </div>
-      </Container>
+      </div>
     </header>
   );
 }

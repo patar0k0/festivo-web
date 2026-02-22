@@ -10,11 +10,11 @@
   end_date?: string | null;
   is_free?: boolean | null;
   category?: string | null;
-  tags?: string[] | null;
   image_url?: string | null;
-  cover_image?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
+  lat?: number | null;
+  lng?: number | null;
+  ticket_url?: string | null;
+  price_range?: string | null;
   website_url?: string | null;
   status?: string | null;
 };
@@ -50,7 +50,6 @@ export type Filters = {
   to?: string;
   cat?: string[];
   free?: boolean;
-  tags?: string[];
   sort?: "soonest" | "curated" | "nearest";
   month?: string;
 };

@@ -15,10 +15,7 @@ const icon = new L.Icon({
 
 export default function MapView({ festivals }: { festivals: Festival[] }) {
   const [hasMoved, setHasMoved] = useState(false);
-  const points = useMemo(
-    () => festivals.filter((festival) => festival.latitude && festival.longitude),
-    [festivals]
-  );
+  const points = useMemo(() => festivals.filter((festival) => festival.lat && festival.lng), [festivals]);
 
   useEffect(() => {
     delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -36,7 +33,7 @@ export default function MapView({ festivals }: { festivals: Festival[] }) {
     );
   }
 
-  const center = [points[0].latitude ?? 42.6977, points[0].longitude ?? 23.3219] as [number, number];
+  const center = [points[0].lat ?? 42.6977, points[0].lng ?? 23.3219] as [number, number];
 
   return (
     <div className="relative h-full min-h-[360px] overflow-hidden rounded-2xl border border-ink/10">
@@ -46,7 +43,7 @@ export default function MapView({ festivals }: { festivals: Festival[] }) {
         {points.map((festival) => (
           <Marker
             key={festival.id}
-            position={[festival.latitude ?? 0, festival.longitude ?? 0]}
+            position={[festival.lat ?? 0, festival.lng ?? 0]}
             icon={icon}
           >
             <Popup>

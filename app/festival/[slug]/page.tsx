@@ -55,7 +55,7 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
       )
     : null;
 
-  const heroImage = data.festival.image_url ?? data.festival.cover_image ?? null;
+  const heroImage = data.festival.image_url ?? null;
 
   return (
     <Container className="py-10">

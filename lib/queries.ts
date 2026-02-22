@@ -3,25 +3,11 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, PaginatedResult } from "@/lib/types";
 import { withDefaultFilters } from "@/lib/filters";
 
-const FESTIVAL_FIELDS = [
-  "id",
-  "slug",
-  "title",
-  "description",
-  "city",
-  "region",
-  "address",
-  "start_date",
-  "end_date",
-  "is_free",
-  "category",
-  "tags",
-  "image_url",
-  "cover_image",
-  "latitude",
-  "longitude",
-  "status",
-].join(",");
+export const FESTIVAL_SELECT_MIN =
+  "id,title,slug,city,region,start_date,end_date,category,image_url,is_free,status,lat,lng,description,ticket_url,price_range";
+
+const FESTIVAL_SELECT_DETAIL =
+  "id,title,slug,city,region,address,start_date,end_date,category,image_url,is_free,status,lat,lng,description,ticket_url,price_range,website_url";
 
 function applyFilters<T>(query: T, filters: Filters): T {
   const applied = withDefaultFilters(filters);
@@ -43,10 +29,6 @@ function applyFilters<T>(query: T, filters: Filters): T {
 
   if (applied.cat?.length) {
     typedQuery = typedQuery.in("category", applied.cat);
-  }
-
-  if (applied.tags?.length) {
-    typedQuery = typedQuery.contains("tags", applied.tags);
   }
 
   if (applied.from) {
@@ -83,7 +65,7 @@ export async function getFestivals(filters: Filters, page = 1, pageSize = 12): P
     };
   }
 
-  let query = supabase.from("festivals").select(FESTIVAL_FIELDS, { count: "exact" });
+  let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN, { count: "exact" });
   query = applyFilters(query, filters);
   const { data, count, error } = await query.range(from, to).returns<Festival[]>();
 
@@ -108,7 +90,7 @@ export async function getFestivalBySlug(slug: string): Promise<Festival | null> 
   }
   const { data, error } = await supabase
     .from("festivals")
-    .select(FESTIVAL_FIELDS)
+    .select(FESTIVAL_SELECT_DETAIL)
     .eq("slug", slug)
     .eq("status", "verified")
     .maybeSingle();
@@ -180,7 +162,7 @@ export async function getCalendarMonth(month: string, filters: Filters) {
     };
   }
 
-  let query = supabase.from("festivals").select(FESTIVAL_FIELDS);
+  let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN);
   query = applyFilters(query, {
     ...filters,
     from: format(monthStart, "yyyy-MM-dd"),

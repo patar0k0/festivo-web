@@ -39,7 +39,6 @@ export default async function CalendarMonthPage({
   if (filters.from) query.set("from", filters.from);
   if (filters.to) query.set("to", filters.to);
   if (filters.cat?.length) query.set("cat", filters.cat.join(","));
-  if (filters.tags?.length) query.set("tags", filters.tags.join(","));
   if (filters.free !== undefined) query.set("free", filters.free ? "1" : "0");
   if (filters.sort) query.set("sort", filters.sort);
   const queryString = query.toString();

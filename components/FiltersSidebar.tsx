@@ -21,7 +21,6 @@ export default function FiltersSidebar({
   const [from, setFrom] = useState(initialFilters.from ?? "");
   const [to, setTo] = useState(initialFilters.to ?? "");
   const [cat, setCat] = useState(initialFilters.cat?.[0] ?? "");
-  const [tags, setTags] = useState(initialFilters.tags?.join(",") ?? "");
   const [free, setFree] = useState(initialFilters.free ?? true);
   const [sort, setSort] = useState(initialFilters.sort ?? "soonest");
 
@@ -32,12 +31,11 @@ export default function FiltersSidebar({
       from: from || undefined,
       to: to || undefined,
       cat: cat ? [cat] : undefined,
-      tags: tags ? tags.split(",").map((item) => item.trim()).filter(Boolean) : undefined,
       free,
       sort: sort as Filters["sort"],
     };
     return serializeFilters(filters);
-  }, [city, region, from, to, cat, tags, free, sort]);
+  }, [city, region, from, to, cat, free, sort]);
 
   return (
     <aside
@@ -99,15 +97,6 @@ export default function FiltersSidebar({
               </option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className="text-xs uppercase tracking-[0.2em] text-muted">Tags</label>
-          <input
-            className="mt-2 w-full rounded-xl border border-ink/10 bg-white px-3 py-2"
-            placeholder="wine, open-air"
-            value={tags}
-            onChange={(event) => setTags(event.target.value)}
-          />
         </div>
         <div>
           <label className="text-xs uppercase tracking-[0.2em] text-muted">Sort</label>

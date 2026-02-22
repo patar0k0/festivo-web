@@ -95,17 +95,18 @@ export async function getFestivalBySlug(slug: string): Promise<Festival | null> 
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("festivals")
-    .select("*")
+    .select(FESTIVAL_FIELDS)
     .eq("slug", slug)
     .eq("status", "verified")
-    .single()
-    .returns<Festival>();
+    .maybeSingle();
 
-  if (error || !data) {
+  const festival = data as Festival | null;
+
+  if (error || !festival) {
     return null;
   }
 
-  return data;
+  return festival;
 }
 
 export async function getFestivalDetail(
@@ -124,20 +125,20 @@ export async function getFestivalDetail(
     supabase
       .from("festival_media")
       .select("id, festival_id, url, type")
-      .returns<FestivalMedia[]>()
-      .eq("festival_id", festival.id),
+      .eq("festival_id", festival.id)
+      .returns<FestivalMedia[]>(),
     supabase
       .from("festival_days")
       .select("id, festival_id, date, label")
-      .returns<FestivalDay[]>()
       .eq("festival_id", festival.id)
-      .order("date", { ascending: true }),
+      .order("date", { ascending: true })
+      .returns<FestivalDay[]>(),
     supabase
       .from("festival_schedule_items")
       .select("id, festival_id, festival_day_id, time, title, description, location")
-      .returns<FestivalScheduleItem[]>()
       .eq("festival_id", festival.id)
-      .order("time", { ascending: true }),
+      .order("time", { ascending: true })
+      .returns<FestivalScheduleItem[]>(),
   ]);
 
   return {
@@ -197,8 +198,8 @@ export async function getCities(): Promise<string[]> {
   const { data, error } = await supabase
     .from("festivals")
     .select("city")
-    .returns<{ city: string | null }[]>()
-    .eq("status", "verified");
+    .eq("status", "verified")
+    .returns<{ city: string | null }[]>();
 
   if (error) {
     return [];
@@ -217,8 +218,8 @@ export async function getFestivalSlugs(): Promise<string[]> {
   const { data, error } = await supabase
     .from("festivals")
     .select("slug")
-    .returns<{ slug: string | null }[]>()
-    .eq("status", "verified");
+    .eq("status", "verified")
+    .returns<{ slug: string | null }[]>();
 
   if (error) {
     return [];

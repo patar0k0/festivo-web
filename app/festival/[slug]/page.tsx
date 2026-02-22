@@ -2,10 +2,6 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import FestivalProgram from "@/components/FestivalProgram";
-import FestivalGoodToKnow from "@/components/FestivalGoodToKnow";
-import FestivalLocation from "@/components/FestivalLocation";
-import FestivalHighlights from "@/components/FestivalHighlights";
-import FestivalGrid from "@/components/FestivalGrid";
 import Container from "@/components/ui/Container";
 import Stack from "@/components/ui/Stack";
 import Heading from "@/components/ui/Heading";
@@ -56,6 +52,7 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
     : null;
 
   const heroImage = data.festival.image_url ?? null;
+  const mapQuery = encodeURIComponent([data.festival.address, data.festival.city].filter(Boolean).join(", "));
 
   return (
     <Container className="py-10">
@@ -83,15 +80,10 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
               </AppleCard>
             ) : null}
 
-            <div className="flex flex-wrap gap-3">
-              <AppleButton variant="primary">Open in app</AppleButton>
-              <AppleButton>Save to plan</AppleButton>
-            </div>
-
             {data.festival.description ? (
               <section className="space-y-4">
                 <Heading as="h2" size="h2">
-                  About
+                  Описание
                 </Heading>
                 <Text
                   variant="muted"
@@ -108,6 +100,8 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
                 </details>
               </section>
             ) : null}
+
+            <FestivalProgram days={data.days} items={data.scheduleItems} />
 
             {data.festival.ticket_url || data.festival.website_url ? (
               <section className="space-y-4">
@@ -138,67 +132,51 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
                 </div>
               </section>
             ) : null}
-
-            <AppleDivider />
-            <FestivalHighlights festival={data.festival} />
-            <FestivalProgram days={data.days} items={data.scheduleItems} />
-            <FestivalLocation festival={data.festival} />
-            <FestivalGoodToKnow festival={data.festival} />
           </Stack>
 
           <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             <AppleCard>
               <AppleCardBody className="space-y-4">
                 <Heading as="h3" size="h3" className="text-lg">
-                  Quick info
+                  Бързи детайли
                 </Heading>
                 <div className="space-y-3 text-sm text-muted">
                   <div>
-                    <span className="block text-xs uppercase tracking-widest text-ink/60">City</span>
-                    <span className="font-semibold text-ink">{data.festival.city ?? "Bulgaria"}</span>
-                  </div>
-                  <div>
-                    <span className="block text-xs uppercase tracking-widest text-ink/60">Dates</span>
+                    <span className="block text-xs uppercase tracking-widest text-ink/60">Дата</span>
                     <span className="font-semibold text-ink">
                       {formatDateRange(data.festival.start_date, data.festival.end_date)}
                     </span>
                   </div>
+                  <div>
+                    <span className="block text-xs uppercase tracking-widest text-ink/60">Място</span>
+                    <span className="font-semibold text-ink">{data.festival.city ?? "Bulgaria"}</span>
+                  </div>
                   {data.festival.address ? (
                     <div>
-                      <span className="block text-xs uppercase tracking-widest text-ink/60">Address</span>
+                      <span className="block text-xs uppercase tracking-widest text-ink/60">Адрес</span>
                       <span className="font-semibold text-ink">{data.festival.address}</span>
                     </div>
                   ) : null}
-                  {data.festival.ticket_url ? (
-                    <div>
-                      <span className="block text-xs uppercase tracking-widest text-ink/60">Tickets</span>
-                      <a
-                        href={data.festival.ticket_url}
-                        className="font-semibold text-ink"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {data.festival.price_range ?? "Ticket info"}
-                      </a>
-                    </div>
-                  ) : null}
-                  {data.festival.website_url ? (
-                    <div>
-                      <span className="block text-xs uppercase tracking-widest text-ink/60">Website</span>
-                      <a
-                        href={data.festival.website_url}
-                        className="font-semibold text-ink"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Visit site
-                      </a>
-                    </div>
-                  ) : null}
-                  <div>
-                    <span className="block text-xs uppercase tracking-widest text-ink/60">Shareable link</span>
-                    <span className="font-semibold text-ink">{`${getBaseUrl()}/festival/${data.festival.slug}`}</span>
-                  </div>
+                </div>
+
+                <div className="rounded-[var(--radius)] border apple-border bg-[var(--surface2)] p-4 text-xs text-muted">
+                  Map preview
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <AppleButton variant="primary">Добави в план</AppleButton>
+                  <AppleButton href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}>
+                    Как да стигна
+                  </AppleButton>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="block text-xs uppercase tracking-widest text-ink/60">Напомняне</span>
+                  <select className="w-full rounded-full border apple-border bg-[var(--surface)] px-4 py-2 text-sm">
+                    <option value="none">None</option>
+                    <option value="24h">24h before</option>
+                    <option value="same-day">Same day 09:00</option>
+                  </select>
                 </div>
               </AppleCardBody>
             </AppleCard>

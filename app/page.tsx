@@ -1,10 +1,14 @@
-﻿import Image from "next/image";
 import Link from "next/link";
-import { addDays, format, nextSaturday, nextSunday } from "date-fns";
-import StickySearchBar from "@/components/StickySearchBar";
+import Container from "@/components/ui/Container";
+import Stack from "@/components/ui/Stack";
+import Heading from "@/components/ui/Heading";
+import Text from "@/components/ui/Text";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import Divider from "@/components/ui/Divider";
+import { Card, CardBody } from "@/components/ui/Card";
 import FestivalGrid from "@/components/FestivalGrid";
-import CityTiles from "@/components/CityTiles";
-import { getCities, getFestivals } from "@/lib/queries";
+import { getFestivals } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
 
 export const revalidate = 21600;
@@ -19,93 +23,122 @@ export async function generateMetadata() {
   };
 }
 
-export default async function HomePage() {
-  const today = new Date();
-  const weekendStart = nextSaturday(today);
-  const weekendEnd = nextSunday(today);
-  const nextMonth = addDays(today, 30);
+function SkeletonGrid() {
+  return (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div
+          key={`skeleton-${index}`}
+          className="h-[260px] rounded-2xl border border-ink/10 bg-ink/5"
+        />
+      ))}
+    </div>
+  );
+}
 
-  const [weekend, nextThirty, cities] = await Promise.all([
-    getFestivals(
-      {
-        from: format(weekendStart, "yyyy-MM-dd"),
-        to: format(weekendEnd, "yyyy-MM-dd"),
-        free: true,
-        sort: "soonest",
-      },
-      1,
-      8
-    ),
-    getFestivals(
-      {
-        from: format(today, "yyyy-MM-dd"),
-        to: format(nextMonth, "yyyy-MM-dd"),
-        free: true,
-        sort: "soonest",
-      },
-      1,
-      9
-    ),
-    getCities(),
-  ]);
+export default async function HomePage() {
+  const featured = await getFestivals({ free: true, sort: "soonest" }, 1, 6);
+  const hasFeatured = featured.data.length > 0;
 
   return (
-    <div className="space-y-20 pb-16">
-      <section className="relative overflow-hidden">
-        <div className="relative h-[70vh] min-h-[520px] w-full">
-          <Image src="/hero.svg" alt="Festivo" fill className="object-cover" priority />
-          <div className="absolute inset-0 bg-gradient-to-r from-ink/80 via-ink/40 to-transparent" />
-        </div>
-        <div className="container-page relative -mt-40 space-y-6">
-          <div className="max-w-2xl text-white">
-            <p className="text-xs uppercase tracking-[0.3em] text-white/60">Festivo Web</p>
-            <h1 className="mt-4 text-4xl font-semibold md:text-6xl">
-              Discover the next festival you will love.
-            </h1>
-            <p className="mt-4 text-sm text-white/80">
-              Browse verified events, see dates instantly, and open in the app to save to plan.
-            </p>
+    <Container className="py-12">
+      <Stack size="xl">
+        <section className="space-y-8">
+          <Stack size="sm">
+            <Heading as="h1" size="h1">
+              Безплатни фестивали в България
+            </Heading>
+            <Text variant="muted">Открий какво има по град, дата и на карта.</Text>
+          </Stack>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Button href="/festivals">Разгледай фестивали</Button>
+            <Button href="/map" variant="secondary">
+              Виж на карта
+            </Button>
           </div>
-          <StickySearchBar />
-        </div>
-      </section>
 
-      <section className="container-page space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-semibold">Featured this weekend</h2>
-          <Link href="/festivals" className="text-sm font-semibold text-ink">
-            View all →
-          </Link>
-        </div>
-        <FestivalGrid festivals={weekend.data} />
-      </section>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="free">Безплатни</Badge>
+            <Badge variant="category">Календар</Badge>
+            <Badge variant="category">Карта</Badge>
+          </div>
+        </section>
 
-      <section className="container-page space-y-6">
-        <h2 className="text-2xl font-semibold">Next 30 days</h2>
-        <FestivalGrid festivals={nextThirty.data} />
-      </section>
+        <Divider />
 
-      <section className="container-page space-y-6">
-        <h2 className="text-2xl font-semibold">Browse by city</h2>
-        <CityTiles cities={cities} />
-      </section>
+        <section className="space-y-6">
+          <div className="flex items-end justify-between gap-4">
+            <Heading as="h2" size="h2">
+              Подбрани
+            </Heading>
+            <Link href="/festivals" className="text-sm font-semibold text-ink">
+              Виж всички
+            </Link>
+          </div>
+          {hasFeatured ? <FestivalGrid festivals={featured.data} /> : <SkeletonGrid />}
+        </section>
 
-      <section className="container-page grid gap-6 md:grid-cols-2">
-        <Link
-          href="/calendar"
-          className="rounded-3xl border border-ink/10 bg-white/80 p-8 shadow-soft"
-        >
-          <h3 className="text-xl font-semibold">Calendar view</h3>
-          <p className="mt-3 text-sm text-muted">Plan your month with the festival calendar.</p>
-        </Link>
-        <Link
-          href="/map"
-          className="rounded-3xl border border-ink/10 bg-ink p-8 text-white shadow-card"
-        >
-          <h3 className="text-xl font-semibold">Map explorer</h3>
-          <p className="mt-3 text-sm text-white/70">See festivals on the map and explore nearby.</p>
-        </Link>
-      </section>
-    </div>
+        <Divider />
+
+        <section className="space-y-6">
+          <Heading as="h2" size="h2">
+            Навигация
+          </Heading>
+          <div className="grid gap-6 md:grid-cols-3">
+            <Link href="/festivals">
+              <Card className="h-full transition hover:-translate-y-1">
+                <CardBody className="space-y-3">
+                  <Heading as="h3" size="h3" className="text-lg">
+                    Feed
+                  </Heading>
+                  <Text variant="muted" size="sm">
+                    Подбрани фестивали с филтри по град и дата.
+                  </Text>
+                </CardBody>
+              </Card>
+            </Link>
+            <Link href="/calendar">
+              <Card className="h-full transition hover:-translate-y-1">
+                <CardBody className="space-y-3">
+                  <Heading as="h3" size="h3" className="text-lg">
+                    Calendar
+                  </Heading>
+                  <Text variant="muted" size="sm">
+                    Разгледай календара и планирай месеца си.
+                  </Text>
+                </CardBody>
+              </Card>
+            </Link>
+            <Link href="/map">
+              <Card className="h-full transition hover:-translate-y-1">
+                <CardBody className="space-y-3">
+                  <Heading as="h3" size="h3" className="text-lg">
+                    Map
+                  </Heading>
+                  <Text variant="muted" size="sm">
+                    Виж фестивалите на карта и открий близки места.
+                  </Text>
+                </CardBody>
+              </Card>
+            </Link>
+          </div>
+        </section>
+
+        <Divider />
+
+        <section className="flex flex-wrap items-center justify-between gap-4">
+          <Text variant="muted" size="sm">
+            Планирането и напомнянията са в приложението.
+          </Text>
+          <div className="flex flex-wrap gap-3">
+            <Button href="#">Open in app</Button>
+            <Button href="#" variant="secondary">
+              Save to plan
+            </Button>
+          </div>
+        </section>
+      </Stack>
+    </Container>
   );
 }

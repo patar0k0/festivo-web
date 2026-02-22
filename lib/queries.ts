@@ -72,7 +72,7 @@ export async function getFestivals(filters: Filters, page = 1, pageSize = 12): P
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let query = supabase.from("festivals").select(FESTIVAL_FIELDS, { count: "exact" });
+  let query = supabase.from<Festival>("festivals").select(FESTIVAL_FIELDS, { count: "exact" });
   query = applyFilters(query, filters);
   const { data, count, error } = await query.range(from, to);
 
@@ -82,7 +82,7 @@ export async function getFestivals(filters: Filters, page = 1, pageSize = 12): P
 
   const total = count ?? 0;
   return {
-    data: (data ?? []) as Festival[],
+    data: data ?? [],
     page,
     pageSize,
     total,
@@ -93,7 +93,7 @@ export async function getFestivals(filters: Filters, page = 1, pageSize = 12): P
 export async function getFestivalBySlug(slug: string) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
-    .from("festivals")
+    .from<Festival>("festivals")
     .select(FESTIVAL_FIELDS)
     .eq("slug", slug)
     .eq("status", "verified")
@@ -103,7 +103,7 @@ export async function getFestivalBySlug(slug: string) {
     return null;
   }
 
-  const festival = data as Festival;
+  const festival = data;
 
   const [{ data: media }, { data: days }, { data: scheduleItems }] = await Promise.all([
     supabase.from("festival_media").select("id, festival_id, url, type").eq("festival_id", festival.id),
@@ -136,7 +136,7 @@ export async function getCalendarMonth(month: string, filters: Filters) {
   const monthStart = startOfMonth(parseISO(`${month}-01`));
   const monthEnd = endOfMonth(monthStart);
 
-  let query = supabase.from("festivals").select(FESTIVAL_FIELDS);
+  let query = supabase.from<Festival>("festivals").select(FESTIVAL_FIELDS);
   query = applyFilters(query, {
     ...filters,
     from: format(monthStart, "yyyy-MM-dd"),
@@ -158,7 +158,7 @@ export async function getCalendarMonth(month: string, filters: Filters) {
     while (cursor <= end) {
       const key = format(cursor, "yyyy-MM-dd");
       if (!days[key]) days[key] = [];
-      days[key].push(festival as Festival);
+      days[key].push(festival);
       cursor = addDays(cursor, 1);
     }
   });
@@ -166,7 +166,7 @@ export async function getCalendarMonth(month: string, filters: Filters) {
   return {
     monthStart,
     monthEnd,
-    festivals: (data ?? []) as Festival[],
+    festivals: data ?? [],
     days,
   };
 }

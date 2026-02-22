@@ -42,9 +42,11 @@ export default async function HomePage() {
   const hasFeatured = featured.data.length > 0;
 
   return (
-    <Container>
-      <Section>
-        <Stack size="lg">
+    <>
+      <div className="bg-ink py-3 text-center text-sm font-semibold text-white">NEW DESIGN ACTIVE</div>
+      <Container>
+        <Section>
+          <Stack size="lg">
           <Stack size="sm">
             <Heading as="h1" size="h1">
               Безплатни фестивали в България
@@ -142,7 +144,8 @@ export default async function HomePage() {
             Open in app
           </Button>
         </div>
-      </Section>
-    </Container>
+        </Section>
+      </Container>
+    </>
   );
 }

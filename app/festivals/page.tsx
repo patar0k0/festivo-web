@@ -8,6 +8,7 @@ import CategoryChips from "@/components/CategoryChips";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { getFestivals } from "@/lib/queries";
 import { getBaseUrl, listMeta } from "@/lib/seo";
+import { getSupabaseEnv } from "@/lib/supabaseServer";
 
 export const revalidate = 3600;
 
@@ -29,10 +30,17 @@ export default async function FestivalsPage({
   const filters = withDefaultFilters(parseFilters(searchParams));
   const page = Number(searchParams.page ?? 1);
   const data = await getFestivals(filters, Number.isNaN(page) ? 1 : page, 12);
+  const { configured } = getSupabaseEnv();
+  const showBanner = !configured && process.env.NODE_ENV !== "production";
 
   return (
     <div className="container-page space-y-8 py-10">
       <div className="space-y-4">
+        {showBanner ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Supabase env vars are missing. Set them in Vercel or your local environment to load festivals.
+          </div>
+        ) : null}
         <StickySearchBar initialFilters={filters} />
         <div className="flex flex-wrap items-center justify-between gap-4">
           <CategoryChips filters={filters} />

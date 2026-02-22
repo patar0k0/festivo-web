@@ -73,6 +73,16 @@ export async function getFestivals(filters: Filters, page = 1, pageSize = 12): P
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
+  if (!supabase) {
+    return {
+      data: [],
+      page,
+      pageSize,
+      total: 0,
+      totalPages: 1,
+    };
+  }
+
   let query = supabase.from("festivals").select(FESTIVAL_FIELDS, { count: "exact" });
   query = applyFilters(query, filters);
   const { data, count, error } = await query.range(from, to).returns<Festival[]>();
@@ -93,6 +103,9 @@ export async function getFestivals(filters: Filters, page = 1, pageSize = 12): P
 
 export async function getFestivalBySlug(slug: string): Promise<Festival | null> {
   const supabase = supabaseServer();
+  if (!supabase) {
+    return null;
+  }
   const { data, error } = await supabase
     .from("festivals")
     .select(FESTIVAL_FIELDS)
@@ -118,6 +131,7 @@ export async function getFestivalDetail(
   scheduleItems: FestivalScheduleItem[];
 } | null> {
   const supabase = supabaseServer();
+  if (!supabase) return null;
   const festival = await getFestivalBySlug(slug);
   if (!festival) return null;
 
@@ -157,6 +171,14 @@ export async function getCalendarMonth(month: string, filters: Filters) {
   const supabase = supabaseServer();
   const monthStart = startOfMonth(parseISO(`${month}-01`));
   const monthEnd = endOfMonth(monthStart);
+  if (!supabase) {
+    return {
+      monthStart,
+      monthEnd,
+      festivals: [],
+      days: {},
+    };
+  }
 
   let query = supabase.from("festivals").select(FESTIVAL_FIELDS);
   query = applyFilters(query, {
@@ -195,6 +217,9 @@ export async function getCalendarMonth(month: string, filters: Filters) {
 
 export async function getCities(): Promise<string[]> {
   const supabase = supabaseServer();
+  if (!supabase) {
+    return [];
+  }
   const { data, error } = await supabase
     .from("festivals")
     .select("city")
@@ -215,6 +240,9 @@ export async function getCities(): Promise<string[]> {
 
 export async function getFestivalSlugs(): Promise<string[]> {
   const supabase = supabaseServer();
+  if (!supabase) {
+    return [];
+  }
   const { data, error } = await supabase
     .from("festivals")
     .select("slug")

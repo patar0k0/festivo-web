@@ -1,13 +1,19 @@
 ﻿import { MetadataRoute } from "next";
-import { getBaseUrl } from "@/lib/seo";
-
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = getBaseUrl();
+  if (process.env.FESTIVO_PUBLIC_MODE === "coming-soon") {
+    return {
+      rules: {
+        userAgent: "*",
+        disallow: "/",
+      },
+    };
+  }
+
   return {
     rules: {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: "https://festivo.bg/sitemap.xml",
   };
 }

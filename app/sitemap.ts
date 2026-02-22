@@ -4,6 +4,15 @@ import { getCities, getFestivalSlugs } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  if (process.env.FESTIVO_PUBLIC_MODE === "coming-soon") {
+    return [
+      {
+        url: "https://festivo.bg/coming-soon",
+        lastModified: new Date(),
+      },
+    ];
+  }
+
   const baseUrl = getBaseUrl();
   const [slugs, cities] = await Promise.all([getFestivalSlugs(), getCities()]);
 

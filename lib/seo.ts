@@ -1,7 +1,7 @@
 ﻿import { Festival } from "@/lib/types";
 
 export function getBaseUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://festivo.app";
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://festivo.bg";
 }
 
 export function festivalMeta(festival: Festival) {

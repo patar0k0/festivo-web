@@ -6,16 +6,6 @@ const COOKIE_NAME = "festivo_preview";
 export function middleware(request: NextRequest) {
   const { nextUrl, cookies } = request;
   const { pathname, searchParams } = nextUrl;
-  const host = request.headers.get("host");
-
-  if (host === "www.festivo.bg") {
-    const url = nextUrl.clone();
-    url.hostname = "festivo.bg";
-    url.protocol = "https:";
-    url.port = "";
-    return NextResponse.redirect(url, 308);
-  }
-
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||

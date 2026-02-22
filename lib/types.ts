@@ -15,8 +15,14 @@
   cover_image?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  website_url?: string | null;
   status?: string | null;
 };
+
+export type FestivalIcsData = Pick<
+  Festival,
+  "title" | "slug" | "start_date" | "end_date" | "city" | "address" | "website_url"
+>;
 
 export type FestivalMedia = {
   id: string | number;

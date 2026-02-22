@@ -1,8 +1,8 @@
 ﻿import { addDays, format, parseISO } from "date-fns";
-import { Festival } from "@/lib/types";
+import { FestivalIcsData } from "@/lib/types";
 import { getBaseUrl } from "@/lib/seo";
 
-export function buildFestivalIcs(festival: Festival) {
+export function buildFestivalIcs(festival: FestivalIcsData) {
   const start = festival.start_date ? parseISO(festival.start_date) : new Date();
   const end = festival.end_date ? parseISO(festival.end_date) : start;
   const endExclusive = addDays(end, 1);

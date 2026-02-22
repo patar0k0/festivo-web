@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
 import LayoutShell from "@/components/LayoutShell";
-import BuildStamp from "@/app/_components/BuildStamp";
 
 const manrope = Manrope({
   variable: "--font-sans",
@@ -30,15 +29,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="bg">
-      <body className={`${manrope.variable} ${fraunces.variable} antialiased`}>
-        <LayoutShell>
-          {children}
-          <footer className="bg-white px-6 pb-10">
-            <div className="mx-auto w-full max-w-6xl">
-              <BuildStamp />
-            </div>
-          </footer>
-        </LayoutShell>
+      <body className={`${manrope.variable} ${fraunces.variable} bg-sand text-ink antialiased`}>
+        <LayoutShell>{children}</LayoutShell>
       </body>
     </html>
   );

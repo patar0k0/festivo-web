@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Container from "@/components/ui/Container";
+import Section from "@/components/ui/Section";
 import Stack from "@/components/ui/Stack";
 import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
@@ -29,7 +30,7 @@ function SkeletonGrid() {
       {Array.from({ length: 6 }).map((_, index) => (
         <div
           key={`skeleton-${index}`}
-          className="h-[260px] rounded-2xl border border-ink/10 bg-ink/5"
+          className="h-[240px] rounded-xl border border-ink/10 bg-white shadow-soft"
         />
       ))}
     </div>
@@ -41,9 +42,9 @@ export default async function HomePage() {
   const hasFeatured = featured.data.length > 0;
 
   return (
-    <Container className="py-12">
-      <Stack size="xl">
-        <section className="space-y-8">
+    <Container>
+      <Section>
+        <Stack size="lg">
           <Stack size="sm">
             <Heading as="h1" size="h1">
               Безплатни фестивали в България
@@ -63,11 +64,13 @@ export default async function HomePage() {
             <Badge variant="category">Календар</Badge>
             <Badge variant="category">Карта</Badge>
           </div>
-        </section>
+        </Stack>
+      </Section>
 
-        <Divider />
+      <Divider />
 
-        <section className="space-y-6">
+      <Section>
+        <Stack size="lg">
           <div className="flex items-end justify-between gap-4">
             <Heading as="h2" size="h2">
               Подбрани
@@ -77,11 +80,13 @@ export default async function HomePage() {
             </Link>
           </div>
           {hasFeatured ? <FestivalGrid festivals={featured.data} /> : <SkeletonGrid />}
-        </section>
+        </Stack>
+      </Section>
 
-        <Divider />
+      <Divider />
 
-        <section className="space-y-6">
+      <Section>
+        <Stack size="lg">
           <Heading as="h2" size="h2">
             Навигация
           </Heading>
@@ -123,22 +128,21 @@ export default async function HomePage() {
               </Card>
             </Link>
           </div>
-        </section>
+        </Stack>
+      </Section>
 
-        <Divider />
+      <Divider />
 
-        <section className="flex flex-wrap items-center justify-between gap-4">
+      <Section>
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <Text variant="muted" size="sm">
             Планирането и напомнянията са в приложението.
           </Text>
-          <div className="flex flex-wrap gap-3">
-            <Button href="#">Open in app</Button>
-            <Button href="#" variant="secondary">
-              Save to plan
-            </Button>
-          </div>
-        </section>
-      </Stack>
+          <Button href="#" variant="ghost">
+            Open in app
+          </Button>
+        </div>
+      </Section>
     </Container>
   );
 }

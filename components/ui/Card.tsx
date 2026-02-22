@@ -7,7 +7,7 @@ export function Card({ className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-[0_20px_50px_-45px_rgba(0,0,0,0.35)]",
+        "overflow-hidden rounded-xl border border-ink/10 bg-white shadow-soft",
         className
       )}
       {...props}
@@ -17,7 +17,7 @@ export function Card({ className, ...props }: CardProps) {
 
 type CardSectionProps = ComponentPropsWithoutRef<"div">;
 
-export function CardMedia({ className, ...props }: CardSectionProps) {
+export function CardHeader({ className, ...props }: CardSectionProps) {
   return <div className={cn("relative", className)} {...props} />;
 }
 

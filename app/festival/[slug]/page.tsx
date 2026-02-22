@@ -13,7 +13,7 @@ import Text from "@/components/ui/Text";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Divider from "@/components/ui/Divider";
-import { Card, CardBody, CardMedia } from "@/components/ui/Card";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { getCityFestivals, getFestivalBySlug, getFestivalDetail } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 
@@ -77,9 +77,9 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
 
             {heroImage ? (
               <Card>
-                <CardMedia className="h-72">
+                <CardHeader className="aspect-[16/10]">
                   <Image src={heroImage} alt={data.festival.title} fill className="object-cover" />
-                </CardMedia>
+                </CardHeader>
               </Card>
             ) : null}
 
@@ -109,6 +109,36 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
               </section>
             ) : null}
 
+            {data.festival.ticket_url || data.festival.website_url ? (
+              <section className="space-y-4">
+                <Heading as="h2" size="h2">
+                  Линкове
+                </Heading>
+                <div className="flex flex-col gap-2 text-sm">
+                  {data.festival.website_url ? (
+                    <a
+                      href={data.festival.website_url}
+                      className="font-semibold text-ink"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Официален сайт
+                    </a>
+                  ) : null}
+                  {data.festival.ticket_url ? (
+                    <a
+                      href={data.festival.ticket_url}
+                      className="font-semibold text-ink"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Билети {data.festival.price_range ? `· ${data.festival.price_range}` : ""}
+                    </a>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+
             <Divider />
             <FestivalHighlights festival={data.festival} />
             <FestivalProgram days={data.days} items={data.scheduleItems} />
@@ -116,7 +146,7 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
             <FestivalGoodToKnow festival={data.festival} />
           </Stack>
 
-          <aside className="space-y-6">
+          <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             <Card>
               <CardBody className="space-y-4">
                 <Heading as="h3" size="h3" className="text-lg">
@@ -137,6 +167,32 @@ export default async function FestivalDetailPage({ params }: { params: { slug: s
                     <div>
                       <span className="block text-xs uppercase tracking-widest text-ink/60">Address</span>
                       <span className="font-semibold text-ink">{data.festival.address}</span>
+                    </div>
+                  ) : null}
+                  {data.festival.ticket_url ? (
+                    <div>
+                      <span className="block text-xs uppercase tracking-widest text-ink/60">Tickets</span>
+                      <a
+                        href={data.festival.ticket_url}
+                        className="font-semibold text-ink"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {data.festival.price_range ?? "Ticket info"}
+                      </a>
+                    </div>
+                  ) : null}
+                  {data.festival.website_url ? (
+                    <div>
+                      <span className="block text-xs uppercase tracking-widest text-ink/60">Website</span>
+                      <a
+                        href={data.festival.website_url}
+                        className="font-semibold text-ink"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Visit site
+                      </a>
                     </div>
                   ) : null}
                   <div>

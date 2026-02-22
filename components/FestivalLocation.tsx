@@ -7,7 +7,7 @@ export default function FestivalLocation({ festival }: { festival: Festival }) {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-xl font-semibold">Location</h2>
+      <h2 className="text-xl font-semibold">Къде</h2>
       <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-2xl border border-ink/10 bg-white/70 p-5">
           <p className="text-sm text-muted">{address}</p>

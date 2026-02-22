@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { Festival } from "@/lib/types";
-import { Card, CardBody, CardMedia } from "@/components/ui/Card";
+import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
@@ -24,14 +24,14 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
     <Link href={`/festival/${festival.slug}`} className="group">
       <Card className="h-full transition hover:-translate-y-1">
         {hasImage ? (
-          <CardMedia className="h-48">
+          <CardHeader className="aspect-[16/10]">
             <Image
               src={festival.image_url ?? "/hero.svg"}
               alt={festival.title}
               fill
               className="object-cover"
             />
-          </CardMedia>
+          </CardHeader>
         ) : null}
         <CardBody className="space-y-3">
           <Text variant="muted" size="sm">

@@ -1,15 +1,9 @@
-﻿import { format } from "date-fns";
 import { redirect } from "next/navigation";
-import { parseFilters } from "@/lib/filters";
-import { serializeFilters } from "@/lib/filters";
+import { format } from "date-fns";
 
-export default function CalendarIndex({
-  searchParams,
-}: {
-  searchParams: Record<string, string | string[] | undefined>;
-}) {
+export const revalidate = 3600;
+
+export default function CalendarPage() {
   const month = format(new Date(), "yyyy-MM");
-  const filters = parseFilters(searchParams);
-  const query = serializeFilters(filters);
-  redirect(`/calendar/${month}${query}`);
+  redirect(`/calendar/${month}`);
 }

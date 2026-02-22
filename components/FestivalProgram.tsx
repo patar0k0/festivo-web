@@ -26,7 +26,7 @@ export default function FestivalProgram({
 
   return (
     <section className="space-y-6">
-      <h2 className="text-xl font-semibold">Program</h2>
+      <h2 className="text-xl font-semibold">Програма</h2>
       <div className="space-y-5">
         {grouped.map(({ day, items: dayItems }) => (
           <div key={day.id} className="rounded-2xl border border-ink/10 bg-white/70 p-5">

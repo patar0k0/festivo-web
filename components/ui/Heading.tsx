@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 type HeadingSize = "h1" | "h2" | "h3";
 
 const sizeClasses: Record<HeadingSize, string> = {
-  h1: "text-3xl sm:text-4xl",
+  h1: "text-4xl sm:text-5xl",
   h2: "text-2xl sm:text-3xl",
   h3: "text-xl sm:text-2xl",
 };

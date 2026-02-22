@@ -27,7 +27,7 @@ export default function MapView({ festivals }: { festivals: Festival[] }) {
 
   if (!points.length) {
     return (
-      <div className="flex h-full min-h-[360px] items-center justify-center rounded-2xl border border-ink/10 bg-sand">
+      <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl bg-sand">
         <span className="text-xs uppercase tracking-widest text-muted">Map data coming soon</span>
       </div>
     );
@@ -36,7 +36,7 @@ export default function MapView({ festivals }: { festivals: Festival[] }) {
   const center = [points[0].lat ?? 42.6977, points[0].lng ?? 23.3219] as [number, number];
 
   return (
-    <div className="relative h-full min-h-[360px] overflow-hidden rounded-2xl border border-ink/10">
+    <div className="relative h-full min-h-[360px] overflow-hidden rounded-xl">
       <MapContainer center={center} zoom={7} className="h-full w-full" whenReady={() => setHasMoved(false)}>
         <MapMoveWatcher onMove={() => setHasMoved(true)} />
         <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />

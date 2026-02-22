@@ -1,19 +1,19 @@
-﻿import Link from "next/link";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import Container from "@/components/ui/Container";
 
-export default function SiteHeader({ className }: { className?: string }) {
+export default function SiteHeader() {
   return (
-    <header className={cn("sticky top-0 z-40 border-b border-ink/5 bg-white/70 backdrop-blur-lg", className)}>
-      <div className="container-page flex items-center justify-between py-4">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
+    <header className="sticky top-0 z-40 border-b border-ink/10 bg-sand/80 backdrop-blur">
+      <Container className="flex items-center justify-between py-4">
+        <Link href="/" className="text-lg font-semibold tracking-tight text-ink">
           <span className="font-[var(--font-display)] text-2xl">Festivo</span>
         </Link>
-        <nav className="flex items-center gap-6 text-sm font-semibold uppercase tracking-widest text-muted">
+        <nav className="flex items-center gap-6 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
           <Link href="/festivals">Festivals</Link>
           <Link href="/calendar">Calendar</Link>
           <Link href="/map">Map</Link>
         </nav>
-      </div>
+      </Container>
     </header>
   );
 }

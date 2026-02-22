@@ -13,7 +13,7 @@ export default function Chip({ selected, href, className, children, ...props }: 
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink/20 focus-visible:ring-offset-2",
     selected
       ? "border-ink bg-ink text-white"
-      : "border-ink/10 bg-white/70 text-ink hover:border-ink/30",
+      : "border-ink/10 bg-white text-ink hover:border-ink/30",
     className
   );
 

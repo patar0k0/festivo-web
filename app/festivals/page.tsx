@@ -5,6 +5,7 @@ import FestivalGrid from "@/components/FestivalGrid";
 import Pagination from "@/components/Pagination";
 import ViewToggle from "@/components/ViewToggle";
 import Container from "@/components/ui/Container";
+import Section from "@/components/ui/Section";
 import Stack from "@/components/ui/Stack";
 import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
@@ -47,52 +48,54 @@ export default async function FestivalsPage({
   const freeHref = `/festivals${serializeFilters({ ...filters, free: freeActive ? false : true })}`;
 
   return (
-    <Container className="py-10">
-      <Stack size="lg">
-        <Stack size="sm">
-          <Heading as="h1" size="h1">
-            Festivals
-          </Heading>
-          <Text variant="muted" size="sm" className="sr-only sm:not-sr-only">
-            Curated festivals across Bulgaria, updated weekly.
-          </Text>
-        </Stack>
-
-        {showBanner ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Supabase env vars are missing. Set them in Vercel or your local environment to load festivals.
-          </div>
-        ) : null}
-
-        <Stack size="sm">
-          <StickySearchBar initialFilters={filters} />
-          <div className="flex flex-wrap items-center gap-3">
-            <Chip href={categoryHref} selected={categoryActive}>
-              {categoryLabel}
-            </Chip>
-            <Chip href={cityHref} selected={cityActive}>
-              {cityLabel}
-            </Chip>
-            <Chip href={freeHref} selected={freeActive}>
-              Free
-            </Chip>
-            <div className="ml-auto flex items-center gap-3">
-              <MobileFiltersSheet initialFilters={filters} />
-              <ViewToggle active="/festivals" filters={filters} />
-            </div>
-          </div>
-        </Stack>
-
-        <Divider />
-
-        <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
-          <FiltersSidebar initialFilters={filters} className="hidden lg:block" />
-          <Stack size="lg">
-            <FestivalGrid festivals={data.data} />
-            <Pagination page={data.page} totalPages={data.totalPages} basePath="/festivals" filters={filters} />
+    <Container>
+      <Section>
+        <Stack size="lg">
+          <Stack size="sm">
+            <Heading as="h1" size="h1">
+              Фестивали
+            </Heading>
+            <Text variant="muted" size="sm">
+              Подбрани събития с филтри по град, дата и категория.
+            </Text>
           </Stack>
-        </div>
-      </Stack>
+
+          {showBanner ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Supabase env vars are missing. Set them in Vercel or your local environment to load festivals.
+            </div>
+          ) : null}
+
+          <Stack size="sm">
+            <StickySearchBar initialFilters={filters} />
+            <div className="flex flex-wrap items-center gap-3">
+              <Chip href={categoryHref} selected={categoryActive}>
+                {categoryLabel}
+              </Chip>
+              <Chip href={cityHref} selected={cityActive}>
+                {cityLabel}
+              </Chip>
+              <Chip href={freeHref} selected={freeActive}>
+                Free
+              </Chip>
+              <div className="ml-auto flex items-center gap-3">
+                <MobileFiltersSheet initialFilters={filters} />
+                <ViewToggle active="/festivals" filters={filters} />
+              </div>
+            </div>
+          </Stack>
+
+          <Divider />
+
+          <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
+            <FiltersSidebar initialFilters={filters} className="hidden lg:block" />
+            <Stack size="lg">
+              <FestivalGrid festivals={data.data} />
+              <Pagination page={data.page} totalPages={data.totalPages} basePath="/festivals" filters={filters} />
+            </Stack>
+          </div>
+        </Stack>
+      </Section>
     </Container>
   );
 }

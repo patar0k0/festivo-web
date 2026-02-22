@@ -20,5 +20,5 @@ type TextProps = HTMLAttributes<HTMLParagraphElement> & {
 };
 
 export default function Text({ variant = "default", size = "md", className, ...props }: TextProps) {
-  return <p className={cn(sizeClasses[size], variantClasses[variant], className)} {...props} />;
+  return <p className={cn("leading-7", sizeClasses[size], variantClasses[variant], className)} {...props} />;
 }

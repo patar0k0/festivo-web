@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
-import SiteFooter from "@/components/SiteFooter";
-import SiteHeader from "@/components/SiteHeader";
+import LayoutShell from "@/components/LayoutShell";
 
 const manrope = Manrope({
   variable: "--font-sans",
@@ -29,11 +28,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="bg">
       <body className={`${manrope.variable} ${fraunces.variable} antialiased`}>
-        <SiteHeader />
-        <main>{children}</main>
-        <SiteFooter />
+        <LayoutShell>{children}</LayoutShell>
       </body>
     </html>
   );

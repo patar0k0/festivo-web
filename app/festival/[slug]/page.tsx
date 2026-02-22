@@ -2,6 +2,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import FestivalProgram from "@/components/FestivalProgram";
+import FestivalGrid from "@/components/FestivalGrid";
 import Container from "@/components/ui/Container";
 import Stack from "@/components/ui/Stack";
 import Heading from "@/components/ui/Heading";

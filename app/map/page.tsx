@@ -2,7 +2,7 @@
 import ViewToggle from "@/components/ViewToggle";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { getFestivals } from "@/lib/queries";
-import MapView from "@/components/MapView";
+import MapViewClient from "@/components/MapViewClient";
 import { getBaseUrl } from "@/lib/seo";
 
 export const revalidate = 3600;
@@ -35,7 +35,7 @@ export default async function MapPage({
         <div className="space-y-4">
           <FestivalList festivals={data.data} />
         </div>
-        <MapView festivals={data.data} />
+        <MapViewClient festivals={data.data} />
       </div>
     </div>
   );

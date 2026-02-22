@@ -8,9 +8,8 @@ import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import Divider from "@/components/ui/Divider";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
-import { getFestivals } from "@/lib/queries";
+import { getCities, getFestivals } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
 
 export const revalidate = 21600;
@@ -34,6 +33,12 @@ function formatDateRange(start?: string | null, end?: string | null) {
   return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
 }
 
+function formatBadgeDate(start?: string | null) {
+  if (!start) return "TBA";
+  const date = parseISO(start);
+  return format(date, "MMM d");
+}
+
 function SkeletonGrid() {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -48,35 +53,75 @@ function SkeletonGrid() {
 }
 
 export default async function HomePage() {
-  const featured = await getFestivals({ free: true, sort: "soonest" }, 1, 6);
+  const [featured, cities] = await Promise.all([
+    getFestivals({ free: true, sort: "soonest" }, 1, 6),
+    getCities(),
+  ]);
   const hasFeatured = featured.data.length > 0;
 
   return (
-    <div className="space-y-12">
-      <section className="border-b border-ink/10 bg-sand/40 py-14">
-        <Container>
-          <Stack size="lg">
-            <Stack size="sm">
-              <Heading as="h1" size="h1" className="text-4xl sm:text-5xl">
-                Безплатни фестивали в България
+    <div className="space-y-14">
+      <section className="relative min-h-[420px] overflow-hidden sm:min-h-[520px]">
+        <div className="absolute inset-0 bg-[url('/hero.svg')] bg-cover bg-center" />
+        <div className="absolute inset-0 bg-black/60" />
+
+        <Container className="relative">
+          <div className="flex min-h-[420px] flex-col items-center justify-center text-center text-white sm:min-h-[520px]">
+            <Stack size="sm" className="max-w-2xl">
+              <Heading as="h1" size="h1" className="text-4xl text-white sm:text-5xl">
+                Festivo
               </Heading>
-              <Text variant="muted">Открий какво има по град, дата и на карта.</Text>
+              <Text variant="muted" className="text-white/80">
+                Открий безплатни фестивали в България
+              </Text>
             </Stack>
+          </div>
+        </Container>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Button href="/festivals">Разгледай фестивали</Button>
-              <Button href="/map" variant="secondary">
-                Виж на карта
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="free">Безплатни</Badge>
-              <Badge variant="category">Календар</Badge>
-              <Badge variant="category">Карта</Badge>
-              <Badge variant="category">Подбрани</Badge>
-            </div>
-          </Stack>
+        <Container className="relative -mt-16 pb-10">
+          <Card className="bg-white">
+            <CardBody className="space-y-4">
+              <form action="/festivals" className="grid gap-3 md:grid-cols-[1.4fr_1fr_1fr_auto]">
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs uppercase tracking-[0.2em] text-muted">Какво</label>
+                  <input
+                    name="q"
+                    type="text"
+                    placeholder="Търси фестивали…"
+                    className="w-full rounded-xl border border-ink/10 bg-white px-4 py-2 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs uppercase tracking-[0.2em] text-muted">Къде</label>
+                  <select name="city" className="w-full rounded-xl border border-ink/10 bg-white px-4 py-2 text-sm">
+                    <option value="">Навсякъде</option>
+                    {cities.length
+                      ? cities.slice(0, 12).map((city) => (
+                          <option key={city} value={city}>
+                            {city}
+                          </option>
+                        ))
+                      : ["Sofia", "Plovdiv", "Varna"].map((city) => (
+                          <option key={city} value={city}>
+                            {city}
+                          </option>
+                        ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs uppercase tracking-[0.2em] text-muted">Кога</label>
+                  <select name="when" className="w-full rounded-xl border border-ink/10 bg-white px-4 py-2 text-sm">
+                    <option value="">Any time</option>
+                    <option value="week">This week</option>
+                    <option value="month">This month</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <Button type="submit">Търси</Button>
+                </div>
+              </form>
+            </CardBody>
+          </Card>
         </Container>
       </section>
 
@@ -92,16 +137,19 @@ export default async function HomePage() {
                 {featured.data.map((festival) => (
                   <Link key={festival.id} href={`/festival/${festival.slug}`} className="group">
                     <Card className="h-full transition hover:-translate-y-0.5 hover:shadow-soft">
-                      {festival.image_url ? (
-                        <CardHeader className="aspect-[16/10] border-b border-ink/10">
+                      <CardHeader className="relative aspect-[16/10] border-b border-ink/10">
+                        {festival.image_url ? (
                           <Image
                             src={festival.image_url}
                             alt={festival.title}
                             fill
                             className="rounded-t-xl object-cover"
                           />
-                        </CardHeader>
-                      ) : null}
+                        ) : null}
+                        <div className="absolute left-3 top-3 rounded-xl bg-white/90 px-2 py-1 text-xs font-semibold text-ink">
+                          {formatBadgeDate(festival.start_date)}
+                        </div>
+                      </CardHeader>
                       <CardBody className="space-y-3">
                         <Heading as="h3" size="h3" className="text-lg">
                           {festival.title}
@@ -113,19 +161,6 @@ export default async function HomePage() {
                           {festival.is_free ? <Badge variant="free">Безплатно</Badge> : null}
                           {festival.category ? <Badge variant="category">{festival.category}</Badge> : null}
                         </div>
-                        {festival.description ? (
-                          <p
-                            className="text-sm text-muted"
-                            style={{
-                              display: "-webkit-box",
-                              WebkitLineClamp: 1,
-                              WebkitBoxOrient: "vertical",
-                              overflow: "hidden",
-                            }}
-                          >
-                            {festival.description}
-                          </p>
-                        ) : null}
                       </CardBody>
                     </Card>
                   </Link>
@@ -135,69 +170,6 @@ export default async function HomePage() {
               <SkeletonGrid />
             )}
           </Stack>
-        </Container>
-      </Section>
-
-      <Divider />
-
-      <Section>
-        <Container>
-          <Stack size="lg">
-            <Heading as="h2" size="h2">
-              Разгледай
-            </Heading>
-            <div className="grid gap-6 md:grid-cols-3">
-              <Link href="/festivals">
-                <Card className="h-full transition hover:-translate-y-0.5 hover:shadow-soft">
-                  <CardBody className="space-y-2">
-                    <Heading as="h3" size="h3" className="text-lg">
-                      Фийд
-                    </Heading>
-                    <Text variant="muted" size="sm">
-                      Подбрани фестивали и бързи филтри.
-                    </Text>
-                  </CardBody>
-                </Card>
-              </Link>
-              <Link href="/calendar">
-                <Card className="h-full transition hover:-translate-y-0.5 hover:shadow-soft">
-                  <CardBody className="space-y-2">
-                    <Heading as="h3" size="h3" className="text-lg">
-                      Календар
-                    </Heading>
-                    <Text variant="muted" size="sm">
-                      План за месеца с фестивали по дати.
-                    </Text>
-                  </CardBody>
-                </Card>
-              </Link>
-              <Link href="/map">
-                <Card className="h-full transition hover:-translate-y-0.5 hover:shadow-soft">
-                  <CardBody className="space-y-2">
-                    <Heading as="h3" size="h3" className="text-lg">
-                      Карта
-                    </Heading>
-                    <Text variant="muted" size="sm">
-                      Намери фестивали около теб на карта.
-                    </Text>
-                  </CardBody>
-                </Card>
-              </Link>
-            </div>
-          </Stack>
-        </Container>
-      </Section>
-
-      <Section>
-        <Container>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <Text variant="muted" size="sm">
-              Планирането и напомнянията са в приложението.
-            </Text>
-            <Button href="#" variant="ghost">
-              Open in app
-            </Button>
-          </div>
         </Container>
       </Section>
     </div>

@@ -5,15 +5,15 @@ import FestivalGoodToKnow from "@/components/FestivalGoodToKnow";
 import FestivalLocation from "@/components/FestivalLocation";
 import FestivalHighlights from "@/components/FestivalHighlights";
 import FestivalGrid from "@/components/FestivalGrid";
-import { getCityFestivals, getFestivalBySlug } from "@/lib/queries";
+import { getCityFestivals, getFestivalBySlug, getFestivalDetail } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 
 export const revalidate = 21600;
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const data = await getFestivalBySlug(params.slug);
-  if (!data) return {};
-  const meta = festivalMeta(data.festival);
+  const festival = await getFestivalBySlug(params.slug);
+  if (!festival) return {};
+  const meta = festivalMeta(festival);
   return {
     title: meta.title,
     description: meta.description,
@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function FestivalDetailPage({ params }: { params: { slug: string } }) {
-  const data = await getFestivalBySlug(params.slug);
+  const data = await getFestivalDetail(params.slug);
   if (!data) return notFound();
 
   const jsonLd = buildFestivalJsonLd(data.festival);

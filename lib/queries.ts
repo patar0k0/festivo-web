@@ -90,30 +90,40 @@ export async function getFestivals(filters: Filters, page = 1, pageSize = 12): P
   };
 }
 
-export async function getFestivalBySlug(slug: string) {
+export async function getFestivalBySlug(slug: string): Promise<Festival | null> {
   const supabase = supabaseServer();
   const { data, error } = await supabase
-    .from<Festival>("festivals")
-    .select(FESTIVAL_FIELDS)
+    .from("festivals")
+    .select("*")
     .eq("slug", slug)
     .eq("status", "verified")
-    .single();
+    .single()
+    .returns<Festival>();
 
-  if (error) {
+  if (error || !data) {
     return null;
   }
 
-  const festival = data;
+  return data;
+}
+
+export async function getFestivalDetail(slug: string) {
+  const supabase = supabaseServer();
+  const festival = await getFestivalBySlug(slug);
+  if (!festival) return null;
 
   const [{ data: media }, { data: days }, { data: scheduleItems }] = await Promise.all([
-    supabase.from("festival_media").select("id, festival_id, url, type").eq("festival_id", festival.id),
     supabase
-      .from("festival_days")
+      .from<FestivalMedia>("festival_media")
+      .select("id, festival_id, url, type")
+      .eq("festival_id", festival.id),
+    supabase
+      .from<FestivalDay>("festival_days")
       .select("id, festival_id, date, label")
       .eq("festival_id", festival.id)
       .order("date", { ascending: true }),
     supabase
-      .from("festival_schedule_items")
+      .from<FestivalScheduleItem>("festival_schedule_items")
       .select("id, festival_id, festival_day_id, time, title, description, location")
       .eq("festival_id", festival.id)
       .order("time", { ascending: true }),
@@ -121,9 +131,9 @@ export async function getFestivalBySlug(slug: string) {
 
   return {
     festival,
-    media: (media ?? []) as FestivalMedia[],
-    days: (days ?? []) as FestivalDay[],
-    scheduleItems: (scheduleItems ?? []) as FestivalScheduleItem[],
+    media: media ?? [],
+    days: days ?? [],
+    scheduleItems: scheduleItems ?? [],
   };
 }
 
@@ -174,12 +184,12 @@ export async function getCalendarMonth(month: string, filters: Filters) {
 export async function getCities() {
   const supabase = supabaseServer();
   const { data, error } = await supabase
-    .from("festivals")
+    .from<{ city: string | null }>("festivals")
     .select("city")
     .eq("status", "verified");
 
   if (error) {
-    return [] as string[];
+    return [];
   }
 
   const set = new Set<string>();
@@ -193,13 +203,13 @@ export async function getCities() {
 export async function getFestivalSlugs() {
   const supabase = supabaseServer();
   const { data, error } = await supabase
-    .from("festivals")
+    .from<{ slug: string | null }>("festivals")
     .select("slug")
     .eq("status", "verified");
 
   if (error) {
-    return [] as string[];
+    return [];
   }
 
-  return (data ?? []).map((row) => row.slug).filter(Boolean) as string[];
+  return (data ?? []).map((row) => row.slug).filter((slug): slug is string => Boolean(slug));
 }

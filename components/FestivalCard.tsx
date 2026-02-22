@@ -17,7 +17,7 @@ function formatDateRange(start?: string | null, end?: string | null) {
 }
 
 export default function FestivalCard({ festival }: { festival: Festival }) {
-  const hasImage = Boolean(festival.hero_image || festival.cover_image);
+  const hasImage = Boolean(festival.image_url || festival.cover_image);
   const description = festival.description ?? "";
 
   return (
@@ -26,7 +26,7 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
         {hasImage ? (
           <CardMedia className="h-48">
             <Image
-              src={festival.hero_image ?? festival.cover_image ?? "/hero.svg"}
+              src={festival.image_url ?? festival.cover_image ?? "/hero.svg"}
               alt={festival.title}
               fill
               className="object-cover"

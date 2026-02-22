@@ -43,7 +43,7 @@ export function buildFestivalJsonLd(festival: Festival) {
     endDate: festival.end_date ?? festival.start_date,
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     eventStatus: "https://schema.org/EventScheduled",
-    image: festival.hero_image ?? festival.cover_image,
+    image: festival.image_url ?? festival.cover_image,
     url: `${getBaseUrl()}/festival/${festival.slug}`,
     location: {
       "@type": "Place",

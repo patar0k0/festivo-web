@@ -20,7 +20,7 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
     <section className="relative overflow-hidden rounded-3xl border border-ink/10 bg-ink/80">
       <div className="absolute inset-0">
         <Image
-          src={festival.hero_image ?? festival.cover_image ?? "/hero.svg"}
+          src={festival.image_url ?? festival.cover_image ?? "/hero.svg"}
           alt={festival.title}
           fill
           className="object-cover"

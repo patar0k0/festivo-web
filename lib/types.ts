@@ -11,7 +11,7 @@
   is_free?: boolean | null;
   category?: string | null;
   tags?: string[] | null;
-  hero_image?: string | null;
+  image_url?: string | null;
   cover_image?: string | null;
   latitude?: number | null;
   longitude?: number | null;

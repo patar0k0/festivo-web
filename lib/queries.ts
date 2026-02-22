@@ -16,7 +16,7 @@ const FESTIVAL_FIELDS = [
   "is_free",
   "category",
   "tags",
-  "hero_image",
+  "image_url",
   "cover_image",
   "latitude",
   "longitude",

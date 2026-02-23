@@ -25,21 +25,29 @@ function formatDateRange(start?: string | null, end?: string | null) {
   return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const festival = await getFestivalBySlug(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const festival = await getFestivalBySlug(slug);
   if (!festival) return {};
   const meta = festivalMeta(festival);
   return {
     title: meta.title,
     description: meta.description,
     alternates: {
-      canonical: `${getBaseUrl()}/festival/${params.slug}`,
+      canonical: `${getBaseUrl()}/festival/${slug}`,
     },
   };
 }
 
-export default async function FestivalDetailPage({ params }: { params: { slug: string } }) {
-  const data = await getFestivalDetail(params.slug);
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+
+  // use slug below
+  const data = await getFestivalDetail(slug);
   if (!data) return notFound();
 
   const jsonLd = buildFestivalJsonLd(data.festival);

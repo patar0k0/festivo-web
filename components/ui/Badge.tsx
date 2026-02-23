@@ -5,7 +5,7 @@ type BadgeVariant = "neutral" | "primary";
 
 const variantClasses: Record<BadgeVariant, string> = {
   neutral: "bg-neutral-100 text-neutral-700",
-  primary: "bg-primary/10 text-primary",
+  primary: "bg-orange-50 text-orange-500",
 };
 
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {

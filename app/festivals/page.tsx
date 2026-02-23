@@ -1,9 +1,7 @@
-import { format, parseISO } from "date-fns";
-import Navbar from "@/components/ui/Navbar";
-import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import Container from "@/components/ui/Container";
+import EventCard from "@/components/ui/EventCard";
+import FilterSidebar from "@/components/ui/FilterSidebar";
 import Section from "@/components/ui/Section";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { getFestivals } from "@/lib/queries";
@@ -21,15 +19,6 @@ export async function generateMetadata() {
   };
 }
 
-function formatDateRange(start?: string | null, end?: string | null) {
-  if (!start) return "Dates TBA";
-  const startDate = parseISO(start);
-  if (!end || end === start) {
-    return format(startDate, "d MMM yyyy");
-  }
-  return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
-}
-
 export default async function FestivalsPage({
   searchParams,
 }: {
@@ -40,57 +29,43 @@ export default async function FestivalsPage({
   const data = await getFestivals(filters, Number.isNaN(page) ? 1 : page, 12);
 
   return (
-    <div className="bg-white text-ink">
-      <Navbar />
-
+    <div className="bg-white text-neutral-900">\n
       <Section>
         <Container>
-          <div className="space-y-8">
-            <div className="space-y-3">
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Festivals</h1>
-              <p className="max-w-2xl text-sm text-neutral-600 md:text-base">
-                Curated events with clean filters by city, date, and category.
-              </p>
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">Events</p>
+                <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Events</h1>
+                <p className="mt-2 text-sm text-neutral-600">
+                  Browse festivals, filter by location, and save your favorites.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-neutral-500">{data.total} results</span>
+                <Button variant="secondary" size="sm">
+                  Grid view
+                </Button>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                placeholder="City"
-                className="h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-sm text-ink placeholder:text-neutral-500 sm:w-64"
-              />
-              <Button variant="ghost" size="md">
-                Free only
-              </Button>
+            <div className="grid gap-8 lg:grid-cols-[18rem_1fr]">
+              <FilterSidebar />
+              <div className="grid gap-6 md:grid-cols-2">
+                {data.data.map((festival) => (
+                  <EventCard
+                    key={festival.slug}
+                    title={festival.title}
+                    city={festival.city}
+                    category={festival.category}
+                    imageUrl={festival.image_url}
+                    startDate={festival.start_date}
+                    endDate={festival.end_date}
+                    isFree={festival.is_free}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        </Container>
-      </Section>
-
-      <Section background="muted">
-        <Container>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {data.data.map((festival) => (
-              <Card key={festival.slug}>
-                <CardHeader>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {festival.is_free ? <Badge variant="primary">Free</Badge> : null}
-                    {festival.category ? <Badge variant="neutral">{festival.category}</Badge> : null}
-                  </div>
-                  <CardTitle>{festival.title}</CardTitle>
-                  <CardDescription>
-                    {festival.city ?? "Bulgaria"} • {formatDateRange(festival.start_date, festival.end_date)}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-neutral-600">
-                    A refined selection focused on dates, place, and the right atmosphere.
-                  </p>
-                  <Button variant="secondary" size="sm" href={`/festival/${festival.slug}`}>
-                    Details
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
           </div>
         </Container>
       </Section>

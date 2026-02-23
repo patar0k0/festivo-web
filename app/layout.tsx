@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
+import Navbar from "@/components/ui/Navbar";
 
 const manrope = Manrope({
   variable: "--font-sans",
@@ -28,7 +29,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="bg">
-      <body className={`${manrope.variable} ${fraunces.variable} apple-bg text-[color:var(--text)] antialiased`}>
+      <body className={`${manrope.variable} ${fraunces.variable} text-neutral-900 antialiased`}>
+        <Navbar />
         <main>{children}</main>
       </body>
     </html>

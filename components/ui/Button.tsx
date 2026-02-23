@@ -6,7 +6,7 @@ type ButtonVariant = "primary" | "secondary" | "ghost";
 type ButtonSize = "sm" | "md" | "lg";
 
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-primary-foreground hover:opacity-95",
+  primary: "bg-orange-500 text-white hover:bg-orange-600",
   secondary: "border border-neutral-200 bg-white text-ink hover:bg-neutral-50",
   ghost: "bg-transparent text-ink hover:bg-neutral-100",
 };
@@ -44,7 +44,7 @@ export default function Button({
 }: ButtonProps | LinkButtonProps) {
   const baseClass = cn(
     "inline-flex items-center justify-center rounded-xl font-semibold shadow-sm transition",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/20 focus-visible:ring-offset-2",
     "disabled:pointer-events-none disabled:opacity-50",
     variantClasses[variant],
     sizeClasses[size],

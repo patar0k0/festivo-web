@@ -45,8 +45,8 @@
 }
 
 body {
-  background: var(--bg);
-  color: var(--foreground);
+  background: #ffffff;
+  color: #0b1220;
   font-family: var(--font-sans), ui-sans-serif, system-ui;
   min-height: 100vh;
 }

@@ -1,5 +1,4 @@
-import { format, parseISO } from "date-fns";
-import Navbar from "@/components/ui/Navbar";
+﻿import { format, parseISO } from "date-fns";
 import Badge from "@/components/ui/Badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import Container from "@/components/ui/Container";
@@ -38,9 +37,7 @@ export default async function MapPage({
   const data = await getFestivals(filters, 1, 30);
 
   return (
-    <div className="bg-white text-ink">
-      <Navbar />
-
+    <div className="bg-white text-neutral-900">
       <Section>
         <Container>
           <div className="space-y-6">

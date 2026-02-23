@@ -1,5 +1,4 @@
-import Navbar from "@/components/ui/Navbar";
-import Container from "@/components/ui/Container";
+﻿import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import CalendarClient from "@/app/calendar/CalendarClient";
 
@@ -7,9 +6,7 @@ export const revalidate = 3600;
 
 export default function CalendarPage() {
   return (
-    <div className="bg-white text-ink">
-      <Navbar />
-
+    <div className="bg-white text-neutral-900">
       <Section>
         <Container>
           <div className="space-y-6">

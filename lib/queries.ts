@@ -31,11 +31,16 @@ function applyFilters<T>(query: T, filters: Filters): T {
     typedQuery = typedQuery.in("category", applied.cat);
   }
 
-  if (applied.from) {
-    typedQuery = typedQuery.gte("end_date", applied.from);
-  }
-
-  if (applied.to) {
+  if (applied.from && applied.to) {
+    typedQuery = typedQuery.lte("start_date", applied.to);
+    // end_date NULL -> treat as start_date for range checks
+    typedQuery = typedQuery.or(
+      `end_date.gte.${applied.from},and(end_date.is.null,start_date.gte.${applied.from})`
+    );
+  } else if (applied.from) {
+    // end_date NULL -> treat as start_date for range checks
+    typedQuery = typedQuery.or(`start_date.gte.${applied.from},end_date.gte.${applied.from}`);
+  } else if (applied.to) {
     typedQuery = typedQuery.lte("start_date", applied.to);
   }
 
@@ -117,25 +122,33 @@ export async function getFestivalDetail(
   const festival = await getFestivalBySlug(slug);
   if (!festival) return null;
 
-  const [{ data: media }, { data: days }, { data: scheduleItems }] = await Promise.all([
+  const [{ data: media }, { data: days }] = await Promise.all([
     supabase
       .from("festival_media")
-      .select("id, festival_id, url, type")
+      .select("id, festival_id, url, type, caption, sort_order")
       .eq("festival_id", festival.id)
+      .order("sort_order", { ascending: true })
       .returns<FestivalMedia[]>(),
     supabase
       .from("festival_days")
-      .select("id, festival_id, date, label")
+      .select("id, festival_id, date, title")
       .eq("festival_id", festival.id)
       .order("date", { ascending: true })
       .returns<FestivalDay[]>(),
-    supabase
-      .from("festival_schedule_items")
-      .select("id, festival_id, festival_day_id, time, title, description, location")
-      .eq("festival_id", festival.id)
-      .order("time", { ascending: true })
-      .returns<FestivalScheduleItem[]>(),
   ]);
+  const dayIds = (days ?? []).map((day) => day.id);
+  const scheduleItems =
+    dayIds.length > 0
+      ? (
+          await supabase
+            .from("festival_schedule_items")
+            .select("id, day_id, start_time, end_time, stage, title, description, sort_order")
+            .in("day_id", dayIds)
+            .order("sort_order", { ascending: true })
+            .order("start_time", { ascending: true })
+            .returns<FestivalScheduleItem[]>()
+        ).data
+      : [];
 
   return {
     festival,

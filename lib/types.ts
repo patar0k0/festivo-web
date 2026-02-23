@@ -24,23 +24,26 @@ export type FestivalMedia = {
   festival_id: string | number;
   url: string;
   type?: string | null;
+  caption?: string | null;
+  sort_order?: number | null;
 };
 
 export type FestivalDay = {
   id: string | number;
   festival_id: string | number;
   date: string;
-  label?: string | null;
+  title?: string | null;
 };
 
 export type FestivalScheduleItem = {
   id: string | number;
-  festival_id: string | number;
-  festival_day_id?: string | number | null;
-  time?: string | null;
+  day_id: string | number;
+  start_time?: string | null;
+  end_time?: string | null;
+  stage?: string | null;
+  sort_order?: number | null;
   title: string;
   description?: string | null;
-  location?: string | null;
 };
 
 export type Filters = {

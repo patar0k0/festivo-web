@@ -20,6 +20,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (process.env.FESTIVO_PUBLIC_MODE === "live") {
+    return NextResponse.next();
+  }
+
   const secret = process.env.FESTIVO_PREVIEW_SECRET;
 
   if (searchParams.get("logout") === "1") {

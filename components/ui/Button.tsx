@@ -52,8 +52,9 @@ export default function Button({
   );
 
   if (href) {
+    const { href: _href, ...linkProps } = props as LinkButtonProps;
     return (
-      <Link href={href} className={baseClass} {...(props as LinkButtonProps)}>
+      <Link href={href} className={baseClass} {...linkProps}>
         {children}
       </Link>
     );

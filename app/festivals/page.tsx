@@ -1,4 +1,4 @@
-import Link from "next/link";
+п»їimport Link from "next/link";
 import Image from "next/image";
 import { format, parseISO } from "date-fns";
 import FiltersSidebar from "@/components/FiltersSidebar";
@@ -57,8 +57,8 @@ export default async function FestivalsPage({
 
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600">Фестивали</p>
-            <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Фестивали</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600"></p>
+            <h1 className="text-3xl font-semibold tracking-tight md:text-4xl"></h1>
           </div>
           <form method="get" className="flex flex-wrap items-center gap-2">
             {filters.city?.length ? <input type="hidden" name="city" value={filters.city.join(",")} /> : null}
@@ -70,14 +70,14 @@ export default async function FestivalsPage({
               <input type="hidden" name="free" value={filters.free ? "1" : "0"} />
             ) : null}
             {filters.month ? <input type="hidden" name="month" value={filters.month} /> : null}
-            <label className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600">Сортиране</label>
+            <label className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600"></label>
             <Select name="sort" defaultValue={sortValue} className="min-w-[180px]">
-              <option value="soonest">Най-скоро</option>
-              <option value="curated">Подбрани</option>
-              <option value="nearest">Най-близо</option>
+              <option value="soonest">-</option>
+              <option value="curated"></option>
+              <option value="nearest">-</option>
             </Select>
             <Button type="submit" variant="ghost">
-              Приложи
+              
             </Button>
           </form>
         </div>
@@ -86,7 +86,7 @@ export default async function FestivalsPage({
           <div className="lg:hidden">
             <Card>
               <CardHeader className="border-b border-black/10">
-                <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-600">Филтри</h2>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-600"></h2>
               </CardHeader>
               <CardContent>
                 <FiltersSidebar
@@ -100,7 +100,7 @@ export default async function FestivalsPage({
           <div className="hidden lg:block">
             <Card>
               <CardHeader className="border-b border-black/10">
-                <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-600">Филтри</h2>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-600"></h2>
               </CardHeader>
               <CardContent>
                 <FiltersSidebar
@@ -125,14 +125,14 @@ export default async function FestivalsPage({
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        {festival.is_free ? <Badge>Безплатно</Badge> : null}
+                        {festival.is_free ? <Badge></Badge> : null}
                         {festival.category ? <Badge variant="neutral">{festival.category}</Badge> : null}
                       </div>
                       <Link href={`/festival/${festival.slug}`} className="text-lg font-semibold">
                         {festival.title}
                       </Link>
                       <p className="text-sm text-neutral-600">
-                        {festival.city ?? "Bulgaria"} • {formatDateRange(festival.start_date, festival.end_date)}
+                        {festival.city ?? "Bulgaria"}  {formatDateRange(festival.start_date, festival.end_date)}
                       </p>
                     </CardContent>
                   </Card>
@@ -141,7 +141,7 @@ export default async function FestivalsPage({
             ) : (
               <Card>
                 <CardContent>
-                  <p className="text-sm text-neutral-600">Няма намерени фестивали с тези филтри.</p>
+                  <p className="text-sm text-neutral-600">     .</p>
                 </CardContent>
               </Card>
             )}

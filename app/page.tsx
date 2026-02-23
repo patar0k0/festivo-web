@@ -1,4 +1,4 @@
-import Link from "next/link";
+п»їп»їimport Link from "next/link";
 import Image from "next/image";
 import { format, parseISO } from "date-fns";
 import Container from "@/app/_components/ui/Container";
@@ -101,11 +101,11 @@ export default async function HomePage() {
         <section className="space-y-6">
           <div className="flex items-end justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600">Подбрани</p>
-              <h2 className="text-2xl font-semibold tracking-tight">Подбрани фестивали</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600"></p>
+              <h2 className="text-2xl font-semibold tracking-tight"> </h2>
             </div>
             <Link href="/festivals" className="text-sm font-semibold text-neutral-600 hover:text-neutral-900">
-              Виж всички >
+                >
             </Link>
           </div>
 
@@ -122,7 +122,7 @@ export default async function HomePage() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      {festival.is_free ? <Badge>Р‘РµР·РїР»Р°С‚РЅРѕ</Badge> : <Badge variant="neutral">Платено</Badge>}
+                      {festival.is_free ? <Badge>Р‘РµР·РїР»Р°С‚РЅРѕ</Badge> : <Badge variant="neutral"></Badge>}
                       {festival.category ? <Badge variant="neutral">{festival.category}</Badge> : null}
                     </div>
                     <h3 className="text-lg font-semibold">{festival.title}</h3>

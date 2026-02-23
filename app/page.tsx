@@ -24,26 +24,28 @@ export default async function HomePage() {
 
   return (
     <div className="bg-white text-neutral-900">
-      <Section>
+      <Section className="py-20">
         <Container>
           <HeroSearch />
         </Container>
       </Section>
 
-      <Section>
+      <Section className="py-20">
         <Container>
           <div className="space-y-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">EVENTS</p>
-                <h2 className="text-2xl font-semibold tracking-tight">Предстоящи безплатни фестивали</h2>
+                <p className="text-xs uppercase tracking-wider text-neutral-400">EVENTS</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+                  Предстоящи безплатни фестивали
+                </h2>
               </div>
               <Button variant="secondary" size="sm" href="/festivals">
                 Browse events
               </Button>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
               {featured.data.map((festival) => (
                 <Link key={festival.slug} href={`/festival/${festival.slug}`} className="group">
                   <EventCard
@@ -54,6 +56,7 @@ export default async function HomePage() {
                     startDate={festival.start_date}
                     endDate={festival.end_date}
                     isFree={festival.is_free}
+                    description={festival.description}
                   />
                 </Link>
               ))}

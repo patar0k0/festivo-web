@@ -1,39 +1,63 @@
-import Image from "next/image";
-import Button from "@/components/ui/Button";
+﻿import Image from "next/image";
 
 export default function HeroSearch() {
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-neutral-200">
+    <section className="relative min-h-[420px] overflow-hidden rounded-2xl">
       <div className="absolute inset-0">
-        <Image src="/hero.jpg" alt="Festivo hero" fill className="object-cover" priority />
-        <div className="absolute inset-0 bg-black/40" />
+        <Image src="/hero.jpg" alt="Festivo hero" fill className="h-full w-full object-cover" priority />
       </div>
+      <div className="absolute inset-0 bg-black/50" />
 
-      <div className="relative px-6 py-16 text-center text-white md:px-12 md:py-20">
-        <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">Festivo</h1>
-        <p className="mt-3 text-base text-white/90 md:text-lg">Фестивали и събития в България</p>
+      <div className="relative z-10 flex min-h-[420px] flex-col items-center justify-center px-6 text-center md:px-12">
+        <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">Festivo</h1>
+        <p className="mt-3 text-neutral-200">Фестивали и събития в България</p>
 
-        <div className="mx-auto mt-8 max-w-4xl rounded-2xl bg-white p-2 shadow-md">
-          <div className="grid gap-2 md:grid-cols-[1.3fr_1fr_1fr_auto]">
-            <input
-              placeholder="Looking for"
-              className="h-12 w-full rounded-xl border border-neutral-200 px-4 text-sm text-ink placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
-            />
-            <select className="h-12 w-full rounded-xl border border-neutral-200 px-4 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-orange-500/20">
+        <div className="mt-8 w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-xl">
+          <div className="flex flex-col md:flex-row">
+            <div className="flex-1">
+              <label className="sr-only" htmlFor="hero-looking-for">
+                Looking for
+              </label>
+              <input
+                id="hero-looking-for"
+                placeholder="Looking for"
+                className="w-full px-4 py-4 text-sm text-ink placeholder:text-neutral-500 focus:outline-none md:border-r md:border-neutral-200"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="sr-only" htmlFor="hero-city">
+                City
+              </label>
+              <select
+                id="hero-city"
+                className="w-full px-4 py-4 text-sm text-ink focus:outline-none md:border-r md:border-neutral-200"
+              >
               <option>In</option>
               <option>Sofia</option>
               <option>Plovdiv</option>
               <option>Varna</option>
             </select>
-            <select className="h-12 w-full rounded-xl border border-neutral-200 px-4 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-orange-500/20">
+            </div>
+            <div className="flex-1">
+              <label className="sr-only" htmlFor="hero-when">
+                When
+              </label>
+              <select
+                id="hero-when"
+                className="w-full px-4 py-4 text-sm text-ink focus:outline-none md:border-r md:border-neutral-200"
+              >
               <option>When</option>
               <option>This weekend</option>
               <option>This week</option>
               <option>This month</option>
             </select>
-            <Button variant="primary" size="lg" className="h-12 px-6">
+            </div>
+            <button
+              type="button"
+              className="bg-orange-500 px-6 py-4 font-medium text-white transition hover:bg-orange-600"
+            >
               Search
-            </Button>
+            </button>
           </div>
         </div>
       </div>

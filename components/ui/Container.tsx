@@ -7,7 +7,7 @@ type Props = React.HTMLAttributes<HTMLDivElement> & {
 export default function Container({ className = "", children, ...props }: Props) {
   return (
     <div
-      className={`mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 ${className}`.trim()}
+      className={`mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${className}`.trim()}
       {...props}
     >
       {children}

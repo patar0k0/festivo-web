@@ -1,4 +1,4 @@
-import Image from "next/image";
+﻿import Image from "next/image";
 import { notFound } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import Badge from "@/components/ui/Badge";
@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import Container from "@/components/ui/Container";
 import DetailsSidebar from "@/components/ui/DetailsSidebar";
 import Section from "@/components/ui/Section";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { getCityFestivals, getFestivalBySlug, getFestivalDetail } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 
@@ -56,11 +57,14 @@ export default async function Page({
     : null;
 
   const heroImage = data.festival.image_url ?? null;
-  const dateText = formatDateRange(data.festival.start_date, data.festival.end_date);
-  const venueText = [data.festival.city, data.festival.address].filter(Boolean).join(", ") || "TBA";
+  const dateTextRaw = formatDateRange(data.festival.start_date, data.festival.end_date);
+  const dateText = dateTextRaw === "Dates TBA" ? "Дата: предстои" : dateTextRaw;
+  const venueText = [data.festival.city, data.festival.address].filter(Boolean).join(", ") || "Venue: —";
+  const mapQuery = [data.festival.address, data.festival.city].filter(Boolean).join(", ");
+  const mapHref = mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : null;
 
   return (
-    <div className="bg-white text-neutral-900">\n
+    <div className="bg-white text-neutral-900">
       <Section>
         <Container>
           <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
@@ -69,7 +73,7 @@ export default async function Page({
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">Event</p>
                 <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{data.festival.title}</h1>
                 <p className="text-sm text-neutral-600">
-                  {data.festival.city ?? "Bulgaria"} • {dateText}
+                  {data.festival.city ? data.festival.city : "Град: —"} • {dateText}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   {data.festival.is_free ? <Badge variant="primary">Free</Badge> : null}
@@ -81,27 +85,57 @@ export default async function Page({
                 <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-neutral-200">
                   <Image src={heroImage} alt={data.festival.title} fill className="object-cover" />
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex aspect-[16/9] items-center justify-center rounded-2xl border border-neutral-200 bg-neutral-100 text-sm text-neutral-500">
+                  No image
+                </div>
+              )}
 
               <div className="space-y-4">
                 <h2 className="text-xl font-semibold">About the event</h2>
                 <p className="text-sm leading-7 text-neutral-600">
-                  {data.festival.description ?? "Details for this event will be added soon."}
+                  {data.festival.description ?? "No description yet."}
                 </p>
               </div>
 
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Organizer</h2>
-                <p className="text-sm text-neutral-600">Organizer details coming soon.</p>
+              <div className="grid gap-6 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Location / Venue</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-neutral-600">{venueText}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Getting there</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-neutral-600">Details coming soon.</p>
+                  </CardContent>
+                </Card>
               </div>
 
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold">Contact</h2>
-                <p className="text-sm text-neutral-600">Contact details coming soon.</p>
-                <Button variant="secondary" size="sm">
-                  Contact organizer
-                </Button>
-              </div>
+              {(data.festival.website_url || data.festival.ticket_url) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Links</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {data.festival.website_url ? (
+                      <a href={data.festival.website_url} className="text-sm font-medium text-neutral-900">
+                        Website
+                      </a>
+                    ) : null}
+                    {data.festival.ticket_url ? (
+                      <a href={data.festival.ticket_url} className="text-sm font-medium text-neutral-900">
+                        Tickets
+                      </a>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              )}
 
               {moreInCity?.data?.length ? (
                 <div className="space-y-4">
@@ -114,7 +148,7 @@ export default async function Page({
             </div>
 
             <div className="lg:sticky lg:top-24 lg:self-start">
-              <DetailsSidebar dateText={dateText} venueText={venueText} />
+              <DetailsSidebar dateText={dateText} venueText={venueText} mapHref={mapHref} />
             </div>
           </div>
         </Container>

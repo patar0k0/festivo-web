@@ -30,13 +30,13 @@ export default async function FestivalsPage({
 
   return (
     <div className="bg-white text-neutral-900">\n
-      <Section>
+      <Section className="py-20">
         <Container>
           <div className="space-y-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-500">Events</p>
-                <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Events</h1>
+                <p className="text-xs uppercase tracking-wider text-neutral-400">Events</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Events</h1>
                 <p className="mt-2 text-sm text-neutral-600">
                   Browse festivals, filter by location, and save your favorites.
                 </p>
@@ -49,9 +49,30 @@ export default async function FestivalsPage({
               </div>
             </div>
 
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-white p-4">
+              <input
+                placeholder="Keyword"
+                className="h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm text-ink placeholder:text-neutral-500 sm:w-56"
+              />
+              <input
+                placeholder="City"
+                className="h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm text-ink placeholder:text-neutral-500 sm:w-44"
+              />
+              <select className="h-10 w-full rounded-lg border border-neutral-200 px-3 text-sm text-ink sm:w-44">
+                <option>Month</option>
+                <option>January</option>
+                <option>February</option>
+                <option>March</option>
+              </select>
+              <label className="flex items-center gap-2 text-sm text-neutral-600">
+                <input type="checkbox" className="h-4 w-4 rounded border-neutral-300" />
+                Free only
+              </label>
+            </div>
+
             <div className="grid gap-8 lg:grid-cols-[18rem_1fr]">
               <FilterSidebar />
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid gap-8 md:grid-cols-2">
                 {data.data.map((festival) => (
                   <EventCard
                     key={festival.slug}
@@ -62,6 +83,9 @@ export default async function FestivalsPage({
                     startDate={festival.start_date}
                     endDate={festival.end_date}
                     isFree={festival.is_free}
+                    description={festival.description}
+                    showDetailsButton
+                    detailsHref={`/festival/${festival.slug}`}
                   />
                 ))}
               </div>

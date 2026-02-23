@@ -1,17 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { format, parseISO } from "date-fns";
-import Container from "@/components/ui/Container";
-import Section from "@/components/ui/Section";
-import Stack from "@/components/ui/Stack";
-import Heading from "@/components/ui/Heading";
-import Text from "@/components/ui/Text";
-import AppleButton from "@/components/apple/AppleButton";
-import ApplePill from "@/components/apple/ApplePill";
-import { AppleCard, AppleCardBody, AppleCardHeader } from "@/components/apple/AppleCard";
-import AppleInput from "@/components/apple/AppleInput";
-import AppleSelect from "@/components/apple/AppleSelect";
-import AppleDivider from "@/components/apple/AppleDivider";
+import Container from "@/app/_components/ui/Container";
+import Button from "@/app/_components/ui/Button";
+import Badge from "@/app/_components/ui/Badge";
+import { Card, CardContent, CardFooter, CardHeader } from "@/app/_components/ui/Card";
+import Input from "@/app/_components/ui/Input";
+import Select from "@/app/_components/ui/Select";
 import { getFestivals } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
 
@@ -40,10 +35,7 @@ function SkeletonGrid() {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }).map((_, index) => (
-        <div
-          key={`skeleton-${index}`}
-          className="h-[320px] rounded-[var(--radius)] border apple-border apple-surface apple-shadow2"
-        />
+        <div key={`skeleton-${index}`} className="h-[320px] rounded-2xl border border-black/10 bg-white/60" />
       ))}
     </div>
   );
@@ -54,148 +46,104 @@ export default async function HomePage() {
   const hasFeatured = featured.data.length > 0;
 
   return (
-    <div className="space-y-14">
-      <Section>
-        <Container>
-          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-            <AppleCard className="h-full rounded-[28px] border border-[color:var(--border2)] bg-[color:var(--surface)] shadow-[var(--shadow)]">
-              <AppleCardBody className="space-y-4">
-                <div className="space-y-4">
-                  <Heading as="h1" size="h1" className="text-4xl font-semibold tracking-[-0.6px] md:text-5xl">
-                    Фестивали в България.
-                  </Heading>
-                  <Text variant="muted">
-                    Чисто. Бързо. Само най-важното: дата, град, жанр, цена и план.
-                  </Text>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <AppleInput
-                    placeholder="Търси фестивали…"
-                    className="h-12 rounded-[16px] border border-[color:var(--border2)] bg-[color:var(--surface2)] focus:ring-2 focus:ring-[color:var(--accent)]/20"
-                  />
-                  <AppleButton variant="primary">Търси</AppleButton>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <ApplePill active>Безплатни</ApplePill>
-                  <ApplePill>Тази седмица</ApplePill>
-                  <ApplePill>Джаз</ApplePill>
-                  <ApplePill>Храна</ApplePill>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted">Фестивали</p>
-                    <p className="text-xl font-semibold">{featured.total}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted">Градове</p>
-                    <p className="text-xl font-semibold">25+</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted">Месеци</p>
-                    <p className="text-xl font-semibold">12</p>
-                  </div>
-                </div>
-              </AppleCardBody>
-            </AppleCard>
-
-            <AppleCard>
-              <AppleCardBody className="space-y-4">
-                <Heading as="h2" size="h2" className="text-2xl">
-                  Бързи входове
-                </Heading>
-                <div className="space-y-3">
-                  {["Sofia", "Plovdiv", "Черноморие"].map((label) => (
-                    <Link key={label} href="/festivals" className="block">
-                      <div className="flex items-center justify-between rounded-[var(--radius)] border apple-border bg-[var(--surface2)] px-4 py-3 text-sm">
-                        <span className="font-semibold">{label}</span>
-                        <span className="text-muted">→</span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </AppleCardBody>
-            </AppleCard>
-          </div>
-        </Container>
-      </Section>
-
-      <AppleDivider />
-
-      <Section>
-        <Container>
-          <Stack size="lg">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap gap-2">
-                <ApplePill active>Подбрани</ApplePill>
-                <ApplePill>Днес</ApplePill>
-                <ApplePill>Уикенд</ApplePill>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <AppleSelect defaultValue="">
-                  <option value="">Сортиране</option>
-                  <option value="soonest">Най-скоро</option>
-                  <option value="curated">Подбрани</option>
-                </AppleSelect>
-                <AppleButton>Филтри</AppleButton>
-              </div>
+    <div className="space-y-16 pb-16 pt-10">
+      <Container>
+        <section className="space-y-10">
+          <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+            <div className="space-y-4">
+              <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
+                Фестивали в България.
+              </h1>
+              <p className="text-sm text-neutral-600 md:text-base">
+                Чисто. Бързо. Само най-важното: дата, град, жанр, цена и план.
+              </p>
             </div>
 
-            {hasFeatured ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {featured.data.map((festival) => (
-                  <AppleCard key={festival.id} className="h-full">
-                    <AppleCardHeader className="relative aspect-[16/10] border-b apple-border">
-                      {festival.image_url ? (
-                        <Image
-                          src={festival.image_url}
-                          alt={festival.title}
-                          fill
-                          className="rounded-t-[var(--radius)] object-cover"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-[var(--surface2)] to-[var(--bg)]" />
-                      )}
-                      <div className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-[color:var(--text)]">
-                        {festival.is_free ? "FREE" : festival.price_range ?? "PAID"}
-                      </div>
-                      <button
-                        type="button"
-                        className="absolute right-3 top-3 rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-[color:var(--text)]"
-                        aria-label="Bookmark"
-                      >
-                        ★
-                      </button>
-                    </AppleCardHeader>
-                    <AppleCardBody className="space-y-3">
-                      <Heading as="h3" size="h3" className="text-lg">
-                        {festival.title}
-                      </Heading>
-                      <Text variant="muted" size="sm">
-                        {festival.city ?? "Bulgaria"} • {formatDateRange(festival.start_date, festival.end_date)}
-                      </Text>
-                      <div className="flex flex-wrap gap-2">
-                        {festival.is_free ? <ApplePill active>Безплатно</ApplePill> : null}
-                        {festival.category ? <ApplePill>{festival.category}</ApplePill> : null}
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <Link href={`/festival/${festival.slug}`} className="font-semibold">
-                          Детайли →
-                        </Link>
-                        <AppleButton variant="ghost">Добави</AppleButton>
-                      </div>
-                    </AppleCardBody>
-                  </AppleCard>
-                ))}
-              </div>
-            ) : (
-              <SkeletonGrid />
-            )}
-          </Stack>
-        </Container>
-      </Section>
+            <Card>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600">
+                      Ключова дума
+                    </label>
+                    <Input placeholder="Търси..." />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600">Град</label>
+                    <Select defaultValue="">
+                      <option value="">Всички</option>
+                      <option value="sofia">Sofia</option>
+                      <option value="plovdiv">Plovdiv</option>
+                      <option value="varna">Varna</option>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600">Кога</label>
+                    <Select defaultValue="">
+                      <option value="">Всеки ден</option>
+                      <option value="today">Днес</option>
+                      <option value="weekend">Уикенд</option>
+                      <option value="month">Този месец</option>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-neutral-600">Намери най-доброто за твоя план.</div>
+                  <Button variant="primary">Търси</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      </Container>
+
+      <Container>
+        <section className="space-y-6">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600">��������</p>
+              <h2 className="text-2xl font-semibold tracking-tight">�������� ���������</h2>
+            </div>
+            <Link href="/festivals" className="text-sm font-semibold text-neutral-600 hover:text-neutral-900">
+              ��� ������ >
+            </Link>
+          </div>
+
+          {hasFeatured ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {featured.data.map((festival) => (
+                <Card key={festival.id} className="flex h-full flex-col">
+                  <CardHeader className="relative aspect-[16/10] border-b border-black/10 p-0">
+                    {festival.image_url ? (
+                      <Image src={festival.image_url} alt={festival.title} fill className="object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-neutral-100 to-neutral-50" />
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {festival.is_free ? <Badge>Безплатно</Badge> : <Badge variant="neutral">�������</Badge>}
+                      {festival.category ? <Badge variant="neutral">{festival.category}</Badge> : null}
+                    </div>
+                    <h3 className="text-lg font-semibold">{festival.title}</h3>
+                    <p className="text-sm text-neutral-600">
+                      {festival.city ?? "Bulgaria"} • {formatDateRange(festival.start_date, festival.end_date)}
+                    </p>
+                  </CardContent>
+                  <CardFooter className="mt-auto flex items-center justify-between text-sm">
+                    <Link href={`/festival/${festival.slug}`} className="font-semibold">
+                      Детайли →
+                    </Link>
+                    <Button variant="ghost">Добави</Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <SkeletonGrid />
+          )}
+        </section>
+      </Container>
     </div>
   );
 }

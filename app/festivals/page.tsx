@@ -1,17 +1,14 @@
-import StickySearchBar from "@/components/StickySearchBar";
+import Link from "next/link";
+import Image from "next/image";
+import { format, parseISO } from "date-fns";
 import FiltersSidebar from "@/components/FiltersSidebar";
-import MobileFiltersSheet from "@/components/MobileFiltersSheet";
-import FestivalGrid from "@/components/FestivalGrid";
 import Pagination from "@/components/Pagination";
-import ViewToggle from "@/components/ViewToggle";
-import Container from "@/components/ui/Container";
-import Section from "@/components/ui/Section";
-import Stack from "@/components/ui/Stack";
-import Heading from "@/components/ui/Heading";
-import Text from "@/components/ui/Text";
-import ApplePill from "@/components/apple/ApplePill";
-import AppleDivider from "@/components/apple/AppleDivider";
-import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
+import Container from "@/app/_components/ui/Container";
+import Badge from "@/app/_components/ui/Badge";
+import Button from "@/app/_components/ui/Button";
+import { Card, CardContent, CardHeader } from "@/app/_components/ui/Card";
+import Select from "@/app/_components/ui/Select";
+import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { getFestivals } from "@/lib/queries";
 import { getBaseUrl, listMeta } from "@/lib/seo";
 import { getSupabaseEnv } from "@/lib/supabaseServer";
@@ -28,6 +25,15 @@ export async function generateMetadata() {
   };
 }
 
+function formatDateRange(start?: string | null, end?: string | null) {
+  if (!start) return "Dates TBA";
+  const startDate = parseISO(start);
+  if (!end || end === start) {
+    return format(startDate, "d MMM yyyy");
+  }
+  return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
+}
+
 export default async function FestivalsPage({
   searchParams,
 }: {
@@ -38,64 +44,112 @@ export default async function FestivalsPage({
   const data = await getFestivals(filters, Number.isNaN(page) ? 1 : page, 12);
   const { configured } = getSupabaseEnv();
   const showBanner = !configured && process.env.NODE_ENV !== "production";
-  const categoryActive = Boolean(filters.cat?.length);
-  const cityActive = Boolean(filters.city?.length);
-  const freeActive = filters.free === true;
-  const categoryLabel = categoryActive ? `Category: ${filters.cat?.join(", ")}` : "Category";
-  const cityLabel = cityActive ? `City: ${filters.city?.join(", ")}` : "City";
-  const categoryHref = `/festivals${serializeFilters({ ...filters, cat: categoryActive ? undefined : filters.cat })}`;
-  const cityHref = `/festivals${serializeFilters({ ...filters, city: cityActive ? undefined : filters.city })}`;
-  const freeHref = `/festivals${serializeFilters({ ...filters, free: freeActive ? false : true })}`;
+  const sortValue = filters.sort ?? "soonest";
 
   return (
     <Container>
-      <Section>
-        <Stack size="lg">
-          <Stack size="sm">
-            <Heading as="h1" size="h1">
-              Р¤РµСЃС‚РёРІР°Р»Рё
-            </Heading>
-            <Text variant="muted" size="sm">
-              РџРѕРґР±СЂР°РЅРё СЃСЉР±РёС‚РёСЏ СЃ С„РёР»С‚СЂРё РїРѕ РіСЂР°Рґ, РґР°С‚Р° Рё РєР°С‚РµРіРѕСЂРёСЏ.
-            </Text>
-          </Stack>
-
-          {showBanner ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              Supabase env vars are missing. Set them in Vercel or your local environment to load festivals.
-            </div>
-          ) : null}
-
-          <Stack size="sm">
-            <StickySearchBar initialFilters={filters} />
-            <div className="flex flex-wrap items-center gap-3">
-              <ApplePill href={categoryHref} active={categoryActive}>
-                {categoryLabel}
-              </ApplePill>
-              <ApplePill href={cityHref} active={cityActive}>
-                {cityLabel}
-              </ApplePill>
-              <ApplePill href={freeHref} active={freeActive}>
-                Free
-              </ApplePill>
-              <div className="ml-auto flex items-center gap-3">
-                <MobileFiltersSheet initialFilters={filters} />
-                <ViewToggle active="/festivals" filters={filters} />
-              </div>
-            </div>
-          </Stack>
-
-          <AppleDivider />
-
-          <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
-            <FiltersSidebar initialFilters={filters} className="hidden lg:block" />
-            <Stack size="lg">
-              <FestivalGrid festivals={data.data} />
-              <Pagination page={data.page} totalPages={data.totalPages} basePath="/festivals" filters={filters} />
-            </Stack>
+      <div className="space-y-6 pb-10 pt-8">
+        {showBanner ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Supabase env vars are missing. Set them in Vercel or your local environment to load festivals.
           </div>
-        </Stack>
-      </Section>
+        ) : null}
+
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-600">Фестивали</p>
+            <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Фестивали</h1>
+          </div>
+          <form method="get" className="flex flex-wrap items-center gap-2">
+            {filters.city?.length ? <input type="hidden" name="city" value={filters.city.join(",")} /> : null}
+            {filters.region?.length ? <input type="hidden" name="region" value={filters.region.join(",")} /> : null}
+            {filters.from ? <input type="hidden" name="from" value={filters.from} /> : null}
+            {filters.to ? <input type="hidden" name="to" value={filters.to} /> : null}
+            {filters.cat?.length ? <input type="hidden" name="cat" value={filters.cat.join(",")} /> : null}
+            {filters.free !== undefined ? (
+              <input type="hidden" name="free" value={filters.free ? "1" : "0"} />
+            ) : null}
+            {filters.month ? <input type="hidden" name="month" value={filters.month} /> : null}
+            <label className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600">Сортиране</label>
+            <Select name="sort" defaultValue={sortValue} className="min-w-[180px]">
+              <option value="soonest">Най-скоро</option>
+              <option value="curated">Подбрани</option>
+              <option value="nearest">Най-близо</option>
+            </Select>
+            <Button type="submit" variant="ghost">
+              Приложи
+            </Button>
+          </form>
+        </div>
+
+        <div className="space-y-6 lg:grid lg:grid-cols-[280px_1fr] lg:items-start lg:gap-8 lg:space-y-0">
+          <div className="lg:hidden">
+            <Card>
+              <CardHeader className="border-b border-black/10">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-600">Филтри</h2>
+              </CardHeader>
+              <CardContent>
+                <FiltersSidebar
+                  initialFilters={filters}
+                  className="w-full max-w-none border-0 bg-transparent p-0 shadow-none"
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="hidden lg:block">
+            <Card>
+              <CardHeader className="border-b border-black/10">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-600">Филтри</h2>
+              </CardHeader>
+              <CardContent>
+                <FiltersSidebar
+                  initialFilters={filters}
+                  className="w-full max-w-none border-0 bg-transparent p-0 shadow-none"
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            {data.data.length ? (
+              <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {data.data.map((festival) => (
+                  <Card key={festival.slug} className="flex h-full flex-col">
+                    <CardHeader className="relative aspect-[16/10] border-b border-black/10 p-0">
+                      {festival.image_url ? (
+                        <Image src={festival.image_url} alt={festival.title} fill className="object-cover" />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-neutral-100 to-neutral-50" />
+                      )}
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {festival.is_free ? <Badge>Безплатно</Badge> : null}
+                        {festival.category ? <Badge variant="neutral">{festival.category}</Badge> : null}
+                      </div>
+                      <Link href={`/festival/${festival.slug}`} className="text-lg font-semibold">
+                        {festival.title}
+                      </Link>
+                      <p className="text-sm text-neutral-600">
+                        {festival.city ?? "Bulgaria"} • {formatDateRange(festival.start_date, festival.end_date)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent>
+                  <p className="text-sm text-neutral-600">Няма намерени фестивали с тези филтри.</p>
+                </CardContent>
+              </Card>
+            )}
+
+            <Pagination page={data.page} totalPages={data.totalPages} basePath="/festivals" filters={filters} />
+          </div>
+        </div>
+      </div>
     </Container>
   );
 }

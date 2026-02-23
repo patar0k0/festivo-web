@@ -3,14 +3,11 @@ import { notFound } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import FestivalProgram from "@/components/FestivalProgram";
 import FestivalGrid from "@/components/FestivalGrid";
-import Container from "@/components/ui/Container";
-import Stack from "@/components/ui/Stack";
-import Heading from "@/components/ui/Heading";
-import Text from "@/components/ui/Text";
-import AppleButton from "@/components/apple/AppleButton";
-import ApplePill from "@/components/apple/ApplePill";
-import AppleDivider from "@/components/apple/AppleDivider";
-import { AppleCard, AppleCardBody, AppleCardHeader } from "@/components/apple/AppleCard";
+import Container from "@/app/_components/ui/Container";
+import Badge from "@/app/_components/ui/Badge";
+import Button from "@/app/_components/ui/Button";
+import { Card, CardContent, CardFooter, CardHeader } from "@/app/_components/ui/Card";
+import Select from "@/app/_components/ui/Select";
 import { getCityFestivals, getFestivalBySlug, getFestivalDetail } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 
@@ -65,47 +62,40 @@ export default async function Page({
 
   return (
     <Container className="py-10">
-      <Stack size="xl">
-        <section className="grid gap-8 lg:grid-cols-[1.4fr_.6fr]">
-          <Stack size="lg">
-            <Stack size="sm">
-              <Heading as="h1" size="h1" className="text-3xl font-semibold tracking-[-0.4px]">
-                {data.festival.title}
-              </Heading>
-              <Text variant="muted" size="sm">
-                {data.festival.city ?? "Bulgaria"} · {formatDateRange(data.festival.start_date, data.festival.end_date)}
-              </Text>
+      <div className="space-y-10">
+        <section className="grid gap-10 lg:grid-cols-[1.3fr_0.7fr]">
+          <div className="space-y-8">
+            <div className="space-y-3">
+              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">{data.festival.title}</h1>
+              <p className="text-sm text-neutral-600">
+                {data.festival.city ?? "Bulgaria"} • {formatDateRange(data.festival.start_date, data.festival.end_date)}
+              </p>
               <div className="flex flex-wrap gap-2">
-                {data.festival.is_free ? <ApplePill active>Free</ApplePill> : null}
-                {data.festival.category ? <ApplePill>{data.festival.category}</ApplePill> : null}
+                {data.festival.is_free ? <Badge>Безплатно</Badge> : null}
+                {data.festival.category ? <Badge variant="neutral">{data.festival.category}</Badge> : null}
               </div>
-            </Stack>
+            </div>
 
             {heroImage ? (
-              <AppleCard>
-                <AppleCardHeader className="aspect-[16/10] border-b apple-border">
+              <Card>
+                <CardHeader className="relative aspect-[16/10] border-b border-black/10 p-0">
                   <Image src={heroImage} alt={data.festival.title} fill className="object-cover" />
-                </AppleCardHeader>
-              </AppleCard>
+                </CardHeader>
+              </Card>
             ) : null}
 
             {data.festival.description ? (
               <section className="space-y-4">
-                <Heading as="h2" size="h2">
-                  Описание
-                </Heading>
-                <Text
-                  variant="muted"
-                  className="max-w-[70ch] leading-7"
+                <h2 className="text-xl font-semibold">Описание</h2>
+                <p
+                  className="max-w-[70ch] text-sm text-neutral-600 leading-7"
                   style={{ display: "-webkit-box", WebkitLineClamp: 8, WebkitBoxOrient: "vertical", overflow: "hidden" }}
                 >
                   {data.festival.description}
-                </Text>
+                </p>
                 <details>
-                  <summary className="cursor-pointer text-sm font-semibold text-ink">Read more</summary>
-                  <Text variant="muted" className="mt-4 leading-7">
-                    {data.festival.description}
-                  </Text>
+                  <summary className="cursor-pointer text-sm font-semibold text-neutral-900">Read more</summary>
+                  <p className="mt-4 text-sm text-neutral-600 leading-7">{data.festival.description}</p>
                 </details>
               </section>
             ) : null}
@@ -114,14 +104,12 @@ export default async function Page({
 
             {data.festival.ticket_url || data.festival.website_url ? (
               <section className="space-y-4">
-                <Heading as="h2" size="h2">
-                  Линкове
-                </Heading>
+                <h2 className="text-xl font-semibold">Линкове</h2>
                 <div className="flex flex-col gap-2 text-sm">
                   {data.festival.website_url ? (
                     <a
                       href={data.festival.website_url}
-                      className="font-semibold text-ink"
+                      className="font-semibold text-neutral-900"
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -131,69 +119,73 @@ export default async function Page({
                   {data.festival.ticket_url ? (
                     <a
                       href={data.festival.ticket_url}
-                      className="font-semibold text-ink"
+                      className="font-semibold text-neutral-900"
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Билети {data.festival.price_range ? `· ${data.festival.price_range}` : ""}
+                      Билети {data.festival.price_range ? `• ${data.festival.price_range}` : ""}
                     </a>
                   ) : null}
                 </div>
               </section>
             ) : null}
-          </Stack>
+          </div>
 
-          <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-            <div className="rounded-[24px] border border-[color:var(--border2)] bg-[color:var(--surface)] p-6 shadow-[var(--shadow2)]">
-              <div className="space-y-4 text-sm">
-                <div>
-                  <span className="block text-xs uppercase tracking-widest text-ink/60">Дата</span>
-                  <span className="font-semibold text-ink">
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <Card>
+              <CardHeader className="border-b border-black/10">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-neutral-600">Информация</h2>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1 text-sm">
+                  <span className="block text-xs uppercase tracking-[0.2em] text-neutral-600">Дата</span>
+                  <span className="font-semibold text-neutral-900">
                     {formatDateRange(data.festival.start_date, data.festival.end_date)}
                   </span>
                 </div>
-                <div>
-                  <span className="block text-xs uppercase tracking-widest text-ink/60">Град</span>
-                  <span className="font-semibold text-ink">{data.festival.city ?? "Bulgaria"}</span>
+                <div className="space-y-1 text-sm">
+                  <span className="block text-xs uppercase tracking-[0.2em] text-neutral-600">Град</span>
+                  <span className="font-semibold text-neutral-900">{data.festival.city ?? "Bulgaria"}</span>
                 </div>
-                {data.festival.category ? (
-                  <div>
-                    <span className="block text-xs uppercase tracking-widest text-ink/60">Категория</span>
-                    <span className="font-semibold text-ink">{data.festival.category}</span>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="mt-6 flex flex-wrap gap-2">
-                <AppleButton variant="primary">Добави в план</AppleButton>
-                <AppleButton href={`https://www.google.com/maps/search/?api=1&query=${mapQuery}`}>
-                  Как да стигна
-                </AppleButton>
-              </div>
-
-              <div className="mt-6 space-y-2">
-                <span className="block text-xs uppercase tracking-widest text-ink/60">Напомняне</span>
-                <select className="w-full rounded-full border apple-border bg-[var(--surface)] px-4 py-2 text-sm">
-                  <option value="none">None</option>
-                  <option value="24h">24h before</option>
-                  <option value="same-day">Same day 09:00</option>
-                </select>
-              </div>
-            </div>
+                <div className="flex flex-wrap gap-2">
+                  {data.festival.is_free ? <Badge>Безплатно</Badge> : null}
+                  {data.festival.category ? <Badge variant="neutral">{data.festival.category}</Badge> : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="primary">Добави в план</Button>
+                  <form action="https://www.google.com/maps/search/" method="get" target="_blank" rel="noreferrer">
+                    <input type="hidden" name="api" value="1" />
+                    <input type="hidden" name="query" value={mapQuery} />
+                    <Button variant="secondary" type="submit">
+                      Навигация
+                    </Button>
+                  </form>
+                </div>
+                <div className="space-y-2">
+                  <span className="block text-xs uppercase tracking-[0.2em] text-neutral-600">Напомняне</span>
+                  <Select className="w-full">
+                    <option value="none">None</option>
+                    <option value="24h">24h before</option>
+                    <option value="same-day">Same day 09:00</option>
+                  </Select>
+                </div>
+              </CardContent>
+              <CardFooter className="pt-0">
+                <p className="text-xs text-neutral-600">Съхрани, за да не изпуснеш фестивала.</p>
+              </CardFooter>
+            </Card>
           </aside>
         </section>
 
         {moreInCity?.data?.length ? (
           <section className="space-y-6">
-            <Heading as="h2" size="h2">
-              More festivals in {data.festival.city}
-            </Heading>
+            <h2 className="text-xl font-semibold">More festivals in {data.festival.city}</h2>
             <FestivalGrid festivals={moreInCity.data.filter((festival) => festival.slug !== data.festival.slug)} />
           </section>
         ) : null}
 
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      </Stack>
+      </div>
     </Container>
   );
 }

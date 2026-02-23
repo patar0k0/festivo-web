@@ -105,7 +105,7 @@ export default async function HomePage() {
               <h2 className="text-2xl font-semibold tracking-tight"> </h2>
             </div>
             <Link href="/festivals" className="text-sm font-semibold text-neutral-600 hover:text-neutral-900">
-                >
+              Разгледай →
             </Link>
           </div>
 

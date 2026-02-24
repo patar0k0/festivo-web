@@ -14,6 +14,7 @@ type EventCardProps = {
   description?: string | null;
   showDetailsButton?: boolean;
   detailsHref?: string;
+  showDescription?: boolean;
 };
 
 function getDateBadge(date?: string | null) {
@@ -48,6 +49,7 @@ export default function EventCard({
   description,
   showDetailsButton = false,
   detailsHref,
+  showDescription = false,
 }: EventCardProps) {
   const badge = getDateBadge(startDate);
   const dateText = formatDateRange(startDate, endDate);
@@ -59,8 +61,17 @@ export default function EventCard({
         {imageUrl ? (
           <Image src={imageUrl} alt={title} fill className="object-cover" />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 text-sm text-neutral-500">
-            No image
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-100 text-sm text-neutral-500">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M4 5.5C4 4.67 4.67 4 5.5 4h13c.83 0 1.5.67 1.5 1.5v13c0 .83-.67 1.5-1.5 1.5h-13C4.67 20 4 19.33 4 18.5v-13Z"
+                stroke="currentColor"
+                strokeWidth="1.2"
+              />
+              <path d="M8 10.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" strokeWidth="1.2" />
+              <path d="m4 17 4.5-4.5 3.5 3.5 4.5-4.5L20 15.5" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+            <span>No image</span>
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -81,7 +92,7 @@ export default function EventCard({
             {locationText} • {dateText === "Dates TBA" ? "Дата: предстои" : dateText}
           </p>
         </div>
-        {snippet ? (
+        {showDescription && snippet ? (
           <p
             className="text-sm text-neutral-600"
             style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}

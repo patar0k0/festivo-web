@@ -1,10 +1,11 @@
-﻿import { format, parseISO } from "date-fns";
-import Badge from "@/components/ui/Badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+﻿import Link from "next/link";
+import StickySearchBar from "@/components/StickySearchBar";
+import ViewToggle from "@/components/ViewToggle";
 import Container from "@/components/ui/Container";
+import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
-import { getFestivals } from "@/lib/queries";
+import { listFestivals } from "@/lib/festivals";
 import { getBaseUrl } from "@/lib/seo";
 
 export const revalidate = 3600;
@@ -19,64 +20,64 @@ export async function generateMetadata() {
   };
 }
 
-function formatDateRange(start?: string | null, end?: string | null) {
-  if (!start) return "Dates TBA";
-  const startDate = parseISO(start);
-  if (!end || end === start) {
-    return format(startDate, "d MMM yyyy");
-  }
-  return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
-}
-
 export default async function MapPage({
   searchParams,
 }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   const filters = withDefaultFilters(parseFilters(searchParams));
-  const data = await getFestivals(filters, 1, 30);
+  const data = await listFestivals(filters, 1, 30);
 
   return (
     <div className="bg-white text-neutral-900">
-      <Section>
+      <Section className="py-10">
         <Container>
           <div className="space-y-6">
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Map</h1>
-              <p className="text-sm text-neutral-600 md:text-base">
-                Explore festivals by city with a clean, minimal map experience.
-              </p>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-neutral-400">Map</p>
+                <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Map view</h1>
+              </div>
+              <ViewToggle active="/map" filters={filters} />
+            </div>
+
+            <div className="sticky top-4 z-30">
+              <StickySearchBar initialFilters={filters} />
             </div>
 
             <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
               <div className="space-y-4">
                 {data.data.map((festival) => (
-                  <Card key={festival.slug}>
-                    <CardHeader>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {festival.is_free ? <Badge variant="primary">Free</Badge> : null}
-                        {festival.category ? <Badge variant="neutral">{festival.category}</Badge> : null}
-                      </div>
-                      <CardTitle>{festival.title}</CardTitle>
-                      <CardDescription>
-                        {festival.city ?? "Bulgaria"} • {formatDateRange(festival.start_date, festival.end_date)}
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
+                  <Link key={festival.slug} href={`/festival/${festival.slug}`} className="group">
+                    <EventCard
+                      title={festival.title}
+                      city={festival.city}
+                      category={festival.category}
+                      imageUrl={festival.image_url}
+                      startDate={festival.start_date}
+                      endDate={festival.end_date}
+                      isFree={festival.is_free}
+                    />
+                  </Link>
                 ))}
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Map coming soon</CardTitle>
-                  <CardDescription>We are preparing a lightweight map experience.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-neutral-200 text-sm text-neutral-600">
-                    Map placeholder
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="rounded-2xl border border-neutral-200 bg-white/80 p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-lg font-semibold">Map</h2>
+                  <button
+                    type="button"
+                    disabled
+                    title="Map not enabled yet"
+                    className="rounded-full border border-neutral-200 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-neutral-400"
+                  >
+                    Search this area
+                  </button>
+                </div>
+                <div className="mt-4 flex min-h-[300px] items-center justify-center rounded-2xl border border-dashed border-neutral-200 text-sm text-neutral-500">
+                  Map placeholder
+                </div>
+              </div>
             </div>
           </div>
         </Container>

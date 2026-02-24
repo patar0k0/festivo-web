@@ -2,7 +2,7 @@
 import { addDays, format, nextSaturday, nextSunday } from "date-fns";
 import CityIntro from "@/components/CityIntro";
 import FestivalGrid from "@/components/FestivalGrid";
-import { getCityFestivals, getFestivals } from "@/lib/queries";
+import { listFestivals, listFestivalsByCity } from "@/lib/festivals";
 import { cityMeta, getBaseUrl } from "@/lib/seo";
 import { toTitleCase } from "@/lib/utils";
 
@@ -29,8 +29,8 @@ export default async function CityPage({ params }: { params: { slug: string } })
   const weekendEnd = nextSunday(today);
 
   const [cityFestivals, weekend] = await Promise.all([
-    getCityFestivals(cityQuery, { city: [cityQuery], free: true }, 1, 12),
-    getFestivals(
+    listFestivalsByCity(cityQuery, { city: [cityQuery], free: true }, 1, 12),
+    listFestivals(
       {
         city: [cityQuery],
         from: format(weekendStart, "yyyy-MM-dd"),

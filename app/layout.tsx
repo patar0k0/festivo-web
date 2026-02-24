@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     default: "Festivo — Discover festivals in Bulgaria",
     template: "%s · Festivo",
   },
-  description: "Browse verified festivals, find dates, and plan weekends across Bulgaria.",
+  description: "Browse published festivals, find dates, and plan weekends across Bulgaria.",
 };
 
 export default function RootLayout({

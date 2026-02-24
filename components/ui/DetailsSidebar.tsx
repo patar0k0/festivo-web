@@ -1,14 +1,18 @@
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
+import OpenInAppButton from "@/components/OpenInAppButton";
+import QRCodeBlock from "@/components/QRCodeBlock";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 
 type DetailsSidebarProps = {
   dateText: string;
   venueText: string;
   mapHref?: string | null;
+  deepLink: string;
+  icsHref: string;
 };
 
-export default function DetailsSidebar({ dateText, venueText, mapHref }: DetailsSidebarProps) {
+export default function DetailsSidebar({ dateText, venueText, mapHref, deepLink, icsHref }: DetailsSidebarProps) {
   return (
     <div className="space-y-4">
       <Card>
@@ -45,12 +49,14 @@ export default function DetailsSidebar({ dateText, venueText, mapHref }: Details
           <CardTitle>Tickets</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Button variant="primary" size="lg" className="w-full" disabled>
-            Plan скоро
+          <OpenInAppButton deepLink={deepLink} />
+          <QRCodeBlock value={deepLink} />
+          <Button variant="secondary" size="lg" className="w-full" href={icsHref}>
+            Add to calendar (.ics)
           </Button>
           {mapHref ? (
             <Button variant="secondary" size="lg" className="w-full" href={mapHref}>
-              Open map
+              Navigation
             </Button>
           ) : null}
           <div className="space-y-2">

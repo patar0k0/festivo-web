@@ -21,7 +21,7 @@ export default function OpenInAppButton({ deepLink }: { deepLink: string }) {
   return (
     <button
       onClick={handleClick}
-      className="rounded-full bg-ink px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+      className="w-full rounded-xl bg-orange-500 px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-orange-600"
     >
       Open in app / Save to plan
     </button>

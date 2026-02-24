@@ -32,7 +32,7 @@ export default function HeroSearch() {
                 id="hero-city"
                 className="w-full px-4 py-4 text-sm text-ink focus:outline-none md:border-r md:border-neutral-200"
               >
-              <option>In</option>
+              <option>City</option>
               <option>Sofia</option>
               <option>Plovdiv</option>
               <option>Varna</option>

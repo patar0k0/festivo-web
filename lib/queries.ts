@@ -13,7 +13,7 @@ function applyFilters<T>(query: T, filters: Filters): T {
   const applied = withDefaultFilters(filters);
 
   let typedQuery = query as any;
-  typedQuery = typedQuery.eq("status", "verified");
+  typedQuery = typedQuery.eq("status", "published");
 
   if (applied.free !== undefined) {
     typedQuery = typedQuery.eq("is_free", applied.free);
@@ -97,7 +97,7 @@ export async function getFestivalBySlug(slug: string): Promise<Festival | null> 
     .from("festivals")
     .select(FESTIVAL_SELECT_DETAIL)
     .eq("slug", slug)
-    .eq("status", "verified")
+    .eq("status", "published")
     .maybeSingle();
 
   const festival = data as Festival | null;
@@ -218,7 +218,7 @@ export async function getCities(): Promise<string[]> {
   const { data, error } = await supabase
     .from("festivals")
     .select("city")
-    .eq("status", "verified")
+    .eq("status", "published")
     .returns<{ city: string | null }[]>();
 
   if (error) {
@@ -241,7 +241,7 @@ export async function getFestivalSlugs(): Promise<string[]> {
   const { data, error } = await supabase
     .from("festivals")
     .select("slug")
-    .eq("status", "verified")
+    .eq("status", "published")
     .returns<{ slug: string | null }[]>();
 
   if (error) {

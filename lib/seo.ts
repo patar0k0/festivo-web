@@ -16,14 +16,14 @@ export function festivalMeta(festival: Festival) {
 export function cityMeta(city: string) {
   return {
     title: `Festivals in ${city}`,
-    description: `Browse verified festivals happening in ${city}. Filter by date, category, and free entry.`,
+    description: `Browse published festivals happening in ${city}. Filter by date, category, and free entry.`,
   };
 }
 
 export function listMeta() {
   return {
     title: "Festivals",
-    description: "Browse verified festivals, filter by city and date, and plan your next weekend.",
+    description: "Browse published festivals, filter by city and date, and plan your next weekend.",
   };
 }
 

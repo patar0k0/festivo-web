@@ -9,10 +9,18 @@ export const FESTIVAL_SELECT_MIN =
 const FESTIVAL_SELECT_DETAIL =
   "id,title,slug,city,region,address,start_date,end_date,category,image_url,is_free,status,lat,lng,description,ticket_url,price_range,website_url";
 
-function applyFilters<T>(query: T, filters: Filters): T {
+type FilterQuery<T> = {
+  eq: (column: string, value: unknown) => T;
+  in: (column: string, values: readonly string[]) => T;
+  lte: (column: string, value: string) => T;
+  or: (filters: string) => T;
+  order: (column: string, options?: { ascending: boolean }) => T;
+};
+
+function applyFilters<T extends FilterQuery<T>>(query: T, filters: Filters): T {
   const applied = withDefaultFilters(filters);
 
-  let typedQuery = query as any;
+  let typedQuery = query;
   typedQuery = typedQuery.eq("status", "published");
 
   if (applied.free !== undefined) {
@@ -52,7 +60,7 @@ function applyFilters<T>(query: T, filters: Filters): T {
     typedQuery = typedQuery.order("start_date", { ascending: true });
   }
 
-  return typedQuery as T;
+  return typedQuery;
 }
 
 export async function getFestivals(filters: Filters, page = 1, pageSize = 12): Promise<PaginatedResult<Festival>> {

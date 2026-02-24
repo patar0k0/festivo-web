@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { addMonths, eachDayOfInterval, format, parseISO, startOfMonth } from "date-fns";
+import { notFound } from "next/navigation";
+import { addMonths, eachDayOfInterval, format, isValid, parseISO, startOfMonth } from "date-fns";
 import ViewToggle from "@/components/ViewToggle";
 import FestivalList from "@/components/FestivalList";
 import Container from "@/components/ui/Container";
@@ -35,6 +35,9 @@ export default async function CalendarMonthPage({
 }) {
   const filters = withDefaultFilters(parseFilters(searchParams));
   const { month } = params;
+  if (!/^\d{4}-\d{2}$/.test(month) || !isValid(parseISO(`${month}-01`))) {
+    return notFound();
+  }
   const data = await getCalendarMonth(month, filters);
 
   const monthStart = startOfMonth(parseISO(`${month}-01`));

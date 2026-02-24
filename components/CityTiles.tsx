@@ -1,4 +1,5 @@
-﻿import Link from "next/link";
+import Link from "next/link";
+import { slugify } from "@/lib/utils";
 
 export default function CityTiles({ cities }: { cities: string[] }) {
   return (
@@ -6,7 +7,7 @@ export default function CityTiles({ cities }: { cities: string[] }) {
       {cities.slice(0, 6).map((city) => (
         <Link
           key={city}
-          href={`/city/${encodeURIComponent(city.toLowerCase().replace(/\s+/g, "-"))}`}
+          href={`/city/${encodeURIComponent(slugify(city))}`}
           className="rounded-2xl border border-ink/10 bg-white/80 p-6 text-sm font-semibold uppercase tracking-widest text-ink shadow-soft"
         >
           {city}

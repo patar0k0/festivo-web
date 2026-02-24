@@ -14,6 +14,7 @@ import EventCard from "@/components/ui/EventCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { getCityFestivals, getFestivalBySlug, getFestivalDetail } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
+import { slugify } from "@/lib/utils";
 
 export const revalidate = 21600;
 
@@ -24,14 +25,6 @@ function formatDateRange(start?: string | null, end?: string | null) {
     return format(startDate, "d MMM yyyy");
   }
   return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
-}
-
-function slugifyCity(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -79,7 +72,7 @@ export default async function Page({
   const mapHref = mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : null;
   const deepLink = `festivo://festival/${data.festival.slug}`;
   const icsHref = `/festival/${data.festival.slug}/ics`;
-  const citySlug = data.festival.city ? slugifyCity(data.festival.city) : null;
+  const citySlug = data.festival.city ? slugify(data.festival.city) : null;
   const calendarMonth = data.festival.start_date ? format(parseISO(data.festival.start_date), "yyyy-MM") : null;
 
   return (
@@ -109,7 +102,7 @@ export default async function Page({
               )}
               <div className="absolute bottom-6 left-6 space-y-2 text-white">
                 <p className="text-sm text-white/80">
-                  {data.festival.city ? (
+                  {data.festival.city && citySlug ? (
                     <Link href={`/city/${citySlug}`} className="underline">
                       {data.festival.city}
                     </Link>

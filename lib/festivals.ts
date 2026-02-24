@@ -1,18 +1,11 @@
 import { Filters, Festival, PaginatedResult } from "@/lib/types";
 import { getCityFestivals, getFestivals, getFestivalBySlug, getCities } from "@/lib/queries";
+import { slugify } from "@/lib/utils";
 
 type City = {
   name: string;
   slug: string;
 };
-
-function slugifyCity(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
-}
 
 export async function listFestivals(
   filters: Filters,
@@ -28,7 +21,7 @@ export async function getFestivalDetailBySlug(slug: string): Promise<Festival | 
 
 export async function listCities(): Promise<City[]> {
   const cities = await getCities();
-  return cities.map((name) => ({ name, slug: slugifyCity(name) }));
+  return cities.map((name) => ({ name, slug: slugify(name) }));
 }
 
 export async function getCityBySlug(slug: string): Promise<City | null> {

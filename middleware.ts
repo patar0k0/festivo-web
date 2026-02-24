@@ -42,7 +42,7 @@ export function middleware(request: NextRequest) {
     response.cookies.set(COOKIE_NAME, "1", {
       maxAge: 60 * 60 * 24 * 30,
       httpOnly: true,
-      secure: true,
+      secure: nextUrl.protocol === "https:",
       sameSite: "lax",
       path: "/",
     });

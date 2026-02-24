@@ -2,6 +2,7 @@
 import { addMonths, format } from "date-fns";
 import { getCities, getFestivalSlugs } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
+import { slugify } from "@/lib/utils";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (process.env.FESTIVO_PUBLIC_MODE === "coming-soon") {
@@ -27,7 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const cityUrls = cities.map((city) => ({
-    url: `${baseUrl}/city/${encodeURIComponent(city.toLowerCase().replace(/\s+/g, "-"))}`,
+    url: `${baseUrl}/city/${encodeURIComponent(slugify(city))}`,
     lastModified: new Date(),
   }));
 

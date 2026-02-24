@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const childProcess = require("child_process");
 
 const originalSpawn = childProcess.spawn;

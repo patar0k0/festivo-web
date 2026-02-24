@@ -6,6 +6,10 @@ export function buildFestivalIcs(festival: Festival) {
   const start = festival.start_date ? parseISO(festival.start_date) : new Date();
   const end = festival.end_date ? parseISO(festival.end_date) : start;
   const endExclusive = addDays(end, 1);
+  const dtstamp = new Date()
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
 
   const lines = [
     "BEGIN:VCALENDAR",
@@ -14,7 +18,7 @@ export function buildFestivalIcs(festival: Festival) {
     "CALSCALE:GREGORIAN",
     "BEGIN:VEVENT",
     `UID:festivo-${festival.slug}`,
-    `DTSTAMP:${format(new Date(), "yyyyMMdd'T'HHmmss'Z'")}`,
+    `DTSTAMP:${dtstamp}`,
     `DTSTART;VALUE=DATE:${format(start, "yyyyMMdd")}`,
     `DTEND;VALUE=DATE:${format(endExclusive, "yyyyMMdd")}`,
     `SUMMARY:${escapeText(festival.title)}`,

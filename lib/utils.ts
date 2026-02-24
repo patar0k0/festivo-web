@@ -17,3 +17,14 @@ export function toTitleCase(value: string) {
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(" ");
 }
+
+export function slugify(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .trim()
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}

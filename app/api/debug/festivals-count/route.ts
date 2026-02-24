@@ -17,7 +17,7 @@ export async function GET() {
   const { count, error } = await supabase
     .from("festivals")
     .select("id", { count: "exact", head: true })
-    .eq("status", "published");
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true");
 
   if (error) {
     return NextResponse.json({ ok: false, count: null, error: error.message }, { status: 500 });

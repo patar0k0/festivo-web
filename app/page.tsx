@@ -118,7 +118,8 @@ export default async function HomePage() {
   }
 
   const hasAnyFestivals = weekendItems.length > 0 || nextItems.length > 0 || fallbackItems.length > 0;
-  const showDevEnvWarning = !configured && process.env.NODE_ENV !== "production";
+  const showEnvWarning = !configured;
+  const showEmptyState = configured && !hasAnyFestivals;
 
   return (
     <div className="bg-white text-neutral-900">
@@ -128,17 +129,17 @@ export default async function HomePage() {
         </Container>
       </Section>
 
-      {showDevEnvWarning ? (
+      {showEnvWarning ? (
         <Section className="py-6">
           <Container>
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              Supabase env is missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to load festivals.
+              Data source not configured.
             </div>
           </Container>
         </Section>
       ) : null}
 
-      {!hasAnyFestivals ? (
+      {showEmptyState ? (
         <Section className="py-12">
           <Container>
             <div className="rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 text-sm text-neutral-600">

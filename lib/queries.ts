@@ -9,6 +9,11 @@ export const FESTIVAL_SELECT_MIN =
 const FESTIVAL_SELECT_DETAIL =
   "id,title,slug,city,region,address,start_date,end_date,category,image_url,is_free,status,lat,lng,description,ticket_url,price_range,website_url";
 
+function applyPublicScope<T>(query: T): T {
+  const typedQuery = query as T & { or: (filters: string) => T };
+  return typedQuery.or("status.eq.published,status.eq.verified,is_verified.eq.true");
+}
+
 type FilterQuery<T> = {
   eq: (column: string, value: unknown) => T;
   in: (column: string, values: readonly string[]) => T;
@@ -25,10 +30,14 @@ function applyFilters<T extends FilterQuery<T>>(query: T, filters: Filters, opti
   const applied = options?.applyDefaults === false ? filters : withDefaultFilters(filters);
 
   let typedQuery = query;
-  typedQuery = typedQuery.eq("status", "published");
+  typedQuery = applyPublicScope(typedQuery);
 
   if (applied.free !== undefined) {
-    typedQuery = typedQuery.eq("is_free", applied.free);
+    if (applied.free) {
+      typedQuery = typedQuery.or("is_free.eq.true,is_free.is.null");
+    } else {
+      typedQuery = typedQuery.eq("is_free", false);
+    }
   }
 
   if (applied.city?.length) {
@@ -114,7 +123,7 @@ export async function getFestivalBySlug(slug: string): Promise<Festival | null> 
     .from("festivals")
     .select(FESTIVAL_SELECT_DETAIL)
     .eq("slug", slug)
-    .eq("status", "published")
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .maybeSingle();
 
   const festival = data as Festival | null;
@@ -235,7 +244,7 @@ export async function getCities(): Promise<string[]> {
   const { data, error } = await supabase
     .from("festivals")
     .select("city")
-    .eq("status", "published")
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .returns<{ city: string | null }[]>();
 
   if (error) {
@@ -258,7 +267,7 @@ export async function getFestivalSlugs(): Promise<string[]> {
   const { data, error } = await supabase
     .from("festivals")
     .select("slug")
-    .eq("status", "published")
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .returns<{ slug: string | null }[]>();
 
   if (error) {

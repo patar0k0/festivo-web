@@ -52,8 +52,7 @@ export default function Button({
   );
 
   if (href) {
-    const linkProps = { ...(props as LinkButtonProps) };
-    delete (linkProps as { href?: string }).href;
+    const { href: _href, ...linkProps } = props as LinkButtonProps;
     return (
       <Link href={href} className={baseClass} {...linkProps}>
         {children}

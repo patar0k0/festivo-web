@@ -1,8 +1,14 @@
 ﻿import Link from "next/link";
-import { addDays, format, nextSaturday, nextSunday } from "date-fns";
-import StickySearchBar from "@/components/StickySearchBar";
-import CategoryChips from "@/components/CategoryChips";
-import ViewToggle from "@/components/ViewToggle";
+import {
+  addDays,
+  endOfDay,
+  format,
+  isSaturday,
+  isSunday,
+  nextSaturday,
+  nextSunday,
+  startOfDay,
+} from "date-fns";
 import CityTiles from "@/components/CityTiles";
 import Container from "@/components/ui/Container";
 import HeroSearch from "@/components/ui/HeroSearch";
@@ -11,6 +17,7 @@ import Section from "@/components/ui/Section";
 import { listCities, listFestivals } from "@/lib/festivals";
 import { getBaseUrl } from "@/lib/seo";
 import { Filters } from "@/lib/types";
+import { getSupabaseEnv } from "@/lib/supabaseServer";
 
 export const revalidate = 21600;
 
@@ -24,35 +31,94 @@ export async function generateMetadata() {
   };
 }
 
+function getSofiaNow() {
+  const sofiaString = new Date().toLocaleString("en-US", { timeZone: "Europe/Sofia" });
+  return new Date(sofiaString);
+}
+
+function getWeekendRange(now: Date) {
+  const saturdayStart = isSaturday(now)
+    ? startOfDay(now)
+    : isSunday(now)
+      ? startOfDay(addDays(now, -1))
+      : startOfDay(nextSaturday(now));
+  const sundayEnd = isSunday(now)
+    ? endOfDay(now)
+    : endOfDay(nextSunday(now));
+  return { saturdayStart, sundayEnd };
+}
+
 export default async function HomePage() {
-  const today = new Date();
-  const weekendStart = nextSaturday(today);
-  const weekendEnd = nextSunday(today);
-  const next30Days = addDays(today, 30);
+  const { configured } = getSupabaseEnv();
+  const now = getSofiaNow();
+  const todayStart = startOfDay(now);
+  const next30End = endOfDay(addDays(todayStart, 30));
+  const { saturdayStart, sundayEnd } = getWeekendRange(now);
 
-  const baseFilters: Filters = { free: true };
+  const rangeFilters: Filters = {};
+  const noDefaultFilters = { applyDefaults: false };
 
-  const [weekendFestivals, nextFestivals, cities] = await Promise.all([
-    listFestivals(
-      {
-        ...baseFilters,
-        from: format(weekendStart, "yyyy-MM-dd"),
-        to: format(weekendEnd, "yyyy-MM-dd"),
-      },
-      1,
-      8
-    ),
-    listFestivals(
-      {
-        ...baseFilters,
-        from: format(today, "yyyy-MM-dd"),
-        to: format(next30Days, "yyyy-MM-dd"),
-      },
-      1,
-      8
-    ),
-    listCities(),
-  ]);
+  let weekendItems: Awaited<ReturnType<typeof listFestivals>>["data"] = [];
+  let nextItems: Awaited<ReturnType<typeof listFestivals>>["data"] = [];
+  let fallbackItems: Awaited<ReturnType<typeof listFestivals>>["data"] = [];
+  let cities: Awaited<ReturnType<typeof listCities>> = [];
+  let fetchFailed = false;
+
+  try {
+    const [weekendFestivals, nextFestivals, cityList] = await Promise.all([
+      listFestivals(
+        {
+          ...rangeFilters,
+          from: format(saturdayStart, "yyyy-MM-dd"),
+          to: format(sundayEnd, "yyyy-MM-dd"),
+        },
+        1,
+        8,
+        noDefaultFilters
+      ),
+      listFestivals(
+        {
+          ...rangeFilters,
+          from: format(todayStart, "yyyy-MM-dd"),
+          to: format(next30End, "yyyy-MM-dd"),
+        },
+        1,
+        8,
+        noDefaultFilters
+      ),
+      listCities(),
+    ]);
+
+    weekendItems = weekendFestivals.data;
+    nextItems = nextFestivals.data;
+    cities = cityList;
+
+    if (!weekendItems.length && nextItems.length) {
+      weekendItems = nextItems.slice(0, 8);
+    }
+
+    if (!nextItems.length) {
+      const upcoming = await listFestivals(
+        { from: format(todayStart, "yyyy-MM-dd") },
+        1,
+        12,
+        noDefaultFilters
+      );
+      fallbackItems = upcoming.data;
+      if (!weekendItems.length) {
+        weekendItems = upcoming.data.slice(0, 8);
+      }
+      if (!nextItems.length) {
+        nextItems = upcoming.data.slice(0, 8);
+      }
+    }
+  } catch (error) {
+    fetchFailed = true;
+    console.error("[HomePage] Failed to fetch festivals", error);
+  }
+
+  const hasAnyFestivals = weekendItems.length > 0 || nextItems.length > 0 || fallbackItems.length > 0;
+  const showDevEnvWarning = !configured && process.env.NODE_ENV !== "production";
 
   return (
     <div className="bg-white text-neutral-900">
@@ -62,83 +128,94 @@ export default async function HomePage() {
         </Container>
       </Section>
 
-      <Section className="py-10">
-        <Container>
-          <div className="sticky top-4 z-30 space-y-4">
-            <StickySearchBar initialFilters={baseFilters} />
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <CategoryChips filters={baseFilters} />
-              <ViewToggle active="/festivals" filters={baseFilters} />
+      {showDevEnvWarning ? (
+        <Section className="py-6">
+          <Container>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Supabase env is missing. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to load festivals.
             </div>
-          </div>
-        </Container>
-      </Section>
+          </Container>
+        </Section>
+      ) : null}
+
+      {!hasAnyFestivals ? (
+        <Section className="py-12">
+          <Container>
+            <div className="rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 text-sm text-neutral-600">
+              No festivals yet.
+              {fetchFailed ? " Please try again shortly." : ""}
+            </div>
+          </Container>
+        </Section>
+      ) : null}
+
+      {weekendItems.length > 0 ? (
+        <Section className="py-20">
+          <Container>
+            <div>
+              <p className="text-xs uppercase tracking-widest text-neutral-400">CURATED</p>
+              <h2 className="mt-2 text-3xl font-semibold">Избрано този уикенд</h2>
+              <div className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+                {weekendItems.map((festival) => (
+                  <Link key={festival.slug} href={`/festival/${festival.slug}`} className="group">
+                    <EventCard
+                      title={festival.title}
+                      city={festival.city}
+                      category={festival.category}
+                      imageUrl={festival.image_url}
+                      startDate={festival.start_date}
+                      endDate={festival.end_date}
+                      isFree={festival.is_free}
+                    />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </Container>
+        </Section>
+      ) : null}
+
+      {nextItems.length > 0 ? (
+        <Section className="py-20">
+          <Container>
+            <div>
+              <p className="text-xs uppercase tracking-widest text-neutral-400">NEXT 30 DAYS</p>
+              <h2 className="mt-2 text-3xl font-semibold">Следващи 30 дни</h2>
+              <div className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+                {nextItems.map((festival) => (
+                  <Link key={festival.slug} href={`/festival/${festival.slug}`} className="group">
+                    <EventCard
+                      title={festival.title}
+                      city={festival.city}
+                      category={festival.category}
+                      imageUrl={festival.image_url}
+                      startDate={festival.start_date}
+                      endDate={festival.end_date}
+                      isFree={festival.is_free}
+                    />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </Container>
+        </Section>
+      ) : null}
+
+      {cities.length > 0 ? (
+        <Section className="py-20">
+          <Container>
+            <div>
+              <p className="text-xs uppercase tracking-widest text-neutral-400">CITIES</p>
+              <h2 className="mt-2 text-3xl font-semibold">Открий по град</h2>
+              <div className="mt-10">
+                <CityTiles cities={cities.map((city) => city.name)} />
+              </div>
+            </div>
+          </Container>
+        </Section>
+      ) : null}
 
       <Section className="py-20">
-        <Container>
-          <div className="space-y-6">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-neutral-400">CURATED</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Избрано този уикенд</h2>
-            </div>
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {weekendFestivals.data.map((festival) => (
-                <Link key={festival.slug} href={`/festival/${festival.slug}`} className="group">
-                  <EventCard
-                    title={festival.title}
-                    city={festival.city}
-                    category={festival.category}
-                    imageUrl={festival.image_url}
-                    startDate={festival.start_date}
-                    endDate={festival.end_date}
-                    isFree={festival.is_free}
-                  />
-                </Link>
-              ))}
-            </div>
-          </div>
-        </Container>
-      </Section>
-
-      <Section className="py-20">
-        <Container>
-          <div className="space-y-6">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-neutral-400">NEXT 30 DAYS</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Следващи 30 дни</h2>
-            </div>
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              {nextFestivals.data.map((festival) => (
-                <Link key={festival.slug} href={`/festival/${festival.slug}`} className="group">
-                  <EventCard
-                    title={festival.title}
-                    city={festival.city}
-                    category={festival.category}
-                    imageUrl={festival.image_url}
-                    startDate={festival.start_date}
-                    endDate={festival.end_date}
-                    isFree={festival.is_free}
-                  />
-                </Link>
-              ))}
-            </div>
-          </div>
-        </Container>
-      </Section>
-
-      <Section className="py-20">
-        <Container>
-          <div className="space-y-6">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-neutral-400">CITIES</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Открий по град</h2>
-            </div>
-            <CityTiles cities={cities.map((city) => city.name)} />
-          </div>
-        </Container>
-      </Section>
-
-      <Section className="py-16">
         <Container>
           <div className="grid gap-6 md:grid-cols-2">
             <Link href="/calendar" className="rounded-2xl border border-neutral-200 bg-white/80 p-6">

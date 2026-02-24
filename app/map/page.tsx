@@ -1,6 +1,4 @@
 ﻿import Link from "next/link";
-import StickySearchBar from "@/components/StickySearchBar";
-import ViewToggle from "@/components/ViewToggle";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
@@ -33,16 +31,9 @@ export default async function MapPage({
       <Section className="py-10">
         <Container>
           <div className="space-y-6">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-neutral-400">Map</p>
-                <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Map view</h1>
-              </div>
-              <ViewToggle active="/map" filters={filters} />
-            </div>
-
-            <div className="sticky top-4 z-30">
-              <StickySearchBar initialFilters={filters} />
+            <div>
+              <p className="text-xs uppercase tracking-wider text-neutral-400">Map</p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Map view</h1>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">

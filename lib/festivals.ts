@@ -10,9 +10,10 @@ type City = {
 export async function listFestivals(
   filters: Filters,
   page = 1,
-  pageSize = 12
+  pageSize = 12,
+  options?: { applyDefaults?: boolean }
 ): Promise<PaginatedResult<Festival>> {
-  return getFestivals(filters, page, pageSize);
+  return getFestivals(filters, page, pageSize, options);
 }
 
 export async function getFestivalDetailBySlug(slug: string): Promise<Festival | null> {

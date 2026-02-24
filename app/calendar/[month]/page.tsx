@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { addMonths, eachDayOfInterval, format, isValid, parseISO, startOfMonth } from "date-fns";
-import ViewToggle from "@/components/ViewToggle";
 import FestivalList from "@/components/FestivalList";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
@@ -67,7 +66,6 @@ export default async function CalendarMonthPage({
                 {format(monthStart, "MMMM yyyy")}
               </Heading>
             </div>
-            <ViewToggle active="/calendar" filters={filters} />
           </div>
 
           <div className="flex flex-wrap items-center gap-3">

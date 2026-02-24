@@ -69,7 +69,7 @@ export default async function FestivalsPage({
               </div>
             </div>
 
-            <div className="sticky top-4 z-30 space-y-4">
+            <div className="space-y-4 lg:sticky lg:top-24 lg:z-30">
               <StickySearchBar initialFilters={filters} />
               <div className="flex flex-wrap items-center gap-3">
                 <CategoryChips filters={filters} />

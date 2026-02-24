@@ -17,8 +17,12 @@ type FilterQuery<T> = {
   order: (column: string, options?: { ascending: boolean }) => T;
 };
 
-function applyFilters<T extends FilterQuery<T>>(query: T, filters: Filters): T {
-  const applied = withDefaultFilters(filters);
+type FilterOptions = {
+  applyDefaults?: boolean;
+};
+
+function applyFilters<T extends FilterQuery<T>>(query: T, filters: Filters, options?: FilterOptions): T {
+  const applied = options?.applyDefaults === false ? filters : withDefaultFilters(filters);
 
   let typedQuery = query;
   typedQuery = typedQuery.eq("status", "published");
@@ -63,7 +67,12 @@ function applyFilters<T extends FilterQuery<T>>(query: T, filters: Filters): T {
   return typedQuery;
 }
 
-export async function getFestivals(filters: Filters, page = 1, pageSize = 12): Promise<PaginatedResult<Festival>> {
+export async function getFestivals(
+  filters: Filters,
+  page = 1,
+  pageSize = 12,
+  options?: FilterOptions
+): Promise<PaginatedResult<Festival>> {
   const supabase = supabaseServer();
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -79,7 +88,7 @@ export async function getFestivals(filters: Filters, page = 1, pageSize = 12): P
   }
 
   let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN, { count: "exact" });
-  query = applyFilters(query, filters);
+  query = applyFilters(query, filters, options);
   const { data, count, error } = await query.range(from, to).returns<Festival[]>();
 
   if (error) {

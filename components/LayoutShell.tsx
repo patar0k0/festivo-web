@@ -7,8 +7,9 @@ import SiteHeader from "@/components/SiteHeader";
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isComingSoon = pathname === "/coming-soon";
+  const isHome = pathname === "/";
 
-  if (isComingSoon) {
+  if (isComingSoon || isHome) {
     return <main>{children}</main>;
   }
 

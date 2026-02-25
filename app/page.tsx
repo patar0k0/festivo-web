@@ -1,235 +1,174 @@
-п»їimport Link from "next/link";
-import {
-  addDays,
-  endOfDay,
-  format,
-  isSaturday,
-  isSunday,
-  nextSaturday,
-  nextSunday,
-  startOfDay,
-} from "date-fns";
-import CityTiles from "@/components/CityTiles";
-import Container from "@/components/ui/Container";
-import HeroSearch from "@/components/ui/HeroSearch";
-import EventCard from "@/components/ui/EventCard";
-import Section from "@/components/ui/Section";
-import { listCities, listFestivals } from "@/lib/festivals";
-import { getBaseUrl } from "@/lib/seo";
-import { Filters } from "@/lib/types";
-import { getSupabaseEnv } from "@/lib/supabaseServer";
+"use client";
 
-export const revalidate = 21600;
+import { useMemo, useState } from "react";
+import Header from "@/components/landing/Header";
+import Hero from "@/components/landing/Hero";
+import SearchCard from "@/components/landing/SearchCard";
+import RadarStrip, { type RadarEvent } from "@/components/landing/RadarStrip";
+import Trails, { type Trail } from "@/components/landing/Trails";
+import Planner, { type PlanItem } from "@/components/landing/Planner";
+import AppCta from "@/components/landing/AppCta";
+import Footer from "@/components/landing/Footer";
+import "./landing.css";
 
-export async function generateMetadata() {
-  return {
-    title: "Festivo вЂ” Discover festivals in Bulgaria",
-    description: "Browse published festivals, find dates, and plan weekends across Bulgaria.",
-    alternates: {
-      canonical: `${getBaseUrl()}/`,
-    },
+const radarEvents: RadarEvent[] = [
+  {
+    title: "Sofia Summer Beats",
+    city: "София",
+    time: "Съб • 18:30",
+    place: "НДК парк",
+    vibe: "Party",
+    tags: ["weekend", "evening", "party"],
+    desc: "Открита сцена + локални артисти. Идеално за “после работа”.",
+  },
+  {
+    title: "Plovdiv Folk Weekend",
+    city: "Пловдив",
+    time: "Нд • 12:00",
+    place: "Стария град",
+    vibe: "Family",
+    tags: ["weekend", "family", "outdoor", "chill"],
+    desc: "Фолклор + занаяти. Дневно, спокойно, супер за деца.",
+  },
+  {
+    title: "Varna Street Food Days",
+    city: "Варна",
+    time: "Дн • 11:00",
+    place: "Морска градина",
+    vibe: "? Chill",
+    tags: ["today", "weekend", "outdoor", "chill"],
+    desc: "Вход свободен. Добър маршрут “храна + разходка” навън.",
+  },
+  {
+    title: "Burgas Art & Light Walk",
+    city: "Бургас",
+    time: "Пт • 20:00",
+    place: "Център",
+    vibe: "Culture",
+    tags: ["evening", "outdoor", "culture"],
+    desc: "Светлинни инсталации + маршрут. Културно и фотогенично.",
+  },
+];
+
+const trails: Trail[] = [
+  {
+    title: "София • 3 безплатни неща в събота",
+    description: "Дневно + пауза + вечерно. Лесно придвижване.",
+    steps: [
+      { time: "12:00", label: "Семейно навън" },
+      { time: "16:00", label: "Арт/Маркет" },
+      { time: "19:30", label: "Концерт FREE" },
+    ],
+  },
+  {
+    title: "Културна вечер пеша (център)",
+    description: "Фотогенично, спокойно, идеално “после работа”.",
+    steps: [
+      { time: "18:00", label: "Изложба" },
+      { time: "19:30", label: "Светлинна разходка" },
+      { time: "21:00", label: "Кино на открито" },
+    ],
+  },
+  {
+    title: "Семейно + навън (неделя)",
+    description: "Дневни събития, без напрежение. Подходящо за деца.",
+    steps: [
+      { time: "11:00", label: "Работилница" },
+      { time: "14:00", label: "Шоу/Сцена" },
+      { time: "17:00", label: "Парк & музика" },
+    ],
+  },
+];
+
+function normalize(value: string) {
+  return value.toLowerCase().trim();
+}
+
+export default function HomePage() {
+  const [query, setQuery] = useState("");
+  const [activeTag, setActiveTag] = useState("");
+  const [planItems, setPlanItems] = useState<PlanItem[]>([]);
+
+  const filteredEvents = useMemo(() => {
+    const needle = normalize(query);
+    return radarEvents.filter((event) => {
+      const matchesQuery =
+        !needle ||
+        normalize(event.title).includes(needle) ||
+        normalize(event.city).includes(needle) ||
+        normalize(event.place).includes(needle) ||
+        normalize(event.vibe).includes(needle);
+      const matchesTag = !activeTag || event.tags.includes(activeTag);
+      return matchesQuery && matchesTag;
+    });
+  }, [query, activeTag]);
+
+  const addPlanItem = (item: PlanItem) => {
+    setPlanItems((prev) => {
+      if (prev.some((entry) => entry.title === item.title)) {
+        return prev;
+      }
+      return [...prev, item].sort((a, b) => a.time.localeCompare(b.time));
+    });
   };
-}
 
-function getSofiaNow() {
-  const sofiaString = new Date().toLocaleString("en-US", { timeZone: "Europe/Sofia" });
-  return new Date(sofiaString);
-}
+  const handleAddRadar = (event: RadarEvent) => {
+    addPlanItem({
+      title: event.title,
+      time: event.time,
+      city: event.city,
+      place: event.place,
+      vibe: event.vibe,
+    });
+  };
 
-function getWeekendRange(now: Date) {
-  const saturdayStart = isSaturday(now)
-    ? startOfDay(now)
-    : isSunday(now)
-      ? startOfDay(addDays(now, -1))
-      : startOfDay(nextSaturday(now));
-  const sundayEnd = isSunday(now)
-    ? endOfDay(now)
-    : endOfDay(nextSunday(now));
-  return { saturdayStart, sundayEnd };
-}
+  const handleAddTrail = (trail: Trail) => {
+    const firstStep = trail.steps[0];
+    const city = trail.title.includes("•") ? trail.title.split("•")[0].trim() : "";
+    addPlanItem({
+      title: trail.title,
+      time: firstStep?.time ?? "12:00",
+      city: city || "-",
+      place: firstStep?.label ?? "Маршрут",
+      vibe: "Trail",
+    });
+  };
 
-export default async function HomePage() {
-  const { configured } = getSupabaseEnv();
-  const now = getSofiaNow();
-  const todayStart = startOfDay(now);
-  const next30End = endOfDay(addDays(todayStart, 30));
-  const { saturdayStart, sundayEnd } = getWeekendRange(now);
+  const handleRemovePlan = (title: string) => {
+    setPlanItems((prev) => prev.filter((item) => item.title !== title));
+  };
 
-  const rangeFilters: Filters = {};
-  const noDefaultFilters = { applyDefaults: false };
-
-  let weekendItems: Awaited<ReturnType<typeof listFestivals>>["data"] = [];
-  let nextItems: Awaited<ReturnType<typeof listFestivals>>["data"] = [];
-  let fallbackItems: Awaited<ReturnType<typeof listFestivals>>["data"] = [];
-  let cities: Awaited<ReturnType<typeof listCities>> = [];
-  let fetchFailed = false;
-
-  try {
-    const [weekendFestivals, nextFestivals, cityList] = await Promise.all([
-      listFestivals(
-        {
-          ...rangeFilters,
-          from: format(saturdayStart, "yyyy-MM-dd"),
-          to: format(sundayEnd, "yyyy-MM-dd"),
-        },
-        1,
-        8,
-        noDefaultFilters
-      ),
-      listFestivals(
-        {
-          ...rangeFilters,
-          from: format(todayStart, "yyyy-MM-dd"),
-          to: format(next30End, "yyyy-MM-dd"),
-        },
-        1,
-        8,
-        noDefaultFilters
-      ),
-      listCities(),
-    ]);
-
-    weekendItems = weekendFestivals.data;
-    nextItems = nextFestivals.data;
-    cities = cityList;
-
-    if (!weekendItems.length && nextItems.length) {
-      weekendItems = nextItems.slice(0, 8);
-    }
-
-    if (!nextItems.length) {
-      const upcoming = await listFestivals(
-        { from: format(todayStart, "yyyy-MM-dd") },
-        1,
-        12,
-        noDefaultFilters
-      );
-      fallbackItems = upcoming.data;
-      if (!weekendItems.length) {
-        weekendItems = upcoming.data.slice(0, 8);
-      }
-      if (!nextItems.length) {
-        nextItems = upcoming.data.slice(0, 8);
-      }
-    }
-  } catch (error) {
-    fetchFailed = true;
-    console.error("[HomePage] Failed to fetch festivals", error);
-  }
-
-  const hasAnyFestivals = weekendItems.length > 0 || nextItems.length > 0 || fallbackItems.length > 0;
-  const showEnvWarning = !configured;
-  const showEmptyState = configured && !hasAnyFestivals;
+  const handleReset = () => {
+    setQuery("");
+    setActiveTag("");
+  };
 
   return (
-    <div className="bg-white text-neutral-900">
-      <Section className="py-20">
-        <Container>
-          <HeroSearch />
-        </Container>
-      </Section>
-
-      {showEnvWarning ? (
-        <Section className="py-6">
-          <Container>
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              Data source not configured.
-            </div>
-          </Container>
-        </Section>
-      ) : null}
-
-      {showEmptyState ? (
-        <Section className="py-12">
-          <Container>
-            <div className="rounded-2xl border border-neutral-200 bg-white/80 px-4 py-3 text-sm text-neutral-600">
-              No festivals yet.
-              {fetchFailed ? " Please try again shortly." : ""}
-            </div>
-          </Container>
-        </Section>
-      ) : null}
-
-      {weekendItems.length > 0 ? (
-        <Section className="py-20">
-          <Container>
-            <div>
-              <p className="text-xs uppercase tracking-widest text-neutral-400">CURATED</p>
-              <h2 className="mt-2 text-3xl font-semibold">РР·Р±СЂР°РЅРѕ С‚РѕР·Рё СѓРёРєРµРЅРґ</h2>
-              <div className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                {weekendItems.map((festival) => (
-                  <Link key={festival.slug} href={`/festival/${festival.slug}`} className="group">
-                    <EventCard
-                      title={festival.title}
-                      city={festival.city}
-                      category={festival.category}
-                      imageUrl={festival.image_url}
-                      startDate={festival.start_date}
-                      endDate={festival.end_date}
-                      isFree={festival.is_free}
-                    />
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </Container>
-        </Section>
-      ) : null}
-
-      {nextItems.length > 0 ? (
-        <Section className="py-20">
-          <Container>
-            <div>
-              <p className="text-xs uppercase tracking-widest text-neutral-400">NEXT 30 DAYS</p>
-              <h2 className="mt-2 text-3xl font-semibold">РЎР»РµРґРІР°С‰Рё 30 РґРЅРё</h2>
-              <div className="mt-10 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                {nextItems.map((festival) => (
-                  <Link key={festival.slug} href={`/festival/${festival.slug}`} className="group">
-                    <EventCard
-                      title={festival.title}
-                      city={festival.city}
-                      category={festival.category}
-                      imageUrl={festival.image_url}
-                      startDate={festival.start_date}
-                      endDate={festival.end_date}
-                      isFree={festival.is_free}
-                    />
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </Container>
-        </Section>
-      ) : null}
-
-      {cities.length > 0 ? (
-        <Section className="py-20">
-          <Container>
-            <div>
-              <p className="text-xs uppercase tracking-widest text-neutral-400">CITIES</p>
-              <h2 className="mt-2 text-3xl font-semibold">РћС‚РєСЂРёР№ РїРѕ РіСЂР°Рґ</h2>
-              <div className="mt-10">
-                <CityTiles cities={cities.map((city) => city.name)} />
-              </div>
-            </div>
-          </Container>
-        </Section>
-      ) : null}
-
-      <Section className="py-20">
-        <Container>
-          <div className="grid gap-6 md:grid-cols-2">
-            <Link href="/calendar" className="rounded-2xl border border-neutral-200 bg-white/80 p-6">
-              <h3 className="text-lg font-semibold">РљР°Р»РµРЅРґР°СЂ</h3>
-              <p className="mt-2 text-sm text-neutral-600">Р Р°Р·РіР»РµРґР°Р№ СЃСЉР±РёС‚РёСЏС‚Р° РїРѕ РґРЅРё Рё РјРµСЃРµС†.</p>
-            </Link>
-            <Link href="/map" className="rounded-2xl border border-neutral-200 bg-white/80 p-6">
-              <h3 className="text-lg font-semibold">РљР°СЂС‚Р°</h3>
-              <p className="mt-2 text-sm text-neutral-600">Р’РёР¶ С„РµСЃС‚РёРІР°Р»РёС‚Рµ РѕРєРѕР»Рѕ С‚РµР±.</p>
-            </Link>
-          </div>
-        </Container>
-      </Section>
+    <div className="landing-bg min-h-screen text-[#0b1220]">
+      <Header />
+      <main>
+        <Hero />
+        <div className="mx-auto w-full max-w-[1180px] px-[18px]">
+          <SearchCard
+            query={query}
+            setQuery={setQuery}
+            activeTag={activeTag}
+            setActiveTag={setActiveTag}
+            shownCount={filteredEvents.length}
+            onReset={handleReset}
+          />
+        </div>
+        <RadarStrip
+          events={filteredEvents}
+          activeTag={activeTag}
+          shownCount={filteredEvents.length}
+          onAdd={handleAddRadar}
+        />
+        <Trails trails={trails} onAdd={handleAddTrail} />
+        <Planner items={planItems} onRemove={handleRemovePlan} onClear={() => setPlanItems([])} />
+        <AppCta />
+      </main>
+      <Footer />
     </div>
   );
 }

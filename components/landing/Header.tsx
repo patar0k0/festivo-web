@@ -1,4 +1,4 @@
-import Link from "next/link";
+п»їimport Link from "next/link";
 
 const containerClass = "mx-auto flex h-[66px] w-full max-w-[1180px] items-center justify-between gap-4 px-[18px]";
 
@@ -11,7 +11,7 @@ export default function Header() {
           <span>Festivo.bg</span>
         </Link>
 
-        <nav aria-label="Навигация" className="max-[980px]:hidden">
+        <nav aria-label="РќР°РІРёРіР°С†РёСЏ" className="max-[980px]:hidden">
           <ul className="flex items-center gap-2.5 text-sm font-extrabold text-black/60">
             <li>
               <Link href="#radar" className="rounded-xl px-2.5 py-2 transition hover:bg-black/5 hover:text-black">
@@ -25,12 +25,12 @@ export default function Header() {
             </li>
             <li>
               <Link href="#plan" className="rounded-xl px-2.5 py-2 transition hover:bg-black/5 hover:text-black">
-                План
+                РџР»Р°РЅ
               </Link>
             </li>
             <li>
               <Link href="#app" className="rounded-xl px-2.5 py-2 transition hover:bg-black/5 hover:text-black">
-                Приложение
+                РџСЂРёР»РѕР¶РµРЅРёРµ
               </Link>
             </li>
           </ul>
@@ -38,19 +38,19 @@ export default function Header() {
 
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-2.5 py-1.5 text-xs font-semibold text-black/60 shadow-[0_6px_18px_rgba(12,18,32,0.05)]">
-            само FREE
+            СЃР°РјРѕ FREE
           </span>
           <Link
             href="/festival/demo"
             className="inline-flex h-[42px] items-center justify-center gap-2 rounded-[14px] bg-gradient-to-br from-violet-600 to-cyan-500 px-3.5 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(124,58,237,0.22),0_10px_18px_rgba(6,182,212,0.14)] transition hover:-translate-y-0.5"
           >
-            Пример детайл
+            РџСЂРёРјРµСЂ РґРµС‚Р°Р№Р»
           </Link>
           <button
             type="button"
             className="inline-flex h-[42px] items-center justify-center gap-2 rounded-[14px] border border-black/10 bg-white/70 px-3.5 text-sm font-extrabold shadow-[0_6px_18px_rgba(12,18,32,0.06)] transition hover:-translate-y-0.5 hover:border-black/20 hover:bg-white/90"
           >
-            Добави фестивал
+            Р”РѕР±Р°РІРё С„РµСЃС‚РёРІР°Р»
           </button>
         </div>
       </div>

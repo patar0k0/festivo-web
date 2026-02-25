@@ -1,4 +1,4 @@
-type PlanItem = {
+п»їtype PlanItem = {
   title: string;
   time: string;
   city: string;
@@ -25,18 +25,18 @@ export default function Planner({ items, onRemove, onClear }: Props) {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Weekend Planner</h2>
-            <p className="text-xs text-black/60">Добави 2–3 събития > тук става готовият план.</p>
+            <p className="text-xs text-black/60">Р”РѕР±Р°РІРё 2-3 СЃСЉР±РёС‚РёСЏ -> С‚СѓРє СЃС‚Р°РІР° РіРѕС‚РѕРІРёСЏС‚ РїР»Р°РЅ.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className={chipClass}>{items.length} избрани</span>
+            <span className={chipClass}>{items.length} РёР·Р±СЂР°РЅРё</span>
             <button type="button" className={buttonClass} onClick={onClear}>
-              Изчисти
+              РР·С‡РёСЃС‚Рё
             </button>
             <button
               type="button"
               className="inline-flex h-[42px] items-center justify-center gap-2 rounded-[14px] bg-gradient-to-br from-violet-600 to-cyan-500 px-3.5 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(124,58,237,0.22),0_10px_18px_rgba(6,182,212,0.14)] transition hover:-translate-y-0.5"
             >
-              Напомни всички
+              РќР°РїРѕРјРЅРё РІСЃРёС‡РєРё
             </button>
           </div>
         </div>
@@ -45,15 +45,15 @@ export default function Planner({ items, onRemove, onClear }: Props) {
           <div className="overflow-hidden rounded-[28px] border border-black/10 bg-white/75 shadow-[0_18px_50px_rgba(12,18,32,0.1)] backdrop-blur-xl">
             <div className="flex items-center justify-between gap-2 border-b border-black/10 bg-white/55 px-3.5 py-3">
               <div>
-                <b className="tracking-tight">Твоят план</b>
-                <div className="text-xs text-black/60">Подреждаме по час (демо).</div>
+                <b className="tracking-tight">РўРІРѕСЏС‚ РїР»Р°РЅ</b>
+                <div className="text-xs text-black/60">РџРѕРґСЂРµР¶РґР°РјРµ РїРѕ С‡Р°СЃ (РґРµРјРѕ).</div>
               </div>
-              <span className={chipClass}>маршрут</span>
+              <span className={chipClass}>РјР°СЂС€СЂСѓС‚</span>
             </div>
             <div className="p-3.5">
               {items.length === 0 ? (
                 <div className="rounded-[18px] border border-dashed border-black/20 bg-white/65 p-3.5 text-center text-sm text-black/70">
-                  Натисни “? В план” на 2–3 събития от Radar/Trails.
+                  РќР°С‚РёСЃРЅРё "+ Р’ РїР»Р°РЅ" РЅР° 2-3 СЃСЉР±РёС‚РёСЏ РѕС‚ Radar/Trails.
                 </div>
               ) : (
                 <div className="flex flex-col gap-2.5">
@@ -66,16 +66,16 @@ export default function Planner({ items, onRemove, onClear }: Props) {
                       <div className="flex flex-col">
                         <b className="tracking-tight">{item.title}</b>
                         <span className="text-xs text-black/60">
-                          {item.city} • {item.place} • vibe: {item.vibe}
+                          {item.city} вЂў {item.place} вЂў vibe: {item.vibe}
                         </span>
                       </div>
                       <button
                         type="button"
                         className="grid h-[38px] w-[38px] place-items-center rounded-[14px] border border-black/10 bg-white/85 shadow-[0_8px_18px_rgba(12,18,32,0.05)] transition hover:border-black/20 max-[560px]:hidden"
                         onClick={() => onRemove(item.title)}
-                        aria-label={`Премахни ${item.title}`}
+                        aria-label={`РџСЂРµРјР°С…РЅРё ${item.title}`}
                       >
-                        ?
+                        x
                       </button>
                     </div>
                   ))}
@@ -84,12 +84,15 @@ export default function Planner({ items, onRemove, onClear }: Props) {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[28px] border border-black/10 bg-white/75 shadow-[0_18px_50px_rgba(12,18,32,0.1)] backdrop-blur-xl" id="app">
+          <div
+            className="overflow-hidden rounded-[28px] border border-black/10 bg-white/75 shadow-[0_18px_50px_rgba(12,18,32,0.1)] backdrop-blur-xl"
+            id="app"
+          >
             <div className="flex items-center justify-between gap-2 border-b border-black/10 bg-white/55 px-3.5 py-3">
               <div>
-                <b className="tracking-tight">Приложение</b>
+                <b className="tracking-tight">РџСЂРёР»РѕР¶РµРЅРёРµ</b>
                 <div className="text-xs text-black/60">
-                  Нотификации с контрол: 24ч + 2ч, уикенд дайджест, ново наблизо.
+                  РќРѕС‚РёС„РёРєР°С†РёРё СЃ РєРѕРЅС‚СЂРѕР»: 24С‡ + 2С‡, СѓРёРєРµРЅРґ РґР°Р№РґР¶РµСЃС‚, РЅРѕРІРѕ РЅР°Р±Р»РёР·Рѕ.
                 </div>
               </div>
               <span className={chipClass}>&nbsp;</span>
@@ -109,12 +112,12 @@ export default function Planner({ items, onRemove, onClear }: Props) {
                   Android
                 </button>
                 <button type="button" className={buttonClass}>
-                  Настройки
+                  РќР°СЃС‚СЂРѕР№РєРё
                 </button>
               </div>
               <div className="h-3" />
               <div className="text-xs text-black/60">
-                UX: “ Напомни всички” > deep link към app, за да настроиш напомнянията наведнъж.
+                UX: " РќР°РїРѕРјРЅРё РІСЃРёС‡РєРё" -> deep link РєСЉРј app, Р·Р° РґР° РЅР°СЃС‚СЂРѕРёС€ РЅР°РїРѕРјРЅСЏРЅРёСЏС‚Р° РЅР°РІРµРґРЅСЉР¶.
               </div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import Link from "next/link";
+п»їimport Link from "next/link";
 
 type TrailStep = {
   time: string;
@@ -28,12 +28,12 @@ export default function Trails({ trails, onAdd }: Props) {
       <div className="mx-auto w-full max-w-[1180px] px-[18px]">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight">Trails (готови маршрути)</h2>
-            <p className="text-xs text-black/60">Това е редакторската стойност. Не “още един календар”.</p>
+            <h2 className="text-xl font-semibold tracking-tight">Trails (РіРѕС‚РѕРІРё РјР°СЂС€СЂСѓС‚Рё)</h2>
+            <p className="text-xs text-black/60">РўРѕРІР° Рµ СЂРµРґР°РєС‚РѕСЂСЃРєР°С‚Р° СЃС‚РѕР№РЅРѕСЃС‚. РќРµ "РѕС‰Рµ РµРґРёРЅ РєР°Р»РµРЅРґР°СЂ".</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className={chipClass}>? подбрано</span>
-            <span className={chipClass}>готов ден</span>
+            <span className={chipClass}>РїРѕРґР±СЂР°РЅРѕ</span>
+            <span className={chipClass}>РіРѕС‚РѕРІ РґРµРЅ</span>
           </div>
         </div>
 
@@ -58,13 +58,13 @@ export default function Trails({ trails, onAdd }: Props) {
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={buttonClass} onClick={() => onAdd(trail)}>
-                  ? В план
+                  + Р’ РїР»Р°РЅ
                 </button>
                 <Link
                   href="/festival/demo"
                   className="inline-flex h-[42px] items-center justify-center gap-2 rounded-[14px] bg-gradient-to-br from-violet-600 to-cyan-500 px-3.5 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(124,58,237,0.22),0_10px_18px_rgba(6,182,212,0.14)] transition hover:-translate-y-0.5"
                 >
-                  Отвори
+                  РћС‚РІРѕСЂРё
                 </Link>
               </div>
             </div>

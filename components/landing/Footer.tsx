@@ -1,4 +1,4 @@
-import Link from "next/link";
+п»їimport Link from "next/link";
 
 export default function Footer() {
   return (
@@ -9,7 +9,7 @@ export default function Footer() {
             <span className="h-[34px] w-[34px] rounded-[12px] border border-white/70 bg-gradient-to-br from-violet-600/95 to-cyan-500/95 shadow-[0_14px_30px_rgba(124,58,237,0.18)]" aria-hidden="true" />
             <span>Festivo.bg</span>
           </div>
-          <div className="text-xs">Само безплатни фестивали. Radar > План > Напомняне.</div>
+          <div className="text-xs">РЎР°РјРѕ Р±РµР·РїР»Р°С‚РЅРё С„РµСЃС‚РёРІР°Р»Рё. Radar -> РџР»Р°РЅ -> РќР°РїРѕРјРЅСЏРЅРµ.</div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Link
@@ -28,10 +28,10 @@ export default function Footer() {
             href="#plan"
             className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-2.5 py-1.5 text-xs font-semibold text-black/60 shadow-[0_6px_18px_rgba(12,18,32,0.05)]"
           >
-            План
+            РџР»Р°РЅ
           </Link>
           <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-2.5 py-1.5 text-xs font-semibold text-black/60 shadow-[0_6px_18px_rgba(12,18,32,0.05)]">
-            © 2026
+            В© 2026
           </span>
         </div>
       </div>

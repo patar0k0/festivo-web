@@ -1,4 +1,4 @@
-import Link from "next/link";
+п»їimport Link from "next/link";
 
 type RadarEvent = {
   title: string;
@@ -33,14 +33,12 @@ export default function RadarStrip({ events, activeTag, shownCount, onAdd }: Pro
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Festival Radar</h2>
-            <p className="text-xs text-black/60">
-              Хоризонтални карти (swipe feel). Основното действие е “? В план”.
-            </p>
+            <p className="text-xs text-black/60">РҐРѕСЂРёР·РѕРЅС‚Р°Р»РЅРё РєР°СЂС‚Рё (swipe feel). РћСЃРЅРѕРІРЅРѕС‚Рѕ РґРµР№СЃС‚РІРёРµ Рµ "+ Р’ РїР»Р°РЅ".</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <span className={chipClass}>Филтър: {activeTag || "няма"}</span>
+            <span className={chipClass}>Р¤РёР»С‚СЉСЂ: {activeTag || "РЅСЏРјР°"}</span>
             <Link href="/festival/demo" className={`${buttonClass} bg-white/50 shadow-none`}>
-              Отвори детайл
+              РћС‚РІРѕСЂРё РґРµС‚Р°Р№Р»
             </Link>
           </div>
         </div>
@@ -64,17 +62,17 @@ export default function RadarStrip({ events, activeTag, shownCount, onAdd }: Pro
                   <p className="mb-3 text-xs text-black/60">{event.desc}</p>
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-black/10 pt-3">
                     <span className="inline-flex items-center gap-2 rounded-[14px] border border-black/10 bg-white/90 px-2.5 py-2 text-xs text-black/60 shadow-[0_8px_18px_rgba(12,18,32,0.05)]">
-                      {event.vibe} • {event.place}
+                      {event.vibe} вЂў {event.place}
                     </span>
                     <div className="flex flex-wrap gap-2">
                       <button type="button" className={buttonClass} onClick={() => onAdd(event)}>
-                        ? В план
+                        + Р’ РїР»Р°РЅ
                       </button>
                       <Link
                         href="/festival/demo"
                         className="inline-flex h-[42px] items-center justify-center gap-2 rounded-[14px] bg-gradient-to-br from-violet-600 to-cyan-500 px-3.5 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(124,58,237,0.22),0_10px_18px_rgba(6,182,212,0.14)] transition hover:-translate-y-0.5"
                       >
-                        Детайли
+                        Р”РµС‚Р°Р№Р»Рё
                       </Link>
                     </div>
                   </div>
@@ -83,12 +81,12 @@ export default function RadarStrip({ events, activeTag, shownCount, onAdd }: Pro
             ))}
             {events.length === 0 ? (
               <div className="flex min-h-[200px] w-full items-center justify-center text-sm text-black/60">
-                Няма събития по текущия филтър.
+                РќСЏРјР° СЃСЉР±РёС‚РёСЏ РїРѕ С‚РµРєСѓС‰РёСЏ С„РёР»С‚СЉСЂ.
               </div>
             ) : null}
           </div>
         </div>
-        <div className="sr-only">Показани: {shownCount}</div>
+        <div className="sr-only">РџРѕРєР°Р·Р°РЅРё: {shownCount}</div>
       </div>
     </section>
   );

@@ -68,7 +68,7 @@ export default function SearchCard({ query, setQuery, activeTag, setActiveTag, s
               );
             })}
           </div>
-          <div className="text-xs text-black/60">Фокусът е: избери 2-3 -> отдолу се появява готов план.</div>
+          <div className="text-xs text-black/60">Фокусът е: избери 2-3 → отдолу се появява готов план.</div>
         </div>
       </div>
     </div>

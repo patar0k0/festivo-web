@@ -25,7 +25,7 @@ export default function Planner({ items, onRemove, onClear }: Props) {
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold tracking-tight">Weekend Planner</h2>
-            <p className="text-xs text-black/60">Добави 2-3 събития -> тук става готовият план.</p>
+            <p className="text-xs text-black/60">Добави 2-3 събития → тук става готовият план.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className={chipClass}>{items.length} избрани</span>
@@ -117,7 +117,7 @@ export default function Planner({ items, onRemove, onClear }: Props) {
               </div>
               <div className="h-3" />
               <div className="text-xs text-black/60">
-                UX: " Напомни всички" -> deep link към app, за да настроиш напомнянията наведнъж.
+                UX: " Напомни всички" → deep link към app, за да настроиш напомнянията наведнъж.
               </div>
             </div>
           </div>

@@ -9,7 +9,7 @@ export default function Footer() {
             <span className="h-[34px] w-[34px] rounded-[12px] border border-white/70 bg-gradient-to-br from-violet-600/95 to-cyan-500/95 shadow-[0_14px_30px_rgba(124,58,237,0.18)]" aria-hidden="true" />
             <span>Festivo.bg</span>
           </div>
-          <div className="text-xs">Само безплатни фестивали. Radar -> План -> Напомняне.</div>
+          <div className="text-xs">Само безплатни фестивали. Radar → План → Напомняне.</div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Link

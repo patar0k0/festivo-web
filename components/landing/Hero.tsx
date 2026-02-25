@@ -20,7 +20,7 @@ export default function Hero() {
               </h1>
               <p className="mt-2 max-w-[70ch] text-base text-black/60">
                 Само безплатни фестивали. Избираш 2-3 от Radar, и ти сглобяваме готов ден. После: напомняне в
-                приложението -> отиваш.
+                приложението → отиваш.
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-2.5">
                 <Link

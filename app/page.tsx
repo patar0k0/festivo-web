@@ -1,55 +1,16 @@
-﻿"use client";
-
-import { useMemo, useState } from "react";
+import { getFestivals } from "@/lib/queries";
+import { withDefaultFilters } from "@/lib/filters";
+import { format, parseISO } from "date-fns";
 import Header from "@/components/landing/Header";
 import Hero from "@/components/landing/Hero";
-import SearchCard from "@/components/landing/SearchCard";
-import RadarStrip, { type RadarEvent } from "@/components/landing/RadarStrip";
-import Trails, { type Trail } from "@/components/landing/Trails";
-import Planner, { type PlanItem } from "@/components/landing/Planner";
+import Trails from "@/components/landing/Trails";
 import AppCta from "@/components/landing/AppCta";
 import Footer from "@/components/landing/Footer";
+import LandingClient from "@/components/landing/LandingClient";
+import type { Trail } from "@/components/landing/Trails";
 import "./landing.css";
 
-const radarEvents: RadarEvent[] = [
-  {
-    title: "Sofia Summer Beats",
-    city: "София",
-    time: "Съб • 18:30",
-    place: "НДК парк",
-    vibe: "Party",
-    tags: ["weekend", "evening", "party"],
-    desc: "Открита сцена + локални артисти. Идеално за “после работа”.",
-  },
-  {
-    title: "Plovdiv Folk Weekend",
-    city: "Пловдив",
-    time: "Нд • 12:00",
-    place: "Стария град",
-    vibe: "Family",
-    tags: ["weekend", "family", "outdoor", "chill"],
-    desc: "Фолклор + занаяти. Дневно, спокойно, супер за деца.",
-  },
-  {
-    title: "Varna Street Food Days",
-    city: "Варна",
-    time: "Дн • 11:00",
-    place: "Морска градина",
-    vibe: "✨ Chill",
-    tags: ["today", "weekend", "outdoor", "chill"],
-    desc: "Вход свободен. Добър маршрут “храна + разходка” навън.",
-  },
-  {
-    title: "Burgas Art & Light Walk",
-    city: "Бургас",
-    time: "Пт • 20:00",
-    place: "Център",
-    vibe: "Culture",
-    tags: ["evening", "outdoor", "culture"],
-    desc: "Светлинни инсталации + маршрут. Културно и фотогенично.",
-  },
-];
-
+// Trails остават редакторски — hard-coded е ок
 const trails: Trail[] = [
   {
     title: "София • 3 безплатни неща в събота",
@@ -62,7 +23,7 @@ const trails: Trail[] = [
   },
   {
     title: "Културна вечер пеша (център)",
-    description: "Фотогенично, спокойно, идеално “после работа”.",
+    description: "Фотогенично, спокойно, идеално "после работа".",
     steps: [
       { time: "18:00", label: "Изложба" },
       { time: "19:30", label: "Светлинна разходка" },
@@ -80,92 +41,95 @@ const trails: Trail[] = [
   },
 ];
 
-function normalize(value: string) {
-  return value.toLowerCase().trim();
+/** Map category → vibe label за RadarStrip */
+function categoryToVibe(category?: string | null): string {
+  const map: Record<string, string> = {
+    music: "Party",
+    party: "Party",
+    folk: "Family",
+    family: "Family",
+    food: "✨ Chill",
+    chill: "✨ Chill",
+    art: "Culture",
+    culture: "Culture",
+    theatre: "Culture",
+    film: "Culture",
+    sport: "Family",
+    outdoor: "✨ Chill",
+  };
+  return map[category?.toLowerCase() ?? ""] ?? "✨ Chill";
 }
 
-export default function HomePage() {
-  const [query, setQuery] = useState("");
-  const [activeTag, setActiveTag] = useState("");
-  const [planItems, setPlanItems] = useState<PlanItem[]>([]);
+/** Map category → quick-filter tags */
+function categoryToTags(
+  category?: string | null,
+  startDate?: string | null
+): string[] {
+  const tags: string[] = [];
+  const vibe = categoryToVibe(category);
+  if (vibe === "Party") tags.push("party");
+  if (vibe === "Family") tags.push("family");
+  if (vibe === "✨ Chill") tags.push("chill");
+  if (vibe === "Culture") tags.push("culture");
 
-  const filteredEvents = useMemo(() => {
-    const needle = normalize(query);
-    return radarEvents.filter((event) => {
-      const matchesQuery =
-        !needle ||
-        normalize(event.title).includes(needle) ||
-        normalize(event.city).includes(needle) ||
-        normalize(event.place).includes(needle) ||
-        normalize(event.vibe).includes(needle);
-      const matchesTag = !activeTag || event.tags.includes(activeTag);
-      return matchesQuery && matchesTag;
-    });
-  }, [query, activeTag]);
+  // date-based tags
+  if (startDate) {
+    try {
+      const d = parseISO(startDate);
+      const day = d.getDay(); // 0=Sun, 6=Sat
+      if (day === 0 || day === 6) tags.push("weekend");
+      const hour = d.getHours();
+      if (hour >= 17) tags.push("evening");
+    } catch {
+      // ignore
+    }
+  }
 
-  const addPlanItem = (item: PlanItem) => {
-    setPlanItems((prev) => {
-      if (prev.some((entry) => entry.title === item.title)) {
-        return prev;
-      }
-      return [...prev, item].sort((a, b) => a.time.localeCompare(b.time));
-    });
-  };
+  tags.push("outdoor"); // reasonable default for festivals
+  return tags;
+}
 
-  const handleAddRadar = (event: RadarEvent) => {
-    addPlanItem({
-      title: event.title,
-      time: event.time,
-      city: event.city,
-      place: event.place,
-      vibe: event.vibe,
-    });
-  };
+/** Format start_date → human readable BG time string */
+function formatTime(startDate?: string | null): string {
+  if (!startDate) return "";
+  try {
+    const d = parseISO(startDate);
+    const dayNames = ["Нд", "Пн", "Вт", "Ср", "Чт", "Пт", "Съб"];
+    const day = dayNames[d.getDay()];
+    return `${day} • ${format(d, "HH:mm")}`;
+  } catch {
+    return "";
+  }
+}
 
-  const handleAddTrail = (trail: Trail) => {
-    const firstStep = trail.steps[0];
-    const city = trail.title.includes("•") ? trail.title.split("•")[0].trim() : "";
-    addPlanItem({
-      title: trail.title,
-      time: firstStep?.time ?? "12:00",
-      city: city || "-",
-      place: firstStep?.label ?? "Маршрут",
-      vibe: "Trail",
-    });
-  };
+export default async function HomePage() {
+  // Зареждаме до 12 предстоящи безплатни фестивала
+  const today = format(new Date(), "yyyy-MM-dd");
+  const { data: festivals } = await getFestivals(
+    withDefaultFilters({ from: today, free: true }),
+    1,
+    12,
+    { applyDefaults: false }
+  ).catch(() => ({ data: [] }));
 
-  const handleRemovePlan = (title: string) => {
-    setPlanItems((prev) => prev.filter((item) => item.title !== title));
-  };
-
-  const handleReset = () => {
-    setQuery("");
-    setActiveTag("");
-  };
+  // Трансформираме Festival[] → RadarEvent[]
+  const radarEvents = festivals.map((f) => ({
+    title: f.title,
+    city: f.city ?? "България",
+    time: formatTime(f.start_date),
+    place: f.address ?? f.city ?? "",
+    vibe: categoryToVibe(f.category),
+    tags: categoryToTags(f.category, f.start_date),
+    desc: f.description?.slice(0, 120) ?? "Безплатен фестивал.",
+    slug: f.slug,
+  }));
 
   return (
-    <div className="landing-bg min-h-screen text-[#0b1220]">
+    <div className="landing-bg min-h-screen text-[#0c0e14]">
       <Header />
       <main>
         <Hero />
-        <div className="mx-auto w-full max-w-[1180px] px-[18px]">
-          <SearchCard
-            query={query}
-            setQuery={setQuery}
-            activeTag={activeTag}
-            setActiveTag={setActiveTag}
-            shownCount={filteredEvents.length}
-            onReset={handleReset}
-          />
-        </div>
-        <RadarStrip
-          events={filteredEvents}
-          activeTag={activeTag}
-          shownCount={filteredEvents.length}
-          onAdd={handleAddRadar}
-        />
-        <Trails trails={trails} onAdd={handleAddTrail} />
-        <Planner items={planItems} onRemove={handleRemovePlan} onClear={() => setPlanItems([])} />
+        <LandingClient initialEvents={radarEvents} trails={trails} />
         <AppCta />
       </main>
       <Footer />

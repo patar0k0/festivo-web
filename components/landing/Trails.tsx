@@ -1,11 +1,11 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 type TrailStep = {
   time: string;
   label: string;
 };
 
-type Trail = {
+export type Trail = {
   title: string;
   description: string;
   steps: TrailStep[];
@@ -16,53 +16,66 @@ type Props = {
   onAdd: (trail: Trail) => void;
 };
 
-const chipClass =
-  "inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-2.5 py-1.5 text-xs font-semibold text-black/60 shadow-[0_6px_18px_rgba(12,18,32,0.05)]";
-
-const buttonClass =
-  "inline-flex h-[42px] items-center justify-center gap-2 rounded-[14px] border border-black/10 bg-white/70 px-3.5 text-sm font-extrabold shadow-[0_6px_18px_rgba(12,18,32,0.06)] transition hover:-translate-y-0.5 hover:border-black/20 hover:bg-white/90";
-
 export default function Trails({ trails, onAdd }: Props) {
   return (
     <section className="py-4" id="trails">
       <div className="mx-auto w-full max-w-[1180px] px-[18px]">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        {/* Header */}
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight">Trails (готови маршрути)</h2>
-            <p className="text-xs text-black/60">Това е редакторската стойност. Не "още един календар".</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={chipClass}>подбрано</span>
-            <span className={chipClass}>готов ден</span>
+            <h2 className="text-[22px] font-black tracking-[-0.5px] text-[#0c0e14]">
+              Trails — готови маршрути
+            </h2>
+            <p className="mt-0.5 text-[13px] text-black/50">
+              Редакторски подбрани дни — добавяш с едно кликване
+            </p>
           </div>
         </div>
 
-        <div className="mt-3 grid gap-3 max-[980px]:grid-cols-1 md:grid-cols-3">
-          {trails.map((trail) => (
+        <div className="grid gap-3 max-[980px]:grid-cols-1 md:grid-cols-3">
+          {trails.map((trail, index) => (
             <div
               key={trail.title}
-              className="landing-trail relative overflow-hidden rounded-[28px] border border-black/10 bg-white/80 p-3.5 shadow-[0_10px_24px_rgba(12,18,32,0.08)]"
+              className="relative overflow-hidden rounded-[24px] border border-black/[0.08] bg-white p-6 shadow-[0_2px_0_rgba(12,14,20,0.06),0_12px_32px_rgba(12,14,20,0.07)] transition hover:-translate-y-0.5 hover:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_48px_rgba(12,14,20,0.12)]"
             >
-              <h3 className="mb-1.5 text-base font-semibold tracking-tight">{trail.title}</h3>
-              <p className="mb-3 text-xs text-black/60">{trail.description}</p>
-              <div className="mb-3 flex flex-col gap-2">
+              {/* Decorative number */}
+              <span className="landing-trail-num" aria-hidden="true">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+
+              <h3 className="mb-1.5 text-[15px] font-extrabold leading-snug tracking-[-0.3px] text-[#0c0e14]">
+                {trail.title}
+              </h3>
+              <p className="mb-4 text-[12px] leading-relaxed text-black/50">{trail.description}</p>
+
+              {/* Timeline steps */}
+              <div className="mb-4 flex flex-col gap-2">
                 {trail.steps.map((step) => (
                   <div
                     key={`${trail.title}-${step.time}`}
-                    className="flex items-center justify-between gap-2 rounded-[18px] border border-black/10 bg-white/90 px-3 py-2 text-xs text-black/60 shadow-[0_8px_18px_rgba(12,18,32,0.05)]"
+                    className="flex items-center gap-3 text-[12px]"
                   >
-                    <b className="text-black">{step.time}</b>
-                    <span>{step.label}</span>
+                    <span className="w-[38px] font-black tabular-nums text-[#0c0e14]">
+                      {step.time}
+                    </span>
+                    <span className="h-[6px] w-[6px] flex-shrink-0 rounded-full bg-[#ff4c1f]" />
+                    <span className="text-black/55">{step.label}</span>
                   </div>
                 ))}
               </div>
+
+              {/* Actions */}
               <div className="flex flex-wrap gap-2">
-                <button type="button" className={buttonClass} onClick={() => onAdd(trail)}>
+                <button
+                  type="button"
+                  onClick={() => onAdd(trail)}
+                  className="inline-flex h-[34px] items-center gap-1 rounded-[10px] border border-black/[0.1] bg-transparent px-3 text-[12px] font-extrabold transition hover:bg-[#f5f4f0] hover:border-black/20"
+                >
                   + В план
                 </button>
                 <Link
                   href="/festival/demo"
-                  className="inline-flex h-[42px] items-center justify-center gap-2 rounded-[14px] bg-gradient-to-br from-violet-600 to-cyan-500 px-3.5 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(124,58,237,0.22),0_10px_18px_rgba(6,182,212,0.14)] transition hover:-translate-y-0.5"
+                  className="inline-flex h-[34px] items-center gap-1 rounded-[10px] bg-[#ff4c1f] px-3 text-[12px] font-extrabold text-white transition hover:bg-[#e04010] hover:-translate-y-px"
                 >
                   Отвори
                 </Link>
@@ -74,5 +87,3 @@ export default function Trails({ trails, onAdd }: Props) {
     </section>
   );
 }
-
-export type { Trail };

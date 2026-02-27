@@ -1,57 +1,58 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
-const containerClass = "mx-auto flex h-[66px] w-full max-w-[1180px] items-center justify-between gap-4 px-[18px]";
+const containerClass =
+  "mx-auto flex h-[60px] w-full max-w-[1180px] items-center justify-between gap-4 px-[18px]";
 
 export default function Header() {
   return (
-    <header className="sticky top-0 z-30 border-b border-black/10 bg-white/60 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-black/[0.08] bg-[#f5f4f0]/85 backdrop-blur-xl">
       <div className={containerClass}>
-        <Link href="#" className="flex items-center gap-2.5 font-black tracking-tight">
-          <span className="h-[34px] w-[34px] rounded-[12px] border border-white/70 bg-gradient-to-br from-violet-600/95 to-cyan-500/95 shadow-[0_14px_30px_rgba(124,58,237,0.18)]" aria-hidden="true" />
+        {/* Logo */}
+        <Link href="#" className="flex items-center gap-2.5 font-black tracking-tight text-[#0c0e14] no-underline">
+          <span
+            className="flex h-[32px] w-[32px] items-center justify-center rounded-[10px] bg-[#0c0e14] text-white text-[14px]"
+            aria-hidden="true"
+          >
+            🎪
+          </span>
           <span>Festivo.bg</span>
         </Link>
 
+        {/* Nav */}
         <nav aria-label="Навигация" className="max-[980px]:hidden">
-          <ul className="flex items-center gap-2.5 text-sm font-extrabold text-black/60">
-            <li>
-              <Link href="#radar" className="rounded-xl px-2.5 py-2 transition hover:bg-black/5 hover:text-black">
-                Radar
-              </Link>
-            </li>
-            <li>
-              <Link href="#trails" className="rounded-xl px-2.5 py-2 transition hover:bg-black/5 hover:text-black">
-                Trails
-              </Link>
-            </li>
-            <li>
-              <Link href="#plan" className="rounded-xl px-2.5 py-2 transition hover:bg-black/5 hover:text-black">
-                План
-              </Link>
-            </li>
-            <li>
-              <Link href="#app" className="rounded-xl px-2.5 py-2 transition hover:bg-black/5 hover:text-black">
-                Приложение
-              </Link>
-            </li>
+          <ul className="flex items-center gap-1 text-sm font-bold text-black/60 list-none">
+            {[
+              { href: "#radar", label: "Radar" },
+              { href: "#trails", label: "Trails" },
+              { href: "#plan", label: "План" },
+              { href: "#app", label: "Приложение" },
+            ].map(({ href, label }) => (
+              <li key={href}>
+                <Link
+                  href={href}
+                  className="block rounded-xl px-3 py-2 transition hover:bg-black/[0.06] hover:text-black"
+                >
+                  {label}
+                </Link>
+              </li>
+            ))}
           </ul>
         </nav>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-2.5 py-1.5 text-xs font-semibold text-black/60 shadow-[0_6px_18px_rgba(12,18,32,0.05)]">
-            само FREE
-          </span>
-          <Link
-            href="/festival/demo"
-            className="inline-flex h-[42px] items-center justify-center gap-2 rounded-[14px] bg-gradient-to-br from-violet-600 to-cyan-500 px-3.5 text-sm font-extrabold text-white shadow-[0_14px_28px_rgba(124,58,237,0.22),0_10px_18px_rgba(6,182,212,0.14)] transition hover:-translate-y-0.5"
-          >
-            Пример детайл
-          </Link>
+        {/* Actions */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            className="inline-flex h-[42px] items-center justify-center gap-2 rounded-[14px] border border-black/10 bg-white/70 px-3.5 text-sm font-extrabold shadow-[0_6px_18px_rgba(12,18,32,0.06)] transition hover:-translate-y-0.5 hover:border-black/20 hover:bg-white/90"
+            className="inline-flex h-[38px] items-center gap-2 rounded-[14px] border border-black/[0.1] bg-white px-4 text-sm font-bold shadow-[0_2px_0_rgba(12,14,20,0.06),0_8px_20px_rgba(12,14,20,0.06)] transition hover:-translate-y-px hover:border-black/20"
           >
             Добави фестивал
           </button>
+          <Link
+            href="/festival/demo"
+            className="inline-flex h-[38px] items-center gap-1.5 rounded-[14px] bg-[#0c0e14] px-4 text-sm font-extrabold text-white transition hover:bg-[#1e2030] hover:-translate-y-px"
+          >
+            Пример детайл →
+          </Link>
         </div>
       </div>
     </header>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -7,6 +7,16 @@ import { cn } from "@/lib/utils";
 import { serializeFilters } from "@/lib/filters";
 
 const categoryOptions = ["folk", "jazz", "rock", "wine", "food", "kids", "heritage", "art"];
+const categoryLabels: Record<string, string> = {
+  folk: "Фолклор",
+  jazz: "Джаз",
+  rock: "Рок",
+  wine: "Вино",
+  food: "Храна",
+  kids: "Семейни",
+  heritage: "Традиции",
+  art: "Изкуство",
+};
 
 export default function FiltersSidebar({
   initialFilters,
@@ -40,85 +50,85 @@ export default function FiltersSidebar({
   return (
     <aside
       className={cn(
-        "w-full max-w-xs shrink-0 rounded-2xl border border-ink/10 bg-white/70 p-5 shadow-soft",
+        "w-full max-w-xs shrink-0 rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur",
         className
       )}
     >
       <div className="space-y-4 text-sm">
         <div>
-          <label className="text-xs uppercase tracking-[0.2em] text-muted">City</label>
+          <label className="text-xs uppercase tracking-[0.2em] text-muted">Град</label>
           <input
-            className="mt-2 w-full rounded-xl border border-ink/10 bg-white px-3 py-2"
-            placeholder="Sofia, Plovdiv"
+            className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
+            placeholder="София, Пловдив"
             value={city}
             onChange={(event) => setCity(event.target.value)}
           />
         </div>
         <div>
-          <label className="text-xs uppercase tracking-[0.2em] text-muted">Region</label>
+          <label className="text-xs uppercase tracking-[0.2em] text-muted">Област</label>
           <input
-            className="mt-2 w-full rounded-xl border border-ink/10 bg-white px-3 py-2"
-            placeholder="Rhodope"
+            className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
+            placeholder="Родопи"
             value={region}
             onChange={(event) => setRegion(event.target.value)}
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs uppercase tracking-[0.2em] text-muted">From</label>
+            <label className="text-xs uppercase tracking-[0.2em] text-muted">От</label>
             <input
               type="date"
-              className="mt-2 w-full rounded-xl border border-ink/10 bg-white px-3 py-2"
+              className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
               value={from}
               onChange={(event) => setFrom(event.target.value)}
             />
           </div>
           <div>
-            <label className="text-xs uppercase tracking-[0.2em] text-muted">To</label>
+            <label className="text-xs uppercase tracking-[0.2em] text-muted">До</label>
             <input
               type="date"
-              className="mt-2 w-full rounded-xl border border-ink/10 bg-white px-3 py-2"
+              className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
               value={to}
               onChange={(event) => setTo(event.target.value)}
             />
           </div>
         </div>
         <div>
-          <label className="text-xs uppercase tracking-[0.2em] text-muted">Category</label>
+          <label className="text-xs uppercase tracking-[0.2em] text-muted">Категория</label>
           <select
-            className="mt-2 w-full rounded-xl border border-ink/10 bg-white px-3 py-2"
+            className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
             value={cat}
             onChange={(event) => setCat(event.target.value)}
           >
-            <option value="">Any</option>
+            <option value="">Всички</option>
             {categoryOptions.map((option) => (
               <option key={option} value={option}>
-                {option}
+                {categoryLabels[option] ?? option}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="text-xs uppercase tracking-[0.2em] text-muted">Sort</label>
+          <label className="text-xs uppercase tracking-[0.2em] text-muted">Сортиране</label>
           <select
-            className="mt-2 w-full rounded-xl border border-ink/10 bg-white px-3 py-2"
+            className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
             value={sort}
             onChange={(event) => setSort(event.target.value as "soonest" | "curated" | "nearest")}
           >
-            <option value="soonest">Soonest</option>
-            <option value="curated">Curated</option>
-            <option value="nearest">Nearest (stub)</option>
+            <option value="soonest">Най-скоро</option>
+            <option value="curated">Подбрани</option>
+            <option value="nearest">Най-близо</option>
           </select>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={free} onChange={(event) => setFree(event.target.checked)} />
-          Free only
+          Само безплатни
         </label>
         <button
           onClick={() => router.push(`/festivals${query}`)}
-          className="w-full rounded-xl bg-ink px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+          className="w-full rounded-xl bg-[#0c0e14] px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
         >
-          Apply filters
+          Приложи филтри
         </button>
       </div>
     </aside>

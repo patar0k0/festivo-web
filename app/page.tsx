@@ -2,6 +2,7 @@
 import { cookies } from "next/headers";
 import { endOfMonth, format, nextSaturday, nextSunday, startOfMonth } from "date-fns";
 import ComingSoonPublic from "@/components/home/ComingSoonPublic";
+import LayoutShell from "@/components/LayoutShell";
 import RealHomePage from "@/components/home/RealHomePage";
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listCities, listFestivals } from "@/lib/festivals";
@@ -64,11 +65,13 @@ export default async function HomePage() {
   };
 
   return (
-    <RealHomePage
-      nearestFestivals={nearestResult.data}
-      weekendFestivals={weekendResult.data}
-      topCities={citiesResult.slice(0, 8)}
-      quickChipHrefs={quickChipHrefs}
-    />
+    <LayoutShell forceChrome>
+      <RealHomePage
+        nearestFestivals={nearestResult.data}
+        weekendFestivals={weekendResult.data}
+        topCities={citiesResult.slice(0, 8)}
+        quickChipHrefs={quickChipHrefs}
+      />
+    </LayoutShell>
   );
 }

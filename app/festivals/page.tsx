@@ -142,12 +142,17 @@ export default async function FestivalsPage({
               </div>
             </div>
 
-            <div className="space-y-4 lg:hidden">
-              <StickySearchBar initialFilters={filters} />
+            <div className="space-y-4">
+              <div className="lg:hidden">
+                <StickySearchBar initialFilters={filters} />
+              </div>
+              <div className="hidden lg:block lg:sticky lg:top-[84px] lg:z-20 xl:hidden">
+                <StickySearchBar initialFilters={filters} />
+              </div>
             </div>
 
             <div className="grid items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] xl:gap-8">
-              <div className="hidden lg:block">
+              <div className="hidden xl:block">
                 <FiltersSidebar initialFilters={filters} className="sticky top-[172px]" />
               </div>
 

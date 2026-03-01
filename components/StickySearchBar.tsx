@@ -75,7 +75,7 @@ export default function StickySearchBar({ initialFilters }: { initialFilters?: F
         Само безплатни
       </label>
       <button
-        onClick={() => router.push(`/festivals${query}`)}
+        onClick={() => router.push(`/festivals${query}`, { scroll: false })}
         className="rounded-xl bg-[#0c0e14] px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
       >
         Търси

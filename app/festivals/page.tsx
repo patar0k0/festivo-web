@@ -7,6 +7,8 @@ import FiltersSidebar from "@/components/FiltersSidebar";
 import MobileFiltersSheet from "@/components/MobileFiltersSheet";
 import Pagination from "@/components/Pagination";
 import FestivalsResultsToolbar from "@/components/FestivalsResultsToolbar";
+import ActiveFiltersChips from "@/components/ActiveFiltersChips";
+import ScrollRestoration from "@/components/ScrollRestoration";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
@@ -77,6 +79,7 @@ export default async function FestivalsPage({
 
   return (
     <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
+      <ScrollRestoration />
       <Section className="overflow-x-clip bg-transparent pb-8 pt-8 md:pb-10 md:pt-10">
         <Container>
           <div className="space-y-7 lg:space-y-8">
@@ -98,18 +101,21 @@ export default async function FestivalsPage({
               <div className="mt-5 flex flex-wrap gap-2 md:mt-6">
                 <Link
                   href={`/festivals${freeLink}`}
+                  scroll={false}
                   className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
                   Само безплатни
                 </Link>
                 <Link
                   href={`/festivals${weekendLink}`}
+                  scroll={false}
                   className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
                   Този уикенд
                 </Link>
                 <Link
                   href={`/festivals${monthLink}`}
+                  scroll={false}
                   className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
                   Този месец
@@ -122,6 +128,7 @@ export default async function FestivalsPage({
                     <Link
                       key={category}
                       href={`/festivals${categoryLink}`}
+                      scroll={false}
                       className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
                         active
                           ? "border-[#0c0e14] bg-[#0c0e14] text-white"
@@ -154,6 +161,7 @@ export default async function FestivalsPage({
                   activeFiltersCount={activeFiltersCount}
                   clearHref={clearHref}
                 />
+                <ActiveFiltersChips />
 
                 {data.data.length === 0 ? (
                   <div className="rounded-2xl border border-black/[0.08] bg-white/80 px-6 py-12 text-center shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.06)]">
@@ -161,12 +169,14 @@ export default async function FestivalsPage({
                     <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                       <Link
                         href={clearHref}
+                        scroll={false}
                         className="rounded-xl bg-[#0c0e14] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                       >
                         Изчисти филтрите
                       </Link>
                       <Link
                         href="/festivals"
+                        scroll={false}
                         className="rounded-xl border border-black/[0.1] bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#0c0e14] transition hover:border-black/20 hover:bg-[#faf9f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                       >
                         Виж всички

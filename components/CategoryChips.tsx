@@ -25,6 +25,7 @@ export default function CategoryChips({ filters }: { filters: Filters }) {
           <Link
             key={category}
             href={`/festivals${link}`}
+            scroll={false}
             className={cn(
               "rounded-full border border-black/[0.1] bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25",
               active ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#0c0e14]" : ""

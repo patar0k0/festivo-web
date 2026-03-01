@@ -28,6 +28,7 @@ export default function Pagination({
           <Link
             key={pageNumber}
             href={`${basePath}${suffix}`}
+            scroll={false}
             className={cn(
               "rounded-full border border-black/[0.1] px-4 py-2 text-sm transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25",
               pageNumber === page ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#0c0e14]" : "bg-white/80 text-[#0c0e14]"

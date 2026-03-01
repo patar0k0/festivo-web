@@ -8,6 +8,7 @@ import { listCities, listFestivals } from "@/lib/festivals";
 import "./landing.css";
 
 const PREVIEW_COOKIE_NAME = "festivo_preview";
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Festivo - Очаквайте скоро",

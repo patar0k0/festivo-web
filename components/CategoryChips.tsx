@@ -16,9 +16,11 @@ export const festivalCategoryLabels: Record<string, string> = {
 };
 
 export default function CategoryChips({ filters }: { filters: Filters }) {
+  const uniqueCategories = Array.from(new Set(festivalCategories));
+
   return (
     <div className="flex flex-wrap gap-2">
-      {festivalCategories.map((category) => {
+      {uniqueCategories.map((category) => {
         const active = filters.cat?.includes(category);
         const link = serializeFilters({ ...filters, cat: [category] });
         return (

@@ -130,6 +130,7 @@ export default function FiltersSidebar({
           Само безплатни
         </label>
         <button
+          type="button"
           onClick={() => router.push(`/festivals${query}`, { scroll: false })}
           className="w-full rounded-xl bg-[#0c0e14] px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
         >

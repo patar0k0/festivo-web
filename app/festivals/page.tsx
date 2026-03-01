@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { endOfMonth, format, nextSaturday, nextSunday, startOfMonth } from "date-fns";
 import StickySearchBar from "@/components/StickySearchBar";
-import CategoryChips, { festivalCategories, festivalCategoryLabels } from "@/components/CategoryChips";
+import { festivalCategories, festivalCategoryLabels } from "@/components/CategoryChips";
 import ViewToggle from "@/components/ViewToggle";
 import FiltersSidebar from "@/components/FiltersSidebar";
 import MobileFiltersSheet from "@/components/MobileFiltersSheet";
@@ -75,7 +75,7 @@ export default async function FestivalsPage({
     from: format(monthStart, "yyyy-MM-dd"),
     to: format(monthEnd, "yyyy-MM-dd"),
   });
-  const popularCategoryChips = festivalCategories.slice(0, 5);
+  const popularCategoryChips = Array.from(new Set(festivalCategories)).slice(0, 5);
 
   return (
     <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
@@ -142,11 +142,8 @@ export default async function FestivalsPage({
               </div>
             </div>
 
-            <div className="space-y-4 lg:sticky lg:top-[84px] lg:z-20">
+            <div className="space-y-4 lg:hidden">
               <StickySearchBar initialFilters={filters} />
-              <div className="rounded-2xl border border-black/[0.08] bg-white/75 p-3 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)] backdrop-blur">
-                <CategoryChips filters={filters} />
-              </div>
             </div>
 
             <div className="grid items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] xl:gap-8">

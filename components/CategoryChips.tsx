@@ -3,8 +3,8 @@ import { Filters } from "@/lib/types";
 import { serializeFilters } from "@/lib/filters";
 import { cn } from "@/lib/utils";
 
-const categories = ["folk", "jazz", "rock", "wine", "food", "kids", "heritage", "art"];
-const categoryLabels: Record<string, string> = {
+export const festivalCategories = ["folk", "jazz", "rock", "wine", "food", "kids", "heritage", "art"];
+export const festivalCategoryLabels: Record<string, string> = {
   folk: "Фолклор",
   jazz: "Джаз",
   rock: "Рок",
@@ -18,7 +18,7 @@ const categoryLabels: Record<string, string> = {
 export default function CategoryChips({ filters }: { filters: Filters }) {
   return (
     <div className="flex flex-wrap gap-2">
-      {categories.map((category) => {
+      {festivalCategories.map((category) => {
         const active = filters.cat?.includes(category);
         const link = serializeFilters({ ...filters, cat: [category] });
         return (
@@ -30,7 +30,7 @@ export default function CategoryChips({ filters }: { filters: Filters }) {
               active ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#0c0e14]" : ""
             )}
           >
-            {categoryLabels[category] ?? category}
+            {festivalCategoryLabels[category] ?? category}
           </Link>
         );
       })}

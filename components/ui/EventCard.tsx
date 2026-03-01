@@ -70,15 +70,21 @@ export default function EventCard({
 }: EventCardProps) {
   const badge = getDateBadge(startDate);
   const dateText = formatDateRange(startDate, endDate);
-  const locationText = city ? city : "Град: —";
+  const locationText = city || "Град: —";
   const snippet = description?.trim();
   const categoryText = categoryLabel(category);
 
   return (
-    <Card className="group overflow-hidden border-black/[0.08] bg-white/85 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_28px_rgba(12,14,20,0.07)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_2px_0_rgba(12,14,20,0.08),0_18px_40px_rgba(12,14,20,0.12)]">
-      <div className="relative h-52 bg-black/[0.04] transition-transform duration-300 group-hover:scale-[1.02]">
+    <Card className="group overflow-hidden border border-black/[0.09] bg-white/90 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_28px_rgba(12,14,20,0.07)] transition-all duration-200 hover:border-black/[0.16] hover:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)] focus-within:border-black/[0.16] focus-within:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)]">
+      <div className="relative h-56 bg-black/[0.04]">
         {imageUrl ? (
-          <Image src={imageUrl} alt={title} fill className="object-cover" />
+          <Image
+            src={imageUrl}
+            alt={title}
+            fill
+            sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+          />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#f2efe9] text-sm text-black/45">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -109,11 +115,29 @@ export default function EventCard({
       </div>
 
       <CardContent className="space-y-3 p-5">
-        <div>
-          <h3 className="text-lg font-semibold tracking-tight text-[#0c0e14]">{title}</h3>
-          <p className="mt-1 text-sm text-black/55">
+        <div className="space-y-2">
+          <p className="text-sm text-black/55">
             {locationText} • {dateText}
           </p>
+          <h3
+            className="text-lg font-semibold tracking-tight text-[#0c0e14]"
+            style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+          >
+            {title}
+          </h3>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {isFree ? (
+            <span className="rounded-full border border-[#ff4c1f]/25 bg-[#ff4c1f]/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#ff4c1f]">
+              Безплатно
+            </span>
+          ) : null}
+          {isFree === false ? (
+            <span className="rounded-full border border-black/[0.1] bg-black/[0.03] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-black/65">
+              Платено
+            </span>
+          ) : null}
         </div>
 
         {showDescription && snippet ? (
@@ -125,12 +149,14 @@ export default function EventCard({
           </p>
         ) : null}
 
-        {isFree ? <span className="text-sm font-semibold text-[#ff4c1f]">Безплатен</span> : null}
-        {isFree === false ? <span className="text-sm font-medium text-black/60">Платен</span> : null}
-
         {showDetailsButton && detailsHref ? (
-          <Button variant="secondary" size="sm" href={detailsHref}>
-            Детайли
+          <Button
+            variant="secondary"
+            size="sm"
+            href={detailsHref}
+            className="border-black/[0.12] bg-white font-semibold text-[#0c0e14] hover:bg-[#f8f7f4]"
+          >
+            Виж
           </Button>
         ) : null}
       </CardContent>

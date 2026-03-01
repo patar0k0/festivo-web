@@ -121,7 +121,12 @@ export default function FiltersSidebar({
           </select>
         </div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={free} onChange={(event) => setFree(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={free}
+            onChange={(event) => setFree(event.target.checked)}
+            className="h-4 w-4 rounded border-black/25 text-[#ff4c1f] focus:ring-[#ff4c1f]/30"
+          />
           Само безплатни
         </label>
         <button

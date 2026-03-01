@@ -28,7 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const cityUrls = cities.map((city) => ({
-    url: `${baseUrl}/city/${encodeURIComponent(slugify(city))}`,
+    url: `${baseUrl}/cities/${encodeURIComponent(slugify(city))}`,
     lastModified: new Date(),
   }));
 

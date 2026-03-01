@@ -1,7 +1,21 @@
-"use client";
+﻿"use client";
 
 import dynamic from "next/dynamic";
 import { Festival } from "@/lib/types";
+
+type FocusCoords = {
+  lat: number;
+  lng: number;
+  zoom?: number;
+};
+
+type MapViewClientProps = {
+  festivals: Festival[];
+  selectedFestivalId: string | number | null;
+  onSelectFestival: (festival: Festival) => void;
+  focusCoords: FocusCoords | null;
+  resetViewToken: number;
+};
 
 const MapView = dynamic(() => import("@/components/MapView"), {
   ssr: false,
@@ -12,6 +26,6 @@ const MapView = dynamic(() => import("@/components/MapView"), {
   ),
 });
 
-export default function MapViewClient({ festivals }: { festivals: Festival[] }) {
-  return <MapView festivals={festivals} />;
+export default function MapViewClient(props: MapViewClientProps) {
+  return <MapView {...props} />;
 }

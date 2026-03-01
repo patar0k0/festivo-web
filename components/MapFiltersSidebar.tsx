@@ -1,10 +1,8 @@
-"use client";
+﻿"use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Filters } from "@/lib/types";
+import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { serializeFilters } from "@/lib/filters";
 
 const categoryOptions = ["folk", "jazz", "rock", "wine", "food", "kids", "heritage", "art"];
 const categoryLabels: Record<string, string> = {
@@ -18,14 +16,33 @@ const categoryLabels: Record<string, string> = {
   art: "Изкуство",
 };
 
+function updateParam(params: URLSearchParams, key: string, value?: string) {
+  if (value) {
+    params.set(key, value);
+  } else {
+    params.delete(key);
+  }
+}
+
 export default function MapFiltersSidebar({
   initialFilters,
   className,
 }: {
-  initialFilters: Filters;
+  initialFilters: {
+    city?: string[];
+    region?: string[];
+    from?: string;
+    to?: string;
+    cat?: string[];
+    free?: boolean;
+    sort?: "soonest" | "curated" | "nearest";
+  };
   className?: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [city, setCity] = useState(initialFilters.city?.join(",") ?? "");
   const [region, setRegion] = useState(initialFilters.region?.join(",") ?? "");
   const [from, setFrom] = useState(initialFilters.from ?? "");
@@ -34,18 +51,30 @@ export default function MapFiltersSidebar({
   const [free, setFree] = useState(initialFilters.free ?? true);
   const [sort, setSort] = useState(initialFilters.sort ?? "soonest");
 
-  const query = useMemo(() => {
-    const filters: Filters = {
-      city: city ? city.split(",").map((item) => item.trim()).filter(Boolean) : undefined,
-      region: region ? region.split(",").map((item) => item.trim()).filter(Boolean) : undefined,
-      from: from || undefined,
-      to: to || undefined,
-      cat: cat ? [cat] : undefined,
-      free,
-      sort: sort as Filters["sort"],
-    };
-    return serializeFilters(filters);
-  }, [city, region, from, to, cat, free, sort]);
+  const apply = () => {
+    const current = new URLSearchParams(searchParams.toString());
+    const next = new URLSearchParams(searchParams.toString());
+
+    updateParam(next, "city", city || undefined);
+    updateParam(next, "region", region || undefined);
+    updateParam(next, "from", from || undefined);
+    updateParam(next, "to", to || undefined);
+    updateParam(next, "cat", cat || undefined);
+    updateParam(next, "free", free ? "1" : "0");
+    updateParam(next, "sort", sort || undefined);
+    next.delete("page");
+
+    current.delete("page");
+    const currentComparable = current.toString();
+    const nextComparable = next.toString();
+
+    if (currentComparable === nextComparable) {
+      router.refresh();
+      return;
+    }
+
+    router.push(nextComparable ? `${pathname}?${nextComparable}` : pathname, { scroll: false });
+  };
 
   return (
     <aside
@@ -131,7 +160,7 @@ export default function MapFiltersSidebar({
         </label>
         <button
           type="button"
-          onClick={() => router.push(`/map${query}`, { scroll: false })}
+          onClick={apply}
           className="w-full rounded-xl bg-[#0c0e14] px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
         >
           Приложи филтри

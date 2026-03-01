@@ -1,30 +1,73 @@
-"use client";
+﻿"use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { serializeFilters } from "@/lib/filters";
-import { Filters } from "@/lib/types";
+import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-export default function MapSearchBar({ initialFilters }: { initialFilters?: Filters }) {
+type ApplyParams = {
+  city?: string;
+  from?: string;
+  to?: string;
+  cat?: string;
+  free?: boolean;
+  sort?: string;
+  month?: string;
+};
+
+function updateParam(params: URLSearchParams, key: string, value?: string) {
+  if (value) {
+    params.set(key, value);
+  } else {
+    params.delete(key);
+  }
+}
+
+export default function MapSearchBar({
+  initialFilters,
+}: {
+  initialFilters?: {
+    city?: string[];
+    from?: string;
+    to?: string;
+    cat?: string[];
+    free?: boolean;
+    sort?: "soonest" | "curated" | "nearest";
+    month?: string;
+  };
+}) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [location, setLocation] = useState(initialFilters?.city?.[0] ?? "");
   const [from, setFrom] = useState(initialFilters?.from ?? "");
   const [to, setTo] = useState(initialFilters?.to ?? "");
   const [category, setCategory] = useState(initialFilters?.cat?.[0] ?? "");
   const [freeOnly, setFreeOnly] = useState(initialFilters?.free ?? true);
 
-  const query = useMemo(() => {
-    const filters: Filters = {
-      city: location ? [location] : undefined,
-      from: from || undefined,
-      to: to || undefined,
-      cat: category ? [category] : undefined,
-      free: freeOnly,
-      sort: initialFilters?.sort,
-      month: initialFilters?.month,
-    };
-    return serializeFilters(filters);
-  }, [location, from, to, category, freeOnly, initialFilters?.month, initialFilters?.sort]);
+  const apply = (values: ApplyParams) => {
+    const current = new URLSearchParams(searchParams.toString());
+    const next = new URLSearchParams(searchParams.toString());
+
+    updateParam(next, "city", values.city);
+    updateParam(next, "from", values.from);
+    updateParam(next, "to", values.to);
+    updateParam(next, "cat", values.cat);
+    updateParam(next, "free", values.free === undefined ? undefined : values.free ? "1" : "0");
+    updateParam(next, "sort", values.sort);
+    updateParam(next, "month", values.month);
+    next.delete("page");
+
+    current.delete("page");
+    const currentComparable = current.toString();
+    const nextComparable = next.toString();
+
+    if (currentComparable === nextComparable) {
+      router.refresh();
+      return;
+    }
+
+    router.push(nextComparable ? `${pathname}?${nextComparable}` : pathname, { scroll: false });
+  };
 
   return (
     <div className="glass flex w-full flex-col gap-3 rounded-2xl border border-black/[0.08] bg-white/75 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_24px_rgba(12,14,20,0.07)] md:flex-row md:items-end">
@@ -76,7 +119,17 @@ export default function MapSearchBar({ initialFilters }: { initialFilters?: Filt
       </label>
       <button
         type="button"
-        onClick={() => router.push(`/map${query}`, { scroll: false })}
+        onClick={() =>
+          apply({
+            city: location || undefined,
+            from: from || undefined,
+            to: to || undefined,
+            cat: category || undefined,
+            free: freeOnly,
+            sort: initialFilters?.sort,
+            month: initialFilters?.month,
+          })
+        }
         className="rounded-xl bg-[#0c0e14] px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
       >
         Търси

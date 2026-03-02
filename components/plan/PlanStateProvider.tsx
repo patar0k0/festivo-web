@@ -1,7 +1,13 @@
-﻿"use client";
+"use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReminderType } from "@/lib/plan/server";
+
+type PlanStatePayload = {
+  authenticated: boolean;
+  scheduleItemIds: string[];
+  reminders: Record<string, ReminderType>;
+};
 
 type PlanContextValue = {
   isAuthenticated: boolean;
@@ -11,6 +17,7 @@ type PlanContextValue = {
   reminderTypeByFestivalId: Record<string, ReminderType>;
   isFestivalReminded: (festivalId?: string | null) => boolean;
   setFestivalReminder: (festivalId: string, reminderType: ReminderType) => Promise<void>;
+  refreshPlanState: () => Promise<void>;
 };
 
 const PlanStateContext = createContext<PlanContextValue | null>(null);
@@ -31,78 +38,135 @@ export function PlanStateProvider({
   const [scheduleItemIds, setScheduleItemIds] = useState<Set<string>>(new Set(initialScheduleItemIds));
   const [reminders, setReminders] = useState<Record<string, ReminderType>>(initialReminders);
   const [authRequired, setAuthRequired] = useState(false);
+  const [authenticated, setAuthenticated] = useState(isAuthenticated);
 
-  const toggleScheduleItem = async (scheduleItemId?: string | null) => {
+  const applyState = useCallback((payload: PlanStatePayload) => {
+    setAuthenticated(payload.authenticated);
+    setScheduleItemIds(new Set(payload.scheduleItemIds.map(String)));
+    setReminders(payload.reminders ?? {});
+  }, []);
+
+  const refreshPlanState = useCallback(async () => {
+    const response = await fetch("/api/plan/state", { cache: "no-store" });
+
+    if (response.status === 401) {
+      applyState({ authenticated: false, scheduleItemIds: [], reminders: {} });
+      return;
+    }
+
+    if (!response.ok) return;
+
+    const payload = (await response.json()) as PlanStatePayload;
+    applyState(payload);
+  }, [applyState]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      void refreshPlanState();
+    };
+
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refreshPlanState]);
+
+  const toggleScheduleItem = useCallback(async (scheduleItemId?: string | null) => {
     if (!scheduleItemId) return;
 
-    if (!isAuthenticated) {
+    if (!authenticated) {
       setAuthRequired(true);
       return;
     }
+
+    const id = String(scheduleItemId);
+    const previous = new Set(scheduleItemIds);
+    const optimisticInPlan = !previous.has(id);
+
+    setScheduleItemIds((prev) => {
+      const next = new Set(prev);
+      if (optimisticInPlan) next.add(id);
+      else next.delete(id);
+      return next;
+    });
 
     const response = await fetch("/api/plan/items", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scheduleItemId }),
+      body: JSON.stringify({ scheduleItemId: id }),
     });
 
-    if (!response.ok) return;
+    if (response.status === 401) {
+      setAuthRequired(true);
+      setScheduleItemIds(previous);
+      setAuthenticated(false);
+      return;
+    }
+
+    if (!response.ok) {
+      setScheduleItemIds(previous);
+      await refreshPlanState();
+      return;
+    }
 
     const payload = (await response.json()) as { inPlan?: boolean };
     setScheduleItemIds((prev) => {
       const next = new Set(prev);
-      if (payload.inPlan) {
-        next.add(scheduleItemId);
-      } else {
-        next.delete(scheduleItemId);
-      }
+      if (payload.inPlan) next.add(id);
+      else next.delete(id);
       return next;
     });
-  };
+  }, [authenticated, refreshPlanState, scheduleItemIds]);
 
-  const setFestivalReminder = async (festivalId: string, reminderType: ReminderType) => {
-    if (!isAuthenticated) {
+  const setFestivalReminder = useCallback(async (festivalId: string, reminderType: ReminderType) => {
+    if (!authenticated) {
       setAuthRequired(true);
       return;
     }
 
-    const response = await fetch("/api/plan/reminders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ festivalId, reminderType }),
-    });
-
-    if (!response.ok) return;
+    const normalizedFestivalId = String(festivalId);
+    const previous = { ...reminders };
 
     setReminders((prev) => {
       const next = { ...prev };
-      if (reminderType === "none") {
-        delete next[festivalId];
-      } else {
-        next[festivalId] = reminderType;
-      }
+      if (reminderType === "none") delete next[normalizedFestivalId];
+      else next[normalizedFestivalId] = reminderType;
       return next;
     });
-  };
 
-  const value = useMemo<PlanContextValue>(
-    () => ({
-      isAuthenticated,
-      authRequired,
-      isScheduleItemInPlan: (scheduleItemId?: string | null) => {
-        if (!scheduleItemId) return false;
-        return scheduleItemIds.has(String(scheduleItemId));
-      },
-      toggleScheduleItem,
-      reminderTypeByFestivalId: reminders,
-      isFestivalReminded: (festivalId?: string | null) => {
-        if (!festivalId) return false;
-        return reminders[String(festivalId)] !== undefined;
-      },
-      setFestivalReminder,
-    }),
-    [isAuthenticated, authRequired, reminders, scheduleItemIds]
-  );
+    const response = await fetch("/api/plan/reminders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ festivalId: normalizedFestivalId, reminderType }),
+    });
+
+    if (response.status === 401) {
+      setAuthRequired(true);
+      setAuthenticated(false);
+      setReminders(previous);
+      return;
+    }
+
+    if (!response.ok) {
+      setReminders(previous);
+      await refreshPlanState();
+    }
+  }, [authenticated, refreshPlanState, reminders]);
+
+  const value: PlanContextValue = {
+    isAuthenticated: authenticated,
+    authRequired,
+    isScheduleItemInPlan: (scheduleItemId?: string | null) => {
+      if (!scheduleItemId) return false;
+      return scheduleItemIds.has(String(scheduleItemId));
+    },
+    toggleScheduleItem,
+    reminderTypeByFestivalId: reminders,
+    isFestivalReminded: (festivalId?: string | null) => {
+      if (!festivalId) return false;
+      return reminders[String(festivalId)] !== undefined;
+    },
+    setFestivalReminder,
+    refreshPlanState,
+  };
 
   return <PlanStateContext.Provider value={value}>{children}</PlanStateContext.Provider>;
 }

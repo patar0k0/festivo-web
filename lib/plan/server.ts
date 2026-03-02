@@ -1,4 +1,5 @@
 ﻿import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 
 export type ReminderType = "none" | "24h" | "same_day_09";
 
@@ -178,13 +179,13 @@ export async function getPlanEntriesByUser(userId: string): Promise<PlanEntry[]>
       scheduleItemId: String(schedule.id),
       festivalId: String(festival.id),
       festivalSlug: festival.slug,
-      festivalTitle: festival.title,
-      city: festival.city,
+      festivalTitle: fixMojibakeBG(festival.title),
+      city: festival.city ? fixMojibakeBG(festival.city) : festival.city,
       dayDate: day.date,
       startTime: schedule.start_time,
       endTime: schedule.end_time,
       stage: schedule.stage,
-      title: schedule.title,
+      title: fixMojibakeBG(schedule.title),
     });
   });
 

@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getOptionalUser } from "@/lib/authUser";
 import { getPlanStateByUser } from "@/lib/plan/server";
 
@@ -6,7 +6,7 @@ export async function GET() {
   const user = await getOptionalUser();
 
   if (!user) {
-    return NextResponse.json({ authenticated: false, scheduleItemIds: [], reminders: {} });
+    return NextResponse.json({ authenticated: false, scheduleItemIds: [], reminders: {} }, { status: 401 });
   }
 
   const state = await getPlanStateByUser(user.id);

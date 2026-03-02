@@ -2,6 +2,7 @@
 import { supabaseServer } from "@/lib/supabaseServer";
 import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, PaginatedResult } from "@/lib/types";
 import { withDefaultFilters } from "@/lib/filters";
+import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 
 export const FESTIVAL_SELECT_MIN =
   "id,title,slug,city,region,start_date,end_date,category,image_url,is_free,status,lat,lng,description,ticket_url,price_range";
@@ -76,6 +77,17 @@ function applyFilters<T extends FilterQuery<T>>(query: T, filters: Filters, opti
   return typedQuery;
 }
 
+function fixFestivalText(festival: Festival): Festival {
+  return {
+    ...festival,
+    title: fixMojibakeBG(festival.title),
+    description: festival.description ? fixMojibakeBG(festival.description) : festival.description,
+    city: festival.city ? fixMojibakeBG(festival.city) : festival.city,
+    region: festival.region ? fixMojibakeBG(festival.region) : festival.region,
+    address: festival.address ? fixMojibakeBG(festival.address) : festival.address,
+  };
+}
+
 export async function getFestivals(
   filters: Filters,
   page = 1,
@@ -106,7 +118,7 @@ export async function getFestivals(
 
   const total = count ?? 0;
   return {
-    data: data ?? [],
+    data: (data ?? []).map(fixFestivalText),
     page,
     pageSize,
     total,
@@ -132,7 +144,7 @@ export async function getFestivalBySlug(slug: string): Promise<Festival | null> 
     return null;
   }
 
-  return festival;
+  return fixFestivalText(festival);
 }
 
 export async function getFestivalDetail(
@@ -177,7 +189,7 @@ export async function getFestivalDetail(
       : [];
 
   return {
-    festival,
+    festival: fixFestivalText(festival),
     media: media ?? [],
     days: days ?? [],
     scheduleItems: scheduleItems ?? [],
@@ -223,7 +235,7 @@ export async function getCalendarMonth(month: string, filters: Filters) {
     while (cursor <= end) {
       const key = format(cursor, "yyyy-MM-dd");
       if (!days[key]) days[key] = [];
-      days[key].push(festival);
+      days[key].push(fixFestivalText(festival));
       cursor = addDays(cursor, 1);
     }
   });
@@ -231,7 +243,7 @@ export async function getCalendarMonth(month: string, filters: Filters) {
   return {
     monthStart,
     monthEnd,
-    festivals: data ?? [],
+    festivals: (data ?? []).map(fixFestivalText),
     days,
   };
 }
@@ -253,7 +265,7 @@ export async function getCities(): Promise<string[]> {
 
   const set = new Set<string>();
   (data ?? []).forEach((row) => {
-    if (row.city) set.add(row.city);
+    if (row.city) set.add(fixMojibakeBG(row.city));
   });
 
   return Array.from(set).sort();

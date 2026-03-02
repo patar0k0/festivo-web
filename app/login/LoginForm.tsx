@@ -21,8 +21,6 @@ export function LoginForm({ next }: LoginFormProps) {
   }, []);
 
   async function signInWithOAuth(provider: "google" | "apple") {
-    setError("");
-
     try {
       console.log("ENV CHECK", {
         url: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -42,21 +40,19 @@ export function LoginForm({ next }: LoginFormProps) {
 
       if (oauthError) {
         console.error("OAuth error:", oauthError);
-        setError(`OAuth error: ${oauthError.message}`);
         alert(`OAuth error: ${oauthError.message}`);
         return;
       }
 
+      // OAuth redirect must happen immediately; Fast Refresh in `next dev` can interrupt navigation.
       if (data?.url) {
         window.location.replace(data.url);
         return;
       }
 
-      setError("OAuth error: missing redirect URL from Supabase.");
       alert("OAuth error: missing redirect URL from Supabase.");
     } catch (e) {
       console.error("OAuth unexpected error:", e);
-      setError(`OAuth unexpected error: ${String(e)}`);
       alert(`OAuth unexpected error: ${String(e)}`);
     }
   }

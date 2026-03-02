@@ -27,7 +27,11 @@ export function LoginForm({ next }: LoginFormProps) {
         anon: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "SET" : "MISSING",
       });
       const supabase = createSupabaseBrowser();
-      const redirectTo = `${window.location.origin}/auth/callback`;
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      if (next && next.startsWith("/")) {
+        callbackUrl.searchParams.set("next", next);
+      }
+      const redirectTo = callbackUrl.toString();
       console.log("GOOGLE CLICK", { redirectTo });
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({

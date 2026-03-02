@@ -26,9 +26,11 @@ export default function SiteHeader({ userEmail }: { userEmail?: string }) {
             {isAuthenticated ? userEmail : "Вход"}
           </Link>
           {isAuthenticated ? (
-            <Link href="/api/auth/logout" className="transition hover:text-[#0c0e14]">
-              Изход
-            </Link>
+            <form action="/api/auth/logout" method="post">
+              <button type="submit" className="transition hover:text-[#0c0e14]">
+                Изход
+              </button>
+            </form>
           ) : null}
         </nav>
       </Container>

@@ -1,8 +1,13 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { REFRESH_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
 
 export async function GET(request: Request) {
+  // Keep GET side-effect free to avoid accidental logout from prefetches.
+  return NextResponse.redirect(new URL("/", request.url));
+}
+
+export async function POST(request: Request) {
   const response = NextResponse.redirect(new URL("/", request.url));
 
   try {
@@ -24,8 +29,4 @@ export async function GET(request: Request) {
   }
 
   return response;
-}
-
-export async function POST(request: Request) {
-  return GET(request);
 }

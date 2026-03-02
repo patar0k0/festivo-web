@@ -33,7 +33,8 @@ export function LoginForm({ next }: LoginFormProps) {
         return;
       }
 
-      router.push(next || "/admin");
+      const target = next && next.startsWith("/") ? next : "/";
+      router.push(target);
       router.refresh();
     } catch {
       setError("Неуспешна връзка. Опитай отново.");

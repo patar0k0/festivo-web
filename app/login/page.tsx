@@ -7,14 +7,15 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await getOptionalUser();
-  if (user) {
-    redirect("/admin");
-  }
-
   const params = await searchParams;
   const error = typeof params.error === "string" ? params.error : "";
-  const next = typeof params.next === "string" && params.next.startsWith("/") ? params.next : "/admin";
+  const next = typeof params.next === "string" ? params.next : null;
+  const target = next && next.startsWith("/") ? next : "/";
+
+  const user = await getOptionalUser();
+  if (user) {
+    redirect(target);
+  }
 
   return (
     <div className="landing-bg min-h-screen px-4 py-12 text-[#0c0e14]">
@@ -25,7 +26,7 @@ export default async function LoginPage({
 
         {error ? <p className="mt-4 rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
 
-        <LoginForm next={next} />
+        <LoginForm next={target} />
       </div>
     </div>
   );

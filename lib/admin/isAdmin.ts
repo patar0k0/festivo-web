@@ -1,24 +1,65 @@
-﻿import { cookies } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabaseServer";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-
-export const ADMIN_AUTH_COOKIE = "festivo_admin_token";
+import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
+import { USER_AUTH_COOKIE } from "@/lib/authUser";
+import { getSupabaseEnv, supabaseServer } from "@/lib/supabaseServer";
 
 export type AdminSession = {
-  userId: string | null;
+  userId: string;
   email: string | null;
   isAdmin: boolean;
 };
 
-async function isAdminUser(userId: string) {
-  const adminDb = supabaseAdmin();
-  const client = adminDb ?? supabaseServer();
+type AdminAuthContext = {
+  client: SupabaseClient;
+  user: User;
+};
 
-  if (!client) {
-    return false;
+async function getAccessTokenFromCookies() {
+  const cookieStore = await cookies();
+  return cookieStore.get(USER_AUTH_COOKIE)?.value ?? null;
+}
+
+function createAuthedSupabase(accessToken: string) {
+  const { url, anon, configured } = getSupabaseEnv();
+  if (!configured || !url || !anon) {
+    return null;
   }
 
+  return createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+}
+
+async function getCurrentUser() {
+  const accessToken = await getAccessTokenFromCookies();
+  if (!accessToken) {
+    return null;
+  }
+
+  const supabase = supabaseServer();
+  if (!supabase) {
+    return null;
+  }
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser(accessToken);
+
+  if (error || !user) {
+    return null;
+  }
+
+  return { user, accessToken };
+}
+
+async function hasAdminRole(client: SupabaseClient, userId: string) {
   const { data, error } = await client
     .from("user_roles")
     .select("user_id")
@@ -33,36 +74,54 @@ async function isAdminUser(userId: string) {
   return Boolean(data);
 }
 
-export async function getAdminSession(): Promise<AdminSession> {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get(ADMIN_AUTH_COOKIE)?.value;
-
-  if (!accessToken) {
-    return { userId: null, email: null, isAdmin: false };
+export async function getAdminContext(): Promise<AdminAuthContext | null> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return null;
   }
 
-  const supabase = supabaseServer();
-  if (!supabase) {
-    return { userId: null, email: null, isAdmin: false };
+  const client = createAuthedSupabase(currentUser.accessToken);
+  if (!client) {
+    return null;
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser(accessToken);
-
-  if (!user) {
-    return { userId: null, email: null, isAdmin: false };
+  const isAdmin = await hasAdminRole(client, currentUser.user.id);
+  if (!isAdmin) {
+    return null;
   }
 
-  const isAdmin = await isAdminUser(user.id);
-  return { userId: user.id, email: user.email ?? null, isAdmin };
+  return { client, user: currentUser.user };
+}
+
+export async function getAdminSession(): Promise<AdminSession | null> {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return null;
+  }
+
+  const client = createAuthedSupabase(currentUser.accessToken);
+  if (!client) {
+    return null;
+  }
+
+  const isAdmin = await hasAdminRole(client, currentUser.user.id);
+
+  return {
+    userId: currentUser.user.id,
+    email: currentUser.user.email ?? null,
+    isAdmin,
+  };
 }
 
 export async function requireAdmin() {
   const session = await getAdminSession();
 
+  if (!session) {
+    redirect("/login?next=/admin");
+  }
+
   if (!session.isAdmin) {
-    redirect("/admin/login");
+    redirect("/");
   }
 
   return session;

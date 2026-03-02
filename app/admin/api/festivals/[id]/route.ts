@@ -1,6 +1,5 @@
 ﻿import { NextResponse } from "next/server";
-import { getAdminSession } from "@/lib/admin/isAdmin";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getAdminContext } from "@/lib/admin/isAdmin";
 
 type Payload = {
   title?: string;
@@ -24,15 +23,12 @@ type Payload = {
 };
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getAdminSession();
-  if (!session.isAdmin) {
+  const admin = await getAdminContext();
+  if (!admin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = supabaseAdmin();
-  if (!db) {
-    return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 500 });
-  }
+  const db = admin.client;
 
   const { id } = await params;
   const body = (await request.json()) as Payload;

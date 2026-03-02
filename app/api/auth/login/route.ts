@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { USER_AUTH_COOKIE } from "@/lib/authUser";
+import {
+  ACCESS_AUTH_COOKIE,
+  REFRESH_AUTH_COOKIE,
+  USER_AUTH_COOKIE,
+} from "@/lib/authUser";
 import { supabaseServer } from "@/lib/supabaseServer";
 
 function redirectWithError(request: Request, message: string) {
@@ -30,15 +34,34 @@ export async function POST(request: Request) {
   }
 
   const url = new URL(request.url);
+  const secure = url.protocol === "https:";
   const safeNext = typeof nextPath === "string" && nextPath.startsWith("/") ? nextPath : "/plan";
   const response = NextResponse.redirect(new URL(safeNext, url));
-  response.cookies.set(USER_AUTH_COOKIE, data.session.access_token, {
+
+  response.cookies.set(ACCESS_AUTH_COOKIE, data.session.access_token, {
     httpOnly: true,
-    secure: url.protocol === "https:",
+    secure,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60,
+  });
+
+  response.cookies.set(REFRESH_AUTH_COOKIE, data.session.refresh_token, {
+    httpOnly: true,
+    secure,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
+
+  response.cookies.set(USER_AUTH_COOKIE, data.session.access_token, {
+    httpOnly: true,
+    secure,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+
   return response;
 }
 

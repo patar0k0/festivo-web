@@ -59,3 +59,7 @@ Run this SQL to grant admin access to an existing user:
 insert into public.user_roles (user_id, role) values ('<uuid>','admin') on conflict do nothing;
 ```
 
+
+## Auth session notes
+
+Access tokens expire quickly; we keep both an access-token cookie and a refresh-token cookie, and middleware refreshes the session automatically when needed.

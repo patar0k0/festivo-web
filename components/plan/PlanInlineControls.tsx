@@ -47,7 +47,9 @@ export default function PlanInlineControls({ festivalId, scheduleItemId, compact
           Напомняне
           <select
             value={reminder}
+            onClick={stopEvent}
             onChange={(event) => {
+              stopEvent(event);
               void setFestivalReminder(String(festivalId), event.target.value as ReminderType);
             }}
             disabled={!isAuthenticated}

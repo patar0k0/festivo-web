@@ -18,8 +18,9 @@ export async function getOptionalUser(): Promise<OptionalUser> {
 
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser(token);
 
-  if (!user) return null;
+  if (error || !user) return null;
   return { id: user.id, email: user.email ?? null };
 }

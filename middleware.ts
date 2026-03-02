@@ -4,13 +4,11 @@ import {
   REFRESH_AUTH_COOKIE,
   USER_AUTH_COOKIE,
 } from "@/lib/authUser";
-import { supabaseServer } from "@/lib/supabaseServer";
 
-function logDev(message: string) {
-  if (process.env.NODE_ENV !== "production") {
-    console.log(message);
-  }
-}
+type RefreshResponse = {
+  access_token?: string;
+  refresh_token?: string;
+};
 
 export async function middleware(request: NextRequest) {
   const accessToken = request.cookies.get(ACCESS_AUTH_COOKIE)?.value;
@@ -20,61 +18,76 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const supabase = supabaseServer();
-  if (!supabase) {
+  if (accessToken) {
     return NextResponse.next();
   }
 
-  if (accessToken) {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(accessToken);
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (!error && user) {
+  if (!supabaseUrl || !anonKey) {
+    return NextResponse.next();
+  }
+
+  try {
+    const refreshResponse = await fetch(
+      `${supabaseUrl}/auth/v1/token?grant_type=refresh_token`,
+      {
+        method: "POST",
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      },
+    );
+
+    if (!refreshResponse.ok) {
       return NextResponse.next();
     }
-  }
 
-  const { data } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
-  if (!data.session) {
-    logDev("middleware: no refresh");
-    return NextResponse.next();
-  }
+    const data: RefreshResponse = await refreshResponse.json();
 
-  const response = NextResponse.next();
-  const secure = request.nextUrl.protocol === "https:";
+    if (!data.access_token) {
+      return NextResponse.next();
+    }
 
-  response.cookies.set(ACCESS_AUTH_COOKIE, data.session.access_token, {
-    httpOnly: true,
-    secure,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60,
-  });
+    const response = NextResponse.next();
+    const secure = request.nextUrl.protocol === "https:";
 
-  response.cookies.set(USER_AUTH_COOKIE, data.session.access_token, {
-    httpOnly: true,
-    secure,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+    response.cookies.set(ACCESS_AUTH_COOKIE, data.access_token, {
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60,
+    });
 
-  if (data.session.refresh_token) {
-    response.cookies.set(REFRESH_AUTH_COOKIE, data.session.refresh_token, {
+    response.cookies.set(USER_AUTH_COOKIE, data.access_token, {
       httpOnly: true,
       secure,
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 7,
     });
-  }
 
-  logDev("middleware: refreshed");
-  return response;
+    if (data.refresh_token) {
+      response.cookies.set(REFRESH_AUTH_COOKIE, data.refresh_token, {
+        httpOnly: true,
+        secure,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7,
+      });
+    }
+
+    return response;
+  } catch {
+    return NextResponse.next();
+  }
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/admin/:path*", "/plan/:path*"],
 };

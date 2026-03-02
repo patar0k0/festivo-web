@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
@@ -32,7 +32,7 @@ type GroupedDay = {
 
 function formatDayLabel(day: FestivalDay): string {
   if (day.title) return day.title;
-  if (!day.date) return "Р”РµРЅ";
+  if (!day.date) return "Ден";
   try {
     return format(parseISO(day.date), "d MMMM");
   } catch {
@@ -53,20 +53,20 @@ function formatTimeRange(start?: string | null, end?: string | null): string {
   const from = start ? start.slice(0, 5) : "";
   const to = end ? end.slice(0, 5) : "";
   if (from && to) return `${from} - ${to}`;
-  return from || "Р§Р°СЃ РїСЂРµРґСЃС‚РѕРё";
+  return from || "Час предстои";
 }
 
 function categoryLabel(category?: string | null): string | null {
   if (!category) return null;
   const labels: Record<string, string> = {
-    music: "РњСѓР·РёРєР°",
-    folk: "Р¤РѕР»РєР»РѕСЂ",
-    arts: "РР·РєСѓСЃС‚РІРѕ",
-    food: "РҐСЂР°РЅР°",
-    cultural: "РљСѓР»С‚СѓСЂР°",
-    sports: "РЎРїРѕСЂС‚",
-    film: "РљРёРЅРѕ",
-    theater: "РўРµР°С‚СЉСЂ",
+    music: "Музика",
+    folk: "Фолклор",
+    arts: "Изкуство",
+    food: "Храна",
+    cultural: "Култура",
+    sports: "Спорт",
+    film: "Кино",
+    theater: "Театър",
   };
   return labels[category.toLowerCase()] ?? category;
 }
@@ -77,7 +77,7 @@ function getGroupedDays(days: FestivalDay[], items: FestivalScheduleItem[]): Gro
     return [
       {
         id: "all",
-        label: "РџСЂРѕРіСЂР°РјР°",
+        label: "Програма",
         items: sortScheduleItems(items),
       },
     ];
@@ -124,11 +124,11 @@ export default function FestivalDetailClient({
 
   const imageMedia = media.filter((item) => isImageMedia(item.type) && Boolean(item.url));
   const heroImage = festival.image_url ?? imageMedia[0]?.url ?? null;
-  const primaryCta = mapHref ? { label: "РќР°РІРёРіР°С†РёСЏ", href: mapHref } : null;
+  const primaryCta = mapHref ? { label: "Навигация", href: mapHref } : null;
   const secondaryCta = festival.ticket_url
-    ? { label: "Р‘РёР»РµС‚Рё", href: festival.ticket_url }
+    ? { label: "Билети", href: festival.ticket_url }
     : festival.website_url
-      ? { label: "РЈРµР±СЃР°Р№С‚", href: festival.website_url }
+      ? { label: "Уебсайт", href: festival.website_url }
       : null;
   const categoryText = categoryLabel(festival.category);
 
@@ -151,7 +151,7 @@ export default function FestivalDetailClient({
           ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-[#ece8df] text-black/45">
               <span className="rounded-full border border-black/10 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em]">
-                РќСЏРјР° РѕСЃРЅРѕРІРЅР° СЃРЅРёРјРєР°
+                Няма основна снимка
               </span>
             </div>
           )}
@@ -162,7 +162,7 @@ export default function FestivalDetailClient({
                   {festival.city}
                 </Link>
               ) : (
-                <span className="rounded-full bg-white/15 px-3 py-1">Р“СЂР°Рґ: вЂ”</span>
+                <span className="rounded-full bg-white/15 px-3 py-1">Град: —</span>
               )}
               <span className="rounded-full bg-white/15 px-3 py-1">{dateText}</span>
               {categoryText ? <span className="rounded-full bg-white/15 px-3 py-1">{categoryText}</span> : null}
@@ -197,18 +197,18 @@ export default function FestivalDetailClient({
       <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-7">
           <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-            <h2 className="text-xl font-semibold text-[#0c0e14]">РћРїРёСЃР°РЅРёРµ</h2>
+            <h2 className="text-xl font-semibold text-[#0c0e14]">Описание</h2>
             <p className="mt-3 whitespace-pre-line text-sm leading-7 text-black/65">
-              {festival.description?.trim() || "РћРїРёСЃР°РЅРёРµС‚Рѕ РѕС‰Рµ РЅРµ Рµ РїСѓР±Р»РёРєСѓРІР°РЅРѕ."}
+              {festival.description?.trim() || "Описанието още не е публикувано."}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              {festival.is_free ? <Badge variant="primary">Р‘РµР·РїР»Р°С‚РµРЅ РІС…РѕРґ</Badge> : <Badge variant="neutral">РџР»Р°С‚РµРЅ РІС…РѕРґ</Badge>}
+              {festival.is_free ? <Badge variant="primary">Безплатен вход</Badge> : <Badge variant="neutral">Платен вход</Badge>}
               {festival.price_range ? <Badge variant="neutral">{festival.price_range}</Badge> : null}
             </div>
           </section>
 
           <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-            <h2 className="text-xl font-semibold text-[#0c0e14]">Р“Р°Р»РµСЂРёСЏ</h2>
+            <h2 className="text-xl font-semibold text-[#0c0e14]">Галерия</h2>
             {imageMedia.length ? (
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {imageMedia.slice(0, 8).map((item) => (
@@ -222,16 +222,16 @@ export default function FestivalDetailClient({
               </div>
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-6 text-sm text-black/50">
-                Р“Р°Р»РµСЂРёСЏС‚Р° РѕС‰Рµ РЅРµ Рµ РїСѓР±Р»РёРєСѓРІР°РЅР°.
+                Галерията още не е публикувана.
               </div>
             )}
           </section>
 
           <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-            <h2 className="text-xl font-semibold text-[#0c0e14]">РџСЂРѕРіСЂР°РјР°</h2>
+            <h2 className="text-xl font-semibold text-[#0c0e14]">Програма</h2>
             {!groupedDays.length ? (
               <div className="mt-4 rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-6 text-sm text-black/50">
-                РџСЂРѕРіСЂР°РјР°С‚Р° РѕС‰Рµ РЅРµ Рµ РїСѓР±Р»РёРєСѓРІР°РЅР°.
+                Програмата още не е публикувана.
               </div>
             ) : (
               <>
@@ -266,7 +266,7 @@ export default function FestivalDetailClient({
                             <div className="space-y-1">
                               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
                                 {formatTimeRange(item.start_time, item.end_time)}
-                                {item.stage ? ` вЂў ${item.stage}` : ""}
+                                {item.stage ? ` • ${item.stage}` : ""}
                               </p>
                               <h3 className="text-base font-semibold text-[#0c0e14]">{item.title}</h3>
                               {item.description ? <p className="text-sm text-black/60">{item.description}</p> : null}
@@ -282,7 +282,7 @@ export default function FestivalDetailClient({
                                   : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]"
                               }`}
                             >
-                              {selected ? "РџСЂРµРјР°С…РЅРё" : "Р”РѕР±Р°РІРё"}
+                              {selected ? "Премахни" : "Добави"}
                             </button>
                           </div>
                         </article>
@@ -290,7 +290,7 @@ export default function FestivalDetailClient({
                     })
                   ) : (
                     <div className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-6 text-sm text-black/50">
-                      РќСЏРјР° РїСѓР±Р»РёРєСѓРІР°РЅРё С‚РѕС‡РєРё Р·Р° РёР·Р±СЂР°РЅРёСЏ РґРµРЅ.
+                      Няма публикувани точки за избрания ден.
                     </div>
                   )}
                 </div>
@@ -301,10 +301,10 @@ export default function FestivalDetailClient({
           {relatedFestivals.length ? (
             <section className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xl font-semibold text-[#0c0e14]">РћС‰Рµ С„РµСЃС‚РёРІР°Р»Рё РІ {festival.city}</h2>
+                <h2 className="text-xl font-semibold text-[#0c0e14]">Още фестивали в {festival.city}</h2>
                 <div className="flex flex-wrap gap-3 text-sm font-semibold text-[#0c0e14]">
-                  {citySlug ? <Link href={`/cities/${citySlug}`}>РЎС‚СЂР°РЅРёС†Р° РЅР° РіСЂР°РґР°</Link> : null}
-                  {calendarMonth ? <Link href={`/calendar/${calendarMonth}`}>РљР°Р»РµРЅРґР°СЂ Р·Р° РјРµСЃРµС†Р°</Link> : null}
+                  {citySlug ? <Link href={`/cities/${citySlug}`}>Страница на града</Link> : null}
+                  {calendarMonth ? <Link href={`/calendar/${calendarMonth}`}>Календар за месеца</Link> : null}
                 </div>
               </div>
               <div className="grid gap-5 sm:grid-cols-2">
@@ -328,14 +328,14 @@ export default function FestivalDetailClient({
 
         <aside className="space-y-4 lg:sticky lg:top-[90px]">
           <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-            <h2 className="text-lg font-semibold text-[#0c0e14]">РљСЉРґРµ Рё РєРѕРіР°</h2>
+            <h2 className="text-lg font-semibold text-[#0c0e14]">Къде и кога</h2>
             <dl className="mt-4 space-y-3 text-sm">
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Р”Р°С‚Р°</dt>
+                <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Дата</dt>
                 <dd className="mt-1 text-black/70">{dateText}</dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Р›РѕРєР°С†РёСЏ</dt>
+                <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Локация</dt>
                 <dd className="mt-1 text-black/70">{venueText}</dd>
               </div>
             </dl>
@@ -347,11 +347,11 @@ export default function FestivalDetailClient({
                   rel="noreferrer"
                   className="rounded-xl bg-[#0c0e14] px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  РќР°РІРёРіР°С†РёСЏ
+                  Навигация
                 </a>
               ) : (
                 <span className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
-                  РќСЏРјР° РґР°РЅРЅРё Р·Р° РЅР°РІРёРіР°С†РёСЏ
+                  Няма данни за навигация
                 </span>
               )}
               {festival.ticket_url ? (
@@ -361,7 +361,7 @@ export default function FestivalDetailClient({
                   rel="noreferrer"
                   className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  Р‘РёР»РµС‚Рё
+                  Билети
                 </a>
               ) : festival.website_url ? (
                 <a
@@ -370,7 +370,7 @@ export default function FestivalDetailClient({
                   rel="noreferrer"
                   className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  РЈРµР±СЃР°Р№С‚
+                  Уебсайт
                 </a>
               ) : null}
             </div>
@@ -378,14 +378,14 @@ export default function FestivalDetailClient({
 
           <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-[#0c0e14]">РњРѕСЏС‚ РїР»Р°РЅ</h2>
+              <h2 className="text-lg font-semibold text-[#0c0e14]">Моят план</h2>
               {selectedItems.length ? (
                 <button
                   type="button"
                   onClick={clearPlan}
                   className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45 transition hover:text-black/70"
                 >
-                  РР·С‡РёСЃС‚Рё
+                  Изчисти
                 </button>
               ) : null}
             </div>
@@ -402,13 +402,13 @@ export default function FestivalDetailClient({
                 ))
               ) : (
                 <div className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-5 text-sm text-black/50">
-                  Р”РѕР±Р°РІРё С‚РѕС‡РєРё РѕС‚ РїСЂРѕРіСЂР°РјР°С‚Р°, Р·Р° РґР° СЃСЉР·РґР°РґРµС€ Р»РёС‡РµРЅ РїР»Р°РЅ.
+                  Добави точки от програмата, за да създадеш личен план.
                 </div>
               )}
             </div>
 
             <div className="mt-4">
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-black/45">РќР°РїРѕРјРЅСЏРЅРµ</label>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Напомняне</label>
               <Select
                 value={reminder}
                 onChange={(event) => {
@@ -417,9 +417,9 @@ export default function FestivalDetailClient({
                 disabled={!isAuthenticated}
                 className="border-black/[0.12] bg-white/95 focus:ring-[#ff4c1f]/20"
               >
-                <option value="none">Р‘РµР· РЅР°РїРѕРјРЅСЏРЅРµ</option>
-                <option value="24h">24 С‡Р°СЃР° РїРѕ-СЂР°РЅРѕ</option>
-                <option value="same_day_09">Р’ РґРµРЅСЏ РЅР° СЃСЉР±РёС‚РёРµС‚Рѕ РІ 09:00</option>
+                <option value="none">Без напомняне</option>
+                <option value="24h">24 часа по-рано</option>
+                <option value="same_day_09">В деня на събитието в 09:00</option>
               </Select>
               {!isAuthenticated ? (
                 <p className="mt-2 text-xs text-black/55">

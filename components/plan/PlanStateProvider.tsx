@@ -42,6 +42,9 @@ export function PlanStateProvider({
 
   const applyState = useCallback((payload: PlanStatePayload) => {
     setAuthenticated(payload.authenticated);
+    if (payload.authenticated) {
+      setAuthRequired(false);
+    }
     setScheduleItemIds(new Set(payload.scheduleItemIds.map(String)));
     setReminders(payload.reminders ?? {});
   }, []);
@@ -65,8 +68,18 @@ export function PlanStateProvider({
       void refreshPlanState();
     };
 
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refreshPlanState();
+      }
+    };
+
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [refreshPlanState]);
 
   const toggleScheduleItem = useCallback(async (scheduleItemId?: string | null) => {

@@ -63,3 +63,14 @@ insert into public.user_roles (user_id, role) values ('<uuid>','admin') on confl
 ## Auth session notes
 
 Access tokens expire quickly; we keep both an access-token cookie and a refresh-token cookie, and middleware refreshes the session automatically when needed.
+
+## Supabase OAuth Redirect URLs
+
+In Supabase Dashboard -> Auth -> URL Configuration -> Redirect URLs, add:
+- `http://localhost:3000/auth/callback`
+- `https://festivo.bg/auth/callback`
+
+If these are missing, `signInWithOAuth` can fail with `Invalid redirect URL`.
+
+After creating/updating `.env.local`, restart the dev server.
+In production (Vercel), add the same `NEXT_PUBLIC_*` variables in Project Settings -> Environment Variables.

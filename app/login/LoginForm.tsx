@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 
@@ -14,14 +14,23 @@ export function LoginForm({ next }: LoginFormProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [redirectHint, setRedirectHint] = useState("/auth/callback");
+
+  useEffect(() => {
+    setRedirectHint(`${window.location.origin}/auth/callback`);
+  }, []);
 
   async function signInWithOAuth(provider: "google" | "apple") {
     setError("");
 
     try {
+      console.log("ENV CHECK", {
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        anon: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "SET" : "MISSING",
+      });
       const supabase = createSupabaseBrowser();
       const redirectTo = `${window.location.origin}/auth/callback`;
-      console.log("GOOGLE CLICK", { redirectTo, provider });
+      console.log("GOOGLE CLICK", { redirectTo });
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
@@ -29,25 +38,26 @@ export function LoginForm({ next }: LoginFormProps) {
           redirectTo,
         },
       });
-      console.log("OAuth result", { provider, url: data?.url, error: oauthError?.message });
+      console.log("OAuth result", { provider, url: data?.url, error: oauthError });
 
       if (oauthError) {
-        console.error("OAuth login failed", oauthError);
-        setError("OAuth login failed.");
-        alert("OAuth login failed.");
+        console.error("OAuth error:", oauthError);
+        setError(`OAuth error: ${oauthError.message}`);
+        alert(`OAuth error: ${oauthError.message}`);
         return;
       }
 
       if (data?.url) {
-        window.location.assign(data.url);
+        window.location.replace(data.url);
         return;
       }
 
-      setError("OAuth login failed.");
-      alert("OAuth login failed.");
-    } catch {
-      setError("OAuth login failed.");
-      alert("OAuth login failed.");
+      setError("OAuth error: missing redirect URL from Supabase.");
+      alert("OAuth error: missing redirect URL from Supabase.");
+    } catch (e) {
+      console.error("OAuth unexpected error:", e);
+      setError(`OAuth unexpected error: ${String(e)}`);
+      alert(`OAuth unexpected error: ${String(e)}`);
     }
   }
 
@@ -126,6 +136,9 @@ export function LoginForm({ next }: LoginFormProps) {
       >
         Continue with Apple
       </button>
+      {process.env.NODE_ENV !== "production" ? (
+        <p className="text-xs text-black/55">OAuth redirect URL (allow-list in Supabase): {redirectHint}</p>
+      ) : null}
     </form>
   );
 }

@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const response = NextResponse.redirect(new URL("/admin/login", url));
   response.cookies.set(ADMIN_AUTH_COOKIE, "", {
     httpOnly: true,
-    secure: url.protocol === "https:",
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 0,

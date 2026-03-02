@@ -188,11 +188,28 @@ export async function getFestivalDetail(
         ).data
       : [];
 
+  const fixedDays = (days ?? []).map((day) => ({
+    ...day,
+    title: day.title ? fixMojibakeBG(day.title) : day.title,
+  }));
+
+  const fixedMedia = (media ?? []).map((item) => ({
+    ...item,
+    caption: item.caption ? fixMojibakeBG(item.caption) : item.caption,
+  }));
+
+  const fixedScheduleItems = (scheduleItems ?? []).map((item) => ({
+    ...item,
+    title: fixMojibakeBG(item.title),
+    stage: item.stage ? fixMojibakeBG(item.stage) : item.stage,
+    description: item.description ? fixMojibakeBG(item.description) : item.description,
+  }));
+
   return {
     festival: fixFestivalText(festival),
-    media: media ?? [],
-    days: days ?? [],
-    scheduleItems: scheduleItems ?? [],
+    media: fixedMedia,
+    days: fixedDays,
+    scheduleItems: fixedScheduleItems,
   };
 }
 

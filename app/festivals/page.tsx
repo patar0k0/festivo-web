@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { endOfMonth, format, nextSaturday, nextSunday, startOfMonth } from "date-fns";
 import StickySearchBar from "@/components/StickySearchBar";
 import { festivalCategories, festivalCategoryLabels } from "@/components/CategoryChips";
@@ -27,8 +27,8 @@ export async function generateMetadata() {
   const meta = listMeta();
   return {
     ...meta,
-    title: "Р¤РµСЃС‚РёРІР°Р»Рё РІ Р‘СЉР»РіР°СЂРёСЏ | Festivo",
-    description: "РћС‚РєСЂРёР№ Р±РµР·РїР»Р°С‚РЅРё С„РµСЃС‚РёРІР°Р»Рё Рё СЃСЉР±РёС‚РёСЏ РІ Р‘СЉР»РіР°СЂРёСЏ РїРѕ РіСЂР°Рґ, РґР°С‚Р° Рё РєР°С‚РµРіРѕСЂРёСЏ.",
+    title: "Фестивали в България | Festivo",
+    description: "Открий безплатни фестивали и събития в България по град, дата и категория.",
     alternates: {
       canonical: `${getBaseUrl()}/festivals`,
     },
@@ -100,9 +100,9 @@ export default async function FestivalsPage({
               <div className="flex flex-wrap items-start justify-between gap-4 md:gap-6">
                 <div className="max-w-3xl">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">Festivo Explorer</p>
-                  <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Р¤РµСЃС‚РёРІР°Р»Рё РІ Р‘СЉР»РіР°СЂРёСЏ</h1>
+                  <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Фестивали в България</h1>
                   <p className="mt-3 text-sm text-black/65 md:text-[15px]">
-                    РћС‚РєСЂРёР№ Р±РµР·РїР»Р°С‚РЅРё С„РµСЃС‚РёРІР°Р»Рё Рё СЃСЉР±РёС‚РёСЏ РїРѕ РіСЂР°Рґ, РєР°С‚РµРіРѕСЂРёСЏ Рё РґР°С‚Р°.
+                    Открий безплатни фестивали и събития по град, категория и дата.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -117,21 +117,21 @@ export default async function FestivalsPage({
                   scroll={false}
                   className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  РЎР°РјРѕ Р±РµР·РїР»Р°С‚РЅРё
+                  Само безплатни
                 </Link>
                 <Link
                   href={`/festivals${weekendLink}`}
                   scroll={false}
                   className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  РўРѕР·Рё СѓРёРєРµРЅРґ
+                  Този уикенд
                 </Link>
                 <Link
                   href={`/festivals${monthLink}`}
                   scroll={false}
                   className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  РўРѕР·Рё РјРµСЃРµС†
+                  Този месец
                 </Link>
                 {popularCategoryChips.map((category) => {
                   const categoryLink = serializeFilters({ ...filters, cat: [category] });
@@ -180,21 +180,21 @@ export default async function FestivalsPage({
 
                 {data.data.length === 0 ? (
                   <div className="rounded-2xl border border-black/[0.08] bg-white/80 px-6 py-12 text-center shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.06)]">
-                    <p className="text-base font-semibold text-[#0c0e14]">РќСЏРјР° С„РµСЃС‚РёРІР°Р»Рё РїРѕ С‚РµР·Рё С„РёР»С‚СЂРё.</p>
+                    <p className="text-base font-semibold text-[#0c0e14]">Няма фестивали по тези филтри.</p>
                     <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                       <Link
                         href={clearHref}
                         scroll={false}
                         className="rounded-xl bg-[#0c0e14] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                       >
-                        РР·С‡РёСЃС‚Рё С„РёР»С‚СЂРёС‚Рµ
+                        Изчисти филтрите
                       </Link>
                       <Link
                         href="/festivals"
                         scroll={false}
                         className="rounded-xl border border-black/[0.1] bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#0c0e14] transition hover:border-black/20 hover:bg-[#faf9f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                       >
-                        Р’РёР¶ РІСЃРёС‡РєРё
+                        Виж всички
                       </Link>
                     </div>
                   </div>

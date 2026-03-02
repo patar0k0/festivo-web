@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
 
-const ADMIN_AUTH_COOKIE = "festivo_admin_token";
+function toUserLogout(request: Request) {
+  return NextResponse.redirect(new URL("/api/auth/logout", request.url));
+}
 
 export async function GET(request: Request) {
-  const isProd = process.env.NODE_ENV === "production";
-  const response = NextResponse.redirect(new URL("/admin/login", request.url));
+  return toUserLogout(request);
+}
 
-  response.cookies.set(ADMIN_AUTH_COOKIE, "", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isProd,
-    path: "/",
-    maxAge: 0,
-  });
-
-  return response;
+export async function POST(request: Request) {
+  return toUserLogout(request);
 }

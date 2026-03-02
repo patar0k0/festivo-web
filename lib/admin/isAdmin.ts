@@ -1,9 +1,9 @@
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
+import { ACCESS_AUTH_COOKIE, REFRESH_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
+import { refreshAccessToken } from "@/lib/authRefresh";
 import { getSupabaseEnv, supabaseServer } from "@/lib/supabaseServer";
-
-const ADMIN_AUTH_COOKIE = "festivo_admin_token";
 
 export type AdminSession = {
   userId: string;
@@ -20,19 +20,12 @@ async function getTokensFromCookies() {
   const cookieStore = await cookies();
 
   return {
-    accessToken: cookieStore.get(ADMIN_AUTH_COOKIE)?.value ?? null,
+    accessToken:
+      cookieStore.get(ACCESS_AUTH_COOKIE)?.value ??
+      cookieStore.get(USER_AUTH_COOKIE)?.value ??
+      null,
+    refreshToken: cookieStore.get(REFRESH_AUTH_COOKIE)?.value ?? null,
   };
-}
-
-async function getCurrentPathname() {
-  const headerStore = await headers();
-  const nextUrl = headerStore.get("next-url");
-
-  if (typeof nextUrl === "string" && nextUrl.startsWith("/")) {
-    return nextUrl;
-  }
-
-  return "/admin";
 }
 
 function createAuthedSupabase(accessToken: string) {
@@ -51,11 +44,9 @@ function createAuthedSupabase(accessToken: string) {
   });
 }
 
-async function getCurrentUser() {
-  const { accessToken } = await getTokensFromCookies();
-
+async function getUserFromToken(accessToken: string) {
   const supabase = supabaseServer();
-  if (!supabase || !accessToken) {
+  if (!supabase) {
     return null;
   }
 
@@ -68,13 +59,42 @@ async function getCurrentUser() {
     return null;
   }
 
-  return { user, accessToken };
+  return user;
+}
+
+async function getCurrentUser() {
+  const { accessToken, refreshToken } = await getTokensFromCookies();
+
+  if (!accessToken) {
+    return null;
+  }
+
+  const user = await getUserFromToken(accessToken);
+  if (user) {
+    return { user, accessToken };
+  }
+
+  if (!refreshToken) {
+    return null;
+  }
+
+  const refreshed = await refreshAccessToken(refreshToken);
+  if (!refreshed?.access_token) {
+    return null;
+  }
+
+  const refreshedUser = await getUserFromToken(refreshed.access_token);
+  if (!refreshedUser) {
+    return null;
+  }
+
+  return { user: refreshedUser, accessToken: refreshed.access_token };
 }
 
 async function hasAdminRole(client: SupabaseClient, userId: string) {
   const { data, error } = await client
     .from("user_roles")
-    .select("user_id")
+    .select("role")
     .eq("user_id", userId)
     .eq("role", "admin")
     .maybeSingle();
@@ -127,8 +147,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 
 export async function requireAdmin() {
   const session = await getAdminSession();
-  const pathname = await getCurrentPathname();
-  const loginUrl = `/admin/login?next=${encodeURIComponent(pathname)}`;
+  const loginUrl = `/login?next=${encodeURIComponent("/admin")}`;
 
   if (!session) {
     redirect(loginUrl);

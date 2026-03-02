@@ -142,7 +142,7 @@ export async function requireAdmin() {
   const session = await getAdminSession();
 
   if (!session) {
-    redirect("/admin/login");
+    redirect(`/admin/login?next=${encodeURIComponent("/admin")}`);
   }
 
   if (!session.isAdmin) {

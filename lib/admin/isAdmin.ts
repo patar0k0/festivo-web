@@ -1,8 +1,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
-import { ACCESS_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
+import { ACCESS_AUTH_COOKIE, REFRESH_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
 import { getSupabaseEnv, supabaseServer } from "@/lib/supabaseServer";
+import { refreshAccessToken } from "@/lib/authRefresh";
 
 export type AdminSession = {
   userId: string;
@@ -15,13 +16,16 @@ type AdminAuthContext = {
   user: User;
 };
 
-async function getAccessTokenFromCookies() {
+async function getTokensFromCookies() {
   const cookieStore = await cookies();
-  return (
-    cookieStore.get(ACCESS_AUTH_COOKIE)?.value ??
-    cookieStore.get(USER_AUTH_COOKIE)?.value ??
-    null
-  );
+
+  return {
+    accessToken:
+      cookieStore.get(ACCESS_AUTH_COOKIE)?.value ??
+      cookieStore.get(USER_AUTH_COOKIE)?.value ??
+      null,
+    refreshToken: cookieStore.get(REFRESH_AUTH_COOKIE)?.value ?? null,
+  };
 }
 
 function createAuthedSupabase(accessToken: string) {
@@ -41,26 +45,43 @@ function createAuthedSupabase(accessToken: string) {
 }
 
 async function getCurrentUser() {
-  const accessToken = await getAccessTokenFromCookies();
-  if (!accessToken) {
-    return null;
-  }
+  const { accessToken, refreshToken } = await getTokensFromCookies();
 
   const supabase = supabaseServer();
   if (!supabase) {
     return null;
   }
 
+  if (accessToken) {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(accessToken);
+
+    if (!error && user) {
+      return { user, accessToken };
+    }
+  }
+
+  if (!refreshToken) {
+    return null;
+  }
+
+  const refreshed = await refreshAccessToken(refreshToken);
+  if (!refreshed?.access_token) {
+    return null;
+  }
+
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser(accessToken);
+  } = await supabase.auth.getUser(refreshed.access_token);
 
   if (error || !user) {
     return null;
   }
 
-  return { user, accessToken };
+  return { user, accessToken: refreshed.access_token };
 }
 
 async function hasAdminRole(client: SupabaseClient, userId: string) {
@@ -121,7 +142,7 @@ export async function requireAdmin() {
   const session = await getAdminSession();
 
   if (!session) {
-    redirect("/login?next=/admin");
+    redirect("/admin/login");
   }
 
   if (!session.isAdmin) {

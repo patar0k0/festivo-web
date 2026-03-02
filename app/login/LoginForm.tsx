@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createSupabaseBrowser } from "@/lib/supabase/client";
 
 type LoginFormProps = {
   next: string;
@@ -19,20 +19,35 @@ export function LoginForm({ next }: LoginFormProps) {
     setError("");
 
     try {
-      const supabase = createSupabaseBrowserClient();
-      const origin = window.location.origin;
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      const supabase = createSupabaseBrowser();
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      console.log("GOOGLE CLICK", { redirectTo, provider });
+
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${origin}/auth/callback`,
+          redirectTo,
         },
       });
+      console.log("OAuth result", { provider, url: data?.url, error: oauthError?.message });
 
       if (oauthError) {
+        console.error("OAuth login failed", oauthError);
         setError("OAuth login failed.");
+        alert("OAuth login failed.");
+        return;
       }
+
+      if (data?.url) {
+        window.location.assign(data.url);
+        return;
+      }
+
+      setError("OAuth login failed.");
+      alert("OAuth login failed.");
     } catch {
       setError("OAuth login failed.");
+      alert("OAuth login failed.");
     }
   }
 

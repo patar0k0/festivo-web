@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { USER_AUTH_COOKIE } from "@/lib/authUser";
 import { supabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "nodejs";
+
 export async function GET() {
   const cookieStore = await cookies();
   const cookieNames = cookieStore.getAll().map((cookie) => cookie.name);

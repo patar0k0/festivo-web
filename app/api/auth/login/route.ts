@@ -5,6 +5,8 @@ import {
 } from "@/lib/authUser";
 import { supabaseServer } from "@/lib/supabaseServer";
 
+export const runtime = "nodejs";
+
 function jsonWithError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }

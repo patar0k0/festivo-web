@@ -1,6 +1,9 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { REFRESH_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
+import { getSupabaseEnv } from "@/lib/supabaseServer";
+
+export const runtime = "nodejs";
 
 function getSafeNext(rawNext: string | null) {
   return rawNext && rawNext.startsWith("/") ? rawNext : "/admin";
@@ -23,26 +26,9 @@ export async function GET(request: Request) {
     return loginRedirect(request, nextPath);
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !anonKey) {
-    const response = loginRedirect(request, nextPath);
-    response.cookies.set(USER_AUTH_COOKIE, "", {
-      httpOnly: true,
-      sameSite: "lax",
-      secure,
-      path: "/",
-      maxAge: 0,
-    });
-    response.cookies.set(REFRESH_AUTH_COOKIE, "", {
-      httpOnly: true,
-      sameSite: "lax",
-      secure,
-      path: "/",
-      maxAge: 0,
-    });
-    return response;
+  const { url: supabaseUrl, anon: anonKey, configured } = getSupabaseEnv();
+  if (!configured || !supabaseUrl || !anonKey) {
+    return NextResponse.json({ error: "Missing Supabase env" }, { status: 500 });
   }
 
   const refreshResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {

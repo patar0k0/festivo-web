@@ -84,7 +84,8 @@ async function hasAdminRole(client: SupabaseClient, userId: string) {
     .maybeSingle();
 
   if (error) {
-    return false;
+    console.error("[admin] user_roles lookup failed", { userId, error });
+    throw new Error(`user_roles lookup failed: ${error.message}`);
   }
 
   return Boolean(data);

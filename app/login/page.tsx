@@ -13,6 +13,7 @@ export default async function LoginPage({
 
   const params = await searchParams;
   const error = typeof params.error === "string" ? params.error : "";
+  const next = typeof params.next === "string" && params.next.startsWith("/") ? params.next : "/plan";
 
   return (
     <div className="landing-bg min-h-screen px-4 py-12 text-[#0c0e14]">
@@ -24,6 +25,7 @@ export default async function LoginPage({
         {error ? <p className="mt-4 rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
 
         <form action="/api/auth/login" method="post" className="mt-5 space-y-4">
+          <input type="hidden" name="next" value={next} />
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Email</span>
             <input type="email" name="email" required className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-sm" />

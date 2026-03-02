@@ -56,6 +56,6 @@ Environment variables (no secrets in repo):
 Run this SQL to grant admin access to an existing user:
 
 ```sql
-insert into public.user_roles (user_id, role) values ('<uuid>','admin');
+insert into public.user_roles (user_id, role) values ('<uuid>','admin') on conflict do nothing;
 ```
 

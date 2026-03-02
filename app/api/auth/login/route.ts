@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { USER_AUTH_COOKIE } from "@/lib/authUser";
 import { supabaseServer } from "@/lib/supabaseServer";
 
@@ -13,6 +13,7 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const email = formData.get("email");
   const password = formData.get("password");
+  const nextPath = formData.get("next");
 
   if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     return redirectWithError(request, "Невалидни данни за вход.");
@@ -29,7 +30,8 @@ export async function POST(request: Request) {
   }
 
   const url = new URL(request.url);
-  const response = NextResponse.redirect(new URL("/plan", url));
+  const safeNext = typeof nextPath === "string" && nextPath.startsWith("/") ? nextPath : "/plan";
+  const response = NextResponse.redirect(new URL(safeNext, url));
   response.cookies.set(USER_AUTH_COOKIE, data.session.access_token, {
     httpOnly: true,
     secure: url.protocol === "https:",

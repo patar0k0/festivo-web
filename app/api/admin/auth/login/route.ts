@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 
 function toUserLogin(request: Request) {
-  const url = new URL(request.url);
-  const loginUrl = new URL("/login", url);
-  loginUrl.searchParams.set("next", "/admin");
-  return NextResponse.redirect(loginUrl);
+  return NextResponse.redirect(new URL("/api/auth/login", request.url));
 }
 
 export async function GET(request: Request) {

@@ -30,26 +30,24 @@ export async function POST(request: Request) {
     return jsonWithError("Невалидни данни за вход.", 401);
   }
 
-  const isProd = process.env.NODE_ENV === "production";
+  const secure = new URL(request.url).protocol === "https:";
   const response = NextResponse.json({ ok: true });
 
   response.cookies.set(USER_AUTH_COOKIE, data.session.access_token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: isProd,
+    secure,
+    path: "/",
+    maxAge: 60 * 60,
+  });
+
+  response.cookies.set(REFRESH_AUTH_COOKIE, data.session.refresh_token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure,
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
-
-  if (data.session.refresh_token) {
-    response.cookies.set(REFRESH_AUTH_COOKIE, data.session.refresh_token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: isProd,
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-  }
 
   return response;
 }

@@ -146,23 +146,18 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 }
 
 export async function requireAdmin() {
-  const cookieStore = await cookies();
-  const accessToken =
-    cookieStore.get(USER_AUTH_COOKIE)?.value ??
-    cookieStore.get(ACCESS_AUTH_COOKIE)?.value;
-  const loginUrl = `/login?next=${encodeURIComponent("/admin")}`;
-
-  if (!accessToken) {
-    redirect(loginUrl);
-  }
-
   const session = await getAdminSession();
   if (!session) {
-    redirect(loginUrl);
+    const refresh = (await cookies()).get(REFRESH_AUTH_COOKIE)?.value;
+    if (refresh) {
+      redirect(`/api/auth/refresh?next=${encodeURIComponent("/admin")}`);
+    }
+
+    redirect("/login?next=/admin");
   }
 
   if (!session.isAdmin) {
-    redirect("/403");
+    redirect("/");
   }
 
   return session;

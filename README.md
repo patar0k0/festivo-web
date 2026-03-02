@@ -50,3 +50,12 @@ Environment variables (no secrets in repo):
 4. `https://www.festivo.bg/` -> 308 to `https://festivo.bg/`
 5. `https://festivo.bg/sitemap.xml` -> only coming-soon when in coming-soon mode
 6. `https://festivo.bg/robots.txt` -> disallow all when in coming-soon mode
+
+## Admin role setup
+
+Run this SQL to grant admin access to an existing user:
+
+```sql
+insert into public.user_roles (user_id, role) values ('<uuid>','admin');
+```
+

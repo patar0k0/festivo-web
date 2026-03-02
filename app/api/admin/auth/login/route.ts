@@ -7,7 +7,15 @@ function redirectWithError(request: Request, message: string) {
   const url = new URL(request.url);
   const loginUrl = new URL("/admin/login", url);
   loginUrl.searchParams.set("error", message);
-  return NextResponse.redirect(loginUrl);
+  const response = NextResponse.redirect(loginUrl);
+  response.cookies.set(ADMIN_AUTH_COOKIE, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+  return response;
 }
 
 export async function POST(request: Request) {
@@ -16,37 +24,38 @@ export async function POST(request: Request) {
   const password = formData.get("password");
 
   if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
-    return redirectWithError(request, "Невалидни данни за вход.");
+    return redirectWithError(request, "invalid_credentials");
   }
 
   const supabase = supabaseServer();
   if (!supabase) {
-    return redirectWithError(request, "Липсва Supabase конфигурация.");
+    return redirectWithError(request, "supabase_not_configured");
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error || !data.session || !data.user) {
-    return redirectWithError(request, "Невалидни данни за вход.");
+    return redirectWithError(request, "invalid_credentials");
   }
 
   const adminDb = supabaseAdmin() ?? supabase;
   const { data: roleData, error: roleError } = await adminDb
     .from("user_roles")
-    .select("role")
+    .select("user_id")
     .eq("user_id", data.user.id)
     .eq("role", "admin")
     .maybeSingle();
 
   if (roleError || !roleData) {
-    return redirectWithError(request, "Нямаш admin достъп.");
+    await supabase.auth.signOut();
+    return redirectWithError(request, "not_admin");
   }
 
   const url = new URL(request.url);
   const response = NextResponse.redirect(new URL("/admin", url));
   response.cookies.set(ADMIN_AUTH_COOKIE, data.session.access_token, {
     httpOnly: true,
-    secure: url.protocol === "https:",
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,

@@ -1,6 +1,12 @@
 ﻿import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/admin/isAdmin";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_credentials: "Невалидни данни за вход.",
+  not_admin: "Нямаш admin достъп.",
+  supabase_not_configured: "Липсва Supabase конфигурация.",
+};
+
 export default async function AdminLoginPage({
   searchParams,
 }: {
@@ -12,7 +18,9 @@ export default async function AdminLoginPage({
   }
 
   const params = await searchParams;
-  const error = typeof params.error === "string" ? params.error : "";
+  const errorKey = typeof params.error === "string" ? params.error : "";
+  const messageParam = typeof params.message === "string" ? params.message : "";
+  const error = ERROR_MESSAGES[errorKey] ?? messageParam;
 
   return (
     <div className="landing-bg min-h-screen px-4 py-12 text-[#0c0e14]">

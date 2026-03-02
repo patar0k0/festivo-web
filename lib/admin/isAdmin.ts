@@ -21,7 +21,7 @@ async function isAdminUser(userId: string) {
 
   const { data, error } = await client
     .from("user_roles")
-    .select("role")
+    .select("user_id")
     .eq("user_id", userId)
     .eq("role", "admin")
     .maybeSingle();

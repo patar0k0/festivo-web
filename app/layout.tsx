@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
+import dynamic from "next/dynamic";
 import "./globals.css";
-import LayoutShell from "@/components/LayoutShell";
+
+const LayoutShell = dynamic(() => import("@/components/LayoutShell"), { ssr: false });
 
 const manrope = Manrope({
   variable: "--font-sans",

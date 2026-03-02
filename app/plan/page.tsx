@@ -1,8 +1,11 @@
 ﻿import Link from "next/link";
+import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 import PlanPageClient from "@/components/plan/PlanPageClient";
 import { PlanStateProvider } from "@/components/plan/PlanStateProvider";
-import { getOptionalUser } from "@/lib/authUser";
+import { ACCESS_AUTH_COOKIE, USER_AUTH_COOKIE, getOptionalUser } from "@/lib/authUser";
 import { getPlanEntriesByUser, getPlanStateByUser } from "@/lib/plan/server";
+import { getSupabaseEnv } from "@/lib/supabaseServer";
 import "../landing.css";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +27,27 @@ export default async function PlanPage() {
     );
   }
 
+  let isAdmin = false;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(ACCESS_AUTH_COOKIE)?.value ?? cookieStore.get(USER_AUTH_COOKIE)?.value;
+  const { url, anon, configured } = getSupabaseEnv();
+
+  if (token && configured && url && anon) {
+    const supabase = createClient(url, anon, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    isAdmin = Boolean(data);
+  }
+
   const [entries, state] = await Promise.all([getPlanEntriesByUser(user.id), getPlanStateByUser(user.id)]);
 
   return (
@@ -37,6 +61,14 @@ export default async function PlanPage() {
           <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
             <h1 className="text-3xl font-black tracking-tight">Моят план</h1>
             <p className="mt-2 text-sm text-black/65">Предстоящи събития и напомняния.</p>
+            {isAdmin ? (
+              <Link
+                href="/admin"
+                className="mt-4 inline-flex rounded-xl border border-black/[0.14] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:bg-black/[0.04]"
+              >
+                Админ панел
+              </Link>
+            ) : null}
           </div>
 
           <PlanPageClient entries={entries} />

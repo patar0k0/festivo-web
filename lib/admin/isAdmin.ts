@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import { getSupabaseEnv, supabaseServer } from "@/lib/supabaseServer";
@@ -22,6 +22,17 @@ async function getTokensFromCookies() {
   return {
     accessToken: cookieStore.get(ADMIN_AUTH_COOKIE)?.value ?? null,
   };
+}
+
+async function getCurrentPathname() {
+  const headerStore = await headers();
+  const nextUrl = headerStore.get("next-url");
+
+  if (typeof nextUrl === "string" && nextUrl.startsWith("/")) {
+    return nextUrl;
+  }
+
+  return "/admin";
 }
 
 function createAuthedSupabase(accessToken: string) {
@@ -116,13 +127,15 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 
 export async function requireAdmin() {
   const session = await getAdminSession();
+  const pathname = await getCurrentPathname();
+  const loginUrl = `/admin/login?next=${encodeURIComponent(pathname)}`;
 
   if (!session) {
-    redirect("/admin/login?next=/admin");
+    redirect(loginUrl);
   }
 
   if (!session.isAdmin) {
-    redirect("/");
+    redirect("/403");
   }
 
   return session;

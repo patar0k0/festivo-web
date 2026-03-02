@@ -9,12 +9,12 @@ export default async function LoginPage({
 }) {
   const user = await getOptionalUser();
   if (user) {
-    redirect("/plan");
+    redirect("/admin");
   }
 
   const params = await searchParams;
   const error = typeof params.error === "string" ? params.error : "";
-  const next = typeof params.next === "string" && params.next.startsWith("/") ? params.next : "/plan";
+  const next = typeof params.next === "string" && params.next.startsWith("/") ? params.next : "/admin";
 
   return (
     <div className="landing-bg min-h-screen px-4 py-12 text-[#0c0e14]">

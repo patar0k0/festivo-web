@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-import {
-  ACCESS_AUTH_COOKIE,
-  REFRESH_AUTH_COOKIE,
-  USER_AUTH_COOKIE,
-} from "@/lib/authUser";
 import { supabaseServer } from "@/lib/supabaseServer";
+
+const ADMIN_AUTH_COOKIE = "festivo_admin_token";
 
 function redirectWithError(request: Request, message: string) {
   const url = new URL(request.url);
@@ -42,23 +39,7 @@ export async function POST(request: Request) {
   const isProd = process.env.NODE_ENV === "production";
   const response = NextResponse.redirect(new URL(safeNext, request.url));
 
-  response.cookies.set(ACCESS_AUTH_COOKIE, data.session.access_token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isProd,
-    path: "/",
-    maxAge: 60 * 60,
-  });
-
-  response.cookies.set(REFRESH_AUTH_COOKIE, data.session.refresh_token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isProd,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-
-  response.cookies.set(USER_AUTH_COOKIE, data.session.access_token, {
+  response.cookies.set(ADMIN_AUTH_COOKIE, data.session.access_token, {
     httpOnly: true,
     sameSite: "lax",
     secure: isProd,

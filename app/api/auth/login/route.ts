@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     return jsonWithError("Невалидни данни за вход.", 401);
   }
 
-  const secure = new URL(request.url).protocol === "https:";
+  const secure = process.env.NODE_ENV === "production";
   const response = NextResponse.json({ ok: true });
 
   response.cookies.set(USER_AUTH_COOKIE, data.session.access_token, {

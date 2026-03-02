@@ -16,8 +16,9 @@ export default function LayoutShell({
   const pathname = usePathname();
   const isComingSoon = pathname === "/coming-soon";
   const isHome = pathname === "/";
+  const isAdmin = pathname.startsWith("/admin");
 
-  if (!forceChrome && (isComingSoon || isHome)) {
+  if (!forceChrome && (isComingSoon || isHome || isAdmin)) {
     return <>{children}</>;
   }
 

@@ -14,7 +14,7 @@ function loginRedirect(request: Request, nextPath: string) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const secure = url.protocol === "https:";
+  const secure = process.env.NODE_ENV === "production";
   const nextPath = getSafeNext(url.searchParams.get("next"));
   const cookieStore = await cookies();
   const refreshToken = cookieStore.get(REFRESH_AUTH_COOKIE)?.value;

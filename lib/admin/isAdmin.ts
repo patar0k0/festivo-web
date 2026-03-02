@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import { ACCESS_AUTH_COOKIE, REFRESH_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
-import { refreshAccessToken } from "@/lib/authRefresh";
 import { getSupabaseEnv, supabaseServer } from "@/lib/supabaseServer";
 
 export type AdminSession = {
@@ -24,7 +23,6 @@ async function getTokensFromCookies() {
       cookieStore.get(USER_AUTH_COOKIE)?.value ??
       cookieStore.get(ACCESS_AUTH_COOKIE)?.value ??
       null,
-    refreshToken: cookieStore.get(REFRESH_AUTH_COOKIE)?.value ?? null,
   };
 }
 
@@ -63,7 +61,7 @@ async function getUserFromToken(accessToken: string) {
 }
 
 async function getCurrentUser() {
-  const { accessToken, refreshToken } = await getTokensFromCookies();
+  const { accessToken } = await getTokensFromCookies();
 
   if (!accessToken) {
     return null;
@@ -74,21 +72,7 @@ async function getCurrentUser() {
     return { user, accessToken };
   }
 
-  if (!refreshToken) {
-    return null;
-  }
-
-  const refreshed = await refreshAccessToken(refreshToken);
-  if (!refreshed?.access_token) {
-    return null;
-  }
-
-  const refreshedUser = await getUserFromToken(refreshed.access_token);
-  if (!refreshedUser) {
-    return null;
-  }
-
-  return { user: refreshedUser, accessToken: refreshed.access_token };
+  return null;
 }
 
 async function hasAdminRole(client: SupabaseClient, userId: string) {

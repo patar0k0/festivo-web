@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { getOptionalUser } from "@/lib/authUser";
 import { LoginForm } from "./LoginForm";
 
@@ -13,9 +12,7 @@ export default async function LoginPage({
   const target = next && next.startsWith("/") ? next : "/";
 
   const user = await getOptionalUser();
-  if (user) {
-    redirect(target);
-  }
+  console.log("[login] render", { hasUser: Boolean(user), userId: user?.id ?? null, target });
 
   return (
     <div className="landing-bg min-h-screen px-4 py-12 text-[#0c0e14]">

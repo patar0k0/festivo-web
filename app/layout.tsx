@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
 import LayoutShell from "@/components/LayoutShell";
-import { getOptionalUser } from "@/lib/authUser";
 
 const manrope = Manrope({
   variable: "--font-sans",
@@ -23,17 +22,15 @@ export const metadata: Metadata = {
   description: "Browse published festivals, find dates, and plan weekends across Bulgaria.",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getOptionalUser();
-
   return (
     <html lang="bg">
       <body className={`${manrope.variable} ${fraunces.variable} text-neutral-900 antialiased`}>
-        <LayoutShell userEmail={user?.email ?? undefined}>{children}</LayoutShell>
+        <LayoutShell>{children}</LayoutShell>
       </body>
     </html>
   );

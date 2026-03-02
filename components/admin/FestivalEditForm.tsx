@@ -114,6 +114,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
     try {
       const response = await fetch(`/admin/api/festivals/${festival.id}`, {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: form.title,

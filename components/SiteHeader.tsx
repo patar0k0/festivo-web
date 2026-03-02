@@ -1,29 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import Container from "@/components/ui/Container";
 
-export default function SiteHeader() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-
-    void fetch("/api/plan/state", { cache: "no-store" })
-      .then((response) => {
-        if (!active) return;
-        setIsAuthenticated(response.ok);
-      })
-      .catch(() => {
-        if (!active) return;
-        setIsAuthenticated(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
+export default function SiteHeader({ userEmail }: { userEmail?: string }) {
+  const isAuthenticated = Boolean(userEmail);
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#f5f4f0]/90 backdrop-blur-xl">
@@ -42,7 +23,7 @@ export default function SiteHeader() {
             Карта
           </Link>
           <Link href={isAuthenticated ? "/plan" : "/login"} className="transition hover:text-[#0c0e14]">
-            {isAuthenticated ? "Профил" : "Вход"}
+            {isAuthenticated ? userEmail : "Вход"}
           </Link>
           {isAuthenticated ? (
             <Link href="/api/auth/logout" className="transition hover:text-[#0c0e14]">

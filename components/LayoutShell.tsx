@@ -7,9 +7,11 @@ import SiteHeader from "@/components/SiteHeader";
 export default function LayoutShell({
   children,
   forceChrome = false,
+  userEmail,
 }: {
   children: React.ReactNode;
   forceChrome?: boolean;
+  userEmail?: string;
 }) {
   const pathname = usePathname();
   const isComingSoon = pathname === "/coming-soon";
@@ -21,7 +23,7 @@ export default function LayoutShell({
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader userEmail={userEmail} />
       <main>{children}</main>
       <SiteFooter />
     </>

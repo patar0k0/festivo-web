@@ -1,4 +1,6 @@
-﻿import { NextResponse } from "next/server";
+﻿import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import { ACCESS_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -24,6 +26,12 @@ type Payload = {
 };
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(USER_AUTH_COOKIE)?.value ?? cookieStore.get(ACCESS_AUTH_COOKIE)?.value;
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const admin = await getAdminContext();
   if (!admin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

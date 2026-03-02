@@ -42,6 +42,7 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
     try {
       const response = await fetch("/admin/api/festivals/bulk", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: selectedIds, status }),
       });

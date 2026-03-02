@@ -309,7 +309,7 @@ export default function FestivalDetailClient({
               </div>
               <div className="grid gap-5 sm:grid-cols-2">
                 {relatedFestivals.slice(0, 4).map((item) => (
-                  <Link key={item.slug} href={`/festival/${item.slug}`} className="block">
+                  <Link key={item.slug} href={`/festivals/${item.slug}`} className="block">
                     <EventCard
                       title={item.title}
                       city={item.city}
@@ -433,4 +433,5 @@ export default function FestivalDetailClient({
     </div>
   );
 }
+
 

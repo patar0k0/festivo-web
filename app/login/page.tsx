@@ -23,7 +23,7 @@ export default async function LoginPage({
 
         {error ? <p className="mt-4 rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
 
-        <form action="/login" method="post" className="mt-5 space-y-4">
+        <form action="/api/auth/login" method="post" className="mt-5 space-y-4">
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Email</span>
             <input type="email" name="email" required className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-sm" />
@@ -40,3 +40,4 @@ export default async function LoginPage({
     </div>
   );
 }
+

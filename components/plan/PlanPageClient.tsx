@@ -77,7 +77,7 @@ export default function PlanPageClient({ entries }: PlanPageClientProps) {
                     <option value="same_day_09">09:00</option>
                   </select>
                 </label>
-                <Link href={`/festival/${first.festivalSlug}`} className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]">
+                <Link href={`/festivals/${first.festivalSlug}`} className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]">
                   Детайли
                 </Link>
               </div>
@@ -111,3 +111,4 @@ export default function PlanPageClient({ entries }: PlanPageClientProps) {
     </div>
   );
 }
+

@@ -88,7 +88,7 @@ export default function MapView({
               <div className="space-y-1">
                 <p className="text-sm font-semibold">{festival.title}</p>
                 <p className="text-xs text-muted">{festival.city}</p>
-                <Link href={`/festival/${festival.slug}`} className="text-xs font-semibold text-ink">
+                <Link href={`/festivals/${festival.slug}`} className="text-xs font-semibold text-ink">
                   Виж
                 </Link>
               </div>
@@ -111,7 +111,7 @@ export default function MapView({
             <p className="text-sm font-semibold text-[#0c0e14]">{selectedFestival.title}</p>
             <p className="mt-0.5 text-xs text-black/60">{selectedFestival.city ?? "България"}</p>
             <Link
-              href={`/festival/${selectedFestival.slug}`}
+              href={`/festivals/${selectedFestival.slug}`}
               className="mt-2 inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
             >
               Детайли
@@ -150,3 +150,4 @@ function MapViewportController({ focusCoords, resetViewToken }: { focusCoords: F
 
   return null;
 }
+

@@ -23,7 +23,7 @@ export function buildFestivalIcs(festival: Festival) {
     `DTEND;VALUE=DATE:${format(endExclusive, "yyyyMMdd")}`,
     `SUMMARY:${escapeText(festival.title)}`,
     `LOCATION:${escapeText([festival.address, festival.city].filter(Boolean).join(", "))}`,
-    `URL:${getBaseUrl()}/festival/${festival.slug}`,
+    `URL:${getBaseUrl()}/festivals/${festival.slug}`,
     "END:VEVENT",
     "END:VCALENDAR",
   ];
@@ -34,3 +34,4 @@ export function buildFestivalIcs(festival: Festival) {
 function escapeText(value: string) {
   return value.replace(/,/g, "\\,").replace(/;/g, "\\;").replace(/\n/g, " ");
 }
+

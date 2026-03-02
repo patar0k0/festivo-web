@@ -51,7 +51,7 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
           {festivals.map((festival) => (
             <Link
               key={`${festival.slug}-${festival.id}`}
-              href={`/festival/${festival.slug}`}
+              href={`/festivals/${festival.slug}`}
               className="block rounded-xl border border-black/[0.09] bg-white p-4 transition hover:border-black/[0.16] hover:shadow-[0_8px_18px_rgba(12,14,20,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
             >
               <p className="text-base font-semibold text-[#0c0e14]">{festival.title}</p>
@@ -77,3 +77,4 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
     </div>
   );
 }
+

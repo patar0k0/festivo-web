@@ -44,7 +44,7 @@ export function buildFestivalJsonLd(festival: Festival) {
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     eventStatus: "https://schema.org/EventScheduled",
     image: festival.image_url,
-    url: `${getBaseUrl()}/festival/${festival.slug}`,
+    url: `${getBaseUrl()}/festivals/${festival.slug}`,
     location: {
       "@type": "Place",
       name: festival.city ?? "Bulgaria",
@@ -58,3 +58,4 @@ export function buildFestivalJsonLd(festival: Festival) {
     },
   };
 }
+

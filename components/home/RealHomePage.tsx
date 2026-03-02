@@ -58,7 +58,7 @@ function EventsSection({ title, festivals }: { title: string; festivals: Festiva
               description={festival.description}
               showDescription
               showDetailsButton
-              detailsHref={`/festival/${festival.slug}`}
+              detailsHref={`/festivals/${festival.slug}`}
             />
           ))}
         </div>
@@ -162,3 +162,4 @@ export default function RealHomePage({ nearestFestivals, weekendFestivals, topCi
     </div>
   );
 }
+

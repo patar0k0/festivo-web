@@ -23,7 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const festivalUrls = slugs.map((slug) => ({
-    url: `${baseUrl}/festival/${slug}`,
+    url: `${baseUrl}/festivals/${slug}`,
     lastModified: new Date(),
   }));
 
@@ -43,3 +43,4 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [...core, ...festivalUrls, ...cityUrls, ...monthUrls];
 }
+

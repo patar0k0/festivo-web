@@ -1,4 +1,4 @@
-import Image from "next/image";
+﻿import Image from "next/image";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { Festival } from "@/lib/types";
@@ -21,7 +21,7 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
   const description = festival.description ?? "";
 
   return (
-    <Link href={`/festival/${festival.slug}`} className="group">
+    <Link href={`/festivals/${festival.slug}`} className="group">
       <AppleCard className="h-full">
         {hasImage ? (
           <AppleCardHeader className="aspect-[16/10] border-b apple-border">
@@ -35,7 +35,7 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
         ) : null}
         <AppleCardBody className="space-y-3">
           <Text variant="muted" size="sm">
-            {festival.city ?? "Bulgaria"} · {formatDateRange(festival.start_date, festival.end_date)}
+            {festival.city ?? "Bulgaria"} В· {formatDateRange(festival.start_date, festival.end_date)}
           </Text>
           <Heading as="h3" size="h3" className="text-lg">
             {festival.title}
@@ -57,3 +57,4 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
     </Link>
   );
 }
+

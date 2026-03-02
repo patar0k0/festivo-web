@@ -1,9 +1,5 @@
-import { NextResponse } from "next/server";
-import {
-  REFRESH_AUTH_COOKIE,
-  USER_AUTH_COOKIE,
-} from "@/lib/authUser";
-import { supabaseServer } from "@/lib/supabaseServer";
+﻿import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -22,36 +18,18 @@ export async function POST(request: Request) {
     return jsonWithError("Невалидни данни за вход.");
   }
 
-  const supabase = supabaseServer();
-  if (!supabase) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      return jsonWithError("Невалидни данни за вход.", 401);
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch {
     return jsonWithError("Липсва Supabase конфигурация.", 500);
   }
-
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error || !data.session) {
-    return jsonWithError("Невалидни данни за вход.", 401);
-  }
-
-  const secure = process.env.NODE_ENV === "production";
-  const response = NextResponse.json({ ok: true });
-
-  response.cookies.set(USER_AUTH_COOKIE, data.session.access_token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure,
-    path: "/",
-    maxAge: 60 * 60,
-  });
-
-  response.cookies.set(REFRESH_AUTH_COOKIE, data.session.refresh_token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-
-  return response;
 }
 
 export async function GET(request: Request) {

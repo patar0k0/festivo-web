@@ -1,15 +1,23 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { REFRESH_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
 
-function clearAuthCookies(request: Request) {
-  const isProd = process.env.NODE_ENV === "production";
+export async function GET(request: Request) {
   const response = NextResponse.redirect(new URL("/", request.url));
 
+  try {
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.signOut();
+  } catch {
+    // Keep redirect even if sign out fails.
+  }
+
+  const secure = process.env.NODE_ENV === "production";
   for (const name of [USER_AUTH_COOKIE, REFRESH_AUTH_COOKIE]) {
     response.cookies.set(name, "", {
       httpOnly: true,
       sameSite: "lax",
-      secure: isProd,
+      secure,
       path: "/",
       maxAge: 0,
     });
@@ -18,10 +26,6 @@ function clearAuthCookies(request: Request) {
   return response;
 }
 
-export async function GET(request: Request) {
-  return clearAuthCookies(request);
-}
-
 export async function POST(request: Request) {
-  return clearAuthCookies(request);
+  return GET(request);
 }

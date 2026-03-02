@@ -1,8 +1,6 @@
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
-import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
-import { ACCESS_AUTH_COOKIE, REFRESH_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
-import { getSupabaseEnv, supabaseServer } from "@/lib/supabaseServer";
+﻿import { redirect } from "next/navigation";
+import { type SupabaseClient, type User } from "@supabase/supabase-js";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type AdminSession = {
   userId: string;
@@ -14,66 +12,6 @@ type AdminAuthContext = {
   client: SupabaseClient;
   user: User;
 };
-
-async function getTokensFromCookies() {
-  const cookieStore = await cookies();
-
-  return {
-    accessToken:
-      cookieStore.get(USER_AUTH_COOKIE)?.value ??
-      cookieStore.get(ACCESS_AUTH_COOKIE)?.value ??
-      null,
-  };
-}
-
-function createAuthedSupabase(accessToken: string) {
-  const { url, anon, configured } = getSupabaseEnv();
-  if (!configured || !url || !anon) {
-    return null;
-  }
-
-  return createClient(url, anon, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    },
-  });
-}
-
-async function getUserFromToken(accessToken: string) {
-  const supabase = supabaseServer();
-  if (!supabase) {
-    return null;
-  }
-
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(accessToken);
-
-  if (error || !user) {
-    return null;
-  }
-
-  return user;
-}
-
-async function getCurrentUser() {
-  const { accessToken } = await getTokensFromCookies();
-
-  if (!accessToken) {
-    return null;
-  }
-
-  const user = await getUserFromToken(accessToken);
-  if (user) {
-    return { user, accessToken };
-  }
-
-  return null;
-}
 
 async function hasAdminRole(client: SupabaseClient, userId: string) {
   const { data, error } = await client
@@ -91,59 +29,60 @@ async function hasAdminRole(client: SupabaseClient, userId: string) {
   return Boolean(data);
 }
 
+async function getCurrentUser(client: SupabaseClient) {
+  const {
+    data: { user },
+    error,
+  } = await client.auth.getUser();
+
+  if (error || !user) {
+    return null;
+  }
+
+  return user;
+}
+
 export async function getAdminContext(): Promise<AdminAuthContext | null> {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
+  const client = await createSupabaseServerClient();
+  const user = await getCurrentUser(client);
+  if (!user) {
     return null;
   }
 
-  const client = createAuthedSupabase(currentUser.accessToken);
-  if (!client) {
-    return null;
-  }
-
-  const isAdmin = await hasAdminRole(client, currentUser.user.id);
+  const isAdmin = await hasAdminRole(client, user.id);
   if (!isAdmin) {
     return null;
   }
 
-  return { client, user: currentUser.user };
+  return { client, user };
 }
 
 export async function getAdminSession(): Promise<AdminSession | null> {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
+  const client = await createSupabaseServerClient();
+  const user = await getCurrentUser(client);
+  if (!user) {
     return null;
   }
 
-  const client = createAuthedSupabase(currentUser.accessToken);
-  if (!client) {
-    return null;
-  }
-
-  const isAdmin = await hasAdminRole(client, currentUser.user.id);
+  const isAdmin = await hasAdminRole(client, user.id);
 
   return {
-    userId: currentUser.user.id,
-    email: currentUser.user.email ?? null,
+    userId: user.id,
+    email: user.email ?? null,
     isAdmin,
   };
 }
 
 export async function requireAdmin() {
-  const session = await getAdminSession();
-  if (!session) {
-    const refresh = (await cookies()).get(REFRESH_AUTH_COOKIE)?.value;
-    if (refresh) {
-      redirect(`/api/auth/refresh?next=${encodeURIComponent("/admin")}`);
+  try {
+    const session = await getAdminSession();
+    if (!session || !session.isAdmin) {
+      redirect("/login?next=/admin");
     }
 
+    return session;
+  } catch (error) {
+    console.error("[admin] requireAdmin failed", error);
     redirect("/login?next=/admin");
   }
-
-  if (!session.isAdmin) {
-    redirect("/");
-  }
-
-  return session;
 }

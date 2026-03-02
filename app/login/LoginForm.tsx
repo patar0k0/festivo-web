@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type LoginFormProps = {
   next: string;
@@ -13,6 +14,27 @@ export function LoginForm({ next }: LoginFormProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function signInWithOAuth(provider: "google" | "apple") {
+    setError("");
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const origin = window.location.origin;
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${origin}/auth/callback`,
+        },
+      });
+
+      if (oauthError) {
+        setError("OAuth login failed.");
+      }
+    } catch {
+      setError("OAuth login failed.");
+    }
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -27,9 +49,9 @@ export function LoginForm({ next }: LoginFormProps) {
         body: JSON.stringify({ email, password, next }),
       });
 
-      const payload = (await response.json().catch(() => ({}))) as { error?: string; next?: string };
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
-        setError(payload.error ?? "Невалидни данни за вход.");
+        setError(payload.error ?? "Invalid login credentials.");
         return;
       }
 
@@ -37,7 +59,7 @@ export function LoginForm({ next }: LoginFormProps) {
       router.push(target);
       router.refresh();
     } catch {
-      setError("Неуспешна връзка. Опитай отново.");
+      setError("Network error. Try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -57,7 +79,7 @@ export function LoginForm({ next }: LoginFormProps) {
         />
       </label>
       <label className="block">
-        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Парола</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Password</span>
         <input
           type="password"
           name="password"
@@ -73,7 +95,21 @@ export function LoginForm({ next }: LoginFormProps) {
         disabled={isSubmitting}
         className="w-full rounded-xl bg-[#0c0e14] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isSubmitting ? "Влизане..." : "Влез"}
+        {isSubmitting ? "Signing in..." : "Sign in"}
+      </button>
+      <button
+        type="button"
+        onClick={() => void signInWithOAuth("google")}
+        className="w-full rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14]"
+      >
+        Continue with Google
+      </button>
+      <button
+        type="button"
+        onClick={() => void signInWithOAuth("apple")}
+        className="w-full rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14]"
+      >
+        Continue with Apple
       </button>
     </form>
   );

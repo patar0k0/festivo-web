@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { format } from "date-fns";
 import Button from "@/components/ui/Button";
+import PlanInlineControls from "@/components/plan/PlanInlineControls";
 import { Card, CardContent } from "@/components/ui/Card";
 
 type EventCardProps = {
@@ -15,6 +16,9 @@ type EventCardProps = {
   showDetailsButton?: boolean;
   detailsHref?: string;
   showDescription?: boolean;
+  showPlanControls?: boolean;
+  festivalId?: string | number;
+  scheduleItemId?: string | null;
 };
 
 function getDateBadge(date?: string | null) {
@@ -67,6 +71,9 @@ export default function EventCard({
   showDetailsButton = false,
   detailsHref,
   showDescription = false,
+  showPlanControls = false,
+  festivalId,
+  scheduleItemId,
 }: EventCardProps) {
   const badge = getDateBadge(startDate);
   const dateText = formatDateRange(startDate, endDate);
@@ -158,6 +165,10 @@ export default function EventCard({
           >
             Виж
           </Button>
+        ) : null}
+
+        {showPlanControls && festivalId != null ? (
+          <PlanInlineControls festivalId={String(festivalId)} scheduleItemId={scheduleItemId} />
         ) : null}
       </CardContent>
     </Card>

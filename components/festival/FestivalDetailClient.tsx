@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
@@ -7,6 +7,8 @@ import { format, parseISO } from "date-fns";
 import Badge from "@/components/ui/Badge";
 import EventCard from "@/components/ui/EventCard";
 import Select from "@/components/ui/Select";
+import { usePlanState } from "@/components/plan/PlanStateProvider";
+import type { ReminderType } from "@/lib/plan/server";
 import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from "@/lib/types";
 
 type Props = {
@@ -28,11 +30,9 @@ type GroupedDay = {
   items: FestivalScheduleItem[];
 };
 
-type ReminderValue = "none" | "24h" | "same_day_09";
-
 function formatDayLabel(day: FestivalDay): string {
   if (day.title) return day.title;
-  if (!day.date) return "Ден";
+  if (!day.date) return "Р”РµРЅ";
   try {
     return format(parseISO(day.date), "d MMMM");
   } catch {
@@ -53,20 +53,20 @@ function formatTimeRange(start?: string | null, end?: string | null): string {
   const from = start ? start.slice(0, 5) : "";
   const to = end ? end.slice(0, 5) : "";
   if (from && to) return `${from} - ${to}`;
-  return from || "Час предстои";
+  return from || "Р§Р°СЃ РїСЂРµРґСЃС‚РѕРё";
 }
 
 function categoryLabel(category?: string | null): string | null {
   if (!category) return null;
   const labels: Record<string, string> = {
-    music: "Музика",
-    folk: "Фолклор",
-    arts: "Изкуство",
-    food: "Храна",
-    cultural: "Култура",
-    sports: "Спорт",
-    film: "Кино",
-    theater: "Театър",
+    music: "РњСѓР·РёРєР°",
+    folk: "Р¤РѕР»РєР»РѕСЂ",
+    arts: "РР·РєСѓСЃС‚РІРѕ",
+    food: "РҐСЂР°РЅР°",
+    cultural: "РљСѓР»С‚СѓСЂР°",
+    sports: "РЎРїРѕСЂС‚",
+    film: "РљРёРЅРѕ",
+    theater: "РўРµР°С‚СЉСЂ",
   };
   return labels[category.toLowerCase()] ?? category;
 }
@@ -77,7 +77,7 @@ function getGroupedDays(days: FestivalDay[], items: FestivalScheduleItem[]): Gro
     return [
       {
         id: "all",
-        label: "Програма",
+        label: "РџСЂРѕРіСЂР°РјР°",
         items: sortScheduleItems(items),
       },
     ];
@@ -109,41 +109,35 @@ export default function FestivalDetailClient({
 }: Props) {
   const groupedDays = useMemo(() => getGroupedDays(days, scheduleItems), [days, scheduleItems]);
   const [activeDayId, setActiveDayId] = useState(groupedDays[0]?.id ?? "");
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
-  const [reminder, setReminder] = useState<ReminderValue>("none");
+  const { isAuthenticated, isScheduleItemInPlan, toggleScheduleItem, reminderTypeByFestivalId, setFestivalReminder } =
+    usePlanState();
 
   const displayedDay = groupedDays.find((day) => day.id === activeDayId) ?? groupedDays[0] ?? null;
   const selectedItems = useMemo(
     () =>
       sortScheduleItems(
-        scheduleItems.filter((item) => selectedItemIds.has(String(item.id))),
+        scheduleItems.filter((item) => isScheduleItemInPlan(String(item.id))),
       ),
-    [scheduleItems, selectedItemIds],
+    [isScheduleItemInPlan, scheduleItems],
   );
+  const reminder = reminderTypeByFestivalId[String(festival.id)] ?? "none";
 
   const imageMedia = media.filter((item) => isImageMedia(item.type) && Boolean(item.url));
   const heroImage = festival.image_url ?? imageMedia[0]?.url ?? null;
-  const primaryCta = mapHref ? { label: "Навигация", href: mapHref } : null;
+  const primaryCta = mapHref ? { label: "РќР°РІРёРіР°С†РёСЏ", href: mapHref } : null;
   const secondaryCta = festival.ticket_url
-    ? { label: "Билети", href: festival.ticket_url }
+    ? { label: "Р‘РёР»РµС‚Рё", href: festival.ticket_url }
     : festival.website_url
-      ? { label: "Уебсайт", href: festival.website_url }
+      ? { label: "РЈРµР±СЃР°Р№С‚", href: festival.website_url }
       : null;
   const categoryText = categoryLabel(festival.category);
 
-  const togglePlanItem = (itemId: string) => {
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(itemId)) {
-        next.delete(itemId);
-      } else {
-        next.add(itemId);
-      }
-      return next;
-    });
+  const clearPlan = async () => {
+    const ids = selectedItems.map((item) => String(item.id));
+    for (const itemId of ids) {
+      await toggleScheduleItem(itemId);
+    }
   };
-
-  const clearPlan = () => setSelectedItemIds(new Set());
 
   return (
     <div className="space-y-8 md:space-y-10">
@@ -157,7 +151,7 @@ export default function FestivalDetailClient({
           ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-[#ece8df] text-black/45">
               <span className="rounded-full border border-black/10 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em]">
-                Няма основна снимка
+                РќСЏРјР° РѕСЃРЅРѕРІРЅР° СЃРЅРёРјРєР°
               </span>
             </div>
           )}
@@ -168,7 +162,7 @@ export default function FestivalDetailClient({
                   {festival.city}
                 </Link>
               ) : (
-                <span className="rounded-full bg-white/15 px-3 py-1">Град: —</span>
+                <span className="rounded-full bg-white/15 px-3 py-1">Р“СЂР°Рґ: вЂ”</span>
               )}
               <span className="rounded-full bg-white/15 px-3 py-1">{dateText}</span>
               {categoryText ? <span className="rounded-full bg-white/15 px-3 py-1">{categoryText}</span> : null}
@@ -203,18 +197,18 @@ export default function FestivalDetailClient({
       <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-7">
           <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-            <h2 className="text-xl font-semibold text-[#0c0e14]">Описание</h2>
+            <h2 className="text-xl font-semibold text-[#0c0e14]">РћРїРёСЃР°РЅРёРµ</h2>
             <p className="mt-3 whitespace-pre-line text-sm leading-7 text-black/65">
-              {festival.description?.trim() || "Описанието още не е публикувано."}
+              {festival.description?.trim() || "РћРїРёСЃР°РЅРёРµС‚Рѕ РѕС‰Рµ РЅРµ Рµ РїСѓР±Р»РёРєСѓРІР°РЅРѕ."}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              {festival.is_free ? <Badge variant="primary">Безплатен вход</Badge> : <Badge variant="neutral">Платен вход</Badge>}
+              {festival.is_free ? <Badge variant="primary">Р‘РµР·РїР»Р°С‚РµРЅ РІС…РѕРґ</Badge> : <Badge variant="neutral">РџР»Р°С‚РµРЅ РІС…РѕРґ</Badge>}
               {festival.price_range ? <Badge variant="neutral">{festival.price_range}</Badge> : null}
             </div>
           </section>
 
           <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-            <h2 className="text-xl font-semibold text-[#0c0e14]">Галерия</h2>
+            <h2 className="text-xl font-semibold text-[#0c0e14]">Р“Р°Р»РµСЂРёСЏ</h2>
             {imageMedia.length ? (
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {imageMedia.slice(0, 8).map((item) => (
@@ -228,16 +222,16 @@ export default function FestivalDetailClient({
               </div>
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-6 text-sm text-black/50">
-                Галерията още не е публикувана.
+                Р“Р°Р»РµСЂРёСЏС‚Р° РѕС‰Рµ РЅРµ Рµ РїСѓР±Р»РёРєСѓРІР°РЅР°.
               </div>
             )}
           </section>
 
           <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-            <h2 className="text-xl font-semibold text-[#0c0e14]">Програма</h2>
+            <h2 className="text-xl font-semibold text-[#0c0e14]">РџСЂРѕРіСЂР°РјР°</h2>
             {!groupedDays.length ? (
               <div className="mt-4 rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-6 text-sm text-black/50">
-                Програмата още не е публикувана.
+                РџСЂРѕРіСЂР°РјР°С‚Р° РѕС‰Рµ РЅРµ Рµ РїСѓР±Р»РёРєСѓРІР°РЅР°.
               </div>
             ) : (
               <>
@@ -262,7 +256,7 @@ export default function FestivalDetailClient({
                   {(displayedDay?.items ?? []).length ? (
                     displayedDay?.items.map((item) => {
                       const itemId = String(item.id);
-                      const selected = selectedItemIds.has(itemId);
+                      const selected = isScheduleItemInPlan(itemId);
                       return (
                         <article
                           key={item.id}
@@ -272,21 +266,23 @@ export default function FestivalDetailClient({
                             <div className="space-y-1">
                               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
                                 {formatTimeRange(item.start_time, item.end_time)}
-                                {item.stage ? ` • ${item.stage}` : ""}
+                                {item.stage ? ` вЂў ${item.stage}` : ""}
                               </p>
                               <h3 className="text-base font-semibold text-[#0c0e14]">{item.title}</h3>
                               {item.description ? <p className="text-sm text-black/60">{item.description}</p> : null}
                             </div>
                             <button
                               type="button"
-                              onClick={() => togglePlanItem(itemId)}
+                              onClick={() => {
+                                void toggleScheduleItem(itemId);
+                              }}
                               className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
                                 selected
                                   ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#1d202b]"
                                   : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]"
                               }`}
                             >
-                              {selected ? "Премахни" : "Добави"}
+                              {selected ? "РџСЂРµРјР°С…РЅРё" : "Р”РѕР±Р°РІРё"}
                             </button>
                           </div>
                         </article>
@@ -294,7 +290,7 @@ export default function FestivalDetailClient({
                     })
                   ) : (
                     <div className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-6 text-sm text-black/50">
-                      Няма публикувани точки за избрания ден.
+                      РќСЏРјР° РїСѓР±Р»РёРєСѓРІР°РЅРё С‚РѕС‡РєРё Р·Р° РёР·Р±СЂР°РЅРёСЏ РґРµРЅ.
                     </div>
                   )}
                 </div>
@@ -305,10 +301,10 @@ export default function FestivalDetailClient({
           {relatedFestivals.length ? (
             <section className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xl font-semibold text-[#0c0e14]">Още фестивали в {festival.city}</h2>
+                <h2 className="text-xl font-semibold text-[#0c0e14]">РћС‰Рµ С„РµСЃС‚РёРІР°Р»Рё РІ {festival.city}</h2>
                 <div className="flex flex-wrap gap-3 text-sm font-semibold text-[#0c0e14]">
-                  {citySlug ? <Link href={`/cities/${citySlug}`}>Страница на града</Link> : null}
-                  {calendarMonth ? <Link href={`/calendar/${calendarMonth}`}>Календар за месеца</Link> : null}
+                  {citySlug ? <Link href={`/cities/${citySlug}`}>РЎС‚СЂР°РЅРёС†Р° РЅР° РіСЂР°РґР°</Link> : null}
+                  {calendarMonth ? <Link href={`/calendar/${calendarMonth}`}>РљР°Р»РµРЅРґР°СЂ Р·Р° РјРµСЃРµС†Р°</Link> : null}
                 </div>
               </div>
               <div className="grid gap-5 sm:grid-cols-2">
@@ -332,14 +328,14 @@ export default function FestivalDetailClient({
 
         <aside className="space-y-4 lg:sticky lg:top-[90px]">
           <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-            <h2 className="text-lg font-semibold text-[#0c0e14]">Къде и кога</h2>
+            <h2 className="text-lg font-semibold text-[#0c0e14]">РљСЉРґРµ Рё РєРѕРіР°</h2>
             <dl className="mt-4 space-y-3 text-sm">
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Дата</dt>
+                <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Р”Р°С‚Р°</dt>
                 <dd className="mt-1 text-black/70">{dateText}</dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Локация</dt>
+                <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Р›РѕРєР°С†РёСЏ</dt>
                 <dd className="mt-1 text-black/70">{venueText}</dd>
               </div>
             </dl>
@@ -351,11 +347,11 @@ export default function FestivalDetailClient({
                   rel="noreferrer"
                   className="rounded-xl bg-[#0c0e14] px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  Навигация
+                  РќР°РІРёРіР°С†РёСЏ
                 </a>
               ) : (
                 <span className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
-                  Няма данни за навигация
+                  РќСЏРјР° РґР°РЅРЅРё Р·Р° РЅР°РІРёРіР°С†РёСЏ
                 </span>
               )}
               {festival.ticket_url ? (
@@ -365,7 +361,7 @@ export default function FestivalDetailClient({
                   rel="noreferrer"
                   className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  Билети
+                  Р‘РёР»РµС‚Рё
                 </a>
               ) : festival.website_url ? (
                 <a
@@ -374,7 +370,7 @@ export default function FestivalDetailClient({
                   rel="noreferrer"
                   className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  Уебсайт
+                  РЈРµР±СЃР°Р№С‚
                 </a>
               ) : null}
             </div>
@@ -382,14 +378,14 @@ export default function FestivalDetailClient({
 
           <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-[#0c0e14]">Моят план</h2>
+              <h2 className="text-lg font-semibold text-[#0c0e14]">РњРѕСЏС‚ РїР»Р°РЅ</h2>
               {selectedItems.length ? (
                 <button
                   type="button"
                   onClick={clearPlan}
                   className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45 transition hover:text-black/70"
                 >
-                  Изчисти
+                  РР·С‡РёСЃС‚Рё
                 </button>
               ) : null}
             </div>
@@ -406,22 +402,30 @@ export default function FestivalDetailClient({
                 ))
               ) : (
                 <div className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-5 text-sm text-black/50">
-                  Добави точки от програмата, за да създадеш личен план.
+                  Р”РѕР±Р°РІРё С‚РѕС‡РєРё РѕС‚ РїСЂРѕРіСЂР°РјР°С‚Р°, Р·Р° РґР° СЃСЉР·РґР°РґРµС€ Р»РёС‡РµРЅ РїР»Р°РЅ.
                 </div>
               )}
             </div>
 
             <div className="mt-4">
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Напомняне</label>
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-black/45">РќР°РїРѕРјРЅСЏРЅРµ</label>
               <Select
                 value={reminder}
-                onChange={(event) => setReminder(event.target.value as ReminderValue)}
+                onChange={(event) => {
+                  void setFestivalReminder(String(festival.id), event.target.value as ReminderType);
+                }}
+                disabled={!isAuthenticated}
                 className="border-black/[0.12] bg-white/95 focus:ring-[#ff4c1f]/20"
               >
-                <option value="none">Без напомняне</option>
-                <option value="24h">24 часа по-рано</option>
-                <option value="same_day_09">В деня на събитието в 09:00</option>
+                <option value="none">Р‘РµР· РЅР°РїРѕРјРЅСЏРЅРµ</option>
+                <option value="24h">24 С‡Р°СЃР° РїРѕ-СЂР°РЅРѕ</option>
+                <option value="same_day_09">Р’ РґРµРЅСЏ РЅР° СЃСЉР±РёС‚РёРµС‚Рѕ РІ 09:00</option>
               </Select>
+              {!isAuthenticated ? (
+                <p className="mt-2 text-xs text-black/55">
+                  Влез, за да ползваш Моят план. <Link href="/login" className="underline">Вход</Link>
+                </p>
+              ) : null}
             </div>
           </section>
         </aside>
@@ -429,3 +433,4 @@ export default function FestivalDetailClient({
     </div>
   );
 }
+

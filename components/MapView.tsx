@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
+import PlanInlineControls from "@/components/plan/PlanInlineControls";
 import { Festival } from "@/lib/types";
 
 type FocusCoords = {
@@ -18,6 +19,7 @@ type MapViewProps = {
   onSelectFestival: (festival: Festival) => void;
   focusCoords: FocusCoords | null;
   resetViewToken: number;
+  primaryScheduleByFestival: Record<string, string>;
 };
 
 const DEFAULT_CENTER: [number, number] = [42.6977, 23.3219];
@@ -36,6 +38,7 @@ export default function MapView({
   onSelectFestival,
   focusCoords,
   resetViewToken,
+  primaryScheduleByFestival,
 }: MapViewProps) {
   const [hasMoved, setHasMoved] = useState(false);
   const selectedFestival = useMemo(
@@ -113,6 +116,12 @@ export default function MapView({
             >
               Детайли
             </Link>
+            <div className="mt-2">
+              <PlanInlineControls
+                festivalId={String(selectedFestival.id)}
+                scheduleItemId={primaryScheduleByFestival[String(selectedFestival.id)] ?? null}
+              />
+            </div>
           </div>
         </div>
       ) : null}

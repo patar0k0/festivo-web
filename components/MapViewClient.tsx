@@ -15,6 +15,7 @@ type MapViewClientProps = {
   onSelectFestival: (festival: Festival) => void;
   focusCoords: FocusCoords | null;
   resetViewToken: number;
+  primaryScheduleByFestival: Record<string, string>;
 };
 
 const MapView = dynamic(() => import("@/components/MapView"), {

@@ -16,7 +16,7 @@ export default function LayoutShell({
   const isHome = pathname === "/";
 
   if (!forceChrome && (isComingSoon || isHome)) {
-    return <main>{children}</main>;
+    return <>{children}</>;
   }
 
   return (

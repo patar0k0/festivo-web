@@ -8,12 +8,15 @@ import MobileFiltersSheet from "@/components/MobileFiltersSheet";
 import Pagination from "@/components/Pagination";
 import FestivalsResultsToolbar from "@/components/FestivalsResultsToolbar";
 import ActiveFiltersChips from "@/components/ActiveFiltersChips";
+import { PlanStateProvider } from "@/components/plan/PlanStateProvider";
 import ScrollRestoration from "@/components/ScrollRestoration";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
+import { getOptionalUser } from "@/lib/authUser";
 import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
+import { getPlanStateByUser, getPrimaryScheduleItemByFestivalIds } from "@/lib/plan/server";
 import { Filters } from "@/lib/types";
 import { getBaseUrl, listMeta } from "@/lib/seo";
 import "../landing.css";
@@ -54,6 +57,11 @@ export default async function FestivalsPage({
   const filters = withDefaultFilters(parsedFilters);
   const page = Number(searchParams.page ?? 1);
   const data = await listFestivals(filters, Number.isNaN(page) ? 1 : page, 12);
+  const user = await getOptionalUser();
+  const [planState, primaryScheduleByFestival] = await Promise.all([
+    user ? getPlanStateByUser(user.id) : Promise.resolve({ scheduleItemIds: [], reminders: {} }),
+    getPrimaryScheduleItemByFestivalIds(data.data.map((festival) => festival.id)),
+  ]);
 
   const activeFiltersCount = countActiveFilters(parsedFilters);
   const clearHref = `/festivals${serializeFilters(withDefaultFilters({}))}`;
@@ -78,11 +86,16 @@ export default async function FestivalsPage({
   const popularCategoryChips = Array.from(new Set(festivalCategories)).slice(0, 5);
 
   return (
-    <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
-      <ScrollRestoration />
-      <Section className="overflow-x-clip bg-transparent pb-8 pt-8 md:pb-10 md:pt-10">
-        <Container>
-          <div className="space-y-7 lg:space-y-8">
+    <PlanStateProvider
+      initialScheduleItemIds={planState.scheduleItemIds}
+      initialReminders={planState.reminders}
+      isAuthenticated={Boolean(user)}
+    >
+      <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
+        <ScrollRestoration />
+        <Section className="overflow-x-clip bg-transparent pb-8 pt-8 md:pb-10 md:pt-10">
+          <Container>
+            <div className="space-y-7 lg:space-y-8">
             <div className="rounded-[28px] border border-black/[0.08] bg-white/75 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">
               <div className="flex flex-wrap items-start justify-between gap-4 md:gap-6">
                 <div className="max-w-3xl">
@@ -187,31 +200,35 @@ export default async function FestivalsPage({
                   </div>
                 ) : (
                   <div className="grid gap-5 sm:grid-cols-2 xl:gap-6">
-                    {data.data.map((festival) => (
-                      <EventCard
-                        key={festival.slug}
-                        title={festival.title}
-                        city={festival.city}
-                        category={festival.category}
-                        imageUrl={festival.image_url}
-                        startDate={festival.start_date}
-                        endDate={festival.end_date}
-                        isFree={festival.is_free}
-                        description={festival.description}
-                        showDescription
-                        showDetailsButton
-                        detailsHref={`/festival/${festival.slug}`}
-                      />
-                    ))}
+                      {data.data.map((festival) => (
+                        <EventCard
+                          key={festival.slug}
+                          title={festival.title}
+                          city={festival.city}
+                          category={festival.category}
+                          imageUrl={festival.image_url}
+                          startDate={festival.start_date}
+                          endDate={festival.end_date}
+                          isFree={festival.is_free}
+                          description={festival.description}
+                          showDescription
+                          showDetailsButton
+                          detailsHref={`/festival/${festival.slug}`}
+                          showPlanControls
+                          festivalId={festival.id}
+                          scheduleItemId={primaryScheduleByFestival[String(festival.id)] ?? null}
+                        />
+                      ))}
                   </div>
                 )}
 
                 <Pagination page={data.page} totalPages={data.totalPages} basePath="/festivals" filters={filters} />
               </div>
             </div>
-          </div>
-        </Container>
-      </Section>
-    </div>
+            </div>
+          </Container>
+        </Section>
+      </div>
+    </PlanStateProvider>
   );
 }

@@ -1,0 +1,192 @@
+﻿import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
+export type ReminderType = "none" | "24h" | "same_day_09";
+
+export type PlanState = {
+  scheduleItemIds: string[];
+  reminders: Record<string, ReminderType>;
+};
+
+export type PlanEntry = {
+  scheduleItemId: string;
+  festivalId: string;
+  festivalSlug: string;
+  festivalTitle: string;
+  city: string | null;
+  dayDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  stage: string | null;
+  title: string;
+};
+
+type UserPlanItemRow = {
+  schedule_item_id: string | number;
+};
+
+type UserPlanReminderRow = {
+  festival_id: string | number;
+  reminder_type: ReminderType;
+};
+
+type FestivalDayRow = {
+  id: string | number;
+  festival_id: string | number;
+  date: string | null;
+};
+
+type ScheduleItemRow = {
+  id: string | number;
+  day_id: string | number;
+  start_time: string | null;
+  end_time: string | null;
+  stage: string | null;
+  title: string;
+  sort_order: number | null;
+};
+
+type FestivalRow = {
+  id: string | number;
+  slug: string;
+  title: string;
+  city: string | null;
+};
+
+export async function getPlanStateByUser(userId: string): Promise<PlanState> {
+  const db = supabaseAdmin();
+  if (!db) return { scheduleItemIds: [], reminders: {} };
+
+  const [itemsResult, remindersResult] = await Promise.all([
+    db.from("user_plan_items").select("schedule_item_id").eq("user_id", userId).returns<UserPlanItemRow[]>(),
+    db
+      .from("user_plan_reminders")
+      .select("festival_id,reminder_type")
+      .eq("user_id", userId)
+      .returns<UserPlanReminderRow[]>(),
+  ]);
+
+  const scheduleItemIds = (itemsResult.data ?? []).map((row) => String(row.schedule_item_id));
+  const reminders: Record<string, ReminderType> = {};
+
+  (remindersResult.data ?? []).forEach((row) => {
+    reminders[String(row.festival_id)] = row.reminder_type;
+  });
+
+  return { scheduleItemIds, reminders };
+}
+
+export async function getPrimaryScheduleItemByFestivalIds(
+  festivalIds: Array<string | number>
+): Promise<Record<string, string>> {
+  const db = supabaseAdmin();
+  if (!db || !festivalIds.length) return {};
+
+  const normalizedFestivalIds = festivalIds.map((id) => String(id));
+
+  const { data: dayRows } = await db
+    .from("festival_days")
+    .select("id,festival_id,date")
+    .in("festival_id", normalizedFestivalIds)
+    .order("date", { ascending: true })
+    .returns<FestivalDayRow[]>();
+
+  const days = dayRows ?? [];
+  const dayIds = days.map((day) => String(day.id));
+  if (!dayIds.length) return {};
+
+  const { data: scheduleRows } = await db
+    .from("festival_schedule_items")
+    .select("id,day_id,start_time,sort_order")
+    .in("day_id", dayIds)
+    .order("start_time", { ascending: true })
+    .order("sort_order", { ascending: true })
+    .returns<Array<Pick<ScheduleItemRow, "id" | "day_id" | "start_time" | "sort_order">>>();
+
+  const firstScheduleByDay = new Map<string, string>();
+  (scheduleRows ?? []).forEach((item) => {
+    const dayId = String(item.day_id);
+    if (!firstScheduleByDay.has(dayId)) {
+      firstScheduleByDay.set(dayId, String(item.id));
+    }
+  });
+
+  const firstByFestival: Record<string, string> = {};
+  days.forEach((day) => {
+    const festivalId = String(day.festival_id);
+    if (firstByFestival[festivalId]) return;
+
+    const scheduleId = firstScheduleByDay.get(String(day.id));
+    if (scheduleId) {
+      firstByFestival[festivalId] = scheduleId;
+    }
+  });
+
+  return firstByFestival;
+}
+
+export async function getPlanEntriesByUser(userId: string): Promise<PlanEntry[]> {
+  const db = supabaseAdmin();
+  if (!db) return [];
+
+  const { data: itemRows } = await db
+    .from("user_plan_items")
+    .select("schedule_item_id")
+    .eq("user_id", userId)
+    .returns<UserPlanItemRow[]>();
+
+  const scheduleIds = (itemRows ?? []).map((row) => String(row.schedule_item_id));
+  if (!scheduleIds.length) return [];
+
+  const { data: scheduleRows } = await db
+    .from("festival_schedule_items")
+    .select("id,day_id,start_time,end_time,stage,title,sort_order")
+    .in("id", scheduleIds)
+    .order("start_time", { ascending: true })
+    .order("sort_order", { ascending: true })
+    .returns<ScheduleItemRow[]>();
+
+  const schedules = scheduleRows ?? [];
+  const dayIds = Array.from(new Set(schedules.map((row) => String(row.day_id))));
+  if (!dayIds.length) return [];
+
+  const { data: dayRows } = await db
+    .from("festival_days")
+    .select("id,festival_id,date")
+    .in("id", dayIds)
+    .returns<FestivalDayRow[]>();
+
+  const days = dayRows ?? [];
+  const festivalIds = Array.from(new Set(days.map((day) => String(day.festival_id))));
+
+  const { data: festivalRows } = await db
+    .from("festivals")
+    .select("id,slug,title,city")
+    .in("id", festivalIds)
+    .returns<FestivalRow[]>();
+
+  const dayById = new Map(days.map((day) => [String(day.id), day]));
+  const festivalById = new Map((festivalRows ?? []).map((festival) => [String(festival.id), festival]));
+
+  const entries: PlanEntry[] = [];
+  schedules.forEach((schedule) => {
+    const day = dayById.get(String(schedule.day_id));
+    if (!day) return;
+    const festival = festivalById.get(String(day.festival_id));
+    if (!festival) return;
+
+    entries.push({
+      scheduleItemId: String(schedule.id),
+      festivalId: String(festival.id),
+      festivalSlug: festival.slug,
+      festivalTitle: festival.title,
+      city: festival.city,
+      dayDate: day.date,
+      startTime: schedule.start_time,
+      endTime: schedule.end_time,
+      stage: schedule.stage,
+      title: schedule.title,
+    });
+  });
+
+  return entries;
+}

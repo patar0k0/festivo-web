@@ -3,6 +3,9 @@ import { format, parseISO } from "date-fns";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import FestivalDetailClient from "@/components/festival/FestivalDetailClient";
+import { PlanStateProvider } from "@/components/plan/PlanStateProvider";
+import { getOptionalUser } from "@/lib/authUser";
+import { getPlanStateByUser } from "@/lib/plan/server";
 import { getCityFestivals, getFestivalBySlug, getFestivalDetail } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { slugify } from "@/lib/utils";
@@ -41,6 +44,8 @@ export default async function Page({
 }) {
   const { slug } = await params;
   const data = await getFestivalDetail(slug);
+  const user = await getOptionalUser();
+  const planState = user ? await getPlanStateByUser(user.id) : { scheduleItemIds: [], reminders: {} };
 
   if (!data) return notFound();
 
@@ -68,25 +73,31 @@ export default async function Page({
   const relatedFestivals = (relatedResponse?.data ?? []).filter((item) => item.slug !== data.festival.slug);
 
   return (
-    <div className="landing-bg text-[#0c0e14]">
-      <Section className="overflow-x-clip bg-transparent py-8 md:py-10">
-        <Container>
-          <FestivalDetailClient
-            festival={data.festival}
-            media={data.media}
-            days={data.days}
-            scheduleItems={data.scheduleItems}
-            dateText={dateText}
-            venueText={venueText}
-            mapHref={mapHref}
-            citySlug={citySlug}
-            calendarMonth={calendarMonth}
-            relatedFestivals={relatedFestivals}
-          />
-        </Container>
-      </Section>
+    <PlanStateProvider
+      initialScheduleItemIds={planState.scheduleItemIds}
+      initialReminders={planState.reminders}
+      isAuthenticated={Boolean(user)}
+    >
+      <div className="landing-bg text-[#0c0e14]">
+        <Section className="overflow-x-clip bg-transparent py-8 md:py-10">
+          <Container>
+            <FestivalDetailClient
+              festival={data.festival}
+              media={data.media}
+              days={data.days}
+              scheduleItems={data.scheduleItems}
+              dateText={dateText}
+              venueText={venueText}
+              mapHref={mapHref}
+              citySlug={citySlug}
+              calendarMonth={calendarMonth}
+              relatedFestivals={relatedFestivals}
+            />
+          </Container>
+        </Section>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-    </div>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      </div>
+    </PlanStateProvider>
   );
 }

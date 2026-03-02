@@ -9,9 +9,15 @@ type MapResultsListProps = {
   festivals: Festival[];
   selectedFestivalId?: string | number | null;
   onSelectFestival?: (festival: Festival) => void;
+  primaryScheduleByFestival?: Record<string, string>;
 };
 
-export default function MapResultsList({ festivals, selectedFestivalId, onSelectFestival }: MapResultsListProps) {
+export default function MapResultsList({
+  festivals,
+  selectedFestivalId,
+  onSelectFestival,
+  primaryScheduleByFestival = {},
+}: MapResultsListProps) {
   const itemsRef = useRef<Record<string, HTMLDivElement | null>>({});
 
   const selectedKey = useMemo(() => (selectedFestivalId == null ? null : String(selectedFestivalId)), [selectedFestivalId]);
@@ -55,6 +61,9 @@ export default function MapResultsList({ festivals, selectedFestivalId, onSelect
               isFree={festival.is_free}
               description={festival.description}
               showDescription
+              showPlanControls
+              festivalId={festival.id}
+              scheduleItemId={primaryScheduleByFestival[String(festival.id)] ?? null}
             />
             <Link
               href={`/festival/${festival.slug}`}

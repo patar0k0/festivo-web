@@ -33,14 +33,13 @@ export async function POST(request: Request) {
     return redirectWithError(request, "Невалидни данни за вход.");
   }
 
-  const url = new URL(request.url);
-  const secure = url.protocol === "https:";
   const safeNext = typeof nextPath === "string" && nextPath.startsWith("/") ? nextPath : "/plan";
-  const response = NextResponse.redirect(new URL(safeNext, url));
+  const isProd = process.env.NODE_ENV === "production";
+  const response = NextResponse.redirect(new URL(safeNext, request.url));
 
   response.cookies.set(ACCESS_AUTH_COOKIE, data.session.access_token, {
     httpOnly: true,
-    secure,
+    secure: isProd,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60,
@@ -48,7 +47,7 @@ export async function POST(request: Request) {
 
   response.cookies.set(REFRESH_AUTH_COOKIE, data.session.refresh_token, {
     httpOnly: true,
-    secure,
+    secure: isProd,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
@@ -56,7 +55,7 @@ export async function POST(request: Request) {
 
   response.cookies.set(USER_AUTH_COOKIE, data.session.access_token, {
     httpOnly: true,
-    secure,
+    secure: isProd,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,

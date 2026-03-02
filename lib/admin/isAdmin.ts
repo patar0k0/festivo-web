@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
-import { USER_AUTH_COOKIE } from "@/lib/authUser";
+import { ACCESS_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
 import { getSupabaseEnv, supabaseServer } from "@/lib/supabaseServer";
 
 export type AdminSession = {
@@ -17,7 +17,11 @@ type AdminAuthContext = {
 
 async function getAccessTokenFromCookies() {
   const cookieStore = await cookies();
-  return cookieStore.get(USER_AUTH_COOKIE)?.value ?? null;
+  return (
+    cookieStore.get(ACCESS_AUTH_COOKIE)?.value ??
+    cookieStore.get(USER_AUTH_COOKIE)?.value ??
+    null
+  );
 }
 
 function createAuthedSupabase(accessToken: string) {

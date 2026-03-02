@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { MouseEvent } from "react";
+import { SyntheticEvent } from "react";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import type { ReminderType } from "@/lib/plan/server";
 
@@ -19,7 +19,7 @@ export default function PlanInlineControls({ festivalId, scheduleItemId, compact
   const inPlan = isScheduleItemInPlan(scheduleItemId);
   const reminder = reminderTypeByFestivalId[String(festivalId)] ?? "none";
 
-  const stopEvent = (event: MouseEvent) => {
+  const stopEvent = (event: SyntheticEvent) => {
     event.preventDefault();
     event.stopPropagation();
   };

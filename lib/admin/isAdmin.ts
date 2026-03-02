@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
-import { REFRESH_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
+import { ACCESS_AUTH_COOKIE, REFRESH_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
 import { refreshAccessToken } from "@/lib/authRefresh";
 import { getSupabaseEnv, supabaseServer } from "@/lib/supabaseServer";
 
@@ -20,7 +20,10 @@ async function getTokensFromCookies() {
   const cookieStore = await cookies();
 
   return {
-    accessToken: cookieStore.get(USER_AUTH_COOKIE)?.value ?? null,
+    accessToken:
+      cookieStore.get(USER_AUTH_COOKIE)?.value ??
+      cookieStore.get(ACCESS_AUTH_COOKIE)?.value ??
+      null,
     refreshToken: cookieStore.get(REFRESH_AUTH_COOKIE)?.value ?? null,
   };
 }
@@ -144,7 +147,9 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 
 export async function requireAdmin() {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get(USER_AUTH_COOKIE)?.value;
+  const accessToken =
+    cookieStore.get(USER_AUTH_COOKIE)?.value ??
+    cookieStore.get(ACCESS_AUTH_COOKIE)?.value;
   const loginUrl = `/login?next=${encodeURIComponent("/admin")}`;
 
   if (!accessToken) {

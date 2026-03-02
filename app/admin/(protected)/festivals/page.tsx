@@ -1,10 +1,23 @@
 ﻿import { festivalCategories, festivalCategoryLabels } from "@/components/CategoryChips";
 import FestivalsTable from "@/components/admin/FestivalsTable";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { headers } from "next/headers";
 
 const STATUS_OPTIONS = ["draft", "verified", "rejected", "archived"] as const;
 
 type SearchParams = Record<string, string | string[] | undefined>;
+
+type AdminFestivalRow = {
+  id: string;
+  title: string;
+  city: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  category: string | null;
+  is_free: boolean | null;
+  status: "draft" | "verified" | "rejected" | "archived" | null;
+  updated_at: string | null;
+  source_type: string | null;
+};
 
 function asString(value: string | string[] | undefined) {
   return typeof value === "string" ? value : "";
@@ -18,42 +31,29 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
   const free = asString(params.free);
   const q = asString(params.q);
 
-  const db = supabaseAdmin();
-  if (!db) {
-    return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">Липсва SUPABASE_SERVICE_ROLE_KEY за admin панела.</div>;
-  }
+  const queryString = new URLSearchParams();
+  if (status && STATUS_OPTIONS.includes(status as (typeof STATUS_OPTIONS)[number])) queryString.set("status", status);
+  if (city) queryString.set("city", city);
+  if (category) queryString.set("category", category);
+  if (free) queryString.set("free", free);
+  if (q) queryString.set("q", q);
 
-  let query = db
-    .from("festivals")
-    .select("id,title,city,start_date,end_date,category,is_free,status,updated_at,source_type")
-    .order("updated_at", { ascending: false })
-    .limit(200);
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
+  const baseUrl = host ? `${protocol}://${host}` : process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
-  if (status && STATUS_OPTIONS.includes(status as (typeof STATUS_OPTIONS)[number])) {
-    query = query.eq("status", status);
-  }
+  const response = await fetch(`${baseUrl}/admin/api/festivals?${queryString.toString()}`, {
+    cache: "no-store",
+    headers: {
+      cookie: requestHeaders.get("cookie") ?? "",
+    },
+  });
 
-  if (city) {
-    query = query.ilike("city", `%${city}%`);
-  }
-
-  if (category) {
-    query = query.eq("category", category);
-  }
-
-  if (free === "1") {
-    query = query.eq("is_free", true);
-  }
-
-  if (free === "0") {
-    query = query.eq("is_free", false);
-  }
-
-  if (q) {
-    query = query.ilike("title", `%${q}%`);
-  }
-
-  const { data, error } = await query;
+  const payload = (await response.json().catch(() => ({}))) as { error?: string; rows?: AdminFestivalRow[] };
+  const apiError = payload.error;
+  const rows = payload.rows ?? [];
+  const missingServiceRole = response.status === 500 && typeof apiError === "string" && apiError.includes("Missing SUPABASE_SERVICE_ROLE_KEY");
 
   return (
     <div className="space-y-5">
@@ -115,10 +115,12 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
         </form>
       </div>
 
-      {error ? (
-        <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{error.message}</div>
+      {!response.ok ? (
+        <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">
+          {missingServiceRole ? "Missing SUPABASE_SERVICE_ROLE_KEY. Set env in Vercel." : apiError ?? "Failed to load festivals."}
+        </div>
       ) : (
-        <FestivalsTable rows={(data ?? []).map((row) => ({ ...row, id: String(row.id) }))} />
+        <FestivalsTable rows={rows} />
       )}
     </div>
   );

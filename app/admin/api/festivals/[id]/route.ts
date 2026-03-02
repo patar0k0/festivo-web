@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type Payload = {
   title?: string;
@@ -28,59 +29,63 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const db = admin.client;
+  try {
+    const db = createSupabaseAdmin();
+    const { id } = await params;
+    const body = (await request.json()) as Payload;
 
-  const { id } = await params;
-  const body = (await request.json()) as Payload;
+    const patch: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
 
-  const patch: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
+    const allowedKeys: Array<keyof Payload> = [
+      "title",
+      "category",
+      "city",
+      "region",
+      "address",
+      "start_date",
+      "end_date",
+      "image_url",
+      "website_url",
+      "ticket_url",
+      "price_range",
+      "lat",
+      "lng",
+      "is_free",
+      "is_verified",
+      "status",
+      "tags",
+      "description",
+    ];
 
-  const allowedKeys: Array<keyof Payload> = [
-    "title",
-    "category",
-    "city",
-    "region",
-    "address",
-    "start_date",
-    "end_date",
-    "image_url",
-    "website_url",
-    "ticket_url",
-    "price_range",
-    "lat",
-    "lng",
-    "is_free",
-    "is_verified",
-    "status",
-    "tags",
-    "description",
-  ];
+    allowedKeys.forEach((key) => {
+      if (key in body) {
+        patch[key] = body[key];
+      }
+    });
 
-  allowedKeys.forEach((key) => {
-    if (key in body) {
-      patch[key] = body[key];
+    if (Array.isArray(body.tags)) {
+      patch.tags = body.tags.map((tag) => tag.trim()).filter(Boolean);
     }
-  });
 
-  if (Array.isArray(body.tags)) {
-    patch.tags = body.tags.map((tag) => tag.trim()).filter(Boolean);
+    if (typeof patch.lat === "number" && (patch.lat < -90 || patch.lat > 90)) {
+      return NextResponse.json({ error: "Invalid latitude" }, { status: 400 });
+    }
+
+    if (typeof patch.lng === "number" && (patch.lng < -180 || patch.lng > 180)) {
+      return NextResponse.json({ error: "Invalid longitude" }, { status: 400 });
+    }
+
+    const { error } = await db.from("festivals").update(patch).eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected admin API error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  if (typeof patch.lat === "number" && (patch.lat < -90 || patch.lat > 90)) {
-    return NextResponse.json({ error: "Invalid latitude" }, { status: 400 });
-  }
-
-  if (typeof patch.lng === "number" && (patch.lng < -180 || patch.lng > 180)) {
-    return NextResponse.json({ error: "Invalid longitude" }, { status: 400 });
-  }
-
-  const { error } = await db.from("festivals").update(patch).eq("id", id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
 }

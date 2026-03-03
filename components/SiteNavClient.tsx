@@ -29,9 +29,16 @@ export default function SiteNavClient({ isAuthenticated, userEmail }: SiteNavCli
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen]);
 
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
   return (
     <>
-      <div className="relative md:hidden">
+      <div className="md:hidden">
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
@@ -45,13 +52,24 @@ export default function SiteNavClient({ isAuthenticated, userEmail }: SiteNavCli
           Меню
         </button>
         {isOpen ? (
-          <>
-            <button aria-label="Close menu" className="fixed inset-0 z-40" onClick={closeMenu} />
+          <div className="fixed inset-0 z-50">
+            <button aria-label="Close menu" className="absolute inset-0 bg-black/35 backdrop-blur-[1px]" onClick={closeMenu} />
             <div
               id="site-mobile-menu"
-              className="absolute right-0 top-full z-50 mt-3 w-[min(92vw,22rem)] rounded-2xl border border-black/[0.08] bg-[#f5f4f0]/95 p-4 shadow-lg backdrop-blur-xl"
+              className="absolute right-0 top-0 flex h-full w-full max-w-full flex-col border-l border-black/[0.08] bg-[#f5f4f0] p-5 shadow-[-10px_0_30px_rgba(12,14,20,0.16)]"
             >
-              <nav className="flex flex-col gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-black/70">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Меню</p>
+                <button
+                  type="button"
+                  onClick={closeMenu}
+                  className="rounded-full border border-black/[0.1] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-black/60"
+                >
+                  Затвори
+                </button>
+              </div>
+
+              <nav className="mt-6 flex flex-col gap-4 text-sm font-semibold uppercase tracking-[0.16em] text-black/75">
                 <Link href="/festivals" onClick={closeMenu} className="transition hover:text-[#0c0e14]">
                   Фестивали
                 </Link>
@@ -61,9 +79,12 @@ export default function SiteNavClient({ isAuthenticated, userEmail }: SiteNavCli
                 <Link href="/map" onClick={closeMenu} className="transition hover:text-[#0c0e14]">
                   Карта
                 </Link>
+              </nav>
+
+              <div className="mt-auto border-t border-black/[0.08] pt-4 text-xs font-semibold uppercase tracking-[0.15em] text-black/65">
                 {isAuthenticated ? (
-                  <>
-                    <Link href="/plan" onClick={closeMenu} className="break-all text-[11px] normal-case tracking-normal text-black/60">
+                  <div className="space-y-3">
+                    <Link href="/plan" onClick={closeMenu} className="block break-all text-[11px] normal-case tracking-normal text-black/60">
                       {userEmail ?? "Профил"}
                     </Link>
                     <form action="/api/auth/logout" method="post" onSubmit={closeMenu}>
@@ -71,15 +92,15 @@ export default function SiteNavClient({ isAuthenticated, userEmail }: SiteNavCli
                         Изход
                       </button>
                     </form>
-                  </>
+                  </div>
                 ) : (
                   <Link href="/login" onClick={closeMenu} className="transition hover:text-[#0c0e14]">
                     Вход
                   </Link>
                 )}
-              </nav>
+              </div>
             </div>
-          </>
+          </div>
         ) : null}
       </div>
 

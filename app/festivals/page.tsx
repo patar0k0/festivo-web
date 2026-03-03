@@ -1,89 +1,202 @@
-import Link from "next/link";
-import { endOfMonth, format, nextSaturday, nextSunday, startOfMonth } from "date-fns";
-import StickySearchBar from "@/components/StickySearchBar";
+﻿import Link from "next/link";
+import { format, nextSaturday } from "date-fns";
 import { festivalCategories, festivalCategoryLabels } from "@/components/CategoryChips";
-import ViewToggle from "@/components/ViewToggle";
-import FiltersSidebar from "@/components/FiltersSidebar";
-import MobileFiltersSheet from "@/components/MobileFiltersSheet";
-import Pagination from "@/components/Pagination";
-import FestivalsResultsToolbar from "@/components/FestivalsResultsToolbar";
-import ActiveFiltersChips from "@/components/ActiveFiltersChips";
 import { PlanStateProvider } from "@/components/plan/PlanStateProvider";
 import ScrollRestoration from "@/components/ScrollRestoration";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
 import { getOptionalUser } from "@/lib/authUser";
-import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
-import { listFestivals } from "@/lib/festivals";
-import { getPlanStateByUser, getPrimaryScheduleItemByFestivalIds } from "@/lib/plan/server";
-import { Filters } from "@/lib/types";
+import { getPrimaryScheduleItemByFestivalIds, getPlanStateByUser } from "@/lib/plan/server";
 import { getBaseUrl, listMeta } from "@/lib/seo";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { Festival } from "@/lib/types";
 import "../landing.css";
 
 export const revalidate = 3600;
+
+const FESTIVAL_SELECT =
+  "id,title,slug,city,city_slug,region,start_date,end_date,category,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range";
+const PAGE_SIZE = 12;
+const HAS_TAGS_COLUMN = true;
+
+type PageSearchParams = Record<string, string | string[] | undefined>;
+
+type DateRange = {
+  start: string;
+  end: string;
+  mode: "month" | "day";
+};
+
+function getParam(searchParams: PageSearchParams, key: string): string | undefined {
+  const value = searchParams[key];
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return typeof value === "string" ? value : undefined;
+}
+
+function toUtcDateString(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function parseDateFilter(value: string | undefined): DateRange | null {
+  if (!value) {
+    return null;
+  }
+
+  const monthMatch = value.match(/^(\d{4})-(\d{2})$/);
+  if (monthMatch) {
+    const year = Number(monthMatch[1]);
+    const month = Number(monthMatch[2]);
+    if (month < 1 || month > 12) {
+      return null;
+    }
+
+    const startDate = new Date(Date.UTC(year, month - 1, 1));
+    const endDate = new Date(Date.UTC(year, month, 1));
+
+    return {
+      start: toUtcDateString(startDate),
+      end: toUtcDateString(endDate),
+      mode: "month",
+    };
+  }
+
+  const dayMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dayMatch) {
+    return null;
+  }
+
+  const year = Number(dayMatch[1]);
+  const month = Number(dayMatch[2]);
+  const day = Number(dayMatch[3]);
+
+  const startDate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    startDate.getUTCFullYear() !== year ||
+    startDate.getUTCMonth() !== month - 1 ||
+    startDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  const endDate = new Date(Date.UTC(year, month - 1, day + 1));
+
+  return {
+    start: toUtcDateString(startDate),
+    end: toUtcDateString(endDate),
+    mode: "day",
+  };
+}
+
+function buildFestivalsHref(params: {
+  city?: string;
+  date?: string;
+  tag?: string;
+  page?: number;
+}) {
+  const query = new URLSearchParams();
+
+  if (params.city) query.set("city", params.city);
+  if (params.date) query.set("date", params.date);
+  if (params.tag) query.set("tag", params.tag);
+  if (params.page && params.page > 1) query.set("page", String(params.page));
+
+  const suffix = query.toString();
+  return suffix ? `/festivals?${suffix}` : "/festivals";
+}
 
 export async function generateMetadata() {
   const meta = listMeta();
   return {
     ...meta,
     title: "Фестивали в България | Festivo",
-    description: "Открий безплатни фестивали и събития в България по град, дата и категория.",
+    description: "Открий безплатни фестивали и събития в България по град, категория и дата.",
     alternates: {
       canonical: `${getBaseUrl()}/festivals`,
     },
   };
 }
 
-function countActiveFilters(filters: Filters) {
-  let count = 0;
-  if (filters.city?.length) count += 1;
-  if (filters.region?.length) count += 1;
-  if (filters.from) count += 1;
-  if (filters.to) count += 1;
-  if (filters.cat?.length) count += 1;
-  if (filters.month) count += 1;
-  if (filters.free === false) count += 1;
-  if (filters.sort && filters.sort !== "soonest") count += 1;
-  return count;
-}
-
 export default async function FestivalsPage({
   searchParams,
 }: {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: PageSearchParams;
 }) {
-  const parsedFilters = parseFilters(searchParams);
-  const filters = withDefaultFilters(parsedFilters);
-  const page = Number(searchParams.page ?? 1);
-  const data = await listFestivals(filters, Number.isNaN(page) ? 1 : page, 12);
+  const city = getParam(searchParams, "city");
+  const date = getParam(searchParams, "date");
+  const tag = getParam(searchParams, "tag");
+  const parsedDate = parseDateFilter(date);
+
+  const pageRaw = Number(getParam(searchParams, "page") ?? "1");
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  let festivals: Festival[] = [];
+  let total = 0;
+  let totalPages = 1;
+  let queryError: string | null = null;
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    let query = supabase
+      .from("festivals")
+      .select(FESTIVAL_SELECT, { count: "exact" })
+      .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+      .order("start_date", { ascending: true });
+
+    if (city) {
+      query = query.eq("city_slug", city);
+    }
+
+    if (parsedDate) {
+      query = query.gte("start_date", parsedDate.start).lt("start_date", parsedDate.end);
+    }
+
+    if (tag) {
+      query = HAS_TAGS_COLUMN ? query.contains("tags", [tag]) : query.eq("category", tag);
+    }
+
+    if (!city && !parsedDate && !tag) {
+      const now = new Date();
+      const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      query = query.gte("start_date", toUtcDateString(todayUtc));
+    }
+
+    const { data, count, error } = await query.range(from, to).returns<Festival[]>();
+
+    if (error) {
+      queryError = error.message;
+    } else {
+      festivals = data ?? [];
+      total = count ?? 0;
+      totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    }
+  } catch (error) {
+    queryError = error instanceof Error ? error.message : "Unknown error";
+  }
+
   const user = await getOptionalUser();
   const [planState, primaryScheduleByFestival] = await Promise.all([
     user ? getPlanStateByUser(user.id) : Promise.resolve({ scheduleItemIds: [], reminders: {} }),
-    getPrimaryScheduleItemByFestivalIds(data.data.map((festival) => festival.id)),
+    getPrimaryScheduleItemByFestivalIds(festivals.map((festival) => festival.id)),
   ]);
 
-  const activeFiltersCount = countActiveFilters(parsedFilters);
-  const clearHref = `/festivals${serializeFilters(withDefaultFilters({}))}`;
+  const activeFiltersCount = Number(Boolean(city)) + Number(Boolean(parsedDate)) + Number(Boolean(tag));
+  const clearHref = "/festivals";
 
   const today = new Date();
-  const weekendStart = nextSaturday(today);
-  const weekendEnd = nextSunday(today);
-  const monthStart = startOfMonth(today);
-  const monthEnd = endOfMonth(today);
+  const weekendDate = format(nextSaturday(today), "yyyy-MM-dd");
+  const monthDate = format(today, "yyyy-MM");
 
-  const freeLink = serializeFilters({ ...filters, free: true });
-  const weekendLink = serializeFilters({
-    ...filters,
-    from: format(weekendStart, "yyyy-MM-dd"),
-    to: format(weekendEnd, "yyyy-MM-dd"),
-  });
-  const monthLink = serializeFilters({
-    ...filters,
-    from: format(monthStart, "yyyy-MM-dd"),
-    to: format(monthEnd, "yyyy-MM-dd"),
-  });
+  const freeLink = buildFestivalsHref({ city, date, tag });
+  const weekendLink = buildFestivalsHref({ city, date: weekendDate, tag });
+  const monthLink = buildFestivalsHref({ city, date: monthDate, tag });
   const popularCategoryChips = Array.from(new Set(festivalCategories)).slice(0, 5);
+
+  const visiblePages = Array.from({ length: totalPages }).slice(0, 5);
 
   return (
     <PlanStateProvider
@@ -96,8 +209,7 @@ export default async function FestivalsPage({
         <Section className="overflow-x-clip bg-transparent pb-8 pt-8 md:pb-10 md:pt-10">
           <Container>
             <div className="space-y-7 lg:space-y-8">
-            <div className="rounded-[28px] border border-black/[0.08] bg-white/75 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">
-              <div className="flex flex-wrap items-start justify-between gap-4 md:gap-6">
+              <div className="rounded-[28px] border border-black/[0.08] bg-white/75 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">
                 <div className="max-w-3xl">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">Festivo Explorer</p>
                   <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Фестивали в България</h1>
@@ -105,80 +217,76 @@ export default async function FestivalsPage({
                     Открий безплатни фестивали и събития по град, категория и дата.
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <MobileFiltersSheet initialFilters={filters} />
-                  <ViewToggle active="/festivals" filters={filters} />
+
+                <div className="mt-5 flex flex-wrap gap-2 md:mt-6">
+                  <Link
+                    href={freeLink}
+                    scroll={false}
+                    className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  >
+                    Само безплатни
+                  </Link>
+                  <Link
+                    href={weekendLink}
+                    scroll={false}
+                    className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  >
+                    Този уикенд
+                  </Link>
+                  <Link
+                    href={monthLink}
+                    scroll={false}
+                    className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  >
+                    Този месец
+                  </Link>
+                  {popularCategoryChips.map((category) => {
+                    const categoryLink = buildFestivalsHref({ city, date, tag: category });
+                    const active = tag === category;
+
+                    return (
+                      <Link
+                        key={category}
+                        href={categoryLink}
+                        scroll={false}
+                        className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
+                          active
+                            ? "border-[#0c0e14] bg-[#0c0e14] text-white"
+                            : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
+                        }`}
+                      >
+                        {festivalCategoryLabels[category] ?? category}
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-2 md:mt-6">
-                <Link
-                  href={`/festivals${freeLink}`}
-                  scroll={false}
-                  className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Само безплатни
-                </Link>
-                <Link
-                  href={`/festivals${weekendLink}`}
-                  scroll={false}
-                  className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Този уикенд
-                </Link>
-                <Link
-                  href={`/festivals${monthLink}`}
-                  scroll={false}
-                  className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Този месец
-                </Link>
-                {popularCategoryChips.map((category) => {
-                  const categoryLink = serializeFilters({ ...filters, cat: [category] });
-                  const active = filters.cat?.includes(category);
-
-                  return (
-                    <Link
-                      key={category}
-                      href={`/festivals${categoryLink}`}
-                      scroll={false}
-                      className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-                        active
-                          ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                          : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
-                      }`}
-                    >
-                      {festivalCategoryLabels[category] ?? category}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="lg:hidden">
-                <StickySearchBar initialFilters={filters} />
-              </div>
-              <div className="hidden lg:block lg:sticky lg:top-[84px] lg:z-20 xl:hidden">
-                <StickySearchBar initialFilters={filters} />
-              </div>
-            </div>
-
-            <div className="grid items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] xl:gap-8">
-              <div className="hidden xl:block">
-                <FiltersSidebar initialFilters={filters} className="sticky top-[172px]" />
-              </div>
-
               <div className="min-w-0 space-y-5">
-                <FestivalsResultsToolbar
-                  filters={filters}
-                  total={data.total}
-                  activeFiltersCount={activeFiltersCount}
-                  clearHref={clearHref}
-                />
-                <ActiveFiltersChips />
+                <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.08] bg-white/80 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)] backdrop-blur md:flex-row md:items-center md:justify-between">
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-black/70">
+                    <p className="font-semibold text-[#0c0e14]">Намерени: {total} фестивала</p>
+                    <span className="text-black/35">•</span>
+                    <p>
+                      Active filters: <span className="font-semibold text-[#0c0e14]">{activeFiltersCount}</span>
+                    </p>
+                    <Link
+                      href={clearHref}
+                      scroll={false}
+                      className="rounded-full border border-black/[0.1] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:border-black/20 hover:bg-[#f8f7f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                    >
+                      Изчисти
+                    </Link>
+                  </div>
+                </div>
 
-                {data.data.length === 0 ? (
+                {queryError ? (
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-4 text-sm text-red-800">
+                    Възникна грешка при зареждане на фестивалите. Опитайте отново.
+                  </div>
+                ) : null}
+
+                {!queryError && festivals.length === 0 ? (
                   <div className="rounded-2xl border border-black/[0.08] bg-white/80 px-6 py-12 text-center shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.06)]">
                     <p className="text-base font-semibold text-[#0c0e14]">Няма фестивали по тези филтри.</p>
                     <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
@@ -200,31 +308,50 @@ export default async function FestivalsPage({
                   </div>
                 ) : (
                   <div className="grid gap-5 sm:grid-cols-2 xl:gap-6">
-                      {data.data.map((festival) => (
-                        <EventCard
-                          key={festival.slug}
-                          title={festival.title}
-                          city={festival.city}
-                          category={festival.category}
-                          imageUrl={festival.image_url}
-                          startDate={festival.start_date}
-                          endDate={festival.end_date}
-                          isFree={festival.is_free}
-                          description={festival.description}
-                          showDescription
-                          showDetailsButton
-                          detailsHref={`/festivals/${festival.slug}`}
-                          showPlanControls
-                          festivalId={festival.id}
-                          scheduleItemId={primaryScheduleByFestival[String(festival.id)] ?? null}
-                        />
-                      ))}
+                    {festivals.map((festival) => (
+                      <EventCard
+                        key={festival.slug}
+                        title={festival.title}
+                        city={festival.city}
+                        category={festival.category}
+                        imageUrl={festival.image_url}
+                        startDate={festival.start_date}
+                        endDate={festival.end_date}
+                        isFree={festival.is_free}
+                        description={festival.description}
+                        showDescription
+                        showDetailsButton
+                        detailsHref={`/festivals/${festival.slug}`}
+                        showPlanControls
+                        festivalId={festival.id}
+                        scheduleItemId={primaryScheduleByFestival[String(festival.id)] ?? null}
+                      />
+                    ))}
                   </div>
                 )}
 
-                <Pagination page={data.page} totalPages={data.totalPages} basePath="/festivals" filters={filters} />
+                {totalPages > 1 ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {visiblePages.map((_, index) => {
+                      const pageNumber = index + 1;
+                      return (
+                        <Link
+                          key={pageNumber}
+                          href={buildFestivalsHref({ city, date, tag, page: pageNumber })}
+                          scroll={false}
+                          className={`rounded-full border border-black/[0.1] px-4 py-2 text-sm transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
+                            pageNumber === page
+                              ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#0c0e14]"
+                              : "bg-white/80 text-[#0c0e14]"
+                          }`}
+                        >
+                          {pageNumber}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
-            </div>
             </div>
           </Container>
         </Section>
@@ -232,4 +359,3 @@ export default async function FestivalsPage({
     </PlanStateProvider>
   );
 }
-

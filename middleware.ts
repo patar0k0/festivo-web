@@ -5,6 +5,7 @@ import { getSupabaseEnv } from "@/lib/supabaseServer";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const comingSoonMode = process.env.FESTIVO_PUBLIC_MODE === "coming-soon";
+  const hasPreviewAccess = Boolean(request.cookies.get("festivo_preview")?.value);
   const isAllowlisted =
     pathname === "/" ||
     pathname.startsWith("/admin") ||
@@ -22,7 +23,7 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  if (comingSoonMode && !isAllowlisted) {
+  if (comingSoonMode && !hasPreviewAccess && !isAllowlisted) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

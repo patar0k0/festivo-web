@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Container from "@/components/ui/Container";
+import SiteNavClient from "@/components/SiteNavClient";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function SiteHeader() {
@@ -16,27 +17,7 @@ export default async function SiteHeader() {
         <Link href="/" className="text-lg font-semibold tracking-tight text-[#0c0e14]">
           <span className="font-[var(--font-display)] text-2xl">Festivo</span>
         </Link>
-        <nav className="flex items-center gap-6 text-xs font-semibold uppercase tracking-[0.2em] text-black/55">
-          <Link href="/festivals" className="transition hover:text-[#0c0e14]">
-            Фестивали
-          </Link>
-          <Link href="/calendar" className="transition hover:text-[#0c0e14]">
-            Календар
-          </Link>
-          <Link href="/map" className="transition hover:text-[#0c0e14]">
-            Карта
-          </Link>
-          <Link href={isAuthenticated ? "/plan" : "/login"} className="transition hover:text-[#0c0e14]">
-            {isAuthenticated ? userEmail : "Вход"}
-          </Link>
-          {isAuthenticated ? (
-            <form action="/api/auth/logout" method="post">
-              <button type="submit" className="transition hover:text-[#0c0e14]">
-                Изход
-              </button>
-            </form>
-          ) : null}
-        </nav>
+        <SiteNavClient isAuthenticated={isAuthenticated} userEmail={userEmail} />
       </Container>
     </header>
   );

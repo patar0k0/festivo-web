@@ -169,7 +169,7 @@ export default async function FestivalsPage({
     const { data, count, error } = await query.range(from, to).returns<Festival[]>();
 
     if (error) {
-      queryError = error.message;
+      queryError = JSON.stringify(error, null, 2);
     } else {
       festivals = data ?? [];
       total = count ?? 0;

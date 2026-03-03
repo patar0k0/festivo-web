@@ -6,18 +6,6 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const comingSoonMode = process.env.FESTIVO_PUBLIC_MODE === "coming-soon";
   const hasPreviewAccess = Boolean(request.cookies.get("festivo_preview")?.value);
-  const isAllowlisted =
-    pathname === "/" ||
-    pathname.startsWith("/admin") ||
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/auth") ||
-    pathname.startsWith("/preview") ||
-    pathname.startsWith("/logout-preview") ||
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico" ||
-    pathname === "/robots.txt" ||
-    pathname === "/sitemap.xml";
 
   const response = NextResponse.next({
     request: {
@@ -25,7 +13,7 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  if (comingSoonMode && !hasPreviewAccess && !isAllowlisted) {
+  if (comingSoonMode && !hasPreviewAccess && pathname !== "/") {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

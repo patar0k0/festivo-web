@@ -21,11 +21,11 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const cookieStore = await cookies();
-  const previewToken = process.env.PREVIEW_TOKEN;
   const previewCookie = cookieStore.get(PREVIEW_COOKIE_NAME)?.value;
-  const hasPreviewAccess = Boolean(previewToken) && previewCookie === previewToken;
+  const hasPreviewAccess = Boolean(previewCookie);
+  const comingSoonMode = process.env.FESTIVO_PUBLIC_MODE === "coming-soon";
 
-  if (!hasPreviewAccess) {
+  if (comingSoonMode && !hasPreviewAccess) {
     return <ComingSoonPublic />;
   }
 

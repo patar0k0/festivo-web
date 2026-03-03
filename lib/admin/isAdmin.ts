@@ -94,7 +94,7 @@ export async function requireAdmin() {
       email: user.email ?? null,
       isAdmin: true,
     };
-  } catch (error) {
+  } catch {
     redirect("/");
   }
 }

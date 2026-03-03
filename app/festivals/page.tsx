@@ -265,7 +265,10 @@ export default async function FestivalsPage({
 
                 {queryError ? (
                   <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-4 text-sm text-red-800">
-                    Възникна грешка при зареждане на фестивалите. Опитайте отново.
+                    <p>Възникна грешка при зареждане на фестивалите. Опитайте отново.</p>
+                    {process.env.NODE_ENV !== "production" ? (
+                      <p className="mt-2 break-words text-xs text-red-700">{queryError}</p>
+                    ) : null}
                   </div>
                 ) : null}
 

@@ -9,6 +9,6 @@ export async function GET() {
     return NextResponse.json({ authenticated: false, scheduleItemIds: [], reminders: {} }, { status: 401 });
   }
 
-  const state = await getPlanStateByUser(user.id);
+  const state = await getPlanStateByUser();
   return NextResponse.json({ authenticated: true, ...state });
 }

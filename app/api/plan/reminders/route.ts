@@ -1,7 +1,6 @@
-﻿import { NextResponse } from "next/server";
-import { getOptionalUser } from "@/lib/authUser";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { NextResponse } from "next/server";
 import { ReminderType } from "@/lib/plan/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Payload = {
   festivalId?: string;
@@ -11,14 +10,13 @@ type Payload = {
 const allowed = new Set<ReminderType>(["none", "24h", "same_day_09"]);
 
 export async function POST(request: Request) {
-  const user = await getOptionalUser();
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const db = supabaseAdmin();
-  if (!db) {
-    return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 500 });
   }
 
   const body = (await request.json()) as Payload;
@@ -30,7 +28,7 @@ export async function POST(request: Request) {
   }
 
   if (reminderType === "none") {
-    const { error } = await db
+    const { error } = await supabase
       .from("user_plan_reminders")
       .delete()
       .eq("user_id", user.id)
@@ -43,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, reminderType: "none" });
   }
 
-  const { error } = await db
+  const { error } = await supabase
     .from("user_plan_reminders")
     .upsert(
       {

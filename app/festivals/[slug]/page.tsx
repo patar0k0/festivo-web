@@ -45,7 +45,7 @@ export default async function Page({
   const { slug } = await params;
   const data = await getFestivalDetail(slug);
   const user = await getOptionalUser();
-  const planState = user ? await getPlanStateByUser(user.id) : { scheduleItemIds: [], reminders: {} };
+  const planState = user ? await getPlanStateByUser() : { scheduleItemIds: [], reminders: {} };
 
   if (!data) return notFound();
 

@@ -188,7 +188,7 @@ export default async function FestivalsPage({
 
   const user = await getOptionalUser();
   const [planState, primaryScheduleByFestival] = await Promise.all([
-    user ? getPlanStateByUser(user.id) : Promise.resolve({ scheduleItemIds: [], reminders: {} }),
+    user ? getPlanStateByUser() : Promise.resolve({ scheduleItemIds: [], reminders: {} }),
     getPrimaryScheduleItemByFestivalIds(festivals.map((festival) => festival.id)),
   ]);
 

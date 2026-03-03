@@ -35,7 +35,7 @@ export default async function PlanPage() {
     .maybeSingle();
   isAdmin = Boolean(roleRow);
 
-  const [entries, state] = await Promise.all([getPlanEntriesByUser(user.id), getPlanStateByUser(user.id)]);
+  const [entries, state] = await Promise.all([getPlanEntriesByUser(), getPlanStateByUser()]);
 
   return (
     <PlanStateProvider

@@ -1,5 +1,6 @@
-﻿import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { type SupabaseClient, type User } from "@supabase/supabase-js";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ReminderType = "none" | "24h" | "same_day_09";
 
@@ -53,16 +54,38 @@ type FestivalRow = {
   city: string | null;
 };
 
-export async function getPlanStateByUser(userId: string): Promise<PlanState> {
-  const db = supabaseAdmin();
-  if (!db) return { scheduleItemIds: [], reminders: {} };
+async function getAuthedClientOrThrow(): Promise<{ supabase: SupabaseClient; user: User }> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    throw new Error("Unauthorized");
+  }
+
+  return { supabase, user };
+}
+
+export async function getPlanStateByUser(): Promise<PlanState> {
+  let ctx: { supabase: SupabaseClient; user: User };
+  try {
+    ctx = await getAuthedClientOrThrow();
+  } catch {
+    return { scheduleItemIds: [], reminders: {} };
+  }
 
   const [itemsResult, remindersResult] = await Promise.all([
-    db.from("user_plan_items").select("schedule_item_id").eq("user_id", userId).returns<UserPlanItemRow[]>(),
-    db
+    ctx.supabase
+      .from("user_plan_items")
+      .select("schedule_item_id")
+      .eq("user_id", ctx.user.id)
+      .returns<UserPlanItemRow[]>(),
+    ctx.supabase
       .from("user_plan_reminders")
       .select("festival_id,reminder_type")
-      .eq("user_id", userId)
+      .eq("user_id", ctx.user.id)
       .returns<UserPlanReminderRow[]>(),
   ]);
 
@@ -79,9 +102,9 @@ export async function getPlanStateByUser(userId: string): Promise<PlanState> {
 export async function getPrimaryScheduleItemByFestivalIds(
   festivalIds: Array<string | number>
 ): Promise<Record<string, string>> {
-  const db = supabaseAdmin();
-  if (!db || !festivalIds.length) return {};
+  if (!festivalIds.length) return {};
 
+  const db = await createSupabaseServerClient();
   const normalizedFestivalIds = festivalIds.map((id) => String(id));
 
   const { data: dayRows } = await db
@@ -125,14 +148,20 @@ export async function getPrimaryScheduleItemByFestivalIds(
   return firstByFestival;
 }
 
-export async function getPlanEntriesByUser(userId: string): Promise<PlanEntry[]> {
-  const db = supabaseAdmin();
-  if (!db) return [];
+export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
+  let ctx: { supabase: SupabaseClient; user: User };
+  try {
+    ctx = await getAuthedClientOrThrow();
+  } catch {
+    return [];
+  }
+
+  const db = ctx.supabase;
 
   const { data: itemRows } = await db
     .from("user_plan_items")
     .select("schedule_item_id")
-    .eq("user_id", userId)
+    .eq("user_id", ctx.user.id)
     .returns<UserPlanItemRow[]>();
 
   const scheduleIds = (itemRows ?? []).map((row) => String(row.schedule_item_id));

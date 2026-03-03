@@ -31,7 +31,7 @@ export default async function MapPage({
   const user = await getOptionalUser();
 
   const [planState, primaryScheduleByFestival] = await Promise.all([
-    user ? getPlanStateByUser(user.id) : Promise.resolve({ scheduleItemIds: [], reminders: {} }),
+    user ? getPlanStateByUser() : Promise.resolve({ scheduleItemIds: [], reminders: {} }),
     getPrimaryScheduleItemByFestivalIds(data.data.map((festival) => festival.id)),
   ]);
 

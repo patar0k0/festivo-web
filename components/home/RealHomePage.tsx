@@ -4,6 +4,7 @@ import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
 import { Festival } from "@/lib/types";
+import CitySelectClient from "./CitySelectClient";
 import QuickChipsClient from "./QuickChipsClient";
 
 type CityItem = {
@@ -98,12 +99,16 @@ export default function RealHomePage({ nearestFestivals, weekendFestivals, topCi
                 >
                   Открий около мен
                 </Link>
-                <Link
-                  href="/festivals"
-                  className="rounded-2xl border border-black/[0.09] bg-white/90 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Избери град
-                </Link>
+                {topCities.length ? (
+                  <CitySelectClient cities={topCities.map((city) => ({ name: city.name, slug: city.slug }))} />
+                ) : (
+                  <Link
+                    href="/festivals"
+                    className="rounded-2xl border border-black/[0.09] bg-white/90 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  >
+                    Избери град
+                  </Link>
+                )}
                 <Link
                   href="/calendar"
                   className="rounded-2xl border border-black/[0.09] bg-white/90 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"

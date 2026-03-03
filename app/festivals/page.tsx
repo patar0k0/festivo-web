@@ -17,9 +17,16 @@ import "../landing.css";
 export const revalidate = 3600;
 
 const FESTIVAL_SELECT =
-  "id,title,slug,city,city_slug,region,start_date,end_date,category,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range";
+  "id,title,slug,city,region,start_date,end_date,category,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range,cities:cities!left(slug,name_bg)";
 const PAGE_SIZE = 12;
 const HAS_TAGS_COLUMN = true;
+
+type FestivalWithCity = Festival & {
+  cities?: {
+    slug?: string | null;
+    name_bg?: string | null;
+  } | null;
+};
 
 type PageSearchParams = Record<string, string | string[] | undefined>;
 
@@ -135,7 +142,7 @@ export default async function FestivalsPage({
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  let festivals: Festival[] = [];
+  let festivals: FestivalWithCity[] = [];
   let total = 0;
   let totalPages = 1;
   let queryError: string | null = null;
@@ -149,7 +156,7 @@ export default async function FestivalsPage({
       .order("start_date", { ascending: true });
 
     if (city) {
-      query = query.eq("city_slug", city);
+      query = query.eq("cities.slug", city);
     }
 
     if (parsedDate) {
@@ -166,7 +173,7 @@ export default async function FestivalsPage({
       query = query.gte("start_date", toUtcDateString(todayUtc));
     }
 
-    const { data, count, error } = await query.range(from, to).returns<Festival[]>();
+    const { data, count, error } = await query.range(from, to).returns<FestivalWithCity[]>();
 
     if (error) {
       queryError = JSON.stringify(error, null, 2);
@@ -196,6 +203,10 @@ export default async function FestivalsPage({
   const weekendLink = buildFestivalsHref({ city, date: weekendDate, tag });
   const monthLink = buildFestivalsHref({ city, date: monthDate, tag });
   const popularCategoryChips = Array.from(new Set(festivalCategories)).slice(0, 5);
+  const festivalsForRender: Festival[] = festivals.map((festival) => ({
+    ...festival,
+    city: festival.cities?.name_bg ?? festival.city,
+  }));
 
   const visiblePages = Array.from({ length: totalPages }).slice(0, 5);
 
@@ -294,7 +305,7 @@ export default async function FestivalsPage({
                   </div>
                 ) : (
                   <div className="grid gap-5 sm:grid-cols-2 xl:gap-6">
-                    {festivals.map((festival) => (
+                    {festivalsForRender.map((festival) => (
                       <EventCard
                         key={festival.slug}
                         title={festival.title}

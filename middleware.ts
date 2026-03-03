@@ -4,6 +4,29 @@ import { getSupabaseEnv } from "@/lib/supabaseServer";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (pathname.startsWith("/cities/")) {
+    const cityPart = pathname.slice("/cities/".length).replace(/\/+$/, "");
+    if (cityPart && /[А-Яа-я]/.test(cityPart)) {
+      const cityMap: Record<string, string> = {
+        "софия": "sofia",
+        "пловдив": "plovdiv",
+        "варна": "varna",
+        "бургас": "burgas",
+        "русе": "ruse",
+        "стара-загора": "stara-zagora",
+        "плевен": "pleven",
+        "велико-търново": "veliko-tarnovo",
+      };
+      const decodedCity = decodeURIComponent(cityPart).toLowerCase();
+      const mappedCity = cityMap[decodedCity];
+      if (mappedCity) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = `/cities/${mappedCity}`;
+        return NextResponse.redirect(redirectUrl, 301);
+      }
+    }
+  }
+
   const comingSoonMode = process.env.FESTIVO_PUBLIC_MODE === "coming-soon";
   const hasPreviewAccess = Boolean(request.cookies.get("festivo_preview")?.value);
   const isAllowlisted =

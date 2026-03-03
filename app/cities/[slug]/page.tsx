@@ -6,8 +6,8 @@ import Pagination from "@/components/Pagination";
 import Section from "@/components/ui/Section";
 import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
-import { resolveCityNameFromSlug } from "@/lib/cities";
 import { getBaseUrl } from "@/lib/seo";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import "../../landing.css";
 
 export const revalidate = 21600;
@@ -27,13 +27,24 @@ function mapCategoryLabel(category: string) {
   return categoryLabels[category] ?? category;
 }
 
+async function getCityNameBySlug(slug: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("cities")
+    .select("name_bg")
+    .eq("slug", slug)
+    .maybeSingle<{ name_bg: string | null }>();
+
+  return data?.name_bg ?? slug;
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const cityName = await resolveCityNameFromSlug(slug);
+  const cityName = await getCityNameBySlug(slug);
   const title = `Фестивали в ${cityName} | Festivo`;
   const description = `Открий предстоящи фестивали и събития в ${cityName}. Запази в план и получавай напомняния.`;
 
@@ -54,7 +65,7 @@ export default async function CityLandingPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const [{ slug }, resolvedSearchParams] = await Promise.all([params, searchParams]);
-  const cityName = await resolveCityNameFromSlug(slug);
+  const cityName = await getCityNameBySlug(slug);
 
   const parsedFilters = parseFilters(resolvedSearchParams);
   const filters = withDefaultFilters({ ...parsedFilters, city: [cityName], sort: "soonest" });
@@ -149,7 +160,7 @@ export default async function CityLandingPage({
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <h2 className="text-2xl font-semibold tracking-tight">Предстоящи фестивали</h2>
                 <Link
-                  href={`/festivals?city=${encodeURIComponent(cityName)}`}
+                  href={`/festivals?city=${encodeURIComponent(slug)}`}
                   className="text-sm font-semibold text-[#0c0e14] transition hover:text-black/65"
                 >
                   Виж всички във Фестивали

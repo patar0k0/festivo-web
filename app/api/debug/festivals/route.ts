@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+export const runtime = "nodejs";
+
 const FESTIVAL_SELECT =
   "id,title,slug,city,city_slug,region,start_date,end_date,category,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range";
 
-export const runtime = "nodejs";
-
 export async function GET(request: NextRequest) {
-  if (!request.cookies.get("festivo_preview")) {
+  const preview = request.cookies.get("festivo_preview")?.value;
+  if (!preview) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   try {
     const supabase = await createSupabaseServerClient();
+
     const { data, count, error } = await supabase
       .from("festivals")
       .select(FESTIVAL_SELECT, { count: "exact" })
@@ -24,7 +26,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          error: JSON.parse(JSON.stringify(error)),
+          error: error,
         },
         { status: 500 }
       );
@@ -35,11 +37,11 @@ export async function GET(request: NextRequest) {
       count: count ?? 0,
       sample: data?.[0] ?? null,
     });
-  } catch (error) {
+  } catch (err) {
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? { message: error.message } : { message: "Unknown error" },
+        error: err instanceof Error ? { message: err.message, name: err.name } : err,
       },
       { status: 500 }
     );

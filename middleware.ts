@@ -11,8 +11,7 @@ export async function middleware(request: NextRequest) {
       const decoded = decodeURIComponent(rawSlug);
       const isNonAscii = /[^\x00-\x7F]/.test(decoded);
       if (isNonAscii) {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const { url: supabaseUrl, anon: supabaseAnonKey } = getSupabaseEnv();
         if (supabaseUrl && supabaseAnonKey) {
           const endpoint = `${supabaseUrl}/rest/v1/cities?select=slug&name_bg=eq.${encodeURIComponent(decoded)}&limit=1`;
           try {

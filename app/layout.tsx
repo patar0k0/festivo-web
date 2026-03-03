@@ -29,6 +29,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="bg">
+      <head>
+        <meta charSet="utf-8" />
+      </head>
       <body className={`${manrope.variable} ${fraunces.variable} text-neutral-900 antialiased`}>
         <LayoutShell>{children}</LayoutShell>
       </body>

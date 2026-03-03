@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import FestivalEditForm from "@/components/admin/FestivalEditForm";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 

@@ -1,4 +1,4 @@
-﻿import AdminShell from "@/components/admin/AdminShell";
+import AdminShell from "@/components/admin/AdminShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {

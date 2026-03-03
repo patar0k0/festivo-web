@@ -1,4 +1,4 @@
-﻿import { festivalCategories, festivalCategoryLabels } from "@/components/CategoryChips";
+import { festivalCategories, festivalCategoryLabels } from "@/components/CategoryChips";
 import FestivalsTable from "@/components/admin/FestivalsTable";
 import { headers } from "next/headers";
 

@@ -1,12 +1,20 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import type { PlanEntry, ReminderType } from "@/lib/plan/server";
 
 type PlanPageClientProps = {
   entries: PlanEntry[];
+  festivals: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    city: string | null;
+    start_date: string | null;
+    end_date: string | null;
+  }>;
 };
 
 function formatTimeRange(start?: string | null, end?: string | null) {
@@ -15,8 +23,9 @@ function formatTimeRange(start?: string | null, end?: string | null) {
   return "Час предстои";
 }
 
-export default function PlanPageClient({ entries }: PlanPageClientProps) {
-  const { isScheduleItemInPlan, toggleScheduleItem, reminderTypeByFestivalId, setFestivalReminder } = usePlanState();
+export default function PlanPageClient({ entries, festivals }: PlanPageClientProps) {
+  const { isScheduleItemInPlan, isFestivalInPlan, setFestivalInPlan, toggleScheduleItem, reminderTypeByFestivalId, setFestivalReminder } = usePlanState();
+  const [removingFestivalIds, setRemovingFestivalIds] = useState<Set<string>>(new Set());
 
   const upcomingEntries = useMemo(
     () => entries.filter((entry) => isScheduleItemInPlan(entry.scheduleItemId)),
@@ -33,7 +42,12 @@ export default function PlanPageClient({ entries }: PlanPageClientProps) {
     return Array.from(map.entries());
   }, [upcomingEntries]);
 
-  if (!upcomingEntries.length) {
+  const festivalEntries = useMemo(
+    () => festivals.filter((festival) => isFestivalInPlan(festival.id)),
+    [festivals, isFestivalInPlan]
+  );
+
+  if (!upcomingEntries.length && !festivalEntries.length) {
     return (
       <div className="rounded-2xl border border-black/[0.08] bg-white/85 px-6 py-12 text-center shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
         <p className="text-base font-semibold text-[#0c0e14]">Нямаш нищо в плана.</p>
@@ -49,6 +63,79 @@ export default function PlanPageClient({ entries }: PlanPageClientProps) {
 
   return (
     <div className="space-y-4">
+      {festivalEntries.length ? (
+        <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+          <h2 className="text-xl font-bold tracking-tight text-[#0c0e14]">Фестивали</h2>
+          <div className="mt-4 space-y-2">
+            {festivalEntries.map((festival) => {
+              const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
+              const isRemoving = removingFestivalIds.has(festival.id);
+              return (
+                <div key={festival.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/[0.08] bg-white px-3 py-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/45">
+                      {festival.city ?? "България"}
+                    </p>
+                    <p className="text-sm font-semibold text-[#0c0e14]">{festival.title}</p>
+                    <p className="text-xs text-black/55">
+                      {festival.start_date ?? "Дата предстои"}
+                      {festival.end_date && festival.end_date !== festival.start_date ? ` - ${festival.end_date}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setRemovingFestivalIds((prev) => new Set(prev).add(festival.id));
+                        try {
+                          const response = await fetch("/api/plan/festivals", {
+                            method: "POST",
+                            credentials: "include",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ festivalId: festival.id }),
+                          });
+
+                          if (!response.ok) return;
+                          const payload = (await response.json()) as { inPlan?: boolean };
+                          setFestivalInPlan(festival.id, Boolean(payload.inPlan));
+                        } finally {
+                          setRemovingFestivalIds((prev) => {
+                            const next = new Set(prev);
+                            next.delete(festival.id);
+                            return next;
+                          });
+                        }
+                      }}
+                      disabled={isRemoving}
+                      className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      Премахни
+                    </button>
+                    <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                      Напомняне
+                      <select
+                        value={reminder}
+                        onChange={(event) => {
+                          void setFestivalReminder(festival.id, event.target.value as ReminderType);
+                        }}
+                        className="ml-2 rounded-lg border border-black/[0.1] bg-white px-2 py-1 text-xs"
+                      >
+                        <option value="none">Без</option>
+                        <option value="24h">24h</option>
+                        <option value="same_day_09">09:00</option>
+                      </select>
+                    </label>
+                    <Link href={`/festivals/${festival.slug}`} className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]">
+                      Детайли
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       {groupedByFestival.map(([festivalId, items]) => {
         const first = items[0];
         const reminder = reminderTypeByFestivalId[festivalId] ?? "none";

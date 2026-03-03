@@ -1,4 +1,4 @@
-﻿import Image from "next/image";
+import FallbackImage from "@/components/ui/FallbackImage";
 import { format, parseISO } from "date-fns";
 import { Festival } from "@/lib/types";
 import OpenInAppButton from "@/components/OpenInAppButton";
@@ -19,7 +19,7 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
   return (
     <section className="relative overflow-hidden rounded-3xl border border-ink/10 bg-ink/80">
       <div className="absolute inset-0">
-        <Image
+        <FallbackImage
           src={festival.image_url ?? "/hero.svg"}
           alt={festival.title}
           fill

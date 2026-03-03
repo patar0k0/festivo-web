@@ -1,6 +1,6 @@
-import Image from "next/image";
 import { format } from "date-fns";
 import Button from "@/components/ui/Button";
+import FallbackImage from "@/components/ui/FallbackImage";
 import PlanInlineControls from "@/components/plan/PlanInlineControls";
 import { Card, CardContent } from "@/components/ui/Card";
 
@@ -85,7 +85,7 @@ export default function EventCard({
     <Card className="group overflow-hidden border border-black/[0.09] bg-white/90 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_28px_rgba(12,14,20,0.07)] transition-all duration-200 hover:border-black/[0.16] hover:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)] focus-within:border-black/[0.16] focus-within:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)]">
       <div className="relative h-56 bg-black/[0.04]">
         {imageUrl ? (
-          <Image
+          <FallbackImage
             src={imageUrl}
             alt={title}
             fill

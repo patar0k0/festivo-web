@@ -1,5 +1,5 @@
-﻿import Link from "next/link";
-import Image from "next/image";
+import Link from "next/link";
+import FallbackImage from "@/components/ui/FallbackImage";
 import { format, parseISO } from "date-fns";
 import { Festival } from "@/lib/types";
 
@@ -26,7 +26,7 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
           <div className="rounded-[24px] border border-[color:var(--border2)] bg-[color:var(--surface)] shadow-[var(--shadow2)] transition-all duration-150 hover:-translate-y-[2px] hover:shadow-[var(--shadow)]">
             <div className="relative h-[180px] overflow-hidden rounded-t-[24px] bg-gradient-to-br from-black/5 to-black/3">
               {festival.image_url ? (
-                <Image
+                <FallbackImage
                   src={festival.image_url}
                   alt={festival.title}
                   fill
@@ -45,12 +45,12 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
             <div className="space-y-3 p-5">
               <div className="text-[17px] font-semibold tracking-[-0.2px]">{festival.title}</div>
               <div className="text-sm text-[color:var(--muted)]">
-                {festival.city ?? "Bulgaria"} вЂў {formatDateRange(festival.start_date, festival.end_date)}
+                {festival.city ?? "Bulgaria"} • {formatDateRange(festival.start_date, festival.end_date)}
               </div>
               <div className="flex flex-wrap gap-2">
                 {festival.is_free ? (
                   <span className="rounded-full border border-[color:var(--border2)] bg-[color:var(--surface2)] px-3 py-1 text-xs">
-                    Р‘РµР·РїР»Р°С‚РЅРѕ
+                    Безплатно
                   </span>
                 ) : null}
                 {festival.category ? (

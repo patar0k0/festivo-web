@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import Badge from "@/components/ui/Badge";
 import EventCard from "@/components/ui/EventCard";
+import FallbackImage from "@/components/ui/FallbackImage";
 import Select from "@/components/ui/Select";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
@@ -112,8 +112,16 @@ export default function FestivalDetailClient({
   const sortedScheduleItems = useMemo(() => sortScheduleItems(scheduleItems), [scheduleItems]);
   const [activeDayId, setActiveDayId] = useState(groupedDays[0]?.id ?? "");
   const [isPlanButtonLoading, setIsPlanButtonLoading] = useState(false);
-  const { isAuthenticated, isScheduleItemInPlan, toggleScheduleItem, reminderTypeByFestivalId, setFestivalReminder } =
-    usePlanState();
+  const [festivalPlanError, setFestivalPlanError] = useState<string | null>(null);
+  const {
+    isAuthenticated,
+    festivalIds,
+    isScheduleItemInPlan,
+    toggleScheduleItem,
+    setFestivalInPlan,
+    reminderTypeByFestivalId,
+    setFestivalReminder,
+  } = usePlanState();
 
   const displayedDay = groupedDays.find((day) => day.id === activeDayId) ?? groupedDays[0] ?? null;
   const selectedItems = useMemo(
@@ -123,8 +131,7 @@ export default function FestivalDetailClient({
       ),
     [isScheduleItemInPlan, sortedScheduleItems],
   );
-  const primaryScheduleItemId = sortedScheduleItems[0] ? String(sortedScheduleItems[0].id) : null;
-  const festivalInPlan = selectedItems.length > 0;
+  const festivalInPlan = festivalIds.includes(String(festival.id));
   const reminder = reminderTypeByFestivalId[String(festival.id)] ?? "none";
 
   const imageMedia = media.filter((item) => isImageMedia(item.type) && Boolean(item.url));
@@ -150,7 +157,7 @@ export default function FestivalDetailClient({
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
           {heroImage ? (
             <>
-              <Image src={heroImage} alt={festival.title} fill className="object-cover" priority />
+              <FallbackImage src={heroImage} alt={festival.title} fill className="object-cover" priority />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
             </>
           ) : (
@@ -219,7 +226,7 @@ export default function FestivalDetailClient({
                 {imageMedia.slice(0, 8).map((item) => (
                   <figure key={item.id} className="overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.03]">
                     <div className="relative h-44">
-                      <Image src={item.url} alt={item.caption ?? festival.title} fill className="object-cover" />
+                      <FallbackImage src={item.url} alt={item.caption ?? festival.title} fill className="object-cover" />
                     </div>
                     {item.caption ? <figcaption className="px-3 py-2 text-xs text-black/55">{item.caption}</figcaption> : null}
                   </figure>
@@ -400,15 +407,34 @@ export default function FestivalDetailClient({
                 <button
                   type="button"
                   onClick={async () => {
-                    if (!primaryScheduleItemId) return;
                     setIsPlanButtonLoading(true);
                     try {
-                      await toggleScheduleItem(primaryScheduleItemId);
+                      setFestivalPlanError(null);
+                      const response = await fetch("/api/plan/festivals", {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ festivalId: String(festival.id) }),
+                      });
+
+                      if (response.status === 401) {
+                        setFestivalPlanError("Нужен е вход в профила.");
+                        return;
+                      }
+
+                      const payload = (await response.json()) as { inPlan?: boolean; error?: string };
+
+                      if (!response.ok) {
+                        setFestivalPlanError(payload.error ?? "Възникна грешка при запазване на плана.");
+                        return;
+                      }
+
+                      setFestivalInPlan(String(festival.id), Boolean(payload.inPlan));
                     } finally {
                       setIsPlanButtonLoading(false);
                     }
                   }}
-                  disabled={!isAuthenticated || isPlanButtonLoading}
+                  disabled={isPlanButtonLoading}
                   className={`w-full rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
                     festivalInPlan
                       ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#1d202b]"
@@ -427,6 +453,7 @@ export default function FestivalDetailClient({
                 </button>
               )}
             </div>
+            {festivalPlanError ? <p className="mt-2 text-xs text-red-700">{festivalPlanError}</p> : null}
 
             <div className="mt-4 space-y-2">
               {selectedItems.length ? (

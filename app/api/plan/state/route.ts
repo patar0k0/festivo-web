@@ -6,7 +6,7 @@ export async function GET() {
   const user = await getOptionalUser();
 
   if (!user) {
-    return NextResponse.json({ authenticated: false, scheduleItemIds: [], reminders: {} }, { status: 401 });
+    return NextResponse.json({ authenticated: false, scheduleItemIds: [], festivalIds: [], reminders: {} }, { status: 401 });
   }
 
   const state = await getPlanStateByUser();

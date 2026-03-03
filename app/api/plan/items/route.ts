@@ -1,20 +1,18 @@
-﻿import { NextResponse } from "next/server";
-import { getOptionalUser } from "@/lib/authUser";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Payload = {
   scheduleItemId?: string;
 };
 
 export async function POST(request: Request) {
-  const user = await getOptionalUser();
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const db = supabaseAdmin();
-  if (!db) {
-    return NextResponse.json({ error: "Missing SUPABASE_SERVICE_ROLE_KEY" }, { status: 500 });
   }
 
   const body = (await request.json()) as Payload;
@@ -24,15 +22,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing scheduleItemId" }, { status: 400 });
   }
 
-  const { data: existing } = await db
+  const { data: existing, error: existingError } = await supabase
     .from("user_plan_items")
     .select("schedule_item_id")
     .eq("user_id", user.id)
     .eq("schedule_item_id", scheduleItemId)
     .maybeSingle();
 
+  if (existingError) {
+    return NextResponse.json({ error: existingError.message }, { status: 500 });
+  }
+
   if (existing) {
-    const { error: deleteError } = await db
+    const { error: deleteError } = await supabase
       .from("user_plan_items")
       .delete()
       .eq("user_id", user.id)
@@ -45,7 +47,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, inPlan: false });
   }
 
-  const { error: insertError } = await db.from("user_plan_items").insert({
+  const { error: insertError } = await supabase.from("user_plan_items").insert({
     user_id: user.id,
     schedule_item_id: scheduleItemId,
   });

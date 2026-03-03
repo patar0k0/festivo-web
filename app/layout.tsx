@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import LayoutShell from "@/components/LayoutShell";
+import ClientProviders from "@/components/providers/ClientProviders";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -33,7 +34,9 @@ export default function RootLayout({
         <meta charSet="utf-8" />
       </head>
       <body className={`${manrope.variable} ${fraunces.variable} text-neutral-900 antialiased`}>
-        <LayoutShell>{children}</LayoutShell>
+        <ClientProviders>
+          <LayoutShell>{children}</LayoutShell>
+        </ClientProviders>
       </body>
     </html>
   );

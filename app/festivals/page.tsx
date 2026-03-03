@@ -2,13 +2,11 @@ import Link from "next/link";
 import { format, nextSaturday } from "date-fns";
 import { festivalCategories } from "@/components/CategoryChips";
 import FestivalsTagChipsClient from "@/components/FestivalsTagChipsClient";
-import { PlanStateProvider } from "@/components/plan/PlanStateProvider";
 import ScrollRestoration from "@/components/ScrollRestoration";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
-import { getOptionalUser } from "@/lib/authUser";
-import { getPrimaryScheduleItemByFestivalIds, getPlanStateByUser } from "@/lib/plan/server";
+import { getPrimaryScheduleItemByFestivalIds } from "@/lib/plan/server";
 import { getBaseUrl, listMeta } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";
@@ -186,11 +184,7 @@ export default async function FestivalsPage({
     queryError = error instanceof Error ? error.message : "Unknown error";
   }
 
-  const user = await getOptionalUser();
-  const [planState, primaryScheduleByFestival] = await Promise.all([
-    user ? getPlanStateByUser() : Promise.resolve({ scheduleItemIds: [], reminders: {} }),
-    getPrimaryScheduleItemByFestivalIds(festivals.map((festival) => festival.id)),
-  ]);
+  const primaryScheduleByFestival = await getPrimaryScheduleItemByFestivalIds(festivals.map((festival) => festival.id));
 
   const activeFiltersCount = Number(Boolean(city)) + Number(Boolean(parsedDate)) + Number(Boolean(tag));
   const clearHref = "/festivals";
@@ -211,12 +205,7 @@ export default async function FestivalsPage({
   const visiblePages = Array.from({ length: totalPages }).slice(0, 5);
 
   return (
-    <PlanStateProvider
-      initialScheduleItemIds={planState.scheduleItemIds}
-      initialReminders={planState.reminders}
-      isAuthenticated={Boolean(user)}
-    >
-      <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
+    <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
         <ScrollRestoration />
         <Section className="overflow-x-clip bg-transparent pb-8 pt-8 md:pb-10 md:pt-10">
           <Container>
@@ -353,6 +342,5 @@ export default async function FestivalsPage({
           </Container>
         </Section>
       </div>
-    </PlanStateProvider>
   );
 }

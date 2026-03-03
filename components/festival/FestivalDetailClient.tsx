@@ -111,6 +111,7 @@ export default function FestivalDetailClient({
   const groupedDays = useMemo(() => getGroupedDays(days, scheduleItems), [days, scheduleItems]);
   const sortedScheduleItems = useMemo(() => sortScheduleItems(scheduleItems), [scheduleItems]);
   const [activeDayId, setActiveDayId] = useState(groupedDays[0]?.id ?? "");
+  const [isPlanButtonLoading, setIsPlanButtonLoading] = useState(false);
   const { isAuthenticated, isScheduleItemInPlan, toggleScheduleItem, reminderTypeByFestivalId, setFestivalReminder } =
     usePlanState();
 
@@ -398,11 +399,16 @@ export default function FestivalDetailClient({
               {isAuthenticated ? (
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     if (!primaryScheduleItemId) return;
-                    void toggleScheduleItem(primaryScheduleItemId);
+                    setIsPlanButtonLoading(true);
+                    try {
+                      await toggleScheduleItem(primaryScheduleItemId);
+                    } finally {
+                      setIsPlanButtonLoading(false);
+                    }
                   }}
-                  disabled={!primaryScheduleItemId}
+                  disabled={!isAuthenticated || isPlanButtonLoading}
                   className={`w-full rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
                     festivalInPlan
                       ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#1d202b]"

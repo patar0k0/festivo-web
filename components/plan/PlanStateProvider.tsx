@@ -103,6 +103,7 @@ export function PlanStateProvider({
 
     const response = await fetch("/api/plan/items", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ scheduleItemId: id }),
     });
@@ -147,6 +148,7 @@ export function PlanStateProvider({
 
     const response = await fetch("/api/plan/reminders", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ festivalId: normalizedFestivalId, reminderType }),
     });

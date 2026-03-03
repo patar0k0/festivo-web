@@ -6,7 +6,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (pathname.startsWith("/cities/")) {
     const cityPart = pathname.slice("/cities/".length).replace(/\/+$/, "");
-    if (cityPart && /[А-Яа-я]/.test(cityPart)) {
+    if (cityPart && /[^\x00-\x7F]/.test(cityPart)) {
       const cityMap: Record<string, string> = {
         "софия": "sofia",
         "пловдив": "plovdiv",

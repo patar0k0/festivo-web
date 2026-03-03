@@ -1,20 +1,31 @@
-import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+import { getSupabaseEnv } from "@/lib/supabaseServer";
 
-export async function GET(request: Request) {
-  // Keep GET side-effect free to avoid accidental logout from prefetches.
-  return NextResponse.redirect(new URL("/", request.url));
+export async function GET(request: NextRequest) {
+  return NextResponse.redirect(new URL("/login", request.url));
 }
 
-export async function POST(request: Request) {
-  const response = NextResponse.redirect(new URL("/", request.url));
+export async function POST(request: NextRequest) {
+  const { url, anon, configured } = getSupabaseEnv();
+  if (configured && url && anon) {
+    const response = NextResponse.redirect(new URL("/login", request.url), 303);
+    const supabase = createServerClient(url, anon, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    });
 
-  try {
-    const supabase = await createSupabaseServerClient();
     await supabase.auth.signOut();
-  } catch {
-    // Keep redirect even if sign out fails.
+    return response;
   }
 
-  return response;
+  return NextResponse.redirect(new URL("/login", request.url), 303);
 }

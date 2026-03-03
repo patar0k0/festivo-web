@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { format, endOfMonth, parseISO, startOfMonth } from "date-fns";
+import { notFound, permanentRedirect } from "next/navigation";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Pagination from "@/components/Pagination";
@@ -24,19 +25,32 @@ const categoryLabels: Record<string, string> = {
   theater: "Театър",
 };
 
+type CityRecord = {
+  slug: string;
+  name_bg: string;
+};
+
 function mapCategoryLabel(category: string) {
   return categoryLabels[category] ?? category;
 }
 
-async function getCityNameBySlug(slug: string) {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("cities")
-    .select("name_bg")
-    .eq("slug", slug)
-    .maybeSingle<{ name_bg: string | null }>();
+function hasNonAscii(value: string) {
+  return /[^\x00-\x7F]/.test(value);
+}
 
-  return data?.name_bg ?? slug;
+async function resolveCityByParam(slugParam: string): Promise<CityRecord | null> {
+  const raw = decodeURIComponent(slugParam);
+  const supabase = await createSupabaseServerClient();
+  let query = supabase.from("cities").select("slug,name_bg");
+
+  if (hasNonAscii(raw)) {
+    query = query.eq("name_bg", raw);
+  } else {
+    query = query.eq("slug", raw);
+  }
+
+  const { data } = await query.maybeSingle<CityRecord>();
+  return data ?? null;
 }
 
 export async function generateMetadata({
@@ -45,7 +59,9 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const cityName = await getCityNameBySlug(slug);
+  const city = await resolveCityByParam(slug);
+  const cityName = city?.name_bg ?? decodeURIComponent(slug);
+  const canonicalSlug = city?.slug ?? decodeURIComponent(slug);
   const title = `Фестивали в ${cityName} | Festivo`;
   const description = `Открий предстоящи фестивали и събития в ${cityName}. Запази в план и получавай напомняния.`;
 
@@ -53,7 +69,7 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: `${getBaseUrl()}/cities/${slug}`,
+      canonical: `${getBaseUrl()}/cities/${canonicalSlug}`,
     },
   };
 }
@@ -65,8 +81,20 @@ export default async function CityLandingPage({
   params: Promise<{ slug: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [{ slug }, resolvedSearchParams] = await Promise.all([params, searchParams]);
-  const cityName = await getCityNameBySlug(slug);
+  const [{ slug: slugParam }, resolvedSearchParams] = await Promise.all([params, searchParams]);
+  const raw = decodeURIComponent(slugParam);
+  const city = await resolveCityByParam(slugParam);
+
+  if (!city) {
+    notFound();
+  }
+
+  if (hasNonAscii(raw)) {
+    permanentRedirect(cityHref(city.slug));
+  }
+
+  const cityName = city.name_bg;
+  const citySlug = city.slug;
 
   const parsedFilters = parseFilters(resolvedSearchParams);
   const filters = withDefaultFilters({ ...parsedFilters, city: [cityName], sort: "soonest" });
@@ -131,13 +159,13 @@ export default async function CityLandingPage({
 
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link
-                  href={`${cityHref(slug)}${freeLink}`}
+                  href={`${cityHref(citySlug)}${freeLink}`}
                   className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
                   Само безплатни
                 </Link>
                 <Link
-                  href={`${cityHref(slug)}${monthLink}`}
+                  href={`${cityHref(citySlug)}${monthLink}`}
                   className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
                   Този месец
@@ -147,7 +175,7 @@ export default async function CityLandingPage({
                   return (
                     <Link
                       key={category}
-                      href={`${cityHref(slug)}${categoryLink}`}
+                      href={`${cityHref(citySlug)}${categoryLink}`}
                       className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                     >
                       {mapCategoryLabel(category)}
@@ -161,7 +189,7 @@ export default async function CityLandingPage({
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <h2 className="text-2xl font-semibold tracking-tight">Предстоящи фестивали</h2>
                 <Link
-                  href={`/festivals?city=${encodeURIComponent(slug)}`}
+                  href={`/festivals?city=${encodeURIComponent(citySlug)}`}
                   className="text-sm font-semibold text-[#0c0e14] transition hover:text-black/65"
                 >
                   Виж всички във Фестивали
@@ -188,7 +216,7 @@ export default async function CityLandingPage({
                       />
                     ))}
                   </div>
-                  <Pagination page={cityFestivals.page} totalPages={cityFestivals.totalPages} basePath={cityHref(slug)} filters={filters} />
+                  <Pagination page={cityFestivals.page} totalPages={cityFestivals.totalPages} basePath={cityHref(citySlug)} filters={filters} />
                 </>
               ) : (
                 <div className="rounded-2xl border border-dashed border-black/[0.15] bg-white/70 px-5 py-10 text-center">

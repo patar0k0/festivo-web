@@ -13,9 +13,9 @@ export async function GET(request: Request) {
   }
 
   const response = NextResponse.redirect(redirectUrl);
-  response.cookies.set(PREVIEW_COOKIE_NAME, expectedToken, {
+  response.cookies.set(PREVIEW_COOKIE_NAME, "1", {
     httpOnly: true,
-    secure: url.protocol === "https:",
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 30,

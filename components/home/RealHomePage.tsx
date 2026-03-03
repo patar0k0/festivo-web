@@ -112,39 +112,6 @@ export default function RealHomePage({ nearestFestivals, weekendFestivals, topCi
                 </Link>
               </div>
 
-              <div className="mt-3 flex items-center gap-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-black/55 md:hidden">
-                <Link href="/festivals" className="transition hover:text-[#0c0e14]">
-                  Фестивали
-                </Link>
-                <Link href="/map" className="transition hover:text-[#0c0e14]">
-                  Карта
-                </Link>
-                <Link href="/calendar" className="transition hover:text-[#0c0e14]">
-                  Календар
-                </Link>
-              </div>
-
-              <div className="mt-5 hidden grid-cols-3 gap-3 md:grid">
-                <Link
-                  href="/festivals"
-                  className="rounded-2xl border border-black/[0.09] bg-white/90 px-5 py-4 text-center text-sm font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Фестивали
-                </Link>
-                <Link
-                  href="/map"
-                  className="rounded-2xl border border-black/[0.09] bg-white/90 px-5 py-4 text-center text-sm font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Карта
-                </Link>
-                <Link
-                  href="/calendar"
-                  className="rounded-2xl border border-black/[0.09] bg-white/90 px-5 py-4 text-center text-sm font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Календар
-                </Link>
-              </div>
-
               <QuickChipsClient chips={chips} />
             </section>
 

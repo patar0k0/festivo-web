@@ -1,17 +1,16 @@
 import Link from "next/link";
 import { cityHref } from "@/lib/cities";
-import { slugify } from "@/lib/utils";
 
-export default function CityTiles({ cities }: { cities: string[] }) {
+export default function CityTiles({ cities }: { cities: Array<{ name: string; slug: string }> }) {
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {cities.slice(0, 6).map((city) => (
         <Link
-          key={city}
-          href={cityHref(slugify(city))}
+          key={city.slug}
+          href={cityHref(city.slug)}
           className="rounded-2xl border border-ink/10 bg-white/80 p-6 text-sm font-semibold uppercase tracking-widest text-ink shadow-soft"
         >
-          {city}
+          {city.name}
         </Link>
       ))}
     </div>

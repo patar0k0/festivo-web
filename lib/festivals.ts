@@ -1,6 +1,5 @@
 import { Filters, Festival, PaginatedResult } from "@/lib/types";
-import { getCityFestivals, getFestivals, getFestivalBySlug, getCities } from "@/lib/queries";
-import { slugify } from "@/lib/utils";
+import { getCityFestivals, getFestivals, getFestivalBySlug, getCityLinks } from "@/lib/queries";
 
 type City = {
   name: string;
@@ -21,8 +20,7 @@ export async function getFestivalDetailBySlug(slug: string): Promise<Festival | 
 }
 
 export async function listCities(): Promise<City[]> {
-  const cities = await getCities();
-  return cities.map((name) => ({ name, slug: slugify(name) }));
+  return getCityLinks();
 }
 
 export async function getCityBySlug(slug: string): Promise<City | null> {

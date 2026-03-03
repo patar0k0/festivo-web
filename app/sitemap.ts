@@ -1,9 +1,8 @@
 import { MetadataRoute } from "next";
 import { addMonths, format } from "date-fns";
 import { cityHref } from "@/lib/cities";
-import { getCities, getFestivalSlugs } from "@/lib/queries";
+import { getCityLinks, getFestivalSlugs } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
-import { slugify } from "@/lib/utils";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (process.env.FESTIVO_PUBLIC_MODE === "coming-soon") {
@@ -16,7 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const baseUrl = getBaseUrl();
-  const [slugs, cities] = await Promise.all([getFestivalSlugs(), getCities()]);
+  const [slugs, cities] = await Promise.all([getFestivalSlugs(), getCityLinks()]);
 
   const core = ["/", "/festivals", "/map", "/calendar"].map((path) => ({
     url: `${baseUrl}${path}`,
@@ -29,7 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const cityUrls = cities.map((city) => ({
-    url: `${baseUrl}${cityHref(slugify(city))}`,
+    url: `${baseUrl}${cityHref(city.slug)}`,
     lastModified: new Date(),
   }));
 

@@ -288,6 +288,30 @@ export async function getCities(): Promise<string[]> {
   return Array.from(set).sort();
 }
 
+export async function getCityLinks(): Promise<Array<{ name: string; slug: string }>> {
+  const supabase = supabaseServer();
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("cities")
+    .select("name_bg,slug")
+    .order("name_bg", { ascending: true })
+    .returns<Array<{ name_bg: string | null; slug: string | null }>>();
+
+  if (error) {
+    return [];
+  }
+
+  return (data ?? [])
+    .filter((row): row is { name_bg: string; slug: string } => Boolean(row.name_bg && row.slug))
+    .map((row) => ({
+      name: fixMojibakeBG(row.name_bg),
+      slug: row.slug,
+    }));
+}
+
 export async function getFestivalSlugs(): Promise<string[]> {
   const supabase = supabaseServer();
   if (!supabase) {

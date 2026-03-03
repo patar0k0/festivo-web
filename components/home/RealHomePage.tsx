@@ -1,9 +1,10 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { festivalCategoryLabels } from "@/components/CategoryChips";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
 import { Festival } from "@/lib/types";
+import QuickChipsClient from "./QuickChipsClient";
 
 type CityItem = {
   name: string;
@@ -68,19 +69,62 @@ function EventsSection({ title, festivals }: { title: string; festivals: Festiva
 }
 
 export default function RealHomePage({ nearestFestivals, weekendFestivals, topCities, quickChipHrefs }: RealHomePageProps) {
+  const chips = [
+    { label: "Само безплатни", href: quickChipHrefs.free },
+    { label: "Този уикенд", href: quickChipHrefs.weekend },
+    { label: "Този месец", href: quickChipHrefs.month },
+    ...quickChipHrefs.categories.map((href, index) => {
+      const key = CATEGORY_KEYS[index];
+      return { label: festivalCategoryLabels[key] ?? key, href };
+    }),
+  ];
+
   return (
     <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
-      <Section className="overflow-x-clip bg-transparent pb-10 pt-8 md:pb-12 md:pt-10">
+      <Section className="overflow-x-clip bg-transparent pb-10 pt-5 md:pb-12 md:pt-8">
         <Container>
-          <div className="space-y-8 lg:space-y-10">
-            <section className="rounded-[28px] border border-black/[0.08] bg-white/75 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">
+          <div className="space-y-7 lg:space-y-10">
+            <section className="rounded-[28px] border border-black/[0.08] bg-white/75 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">
               <div className="max-w-3xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">Festivo Preview</p>
-                <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Открий фестивалите в България</h1>
-                <p className="mt-3 text-sm text-black/65 md:text-[15px]">Избери град, дата и категория и планирай следващото си събитие.</p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Намери следващия си фестивал</h1>
+                <p className="mt-2 text-sm text-black/65 md:text-[15px]">Бързо избери локация и дата, за да видиш най-актуалните събития.</p>
               </div>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                <Link
+                  href="/map"
+                  className="rounded-2xl border border-[#ff4c1f]/30 bg-[#ff4c1f] px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#f24318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                >
+                  Открий около мен
+                </Link>
+                <Link
+                  href="/festivals"
+                  className="rounded-2xl border border-black/[0.09] bg-white/90 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                >
+                  Избери град
+                </Link>
+                <Link
+                  href="/calendar"
+                  className="rounded-2xl border border-black/[0.09] bg-white/90 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                >
+                  Избери дата
+                </Link>
+              </div>
+
+              <div className="mt-3 flex items-center gap-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-black/55 md:hidden">
+                <Link href="/festivals" className="transition hover:text-[#0c0e14]">
+                  Фестивали
+                </Link>
+                <Link href="/map" className="transition hover:text-[#0c0e14]">
+                  Карта
+                </Link>
+                <Link href="/calendar" className="transition hover:text-[#0c0e14]">
+                  Календар
+                </Link>
+              </div>
+
+              <div className="mt-5 hidden grid-cols-3 gap-3 md:grid">
                 <Link
                   href="/festivals"
                   className="rounded-2xl border border-black/[0.09] bg-white/90 px-5 py-4 text-center text-sm font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
@@ -101,38 +145,7 @@ export default function RealHomePage({ nearestFestivals, weekendFestivals, topCi
                 </Link>
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Link
-                  href={quickChipHrefs.free}
-                  className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Само безплатни
-                </Link>
-                <Link
-                  href={quickChipHrefs.weekend}
-                  className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Този уикенд
-                </Link>
-                <Link
-                  href={quickChipHrefs.month}
-                  className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Този месец
-                </Link>
-                {quickChipHrefs.categories.map((href, index) => {
-                  const key = CATEGORY_KEYS[index];
-                  return (
-                    <Link
-                      key={key}
-                      href={href}
-                      className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                    >
-                      {festivalCategoryLabels[key] ?? key}
-                    </Link>
-                  );
-                })}
-              </div>
+              <QuickChipsClient chips={chips} />
             </section>
 
             <EventsSection title="Най-близки" festivals={nearestFestivals} />
@@ -162,4 +175,3 @@ export default function RealHomePage({ nearestFestivals, weekendFestivals, topCi
     </div>
   );
 }
-

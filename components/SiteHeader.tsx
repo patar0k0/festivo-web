@@ -1,9 +1,13 @@
-﻿"use client";
-
 import Link from "next/link";
 import Container from "@/components/ui/Container";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default function SiteHeader({ userEmail }: { userEmail?: string }) {
+export default async function SiteHeader() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const userEmail = user?.email ?? null;
   const isAuthenticated = Boolean(userEmail);
 
   return (

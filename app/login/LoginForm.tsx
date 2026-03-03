@@ -27,11 +27,15 @@ export function LoginForm({ next }: LoginFormProps) {
         anon: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "SET" : "MISSING",
       });
       const supabase = createSupabaseBrowser();
-      const callbackUrl = new URL("/auth/callback", window.location.origin);
-      if (next && next.startsWith("/")) {
-        callbackUrl.searchParams.set("next", next);
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL;
+      const callbackUrl = new URL("/auth/callback", origin);
+      const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+      if (safeNext) {
+        callbackUrl.searchParams.set("next", safeNext);
       }
       const redirectTo = callbackUrl.toString();
+      console.log("OAuth redirectTo", redirectTo);
       console.log("GOOGLE CLICK", { redirectTo });
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -40,6 +44,7 @@ export function LoginForm({ next }: LoginFormProps) {
           redirectTo,
         },
       });
+      console.log("OAuth signInWithOAuth result", { data, error: oauthError });
       console.log("OAuth result", { provider, url: data?.url, error: oauthError });
 
       if (oauthError) {
@@ -67,16 +72,14 @@ export function LoginForm({ next }: LoginFormProps) {
     setError("");
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password, next }),
+      const supabase = createSupabaseBrowser();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) {
-        setError(payload.error ?? "Invalid login credentials.");
+      if (signInError) {
+        setError("Invalid login credentials.");
         return;
       }
 

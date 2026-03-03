@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 function toUserLogin(request: Request) {
-  return NextResponse.redirect(new URL("/api/auth/login", request.url));
+  return NextResponse.redirect(new URL("/login", request.url));
 }
 
 export async function GET(request: Request) {

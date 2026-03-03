@@ -1,9 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export const USER_AUTH_COOKIE = "festivo_user_token";
-export const ACCESS_AUTH_COOKIE = "festivo_access_token";
-export const REFRESH_AUTH_COOKIE = "festivo_refresh_token";
-
 export type OptionalUser = {
   id: string;
   email: string | null;

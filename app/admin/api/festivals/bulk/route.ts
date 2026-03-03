@@ -1,8 +1,5 @@
-﻿import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { ACCESS_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type Payload = {
   ids?: string[];
@@ -10,19 +7,12 @@ type Payload = {
 };
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(USER_AUTH_COOKIE)?.value ?? cookieStore.get(ACCESS_AUTH_COOKIE)?.value;
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const admin = await getAdminContext();
   if (!admin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const db = createSupabaseAdmin();
     const body = (await request.json()) as Payload;
     const ids = Array.isArray(body.ids) ? body.ids.filter(Boolean) : [];
     const status = body.status;
@@ -42,7 +32,7 @@ export async function POST(request: Request) {
       patch.is_verified = false;
     }
 
-    const { error } = await db.from("festivals").update(patch).in("id", ids);
+    const { error } = await admin.client.from("festivals").update(patch).in("id", ids);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

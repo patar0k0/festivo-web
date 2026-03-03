@@ -1,12 +1,12 @@
-﻿import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const cookieNames = cookieStore.getAll().map((cookie) => cookie.name);
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -14,12 +14,8 @@ export async function GET() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    return NextResponse.json({
-      hasCookie: cookieNames.length > 0,
-      cookieNames,
-      userId: user?.id,
-    });
+    return NextResponse.json({ userId: user?.id ?? null });
   } catch {
-    return NextResponse.json({ hasCookie: cookieNames.length > 0, cookieNames });
+    return NextResponse.json({ userId: null });
   }
 }

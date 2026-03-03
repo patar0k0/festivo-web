@@ -1,11 +1,9 @@
-﻿import Link from "next/link";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
+import Link from "next/link";
 import PlanPageClient from "@/components/plan/PlanPageClient";
 import { PlanStateProvider } from "@/components/plan/PlanStateProvider";
-import { ACCESS_AUTH_COOKIE, USER_AUTH_COOKIE, getOptionalUser } from "@/lib/authUser";
+import { getOptionalUser } from "@/lib/authUser";
 import { getPlanEntriesByUser, getPlanStateByUser } from "@/lib/plan/server";
-import { getSupabaseEnv } from "@/lib/supabaseServer";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import "../landing.css";
 
 export const dynamic = "force-dynamic";
@@ -28,25 +26,14 @@ export default async function PlanPage() {
   }
 
   let isAdmin = false;
-  const cookieStore = await cookies();
-  const token = cookieStore.get(ACCESS_AUTH_COOKIE)?.value ?? cookieStore.get(USER_AUTH_COOKIE)?.value;
-  const { url, anon, configured } = getSupabaseEnv();
-
-  if (token && configured && url && anon) {
-    const supabase = createClient(url, anon, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .maybeSingle();
-
-    isAdmin = Boolean(data);
-  }
+  const supabase = await createSupabaseServerClient();
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .eq("role", "admin")
+    .maybeSingle();
+  isAdmin = Boolean(roleRow);
 
   const [entries, state] = await Promise.all([getPlanEntriesByUser(user.id), getPlanStateByUser(user.id)]);
 

@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { ACCESS_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 const STATUS_OPTIONS = ["draft", "verified", "rejected", "archived"] as const;
 
@@ -11,12 +8,6 @@ function asString(value: string | null) {
 }
 
 export async function GET(request: Request) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(USER_AUTH_COOKIE)?.value ?? cookieStore.get(ACCESS_AUTH_COOKIE)?.value;
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const admin = await getAdminContext();
   if (!admin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,9 +21,7 @@ export async function GET(request: Request) {
     const free = asString(url.searchParams.get("free"));
     const q = asString(url.searchParams.get("q"));
 
-    const db = createSupabaseAdmin();
-
-    let query = db
+    let query = admin.client
       .from("festivals")
       .select("id,title,city,start_date,end_date,category,is_free,status,updated_at,source_type")
       .order("updated_at", { ascending: false })

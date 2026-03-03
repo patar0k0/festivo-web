@@ -1,8 +1,5 @@
-﻿import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { ACCESS_AUTH_COOKIE, USER_AUTH_COOKIE } from "@/lib/authUser";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type Payload = {
   title?: string;
@@ -26,19 +23,12 @@ type Payload = {
 };
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(USER_AUTH_COOKIE)?.value ?? cookieStore.get(ACCESS_AUTH_COOKIE)?.value;
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const admin = await getAdminContext();
   if (!admin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const db = createSupabaseAdmin();
     const { id } = await params;
     const body = (await request.json()) as Payload;
 
@@ -85,7 +75,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Invalid longitude" }, { status: 400 });
     }
 
-    const { error } = await db.from("festivals").update(patch).eq("id", id);
+    const { error } = await admin.client.from("festivals").update(patch).eq("id", id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

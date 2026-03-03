@@ -4,6 +4,7 @@ import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Pagination from "@/components/Pagination";
 import Section from "@/components/ui/Section";
+import { cityHref } from "@/lib/cities";
 import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
 import { getBaseUrl } from "@/lib/seo";
@@ -130,13 +131,13 @@ export default async function CityLandingPage({
 
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link
-                  href={`/cities/${slug}${freeLink}`}
+                  href={`${cityHref(slug)}${freeLink}`}
                   className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
                   Само безплатни
                 </Link>
                 <Link
-                  href={`/cities/${slug}${monthLink}`}
+                  href={`${cityHref(slug)}${monthLink}`}
                   className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
                   Този месец
@@ -146,7 +147,7 @@ export default async function CityLandingPage({
                   return (
                     <Link
                       key={category}
-                      href={`/cities/${slug}${categoryLink}`}
+                      href={`${cityHref(slug)}${categoryLink}`}
                       className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                     >
                       {mapCategoryLabel(category)}
@@ -187,7 +188,7 @@ export default async function CityLandingPage({
                       />
                     ))}
                   </div>
-                  <Pagination page={cityFestivals.page} totalPages={cityFestivals.totalPages} basePath={`/cities/${slug}`} filters={filters} />
+                  <Pagination page={cityFestivals.page} totalPages={cityFestivals.totalPages} basePath={cityHref(slug)} filters={filters} />
                 </>
               ) : (
                 <div className="rounded-2xl border border-dashed border-black/[0.15] bg-white/70 px-5 py-10 text-center">

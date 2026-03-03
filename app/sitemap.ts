@@ -1,5 +1,6 @@
-﻿import { MetadataRoute } from "next";
+import { MetadataRoute } from "next";
 import { addMonths, format } from "date-fns";
+import { cityHref } from "@/lib/cities";
 import { getCities, getFestivalSlugs } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
 import { slugify } from "@/lib/utils";
@@ -28,7 +29,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const cityUrls = cities.map((city) => ({
-    url: `${baseUrl}/cities/${encodeURIComponent(slugify(city))}`,
+    url: `${baseUrl}${cityHref(slugify(city))}`,
     lastModified: new Date(),
   }));
 
@@ -43,4 +44,3 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [...core, ...festivalUrls, ...cityUrls, ...monthUrls];
 }
-

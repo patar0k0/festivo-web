@@ -5,25 +5,35 @@ import { getSupabaseEnv } from "@/lib/supabaseServer";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (pathname.startsWith("/cities/")) {
-    const cityPart = pathname.slice("/cities/".length).replace(/\/+$/, "");
-    if (cityPart && /[^\x00-\x7F]/.test(cityPart)) {
-      const cityMap: Record<string, string> = {
-        "софия": "sofia",
-        "пловдив": "plovdiv",
-        "варна": "varna",
-        "бургас": "burgas",
-        "русе": "ruse",
-        "стара-загора": "stara-zagora",
-        "плевен": "pleven",
-        "велико-търново": "veliko-tarnovo",
-      };
-      const decodedCity = decodeURIComponent(cityPart).toLowerCase();
-      const mappedCity = cityMap[decodedCity];
-      if (mappedCity) {
-        const redirectUrl = request.nextUrl.clone();
-        redirectUrl.pathname = `/cities/${mappedCity}`;
-        return NextResponse.redirect(redirectUrl, 301);
-      }
+    const slugPart = pathname.slice("/cities/".length).replace(/\/+$/, "");
+    if (slugPart && /[^\x00-\x7F]/.test(slugPart)) {
+      try {
+        const cityNameBg = decodeURIComponent(slugPart);
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+        if (supabaseUrl && supabaseAnonKey) {
+          const encodedName = encodeURIComponent(cityNameBg);
+          const endpoint = `${supabaseUrl}/rest/v1/cities?select=slug&name_bg=eq.${encodedName}&limit=1`;
+
+          const cityResponse = await fetch(endpoint, {
+            headers: {
+              apikey: supabaseAnonKey,
+              Authorization: `Bearer ${supabaseAnonKey}`,
+            },
+          });
+
+          if (cityResponse.ok) {
+            const cityData = (await cityResponse.json()) as Array<{ slug?: string | null }>;
+            const matchedSlug = cityData?.[0]?.slug;
+            if (matchedSlug) {
+              const redirectUrl = request.nextUrl.clone();
+              redirectUrl.pathname = `/cities/${matchedSlug}`;
+              return NextResponse.redirect(redirectUrl, 308);
+            }
+          }
+        }
+      } catch {}
     }
   }
 

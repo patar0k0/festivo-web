@@ -3,6 +3,7 @@ import { festivalCategoryLabels } from "@/components/CategoryChips";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
+import { cityHref } from "@/lib/cities";
 import { Festival } from "@/lib/types";
 import CitySelectClient from "./CitySelectClient";
 import QuickChipsClient from "./QuickChipsClient";
@@ -130,7 +131,7 @@ export default function RealHomePage({ nearestFestivals, weekendFestivals, topCi
                   topCities.map((city) => (
                     <Link
                       key={city.slug}
-                      href={`/cities/${city.slug}`}
+                      href={cityHref(city.slug)}
                       className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.13em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                     >
                       {city.name}

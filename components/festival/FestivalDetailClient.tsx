@@ -8,6 +8,7 @@ import Badge from "@/components/ui/Badge";
 import EventCard from "@/components/ui/EventCard";
 import Select from "@/components/ui/Select";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
+import { cityHref } from "@/lib/cities";
 import type { ReminderType } from "@/lib/plan/server";
 import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from "@/lib/types";
 
@@ -158,7 +159,7 @@ export default function FestivalDetailClient({
           <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6 md:p-8">
             <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-white/85">
               {festival.city && citySlug ? (
-                <Link href={`/cities/${citySlug}`} className="rounded-full bg-white/15 px-3 py-1 transition hover:bg-white/25">
+                <Link href={cityHref(citySlug)} className="rounded-full bg-white/15 px-3 py-1 transition hover:bg-white/25">
                   {festival.city}
                 </Link>
               ) : (
@@ -303,7 +304,7 @@ export default function FestivalDetailClient({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold text-[#0c0e14]">Още фестивали в {festival.city}</h2>
                 <div className="flex flex-wrap gap-3 text-sm font-semibold text-[#0c0e14]">
-                  {citySlug ? <Link href={`/cities/${citySlug}`}>Страница на града</Link> : null}
+                  {citySlug ? <Link href={cityHref(citySlug)}>Страница на града</Link> : null}
                   {calendarMonth ? <Link href={`/calendar/${calendarMonth}`}>Календар за месеца</Link> : null}
                 </div>
               </div>

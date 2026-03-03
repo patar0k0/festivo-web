@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { format, endOfMonth, parseISO, startOfMonth } from "date-fns";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
@@ -13,14 +13,14 @@ import "../../landing.css";
 export const revalidate = 21600;
 
 const categoryLabels: Record<string, string> = {
-  music: "РњСѓР·РёРєР°",
-  folk: "Р¤РѕР»РєР»РѕСЂ",
-  arts: "РР·РєСѓСЃС‚РІРѕ",
-  food: "РҐСЂР°РЅР°",
-  cultural: "РљСѓР»С‚СѓСЂР°",
-  sports: "РЎРїРѕСЂС‚",
-  film: "РљРёРЅРѕ",
-  theater: "РўРµР°С‚СЉСЂ",
+  music: "Музика",
+  folk: "Фолклор",
+  arts: "Изкуство",
+  food: "Храна",
+  cultural: "Култура",
+  sports: "Спорт",
+  film: "Кино",
+  theater: "Театър",
 };
 
 function mapCategoryLabel(category: string) {
@@ -34,8 +34,8 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const cityName = await resolveCityNameFromSlug(slug);
-  const title = `Р¤РµСЃС‚РёРІР°Р»Рё РІ ${cityName} | Festivo`;
-  const description = `РћС‚РєСЂРёР№ РїСЂРµРґСЃС‚РѕСЏС‰Рё С„РµСЃС‚РёРІР°Р»Рё Рё СЃСЉР±РёС‚РёСЏ РІ ${cityName}. Р—Р°РїР°Р·Рё РІ РїР»Р°РЅ Рё РїРѕР»СѓС‡Р°РІР°Р№ РЅР°РїРѕРјРЅСЏРЅРёСЏ.`;
+  const title = `Фестивали в ${cityName} | Festivo`;
+  const description = `Открий предстоящи фестивали и събития в ${cityName}. Запази в план и получавай напомняния.`;
 
   return {
     title,
@@ -111,10 +111,10 @@ export default async function CityLandingPage({
         <Container>
           <div className="space-y-8">
             <section className="rounded-[24px] border border-black/[0.08] bg-white/80 p-6 shadow-[0_2px_0_rgba(12,14,20,0.06),0_12px_32px_rgba(12,14,20,0.07)] md:p-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Р“СЂР°РґСЃРєР° СЃС‚СЂР°РЅРёС†Р°</p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Р¤РµСЃС‚РёРІР°Р»Рё РІ {cityName}</h1>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Градска страница</p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Фестивали в {cityName}</h1>
               <p className="mt-3 max-w-2xl text-sm text-black/60 md:text-[15px]">
-                Р‘РµР·РїР»Р°С‚РЅРё СЃСЉР±РёС‚РёСЏ, РґР°С‚Рё Рё РїСЂРѕРіСЂР°РјР°. РћС‚РєСЂРёР№ РїСЂРµРґСЃС‚РѕСЏС‰Рё С„РµСЃС‚РёРІР°Р»Рё Рё СЃСЉР±РёС‚РёСЏ РІ {cityName}. Р—Р°РїР°Р·Рё РІ РїР»Р°РЅ Рё РїРѕР»СѓС‡Р°РІР°Р№ РЅР°РїРѕРјРЅСЏРЅРёСЏ.
+                Безплатни събития, дати и програма. Открий предстоящи фестивали и събития в {cityName}. Запази в план и получавай напомняния.
               </p>
 
               <div className="mt-5 flex flex-wrap gap-2">
@@ -122,13 +122,13 @@ export default async function CityLandingPage({
                   href={`/cities/${slug}${freeLink}`}
                   className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  РЎР°РјРѕ Р±РµР·РїР»Р°С‚РЅРё
+                  Само безплатни
                 </Link>
                 <Link
                   href={`/cities/${slug}${monthLink}`}
                   className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  РўРѕР·Рё РјРµСЃРµС†
+                  Този месец
                 </Link>
                 {categoryQuick.map(([category]) => {
                   const categoryLink = serializeFilters({ ...filters, city: [cityName], cat: [category] });
@@ -147,12 +147,12 @@ export default async function CityLandingPage({
 
             <section className="space-y-5">
               <div className="flex flex-wrap items-end justify-between gap-3">
-                <h2 className="text-2xl font-semibold tracking-tight">РџСЂРµРґСЃС‚РѕСЏС‰Рё С„РµСЃС‚РёРІР°Р»Рё</h2>
+                <h2 className="text-2xl font-semibold tracking-tight">Предстоящи фестивали</h2>
                 <Link
                   href={`/festivals?city=${encodeURIComponent(cityName)}`}
                   className="text-sm font-semibold text-[#0c0e14] transition hover:text-black/65"
                 >
-                  Р’РёР¶ РІСЃРёС‡РєРё РІСЉРІ Р¤РµСЃС‚РёРІР°Р»Рё
+                  Виж всички във Фестивали
                 </Link>
               </div>
 
@@ -180,12 +180,12 @@ export default async function CityLandingPage({
                 </>
               ) : (
                 <div className="rounded-2xl border border-dashed border-black/[0.15] bg-white/70 px-5 py-10 text-center">
-                  <p className="text-sm text-black/55">РћС‰Рµ РЅСЏРјР° РїСѓР±Р»РёРєСѓРІР°РЅРё С„РµСЃС‚РёРІР°Р»Рё Р·Р° С‚РѕР·Рё РіСЂР°Рґ.</p>
+                  <p className="text-sm text-black/55">Още няма публикувани фестивали за този град.</p>
                   <Link
                     href="/festivals"
                     className="mt-4 inline-flex rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03]"
                   >
-                    Р Р°Р·РіР»РµРґР°Р№ РІСЃРёС‡РєРё С„РµСЃС‚РёРІР°Р»Рё
+                    Разгледай всички фестивали
                   </Link>
                 </div>
               )}
@@ -193,7 +193,7 @@ export default async function CityLandingPage({
 
             <section className="grid gap-5 lg:grid-cols-2">
               <div className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-                <h3 className="text-lg font-semibold">РџРѕРїСѓР»СЏСЂРЅРё РєР°С‚РµРіРѕСЂРёРё РІ {cityName}</h3>
+                <h3 className="text-lg font-semibold">Популярни категории в {cityName}</h3>
                 {popularCategories.length ? (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {popularCategories.map(([category, count]) => (
@@ -201,28 +201,28 @@ export default async function CityLandingPage({
                         key={category}
                         className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14]"
                       >
-                        {mapCategoryLabel(category)} В· {count}
+                        {mapCategoryLabel(category)} · {count}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-4 text-sm text-black/55">Р’СЃРµ РѕС‰Рµ РЅСЏРјР° РґРѕСЃС‚Р°С‚СЉС‡РЅРѕ РґР°РЅРЅРё Р·Р° РєР°С‚РµРіРѕСЂРёРё.</p>
+                  <p className="mt-4 text-sm text-black/55">Все още няма достатъчно данни за категории.</p>
                 )}
               </div>
 
               <div className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-                <h3 className="text-lg font-semibold">РџСЂРµРґСЃС‚РѕСЏС‰Рё РґР°С‚Рё</h3>
+                <h3 className="text-lg font-semibold">Предстоящи дати</h3>
                 {upcomingMonths.length ? (
                   <ul className="mt-4 space-y-2 text-sm text-black/65">
                     {upcomingMonths.map(([month, count]) => (
                       <li key={month} className="flex items-center justify-between rounded-xl border border-black/[0.08] bg-white px-3 py-2">
                         <span>{format(parseISO(`${month}-01`), "MMMM yyyy")}</span>
-                        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">{count} СЃСЉР±РёС‚РёСЏ</span>
+                        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">{count} събития</span>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-4 text-sm text-black/55">РќСЏРјР° РїСѓР±Р»РёРєСѓРІР°РЅРё РїСЂРµРґСЃС‚РѕСЏС‰Рё РґР°С‚Рё.</p>
+                  <p className="mt-4 text-sm text-black/55">Няма публикувани предстоящи дати.</p>
                 )}
               </div>
             </section>
@@ -232,4 +232,3 @@ export default async function CityLandingPage({
     </div>
   );
 }
-

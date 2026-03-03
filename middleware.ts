@@ -4,36 +4,37 @@ import { getSupabaseEnv } from "@/lib/supabaseServer";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
   if (pathname.startsWith("/cities/")) {
-    const slugPart = pathname.slice("/cities/".length).replace(/\/+$/, "");
-    if (slugPart && /[^\x00-\x7F]/.test(slugPart)) {
-      try {
-        const cityNameBg = decodeURIComponent(slugPart);
+    const rawSlug = pathname.slice("/cities/".length).replace(/\/+$/, "");
+    if (rawSlug) {
+      const decoded = decodeURIComponent(rawSlug);
+      const isNonAscii = /[^\x00-\x7F]/.test(decoded);
+      if (isNonAscii) {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
         if (supabaseUrl && supabaseAnonKey) {
-          const encodedName = encodeURIComponent(cityNameBg);
-          const endpoint = `${supabaseUrl}/rest/v1/cities?select=slug&name_bg=eq.${encodedName}&limit=1`;
-
-          const cityResponse = await fetch(endpoint, {
-            headers: {
-              apikey: supabaseAnonKey,
-              Authorization: `Bearer ${supabaseAnonKey}`,
-            },
-          });
-
-          if (cityResponse.ok) {
-            const cityData = (await cityResponse.json()) as Array<{ slug?: string | null }>;
-            const matchedSlug = cityData?.[0]?.slug;
-            if (matchedSlug) {
-              const redirectUrl = request.nextUrl.clone();
-              redirectUrl.pathname = `/cities/${matchedSlug}`;
-              return NextResponse.redirect(redirectUrl, 308);
+          const endpoint = `${supabaseUrl}/rest/v1/cities?select=slug&name_bg=eq.${encodeURIComponent(decoded)}&limit=1`;
+          try {
+            const r = await fetch(endpoint, {
+              headers: {
+                apikey: supabaseAnonKey,
+                Authorization: `Bearer ${supabaseAnonKey}`,
+              },
+              cache: "no-store",
+            });
+            if (r.ok) {
+              const rows = (await r.json()) as Array<{ slug?: string | null }>;
+              const matched = rows?.[0]?.slug;
+              if (matched) {
+                return NextResponse.redirect(new URL(`/cities/${matched}`, request.url), 308);
+              }
             }
+          } catch {
+            // ignore
           }
         }
-      } catch {}
+      }
     }
   }
 

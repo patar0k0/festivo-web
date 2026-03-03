@@ -55,7 +55,6 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
   const payload = (await response.json().catch(() => ({}))) as { error?: string; rows?: AdminFestivalRow[] };
   const apiError = payload.error;
   const rows = payload.rows ?? [];
-  const missingServiceRole = response.status === 500 && typeof apiError === "string" && apiError.includes("Missing SUPABASE_SERVICE_ROLE_KEY");
 
   return (
     <div className="space-y-5">
@@ -119,7 +118,7 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
 
       {!response.ok ? (
         <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">
-          {missingServiceRole ? "Missing SUPABASE_SERVICE_ROLE_KEY. Set env in Vercel." : apiError ?? "Failed to load festivals."}
+          {apiError ?? "Failed to load festivals."}
         </div>
       ) : (
         <FestivalsTable rows={rows} />

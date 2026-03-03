@@ -9,8 +9,10 @@ export type AdminSession = {
 };
 
 type AdminAuthContext = {
+  supabase: SupabaseClient;
   client: SupabaseClient;
   user: User;
+  isAdmin: true;
 };
 
 async function hasAdminRole(client: SupabaseClient, userId: string) {
@@ -22,13 +24,10 @@ async function hasAdminRole(client: SupabaseClient, userId: string) {
     .maybeSingle();
 
   if (error) {
-    console.error("[admin] user_roles lookup failed", { userId, error });
     throw new Error(`user_roles lookup failed: ${error.message}`);
   }
 
-  const isAdmin = Boolean(data);
-  console.log("[admin] role lookup", { userId, isAdmin });
-  return isAdmin;
+  return Boolean(data);
 }
 
 async function getCurrentUser(client: SupabaseClient) {
@@ -45,18 +44,18 @@ async function getCurrentUser(client: SupabaseClient) {
 }
 
 export async function getAdminContext(): Promise<AdminAuthContext | null> {
-  const client = await createSupabaseServerClient();
-  const user = await getCurrentUser(client);
+  const supabase = await createSupabaseServerClient();
+  const user = await getCurrentUser(supabase);
   if (!user) {
     return null;
   }
 
-  const isAdmin = await hasAdminRole(client, user.id);
+  const isAdmin = await hasAdminRole(supabase, user.id);
   if (!isAdmin) {
     return null;
   }
 
-  return { client, user };
+  return { supabase, client: supabase, user, isAdmin: true };
 }
 
 export async function getAdminSession(): Promise<AdminSession | null> {
@@ -81,12 +80,10 @@ export async function requireAdmin() {
     const user = await getCurrentUser(client);
 
     if (!user) {
-      console.log("[admin] requireAdmin no user");
       redirect("/login");
     }
 
     const isAdmin = await hasAdminRole(client, user.id);
-    console.log("[admin] requireAdmin", { userId: user.id, isAdmin });
 
     if (!isAdmin) {
       redirect("/");
@@ -98,7 +95,6 @@ export async function requireAdmin() {
       isAdmin: true,
     };
   } catch (error) {
-    console.error("[admin] requireAdmin failed", error);
     redirect("/");
   }
 }

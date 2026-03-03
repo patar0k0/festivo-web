@@ -4,23 +4,23 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 type FestivalStatus = "draft" | "verified" | "rejected" | "archived";
 
 async function getStatusCount(
-  client: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>["client"] | null,
+  supabase: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>["supabase"] | null,
   status: FestivalStatus
 ) {
-  if (!client) return 0;
-  const { count } = await client.from("festivals").select("id", { count: "exact", head: true }).eq("status", status);
+  if (!supabase) return 0;
+  const { count } = await supabase.from("festivals").select("id", { count: "exact", head: true }).eq("status", status);
   return count ?? 0;
 }
 
 export default async function AdminDashboardPage() {
   const admin = await getAdminContext();
-  const client = admin?.client ?? null;
+  const supabase = admin?.supabase ?? null;
 
   const [draft, verified, rejected, archived] = await Promise.all([
-    getStatusCount(client, "draft"),
-    getStatusCount(client, "verified"),
-    getStatusCount(client, "rejected"),
-    getStatusCount(client, "archived"),
+    getStatusCount(supabase, "draft"),
+    getStatusCount(supabase, "verified"),
+    getStatusCount(supabase, "rejected"),
+    getStatusCount(supabase, "archived"),
   ]);
 
   const stats = [

@@ -1,11 +1,12 @@
 import AdminShell from "@/components/admin/AdminShell";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { getAdminContext } from "@/lib/admin/isAdmin";
 
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const admin = await getAdminContext();
+  if (!admin || !admin.isAdmin) {
+    redirect("/login?next=/admin");
+  }
 
-  return <AdminShell email={user?.email ?? null}>{children}</AdminShell>;
+  return <AdminShell email={admin.user.email ?? null}>{children}</AdminShell>;
 }

@@ -7,9 +7,9 @@ type Payload = {
 };
 
 export async function POST(request: Request) {
-  const admin = await getAdminContext();
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getAdminContext();
+  if (!ctx || !ctx.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       patch.is_verified = false;
     }
 
-    const { error } = await admin.client.from("festivals").update(patch).in("id", ids);
+    const { error } = await ctx.supabase.from("festivals").update(patch).in("id", ids);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

@@ -23,9 +23,9 @@ type Payload = {
 };
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await getAdminContext();
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getAdminContext();
+  if (!ctx || !ctx.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
@@ -75,7 +75,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Invalid longitude" }, { status: 400 });
     }
 
-    const { error } = await admin.client.from("festivals").update(patch).eq("id", id);
+    const { error } = await ctx.supabase.from("festivals").update(patch).eq("id", id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

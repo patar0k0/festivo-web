@@ -1,20 +1,17 @@
-import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import FestivalEditForm from "@/components/admin/FestivalEditForm";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getAdminContext } from "@/lib/admin/isAdmin";
 
 export default async function AdminFestivalEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const db = supabaseAdmin();
-
-  if (!db) {
-    return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">Липсва SUPABASE_SERVICE_ROLE_KEY за admin панела.</div>;
+  const ctx = await getAdminContext();
+  if (!ctx || !ctx.isAdmin) {
+    redirect("/login?next=/admin");
   }
 
-  const { data, error } = await db
+  const { data, error } = await ctx.supabase
     .from("festivals")
-    .select(
-      "id,title,slug,category,city,region,address,start_date,end_date,image_url,website_url,ticket_url,price_range,lat,lng,is_free,is_verified,status,tags,description,source_url,source_type"
-    )
+    .select("*")
     .eq("id", id)
     .maybeSingle();
 
@@ -23,11 +20,7 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
   }
 
   if (!data) {
-    return (
-      <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-black/60">
-        Фестивалът не е намерен. <Link href="/admin/festivals" className="underline">Назад към списъка</Link>
-      </div>
-    );
+    notFound();
   }
 
   return <FestivalEditForm festival={{ ...data, id: String(data.id) }} />;

@@ -8,9 +8,9 @@ function asString(value: string | null) {
 }
 
 export async function GET(request: Request) {
-  const admin = await getAdminContext();
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await getAdminContext();
+  if (!ctx || !ctx.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const free = asString(url.searchParams.get("free"));
     const q = asString(url.searchParams.get("q"));
 
-    let query = admin.client
+    let query = ctx.supabase
       .from("festivals")
       .select("id,title,city,start_date,end_date,category,is_free,status,updated_at,source_type")
       .order("updated_at", { ascending: false })

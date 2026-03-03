@@ -109,6 +109,7 @@ export default function FestivalDetailClient({
   relatedFestivals,
 }: Props) {
   const groupedDays = useMemo(() => getGroupedDays(days, scheduleItems), [days, scheduleItems]);
+  const sortedScheduleItems = useMemo(() => sortScheduleItems(scheduleItems), [scheduleItems]);
   const [activeDayId, setActiveDayId] = useState(groupedDays[0]?.id ?? "");
   const { isAuthenticated, isScheduleItemInPlan, toggleScheduleItem, reminderTypeByFestivalId, setFestivalReminder } =
     usePlanState();
@@ -117,10 +118,12 @@ export default function FestivalDetailClient({
   const selectedItems = useMemo(
     () =>
       sortScheduleItems(
-        scheduleItems.filter((item) => isScheduleItemInPlan(String(item.id))),
+        sortedScheduleItems.filter((item) => isScheduleItemInPlan(String(item.id))),
       ),
-    [isScheduleItemInPlan, scheduleItems],
+    [isScheduleItemInPlan, sortedScheduleItems],
   );
+  const primaryScheduleItemId = sortedScheduleItems[0] ? String(sortedScheduleItems[0].id) : null;
+  const festivalInPlan = selectedItems.length > 0;
   const reminder = reminderTypeByFestivalId[String(festival.id)] ?? "none";
 
   const imageMedia = media.filter((item) => isImageMedia(item.type) && Boolean(item.url));
@@ -389,6 +392,34 @@ export default function FestivalDetailClient({
                   Изчисти
                 </button>
               ) : null}
+            </div>
+
+            <div className="mt-4">
+              {isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!primaryScheduleItemId) return;
+                    void toggleScheduleItem(primaryScheduleItemId);
+                  }}
+                  disabled={!primaryScheduleItemId}
+                  className={`w-full rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
+                    festivalInPlan
+                      ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#1d202b]"
+                      : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]"
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  {festivalInPlan ? "Премахни от план" : "Добави в план"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full cursor-not-allowed rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-black/45 opacity-70"
+                >
+                  Добави в план
+                </button>
+              )}
             </div>
 
             <div className="mt-4 space-y-2">

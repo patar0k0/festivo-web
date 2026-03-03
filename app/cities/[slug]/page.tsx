@@ -38,19 +38,24 @@ function hasNonAscii(value: string) {
   return /[^\x00-\x7F]/.test(value);
 }
 
-async function resolveCityByParam(slugParam: string): Promise<CityRecord | null> {
-  const raw = decodeURIComponent(slugParam);
+async function resolveCityByParam(slugParam: string): Promise<{ city: CityRecord | null; rawTrimmed: string }> {
+  const rawTrimmed = decodeURIComponent(slugParam).trim();
   const supabase = await createSupabaseServerClient();
   let query = supabase.from("cities").select("slug,name_bg");
 
-  if (hasNonAscii(raw)) {
-    query = query.eq("name_bg", raw);
+  if (hasNonAscii(rawTrimmed)) {
+    const rawSpaced = rawTrimmed.replace(/-/g, " ");
+    const orFilter =
+      rawSpaced === rawTrimmed
+        ? `name_bg.ilike.${rawTrimmed}`
+        : `name_bg.ilike.${rawTrimmed},name_bg.ilike.${rawSpaced}`;
+    query = query.or(orFilter);
   } else {
-    query = query.eq("slug", raw);
+    query = query.ilike("slug", rawTrimmed);
   }
 
-  const { data } = await query.maybeSingle<CityRecord>();
-  return data ?? null;
+  const { data } = await query.limit(1).maybeSingle<CityRecord>();
+  return { city: data ?? null, rawTrimmed };
 }
 
 export async function generateMetadata({
@@ -59,9 +64,9 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const city = await resolveCityByParam(slug);
-  const cityName = city?.name_bg ?? decodeURIComponent(slug);
-  const canonicalSlug = city?.slug ?? decodeURIComponent(slug);
+  const { city, rawTrimmed } = await resolveCityByParam(slug);
+  const cityName = city?.name_bg ?? rawTrimmed;
+  const canonicalSlug = city?.slug ?? rawTrimmed;
   const title = `Фестивали в ${cityName} | Festivo`;
   const description = `Открий предстоящи фестивали и събития в ${cityName}. Запази в план и получавай напомняния.`;
 
@@ -82,14 +87,13 @@ export default async function CityLandingPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const [{ slug: slugParam }, resolvedSearchParams] = await Promise.all([params, searchParams]);
-  const raw = decodeURIComponent(slugParam);
-  const city = await resolveCityByParam(slugParam);
+  const { city, rawTrimmed } = await resolveCityByParam(slugParam);
 
   if (!city) {
     notFound();
   }
 
-  if (hasNonAscii(raw)) {
+  if (hasNonAscii(rawTrimmed) || rawTrimmed !== city.slug) {
     permanentRedirect(cityHref(city.slug));
   }
 

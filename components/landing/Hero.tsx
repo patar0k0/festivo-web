@@ -3,13 +3,6 @@ import Link from "next/link";
 const cardClass =
   "rounded-[24px] border border-black/[0.08] bg-white shadow-[0_2px_0_rgba(12,14,20,0.06),0_12px_32px_rgba(12,14,20,0.07)]";
 
-const statCards = [
-  { value: "100% FREE", label: "само безплатни", hint: "с линк към организатор", wide: false },
-  { value: "Radar", label: "по vibe", hint: "chill / party / family", wide: false },
-  { value: "Weekend", label: "готов ден", hint: "без да мислиш", wide: false },
-  { value: "Push", label: "не изпускаш", hint: "24ч + 2ч напомняне", wide: false },
-];
-
 export default function Hero() {
   return (
     <section className="pb-4 pt-10">

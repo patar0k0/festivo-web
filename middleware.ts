@@ -7,23 +7,41 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith("/cities/")) {
     const rawSlug = pathname.slice("/cities/".length).replace(/\/+$/, "");
-    if (rawSlug) {
-      const decoded = decodeURIComponent(rawSlug);
-      const looksEncoded = rawSlug.includes("%");
-      const hasNonAscii = /[^\x00-\x7F]/.test(decoded);
-      if (!(looksEncoded || hasNonAscii)) return NextResponse.next();
+    if (!rawSlug) return NextResponse.next();
+
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(rawSlug);
+    } catch {
+      return NextResponse.next();
+    }
+
+    const decodedTrim = decoded.trim();
+    const looksEncoded = rawSlug.includes("%");
+    const hasNonAscii = /[^\x00-\x7F]/.test(decodedTrim);
+    const hasUppercase = decodedTrim !== decodedTrim.toLowerCase();
+    const differsFromRaw = decodedTrim !== rawSlug;
+    const shouldLookup = looksEncoded || hasNonAscii || hasUppercase || differsFromRaw;
+
+    if (shouldLookup) {
       const { url: supabaseUrl, anon: supabaseAnonKey } = getSupabaseEnv();
       if (supabaseUrl && supabaseAnonKey) {
-        const decodedSpaced = decoded.replace(/-/g, " ");
-        const orFilters =
-          decodedSpaced === decoded
-            ? `name_bg.ilike.${decoded}`
-            : `name_bg.ilike.${decoded},name_bg.ilike.${decodedSpaced}`;
         const query = new URLSearchParams({
           select: "slug",
-          or: `(${orFilters})`,
           limit: "1",
         });
+
+        if (hasNonAscii) {
+          const decodedSpaced = decodedTrim.replace(/-/g, " ");
+          const orFilters =
+            decodedSpaced === decodedTrim
+              ? `name_bg.ilike.${decodedTrim}`
+              : `name_bg.ilike.${decodedTrim},name_bg.ilike.${decodedSpaced}`;
+          query.set("or", `(${orFilters})`);
+        } else {
+          query.set("slug", `ilike.${decodedTrim}`);
+        }
+
         const endpoint = `${supabaseUrl}/rest/v1/cities?${query.toString()}`;
         try {
           const r = await fetch(endpoint, {
@@ -36,7 +54,7 @@ export async function middleware(request: NextRequest) {
           if (r.ok) {
             const rows = (await r.json()) as Array<{ slug?: string | null }>;
             const matched = rows?.[0]?.slug;
-            if (matched) {
+            if (matched && matched !== decodedTrim) {
               return NextResponse.redirect(new URL(`/cities/${matched}`, request.url), 308);
             }
           }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { festivalCategoryLabels } from "@/components/CategoryChips";
 
@@ -56,19 +56,19 @@ export default function ActiveFiltersChips() {
 
   const rawParams = searchParams.toString();
 
-  const pushWithParams = (nextParams: URLSearchParams) => {
+  const pushWithParams = useCallback((nextParams: URLSearchParams) => {
     nextParams.delete("page");
     const query = nextParams.toString();
     router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  };
+  }, [pathname, router]);
 
-  const removeParam = (paramName: string) => {
+  const removeParam = useCallback((paramName: string) => {
     const nextParams = new URLSearchParams(rawParams);
     nextParams.delete(paramName);
     pushWithParams(nextParams);
-  };
+  }, [pushWithParams, rawParams]);
 
-  const removeFromCsv = (paramName: string, valueToRemove: string) => {
+  const removeFromCsv = useCallback((paramName: string, valueToRemove: string) => {
     const nextParams = new URLSearchParams(rawParams);
     const nextValues = splitCsv(nextParams.get(paramName)).filter((value) => value !== valueToRemove);
     if (nextValues.length) {
@@ -77,7 +77,7 @@ export default function ActiveFiltersChips() {
       nextParams.delete(paramName);
     }
     pushWithParams(nextParams);
-  };
+  }, [pushWithParams, rawParams]);
 
   const chips = useMemo<Chip[]>(() => {
     const items: Chip[] = [];
@@ -171,7 +171,7 @@ export default function ActiveFiltersChips() {
     }
 
     return items;
-  }, [rawParams, searchParams]);
+  }, [pushWithParams, rawParams, removeFromCsv, removeParam, searchParams]);
 
   if (!chips.length) return null;
 

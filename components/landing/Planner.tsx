@@ -135,7 +135,7 @@ export default function Planner({ items, onRemove, onClear }: Props) {
                   </button>
                 </div>
                 <p className="mt-3 text-[12px] text-black/35">
-                  "Напомни всички" → deep link към app за настройка на всички напомняния наведнъж.
+                  &quot;Напомни всички&quot; → deep link към app за настройка на всички напомняния наведнъж.
                 </p>
               </div>
             </div>

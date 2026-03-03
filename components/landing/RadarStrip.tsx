@@ -32,7 +32,7 @@ const vibeEmoji: Record<string, string> = {
   Culture: "рџЊџ",
 };
 
-export default function RadarStrip({ events, activeTag, shownCount, onAdd }: Props) {
+export default function RadarStrip({ events, shownCount, onAdd }: Props) {
   return (
     <section className="py-4" id="radar">
       <div className="mx-auto w-full max-w-[1180px] px-[18px]">

@@ -3,6 +3,7 @@ import FestivalsTable from "@/components/admin/FestivalsTable";
 import { headers } from "next/headers";
 
 const STATUS_OPTIONS = ["draft", "verified", "rejected", "archived"] as const;
+const STATUS_FILTER_OPTIONS = ["all", ...STATUS_OPTIONS] as const;
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -25,7 +26,8 @@ function asString(value: string | string[] | undefined) {
 
 export default async function AdminFestivalsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
-  const status = asString(params.status) || "draft";
+  const rawStatus = asString(params.status);
+  const status = rawStatus === "all" || STATUS_OPTIONS.includes(rawStatus as (typeof STATUS_OPTIONS)[number]) ? rawStatus : "verified";
   const city = asString(params.city);
   const category = asString(params.category);
   const free = asString(params.free);
@@ -65,7 +67,7 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
           <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-black/50">
             Status
             <select name="status" defaultValue={status} className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm">
-              {STATUS_OPTIONS.map((item) => (
+              {STATUS_FILTER_OPTIONS.map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>

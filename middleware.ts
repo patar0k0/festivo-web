@@ -9,8 +9,9 @@ export async function middleware(request: NextRequest) {
     const rawSlug = pathname.slice("/cities/".length).replace(/\/+$/, "");
     if (rawSlug) {
       const decoded = decodeURIComponent(rawSlug);
-      const isNonAscii = /[^\x00-\x7F]/.test(decoded);
-      if (isNonAscii) {
+      const looksEncoded = rawSlug.includes("%");
+      const hasNonAscii = /[^\x00-\x7F]/.test(decoded);
+      if (looksEncoded || hasNonAscii) {
         const { url: supabaseUrl, anon: supabaseAnonKey } = getSupabaseEnv();
         if (supabaseUrl && supabaseAnonKey) {
           const endpoint = `${supabaseUrl}/rest/v1/cities?select=slug&name_bg=eq.${encodeURIComponent(decoded)}&limit=1`;

@@ -1,6 +1,7 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { format, nextSaturday } from "date-fns";
-import { festivalCategories, festivalCategoryLabels } from "@/components/CategoryChips";
+import { festivalCategories } from "@/components/CategoryChips";
+import FestivalsTagChipsClient from "@/components/FestivalsTagChipsClient";
 import { PlanStateProvider } from "@/components/plan/PlanStateProvider";
 import ScrollRestoration from "@/components/ScrollRestoration";
 import Container from "@/components/ui/Container";
@@ -214,7 +215,7 @@ export default async function FestivalsPage({
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">Festivo Explorer</p>
                   <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Фестивали в България</h1>
                   <p className="mt-3 text-sm text-black/65 md:text-[15px]">
-                    Открий безплатни фестивали и събития по град, категория и дата.
+                    Открий безплатни фестивали и събития в България по град, категория и дата.
                   </p>
                 </div>
 
@@ -240,25 +241,7 @@ export default async function FestivalsPage({
                   >
                     Този месец
                   </Link>
-                  {popularCategoryChips.map((category) => {
-                    const categoryLink = buildFestivalsHref({ city, date, tag: category });
-                    const active = tag === category;
-
-                    return (
-                      <Link
-                        key={category}
-                        href={categoryLink}
-                        scroll={false}
-                        className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-                          active
-                            ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                            : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
-                        }`}
-                      >
-                        {festivalCategoryLabels[category] ?? category}
-                      </Link>
-                    );
-                  })}
+                  <FestivalsTagChipsClient categories={popularCategoryChips} />
                 </div>
               </div>
 

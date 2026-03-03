@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
   try {
     const url = new URL(request.url);
-    const status = asString(url.searchParams.get("status")) || "draft";
+    const status = asString(url.searchParams.get("status"));
     const city = asString(url.searchParams.get("city"));
     const category = asString(url.searchParams.get("category"));
     const free = asString(url.searchParams.get("free"));
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       .order("updated_at", { ascending: false })
       .limit(200);
 
-    if (status && STATUS_OPTIONS.includes(status as (typeof STATUS_OPTIONS)[number])) {
+    if (STATUS_OPTIONS.includes(status as (typeof STATUS_OPTIONS)[number])) {
       query = query.eq("status", status);
     }
 

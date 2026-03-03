@@ -1,19 +1,26 @@
-﻿import Link from "next/link";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import Link from "next/link";
+import { getAdminContext } from "@/lib/admin/isAdmin";
 
-async function getStatusCount(status: "draft" | "verified" | "rejected" | "archived") {
-  const db = supabaseAdmin();
-  if (!db) return 0;
-  const { count } = await db.from("festivals").select("id", { count: "exact", head: true }).eq("status", status);
+type FestivalStatus = "draft" | "verified" | "rejected" | "archived";
+
+async function getStatusCount(
+  client: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>["client"] | null,
+  status: FestivalStatus
+) {
+  if (!client) return 0;
+  const { count } = await client.from("festivals").select("id", { count: "exact", head: true }).eq("status", status);
   return count ?? 0;
 }
 
 export default async function AdminDashboardPage() {
+  const admin = await getAdminContext();
+  const client = admin?.client ?? null;
+
   const [draft, verified, rejected, archived] = await Promise.all([
-    getStatusCount("draft"),
-    getStatusCount("verified"),
-    getStatusCount("rejected"),
-    getStatusCount("archived"),
+    getStatusCount(client, "draft"),
+    getStatusCount(client, "verified"),
+    getStatusCount(client, "rejected"),
+    getStatusCount(client, "archived"),
   ]);
 
   const stats = [
@@ -27,10 +34,10 @@ export default async function AdminDashboardPage() {
     <div className="space-y-6">
       <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
         <h1 className="text-3xl font-black tracking-tight">Admin Dashboard</h1>
-        <p className="mt-2 text-sm text-black/65">Управлявай фестивалите, статусите и основните метаданни.</p>
+        <p className="mt-2 text-sm text-black/65">РЈРїСЂР°РІР»СЏРІР°Р№ С„РµСЃС‚РёРІР°Р»РёС‚Рµ, СЃС‚Р°С‚СѓСЃРёС‚Рµ Рё РѕСЃРЅРѕРІРЅРёС‚Рµ РјРµС‚Р°РґР°РЅРЅРё.</p>
         <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.14em]">
           <Link href="/admin/festivals" className="rounded-xl bg-[#0c0e14] px-4 py-2 text-white hover:bg-[#1d202b]">
-            Към фестивали
+            РљСЉРј С„РµСЃС‚РёРІР°Р»Рё
           </Link>
         </div>
       </div>

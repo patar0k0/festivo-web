@@ -44,6 +44,10 @@ export async function GET(request: Request) {
   const now = new Date();
   const windowEnd = new Date(now.getTime() + lookaheadMinutes * 60 * 1000);
 
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY is not set" }, { status: 500 });
+  }
+
   const supabase = createSupabaseAdmin();
   const { data, error } = await supabase
     .from("user_plan_reminders")

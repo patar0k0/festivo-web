@@ -114,6 +114,40 @@ docs/er-diagram.md
 
 --------------------------------------------------
 
+# Context synchronization rules
+
+If a change affects:
+
+• database schema
+• architecture
+• notification pipelines
+• core system modules
+
+AI must update:
+
+PROJECT_CONTEXT.md
+
+If schema changes occur also update:
+
+docs/database-schema.md
+docs/er-diagram.md
+
+If architecture changes occur also update:
+
+docs/system-architecture.md
+
+If notification pipelines change also update:
+
+docs/notification-system.md
+
+Do not update documentation for:
+
+• UI-only changes
+• styling changes
+• small bug fixes
+
+--------------------------------------------------
+
 Notification system overview
 
 Reminder pipeline:

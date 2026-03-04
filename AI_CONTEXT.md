@@ -1,3 +1,27 @@
+# Mandatory AI Context Loading
+
+Before generating any code, AI must read the following files:
+
+AI_CONTEXT.md
+docs/database-schema.md
+docs/system-architecture.md
+docs/notification-system.md
+docs/er-diagram.md
+
+These files are the source of truth for:
+
+database schema
+system architecture
+notification system
+API patterns
+data relationships
+
+AI must never generate code without first reading these files.
+
+If a file is missing, AI should continue using the remaining files.
+
+------------------------------------------
+
 # Festivo AI Development Context
 
 Before generating code always read:

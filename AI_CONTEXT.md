@@ -22,7 +22,34 @@ Flutter mobile app
 
 Database rules
 
-Use existing tables only.
+Use existing tables when possible.
+
+New tables are allowed only when required.
+
+However:
+
+• Never modify the database schema directly.
+• Never assume schema changes.
+• All schema changes must be delivered as SQL migration files.
+
+Migration files must be placed in:
+
+scripts/sql/
+
+File naming convention:
+
+YYYYMMDD_description.sql
+
+Example:
+
+20260305_user_notification_preferences.sql
+
+When generating migrations always include:
+
+tables
+indexes
+constraints
+RLS policies
 
 Important tables:
 

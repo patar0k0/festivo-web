@@ -101,8 +101,9 @@ function getScheduledFor(startDateValue: string, reminderType: ReminderType): Da
 export async function GET(request: Request) {
   const expectedSecret = process.env.JOBS_SECRET;
   const providedSecret = request.headers.get("x-job-secret");
+  const isCron = request.headers.get("x-vercel-cron");
 
-  if (!expectedSecret || providedSecret !== expectedSecret) {
+  if (!isCron && (!expectedSecret || providedSecret !== expectedSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -117,67 +118,91 @@ export async function GET(request: Request) {
   }
 
   const supabase = createSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("user_plan_reminders")
-    .select("user_id,festival_id,reminder_type,festivals(id,title,start_date)")
-    .in("reminder_type", ["24h", "same_day_09"]);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  const lockCutoff = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
+  const { error: staleLockError } = await supabase.from("cron_locks").delete().lt("locked_at", lockCutoff);
+  if (staleLockError) {
+    return NextResponse.json({ error: staleLockError.message }, { status: 500 });
   }
 
-  const dueRows = (data ?? [])
-    .map((row) => row as unknown as ReminderRow)
-    .map((row) => {
-      const festival = row.festivals;
-      if (!festival?.start_date) {
-        return null;
-      }
+  const { data: lockRows, error: lockError } = await supabase
+    .from("cron_locks")
+    .upsert({ name: "reminders_job", locked_at: now.toISOString() }, { onConflict: "name", ignoreDuplicates: true })
+    .select("name");
 
-      const scheduledFor = isReminderTestMode
-        ? new Date(now.getTime() + reminderTestMinutes * 60 * 1000)
-        : getScheduledFor(festival.start_date, row.reminder_type);
-      if (!scheduledFor || Number.isNaN(scheduledFor.getTime())) {
-        return null;
-      }
-
-      if (scheduledFor < now || scheduledFor >= windowEnd) {
-        return null;
-      }
-
-      const title = festival.title ?? "Upcoming festival reminder";
-      const body = row.reminder_type === "24h" ? "Your festival starts in 24 hours." : "Your festival starts today.";
-
-      return {
-        user_id: row.user_id,
-        festival_id: row.festival_id,
-        type: "reminder",
-        title,
-        body,
-        scheduled_for: scheduledFor.toISOString(),
-        sent_at: now.toISOString(),
-      };
-    })
-    .filter((row): row is NonNullable<typeof row> => row !== null);
-
-  if (!dueRows.length) {
-    return NextResponse.json({ created: 0, skipped: 0 });
+  if (lockError) {
+    return NextResponse.json({ error: lockError.message }, { status: 500 });
   }
 
-  const { data: insertedRows, error: insertError } = await supabase
-    .from("user_notifications")
-    .upsert(dueRows, {
-      onConflict: "user_id,festival_id,scheduled_for",
-      ignoreDuplicates: true,
-    })
-    .select("id");
-
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+  if (!lockRows?.length) {
+    return NextResponse.json({ skipped: true, reason: "lock_active" });
   }
 
-  const created = insertedRows?.length ?? 0;
-  const skipped = dueRows.length - created;
+  try {
+    const { data, error } = await supabase
+      .from("user_plan_reminders")
+      .select("user_id,festival_id,reminder_type,festivals(id,title,start_date)")
+      .in("reminder_type", ["24h", "same_day_09"]);
 
-  return NextResponse.json({ created, skipped });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const dueRows = (data ?? [])
+      .map((row) => row as unknown as ReminderRow)
+      .map((row) => {
+        const festival = row.festivals;
+        if (!festival?.start_date) {
+          return null;
+        }
+
+        const scheduledFor = isReminderTestMode
+          ? new Date(now.getTime() + reminderTestMinutes * 60 * 1000)
+          : getScheduledFor(festival.start_date, row.reminder_type);
+        if (!scheduledFor || Number.isNaN(scheduledFor.getTime())) {
+          return null;
+        }
+
+        if (scheduledFor < now || scheduledFor >= windowEnd) {
+          return null;
+        }
+
+        const title = festival.title ?? "Upcoming festival reminder";
+        const body = row.reminder_type === "24h" ? "Your festival starts in 24 hours." : "Your festival starts today.";
+
+        return {
+          user_id: row.user_id,
+          festival_id: row.festival_id,
+          type: "reminder",
+          title,
+          body,
+          scheduled_for: scheduledFor.toISOString(),
+          sent_at: now.toISOString(),
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row !== null);
+
+    if (!dueRows.length) {
+      return NextResponse.json({ created: 0, skipped: 0 });
+    }
+
+    const { data: insertedRows, error: insertError } = await supabase
+      .from("user_notifications")
+      .upsert(dueRows, {
+        onConflict: "user_id,festival_id,scheduled_for",
+        ignoreDuplicates: true,
+      })
+      .select("id");
+
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    const created = insertedRows?.length ?? 0;
+    const skipped = dueRows.length - created;
+
+    return NextResponse.json({ created, skipped });
+  } finally {
+    await supabase.from("cron_locks").delete().eq("name", "reminders_job");
+  }
 }

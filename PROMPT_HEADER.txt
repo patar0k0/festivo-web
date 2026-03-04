@@ -1,4 +1,58 @@
-Read AI_CONTEXT.md, AI_DEVELOPER_RULES.md, AI_SYSTEM_ARCHITECT.md.
-Use docs/* as the source of truth.
-Follow migration rules (scripts/sql/YYYYMMDD_name.sql) when needed.
-Update docs when schema/API/jobs/architecture changes.
+Before generating code read the project context:
+
+PROJECT_CONTEXT.md
+AI_CONTEXT.md
+AI_DEVELOPER_RULES.md
+AI_SYSTEM_ARCHITECT.md
+
+Use the documentation in docs/ as the source of truth:
+
+docs/database-schema.md
+docs/system-architecture.md
+docs/notification-system.md
+docs/er-diagram.md
+
+Development rules:
+
+• Prefer incremental changes
+• Do not invent database schema
+• If schema changes are needed, generate a SQL migration in:
+
+scripts/sql/
+
+Migration naming format:
+
+YYYYMMDD_description.sql
+
+Example:
+
+20260305_add_notification_preferences.sql
+
+• Respect Supabase RLS policies
+• Do not expose service role keys to the client
+• Keep API routes compatible with the existing system
+• Avoid breaking changes
+
+Documentation rules:
+
+If a change affects:
+
+• database schema
+• system architecture
+• notification pipelines
+• background jobs
+• core modules
+
+Update the corresponding documentation files:
+
+PROJECT_CONTEXT.md
+docs/database-schema.md
+docs/system-architecture.md
+docs/notification-system.md
+docs/er-diagram.md
+
+Safety rules:
+
+• Never drop tables automatically
+• Never drop columns automatically
+• Never delete data automatically

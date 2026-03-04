@@ -107,6 +107,8 @@ export async function GET(request: Request) {
   }
 
   const lookaheadMinutes = Number(process.env.REMINDER_LOOKAHEAD_MINUTES ?? DEFAULT_LOOKAHEAD_MINUTES);
+  const reminderTestMinutes = Number(process.env.REMINDER_TEST_MINUTES ?? 0);
+  const isReminderTestMode = process.env.NODE_ENV === "development" && reminderTestMinutes > 0;
   const now = new Date();
   const windowEnd = new Date(now.getTime() + lookaheadMinutes * 60 * 1000);
 
@@ -132,7 +134,9 @@ export async function GET(request: Request) {
         return null;
       }
 
-      const scheduledFor = getScheduledFor(festival.start_date, row.reminder_type);
+      const scheduledFor = isReminderTestMode
+        ? new Date(now.getTime() + reminderTestMinutes * 60 * 1000)
+        : getScheduledFor(festival.start_date, row.reminder_type);
       if (!scheduledFor || Number.isNaN(scheduledFor.getTime())) {
         return null;
       }

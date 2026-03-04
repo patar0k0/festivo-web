@@ -173,7 +173,7 @@ export async function GET(request: Request) {
         return {
           user_id: row.user_id,
           festival_id: row.festival_id,
-          type: "reminder",
+          type: row.reminder_type === "24h" ? "reminder_24h" : "reminder_same_day_09",
           title,
           body,
           scheduled_for: scheduledFor.toISOString(),
@@ -189,7 +189,7 @@ export async function GET(request: Request) {
     const { data: insertedRows, error: insertError } = await supabase
       .from("user_notifications")
       .upsert(dueRows, {
-        onConflict: "user_id,festival_id,scheduled_for",
+        onConflict: "user_id,festival_id,type",
         ignoreDuplicates: true,
       })
       .select("id");

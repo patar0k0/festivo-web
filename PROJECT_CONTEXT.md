@@ -17,6 +17,7 @@ The system includes:
 
 ## Core System Modules
 - Festival catalog
+- Pending festival moderation
 - Planning system
 - Notification system
 - Admin panel
@@ -25,6 +26,7 @@ The system includes:
 ## Key Database Entities
 - cities
 - festivals
+- pending_festivals
 - festival_days
 - festival_schedule_items
 - organizers
@@ -63,6 +65,8 @@ Full documentation: `docs/notification-system.md`
 Admin role stored in: `user_roles`
 
 Admin pages located in: `/app/admin`
+
+Pending ingestion moderation route: `/admin/pending-festivals` (review, edit, approve, reject).
 
 ## Architecture Documentation
 Detailed architecture: `docs/system-architecture.md`  

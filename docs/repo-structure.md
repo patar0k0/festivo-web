@@ -24,3 +24,4 @@
 ### Admin pages
 - Admin UI routes are under `app/admin/`.
 - Protected admin pages are grouped under `app/admin/(protected)/` and rely on admin role checks from `lib/admin/`.
+- Pending ingestion moderation UI lives at `app/admin/(protected)/pending-festivals/*`.

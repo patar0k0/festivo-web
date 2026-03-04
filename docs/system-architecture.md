@@ -18,6 +18,7 @@ Festivo is a Next.js + Supabase application for discovering festivals, building 
 
 ## Festival data model
 - `cities` provides canonical city slugs used by festival filtering and follow logic.
+- `pending_festivals` stores ingested/unreviewed candidates as a moderation layer before publication.
 - `festivals` is the main aggregate; each row may reference an `organizer` and city slug.
 - `festival_days` is a 1:N child of `festivals` for multi-day programs.
 - `festival_schedule_items` is a 1:N child of `festival_days` for timed sessions.
@@ -31,6 +32,7 @@ Festivo is a Next.js + Supabase application for discovering festivals, building 
 ## Admin system
 - Admin users are identified by role checks (`user_roles`), and admin pages/API mutate core content.
 - Admin content changes in `festivals` (and related program tables) affect public pages and notification targeting.
+- Admin moderation flow at `/admin/pending-festivals` allows reviewing/editing `pending_festivals`, approving into `festivals`, or rejecting records.
 
 ## Notification system
 - Notification-producing jobs read planning/follow state and write durable messages into `user_notifications`.

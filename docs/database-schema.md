@@ -50,6 +50,49 @@
 
 ---
 
+### pending_festivals
+
+**Purpose:** Moderation layer for newly submitted/ingested festivals before they are approved into the main `festivals` catalog.
+
+| column | type | notes |
+|---|---|---|
+| id | uuid | primary key; default `gen_random_uuid()` |
+| title | text | not null |
+| slug | text | optional proposed URL slug |
+| description | text | optional description |
+| city_id | bigint | optional FK to `cities.id` |
+| location_name | text | optional venue/location text |
+| latitude | numeric | optional latitude |
+| longitude | numeric | optional longitude |
+| start_date | date | optional festival start date |
+| end_date | date | optional festival end date |
+| organizer_name | text | optional organizer display name |
+| source_url | text | ingestion/source reference URL |
+| is_free | boolean | default `true` |
+| hero_image | text | optional hero image URL |
+| status | text | not null, default `pending`; allowed: `pending`, `approved`, `rejected` |
+| created_at | timestamptz | not null, default `now()` |
+| reviewed_at | timestamptz | set when moderation review is completed |
+| reviewed_by | uuid | optional FK to `auth.users.id` |
+
+**Primary keys:** `id`.  
+**Foreign keys:**
+- `city_id -> cities.id`
+- `reviewed_by -> auth.users.id`
+
+**Relationships:**
+- `pending_festivals -> cities` (N:1)
+- `pending_festivals -> auth.users` (N:1, reviewer)
+
+**Constraints / indexes visible:**
+- `status` check constraint allows only `pending`, `approved`, `rejected`
+- `pending_festivals_status_idx` on `(status)`
+- unique partial index `pending_festivals_source_url_unique_idx` on `(source_url)` where `source_url is not null`
+- RLS enabled with admin-only `SELECT`, `UPDATE`, and `DELETE` policies
+- No user-facing `INSERT` RLS policy (worker/service role bypasses RLS)
+
+---
+
 ### festival_days
 
 **Purpose:** Day-level breakdown for multi-day festivals.

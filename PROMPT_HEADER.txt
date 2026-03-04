@@ -1,0 +1,4 @@
+Read AI_CONTEXT.md, AI_DEVELOPER_RULES.md, AI_SYSTEM_ARCHITECT.md.
+Use docs/* as the source of truth.
+Follow migration rules (scripts/sql/YYYYMMDD_name.sql) when needed.
+Update docs when schema/API/jobs/architecture changes.

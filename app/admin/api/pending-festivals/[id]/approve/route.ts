@@ -49,6 +49,13 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       .maybeSingle();
 
     if (insertError) {
+      if (insertError.code === "23505") {
+        return NextResponse.json(
+          { error: "Approve failed: a conflicting festival already exists (for example, duplicate slug)." },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json({ error: `Approve failed during festivals insert: ${insertError.message}` }, { status: 500 });
     }
 

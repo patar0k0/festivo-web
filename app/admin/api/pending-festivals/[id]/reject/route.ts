@@ -10,17 +10,23 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   try {
     const { id } = await params;
 
-    const { error } = await ctx.supabase
+    const { data, error } = await ctx.supabase
       .from("pending_festivals")
       .update({
         status: "rejected",
         reviewed_at: new Date().toISOString(),
         reviewed_by: ctx.user.id,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("status", "pending")
+      .select("id");
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: "Reject failed: record is not pending or does not exist." }, { status: 409 });
     }
 
     return NextResponse.json({ ok: true });

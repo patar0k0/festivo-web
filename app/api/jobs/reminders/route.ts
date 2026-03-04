@@ -16,20 +16,86 @@ type ReminderRow = {
 
 const DEFAULT_LOOKAHEAD_MINUTES = 10;
 const LOCAL_REMINDER_HOUR = 9;
+const TZ = "Europe/Sofia";
 
-function parseStartDate(dateValue: string): Date {
-  const [year, month, day] = dateValue.split("-").map((part) => Number(part));
-  return new Date(Date.UTC(year, month - 1, day, LOCAL_REMINDER_HOUR, 0, 0));
-}
-
-function getScheduledFor(startDateValue: string, reminderType: ReminderType): Date {
-  const localStart = parseStartDate(startDateValue);
-
-  if (reminderType === "24h") {
-    return new Date(localStart.getTime() - 24 * 60 * 60 * 1000);
+function getTimeZoneOffsetMinutes(date: Date, timeZone: string): number | null {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  });
+  const offsetPart = formatter.formatToParts(date).find((part) => part.type === "timeZoneName")?.value;
+  if (!offsetPart) {
+    return null;
   }
 
-  return localStart;
+  if (offsetPart === "GMT") {
+    return 0;
+  }
+
+  const match = offsetPart.match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, sign, hours, minutes = "0"] = match;
+  const totalMinutes = Number(hours) * 60 + Number(minutes);
+  return sign === "+" ? totalMinutes : -totalMinutes;
+}
+
+function getDatePartsInTimeZone(date: Date, timeZone: string): { year: number; month: number; day: number } {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+
+  return { year, month, day };
+}
+
+function getDateAtHourInTimeZone(date: Date, timeZone: string, hour: number): Date | null {
+  const { year, month, day } = getDatePartsInTimeZone(date, timeZone);
+  const utcGuess = Date.UTC(year, month - 1, day, hour, 0, 0, 0);
+
+  const firstOffsetMinutes = getTimeZoneOffsetMinutes(new Date(utcGuess), timeZone);
+  if (firstOffsetMinutes === null) {
+    return null;
+  }
+
+  const firstPass = utcGuess - firstOffsetMinutes * 60 * 1000;
+  const secondOffsetMinutes = getTimeZoneOffsetMinutes(new Date(firstPass), timeZone);
+  if (secondOffsetMinutes === null) {
+    return null;
+  }
+
+  return new Date(utcGuess - secondOffsetMinutes * 60 * 1000);
+}
+
+function getScheduledFor(startDateValue: string, reminderType: ReminderType): Date | null {
+  const start = new Date(startDateValue);
+  if (Number.isNaN(start.getTime())) {
+    return null;
+  }
+
+  const sameDayAtNine = getDateAtHourInTimeZone(start, TZ, LOCAL_REMINDER_HOUR);
+  if (!sameDayAtNine || Number.isNaN(sameDayAtNine.getTime())) {
+    return null;
+  }
+
+  if (reminderType === "24h") {
+    if (startDateValue.includes("T")) {
+      return new Date(start.getTime() - 24 * 60 * 60 * 1000);
+    }
+
+    return new Date(sameDayAtNine.getTime() - 24 * 60 * 60 * 1000);
+  }
+
+  return sameDayAtNine;
 }
 
 export async function GET(request: Request) {
@@ -67,6 +133,10 @@ export async function GET(request: Request) {
       }
 
       const scheduledFor = getScheduledFor(festival.start_date, row.reminder_type);
+      if (!scheduledFor || Number.isNaN(scheduledFor.getTime())) {
+        return null;
+      }
+
       if (scheduledFor < now || scheduledFor >= windowEnd) {
         return null;
       }

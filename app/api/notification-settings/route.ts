@@ -1,0 +1,128 @@
+import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+type NotificationSettings = {
+  notify_plan_reminders: boolean;
+  notify_new_festivals_city: boolean;
+  notify_new_festivals_category: boolean;
+  notify_followed_organizers: boolean;
+  notify_weekend_digest: boolean;
+};
+
+type PartialNotificationSettings = Partial<NotificationSettings>;
+
+const DEFAULT_SETTINGS: NotificationSettings = {
+  notify_plan_reminders: true,
+  notify_new_festivals_city: true,
+  notify_new_festivals_category: false,
+  notify_followed_organizers: true,
+  notify_weekend_digest: false,
+};
+
+function normalizePayload(payload: PartialNotificationSettings): PartialNotificationSettings {
+  const normalized: PartialNotificationSettings = {};
+
+  if (typeof payload.notify_plan_reminders === "boolean") {
+    normalized.notify_plan_reminders = payload.notify_plan_reminders;
+  }
+  if (typeof payload.notify_new_festivals_city === "boolean") {
+    normalized.notify_new_festivals_city = payload.notify_new_festivals_city;
+  }
+  if (typeof payload.notify_new_festivals_category === "boolean") {
+    normalized.notify_new_festivals_category = payload.notify_new_festivals_category;
+  }
+  if (typeof payload.notify_followed_organizers === "boolean") {
+    normalized.notify_followed_organizers = payload.notify_followed_organizers;
+  }
+  if (typeof payload.notify_weekend_digest === "boolean") {
+    normalized.notify_weekend_digest = payload.notify_weekend_digest;
+  }
+
+  return normalized;
+}
+
+async function requireUser() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  return { supabase, user, error };
+}
+
+export async function GET() {
+  const { supabase, user, error: authError } = await requireUser();
+
+  if (authError) {
+    return NextResponse.json({ error: authError.message }, { status: 500 });
+  }
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data, error } = await supabase
+    .from("user_notification_settings")
+    .select(
+      "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest",
+    )
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    settings: {
+      ...DEFAULT_SETTINGS,
+      ...(data ?? {}),
+    },
+  });
+}
+
+export async function POST(request: Request) {
+  const { supabase, user, error: authError } = await requireUser();
+
+  if (authError) {
+    return NextResponse.json({ error: authError.message }, { status: 500 });
+  }
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = (await request.json()) as PartialNotificationSettings;
+  const updates = normalizePayload(body);
+
+  if (!Object.keys(updates).length) {
+    return NextResponse.json({ error: "No valid settings provided" }, { status: 400 });
+  }
+
+  const { error } = await supabase.from("user_notification_settings").upsert(
+    {
+      user_id: user.id,
+      ...updates,
+    },
+    { onConflict: "user_id" },
+  );
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const { data: saved, error: fetchError } = await supabase
+    .from("user_notification_settings")
+    .select(
+      "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest",
+    )
+    .eq("user_id", user.id)
+    .single();
+
+  if (fetchError) {
+    return NextResponse.json({ error: fetchError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ settings: saved });
+}

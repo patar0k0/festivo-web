@@ -44,6 +44,8 @@ Example:
 
 20260305_user_notification_preferences.sql
 
+--------------------------------------------------
+
 When generating migrations always include:
 
 tables
@@ -65,8 +67,6 @@ user_plan_items
 user_plan_reminders
 device_tokens
 cron_locks
-
-Never create duplicate tables.
 
 --------------------------------------------------
 

@@ -93,8 +93,8 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
         title: pending.title,
         slug: finalSlug,
         description: pending.description,
-        city_id: pending.city_id,
         city: cityText,
+        city_id: pending.city_id,
         location_name: pending.location_name,
         latitude: pending.latitude,
         longitude: pending.longitude,
@@ -104,6 +104,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
         source_url: pending.source_url,
         is_free: pending.is_free ?? true,
         hero_image: pending.hero_image,
+        category: "festival",
       })
       .select("id")
       .maybeSingle();

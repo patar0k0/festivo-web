@@ -88,3 +88,7 @@ Always read:
 before generating code.
 
 If schema, architecture, jobs, or notification pipelines change, update the documentation files.
+## AI Context Governance
+- Canonical AI loading order is defined in `PROMPT_HEADER.txt` and mirrored in `AI_CONTEXT.md`.
+- Latest audit report: `docs/ai-context-audit.md`.
+

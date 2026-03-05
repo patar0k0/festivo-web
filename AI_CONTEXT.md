@@ -1,50 +1,42 @@
 # Mandatory AI Context Loading
 
-Before generating any code, AI must read the following files:
+Before generating any code, AI must read the following files in order:
 
-AI_CONTEXT.md
-docs/database-schema.md
-docs/system-architecture.md
-docs/notification-system.md
-docs/er-diagram.md
+1. `PROJECT_CONTEXT.md`
+2. `AI_CONTEXT.md`
+3. `AI_DEVELOPER_RULES.md`
+4. `AI_SYSTEM_ARCHITECT.md`
+5. `docs/database-schema.md`
+6. `docs/system-architecture.md`
+7. `docs/notification-system.md`
+8. `docs/er-diagram.md`
 
 These files are the source of truth for:
 
-database schema
-system architecture
-notification system
-API patterns
-data relationships
+- database schema
+- system architecture
+- notification system
+- API patterns
+- data relationships
 
 AI must never generate code without first reading these files.
 
 If a file is missing, AI should continue using the remaining files.
 
-------------------------------------------
+---
 
 # Festivo AI Development Context
 
-Before generating code always read:
+## Project stack
 
-docs/database-schema.md
-docs/system-architecture.md
-docs/notification-system.md
-docs/er-diagram.md
+- Next.js 14 App Router
+- Supabase (Postgres + Auth)
+- TypeScript
+- Tailwind
+- Vercel
+- Flutter mobile app
 
---------------------------------------------------
-
-Project stack
-
-Next.js 14 App Router  
-Supabase (Postgres + Auth)  
-TypeScript  
-Tailwind  
-Vercel  
-Flutter mobile app
-
---------------------------------------------------
-
-Database rules
+## Database rules
 
 Use existing tables when possible.
 
@@ -52,120 +44,101 @@ New tables are allowed only when required.
 
 However:
 
-• Never modify the database schema directly.
-• Never assume schema changes.
-• All schema changes must be delivered as SQL migration files.
+- Never modify the database schema directly.
+- Never assume schema changes.
+- All schema changes must be delivered as SQL migration files.
 
 Migration files must be placed in:
 
-scripts/sql/
+`scripts/sql/`
 
 File naming convention:
 
-YYYYMMDD_description.sql
+`YYYYMMDD_description.sql`
 
 Example:
 
-20260305_user_notification_preferences.sql
+`20260305_user_notification_preferences.sql`
 
---------------------------------------------------
+## Migration quality requirements
 
 When generating migrations always include:
 
-tables
-indexes
-constraints
-RLS policies
+- tables
+- indexes
+- constraints
+- RLS policies
 
 Important tables:
 
-cities
-festivals
-festival_days
-festival_schedule_items
-organizers
-profiles
-user_notifications
-user_plan_festivals
-user_plan_items
-user_plan_reminders
-device_tokens
-cron_locks
+- cities
+- festivals
+- festival_days
+- festival_schedule_items
+- organizers
+- profiles
+- user_notifications
+- user_plan_festivals
+- user_plan_items
+- user_plan_reminders
+- device_tokens
+- cron_locks
 
---------------------------------------------------
-
-Notification architecture
+## Notification architecture
 
 Reminder pipeline:
 
-user_plan_reminders
+`user_plan_reminders`
 → reminder job
-→ user_notifications
+→ `user_notifications`
 → push job
-→ device_tokens
+→ `device_tokens`
 → mobile app
 
 Festival discovery notifications:
 
 followers
 → new festival job
-→ user_notifications
+→ `user_notifications`
 
---------------------------------------------------
-
-User plan system
+## User plan system
 
 Tables:
 
-user_plan_festivals
-user_plan_items
-user_plan_reminders
+- `user_plan_festivals`
+- `user_plan_items`
+- `user_plan_reminders`
 
 Users can:
 
-save festivals  
-save schedule items  
-create reminders
+- save festivals
+- save schedule items
+- create reminders
 
---------------------------------------------------
+## Coding rules
 
-Coding rules
+- Prefer incremental changes.
+- Do not modify database schema unless explicitly asked.
+- Use Supabase queries compatible with `@supabase/supabase-js`.
+- Use existing API patterns in `/app/api`.
 
-Prefer incremental changes.
-
-Do not modify database schema unless explicitly asked.
-
-Use Supabase queries compatible with:
-
-@supabase/supabase-js
-
-Use existing API patterns in /app/api.
-
---------------------------------------------------
-
-Admin rules
+## Admin rules
 
 Admin role stored in:
 
-user_roles
+`user_roles`
 
 Admin pages located in:
 
-/app/admin
+`/app/admin`
 
---------------------------------------------------
-
-Mobile integration
+## Mobile integration
 
 Mobile app is built in Flutter.
 
 Push notifications use:
 
-device_tokens
-user_notifications
-
---------------------------------------------------
+- `device_tokens`
+- `user_notifications`
 
 Output code compatible with the existing architecture.
-
---------------------------------------------------

@@ -14,8 +14,8 @@
 | title | text | festival title |
 | slug | text | URL slug; used for festival detail routes |
 | description | text | long description |
-| city | text | human-readable city name |
-| city_slug | text | slug used for city follower matching |
+| city | text | denormalized city slug (canonical; mirrors `cities.slug`) |
+| city_id | bigint | FK to `cities.id` (canonical city reference) |
 | region | text | administrative region |
 | address | text | optional venue address |
 | start_date | date / timestamptz (inferred) | festival start |
@@ -46,7 +46,8 @@
 - `festivals -> user_plan_reminders` (1:N, inferred)
 - `festivals -> organizers` (N:1, inferred)
 
-**Constraints / indexes visible:** not defined in the checked migration files.
+**Constraints / indexes visible:**
+- unique partial index `festivals_source_url_unique_idx` on `(source_url)` where `source_url is not null`
 
 ---
 
@@ -198,7 +199,9 @@
 
 **Primary keys:** not visible (likely `slug` or `id` in canonical schema).  
 **Foreign keys:** none visible.  
-**Relationships:** logical relationship from `festivals.city_slug` to `cities.slug` (inferred).
+**Relationships:**
+- `festivals.city_id -> cities.id` (canonical FK)
+- denormalized `festivals.city` stores `cities.slug` for route/filter convenience
 
 **Constraints / indexes visible:** not defined in the checked migration files.
 
@@ -485,7 +488,7 @@
 ## Relationship notes (quick map)
 
 - festivals → organizers  
-- festivals → cities (logical via `city_slug`)  
+- festivals → cities (via `city_id` FK + denormalized `city` slug)  
 - festival_days → festivals  
 - festival_schedule_items → festival_days  
 - festival_media → festivals  

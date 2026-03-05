@@ -5,6 +5,7 @@ type Payload = {
   title?: string;
   category?: string | null;
   city?: string | null;
+  city_id?: number | string | null;
   region?: string | null;
   address?: string | null;
   start_date?: string | null;
@@ -21,6 +22,19 @@ type Payload = {
   tags?: string[];
   description?: string | null;
 };
+
+function parseCityId(value: Payload["city_id"]) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? value : Number.NaN;
+  }
+
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : Number.NaN;
+}
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -62,6 +76,34 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         patch[key] = body[key];
       }
     });
+
+    if ("city_id" in body) {
+      const cityId = parseCityId(body.city_id);
+      if (Number.isNaN(cityId)) {
+        return NextResponse.json({ error: "Invalid city_id" }, { status: 400 });
+      }
+
+      if (cityId === null) {
+        patch.city_id = null;
+      } else {
+        const { data: city, error: cityError } = await ctx.supabase
+          .from("cities")
+          .select("slug")
+          .eq("id", cityId)
+          .maybeSingle<{ slug: string }>();
+
+        if (cityError) {
+          return NextResponse.json({ error: cityError.message }, { status: 500 });
+        }
+
+        if (!city?.slug) {
+          return NextResponse.json({ error: "City not found" }, { status: 404 });
+        }
+
+        patch.city_id = cityId;
+        patch.city = city.slug;
+      }
+    }
 
     if (Array.isArray(body.tags)) {
       patch.tags = body.tags.map((tag) => tag.trim()).filter(Boolean);

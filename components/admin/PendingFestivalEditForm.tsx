@@ -211,7 +211,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                 <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City (ID / slug / name)</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City reference (ID / slug / name)</span>
                 <input
                   value={form.city_id}
                   onChange={(e) => {

@@ -10,7 +10,7 @@ erDiagram
     uuid id PK
     text slug
     text title
-    text city_slug
+    bigint city_id FK
     text category_slug
     uuid organizer_id FK
   }
@@ -133,7 +133,7 @@ erDiagram
 
   festival_schedule_items ||--o{ user_plan_items : planned_item
 
-  cities ||--o{ festivals : city_slug_logical
+  cities ||--o{ festivals : city_id_fk
   cities ||--o{ user_followed_cities : follows_logical
 
   ingest_jobs ..> pending_festivals : worker_pipeline

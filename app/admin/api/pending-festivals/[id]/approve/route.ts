@@ -67,7 +67,28 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
         return NextResponse.json({ error: `Approve failed during city lookup: ${cityError.message}` }, { status: 500 });
       }
 
-      cityText = city?.slug ?? city?.name_bg ?? "unknown";
+      if (city?.slug) {
+        cityText = city.slug;
+      } else if (city?.name_bg) {
+        cityText = city.name_bg;
+        console.warn(`[pending-approve] city ${pending.city_id} missing slug; using name_bg fallback.`);
+      }
+    }
+
+    if (pending.source_url) {
+      const { data: existingBySource, error: existingBySourceError } = await adminCtx.supabase
+        .from("festivals")
+        .select("id")
+        .eq("source_url", pending.source_url)
+        .limit(1);
+
+      if (existingBySourceError) {
+        return NextResponse.json({ error: `Approve failed during source_url check: ${existingBySourceError.message}` }, { status: 500 });
+      }
+
+      if (existingBySource && existingBySource.length > 0) {
+        return NextResponse.json({ error: "Festival already exists for this source URL." }, { status: 409 });
+      }
     }
 
     const baseSlug = buildBaseSlug(pending.slug, pending.title, pending.id);

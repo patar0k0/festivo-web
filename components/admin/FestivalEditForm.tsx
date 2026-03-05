@@ -10,6 +10,7 @@ type FestivalRecord = {
   slug: string;
   category: string | null;
   city: string | null;
+  city_id: number | null;
   region: string | null;
   address: string | null;
   start_date: string | null;
@@ -54,11 +55,22 @@ function validateCoords(latRaw: string, lngRaw: string) {
   return { valid: true, message: "Координатите са валидни." };
 }
 
+type ResolvedCity = {
+  id: number;
+  name_bg: string;
+  slug: string;
+};
+
+async function readErrorMessage(response: Response, fallback: string) {
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  return payload?.error ?? fallback;
+}
+
 export default function FestivalEditForm({ festival }: { festival: FestivalRecord }) {
   const [form, setForm] = useState({
     title: festival.title,
     category: festival.category ?? "",
-    city: festival.city ?? "",
+    city_id: festival.city_id?.toString() ?? "",
     region: festival.region ?? "",
     address: festival.address ?? "",
     start_date: asDateInput(festival.start_date),
@@ -79,6 +91,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [resolvedCity, setResolvedCity] = useState<ResolvedCity | null>(null);
 
   const descriptionPreview = useMemo(() => form.description.trim(), [form.description]);
 
@@ -112,6 +125,30 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
     setSaving(true);
 
     try {
+      const cityInput = form.city_id.trim();
+      let cityId: number | null = null;
+
+      if (!cityInput) {
+        cityId = null;
+        setResolvedCity(null);
+      } else if (/^\d+$/.test(cityInput)) {
+        cityId = Number(cityInput);
+        setResolvedCity(null);
+      } else {
+        const resolveResponse = await fetch(`/admin/api/cities/resolve?q=${encodeURIComponent(cityInput)}`, {
+          credentials: "include",
+        });
+
+        if (!resolveResponse.ok) {
+          if (resolveResponse.status === 404) throw new Error("City not found");
+          throw new Error(await readErrorMessage(resolveResponse, "Failed to resolve city."));
+        }
+
+        const resolved = (await resolveResponse.json()) as ResolvedCity;
+        cityId = resolved.id;
+        setResolvedCity(resolved);
+      }
+
       const response = await fetch(`/admin/api/festivals/${festival.id}`, {
         method: "PATCH",
         credentials: "include",
@@ -119,7 +156,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
         body: JSON.stringify({
           title: form.title,
           category: form.category || null,
-          city: form.city || null,
+          city_id: cityId,
           region: form.region || null,
           address: form.address || null,
           start_date: form.start_date || null,
@@ -139,8 +176,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
       });
 
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(payload?.error ?? "Неуспешен запис.");
+        throw new Error(await readErrorMessage(response, "Неуспешен запис."));
       }
 
       setMessage("Промените са записани успешно.");
@@ -176,8 +212,9 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
                 <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City</span>
-                <input value={form.city} onChange={(e) => updateField("city", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City (ID / slug / name)</span>
+                <input value={form.city_id} onChange={(e) => { updateField("city_id", e.target.value); setResolvedCity(null); }} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                {resolvedCity ? <p className="mt-2 text-xs text-black/60">Resolved: {resolvedCity.name_bg} (id={resolvedCity.id}, slug={resolvedCity.slug})</p> : null}
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Region</span>

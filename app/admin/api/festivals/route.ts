@@ -7,6 +7,24 @@ function asString(value: string | null) {
   return typeof value === "string" ? value : "";
 }
 
+async function resolveCityId(city: string, supabase: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>["supabase"]) {
+  const trimmed = city.trim();
+  if (!trimmed) return null;
+
+  if (/^\d+$/.test(trimmed)) {
+    return Number(trimmed);
+  }
+
+  const { data } = await supabase
+    .from("cities")
+    .select("id")
+    .or(`slug.eq.${trimmed},name_bg.ilike.${trimmed}`)
+    .limit(1)
+    .maybeSingle<{ id: number }>();
+
+  return data?.id ?? null;
+}
+
 export async function GET(request: Request) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
@@ -32,7 +50,12 @@ export async function GET(request: Request) {
     }
 
     if (city) {
-      query = query.ilike("city", `%${city}%`);
+      const cityId = await resolveCityId(city, ctx.supabase);
+      if (cityId != null) {
+        query = query.eq("city_id", cityId);
+      } else {
+        query = query.ilike("city", `%${city}%`);
+      }
     }
 
     if (category) {

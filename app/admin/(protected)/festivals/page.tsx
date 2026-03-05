@@ -62,7 +62,7 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
         <h1 className="text-3xl font-black tracking-tight">Festivals</h1>
         <p className="mt-2 text-sm text-black/65">Филтрирай и управлявай фестивалите в системата.</p>
 
-        <form className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <form className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
           <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-black/50">
             Status
             <select name="status" defaultValue={status} className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm">
@@ -100,12 +100,12 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
             </select>
           </label>
 
-          <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-black/50">
+          <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-black/50 md:col-span-2">
             Search title
             <input name="q" defaultValue={q} className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm" />
           </label>
 
-          <div className="flex items-end gap-2 xl:col-span-5">
+          <div className="flex items-end gap-2 md:col-span-4">
             <button type="submit" className="rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white">
               Apply filters
             </button>

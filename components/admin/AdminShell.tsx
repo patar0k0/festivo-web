@@ -4,7 +4,7 @@ export default function AdminShell({ children, email }: { children: React.ReactN
   return (
     <div className="landing-bg min-h-screen text-[#0c0e14]">
       <div className="border-b border-black/[0.08] bg-white/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-3 px-4 py-4 md:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Festivo Admin</p>
             <p className="text-sm text-black/60">{email ?? "admin"}</p>
@@ -30,7 +30,7 @@ export default function AdminShell({ children, email }: { children: React.ReactN
           </div>
         </div>
       </div>
-      <div className="mx-auto w-full max-w-[1200px] px-4 py-6 md:px-6 md:py-8">{children}</div>
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 md:py-8">{children}</div>
     </div>
   );
 }

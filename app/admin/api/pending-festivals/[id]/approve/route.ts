@@ -28,12 +28,30 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       return NextResponse.json({ error: `Festival already reviewed with status '${pending.status}'.` }, { status: 409 });
     }
 
+    let cityText = "unknown";
+
+    if (pending.city_id) {
+      const { data: city, error: cityError } = await ctx.supabase
+        .from("cities")
+        .select("slug,name_bg")
+        .eq("id", pending.city_id)
+        .limit(1)
+        .maybeSingle();
+
+      if (cityError) {
+        return NextResponse.json({ error: `Approve failed during city lookup: ${cityError.message}` }, { status: 500 });
+      }
+
+      cityText = city?.slug ?? city?.name_bg ?? "unknown";
+    }
+
     const { data: insertedFestival, error: insertError } = await ctx.supabase
       .from("festivals")
       .insert({
         title: pending.title,
         slug: pending.slug,
         description: pending.description,
+        city: cityText,
         city_id: pending.city_id,
         location_name: pending.location_name,
         latitude: pending.latitude,

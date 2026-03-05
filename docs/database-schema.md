@@ -93,6 +93,33 @@
 
 ---
 
+### ingest_jobs
+
+**Purpose:** Queue table for source URLs submitted by admins and consumed later by ingestion workers before moderation in `pending_festivals`.
+
+| column | type | notes |
+|---|---|---|
+| id | uuid | primary key; default `gen_random_uuid()` |
+| source_url | text | not null; deduplicated unique source URL |
+| source_type | text | not null; default `facebook_event` |
+| status | text | not null; default `pending`; allowed: `pending`, `processing`, `done`, `failed` |
+| error | text | optional processing error details |
+| created_at | timestamptz | not null; default `now()` |
+| started_at | timestamptz | set when worker starts processing |
+| finished_at | timestamptz | set when worker finishes processing |
+
+**Primary keys:** `id`.  
+**Relationships:**
+- Ingestion workers read `ingest_jobs` and write parsed output into `pending_festivals` (application-level workflow).
+
+**Constraints / indexes visible:**
+- `status` check constraint allows only `pending`, `processing`, `done`, `failed`
+- `ingest_jobs_status_created_at_idx` on `(status, created_at desc)`
+- unique index `ingest_jobs_source_url_unique_idx` on `(source_url)`
+- RLS enabled with admin-only `SELECT`, `INSERT`, `UPDATE`, and `DELETE` policies (authenticated + `public.is_admin()`)
+
+---
+
 ### festival_days
 
 **Purpose:** Day-level breakdown for multi-day festivals.

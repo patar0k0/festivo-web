@@ -101,6 +101,14 @@ erDiagram
     timestamptz locked_at
   }
 
+  ingest_jobs {
+    uuid id PK
+    text source_url
+    text source_type
+    text status
+    timestamptz created_at
+  }
+
   festivals ||--o{ festival_days : has
   festival_days ||--o{ festival_schedule_items : has
   festivals ||--o{ festival_media : has
@@ -127,6 +135,8 @@ erDiagram
 
   cities ||--o{ festivals : city_slug_logical
   cities ||--o{ user_followed_cities : follows_logical
+
+  ingest_jobs ..> pending_festivals : worker_pipeline
 ```
 
 > Some relationships (`cities` and several support tables) are logical/inferred from query usage rather than explicit FK declarations in the migration files available in this repository.

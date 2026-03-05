@@ -29,11 +29,19 @@ type RealHomePageProps = {
 
 const CATEGORY_KEYS = ["folk", "jazz", "food", "art"] as const;
 
-function EventsSection({ title, festivals }: { title: string; festivals: Festival[] }) {
+function EventsSection({
+  title,
+  festivals,
+}: {
+  title: string;
+  festivals: Festival[];
+}) {
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-2xl font-black tracking-tight text-[#0c0e14]">{title}</h2>
+        <h2 className="text-2xl font-black tracking-tight text-[#0c0e14]">
+          {title}
+        </h2>
         <Link
           href="/festivals"
           className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
@@ -70,7 +78,12 @@ function EventsSection({ title, festivals }: { title: string; festivals: Festiva
   );
 }
 
-export default function RealHomePage({ nearestFestivals, weekendFestivals, topCities, quickChipHrefs }: RealHomePageProps) {
+export default function RealHomePage({
+  nearestFestivals,
+  weekendFestivals,
+  topCities,
+  quickChipHrefs,
+}: RealHomePageProps) {
   const chips = [
     { label: "Само безплатни", href: quickChipHrefs.free },
     { label: "Този уикенд", href: quickChipHrefs.weekend },
@@ -83,14 +96,21 @@ export default function RealHomePage({ nearestFestivals, weekendFestivals, topCi
 
   return (
     <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
-      <Section className="overflow-x-clip bg-transparent pb-10 pt-24 md:pb-12 md:pt-32">
+      <Section className="overflow-x-clip bg-transparent pb-10 pt-24 md:pb-12 md:pt-28">
         <Container>
           <div className="space-y-7 lg:space-y-10">
             <section className="rounded-[28px] border border-black/[0.08] bg-white/75 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">
               <div className="max-w-3xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">Festivo Preview</p>
-                <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Намери следващия си фестивал</h1>
-                <p className="mt-2 text-sm text-black/65 md:text-[15px]">Бързо избери локация и дата, за да видиш най-актуалните събития.</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">
+                  Festivo Preview
+                </p>
+                <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">
+                  Намери следващия си фестивал
+                </h1>
+                <p className="mt-2 text-sm text-black/65 md:text-[15px]">
+                  Бързо избери локация и дата, за да видиш най-актуалните
+                  събития.
+                </p>
               </div>
 
               <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-center">
@@ -101,7 +121,12 @@ export default function RealHomePage({ nearestFestivals, weekendFestivals, topCi
                   Открий около мен
                 </Link>
                 {topCities.length ? (
-                  <CitySelectClient cities={topCities.map((city) => ({ name: city.name, slug: city.slug }))} />
+                  <CitySelectClient
+                    cities={topCities.map((city) => ({
+                      name: city.name,
+                      slug: city.slug,
+                    }))}
+                  />
                 ) : (
                   <Link
                     href="/festivals"
@@ -125,7 +150,9 @@ export default function RealHomePage({ nearestFestivals, weekendFestivals, topCi
             <EventsSection title="Този уикенд" festivals={weekendFestivals} />
 
             <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur md:p-6">
-              <h2 className="text-2xl font-black tracking-tight text-[#0c0e14]">Градове</h2>
+              <h2 className="text-2xl font-black tracking-tight text-[#0c0e14]">
+                Градове
+              </h2>
               <div className="mt-4 flex flex-wrap gap-2">
                 {topCities.length ? (
                   topCities.map((city) => (
@@ -138,7 +165,9 @@ export default function RealHomePage({ nearestFestivals, weekendFestivals, topCi
                     </Link>
                   ))
                 ) : (
-                  <p className="text-sm text-black/60">Все още няма налични градове.</p>
+                  <p className="text-sm text-black/60">
+                    Все още няма налични градове.
+                  </p>
                 )}
               </div>
             </section>

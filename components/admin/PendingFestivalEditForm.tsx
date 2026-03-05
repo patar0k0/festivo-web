@@ -81,8 +81,12 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [resolvedCity, setResolvedCity] = useState<ResolvedCity | null>(null);
+  const [heroPreviewError, setHeroPreviewError] = useState(false);
 
   const updateField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
+    if (key === "hero_image") {
+      setHeroPreviewError(false);
+    }
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -271,6 +275,26 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Hero image</span>
                 <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                {form.hero_image.trim() ? (
+                  <div className="mt-3">
+                    <a href={form.hero_image.trim()} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#0c0e14] underline underline-offset-2">
+                      Open image in new tab
+                    </a>
+                    <div className="mt-3 overflow-hidden rounded-2xl border border-black/10">
+                      {heroPreviewError ? (
+                        <p className="p-4 text-sm text-black/60">Image preview unavailable for this URL.</p>
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={form.hero_image.trim()}
+                          alt="Hero preview"
+                          className="h-auto max-h-[360px] w-full object-cover"
+                          onError={() => setHeroPreviewError(true)}
+                        />
+                      )}
+                    </div>
+                  </div>
+                ) : null}
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />

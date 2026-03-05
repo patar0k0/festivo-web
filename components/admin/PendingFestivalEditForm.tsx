@@ -25,6 +25,12 @@ type PendingFestivalRecord = {
   reviewed_by: string | null;
 };
 
+type ResolvedCity = {
+  id: number;
+  name_bg: string;
+  slug: string;
+};
+
 function asDateInput(value: string | null) {
   return value ? value.slice(0, 10) : "";
 }
@@ -74,6 +80,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [resolvedCity, setResolvedCity] = useState<ResolvedCity | null>(null);
 
   const updateField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -95,6 +102,33 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
     }
 
     try {
+      const cityInput = form.city_id.trim();
+      let cityId: number | null = null;
+
+      if (!cityInput) {
+        cityId = null;
+        setResolvedCity(null);
+      } else if (/^\d+$/.test(cityInput)) {
+        cityId = Number(cityInput);
+        setResolvedCity(null);
+      } else {
+        const resolveResponse = await fetch(`/admin/api/cities/resolve?q=${encodeURIComponent(cityInput)}`, {
+          credentials: "include",
+        });
+
+        if (!resolveResponse.ok) {
+          if (resolveResponse.status === 404) {
+            throw new Error("City not found");
+          }
+
+          throw new Error(await readErrorMessage(resolveResponse, "Failed to resolve city."));
+        }
+
+        const resolved = (await resolveResponse.json()) as ResolvedCity;
+        cityId = resolved.id;
+        setResolvedCity(resolved);
+      }
+
       const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}`, {
         method: "PATCH",
         credentials: "include",
@@ -103,7 +137,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
           title: form.title.trim(),
           slug: form.slug.trim() || null,
           description: form.description.trim() || null,
-          city_id: form.city_id.trim() || null,
+          city_id: cityId,
           location_name: form.location_name.trim() || null,
           latitude: form.latitude.trim() ? Number(form.latitude) : null,
           longitude: form.longitude.trim() ? Number(form.longitude) : null,
@@ -177,8 +211,16 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                 <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City ID</span>
-                <input value={form.city_id} onChange={(e) => updateField("city_id", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City (ID / slug / name)</span>
+                <input
+                  value={form.city_id}
+                  onChange={(e) => {
+                    updateField("city_id", e.target.value);
+                    setResolvedCity(null);
+                  }}
+                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                />
+                {resolvedCity ? <p className="mt-2 text-xs text-black/60">Resolved: {resolvedCity.name_bg} (id={resolvedCity.id}, slug={resolvedCity.slug})</p> : null}
               </label>
               <label className="md:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Description</span>

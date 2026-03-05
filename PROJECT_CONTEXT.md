@@ -68,6 +68,7 @@ Admin role stored in: `user_roles`
 Admin pages located in: `/app/admin`
 
 Pending ingestion moderation route: `/admin/pending-festivals` (review, edit, approve, reject).
+Admin city resolver API: `/admin/api/cities/resolve?q=...` (maps city id/slug/name input to a canonical city id for moderation forms).
 
 Ingestion queue route: `/admin/ingest` (enqueue Facebook event URLs into `ingest_jobs`).
 

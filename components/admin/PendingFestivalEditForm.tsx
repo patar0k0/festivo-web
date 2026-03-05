@@ -70,7 +70,7 @@ async function formatCityResolveError(response: Response, cityInput: string) {
   const normalizedInput = payload?.normalized_input ?? cityInput.trim().toLocaleLowerCase("bg-BG");
   const suggestions = payload?.suggestions ?? [];
 
-  let message = `City not found for input "${normalizedInput}".`;
+  let message = `Unable to resolve city input "${normalizedInput}".`;
   if (suggestions.length > 0) {
     const suggestionText = suggestions.map((city) => `${city.name_bg} (slug: ${city.slug})`).join(", ");
     message += ` Suggestions: ${suggestionText}.`;
@@ -198,6 +198,10 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
       const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/${action}`, {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          city: form.city_id.trim() || null,
+        }),
       });
 
       if (!response.ok) {

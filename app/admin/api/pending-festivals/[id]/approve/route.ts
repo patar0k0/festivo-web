@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { slugify } from "@/lib/utils";
 
+type CityRow = {
+  id: number;
+  slug: string;
+  name_bg: string;
+};
+
+type ApprovePayload = {
+  city?: string | null;
+};
+
 function buildBaseSlug(slug: string | null, title: string, pendingId: string) {
   const trimmedSlug = (slug ?? "").trim();
   const fromTitle = slugify(title)
@@ -15,7 +25,17 @@ function buildBaseSlug(slug: string | null, title: string, pendingId: string) {
   return baseSlug || `festival-${pendingId}`;
 }
 
-export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
+function normalizeCityInput(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function toDisplayCityName(value: string) {
+  const lowered = value.toLocaleLowerCase("bg-BG");
+  const [first = "", ...rest] = lowered;
+  return `${first.toLocaleUpperCase("bg-BG")}${rest.join("")}`;
+}
+
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -33,8 +53,74 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
     return Boolean(data && data.length > 0);
   }
 
+  async function resolveOrCreateCity(cityText: string): Promise<CityRow & { created: boolean; normalizedInput: string }> {
+    const normalizedInput = normalizeCityInput(cityText);
+    const displayName = toDisplayCityName(normalizedInput);
+    const slug = slugify(normalizedInput).toLowerCase();
+
+    if (!slug) {
+      throw new Error("Approve failed during city resolve: empty slug from input.");
+    }
+
+    const { data: existingBySlug, error: existingBySlugError } = await adminCtx.supabase
+      .from("cities")
+      .select("id,slug,name_bg")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (existingBySlugError) {
+      throw new Error(`Approve failed during city lookup: ${existingBySlugError.message}`);
+    }
+
+    if (existingBySlug) {
+      return { ...existingBySlug, created: false, normalizedInput };
+    }
+
+    const { data: insertedCity, error: insertCityError } = await adminCtx.supabase
+      .from("cities")
+      .insert({
+        name_bg: displayName,
+        slug,
+      })
+      .select("id,slug,name_bg")
+      .maybeSingle();
+
+    if (!insertCityError && insertedCity) {
+      return { ...insertedCity, created: true, normalizedInput };
+    }
+
+    if (insertCityError?.code === "23505") {
+      const { data: cityAfterConflict, error: cityAfterConflictError } = await adminCtx.supabase
+        .from("cities")
+        .select("id,slug,name_bg")
+        .eq("slug", slug)
+        .maybeSingle();
+
+      if (cityAfterConflictError) {
+        throw new Error(`Approve failed during city conflict lookup: ${cityAfterConflictError.message}`);
+      }
+
+      if (cityAfterConflict) {
+        return { ...cityAfterConflict, created: false, normalizedInput };
+      }
+    }
+
+    throw new Error(`Approve failed during city insert: ${insertCityError?.message ?? "unknown error"}`);
+  }
+
+  async function findCityById(cityId: number) {
+    const { data, error } = await adminCtx.supabase.from("cities").select("id,slug,name_bg").eq("id", cityId).maybeSingle();
+
+    if (error) {
+      throw new Error(`Approve failed during city lookup: ${error.message}`);
+    }
+
+    return data as CityRow | null;
+  }
+
   try {
     const { id } = await params;
+    const body = (await request.json().catch(() => null)) as ApprovePayload | null;
 
     const { data: pending, error: pendingError } = await adminCtx.supabase
       .from("pending_festivals")
@@ -54,25 +140,36 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       return NextResponse.json({ error: `Festival already reviewed with status '${pending.status}'.` }, { status: 409 });
     }
 
+    const cityInputRaw = typeof body?.city === "string" ? body.city : "";
+    const cityInput = normalizeCityInput(cityInputRaw);
+
     let cityText = "unknown";
+    let cityId: number | null = pending.city_id ?? null;
 
-    if (pending.city_id != null) {
-      const { data: city, error: cityError } = await adminCtx.supabase
-        .from("cities")
-        .select("slug,name_bg")
-        .eq("id", pending.city_id)
-        .maybeSingle();
+    if (cityInput) {
+      if (/^\d+$/.test(cityInput)) {
+        const cityById = await findCityById(Number(cityInput));
+        if (!cityById) {
+          return NextResponse.json({ error: "Approve failed during city lookup: city id not found." }, { status: 500 });
+        }
 
-      if (cityError) {
-        return NextResponse.json({ error: `Approve failed during city lookup: ${cityError.message}` }, { status: 500 });
+        cityId = cityById.id;
+        cityText = cityById.slug || cityById.name_bg || cityText;
+        console.info(`[approve] city input="${cityInput}" resolved="${cityById.slug}" created=false`);
+      } else {
+        const resolvedCity = await resolveOrCreateCity(cityInput);
+        cityId = resolvedCity.id;
+        cityText = resolvedCity.slug;
+        console.info(`[approve] city input="${resolvedCity.normalizedInput}" resolved="${resolvedCity.slug}" created=${resolvedCity.created}`);
+      }
+    } else if (pending.city_id != null) {
+      const cityByPendingId = await findCityById(pending.city_id);
+      if (!cityByPendingId) {
+        return NextResponse.json({ error: "Approve failed during city lookup: pending city id not found." }, { status: 500 });
       }
 
-      if (city?.slug) {
-        cityText = city.slug;
-      } else if (city?.name_bg) {
-        cityText = city.name_bg;
-        console.warn(`[pending-approve] city ${pending.city_id} missing slug; using name_bg fallback.`);
-      }
+      cityId = cityByPendingId.id;
+      cityText = cityByPendingId.slug || cityByPendingId.name_bg || cityText;
     }
 
     if (pending.source_url) {
@@ -113,7 +210,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       slug: finalSlug,
       description: pending.description,
       city: cityText,
-      city_id: pending.city_id,
+      city_id: cityId,
       location_name: pending.location_name,
       latitude: pending.latitude,
       longitude: pending.longitude,

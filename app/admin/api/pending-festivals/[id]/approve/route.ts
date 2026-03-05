@@ -1,10 +1,29 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { slugify } from "@/lib/utils";
 
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  async function generateUniqueSlug(baseSlug: string) {
+    let slug = baseSlug;
+    let counter = 2;
+
+    while (true) {
+      const { data } = await ctx.supabase
+        .from("festivals")
+        .select("id")
+        .eq("slug", slug)
+        .limit(1);
+
+      if (!data || data.length === 0) return slug;
+
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
   }
 
   try {
@@ -28,6 +47,9 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       return NextResponse.json({ error: `Festival already reviewed with status '${pending.status}'.` }, { status: 409 });
     }
 
+    const baseSlug = pending.slug ?? slugify(pending.title);
+    const finalSlug = await generateUniqueSlug(baseSlug);
+
     let cityText = "unknown";
 
     if (pending.city_id) {
@@ -49,7 +71,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       .from("festivals")
       .insert({
         title: pending.title,
-        slug: pending.slug,
+        slug: finalSlug,
         description: pending.description,
         city: cityText,
         city_id: pending.city_id,

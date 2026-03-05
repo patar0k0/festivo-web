@@ -101,7 +101,7 @@ export default async function CityLandingPage({
   const citySlug = city.slug;
 
   const parsedFilters = parseFilters(resolvedSearchParams);
-  const filters = withDefaultFilters({ ...parsedFilters, city: [cityName], sort: "soonest" });
+  const filters = withDefaultFilters({ ...parsedFilters, city: [citySlug], sort: "soonest" });
   const page = Number(resolvedSearchParams.page ?? 1);
   const safePage = Number.isNaN(page) ? 1 : page;
 
@@ -112,7 +112,7 @@ export default async function CityLandingPage({
   const [cityFestivals, cityStats] = await Promise.all([
     listFestivals(filters, safePage, 12),
     listFestivals(
-      { city: [cityName], sort: "soonest" },
+      { city: [citySlug], sort: "soonest" },
       1,
       120,
       { applyDefaults: false },
@@ -140,10 +140,10 @@ export default async function CityLandingPage({
     .sort((a, b) => a[0].localeCompare(b[0]))
     .slice(0, 4);
 
-  const freeLink = serializeFilters({ ...filters, city: [cityName], free: true });
+  const freeLink = serializeFilters({ ...filters, city: [citySlug], free: true });
   const monthLink = serializeFilters({
     ...filters,
-    city: [cityName],
+    city: [citySlug],
     from: format(monthStart, "yyyy-MM-dd"),
     to: format(monthEnd, "yyyy-MM-dd"),
   });
@@ -175,7 +175,7 @@ export default async function CityLandingPage({
                   Този месец
                 </Link>
                 {categoryQuick.map(([category]) => {
-                  const categoryLink = serializeFilters({ ...filters, city: [cityName], cat: [category] });
+                  const categoryLink = serializeFilters({ ...filters, city: [citySlug], cat: [category] });
                   return (
                     <Link
                       key={category}

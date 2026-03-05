@@ -40,6 +40,8 @@ The system includes:
 
 Full schema documented in: `docs/database-schema.md`
 
+City consistency rule: `festivals.city_id` is the canonical city reference and denormalized `festivals.city` stores `cities.slug` for SEO/filter paths.
+
 ## Planning System
 Users can:
 - save festivals

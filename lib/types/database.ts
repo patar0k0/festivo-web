@@ -22,7 +22,7 @@ export type Database = {
           slug: string
           description: string
           city: string
-          city_slug: string
+          city_id: number | null
           region: string
           address: string | null
           start_date: string
@@ -49,7 +49,7 @@ export type Database = {
           slug: string
           description: string
           city: string
-          city_slug: string
+          city_id?: number | null
           region: string
           address?: string | null
           start_date: string
@@ -76,7 +76,7 @@ export type Database = {
           slug?: string
           description?: string
           city?: string
-          city_slug?: string
+          city_id?: number | null
           region?: string
           address?: string | null
           start_date?: string

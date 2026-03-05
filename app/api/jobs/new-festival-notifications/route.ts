@@ -9,7 +9,7 @@ type FestivalRow = {
   id: string;
   title: string | null;
   city: string | null;
-  city_slug: string | null;
+  city_id: number | null;
   category_slug: string | null;
   organizer_id: string | null;
 };
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
   const { data: festival, error: festivalError } = await supabase
     .from("festivals")
-    .select("id,title,city,city_slug,category_slug,organizer_id")
+    .select("id,title,city,city_id,category_slug,organizer_id")
     .eq("id", festivalId)
     .single();
 
@@ -69,7 +69,13 @@ export async function POST(request: Request) {
 
   const festivalRow = festival as FestivalRow;
 
-  if (!festivalRow.city_slug && !festivalRow.category_slug && !festivalRow.organizer_id) {
+  let citySlug = festivalRow.city;
+  if (!citySlug && festivalRow.city_id != null) {
+    const { data: city } = await supabase.from("cities").select("slug").eq("id", festivalRow.city_id).maybeSingle<{ slug: string }>();
+    citySlug = city?.slug ?? null;
+  }
+
+  if (!citySlug && !festivalRow.category_slug && !festivalRow.organizer_id) {
     return NextResponse.json({ created: 0, skipped: 0, recipients: 0 });
   }
 
@@ -77,11 +83,11 @@ export async function POST(request: Request) {
   const categoryFollowerIds = new Set<string>();
   const organizerFollowerIds = new Set<string>();
 
-  if (festivalRow.city_slug) {
+  if (citySlug) {
     const { data, error } = await supabase
       .from("user_followed_cities")
       .select("user_id")
-      .eq("city_slug", festivalRow.city_slug);
+      .eq("city_slug", citySlug);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -163,7 +169,7 @@ export async function POST(request: Request) {
   }
 
   const nowIso = new Date().toISOString();
-  const cityLabel = festivalRow.city ?? festivalRow.city_slug ?? "your city";
+  const cityLabel = citySlug ?? "your city";
   const notifications = recipients.map((userId) => ({
     user_id: userId,
     festival_id: festivalRow.id,

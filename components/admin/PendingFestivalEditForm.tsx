@@ -31,6 +31,12 @@ type ResolvedCity = {
   slug: string;
 };
 
+type ErrorPayload = {
+  error?: string;
+  normalized_input?: string;
+  suggestions?: ResolvedCity[];
+};
+
 function asDateInput(value: string | null) {
   return value ? value.slice(0, 10) : "";
 }
@@ -55,8 +61,22 @@ function validateCoords(latitudeRaw: string, longitudeRaw: string) {
 }
 
 async function readErrorMessage(response: Response, fallback: string) {
-  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  const payload = (await response.json().catch(() => null)) as ErrorPayload | null;
   return payload?.error ?? fallback;
+}
+
+async function formatCityResolveError(response: Response, cityInput: string) {
+  const payload = (await response.json().catch(() => null)) as ErrorPayload | null;
+  const normalizedInput = payload?.normalized_input ?? cityInput.trim().toLocaleLowerCase("bg-BG");
+  const suggestions = payload?.suggestions ?? [];
+
+  let message = `City not found for input "${normalizedInput}".`;
+  if (suggestions.length > 0) {
+    const suggestionText = suggestions.map((city) => `${city.name_bg} (slug: ${city.slug})`).join(", ");
+    message += ` Suggestions: ${suggestionText}.`;
+  }
+
+  return message;
 }
 
 export default function PendingFestivalEditForm({ pendingFestival }: { pendingFestival: PendingFestivalRecord }) {
@@ -122,7 +142,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
 
         if (!resolveResponse.ok) {
           if (resolveResponse.status === 404) {
-            throw new Error("City not found");
+            throw new Error(await formatCityResolveError(resolveResponse, cityInput));
           }
 
           throw new Error(await readErrorMessage(resolveResponse, "Failed to resolve city."));

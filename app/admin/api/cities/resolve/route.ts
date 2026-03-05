@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { slugify } from "@/lib/utils";
 
 type ResolvedCity = {
   id: number;
@@ -8,6 +9,70 @@ type ResolvedCity = {
 };
 
 type AdminContext = NonNullable<Awaited<ReturnType<typeof getAdminContext>>>;
+
+type CityResolveQueryFn = {
+  findBySlugExact: (slug: string) => Promise<ResolvedCity | null>;
+  findByNameCaseInsensitive: (name: string) => Promise<ResolvedCity | null>;
+  findSuggestions: (name: string, slug: string, limit: number) => Promise<ResolvedCity[]>;
+};
+
+type CityResolveResult = {
+  city: ResolvedCity | null;
+  normalizedInput: string;
+  suggestions: ResolvedCity[];
+};
+
+function uniqueCities(cities: ResolvedCity[]) {
+  const seen = new Set<number>();
+  const unique: ResolvedCity[] = [];
+
+  for (const city of cities) {
+    if (!seen.has(city.id)) {
+      seen.add(city.id);
+      unique.push(city);
+    }
+  }
+
+  return unique;
+}
+
+function hasCyrillic(value: string) {
+  return /[\u0400-\u04FF]/.test(value);
+}
+
+export async function resolveCity(input: string, queryFn: CityResolveQueryFn): Promise<CityResolveResult> {
+  const normalizedInput = input.trim().toLocaleLowerCase("bg-BG");
+  const slugCandidate = slugify(input.trim()).toLowerCase();
+
+  if (!normalizedInput) {
+    return { city: null, normalizedInput, suggestions: [] };
+  }
+
+  if (slugCandidate) {
+    const bySlug = await queryFn.findBySlugExact(slugCandidate);
+    if (bySlug) {
+      return { city: bySlug, normalizedInput, suggestions: [] };
+    }
+  }
+
+  const byName = await queryFn.findByNameCaseInsensitive(normalizedInput);
+  if (byName) {
+    return { city: byName, normalizedInput, suggestions: [] };
+  }
+
+  if (hasCyrillic(normalizedInput)) {
+    const cyrillicFallbackSlug = slugify(normalizedInput).toLowerCase();
+    if (cyrillicFallbackSlug && cyrillicFallbackSlug !== slugCandidate) {
+      const byCyrillicFallbackSlug = await queryFn.findBySlugExact(cyrillicFallbackSlug);
+      if (byCyrillicFallbackSlug) {
+        return { city: byCyrillicFallbackSlug, normalizedInput, suggestions: [] };
+      }
+    }
+  }
+
+  const suggestions = await queryFn.findSuggestions(normalizedInput, slugCandidate || normalizedInput, 5);
+  return { city: null, normalizedInput, suggestions };
+}
 
 async function findCityById(ctx: AdminContext, cityId: number) {
   const { data, error } = await ctx.supabase.from("cities").select("id,name_bg,slug").eq("id", cityId).maybeSingle();
@@ -19,34 +84,32 @@ async function findCityById(ctx: AdminContext, cityId: number) {
   return data as ResolvedCity | null;
 }
 
-async function runCitySearch(ctx: AdminContext, matcher: "slug" | "nameExact" | "nameFuzzy", q: string) {
-  let query = ctx.supabase.from("cities").select("id,name_bg,slug");
+function buildCityResolveQuery(ctx: AdminContext): CityResolveQueryFn {
+  return {
+    async findBySlugExact(slug) {
+      const { data, error } = await ctx.supabase.from("cities").select("id,name_bg,slug").eq("slug", slug).limit(1);
+      if (error) throw new Error(error.message);
+      return (data?.[0] ?? null) as ResolvedCity | null;
+    },
+    async findByNameCaseInsensitive(name) {
+      const { data, error } = await ctx.supabase.from("cities").select("id,name_bg,slug").ilike("name_bg", name).limit(5);
+      if (error) throw new Error(error.message);
 
-  if (matcher === "slug") {
-    query = query.eq("slug", q);
-  } else if (matcher === "nameExact") {
-    query = query.ilike("name_bg", q);
-  } else {
-    query = query.ilike("name_bg", `%${q}%`);
-  }
+      const exact = (data ?? []).find((city) => city.name_bg.toLocaleLowerCase("bg-BG") === name);
+      return (exact ?? data?.[0] ?? null) as ResolvedCity | null;
+    },
+    async findSuggestions(name, slug, limit) {
+      const [nameResult, slugResult] = await Promise.all([
+        ctx.supabase.from("cities").select("id,name_bg,slug").ilike("name_bg", `%${name}%`).limit(limit),
+        ctx.supabase.from("cities").select("id,name_bg,slug").ilike("slug", `%${slug}%`).limit(limit),
+      ]);
 
-  const { data, error } = await query.limit(1);
+      if (nameResult.error) throw new Error(nameResult.error.message);
+      if (slugResult.error) throw new Error(slugResult.error.message);
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data?.[0] ?? null) as ResolvedCity | null;
-}
-
-async function findCityByText(ctx: AdminContext, q: string) {
-  const bySlug = await runCitySearch(ctx, "slug", q);
-  if (bySlug) return bySlug;
-
-  const byName = await runCitySearch(ctx, "nameExact", q);
-  if (byName) return byName;
-
-  return runCitySearch(ctx, "nameFuzzy", q);
+      return uniqueCities([...(nameResult.data ?? []), ...(slugResult.data ?? [])]).slice(0, limit) as ResolvedCity[];
+    },
+  };
 }
 
 export async function GET(request: Request) {
@@ -64,13 +127,29 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Missing q" }, { status: 400 });
     }
 
-    const city = /^\d+$/.test(q) ? await findCityById(ctx, Number(q)) : await findCityByText(ctx, q);
+    if (/^\d+$/.test(q)) {
+      const cityById = await findCityById(ctx, Number(q));
+      if (!cityById) {
+        return NextResponse.json({ error: "City not found", normalized_input: q.trim().toLocaleLowerCase("bg-BG") }, { status: 404 });
+      }
 
-    if (!city) {
-      return NextResponse.json({ error: "City not found" }, { status: 404 });
+      return NextResponse.json(cityById);
     }
 
-    return NextResponse.json(city);
+    const resolved = await resolveCity(q, buildCityResolveQuery(ctx));
+
+    if (!resolved.city) {
+      return NextResponse.json(
+        {
+          error: "City not found",
+          normalized_input: resolved.normalizedInput,
+          suggestions: resolved.suggestions,
+        },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(resolved.city);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected admin API error";
     return NextResponse.json({ error: message }, { status: 500 });

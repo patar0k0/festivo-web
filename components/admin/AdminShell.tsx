@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 export default function AdminShell({ children, email }: { children: React.ReactNode; email?: string | null }) {
   return (

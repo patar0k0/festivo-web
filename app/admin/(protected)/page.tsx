@@ -34,10 +34,10 @@ export default async function AdminDashboardPage() {
     <div className="space-y-6">
       <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
         <h1 className="text-3xl font-black tracking-tight">Admin Dashboard</h1>
-        <p className="mt-2 text-sm text-black/65">РЈРїСЂР°РІР»СЏРІР°Р№ С„РµСЃС‚РёРІР°Р»РёС‚Рµ, СЃС‚Р°С‚СѓСЃРёС‚Рµ Рё РѕСЃРЅРѕРІРЅРёС‚Рµ РјРµС‚Р°РґР°РЅРЅРё.</p>
+        <p className="mt-2 text-sm text-black/65">Управлявай фестивалите, статусите и основните метаданни.</p>
         <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.14em]">
           <Link href="/admin/festivals" className="rounded-xl bg-[#0c0e14] px-4 py-2 text-white hover:bg-[#1d202b]">
-            РљСЉРј С„РµСЃС‚РёРІР°Р»Рё
+            Към фестивали
           </Link>
         </div>
       </div>

@@ -11,17 +11,27 @@ erDiagram
     text slug
     text title
     bigint city_id FK
+    text city
     text category_slug
     uuid organizer_id FK
   }
 
   cities {
-    text slug PK
+    bigint id PK
+    text slug UK
     text name_bg
   }
 
   organizers {
     uuid id PK
+  }
+
+  pending_festivals {
+    uuid id PK
+    bigint city_id FK
+    text status
+    text source_url
+    timestamptz created_at
   }
 
   festival_days {
@@ -134,9 +144,10 @@ erDiagram
   festival_schedule_items ||--o{ user_plan_items : planned_item
 
   cities ||--o{ festivals : city_id_fk
+  cities ||--o{ pending_festivals : moderation_city_fk
   cities ||--o{ user_followed_cities : follows_logical
 
   ingest_jobs ..> pending_festivals : worker_pipeline
 ```
 
-> Some relationships (`cities` and several support tables) are logical/inferred from query usage rather than explicit FK declarations in the migration files available in this repository.
+> Some relationships (`user_followed_cities.city_slug` and several support-table links) are logical/inferred from query usage rather than explicit FK declarations in the migration files available in this repository.

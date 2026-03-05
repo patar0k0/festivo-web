@@ -87,27 +87,45 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       );
     }
 
-    const { data: insertedFestival, error: insertError } = await adminCtx.supabase
+    const insertPayload = {
+      title: pending.title,
+      slug: finalSlug,
+      description: pending.description,
+      city: cityText,
+      city_id: pending.city_id,
+      location_name: pending.location_name,
+      latitude: pending.latitude,
+      longitude: pending.longitude,
+      start_date: pending.start_date,
+      end_date: pending.end_date,
+      organizer_name: pending.organizer_name,
+      source_url: pending.source_url,
+      is_free: pending.is_free ?? true,
+      hero_image: pending.hero_image,
+      category: "festival",
+      status: "verified",
+      is_verified: true,
+    };
+
+    let { data: insertedFestival, error: insertError } = await adminCtx.supabase
       .from("festivals")
-      .insert({
-        title: pending.title,
-        slug: finalSlug,
-        description: pending.description,
-        city: cityText,
-        city_id: pending.city_id,
-        location_name: pending.location_name,
-        latitude: pending.latitude,
-        longitude: pending.longitude,
-        start_date: pending.start_date,
-        end_date: pending.end_date,
-        organizer_name: pending.organizer_name,
-        source_url: pending.source_url,
-        is_free: pending.is_free ?? true,
-        hero_image: pending.hero_image,
-        category: "festival",
-      })
+      .insert(insertPayload)
       .select("id")
       .maybeSingle();
+
+    if (insertError?.code === "42703" && insertError.message.includes("is_verified")) {
+      const payloadWithoutIsVerified = { ...insertPayload };
+      delete (payloadWithoutIsVerified as { is_verified?: boolean }).is_verified;
+
+      const retryResult = await adminCtx.supabase
+        .from("festivals")
+        .insert(payloadWithoutIsVerified)
+        .select("id")
+        .maybeSingle();
+
+      insertedFestival = retryResult.data;
+      insertError = retryResult.error;
+    }
 
     if (insertError) {
       if (insertError.code === "23505") {

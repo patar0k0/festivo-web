@@ -114,7 +114,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       .maybeSingle();
 
     if (insertError?.code === "42703" && insertError.message.includes("is_verified")) {
-      const payloadWithoutIsVerified = { ...insertPayload };
+      const payloadWithoutIsVerified = { ...insertPayload, status: "verified" };
       delete (payloadWithoutIsVerified as { is_verified?: boolean }).is_verified;
 
       const retryResult = await adminCtx.supabase

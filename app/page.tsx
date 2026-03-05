@@ -64,11 +64,13 @@ export default async function HomePage() {
   };
 
   return (
-    <RealHomePage
-      nearestFestivals={nearestResult.data}
-      weekendFestivals={weekendResult.data}
-      topCities={citiesResult.slice(0, 8)}
-      quickChipHrefs={quickChipHrefs}
-    />
+    <div className="mx-auto max-w-6xl px-4">
+      <RealHomePage
+        nearestFestivals={nearestResult.data}
+        weekendFestivals={weekendResult.data}
+        topCities={citiesResult.slice(0, 8)}
+        quickChipHrefs={quickChipHrefs}
+      />
+    </div>
   );
 }

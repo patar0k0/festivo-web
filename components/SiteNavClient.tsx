@@ -52,11 +52,10 @@ export default function SiteNavClient({ isAuthenticated, userEmail }: SiteNavCli
           Меню
         </button>
         {isOpen ? (
-          <div className="fixed inset-0 z-50">
-            <button aria-label="Close menu" className="absolute inset-0 bg-black/35 backdrop-blur-[1px]" onClick={closeMenu} />
+          <div className="fixed inset-0 z-50 bg-white">
             <div
               id="site-mobile-menu"
-              className="absolute right-0 top-0 flex h-full w-full max-w-full flex-col border-l border-black/[0.08] bg-[#f5f4f0] p-5 shadow-[-10px_0_30px_rgba(12,14,20,0.16)]"
+              className="flex h-full w-full max-w-full flex-col bg-[#f5f4f0] p-5"
             >
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Меню</p>

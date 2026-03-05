@@ -47,7 +47,7 @@ function EventsSection({ title, festivals }: { title: string; festivals: Festiva
           Няма налични фестивали за тази секция.
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 xl:gap-6">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:gap-6">
           {festivals.map((festival) => (
             <EventCard
               key={festival.slug}
@@ -83,7 +83,7 @@ export default function RealHomePage({ nearestFestivals, weekendFestivals, topCi
 
   return (
     <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
-      <Section className="overflow-x-clip bg-transparent pb-10 pt-5 md:pb-12 md:pt-8">
+      <Section className="overflow-x-clip bg-transparent pb-10 pt-24 md:pb-12 md:pt-32">
         <Container>
           <div className="space-y-7 lg:space-y-10">
             <section className="rounded-[28px] border border-black/[0.08] bg-white/75 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">

@@ -27,6 +27,7 @@ The system includes:
 - cities
 - festivals
 - pending_festivals
+- ingest_jobs
 - festival_days
 - festival_schedule_items
 - organizers
@@ -67,6 +68,8 @@ Admin role stored in: `user_roles`
 Admin pages located in: `/app/admin`
 
 Pending ingestion moderation route: `/admin/pending-festivals` (review, edit, approve, reject).
+
+Ingestion queue route: `/admin/ingest` (enqueue Facebook event URLs into `ingest_jobs`).
 
 ## Architecture Documentation
 Detailed architecture: `docs/system-architecture.md`  

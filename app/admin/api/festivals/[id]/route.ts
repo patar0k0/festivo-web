@@ -69,11 +69,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const body = (await request.json()) as Payload;
-    const { data: existingFestival } = await ctx.supabase
-      .from("festivals")
-      .select("city,city_id,location_name")
-      .eq("id", id)
-      .maybeSingle<{ city: string | null; city_id: number | null; location_name?: string | null }>();
 
     const patch: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -174,8 +169,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       selectedCity = await findCityById(ctx, patch.city_id);
     }
 
-    const locationName = existingFestival?.location_name ?? null;
-    const cityDisplay = selectedCity?.name_bg ?? locationName ?? selectedCity?.slug ?? (typeof patch.city === "string" ? patch.city : "");
+    const cityDisplay = selectedCity?.name_bg ?? selectedCity?.slug ?? (typeof patch.city === "string" ? patch.city : "");
     const citySlug = selectedCity?.slug ?? (typeof patch.city === "string" ? patch.city : "");
     const cityIdForLog = selectedCity?.id ?? (typeof patch.city_id === "number" ? patch.city_id : null);
     console.info(

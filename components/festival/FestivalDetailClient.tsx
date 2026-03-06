@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import Badge from "@/components/ui/Badge";
@@ -136,6 +136,7 @@ export default function FestivalDetailClient({
 
   const imageMedia = media.filter((item) => isImageMedia(item.type) && Boolean(item.url));
   const heroImage = festival.image_url ?? imageMedia[0]?.url ?? null;
+  const [heroImageFailed, setHeroImageFailed] = useState(false);
   const primaryCta = mapHref ? { label: "Навигация", href: mapHref } : null;
   const secondaryCta = festival.ticket_url
     ? { label: "Билети", href: festival.ticket_url }
@@ -143,6 +144,15 @@ export default function FestivalDetailClient({
       ? { label: "Уебсайт", href: festival.website_url }
       : null;
   const categoryText = categoryLabel(festival.category);
+
+  useEffect(() => {
+    setHeroImageFailed(false);
+  }, [heroImage]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development" || !heroImage) return;
+    console.debug("[FestivalDetail] heroImage", heroImage);
+  }, [heroImage]);
 
   const clearPlan = async () => {
     const ids = selectedItems.map((item) => String(item.id));
@@ -155,9 +165,17 @@ export default function FestivalDetailClient({
     <div className="space-y-8 md:space-y-10">
       <section className="overflow-hidden rounded-[24px] border border-black/[0.08] bg-white shadow-[0_2px_0_rgba(12,14,20,0.06),0_12px_32px_rgba(12,14,20,0.07)]">
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
-          {heroImage ? (
+          {heroImage && !heroImageFailed ? (
             <>
-              <FallbackImage src={heroImage} alt={festival.title} fill className="object-cover" priority />
+              <img
+                src={heroImage}
+                alt={festival.title || "Festival"}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                onError={() => {
+                  setHeroImageFailed(true);
+                }}
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
             </>
           ) : (
@@ -498,5 +516,4 @@ export default function FestivalDetailClient({
     </div>
   );
 }
-
 

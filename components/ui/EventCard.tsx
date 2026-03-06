@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { bg } from "date-fns/locale";
 import Link from "next/link";
 import FallbackImage from "@/components/ui/FallbackImage";
 import PlanInlineControls from "@/components/plan/PlanInlineControls";
@@ -26,7 +27,7 @@ function getDateBadge(date?: string | null) {
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return { month: "TBA", day: "--" };
   return {
-    month: format(parsed, "MMM").toUpperCase(),
+    month: format(parsed, "MMM", { locale: bg }).toLocaleUpperCase("bg-BG"),
     day: format(parsed, "dd"),
   };
 }
@@ -36,10 +37,23 @@ function formatDateRange(start?: string | null, end?: string | null) {
   const startDate = new Date(start);
   if (Number.isNaN(startDate.getTime())) return "Дата предстои";
   if (!end || end === start) {
-    return format(startDate, "d MMM yyyy");
+    return format(startDate, "d MMM yyyy", { locale: bg });
   }
   const endDate = new Date(end);
-  return `${format(startDate, "d MMM")} - ${format(endDate, "d MMM yyyy")}`;
+  return `${format(startDate, "d MMM", { locale: bg })} - ${format(endDate, "d MMM yyyy", { locale: bg })}`;
+}
+
+function getSignalTag(isFree?: boolean | null, startDate?: string | null) {
+  if (isFree === true) return "Безплатно";
+  if (!startDate) return null;
+
+  const parsed = new Date(startDate);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  const day = parsed.getDay();
+  if (day === 0 || day === 6) return "Уикенд";
+
+  return null;
 }
 
 function categoryLabel(category?: string | null): string | null {
@@ -79,9 +93,10 @@ export default function EventCard({
   const locationText = city || "Град: —";
   const snippet = description?.trim();
   const categoryText = categoryLabel(category);
+  const signalTag = getSignalTag(isFree, startDate);
 
   return (
-    <Card className="group overflow-hidden border border-black/[0.09] bg-white/90 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_28px_rgba(12,14,20,0.07)] transition-all duration-200 hover:border-black/[0.16] hover:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)] focus-within:border-black/[0.16] focus-within:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)]">
+    <Card className="group flex h-full flex-col overflow-hidden border border-black/[0.09] bg-white/90 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_28px_rgba(12,14,20,0.07)] transition-all duration-200 hover:-translate-y-1 hover:border-black/[0.16] hover:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)] focus-within:-translate-y-1 focus-within:border-black/[0.16] focus-within:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)]">
       <div className="relative h-56 bg-black/[0.04]">
         {detailsHref ? (
           <Link
@@ -95,7 +110,7 @@ export default function EventCard({
                 alt={title}
                 fill
                 sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
-                className="object-cover transition-transform duration-300 ease-out group-hover/image:scale-[1.03]"
+                className="object-cover transition-transform duration-300 ease-out group-hover/image:scale-105"
               />
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#f2efe9] text-sm text-black/45">
@@ -149,12 +164,12 @@ export default function EventCard({
         ) : null}
       </div>
 
-      <CardContent className="space-y-3 p-5">
+      <CardContent className="flex flex-1 flex-col p-5">
         <div className="space-y-2">
           <p className="text-sm text-black/55">
             {locationText} • {dateText}
           </p>
-          <h3 className="text-lg font-semibold tracking-tight text-[#0c0e14]">
+          <h3 className="text-xl font-semibold tracking-tight text-[#0c0e14]">
             {detailsHref ? (
               <Link
                 href={detailsHref}
@@ -172,32 +187,28 @@ export default function EventCard({
           </h3>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {isFree ? (
-            <span className="rounded-full border border-[#ff4c1f]/25 bg-[#ff4c1f]/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#ff4c1f]">
-              Безплатно
+        {signalTag ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-black/[0.08] bg-black/[0.03] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-black/65">
+              {signalTag}
             </span>
-          ) : null}
-          {isFree === false ? (
-            <span className="rounded-full border border-black/[0.1] bg-black/[0.03] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-black/65">
-              Платено
-            </span>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {showDescription && snippet ? (
           <p
-            className="text-sm text-black/60"
+            className="mt-3 text-sm text-black/60"
             style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
           >
             {snippet}
           </p>
         ) : null}
 
-
-        {showPlanControls && festivalId != null ? (
-          <PlanInlineControls festivalId={String(festivalId)} scheduleItemId={scheduleItemId} />
-        ) : null}
+        <div className="mt-auto pt-4">
+          {showPlanControls && festivalId != null ? (
+            <PlanInlineControls festivalId={String(festivalId)} scheduleItemId={scheduleItemId} />
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );

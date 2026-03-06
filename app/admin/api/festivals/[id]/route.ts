@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { slugify } from "@/lib/utils";
 
 type Payload = {
   title?: string;
@@ -23,6 +24,12 @@ type Payload = {
   description?: string | null;
 };
 
+type CityRow = {
+  id: number;
+  slug: string;
+  name_bg: string;
+};
+
 function parseCityId(value: Payload["city_id"]) {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -34,6 +41,103 @@ function parseCityId(value: Payload["city_id"]) {
 
   const parsed = Number(value);
   return Number.isInteger(parsed) ? parsed : Number.NaN;
+}
+
+function normalizeCityInput(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function toDisplayCityName(value: string) {
+  const lowered = value.toLocaleLowerCase("bg-BG");
+  const [first = "", ...rest] = lowered;
+  return `${first.toLocaleUpperCase("bg-BG")}${rest.join("")}`;
+}
+
+async function findCityById(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, cityId: number) {
+  const { data, error } = await ctx.supabase.from("cities").select("id,slug,name_bg").eq("id", cityId).maybeSingle();
+
+  if (error) {
+    throw new Error(`City lookup failed: ${error.message}`);
+  }
+
+  return (data ?? null) as CityRow | null;
+}
+
+async function findCityBySlug(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, slug: string) {
+  const { data, error } = await ctx.supabase.from("cities").select("id,slug,name_bg").eq("slug", slug).maybeSingle();
+
+  if (error) {
+    throw new Error(`City slug lookup failed: ${error.message}`);
+  }
+
+  return (data ?? null) as CityRow | null;
+}
+
+async function findCityByName(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, name: string) {
+  const { data, error } = await ctx.supabase.from("cities").select("id,slug,name_bg").ilike("name_bg", name).limit(5);
+
+  if (error) {
+    throw new Error(`City name lookup failed: ${error.message}`);
+  }
+
+  const exact = (data ?? []).find((city) => city.name_bg.toLocaleLowerCase("bg-BG") === name.toLocaleLowerCase("bg-BG"));
+  return ((exact ?? data?.[0]) ?? null) as CityRow | null;
+}
+
+async function resolveOrCreateCity(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, inputRaw: string) {
+  const normalizedInput = normalizeCityInput(inputRaw);
+
+  if (!normalizedInput) {
+    return { city: null, created: false, normalizedInput };
+  }
+
+  if (/^\d+$/.test(normalizedInput)) {
+    const cityById = await findCityById(ctx, Number(normalizedInput));
+    if (!cityById) {
+      throw new Error("City not found by id");
+    }
+
+    return { city: cityById, created: false, normalizedInput };
+  }
+
+  const slug = slugify(normalizedInput).toLowerCase();
+  if (!slug) {
+    throw new Error("City slug is empty");
+  }
+
+  const cityBySlug = await findCityBySlug(ctx, slug);
+  if (cityBySlug) {
+    return { city: cityBySlug, created: false, normalizedInput };
+  }
+
+  const cityByName = await findCityByName(ctx, normalizedInput);
+  if (cityByName) {
+    return { city: cityByName, created: false, normalizedInput };
+  }
+
+  const displayName = toDisplayCityName(normalizedInput);
+
+  const { data: inserted, error: insertError } = await ctx.supabase
+    .from("cities")
+    .insert({
+      name_bg: displayName,
+      slug,
+    })
+    .select("id,slug,name_bg")
+    .maybeSingle();
+
+  if (!insertError && inserted) {
+    return { city: inserted as CityRow, created: true, normalizedInput };
+  }
+
+  if (insertError?.code === "23505") {
+    const cityAfterConflict = await findCityBySlug(ctx, slug);
+    if (cityAfterConflict) {
+      return { city: cityAfterConflict, created: false, normalizedInput };
+    }
+  }
+
+  throw new Error(`City insert failed: ${insertError?.message ?? "unknown error"}`);
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -77,7 +181,32 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
     });
 
-    if ("city_id" in body) {
+    const cityInputRaw = typeof body.city === "string" ? body.city : null;
+    const hasCityInput = cityInputRaw !== null;
+    const hasCityId = "city_id" in body;
+
+    if (hasCityInput) {
+      try {
+        const resolved = await resolveOrCreateCity(ctx, cityInputRaw);
+
+        if (resolved.city) {
+          patch.city_id = resolved.city.id;
+          patch.city = resolved.city.slug;
+        } else {
+          patch.city_id = null;
+          patch.city = null;
+        }
+
+        console.info(
+          `[festival-save] id=${id} city_input="${cityInputRaw}" resolved_city_id=${resolved.city?.id ?? "null"} resolved_slug="${resolved.city?.slug ?? ""}" created=${resolved.created}`
+        );
+
+        patch._resolved_city_created = resolved.created;
+      } catch (cityError) {
+        const message = cityError instanceof Error ? cityError.message : "City resolve failed";
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
+    } else if (hasCityId) {
       const cityId = parseCityId(body.city_id);
       if (Number.isNaN(cityId)) {
         return NextResponse.json({ error: "Invalid city_id" }, { status: 400 });
@@ -85,16 +214,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       if (cityId === null) {
         patch.city_id = null;
+        patch.city = null;
       } else {
-        const { data: city, error: cityError } = await ctx.supabase
-          .from("cities")
-          .select("slug")
-          .eq("id", cityId)
-          .maybeSingle<{ slug: string }>();
-
-        if (cityError) {
-          return NextResponse.json({ error: cityError.message }, { status: 500 });
-        }
+        const city = await findCityById(ctx, cityId);
 
         if (!city?.slug) {
           return NextResponse.json({ error: "City not found" }, { status: 404 });
@@ -117,13 +239,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Invalid longitude" }, { status: 400 });
     }
 
+    const resolvedCityCreated = Boolean(patch._resolved_city_created);
+    delete patch._resolved_city_created;
+
     const { error } = await ctx.supabase.from("festivals").update(patch).eq("id", id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, city_created: resolvedCityCreated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected admin API error";
     return NextResponse.json({ error: message }, { status: 500 });

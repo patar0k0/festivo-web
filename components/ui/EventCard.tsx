@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import Button from "@/components/ui/Button";
+import Link from "next/link";
 import FallbackImage from "@/components/ui/FallbackImage";
 import PlanInlineControls from "@/components/plan/PlanInlineControls";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -68,7 +68,6 @@ export default function EventCard({
   endDate,
   isFree,
   description,
-  showDetailsButton = false,
   detailsHref,
   showDescription = false,
   showPlanControls = false,
@@ -84,13 +83,42 @@ export default function EventCard({
   return (
     <Card className="group overflow-hidden border border-black/[0.09] bg-white/90 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_28px_rgba(12,14,20,0.07)] transition-all duration-200 hover:border-black/[0.16] hover:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)] focus-within:border-black/[0.16] focus-within:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)]">
       <div className="relative h-56 bg-black/[0.04]">
-        {imageUrl ? (
+        {detailsHref ? (
+          <Link
+            href={detailsHref}
+            aria-label={`Отвори фестивал ${title}`}
+            className="group/image absolute inset-0 block overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/70 focus-visible:ring-offset-2"
+          >
+            {imageUrl ? (
+              <FallbackImage
+                src={imageUrl}
+                alt={title}
+                fill
+                sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
+                className="object-cover transition-transform duration-300 ease-out group-hover/image:scale-[1.03]"
+              />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#f2efe9] text-sm text-black/45">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M4 5.5C4 4.67 4.67 4 5.5 4h13c.83 0 1.5.67 1.5 1.5v13c0 .83-.67 1.5-1.5 1.5h-13C4.67 20 4 19.33 4 18.5v-13Z"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                  />
+                  <path d="M8 10.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" strokeWidth="1.2" />
+                  <path d="m4 17 4.5-4.5 3.5 3.5 4.5-4.5L20 15.5" stroke="currentColor" strokeWidth="1.2" />
+                </svg>
+                <span>Няма снимка</span>
+              </div>
+            )}
+          </Link>
+        ) : imageUrl ? (
           <FallbackImage
             src={imageUrl}
             alt={title}
             fill
             sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
-            className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            className="object-cover"
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#f2efe9] text-sm text-black/45">
@@ -126,11 +154,21 @@ export default function EventCard({
           <p className="text-sm text-black/55">
             {locationText} • {dateText}
           </p>
-          <h3
-            className="text-lg font-semibold tracking-tight text-[#0c0e14]"
-            style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
-          >
-            {title}
+          <h3 className="text-lg font-semibold tracking-tight text-[#0c0e14]">
+            {detailsHref ? (
+              <Link
+                href={detailsHref}
+                aria-label={`Отвори детайли за фестивал ${title}`}
+                className="transition-colors duration-200 hover:text-black/70 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/70 focus-visible:ring-offset-2"
+                style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+              >
+                {title}
+              </Link>
+            ) : (
+              <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                {title}
+              </span>
+            )}
           </h3>
         </div>
 
@@ -156,16 +194,6 @@ export default function EventCard({
           </p>
         ) : null}
 
-        {showDetailsButton && detailsHref ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            href={detailsHref}
-            className="border-black/[0.12] bg-white font-semibold text-[#0c0e14] hover:bg-[#f8f7f4]"
-          >
-            Виж
-          </Button>
-        ) : null}
 
         {showPlanControls && festivalId != null ? (
           <PlanInlineControls festivalId={String(festivalId)} scheduleItemId={scheduleItemId} />

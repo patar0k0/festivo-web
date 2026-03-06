@@ -40,7 +40,7 @@ export default function PlanInlineControls({ festivalId, scheduleItemId, compact
               : "border-black/[0.1] bg-white text-[#0c0e14] hover:bg-[#f7f6f3]"
           } disabled:cursor-not-allowed disabled:opacity-45`}
         >
-          {inPlan ? "Премахни" : "+ План"}
+          {inPlan ? "Премахни" : "Добави в план"}
         </button>
 
         <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/50">

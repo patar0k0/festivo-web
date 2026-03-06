@@ -96,6 +96,12 @@ function isImageMedia(type?: string | null): boolean {
   return type.toLowerCase().includes("image");
 }
 
+function normalizeHeroUrl(value?: string | null): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+}
+
 export default function FestivalDetailClient({
   festival,
   media,
@@ -134,8 +140,10 @@ export default function FestivalDetailClient({
   const festivalInPlan = festivalIds.includes(String(festival.id));
   const reminder = reminderTypeByFestivalId[String(festival.id)] ?? "none";
 
-  const imageMedia = media.filter((item) => isImageMedia(item.type) && Boolean(item.url));
-  const heroImage = festival.image_url ?? imageMedia[0]?.url ?? null;
+  const imageMedia = media.filter((item) => isImageMedia(item.type) && Boolean(normalizeHeroUrl(item.url)));
+  const festivalHeroImage = normalizeHeroUrl(festival.hero_image) ?? normalizeHeroUrl(festival.image_url);
+  const mediaHeroImage = normalizeHeroUrl(imageMedia[0]?.url);
+  const heroImage = festivalHeroImage ?? mediaHeroImage ?? null;
   const [heroImageFailed, setHeroImageFailed] = useState(false);
   const primaryCta = mapHref ? { label: "Навигация", href: mapHref } : null;
   const secondaryCta = festival.ticket_url
@@ -150,9 +158,11 @@ export default function FestivalDetailClient({
   }, [heroImage]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== "development" || !heroImage) return;
-    console.debug("[FestivalDetail] heroImage", heroImage);
-  }, [heroImage]);
+    if (process.env.NODE_ENV !== "development") return;
+    console.debug(
+      `[festival-detail] slug=${festival.slug} hero_image="${festivalHeroImage ?? ""}" media_count=${imageMedia.length} resolved_hero="${heroImage ?? ""}"`
+    );
+  }, [festival.slug, festivalHeroImage, imageMedia.length, heroImage]);
 
   const clearPlan = async () => {
     const ids = selectedItems.map((item) => String(item.id));
@@ -517,4 +527,3 @@ export default function FestivalDetailClient({
     </div>
   );
 }
-

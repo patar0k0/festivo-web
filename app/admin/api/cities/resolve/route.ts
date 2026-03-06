@@ -40,7 +40,7 @@ function hasCyrillic(value: string) {
   return /[\u0400-\u04FF]/.test(value);
 }
 
-export async function resolveCity(input: string, queryFn: CityResolveQueryFn): Promise<CityResolveResult> {
+async function resolveCity(input: string, queryFn: CityResolveQueryFn): Promise<CityResolveResult> {
   const normalizedInput = input.trim().toLocaleLowerCase("bg-BG");
   const slugCandidate = slugify(input.trim()).toLowerCase();
 

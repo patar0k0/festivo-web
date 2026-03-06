@@ -8,7 +8,7 @@ export const FESTIVAL_SELECT_MIN =
   "id,title,slug,city,region,start_date,end_date,category,image_url,is_free,status,lat,lng,description,ticket_url,price_range";
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,city,region,address,start_date,end_date,category,image_url,is_free,status,lat,lng,description,ticket_url,price_range,website_url";
+  "id,title,slug,city,region,address,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,website_url";
 
 function applyPublicScope<T>(query: T): T {
   const typedQuery = query as T & { or: (filters: string) => T };

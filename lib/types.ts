@@ -10,6 +10,7 @@
   end_date?: string | null;
   is_free?: boolean | null;
   category?: string | null;
+  hero_image?: string | null;
   image_url?: string | null;
   lat?: number | null;
   lng?: number | null;

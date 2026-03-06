@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { slugify } from "@/lib/utils";
+import { resolveOrCreateCity } from "@/lib/admin/resolveOrCreateCity";
 
 type Payload = {
   title?: string;
@@ -43,16 +43,6 @@ function parseCityId(value: Payload["city_id"]) {
   return Number.isInteger(parsed) ? parsed : Number.NaN;
 }
 
-function normalizeCityInput(value: string) {
-  return value.trim().replace(/\s+/g, " ");
-}
-
-function toDisplayCityName(value: string) {
-  const lowered = value.toLocaleLowerCase("bg-BG");
-  const [first = "", ...rest] = lowered;
-  return `${first.toLocaleUpperCase("bg-BG")}${rest.join("")}`;
-}
-
 async function findCityById(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, cityId: number) {
   const { data, error } = await ctx.supabase.from("cities").select("id,slug,name_bg").eq("id", cityId).maybeSingle();
 
@@ -61,83 +51,6 @@ async function findCityById(ctx: NonNullable<Awaited<ReturnType<typeof getAdminC
   }
 
   return (data ?? null) as CityRow | null;
-}
-
-async function findCityBySlug(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, slug: string) {
-  const { data, error } = await ctx.supabase.from("cities").select("id,slug,name_bg").eq("slug", slug).maybeSingle();
-
-  if (error) {
-    throw new Error(`City slug lookup failed: ${error.message}`);
-  }
-
-  return (data ?? null) as CityRow | null;
-}
-
-async function findCityByName(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, name: string) {
-  const { data, error } = await ctx.supabase.from("cities").select("id,slug,name_bg").ilike("name_bg", name).limit(5);
-
-  if (error) {
-    throw new Error(`City name lookup failed: ${error.message}`);
-  }
-
-  const exact = (data ?? []).find((city) => city.name_bg.toLocaleLowerCase("bg-BG") === name.toLocaleLowerCase("bg-BG"));
-  return ((exact ?? data?.[0]) ?? null) as CityRow | null;
-}
-
-async function resolveOrCreateCity(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, inputRaw: string) {
-  const normalizedInput = normalizeCityInput(inputRaw);
-
-  if (!normalizedInput) {
-    return { city: null, created: false, normalizedInput };
-  }
-
-  if (/^\d+$/.test(normalizedInput)) {
-    const cityById = await findCityById(ctx, Number(normalizedInput));
-    if (!cityById) {
-      throw new Error("City not found by id");
-    }
-
-    return { city: cityById, created: false, normalizedInput };
-  }
-
-  const slug = slugify(normalizedInput).toLowerCase();
-  if (!slug) {
-    throw new Error("City slug is empty");
-  }
-
-  const cityBySlug = await findCityBySlug(ctx, slug);
-  if (cityBySlug) {
-    return { city: cityBySlug, created: false, normalizedInput };
-  }
-
-  const cityByName = await findCityByName(ctx, normalizedInput);
-  if (cityByName) {
-    return { city: cityByName, created: false, normalizedInput };
-  }
-
-  const displayName = toDisplayCityName(normalizedInput);
-
-  const { data: inserted, error: insertError } = await ctx.supabase
-    .from("cities")
-    .insert({
-      name_bg: displayName,
-      slug,
-    })
-    .select("id,slug,name_bg")
-    .maybeSingle();
-
-  if (!insertError && inserted) {
-    return { city: inserted as CityRow, created: true, normalizedInput };
-  }
-
-  if (insertError?.code === "23505") {
-    const cityAfterConflict = await findCityBySlug(ctx, slug);
-    if (cityAfterConflict) {
-      return { city: cityAfterConflict, created: false, normalizedInput };
-    }
-  }
-
-  throw new Error(`City insert failed: ${insertError?.message ?? "unknown error"}`);
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -187,7 +100,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (hasCityInput) {
       try {
-        const resolved = await resolveOrCreateCity(ctx, cityInputRaw);
+        const resolved = await resolveOrCreateCity(cityInputRaw);
 
         if (resolved.city) {
           patch.city_id = resolved.city.id;
@@ -198,7 +111,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         }
 
         console.info(
-          `[festival-save] id=${id} city_input="${cityInputRaw}" resolved_city_id=${resolved.city?.id ?? "null"} resolved_slug="${resolved.city?.slug ?? ""}" created=${resolved.created}`
+          `[festival-save] id=${id} city_input="${cityInputRaw}" resolved_city_id=${resolved.city?.id ?? "null"} slug="${resolved.slug}" created=${resolved.created}`
         );
 
         patch._resolved_city_created = resolved.created;

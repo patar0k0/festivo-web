@@ -34,8 +34,11 @@ export default function SiteNavClient({
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
+    document.documentElement.style.overflow = isOpen ? "hidden" : "";
+
     return () => {
       document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
     };
   }, [isOpen]);
 
@@ -55,14 +58,14 @@ export default function SiteNavClient({
           Меню
         </button>
         <div
-          className={`fixed inset-0 z-50 bg-white transition-transform duration-300 ease-out ${
+          className={`fixed inset-0 z-50 overflow-y-auto bg-white transition-transform duration-300 ease-out ${
             isOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
           }`}
           aria-hidden={!isOpen}
         >
           <div
             id="site-mobile-menu"
-            className="flex h-full w-full max-w-full flex-col bg-[#f5f4f0] p-5"
+            className="flex min-h-full w-full max-w-full flex-col bg-white p-5"
           >
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">

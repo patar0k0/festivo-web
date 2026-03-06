@@ -167,6 +167,7 @@ export default function FestivalDetailClient({
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
           {heroImage && !heroImageFailed ? (
             <>
+              {/* eslint-disable-next-line @next/next/no-img-element -- Hero image URL can be external/unknown at runtime and needs direct fallback handling via onError. */}
               <img
                 src={heroImage}
                 alt={festival.title || "Festival"}

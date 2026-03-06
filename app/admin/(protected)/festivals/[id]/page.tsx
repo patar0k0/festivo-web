@@ -26,8 +26,7 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
   const cityRow = Array.isArray(data.cities) ? data.cities[0] : data.cities;
   const cityDetails = cityRow ?? null;
 
-  const locationName = (data as { location_name?: string | null }).location_name ?? null;
-  const cityDisplay = cityDetails?.name_bg ?? locationName ?? cityDetails?.slug ?? data.city ?? null;
+  const cityDisplay = cityDetails?.name_bg ?? cityDetails?.slug ?? "";
 
   console.info(
     `[admin-festival-edit] festival_id=${id} city_id=${cityDetails?.id ?? data.city_id ?? "null"} city_name_bg="${cityDetails?.name_bg ?? ""}" city_slug="${cityDetails?.slug ?? data.city ?? ""}" displayed_city="${cityDisplay ?? ""}"`

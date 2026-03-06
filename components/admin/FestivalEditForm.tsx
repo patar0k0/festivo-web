@@ -12,6 +12,7 @@ type FestivalRecord = {
   city: string | null;
   city_id: number | null;
   city_name?: string | null;
+  city_slug?: string | null;
   region: string | null;
   address: string | null;
   start_date: string | null;
@@ -63,10 +64,12 @@ async function readErrorMessage(response: Response, fallback: string) {
 }
 
 export default function FestivalEditForm({ festival }: { festival: FestivalRecord }) {
+  const initialCityDisplay = festival.city_name ?? festival.city ?? festival.city_id?.toString() ?? "";
+
   const [form, setForm] = useState({
     title: festival.title,
     category: festival.category ?? "",
-    city: festival.city_name ?? festival.city ?? festival.city_id?.toString() ?? "",
+    city: initialCityDisplay,
     region: festival.region ?? "",
     address: festival.address ?? "",
     start_date: asDateInput(festival.start_date),
@@ -189,6 +192,11 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City (ID / slug / name)</span>
                 <input value={form.city} onChange={(e) => updateField("city", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                {festival.city_id != null || festival.city_slug ? (
+                  <p className="mt-2 text-xs text-black/60">
+                    City ref: id={festival.city_id ?? "-"}, slug={festival.city_slug ?? "-"}
+                  </p>
+                ) : null}
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Region</span>

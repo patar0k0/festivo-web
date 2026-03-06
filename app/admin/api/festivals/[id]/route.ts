@@ -97,12 +97,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const cityInputRaw = typeof body.city === "string" ? body.city : null;
     const hasCityInput = cityInputRaw !== null;
     const hasCityId = "city_id" in body;
+    let selectedCity: CityRow | null = null;
 
     if (hasCityInput) {
       try {
         const resolved = await resolveOrCreateCity(cityInputRaw);
 
         if (resolved.city) {
+          selectedCity = resolved.city;
           patch.city_id = resolved.city.id;
           patch.city = resolved.city.slug;
         } else {
@@ -135,6 +137,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           return NextResponse.json({ error: "City not found" }, { status: 404 });
         }
 
+        selectedCity = city;
         patch.city_id = cityId;
         patch.city = city.slug;
       }
@@ -155,13 +158,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const resolvedCityCreated = Boolean(patch._resolved_city_created);
     delete patch._resolved_city_created;
 
+    if (!selectedCity && typeof patch.city_id === "number") {
+      selectedCity = await findCityById(ctx, patch.city_id);
+    }
+
+    const cityDisplay = selectedCity?.name_bg ?? (typeof patch.city === "string" ? patch.city : "");
+    const citySlug = selectedCity?.slug ?? (typeof patch.city === "string" ? patch.city : "");
+    const cityIdForLog = selectedCity?.id ?? (typeof patch.city_id === "number" ? patch.city_id : null);
+    console.info(`[festival-save] city_display="${cityDisplay}" city_slug="${citySlug}" city_id=${cityIdForLog ?? "null"}`);
+
     const { error } = await ctx.supabase.from("festivals").update(patch).eq("id", id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, city_created: resolvedCityCreated });
+    return NextResponse.json({
+      ok: true,
+      city_created: resolvedCityCreated,
+      city: selectedCity
+        ? { id: selectedCity.id, name_bg: selectedCity.name_bg, slug: selectedCity.slug }
+        : { id: null, name_bg: null, slug: typeof patch.city === "string" ? patch.city : null },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected admin API error";
     return NextResponse.json({ error: message }, { status: 500 });

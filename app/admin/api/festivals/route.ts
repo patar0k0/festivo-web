@@ -41,7 +41,7 @@ export async function GET(request: Request) {
 
     let query = ctx.supabase
       .from("festivals")
-      .select("id,title,city,start_date,end_date,category,is_free,status,updated_at,source_type")
+      .select("id,title,city,city_id,start_date,end_date,category,is_free,status,updated_at,source_type,cities:cities!left(id,name_bg,slug)")
       .order("updated_at", { ascending: false })
       .limit(200);
 
@@ -80,7 +80,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ rows: (data ?? []).map((row) => ({ ...row, id: String(row.id) })) });
+    return NextResponse.json({
+      rows: (data ?? []).map((row) => {
+        const cityRow = Array.isArray(row.cities) ? row.cities[0] : row.cities;
+
+        return {
+          ...row,
+          id: String(row.id),
+          city: cityRow?.name_bg ?? cityRow?.slug ?? row.city ?? null,
+        };
+      }),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected admin API error";
     return NextResponse.json({ error: message }, { status: 500 });

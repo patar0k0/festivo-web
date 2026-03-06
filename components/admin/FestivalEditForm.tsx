@@ -14,6 +14,7 @@ type FestivalRecord = {
   city_name?: string | null;
   city_slug?: string | null;
   region: string | null;
+  location_name: string | null;
   address: string | null;
   start_date: string | null;
   end_date: string | null;
@@ -74,12 +75,13 @@ type SaveFestivalResponse = {
 };
 
 export default function FestivalEditForm({ festival }: { festival: FestivalRecord }) {
-  const initialCityDisplay = festival.city_name ?? festival.city ?? festival.city_id?.toString() ?? "";
+  const initialCityDisplay = festival.city_name ?? "";
 
   const [form, setForm] = useState({
     title: festival.title,
     category: festival.category ?? "",
     city: initialCityDisplay,
+    location_name: festival.location_name ?? "",
     region: festival.region ?? "",
     address: festival.address ?? "",
     start_date: asDateInput(festival.start_date),
@@ -143,6 +145,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
           title: form.title,
           category: form.category || null,
           city: cityInput,
+          location_name: form.location_name || null,
           region: form.region || null,
           address: form.address || null,
           start_date: form.start_date || null,
@@ -206,21 +209,40 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
                 <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City (ID / slug / name)</span>
-                <input value={form.city} onChange={(e) => updateField("city", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-                {festival.city_id != null || festival.city_slug ? (
-                  <p className="mt-2 text-xs text-black/60">
-                    City ref: id={festival.city_id ?? "-"}, slug={festival.city_slug ?? "-"}
-                  </p>
-                ) : null}
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Град</span>
+                <input
+                  value={form.city}
+                  onChange={(e) => updateField("city", e.target.value)}
+                  placeholder="напр. Първомай"
+                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                />
+                <p className="mt-2 text-xs text-black/60">
+                  {festival.city_id != null || festival.city_slug
+                    ? `Свързан град: id=${festival.city_id ?? "-"} · slug=${festival.city_slug ?? "-"}`
+                    : "Свързан град: няма"}
+                </p>
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Място</span>
+                <input
+                  value={form.location_name}
+                  onChange={(e) => updateField("location_name", e.target.value)}
+                  placeholder="напр. Читалище „Св. св. Кирил и Методий“"
+                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Region</span>
                 <input value={form.region} onChange={(e) => updateField("region", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label className="md:col-span-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Address</span>
-                <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Адрес</span>
+                <input
+                  value={form.address}
+                  onChange={(e) => updateField("address", e.target.value)}
+                  placeholder="напр. пл. Централен 1"
+                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                />
               </label>
             </div>
           </div>

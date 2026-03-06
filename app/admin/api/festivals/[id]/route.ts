@@ -8,6 +8,7 @@ type Payload = {
   city?: string | null;
   city_id?: number | string | null;
   region?: string | null;
+  location_name?: string | null;
   address?: string | null;
   start_date?: string | null;
   end_date?: string | null;
@@ -79,6 +80,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       "category",
       "city",
       "region",
+      "location_name",
       "address",
       "start_date",
       "end_date",

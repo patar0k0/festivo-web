@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { resolveOrCreateCity } from "@/lib/admin/resolveOrCreateCity";
 import { slugify } from "@/lib/utils";
 
 type CityRow = {
@@ -29,12 +30,6 @@ function normalizeCityInput(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
-function toDisplayCityName(value: string) {
-  const lowered = value.toLocaleLowerCase("bg-BG");
-  const [first = "", ...rest] = lowered;
-  return `${first.toLocaleUpperCase("bg-BG")}${rest.join("")}`;
-}
-
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
@@ -51,61 +46,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     return Boolean(data && data.length > 0);
-  }
-
-  async function resolveOrCreateCity(cityText: string): Promise<CityRow & { created: boolean; normalizedInput: string }> {
-    const normalizedInput = normalizeCityInput(cityText);
-    const displayName = toDisplayCityName(normalizedInput);
-    const slug = slugify(normalizedInput).toLowerCase();
-
-    if (!slug) {
-      throw new Error("Approve failed during city resolve: empty slug from input.");
-    }
-
-    const { data: existingBySlug, error: existingBySlugError } = await adminCtx.supabase
-      .from("cities")
-      .select("id,slug,name_bg")
-      .eq("slug", slug)
-      .maybeSingle();
-
-    if (existingBySlugError) {
-      throw new Error(`Approve failed during city lookup: ${existingBySlugError.message}`);
-    }
-
-    if (existingBySlug) {
-      return { ...existingBySlug, created: false, normalizedInput };
-    }
-
-    const { data: insertedCity, error: insertCityError } = await adminCtx.supabase
-      .from("cities")
-      .insert({
-        name_bg: displayName,
-        slug,
-      })
-      .select("id,slug,name_bg")
-      .maybeSingle();
-
-    if (!insertCityError && insertedCity) {
-      return { ...insertedCity, created: true, normalizedInput };
-    }
-
-    if (insertCityError?.code === "23505") {
-      const { data: cityAfterConflict, error: cityAfterConflictError } = await adminCtx.supabase
-        .from("cities")
-        .select("id,slug,name_bg")
-        .eq("slug", slug)
-        .maybeSingle();
-
-      if (cityAfterConflictError) {
-        throw new Error(`Approve failed during city conflict lookup: ${cityAfterConflictError.message}`);
-      }
-
-      if (cityAfterConflict) {
-        return { ...cityAfterConflict, created: false, normalizedInput };
-      }
-    }
-
-    throw new Error(`Approve failed during city insert: ${insertCityError?.message ?? "unknown error"}`);
   }
 
   async function findCityById(cityId: number) {
@@ -158,9 +98,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         console.info(`[approve] city input="${cityInput}" resolved="${cityById.slug}" created=false`);
       } else {
         const resolvedCity = await resolveOrCreateCity(cityInput);
-        cityId = resolvedCity.id;
-        cityText = resolvedCity.slug;
-        console.info(`[approve] city input="${resolvedCity.normalizedInput}" resolved="${resolvedCity.slug}" created=${resolvedCity.created}`);
+        if (!resolvedCity.city) {
+          return NextResponse.json({ error: "Approve failed during city lookup: city not found." }, { status: 500 });
+        }
+
+        cityId = resolvedCity.city.id;
+        cityText = resolvedCity.city.slug;
+        console.info(
+          `[festival-save] city_input="${cityInputRaw}" display_name="${resolvedCity.displayName}" slug="${resolvedCity.slug}" resolved_city_id=${resolvedCity.city.id} created=${resolvedCity.created}`
+        );
       }
     } else if (pending.city_id != null) {
       const cityByPendingId = await findCityById(pending.city_id);

@@ -111,7 +111,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         }
 
         console.info(
-          `[festival-save] id=${id} city_input="${cityInputRaw}" resolved_city_id=${resolved.city?.id ?? "null"} slug="${resolved.slug}" created=${resolved.created}`
+          `[festival-save] id=${id} city_input="${cityInputRaw}" display_name="${resolved.displayName}" slug="${resolved.slug}" resolved_city_id=${resolved.city?.id ?? "null"} created=${resolved.created}`
         );
 
         patch._resolved_city_created = resolved.created;

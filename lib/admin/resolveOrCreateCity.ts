@@ -14,10 +14,53 @@ function normalizeCityInput(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
-function toDisplayCityName(value: string) {
-  const lowered = value.toLocaleLowerCase("bg-BG");
+function capitalizeCityWord(word: string) {
+  if (!word) {
+    return "";
+  }
+
+  const lowered = word.toLocaleLowerCase("bg-BG");
   const [first = "", ...rest] = lowered;
   return `${first.toLocaleUpperCase("bg-BG")}${rest.join("")}`;
+}
+
+export function normalizeCityDisplayName(value: string) {
+  return normalizeCityInput(value)
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => capitalizeCityWord(word))
+    .join(" ");
+}
+
+function normalizeForCompare(value: string) {
+  return normalizeCityInput(value).toLocaleLowerCase("bg-BG");
+}
+
+function slugToComparableName(slug: string) {
+  return slug.replace(/-/g, " ").toLocaleLowerCase("bg-BG");
+}
+
+function shouldRepairCityName(city: CityRow, displayName: string) {
+  const existingName = normalizeForCompare(city.name_bg);
+  const expectedName = normalizeForCompare(displayName);
+  const slugComparable = slugToComparableName(city.slug);
+
+  return existingName !== expectedName && existingName === slugComparable;
+}
+
+async function updateCityName(client: SupabaseClient, cityId: number, displayName: string) {
+  const { data, error } = await client
+    .from("cities")
+    .update({ name_bg: displayName })
+    .eq("id", cityId)
+    .select("id,slug,name_bg")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`City name repair failed: ${error.message}`);
+  }
+
+  return (data ?? null) as CityRow | null;
 }
 
 async function findCityBySlug(client: SupabaseClient, slug: string) {
@@ -43,12 +86,13 @@ async function findCityByName(client: SupabaseClient, name: string) {
 
 export async function resolveOrCreateCity(input: string) {
   const normalizedInput = normalizeCityInput(input);
+  const displayName = normalizeCityDisplayName(normalizedInput);
 
   if (!normalizedInput) {
-    return { city: null, created: false, normalizedInput, slug: "" };
+    return { city: null, created: false, normalizedInput, displayName, slug: "" };
   }
 
-  const slug = slugify(normalizedInput).toLowerCase();
+  const slug = slugify(displayName).toLowerCase();
   if (!slug) {
     throw new Error("City slug is empty");
   }
@@ -57,15 +101,20 @@ export async function resolveOrCreateCity(input: string) {
 
   const cityBySlug = await findCityBySlug(adminClient, slug);
   if (cityBySlug) {
-    return { city: cityBySlug, created: false, normalizedInput, slug };
+    if (shouldRepairCityName(cityBySlug, displayName)) {
+      const repairedCity = await updateCityName(adminClient, cityBySlug.id, displayName);
+      if (repairedCity) {
+        return { city: repairedCity, created: false, normalizedInput, displayName, slug };
+      }
+    }
+
+    return { city: cityBySlug, created: false, normalizedInput, displayName, slug };
   }
 
-  const cityByName = await findCityByName(adminClient, normalizedInput);
+  const cityByName = await findCityByName(adminClient, displayName);
   if (cityByName) {
-    return { city: cityByName, created: false, normalizedInput, slug };
+    return { city: cityByName, created: false, normalizedInput, displayName, slug };
   }
-
-  const displayName = toDisplayCityName(normalizedInput);
 
   const { data: inserted, error: insertError } = await adminClient
     .from("cities")
@@ -77,16 +126,22 @@ export async function resolveOrCreateCity(input: string) {
     .maybeSingle();
 
   if (!insertError && inserted) {
-    return { city: inserted as CityRow, created: true, normalizedInput, slug };
+    return { city: inserted as CityRow, created: true, normalizedInput, displayName, slug };
   }
 
   if (insertError?.code === "23505") {
     const cityAfterConflict = await findCityBySlug(adminClient, slug);
     if (cityAfterConflict) {
-      return { city: cityAfterConflict, created: false, normalizedInput, slug };
+      if (shouldRepairCityName(cityAfterConflict, displayName)) {
+        const repairedCity = await updateCityName(adminClient, cityAfterConflict.id, displayName);
+        if (repairedCity) {
+          return { city: repairedCity, created: false, normalizedInput, displayName, slug };
+        }
+      }
+
+      return { city: cityAfterConflict, created: false, normalizedInput, displayName, slug };
     }
   }
 
   throw new Error(`City insert failed: ${insertError?.message ?? "unknown error"}`);
 }
-

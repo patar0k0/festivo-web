@@ -63,6 +63,16 @@ async function readErrorMessage(response: Response, fallback: string) {
   return payload?.error ?? fallback;
 }
 
+type SaveFestivalResponse = {
+  city_created?: boolean;
+  city?: {
+    id?: number | null;
+    name_bg?: string | null;
+    slug?: string | null;
+  };
+  displayed_city?: string | null;
+};
+
 export default function FestivalEditForm({ festival }: { festival: FestivalRecord }) {
   const initialCityDisplay = festival.city_name ?? festival.city ?? festival.city_id?.toString() ?? "";
 
@@ -155,8 +165,14 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
         throw new Error(await readErrorMessage(response, "Неуспешен запис."));
       }
 
-      const payload = (await response.json().catch(() => null)) as { city_created?: boolean } | null;
+      const payload = (await response.json().catch(() => null)) as SaveFestivalResponse | null;
       const cityCreated = Boolean(payload?.city_created);
+      const resolvedCityDisplay = payload?.city?.name_bg ?? payload?.displayed_city ?? payload?.city?.slug ?? cityInput;
+
+      if (resolvedCityDisplay) {
+        updateField("city", resolvedCityDisplay);
+      }
+
       setMessage(cityCreated ? "Промените са записани успешно. Градът беше създаден автоматично." : "Промените са записани успешно.");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Възникна грешка.");

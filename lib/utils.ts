@@ -20,8 +20,6 @@ export function toTitleCase(value: string) {
 
 export function slugify(value: string) {
   return value
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s-]/gu, "")
     .trim()

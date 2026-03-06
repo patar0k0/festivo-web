@@ -24,6 +24,13 @@ type Payload = {
   description?: string | null;
 };
 
+type SaveResponse = {
+  ok: true;
+  city_created: boolean;
+  city: { id: number | null; name_bg: string | null; slug: string | null };
+  displayed_city: string | null;
+};
+
 type CityRow = {
   id: number;
   slug: string;
@@ -62,6 +69,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const body = (await request.json()) as Payload;
+    const { data: existingFestival } = await ctx.supabase
+      .from("festivals")
+      .select("city,city_id,location_name")
+      .eq("id", id)
+      .maybeSingle<{ city: string | null; city_id: number | null; location_name?: string | null }>();
 
     const patch: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -162,10 +174,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       selectedCity = await findCityById(ctx, patch.city_id);
     }
 
-    const cityDisplay = selectedCity?.name_bg ?? (typeof patch.city === "string" ? patch.city : "");
+    const locationName = existingFestival?.location_name ?? null;
+    const cityDisplay = selectedCity?.name_bg ?? locationName ?? selectedCity?.slug ?? (typeof patch.city === "string" ? patch.city : "");
     const citySlug = selectedCity?.slug ?? (typeof patch.city === "string" ? patch.city : "");
     const cityIdForLog = selectedCity?.id ?? (typeof patch.city_id === "number" ? patch.city_id : null);
-    console.info(`[festival-save] city_display="${cityDisplay}" city_slug="${citySlug}" city_id=${cityIdForLog ?? "null"}`);
+    console.info(
+      `[admin-festival-edit] festival_id=${id} city_id=${cityIdForLog ?? "null"} city_name_bg="${selectedCity?.name_bg ?? ""}" city_slug="${citySlug}" displayed_city="${cityDisplay}"`
+    );
 
     const { error } = await ctx.supabase.from("festivals").update(patch).eq("id", id);
 
@@ -173,13 +188,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
+    const response: SaveResponse = {
       ok: true,
       city_created: resolvedCityCreated,
       city: selectedCity
         ? { id: selectedCity.id, name_bg: selectedCity.name_bg, slug: selectedCity.slug }
         : { id: null, name_bg: null, slug: typeof patch.city === "string" ? patch.city : null },
-    });
+      displayed_city: cityDisplay || null,
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected admin API error";
     return NextResponse.json({ error: message }, { status: 500 });

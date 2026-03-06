@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -7,11 +8,14 @@ type IngestJobRow = {
   id: string;
   status: "pending" | "processing" | "done" | "failed";
   source_url: string;
+  pending_festival_id: string | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
   error: string | null;
 };
+
+type RowAction = "retry" | "delete";
 
 function isValidFacebookEventUrl(input: string) {
   try {
@@ -34,6 +38,8 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [busyRowId, setBusyRowId] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<RowAction | null>(null);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -67,6 +73,63 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
       setError(submitError instanceof Error ? submitError.message : "Unexpected queue error.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const retryJob = async (row: IngestJobRow) => {
+    if (busyRowId) return;
+
+    setMessage("");
+    setError("");
+    setBusyRowId(row.id);
+    setBusyAction("retry");
+
+    try {
+      const response = await fetch(`/admin/api/ingest-jobs/${row.id}`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Failed to retry job."));
+      }
+
+      setMessage(`Job ${row.id} was moved back to pending.`);
+      router.refresh();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Unexpected retry error.");
+    } finally {
+      setBusyRowId(null);
+      setBusyAction(null);
+    }
+  };
+
+  const deleteJob = async (row: IngestJobRow) => {
+    if (busyRowId) return;
+    if (!window.confirm("Remove this ingest job from the queue?")) return;
+
+    setMessage("");
+    setError("");
+    setBusyRowId(row.id);
+    setBusyAction("delete");
+
+    try {
+      const response = await fetch(`/admin/api/ingest-jobs/${row.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Failed to remove job."));
+      }
+
+      setMessage(`Job ${row.id} was removed.`);
+      router.refresh();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Unexpected delete error.");
+    } finally {
+      setBusyRowId(null);
+      setBusyAction(null);
     }
   };
 
@@ -110,27 +173,69 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
               <th className="px-3 py-3">Started</th>
               <th className="px-3 py-3">Finished</th>
               <th className="px-3 py-3">Error</th>
+              <th className="px-3 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/[0.06]">
             {rows.length ? (
-              rows.map((row) => (
-                <tr key={row.id} className="hover:bg-black/[0.02]">
-                  <td className="px-3 py-3 text-black/75">{row.status}</td>
-                  <td className="px-3 py-3 text-black/75">
-                    <a href={row.source_url} target="_blank" rel="noreferrer" className="break-all underline decoration-black/25 underline-offset-2">
-                      {row.source_url}
-                    </a>
-                  </td>
-                  <td className="px-3 py-3 text-black/65">{new Date(row.created_at).toLocaleString("bg-BG")}</td>
-                  <td className="px-3 py-3 text-black/65">{row.started_at ? new Date(row.started_at).toLocaleString("bg-BG") : "-"}</td>
-                  <td className="px-3 py-3 text-black/65">{row.finished_at ? new Date(row.finished_at).toLocaleString("bg-BG") : "-"}</td>
-                  <td className="px-3 py-3 text-[#b13a1a]">{row.error ?? "-"}</td>
-                </tr>
-              ))
+              rows.map((row) => {
+                const rowBusy = busyRowId === row.id;
+                const canRetry = row.status === "failed";
+
+                return (
+                  <tr key={row.id} className="hover:bg-black/[0.02]">
+                    <td className="px-3 py-3 text-black/75">{row.status}</td>
+                    <td className="px-3 py-3 text-black/75">
+                      <a href={row.source_url} target="_blank" rel="noreferrer" className="break-all underline decoration-black/25 underline-offset-2">
+                        {row.source_url}
+                      </a>
+                    </td>
+                    <td className="px-3 py-3 text-black/65">{new Date(row.created_at).toLocaleString("bg-BG")}</td>
+                    <td className="px-3 py-3 text-black/65">{row.started_at ? new Date(row.started_at).toLocaleString("bg-BG") : "-"}</td>
+                    <td className="px-3 py-3 text-black/65">{row.finished_at ? new Date(row.finished_at).toLocaleString("bg-BG") : "-"}</td>
+                    <td className="px-3 py-3 text-[#b13a1a]">{row.error ?? "-"}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-wrap items-center justify-end gap-2 whitespace-nowrap">
+                        <a
+                          href={row.source_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] hover:bg-[#f7f6f3]"
+                        >
+                          Open URL
+                        </a>
+                        {row.pending_festival_id ? (
+                          <Link
+                            href={`/admin/pending-festivals/${row.pending_festival_id}`}
+                            className="inline-flex rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] hover:bg-[#f7f6f3]"
+                          >
+                            Pending
+                          </Link>
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={!canRetry || rowBusy}
+                          onClick={() => retryJob(row)}
+                          className="inline-flex rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          {rowBusy && busyAction === "retry" ? "Retrying..." : "Retry"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={rowBusy}
+                          onClick={() => deleteJob(row)}
+                          className="inline-flex rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] text-[#b13a1a] disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          {rowBusy && busyAction === "delete" ? "Removing..." : "Remove"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-sm text-black/60">
+                <td colSpan={7} className="px-6 py-12 text-center text-sm text-black/60">
                   No jobs queued yet.
                 </td>
               </tr>

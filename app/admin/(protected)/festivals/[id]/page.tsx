@@ -11,7 +11,7 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
 
   const { data, error } = await ctx.supabase
     .from("festivals")
-    .select("*")
+    .select("*,cities:cities!left(id,name_bg,slug)")
     .eq("id", id)
     .maybeSingle();
 
@@ -23,15 +23,15 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
     notFound();
   }
 
-  let cityDetails: { id: number; name_bg: string | null; slug: string | null } | null = null;
-
-  if (data.city_id != null) {
-    const { data: cityData } = await ctx.supabase.from("cities").select("id,name_bg,slug").eq("id", data.city_id).maybeSingle();
-    cityDetails = cityData ?? null;
-  }
+  const cityRow = Array.isArray(data.cities) ? data.cities[0] : data.cities;
+  const cityDetails = cityRow ?? null;
 
   const locationName = (data as { location_name?: string | null }).location_name ?? null;
   const cityDisplay = cityDetails?.name_bg ?? locationName ?? cityDetails?.slug ?? data.city ?? null;
+
+  console.info(
+    `[admin-festival-edit] festival_id=${id} city_id=${cityDetails?.id ?? data.city_id ?? "null"} city_name_bg="${cityDetails?.name_bg ?? ""}" city_slug="${cityDetails?.slug ?? data.city ?? ""}" displayed_city="${cityDisplay ?? ""}"`
+  );
 
   return (
     <FestivalEditForm

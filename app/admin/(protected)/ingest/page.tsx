@@ -14,6 +14,12 @@ type IngestJobRow = {
   error: string | null;
 };
 
+type PendingFestivalLookupRow = {
+  id: string;
+  source_url: string | null;
+  created_at: string;
+};
+
 export default async function AdminIngestPage() {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
@@ -30,38 +36,39 @@ export default async function AdminIngestPage() {
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{error.message}</div>;
   }
 
-  const sourceUrls = (data ?? [])
-    .map((row) => row.source_url)
-    .filter((url): url is string => typeof url === "string" && url.length > 0);
-
   const pendingBySourceUrl = new Map<string, string>();
   const pendingByNormalizedUrl = new Map<string, string>();
   const pendingByFacebookEventId = new Map<string, string>();
 
-  if (sourceUrls.length) {
-    const { data: pendingRows } = await ctx.supabase
-      .from("pending_festivals")
-      .select("id,source_url,created_at")
-      .eq("status", "pending")
-      .not("source_url", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(1000);
+  const { data: pendingRows, error: pendingError } = await ctx.supabase
+    .from("pending_festivals")
+    .select("id,source_url,created_at")
+    .not("source_url", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(2000);
 
-    for (const pendingRow of pendingRows ?? []) {
-      if (!pendingRow.source_url) continue;
+  if (pendingError) {
+    return (
+      <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">
+        Failed loading pending festivals: {pendingError.message}
+      </div>
+    );
+  }
 
-      const pendingId = String(pendingRow.id);
-      if (!pendingBySourceUrl.has(pendingRow.source_url)) {
-        pendingBySourceUrl.set(pendingRow.source_url, pendingId);
-      }
+  for (const pendingRow of (pendingRows ?? []) as PendingFestivalLookupRow[]) {
+    if (!pendingRow.source_url) continue;
 
-      const pendingMeta = getSourceUrlMatchMeta(pendingRow.source_url);
-      if (pendingMeta?.normalizedUrl && !pendingByNormalizedUrl.has(pendingMeta.normalizedUrl)) {
-        pendingByNormalizedUrl.set(pendingMeta.normalizedUrl, pendingId);
-      }
-      if (pendingMeta?.facebookEventId && !pendingByFacebookEventId.has(pendingMeta.facebookEventId)) {
-        pendingByFacebookEventId.set(pendingMeta.facebookEventId, pendingId);
-      }
+    const pendingId = String(pendingRow.id);
+    if (!pendingBySourceUrl.has(pendingRow.source_url)) {
+      pendingBySourceUrl.set(pendingRow.source_url, pendingId);
+    }
+
+    const pendingMeta = getSourceUrlMatchMeta(pendingRow.source_url);
+    if (pendingMeta?.normalizedUrl && !pendingByNormalizedUrl.has(pendingMeta.normalizedUrl)) {
+      pendingByNormalizedUrl.set(pendingMeta.normalizedUrl, pendingId);
+    }
+    if (pendingMeta?.facebookEventId && !pendingByFacebookEventId.has(pendingMeta.facebookEventId)) {
+      pendingByFacebookEventId.set(pendingMeta.facebookEventId, pendingId);
     }
   }
 
@@ -80,7 +87,6 @@ export default async function AdminIngestPage() {
         jobId: String(row.id),
         rawSourceUrl: sourceUrl,
         normalizedSourceUrl: matchMeta?.normalizedUrl ?? null,
-        facebookEventId: matchMeta?.facebookEventId ?? null,
         matchedPendingFestivalId: pendingFestivalId,
       });
     }

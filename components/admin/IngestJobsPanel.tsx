@@ -181,6 +181,8 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
               rows.map((row) => {
                 const rowBusy = busyRowId === row.id;
                 const canRetry = row.status === "failed";
+                const canReviewPending = row.status === "done" && !!row.pending_festival_id;
+                const showNoPendingRecord = row.status === "done" && !row.pending_festival_id;
 
                 return (
                   <tr key={row.id} className="hover:bg-black/[0.02]">
@@ -204,14 +206,15 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
                         >
                           Open URL
                         </a>
-                        {row.pending_festival_id ? (
+                        {canReviewPending ? (
                           <Link
                             href={`/admin/pending-festivals/${row.pending_festival_id}`}
                             className="inline-flex rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] hover:bg-[#f7f6f3]"
                           >
-                            Pending
+                            Open Pending
                           </Link>
                         ) : null}
+                        {showNoPendingRecord ? <span className="text-xs text-black/45">No pending record</span> : null}
                         <button
                           type="button"
                           disabled={!canRetry || rowBusy}

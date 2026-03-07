@@ -50,6 +50,28 @@ function asDateInput(value: string | null) {
   return value ? value.slice(0, 10) : "";
 }
 
+function normalizeAiDateGuess(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const parsedDate = new Date(trimmed);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "";
+  }
+
+  return parsedDate.toISOString().slice(0, 10);
+}
+
 function normalizeDisplayValue(value: string | null | undefined) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
@@ -211,12 +233,87 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const [error, setError] = useState("");
   const [resolvedCity, setResolvedCity] = useState<ResolvedCity | null>(null);
   const [heroPreviewError, setHeroPreviewError] = useState(false);
+  const [appliedAiFields, setAppliedAiFields] = useState({
+    title: false,
+    description: false,
+    city_id: false,
+    location_name: false,
+    start_date: false,
+  });
 
   const updateField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     if (key === "hero_image") {
       setHeroPreviewError(false);
     }
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const applyAiValue = (field: keyof typeof appliedAiFields) => {
+    let didApply = false;
+
+    if (field === "title" && titleGuess) {
+      updateField("title", titleGuess);
+      didApply = true;
+    }
+
+    if (field === "description" && descriptionCleanGuess) {
+      updateField("description", descriptionCleanGuess);
+      didApply = true;
+    }
+
+    if (field === "city_id" && cityGuess) {
+      updateField("city_id", cityGuess);
+      setResolvedCity(null);
+      didApply = true;
+    }
+
+    if (field === "location_name" && locationGuess) {
+      updateField("location_name", locationGuess);
+      didApply = true;
+    }
+
+    if (field === "start_date" && dateGuess) {
+      const normalizedDateGuess = normalizeAiDateGuess(dateGuess);
+      if (normalizedDateGuess) {
+        updateField("start_date", normalizedDateGuess);
+        didApply = true;
+      }
+    }
+
+    if (didApply) {
+      setAppliedAiFields((prev) => ({ ...prev, [field]: true }));
+    }
+  };
+
+  const useAllSafeAiValues = () => {
+    if (titleGuess && !form.title.trim()) {
+      updateField("title", titleGuess);
+      setAppliedAiFields((prev) => ({ ...prev, title: true }));
+    }
+
+    if (descriptionCleanGuess && !form.description.trim()) {
+      updateField("description", descriptionCleanGuess);
+      setAppliedAiFields((prev) => ({ ...prev, description: true }));
+    }
+
+    if (cityGuess && !form.city_id.trim()) {
+      updateField("city_id", cityGuess);
+      setResolvedCity(null);
+      setAppliedAiFields((prev) => ({ ...prev, city_id: true }));
+    }
+
+    if (locationGuess && !form.location_name.trim()) {
+      updateField("location_name", locationGuess);
+      setAppliedAiFields((prev) => ({ ...prev, location_name: true }));
+    }
+
+    if (dateGuess && !form.start_date.trim()) {
+      const normalizedDateGuess = normalizeAiDateGuess(dateGuess);
+      if (normalizedDateGuess) {
+        updateField("start_date", normalizedDateGuess);
+        setAppliedAiFields((prev) => ({ ...prev, start_date: true }));
+      }
+    }
   };
 
   const onSave = async (event: FormEvent) => {
@@ -440,11 +537,29 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
             <div className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
               <h2 className="text-lg font-bold">AI Assistance</h2>
               <p className="mt-1 text-xs text-black/60">Advisory-only hints from normalization/extraction. Core editable fields remain authoritative.</p>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={useAllSafeAiValues}
+                  className="rounded-lg border border-black/15 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                >
+                  Use all
+                </button>
+              </div>
 
               <div className="mt-4 space-y-4">
                 {titleGuess ? (
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Clean title · AI guess</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Clean title · AI guess</p>
+                      <button
+                        type="button"
+                        onClick={() => applyAiValue("title")}
+                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                      >
+                        {appliedAiFields.title ? "Applied" : "Use"}
+                      </button>
+                    </div>
                     <p className="mt-1 text-sm text-black/85">{titleGuess}</p>
                     {statusBadgeLabel(titleStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(titleStatus)}</p> : null}
                   </div>
@@ -459,7 +574,16 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
 
                 {descriptionCleanGuess ? (
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Clean description · AI guess</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Clean description · AI guess</p>
+                      <button
+                        type="button"
+                        onClick={() => applyAiValue("description")}
+                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                      >
+                        {appliedAiFields.description ? "Applied" : "Use"}
+                      </button>
+                    </div>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-black/85">{descriptionCleanGuess}</p>
                   </div>
                 ) : null}
@@ -486,7 +610,16 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
 
                 {cityGuess ? (
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City · AI guess</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City · AI guess</p>
+                      <button
+                        type="button"
+                        onClick={() => applyAiValue("city_id")}
+                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                      >
+                        {appliedAiFields.city_id ? "Applied" : "Use"}
+                      </button>
+                    </div>
                     <p className="mt-1 text-sm text-black/85">Current value: {cityCurrent ?? "-"}</p>
                     <p className="mt-1 text-sm text-black/85">AI guess: {cityGuess}</p>
                     {statusBadgeLabel(cityStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(cityStatus)}</p> : null}
@@ -495,7 +628,16 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
 
                 {locationGuess ? (
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Location · AI guess</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Location · AI guess</p>
+                      <button
+                        type="button"
+                        onClick={() => applyAiValue("location_name")}
+                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                      >
+                        {appliedAiFields.location_name ? "Applied" : "Use"}
+                      </button>
+                    </div>
                     <p className="mt-1 text-sm text-black/85">Current value: {locationCurrent ?? "-"}</p>
                     <p className="mt-1 text-sm text-black/85">AI guess: {locationGuess}</p>
                     {statusBadgeLabel(locationStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(locationStatus)}</p> : null}
@@ -504,7 +646,16 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
 
                 {dateGuess ? (
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Date · AI guess</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Date · AI guess</p>
+                      <button
+                        type="button"
+                        onClick={() => applyAiValue("start_date")}
+                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                      >
+                        {appliedAiFields.start_date ? "Applied" : "Use"}
+                      </button>
+                    </div>
                     <p className="mt-1 text-sm text-black/85">Current start date: {startDateCurrent ?? "-"}</p>
                     <p className="mt-1 text-sm text-black/85">AI guess: {dateGuess}</p>
                     {statusBadgeLabel(startDateStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(startDateStatus)}</p> : null}

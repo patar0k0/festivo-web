@@ -6,6 +6,7 @@ import EventCard from "@/components/ui/EventCard";
 import Pagination from "@/components/Pagination";
 import Section from "@/components/ui/Section";
 import { cityHref } from "@/lib/cities";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
 import { getBaseUrl } from "@/lib/seo";
@@ -209,7 +210,7 @@ export default async function CityLandingPage({
                         title={festival.title}
                         city={festival.city}
                         category={festival.category}
-                        imageUrl={festival.image_url}
+                        imageUrl={getFestivalHeroImage(festival)}
                         startDate={festival.start_date}
                         endDate={festival.end_date}
                         isFree={festival.is_free}

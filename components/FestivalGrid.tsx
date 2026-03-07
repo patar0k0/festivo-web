@@ -1,6 +1,7 @@
 import Link from "next/link";
 import FallbackImage from "@/components/ui/FallbackImage";
 import { format, parseISO } from "date-fns";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { Festival } from "@/lib/types";
 
 function formatDateRange(start?: string | null, end?: string | null) {
@@ -21,13 +22,16 @@ function formatBadgeDate(start?: string | null) {
 export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {festivals.map((festival) => (
+      {festivals.map((festival) => {
+        const heroImage = getFestivalHeroImage(festival);
+
+        return (
         <Link key={festival.id} href={`/festivals/${festival.slug}`} className="group">
           <div className="rounded-[24px] border border-[color:var(--border2)] bg-[color:var(--surface)] shadow-[var(--shadow2)] transition-all duration-150 hover:-translate-y-[2px] hover:shadow-[var(--shadow)]">
             <div className="relative h-[180px] overflow-hidden rounded-t-[24px] bg-gradient-to-br from-black/5 to-black/3">
-              {festival.image_url ? (
+              {heroImage ? (
                 <FallbackImage
-                  src={festival.image_url}
+                  src={heroImage}
                   alt={festival.title}
                   fill
                   className="object-cover"
@@ -62,7 +66,8 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
             </div>
           </div>
         </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import ScrollRestoration from "@/components/ScrollRestoration";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { getPrimaryScheduleItemByFestivalIds } from "@/lib/plan/server";
 import { getBaseUrl, listMeta } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -15,7 +16,7 @@ import "../landing.css";
 export const revalidate = 3600;
 
 const FESTIVAL_SELECT =
-  "id,title,slug,city,region,start_date,end_date,category,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range,cities:cities!left(slug,name_bg)";
+  "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(slug,name_bg)";
 const PAGE_SIZE = 12;
 const HAS_TAGS_COLUMN = true;
 
@@ -300,7 +301,7 @@ export default async function FestivalsPage({
                         title={festival.title}
                         city={festival.city}
                         category={festival.category}
-                        imageUrl={festival.image_url}
+                        imageUrl={getFestivalHeroImage(festival)}
                         startDate={festival.start_date}
                         endDate={festival.end_date}
                         isFree={festival.is_free}

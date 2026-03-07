@@ -9,6 +9,7 @@ import FallbackImage from "@/components/ui/FallbackImage";
 import Select from "@/components/ui/Select";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import type { ReminderType } from "@/lib/plan/server";
 import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from "@/lib/types";
 
@@ -141,9 +142,10 @@ export default function FestivalDetailClient({
   const reminder = reminderTypeByFestivalId[String(festival.id)] ?? "none";
 
   const imageMedia = media.filter((item) => isImageMedia(item.type) && Boolean(normalizeHeroUrl(item.url)));
-  const festivalHeroImage = normalizeHeroUrl(festival.hero_image) ?? normalizeHeroUrl(festival.image_url);
-  const mediaHeroImage = normalizeHeroUrl(imageMedia[0]?.url);
-  const heroImage = festivalHeroImage ?? mediaHeroImage ?? null;
+  const heroImage = getFestivalHeroImage({
+    ...festival,
+    festival_media: media,
+  });
   const [heroImageFailed, setHeroImageFailed] = useState(false);
   const primaryCta = mapHref ? { label: "Навигация", href: mapHref } : null;
   const secondaryCta = festival.ticket_url
@@ -160,9 +162,9 @@ export default function FestivalDetailClient({
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
     console.debug(
-      `[festival-detail] slug=${festival.slug} hero_image="${festivalHeroImage ?? ""}" media_count=${imageMedia.length} resolved_hero="${heroImage ?? ""}"`
+      `[festival-detail] slug=${festival.slug} hero_image="${festival.hero_image ?? ""}" media_count=${imageMedia.length} resolved_hero="${heroImage ?? ""}"`
     );
-  }, [festival.slug, festivalHeroImage, imageMedia.length, heroImage]);
+  }, [festival.slug, festival.hero_image, imageMedia.length, heroImage]);
 
   const clearPlan = async () => {
     const ids = selectedItems.map((item) => String(item.id));
@@ -189,6 +191,8 @@ export default function FestivalDetailClient({
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
             </>
+          ) : heroImage ? (
+            <div className="absolute inset-0 bg-[#ece8df]" />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center bg-[#ece8df] text-black/45">
               <span className="rounded-full border border-black/10 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em]">

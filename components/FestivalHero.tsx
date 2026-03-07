@@ -1,5 +1,6 @@
 import FallbackImage from "@/components/ui/FallbackImage";
 import { format, parseISO } from "date-fns";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { Festival } from "@/lib/types";
 import OpenInAppButton from "@/components/OpenInAppButton";
 import QRCodeBlock from "@/components/QRCodeBlock";
@@ -16,11 +17,12 @@ function formatDateRange(start?: string | null, end?: string | null) {
 
 export default function FestivalHero({ festival }: { festival: Festival }) {
   const deepLink = festivalDeepLink(festival.slug);
+  const heroImage = getFestivalHeroImage(festival);
   return (
     <section className="relative overflow-hidden rounded-3xl border border-ink/10 bg-ink/80">
       <div className="absolute inset-0">
         <FallbackImage
-          src={festival.image_url ?? "/hero.svg"}
+          src={heroImage ?? "/hero.svg"}
           alt={festival.title}
           fill
           className="object-cover"

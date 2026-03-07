@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import EventCard from "@/components/ui/EventCard";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { Festival } from "@/lib/types";
 
 type MapResultsListProps = {
@@ -55,7 +56,7 @@ export default function MapResultsList({
               title={festival.title}
               city={festival.city}
               category={festival.category}
-              imageUrl={festival.image_url}
+              imageUrl={getFestivalHeroImage(festival)}
               startDate={festival.start_date}
               endDate={festival.end_date}
               isFree={festival.is_free}

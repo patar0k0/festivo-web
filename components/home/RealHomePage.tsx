@@ -4,6 +4,7 @@ import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
 import { cityHref } from "@/lib/cities";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { Festival } from "@/lib/types";
 import CitySelectClient from "./CitySelectClient";
 import QuickChipsClient from "./QuickChipsClient";
@@ -62,7 +63,7 @@ function EventsSection({
               title={festival.title}
               city={festival.city}
               category={festival.category}
-              imageUrl={festival.image_url}
+              imageUrl={getFestivalHeroImage(festival)}
               startDate={festival.start_date}
               endDate={festival.end_date}
               isFree={festival.is_free}

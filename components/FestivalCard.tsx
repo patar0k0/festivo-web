@@ -1,6 +1,7 @@
 import FallbackImage from "@/components/ui/FallbackImage";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { Festival } from "@/lib/types";
 import { AppleCard, AppleCardBody, AppleCardHeader } from "@/components/apple/AppleCard";
 import ApplePill from "@/components/apple/ApplePill";
@@ -17,7 +18,8 @@ function formatDateRange(start?: string | null, end?: string | null) {
 }
 
 export default function FestivalCard({ festival }: { festival: Festival }) {
-  const hasImage = Boolean(festival.image_url);
+  const heroImage = getFestivalHeroImage(festival);
+  const hasImage = Boolean(heroImage);
   const description = festival.description ?? "";
 
   return (
@@ -26,7 +28,7 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
         {hasImage ? (
           <AppleCardHeader className="aspect-[16/10] border-b apple-border">
             <FallbackImage
-              src={festival.image_url ?? "/hero.svg"}
+              src={heroImage ?? "/hero.svg"}
               alt={festival.title}
               fill
               className="object-cover"

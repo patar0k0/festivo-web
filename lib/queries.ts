@@ -5,7 +5,7 @@ import { withDefaultFilters } from "@/lib/filters";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 
 export const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city,region,start_date,end_date,category,image_url,is_free,status,lat,lng,description,ticket_url,price_range";
+  "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
 
 const FESTIVAL_SELECT_DETAIL =
   "id,title,slug,city,region,address,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,website_url";

@@ -18,6 +18,7 @@
   price_range?: string | null;
   website_url?: string | null;
   status?: string | null;
+  festival_media?: Array<Partial<FestivalMedia> & { is_primary?: boolean | null }> | null;
 };
 
 export type FestivalMedia = {

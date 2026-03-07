@@ -49,6 +49,8 @@ type ErrorPayload = {
 type DecisionResponse = {
   ok?: boolean;
   festival_id?: string;
+  redirect_to?: string;
+  error?: string;
 };
 
 function asDateInput(value: string | null) {
@@ -418,13 +420,34 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
       const payload = (await response.json().catch(() => null)) as (DecisionResponse & ErrorPayload) | null;
 
       if (!response.ok) {
+        throw new Error(payload?.error ?? `Failed to ${action}. (${response.status})`);
+      }
+
+      if (!payload?.ok) {
         throw new Error(payload?.error ?? `Failed to ${action}.`);
       }
 
       if (action === "approve") {
-        const festivalId = payload?.festival_id ? encodeURIComponent(payload.festival_id) : "";
-        const query = festivalId ? `?approved=1&festival_id=${festivalId}` : "?approved=1";
-        router.push(`/admin/pending-festivals${query}`);
+        const festivalId = payload.festival_id;
+        const redirectTo = payload.redirect_to;
+
+        setMessage(festivalId ? `Festival published (id: ${festivalId}). Redirecting…` : "Festival published. Redirecting…");
+
+        if (redirectTo) {
+          setTimeout(() => {
+            router.push(redirectTo);
+            router.refresh();
+          }, 500);
+          return;
+        }
+
+        const encodedFestivalId = festivalId ? encodeURIComponent(festivalId) : "";
+        const query = encodedFestivalId ? `?approved=1&festival_id=${encodedFestivalId}` : "?approved=1";
+        setTimeout(() => {
+          router.push(`/admin/pending-festivals${query}`);
+          router.refresh();
+        }, 500);
+        return;
       } else {
         router.push("/admin/pending-festivals?rejected=1");
       }

@@ -31,6 +31,11 @@ type PendingFestivalRow = {
   status: "pending" | "approved" | "rejected";
 };
 
+type ApiErrorResponse = {
+  ok: false;
+  error: string;
+};
+
 function buildBaseSlug(slug: string | null, title: string, pendingId: string) {
   const trimmedSlug = (slug ?? "").trim();
   const fromTitle = slugify(title)
@@ -48,10 +53,15 @@ function normalizeCityInput(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
+function fail(pendingId: string, reason: string, status: number, error: string) {
+  console.error(`[pending-approve] pending_id=${pendingId} fail reason=${reason}`);
+  return NextResponse.json<ApiErrorResponse>({ ok: false, error }, { status });
+}
+
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
   const adminCtx = ctx;
@@ -92,19 +102,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .maybeSingle<PendingFestivalRow>();
 
     if (pendingError) {
-      console.error(`[pending-approve] pending_id=${id} fail reason=pending_lookup_error details="${pendingError.message}"`);
-      return NextResponse.json({ error: pendingError.message }, { status: 500 });
+      return fail(id, "pending_lookup_error", 500, `Failed to load pending festival: ${pendingError.message}`);
     }
 
     if (!pending) {
-      console.error(`[pending-approve] pending_id=${id} fail reason=not_found`);
-      return NextResponse.json({ error: "Pending festival not found." }, { status: 404 });
+      return fail(id, "not_found", 404, "Pending festival not found.");
     }
 
     if (pending.status !== "pending") {
-      console.error(`[pending-approve] pending_id=${id} fail reason=not_pending current_status=${pending.status}`);
-      return NextResponse.json({ error: `Festival already reviewed with status '${pending.status}'.` }, { status: 409 });
+      return fail(id, "not_pending", 409, `Festival already reviewed with status '${pending.status}'.`);
     }
+
+    console.info(`[pending-approve] pending_id=${id} fetched pending row`);
 
     const cityInputRaw = typeof body?.city === "string" ? body.city : "";
     const cityInput = normalizeCityInput(cityInputRaw);
@@ -116,36 +125,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (/^\d+$/.test(cityInput)) {
         const cityById = await findCityById(Number(cityInput));
         if (!cityById) {
-          console.error(`[pending-approve] pending_id=${id} fail reason=city_id_not_found city_input=${cityInput}`);
-          return NextResponse.json({ error: "Approve failed during city lookup: city id not found." }, { status: 500 });
+          return fail(id, "city_could_not_be_resolved", 400, "city could not be resolved");
         }
 
         cityId = cityById.id;
         cityText = cityById.slug || cityById.name_bg || cityText;
-        console.info(`[pending-approve] pending_id=${id} city_resolve_ok input="${cityInput}" resolved="${cityById.slug}" created=false`);
       } else {
         const resolvedCity = await resolveOrCreateCity(cityInput);
         if (!resolvedCity.city) {
-          console.error(`[pending-approve] pending_id=${id} fail reason=city_not_found city_input="${cityInput}"`);
-          return NextResponse.json({ error: "Approve failed during city lookup: city not found." }, { status: 500 });
+          return fail(id, "city_could_not_be_resolved", 400, "city could not be resolved");
         }
 
         cityId = resolvedCity.city.id;
         cityText = resolvedCity.city.slug;
-        console.info(
-          `[pending-approve] pending_id=${id} city_resolve_ok input="${cityInputRaw}" display_name="${resolvedCity.displayName}" slug="${resolvedCity.slug}" resolved_city_id=${resolvedCity.city.id} created=${resolvedCity.created}`
-        );
       }
     } else if (pending.city_id != null) {
       const cityByPendingId = await findCityById(pending.city_id);
       if (!cityByPendingId) {
-        console.error(`[pending-approve] pending_id=${id} fail reason=pending_city_id_not_found city_id=${pending.city_id}`);
-        return NextResponse.json({ error: "Approve failed during city lookup: pending city id not found." }, { status: 500 });
+        return fail(id, "city_could_not_be_resolved", 400, "city could not be resolved");
       }
 
       cityId = cityByPendingId.id;
       cityText = cityByPendingId.slug || cityByPendingId.name_bg || cityText;
     }
+
+    console.info(`[pending-approve] pending_id=${id} city resolved city_id=${cityId ?? "null"}`);
 
     if (pending.source_url) {
       const { data: existingBySource, error: existingBySourceError } = await adminCtx.supabase
@@ -155,13 +159,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         .limit(1);
 
       if (existingBySourceError) {
-        console.error(`[pending-approve] pending_id=${id} fail reason=source_url_check_error details="${existingBySourceError.message}"`);
-        return NextResponse.json({ error: `Approve failed during source_url check: ${existingBySourceError.message}` }, { status: 500 });
+        return fail(id, "source_url_check_failed", 500, `Failed to check source_url conflict: ${existingBySourceError.message}`);
       }
 
       if (existingBySource && existingBySource.length > 0) {
-        console.error(`[pending-approve] pending_id=${id} fail reason=source_url_conflict`);
-        return NextResponse.json({ error: "Festival already exists for this source URL." }, { status: 409 });
+        return fail(id, "source_url_conflict", 409, "source_url conflict");
       }
     }
 
@@ -176,16 +178,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     if (!slugAvailable) {
-      console.error(`[pending-approve] pending_id=${id} fail reason=slug_conflict base_slug=${baseSlug}`);
-      return NextResponse.json(
-        { error: "Unable to generate a unique festival slug after 50 attempts." },
-        { status: 409 }
-      );
+      return fail(id, "slug_conflict", 409, "slug conflict");
     }
 
     if (!pending.start_date) {
-      console.error(`[pending-approve] pending_id=${id} fail reason=missing_start_date`);
-      return NextResponse.json({ error: "Start date is required before approval." }, { status: 400 });
+      return fail(id, "missing_start_date", 400, "missing start_date");
     }
 
     const normalizedDescription = (pending.description ?? "").trim();
@@ -208,7 +205,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       source_type: "pending_approval",
       is_free: pending.is_free ?? true,
       image_url: normalizedImageUrl,
-      hero_image: pending.hero_image,
       lat: pending.latitude,
       lng: pending.longitude,
       status: "verified",
@@ -216,56 +212,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       updated_at: new Date().toISOString(),
     };
 
-    console.info(`[pending-approve] pending_id=${id} validate ok slug=${finalSlug}`);
+    console.info(`[pending-approve] pending_id=${id} festivals payload keys=${Object.keys(insertPayload).join(",")}`);
 
-    let { data: insertedFestival, error: insertError } = await adminCtx.supabase
-      .from("festivals")
-      .insert(insertPayload)
-      .select("id")
-      .maybeSingle();
-
-    if (insertError?.code === "42703" && insertError.message.includes("is_verified")) {
-      const payloadWithoutIsVerified = { ...insertPayload, status: "verified" };
-      delete (payloadWithoutIsVerified as { is_verified?: boolean }).is_verified;
-
-      const retryResult = await adminCtx.supabase
-        .from("festivals")
-        .insert(payloadWithoutIsVerified)
-        .select("id")
-        .maybeSingle();
-
-      insertedFestival = retryResult.data;
-      insertError = retryResult.error;
-    }
-
-    if (insertError?.code === "42703" && insertError.message.includes("hero_image")) {
-      const payloadWithoutHeroImage = { ...insertPayload };
-      delete (payloadWithoutHeroImage as { hero_image?: string | null }).hero_image;
-
-      const retryResult = await adminCtx.supabase
-        .from("festivals")
-        .insert(payloadWithoutHeroImage)
-        .select("id")
-        .maybeSingle();
-
-      insertedFestival = retryResult.data;
-      insertError = retryResult.error;
-    }
+    const { data: insertedFestival, error: insertError } = await adminCtx.supabase.from("festivals").insert(insertPayload).select("id").maybeSingle();
 
     if (insertError) {
       if (insertError.code === "23505") {
-        console.error(`[pending-approve] pending_id=${id} fail reason=insert_conflict`);
-        return NextResponse.json(
-          { error: "Conflicting festival already exists (duplicate slug/source_url)." },
-          { status: 409 }
-        );
+        const shortMessage = insertError.message.includes("source_url") ? "source_url conflict" : "slug conflict";
+        return fail(id, "festivals_insert_failed", 409, shortMessage);
       }
 
-      console.error(`[pending-approve] pending_id=${id} fail reason=insert_error details="${insertError.message}"`);
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+      return fail(id, "festivals_insert_failed", 500, `festivals insert failed: ${insertError.message}`);
     }
 
-    console.info(`[pending-approve] pending_id=${id} publish festivals upsert ok festival_id=${insertedFestival?.id ?? "unknown"}`);
+    if (!insertedFestival?.id) {
+      return fail(id, "festivals_insert_missing_id", 500, "festivals insert failed");
+    }
+
+    console.info(`[pending-approve] pending_id=${id} festivals insert ok festival_id=${insertedFestival.id}`);
 
     const { data: reviewRow, error: reviewError } = await adminCtx.supabase
       .from("pending_festivals")
@@ -280,28 +244,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .maybeSingle();
 
     if (reviewError) {
-      if (insertedFestival?.id) {
-        await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
-      }
-      console.error(`[pending-approve] pending_id=${id} fail reason=pending_status_update_error details="${reviewError.message}"`);
-      return NextResponse.json({ error: `Approve failed while updating pending record: ${reviewError.message}` }, { status: 500 });
+      await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
+      return fail(id, "pending_status_update_failed", 500, `pending status update failed: ${reviewError.message}`);
     }
 
     if (!reviewRow) {
-      if (insertedFestival?.id) {
-        await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
-      }
-
-      console.error(`[pending-approve] pending_id=${id} fail reason=pending_status_not_updated`);
-      return NextResponse.json({ error: "Pending record not pending anymore." }, { status: 409 });
+      await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
+      return fail(id, "pending_status_not_updated", 409, "pending status update failed");
     }
 
     console.info(`[pending-approve] pending_id=${id} pending status updated=approved`);
 
-    return NextResponse.json({ ok: true, festival_id: insertedFestival?.id, slug: finalSlug });
+    return NextResponse.json({
+      ok: true,
+      festival_id: insertedFestival.id,
+      redirect_to: `/admin/festivals/${insertedFestival.id}`,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected admin API error";
-    console.error(`[pending-approve] pending_id=${pendingIdForLog} fail reason=unexpected_error details="${message}"`);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return fail(pendingIdForLog, "unexpected_error", 500, message);
   }
 }

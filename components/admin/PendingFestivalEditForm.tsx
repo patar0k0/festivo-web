@@ -23,6 +23,15 @@ type PendingFestivalRecord = {
   created_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
+  title_clean: string | null;
+  description_clean: string | null;
+  description_short: string | null;
+  category_guess: string | null;
+  tags_guess: unknown;
+  city_guess: string | null;
+  location_guess: string | null;
+  date_guess: string | null;
+  is_free_guess: boolean | null;
 };
 
 type ResolvedCity = {
@@ -39,6 +48,76 @@ type ErrorPayload = {
 
 function asDateInput(value: string | null) {
   return value ? value.slice(0, 10) : "";
+}
+
+function normalizeDisplayValue(value: string | null | undefined) {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
+function normalizeTagsGuess(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((tag) => (typeof tag === "string" ? tag.trim() : ""))
+      .filter(Boolean);
+  }
+
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  const raw = value.trim();
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((tag) => (typeof tag === "string" ? tag.trim() : ""))
+        .filter(Boolean);
+    }
+  } catch {
+    // Fall back to plain string split for non-JSON values.
+  }
+
+  return raw
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function getComparisonStatus(current: string | null, aiGuess: string | null) {
+  if (!aiGuess) {
+    return null;
+  }
+
+  if (!current) {
+    return "missing";
+  }
+
+  if (current.toLocaleLowerCase("bg-BG") === aiGuess.toLocaleLowerCase("bg-BG")) {
+    return "matches";
+  }
+
+  return "different";
+}
+
+function statusBadgeLabel(status: ReturnType<typeof getComparisonStatus>) {
+  if (status === "matches") {
+    return "Matches current";
+  }
+
+  if (status === "missing") {
+    return "Current missing";
+  }
+
+  if (status === "different") {
+    return "Different";
+  }
+
+  return null;
 }
 
 function validateCoords(latitudeRaw: string, longitudeRaw: string) {
@@ -81,6 +160,36 @@ async function formatCityResolveError(response: Response, cityInput: string) {
 
 export default function PendingFestivalEditForm({ pendingFestival }: { pendingFestival: PendingFestivalRecord }) {
   const router = useRouter();
+  const titleGuess = normalizeDisplayValue(pendingFestival.title_clean);
+  const descriptionShortGuess = normalizeDisplayValue(pendingFestival.description_short);
+  const descriptionCleanGuess = normalizeDisplayValue(pendingFestival.description_clean);
+  const categoryGuess = normalizeDisplayValue(pendingFestival.category_guess);
+  const cityGuess = normalizeDisplayValue(pendingFestival.city_guess);
+  const locationGuess = normalizeDisplayValue(pendingFestival.location_guess);
+  const dateGuess = normalizeDisplayValue(pendingFestival.date_guess);
+  const tagsGuess = normalizeTagsGuess(pendingFestival.tags_guess);
+  const startDateCurrent = normalizeDisplayValue(asDateInput(pendingFestival.start_date));
+  const locationCurrent = normalizeDisplayValue(pendingFestival.location_name);
+  const cityCurrent = normalizeDisplayValue(pendingFestival.city_id?.toString() ?? null);
+  const titleStatus = getComparisonStatus(normalizeDisplayValue(pendingFestival.title), titleGuess);
+  const startDateStatus = getComparisonStatus(startDateCurrent, dateGuess);
+  const locationStatus = getComparisonStatus(locationCurrent, locationGuess);
+  const cityStatus = cityCurrent ? null : getComparisonStatus(cityCurrent, cityGuess);
+  const freeGuessLabel = pendingFestival.is_free_guess === null ? null : pendingFestival.is_free_guess ? "Free" : "Paid";
+  const freeCurrentLabel = pendingFestival.is_free === null ? null : pendingFestival.is_free ? "Free" : "Paid";
+  const freeStatus =
+    freeGuessLabel === null ? null : freeCurrentLabel === null ? "missing" : freeGuessLabel === freeCurrentLabel ? "matches" : "different";
+  const hasAiAssistance =
+    Boolean(titleGuess) ||
+    Boolean(descriptionShortGuess) ||
+    Boolean(descriptionCleanGuess) ||
+    Boolean(categoryGuess) ||
+    Boolean(cityGuess) ||
+    Boolean(locationGuess) ||
+    Boolean(dateGuess) ||
+    Boolean(freeGuessLabel) ||
+    tagsGuess.length > 0;
+
   const [form, setForm] = useState({
     title: pendingFestival.title,
     slug: pendingFestival.slug ?? "",
@@ -326,6 +435,93 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
               </label>
             </div>
           </div>
+
+          {hasAiAssistance ? (
+            <div className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
+              <h2 className="text-lg font-bold">AI Assistance</h2>
+              <p className="mt-1 text-xs text-black/60">Advisory-only hints from normalization/extraction. Core editable fields remain authoritative.</p>
+
+              <div className="mt-4 space-y-4">
+                {titleGuess ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Clean title · AI guess</p>
+                    <p className="mt-1 text-sm text-black/85">{titleGuess}</p>
+                    {statusBadgeLabel(titleStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(titleStatus)}</p> : null}
+                  </div>
+                ) : null}
+
+                {descriptionShortGuess ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Short description · AI guess</p>
+                    <p className="mt-1 text-sm text-black/85">{descriptionShortGuess}</p>
+                  </div>
+                ) : null}
+
+                {descriptionCleanGuess ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Clean description · AI guess</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-black/85">{descriptionCleanGuess}</p>
+                  </div>
+                ) : null}
+
+                {categoryGuess ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Category guess</p>
+                    <p className="mt-1 text-sm text-black/85">{categoryGuess}</p>
+                  </div>
+                ) : null}
+
+                {tagsGuess.length > 0 ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Tags guess</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {tagsGuess.map((tag) => (
+                        <span key={tag} className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs text-black/70">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {cityGuess ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City · AI guess</p>
+                    <p className="mt-1 text-sm text-black/85">Current value: {cityCurrent ?? "-"}</p>
+                    <p className="mt-1 text-sm text-black/85">AI guess: {cityGuess}</p>
+                    {statusBadgeLabel(cityStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(cityStatus)}</p> : null}
+                  </div>
+                ) : null}
+
+                {locationGuess ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Location · AI guess</p>
+                    <p className="mt-1 text-sm text-black/85">Current value: {locationCurrent ?? "-"}</p>
+                    <p className="mt-1 text-sm text-black/85">AI guess: {locationGuess}</p>
+                    {statusBadgeLabel(locationStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(locationStatus)}</p> : null}
+                  </div>
+                ) : null}
+
+                {dateGuess ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Date · AI guess</p>
+                    <p className="mt-1 text-sm text-black/85">Current start date: {startDateCurrent ?? "-"}</p>
+                    <p className="mt-1 text-sm text-black/85">AI guess: {dateGuess}</p>
+                    {statusBadgeLabel(startDateStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(startDateStatus)}</p> : null}
+                  </div>
+                ) : null}
+
+                {freeGuessLabel ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Free guess</p>
+                    <p className="mt-1 text-sm text-black/85">Current value: {freeCurrentLabel ?? "-"}</p>
+                    <p className="mt-1 text-sm text-black/85">AI guess: {freeGuessLabel}</p>
+                    {statusBadgeLabel(freeStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(freeStatus)}</p> : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 text-sm">
             <h2 className="text-lg font-bold">Moderation state</h2>

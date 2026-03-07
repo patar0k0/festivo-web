@@ -42,9 +42,24 @@ export default function SiteNavClient({
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") {
+      return;
+    }
+
+    console.info("[SiteNavClient] mobile menu state", { isOpen });
+
+    if (isOpen) {
+      const panelRendered = Boolean(document.getElementById("site-mobile-menu"));
+      console.info("[SiteNavClient] mobile menu JSX branch rendered", {
+        panelRendered,
+      });
+    }
+  }, [isOpen]);
+
   return (
     <>
-      <div className="md:hidden">
+      <div className="relative md:hidden">
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
@@ -55,17 +70,14 @@ export default function SiteNavClient({
           <span aria-hidden="true" className="text-base leading-none">
             {isOpen ? "✕" : "☰"}
           </span>
-          Меню
+          {isOpen ? "Затвори" : "Меню"}
         </button>
-        <div
-          className={`fixed inset-0 z-50 overflow-y-auto bg-white transition-transform duration-300 ease-out ${
-            isOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
-          }`}
-          aria-hidden={!isOpen}
-        >
+
+        {isOpen ? (
           <div
             id="site-mobile-menu"
-            className="flex min-h-full w-full max-w-full flex-col bg-white p-5"
+            className="absolute left-1/2 top-full z-[70] mt-4 flex min-h-[calc(100dvh-88px)] w-screen -translate-x-1/2 flex-col bg-white px-5 py-6 shadow-[0_22px_44px_rgba(12,14,20,0.14)]"
+            aria-hidden={!isOpen}
           >
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">
@@ -138,7 +150,7 @@ export default function SiteNavClient({
               )}
             </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       <nav className="hidden items-center gap-6 text-xs font-semibold uppercase tracking-[0.2em] text-black/55 md:flex">

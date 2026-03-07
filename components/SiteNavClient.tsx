@@ -124,16 +124,21 @@ export default function SiteNavClient({
                 </Link>
               </nav>
 
-              <div className="mt-auto border-t border-black/[0.08] pt-4 text-xs font-semibold uppercase tracking-[0.15em] text-black/65">
+              <div className="mt-auto border-t border-black/[0.08] pt-4">
                 {isAuthenticated ? (
-                  <div className="space-y-3">
+                  <div className="space-y-5">
                     <Link
                       href="/plan"
                       onClick={closeMenu}
-                      className="block break-all text-[11px] normal-case tracking-normal text-black/60"
+                      className="block text-base font-semibold text-black/75 transition hover:text-[#0c0e14]"
                     >
-                      {userEmail ?? "Профил"}
+                      Профил
                     </Link>
+                    {userEmail ? (
+                      <p className="mt-1 break-all text-sm font-medium text-black/45">
+                        {userEmail}
+                      </p>
+                    ) : null}
                     <form
                       action="/api/auth/logout"
                       method="post"
@@ -141,7 +146,7 @@ export default function SiteNavClient({
                     >
                       <button
                         type="submit"
-                        className="transition hover:text-[#0c0e14]"
+                        className="text-xs font-semibold uppercase tracking-[0.15em] text-black/65 transition hover:text-[#0c0e14]"
                       >
                         Изход
                       </button>
@@ -151,7 +156,7 @@ export default function SiteNavClient({
                   <Link
                     href="/login"
                     onClick={closeMenu}
-                    className="transition hover:text-[#0c0e14]"
+                    className="text-xs font-semibold uppercase tracking-[0.15em] text-black/65 transition hover:text-[#0c0e14]"
                   >
                     Вход
                   </Link>

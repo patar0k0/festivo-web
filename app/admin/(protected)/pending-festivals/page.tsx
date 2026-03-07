@@ -12,11 +12,36 @@ type PendingFestivalRow = {
   created_at: string;
 };
 
-export default async function AdminPendingFestivalsPage() {
+function asSearchParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] ?? "";
+  }
+
+  return value ?? "";
+}
+
+export default async function AdminPendingFestivalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
     redirect("/login?next=/admin/pending-festivals");
   }
+
+  const params = await searchParams;
+  const approved = asSearchParam(params.approved) === "1";
+  const rejected = asSearchParam(params.rejected) === "1";
+  const festivalId = asSearchParam(params.festival_id);
+
+  const initialMessage = approved
+    ? festivalId
+      ? `Festival approved and published (festival_id: ${festivalId}).`
+      : "Festival approved and published."
+    : rejected
+      ? "Festival rejected."
+      : "";
 
   const { data, error } = await ctx.supabase
     .from("pending_festivals")
@@ -46,7 +71,7 @@ export default async function AdminPendingFestivalsPage() {
         <p className="mt-2 text-sm text-black/65">Review incoming ingestion records before publishing them to the main festivals catalog.</p>
       </div>
 
-      <PendingFestivalsTable rows={rows} />
+      <PendingFestivalsTable rows={rows} initialMessage={initialMessage} />
     </div>
   );
 }

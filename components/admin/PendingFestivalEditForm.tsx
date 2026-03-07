@@ -46,6 +46,11 @@ type ErrorPayload = {
   suggestions?: ResolvedCity[];
 };
 
+type DecisionResponse = {
+  ok?: boolean;
+  festival_id?: string;
+};
+
 function asDateInput(value: string | null) {
   return value ? value.slice(0, 10) : "";
 }
@@ -410,12 +415,19 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
         }),
       });
 
+      const payload = (await response.json().catch(() => null)) as (DecisionResponse & ErrorPayload) | null;
+
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, `Failed to ${action}.`));
+        throw new Error(payload?.error ?? `Failed to ${action}.`);
       }
 
-      setMessage(action === "approve" ? "Festival approved and published." : "Festival rejected.");
-      router.push("/admin/pending-festivals");
+      if (action === "approve") {
+        const festivalId = payload?.festival_id ? encodeURIComponent(payload.festival_id) : "";
+        const query = festivalId ? `?approved=1&festival_id=${festivalId}` : "?approved=1";
+        router.push(`/admin/pending-festivals${query}`);
+      } else {
+        router.push("/admin/pending-festivals?rejected=1");
+      }
       router.refresh();
     } catch (decisionError) {
       setError(decisionError instanceof Error ? decisionError.message : "Unexpected action error.");

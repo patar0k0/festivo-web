@@ -19,9 +19,15 @@ async function readErrorMessage(response: Response, fallback: string) {
   return payload?.error ?? fallback;
 }
 
-export default function PendingFestivalsTable({ rows }: { rows: PendingFestivalRow[] }) {
+export default function PendingFestivalsTable({
+  rows,
+  initialMessage,
+}: {
+  rows: PendingFestivalRow[];
+  initialMessage?: string;
+}) {
   const router = useRouter();
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(initialMessage ?? "");
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"approve" | "reject" | null>(null);
@@ -55,7 +61,13 @@ export default function PendingFestivalsTable({ rows }: { rows: PendingFestivalR
   };
 
   if (!rows.length) {
-    return <div className="rounded-2xl border border-black/[0.08] bg-white/85 px-6 py-12 text-center text-sm text-black/60">No pending festivals.</div>;
+    return (
+      <div className="space-y-4">
+        {message ? <p className="rounded-lg bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">{message}</p> : null}
+        {error ? <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
+        <div className="rounded-2xl border border-black/[0.08] bg-white/85 px-6 py-12 text-center text-sm text-black/60">No pending festivals.</div>
+      </div>
+    );
   }
 
   return (

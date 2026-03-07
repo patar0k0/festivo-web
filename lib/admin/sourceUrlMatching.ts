@@ -75,6 +75,8 @@ export function getSourceUrlMatchMeta(sourceUrl: string | null | undefined): Sou
     }
   }
 
+  parsed.hash = "";
+
   const normalizedHost = normalizeFacebookHost(parsed.hostname);
   const decodedPathname = safeDecodePathname(parsed.pathname);
   const normalizedPathname = (decodedPathname.replace(/\/+$/, "") || "/") as string;

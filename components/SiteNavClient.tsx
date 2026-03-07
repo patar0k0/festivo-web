@@ -74,82 +74,91 @@ export default function SiteNavClient({
         </button>
 
         {isOpen ? (
-          <div
-            id="site-mobile-menu"
-            className="absolute left-1/2 top-full z-[70] mt-4 flex min-h-[calc(100dvh-88px)] w-screen -translate-x-1/2 flex-col bg-white px-5 py-6 shadow-[0_22px_44px_rgba(12,14,20,0.14)]"
-            aria-hidden={!isOpen}
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">
-                Меню
-              </p>
-              <button
-                type="button"
-                onClick={closeMenu}
-                className="rounded-full border border-black/[0.1] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-black/60"
-              >
-                Затвори
-              </button>
-            </div>
+          <>
+            <button
+              type="button"
+              aria-label="Затвори менюто"
+              onClick={closeMenu}
+              className="fixed inset-0 z-40 bg-black/30"
+            />
 
-            <nav className="mt-6 flex flex-col gap-6 text-lg font-semibold text-black/75">
-              <Link
-                href="/festivals"
-                onClick={closeMenu}
-                className="transition hover:text-[#0c0e14]"
-              >
-                Фестивали
-              </Link>
-              <Link
-                href="/calendar"
-                onClick={closeMenu}
-                className="transition hover:text-[#0c0e14]"
-              >
-                Календар
-              </Link>
-              <Link
-                href="/map"
-                onClick={closeMenu}
-                className="transition hover:text-[#0c0e14]"
-              >
-                Карта
-              </Link>
-            </nav>
+            <div
+              id="site-mobile-menu"
+              className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-y-auto bg-white px-5 py-6 shadow-[0_22px_44px_rgba(12,14,20,0.14)]"
+              aria-hidden={!isOpen}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">
+                  Меню
+                </p>
+                <button
+                  type="button"
+                  onClick={closeMenu}
+                  className="rounded-full border border-black/[0.1] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-black/60"
+                >
+                  Затвори
+                </button>
+              </div>
 
-            <div className="mt-auto border-t border-black/[0.08] pt-4 text-xs font-semibold uppercase tracking-[0.15em] text-black/65">
-              {isAuthenticated ? (
-                <div className="space-y-3">
-                  <Link
-                    href="/plan"
-                    onClick={closeMenu}
-                    className="block break-all text-[11px] normal-case tracking-normal text-black/60"
-                  >
-                    {userEmail ?? "Профил"}
-                  </Link>
-                  <form
-                    action="/api/auth/logout"
-                    method="post"
-                    onSubmit={closeMenu}
-                  >
-                    <button
-                      type="submit"
-                      className="transition hover:text-[#0c0e14]"
-                    >
-                      Изход
-                    </button>
-                  </form>
-                </div>
-              ) : (
+              <nav className="mt-6 flex flex-col gap-6 text-lg font-semibold text-black/75">
                 <Link
-                  href="/login"
+                  href="/festivals"
                   onClick={closeMenu}
                   className="transition hover:text-[#0c0e14]"
                 >
-                  Вход
+                  Фестивали
                 </Link>
-              )}
+                <Link
+                  href="/calendar"
+                  onClick={closeMenu}
+                  className="transition hover:text-[#0c0e14]"
+                >
+                  Календар
+                </Link>
+                <Link
+                  href="/map"
+                  onClick={closeMenu}
+                  className="transition hover:text-[#0c0e14]"
+                >
+                  Карта
+                </Link>
+              </nav>
+
+              <div className="mt-auto border-t border-black/[0.08] pt-4 text-xs font-semibold uppercase tracking-[0.15em] text-black/65">
+                {isAuthenticated ? (
+                  <div className="space-y-3">
+                    <Link
+                      href="/plan"
+                      onClick={closeMenu}
+                      className="block break-all text-[11px] normal-case tracking-normal text-black/60"
+                    >
+                      {userEmail ?? "Профил"}
+                    </Link>
+                    <form
+                      action="/api/auth/logout"
+                      method="post"
+                      onSubmit={closeMenu}
+                    >
+                      <button
+                        type="submit"
+                        className="transition hover:text-[#0c0e14]"
+                      >
+                        Изход
+                      </button>
+                    </form>
+                  </div>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={closeMenu}
+                    className="transition hover:text-[#0c0e14]"
+                  >
+                    Вход
+                  </Link>
+                )}
+              </div>
             </div>
-          </div>
+          </>
         ) : null}
       </div>
 

@@ -31,6 +31,11 @@ type PendingFestivalRecord = {
   tags_guess: unknown;
   tags?: unknown;
   city_guess: string | null;
+  city?: {
+    id: number;
+    name_bg: string | null;
+    slug: string | null;
+  } | null;
   location_guess: string | null;
   date_guess: string | null;
   is_free_guess: boolean | null;
@@ -244,6 +249,11 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const startDateCurrent = normalizeDisplayValue(asDateInput(pendingFestival.start_date));
   const locationCurrent = normalizeDisplayValue(pendingFestival.location_name);
   const cityCurrent = normalizeDisplayValue(pendingFestival.city_id?.toString() ?? null);
+  const cityDisplayValue =
+    normalizeDisplayValue(pendingFestival.city?.name_bg) ??
+    normalizeDisplayValue(pendingFestival.city?.slug) ??
+    cityCurrent ??
+    "";
   const titleStatus = getComparisonStatus(normalizeDisplayValue(pendingFestival.title), titleGuess);
   const startDateStatus = getComparisonStatus(startDateCurrent, dateGuess);
   const locationStatus = getComparisonStatus(locationCurrent, locationGuess);
@@ -268,7 +278,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
     title: pendingFestival.title,
     slug: pendingFestival.slug ?? "",
     description: pendingFestival.description ?? "",
-    city_id: pendingFestival.city_id?.toString() ?? "",
+    city_id: cityDisplayValue,
     location_name: pendingFestival.location_name ?? "",
     latitude: pendingFestival.latitude?.toString() ?? "",
     longitude: pendingFestival.longitude?.toString() ?? "",
@@ -575,7 +585,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                   }}
                   className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
                 />
-                {resolvedCity ? <p className="mt-2 text-xs text-black/60">Resolved: {resolvedCity.name_bg} (id={resolvedCity.id}, slug={resolvedCity.slug})</p> : null}
+                {resolvedCity ? <p className="mt-2 text-xs text-black/60">Resolved city: {resolvedCity.name_bg} (id={resolvedCity.id}, slug={resolvedCity.slug})</p> : null}
               </label>
               <label className="md:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Description</span>

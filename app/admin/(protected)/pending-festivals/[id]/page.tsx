@@ -9,7 +9,11 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
     redirect(`/login?next=/admin/pending-festivals/${id}`);
   }
 
-  const { data, error } = await ctx.supabase.from("pending_festivals").select("*").eq("id", id).maybeSingle();
+  const { data, error } = await ctx.supabase
+    .from("pending_festivals")
+    .select("*, city:cities(id,name_bg,slug)")
+    .eq("id", id)
+    .maybeSingle();
 
   if (error) {
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{error.message}</div>;

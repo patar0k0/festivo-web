@@ -230,11 +230,9 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const longitudeGuess = findCoordinateGuess(pendingFestival, ["longitude_guess", "lng_guess", "ai_longitude", "extracted_longitude"]);
   const startDateCurrent = normalizeDisplayValue(asDateInput(pendingFestival.start_date));
   const locationCurrent = normalizeDisplayValue(pendingFestival.location_name);
-  const cityCurrent = normalizeDisplayValue(pendingFestival.city_id?.toString() ?? null);
   const cityDisplayValue =
     normalizeDisplayValue(pendingFestival.city?.name_bg) ??
     normalizeDisplayValue(pendingFestival.city?.slug) ??
-    cityCurrent ??
     "";
   const titleStatus = getComparisonStatus(normalizeDisplayValue(pendingFestival.title), titleGuess);
   const startDateStatus = getComparisonStatus(startDateCurrent, dateGuess);
@@ -416,6 +414,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
 
     try {
       const cityInput = form.city_id.trim();
+      console.info(`[pending-save][client] pending_id=${pendingFestival.id} city input="${cityInput}"`);
 
       const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}`, {
         method: "PATCH",
@@ -737,7 +736,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                         {appliedAiFields.city_id ? "Applied" : "Use"}
                       </button>
                     </div>
-                    <p className="mt-1 text-sm text-black/85">Current value: {normalizeDisplayValue(form.city_id) ?? cityCurrent ?? "-"}</p>
+                    <p className="mt-1 text-sm text-black/85">Current value: {normalizeDisplayValue(form.city_id) ?? "-"}</p>
                     <p className="mt-1 text-sm text-black/85">AI guess: {cityGuess}</p>
                     {statusBadgeLabel(cityStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(cityStatus)}</p> : null}
                   </div>

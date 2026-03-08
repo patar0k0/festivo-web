@@ -72,11 +72,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         patch.city_id = null;
       } else {
         const resolvedCity = await resolveCityReference(ctx.supabase, cityInput);
-        if (resolvedCity) {
-          patch.city_id = resolvedCity.id;
-        } else {
-          patch.city_id = null;
+        console.info(`[pending-save] pending_id=${id} resolved_city_id=${resolvedCity?.id ?? null}`);
+
+        if (!resolvedCity) {
+          console.error(`[pending-save] pending_id=${id} fail reason=city_not_resolved`);
+          return NextResponse.json({ error: `City could not be resolved: "${cityInput}".` }, { status: 400 });
         }
+
+        patch.city_id = resolvedCity.id;
       }
     } else if ("city_id" in body) {
       if (body.city_id === null || body.city_id === undefined || body.city_id === "") {
@@ -84,6 +87,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       } else {
         return NextResponse.json({ error: "city_id updates are no longer supported directly. Use city text input." }, { status: 400 });
       }
+    }
+
+    if (!("city" in body)) {
+      console.info(`[pending-save] pending_id=${id} resolved_city_id=${patch.city_id ?? null}`);
     }
 
     if ("tags" in body) {

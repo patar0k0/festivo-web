@@ -31,6 +31,10 @@ type PendingFestivalRow = {
   status: "pending" | "approved" | "rejected";
 };
 
+type IngestJobRow = {
+  source_type: string;
+};
+
 type ApiErrorResponse = {
   ok: false;
   error: string;
@@ -56,6 +60,16 @@ function normalizeCityInput(value: string) {
 function fail(pendingId: string, reason: string, status: number, error: string) {
   console.error(`[pending-approve] pending_id=${pendingId} fail reason=${reason}`);
   return NextResponse.json<ApiErrorResponse>({ ok: false, error }, { status });
+}
+
+function mapFestivalSourceType(rawSourceType: string | null) {
+  if (!rawSourceType) return null;
+
+  if (rawSourceType === "facebook_event") {
+    return "facebook";
+  }
+
+  return rawSourceType;
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -189,6 +203,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const normalizedImageUrl = (pending.hero_image ?? "").trim();
     const normalizedAddress = (pending.location_name ?? "").trim();
 
+    let rawSourceType: string | null = null;
+    if (pending.source_url) {
+      const { data: ingestJob, error: ingestJobError } = await adminCtx.supabase
+        .from("ingest_jobs")
+        .select("source_type")
+        .eq("source_url", pending.source_url)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<IngestJobRow>();
+
+      if (ingestJobError) {
+        return fail(id, "ingest_job_lookup_failed", 500, `Failed to load ingest source_type: ${ingestJobError.message}`);
+      }
+
+      rawSourceType = ingestJob?.source_type ?? null;
+    }
+
+    const mappedSourceType = mapFestivalSourceType(rawSourceType);
+
+    console.info(`[pending-approve] pending_id=${id} source_type raw="${rawSourceType ?? ""}" mapped="${mappedSourceType ?? ""}"`);
+
     const insertPayload = {
       title: pending.title,
       slug: finalSlug,
@@ -201,7 +236,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       end_date: pending.end_date,
       category: "festival",
       source_url: pending.source_url,
-      source_type: "pending_approval",
+      source_type: mappedSourceType,
       is_free: pending.is_free ?? true,
       image_url: normalizedImageUrl,
       lat: pending.latitude,

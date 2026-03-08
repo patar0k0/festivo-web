@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
+import { normalizeSettlementInput } from "@/lib/admin/resolveCityReference";
 import { slugify } from "@/lib/utils";
 
 type CityRow = {
@@ -104,6 +104,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     console.info(`[pending-approve] pending_id=${id} start`);
 
     const body = (await request.json().catch(() => null)) as ApprovePayload | null;
+    if (body?.city) {
+      console.info(`[pending-approve] pending_id=${id} ignoring request city override; using saved pending fields only`);
+    }
 
     const { data: pending, error: pendingError } = await adminCtx.supabase
       .from("pending_festivals")
@@ -125,24 +128,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     console.info(`[pending-approve] pending_id=${id} fetched pending row`);
 
-    const cityInputRaw = typeof body?.city === "string" ? body.city : "";
-    const cityInput = normalizeSettlementInput(cityInputRaw);
-
     let cityText: string | null = "";
     let cityId: number | null = pending.city_id ?? null;
-    let settlementText = normalizeSettlementInput(pending.location_name ?? "");
+    const settlementText = normalizeSettlementInput(pending.location_name ?? "");
 
-    if (cityInput) {
-      const resolvedCity = await resolveCityReference(adminCtx.supabase, cityInput);
-      if (resolvedCity) {
-        cityId = resolvedCity.id;
-        cityText = resolvedCity.slug || resolvedCity.name_bg || "";
-      } else {
-        cityId = null;
-        cityText = cityInput;
-        settlementText = cityInput;
-      }
-    } else if (pending.city_id != null) {
+    if (pending.city_id != null) {
       const cityByPendingId = await findCityById(pending.city_id);
       if (cityByPendingId) {
         cityId = cityByPendingId.id;
@@ -216,6 +206,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const mappedSourceType = mapFestivalSourceType(rawSourceType);
 
     console.info(`[pending-approve] pending_id=${id} source_type raw="${rawSourceType ?? ""}" mapped="${mappedSourceType ?? ""}"`);
+    console.info(
+      `[pending-approve] pending_id=${id} publish source fields=${JSON.stringify({
+        title: pending.title,
+        slug: pending.slug,
+        description: pending.description,
+        city_id: pending.city_id,
+        location_name: pending.location_name,
+        latitude: pending.latitude,
+        longitude: pending.longitude,
+        start_date: pending.start_date,
+        end_date: pending.end_date,
+        organizer_name: pending.organizer_name,
+        source_url: pending.source_url,
+        is_free: pending.is_free,
+        hero_image: pending.hero_image,
+      })}`,
+    );
 
     const insertPayload = {
       title: pending.title,
@@ -256,7 +263,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return fail(id, "festivals_insert_missing_id", 500, "festivals insert failed");
     }
 
-    console.info(`[pending-approve] pending_id=${id} festivals insert ok festival_id=${insertedFestival.id}`);
+    console.info(`[pending-approve] pending_id=${id} published festival_id=${insertedFestival.id}`);
 
     const { data: reviewRow, error: reviewError } = await adminCtx.supabase
       .from("pending_festivals")

@@ -14,7 +14,7 @@
 | title | text | festival title |
 | slug | text | URL slug; used for festival detail routes |
 | description | text | long description |
-| city | text | denormalized city slug (canonical; mirrors `cities.slug`) |
+| city | text | denormalized canonical city slug when `city_id` is set; may contain admin-entered free-text settlement when canonical match is unavailable |
 | city_id | bigint | FK to `cities.id` (canonical city reference) |
 | region | text | administrative region |
 | address | text | optional venue address |
@@ -62,7 +62,7 @@
 | slug | text | optional proposed URL slug |
 | description | text | optional description |
 | city_id | bigint | optional FK to `cities.id` |
-| location_name | text | optional venue/location text |
+| location_name | text | optional venue/location text; also used as free-text settlement fallback when `city_id` is unresolved in moderation |
 | latitude | numeric | optional latitude |
 | longitude | numeric | optional longitude |
 | start_date | date | optional festival start date |

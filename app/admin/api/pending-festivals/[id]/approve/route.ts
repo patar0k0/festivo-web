@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { resolveOrCreateCity } from "@/lib/admin/resolveOrCreateCity";
+import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
 import { slugify } from "@/lib/utils";
 
 type CityRow = {
@@ -51,10 +51,6 @@ function buildBaseSlug(slug: string | null, title: string, pendingId: string) {
 
   const baseSlug = trimmedSlug || fromTitle;
   return baseSlug || `festival-${pendingId}`;
-}
-
-function normalizeCityInput(value: string) {
-  return value.trim().replace(/\s+/g, " ");
 }
 
 function fail(pendingId: string, reason: string, status: number, error: string) {
@@ -130,40 +126,37 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     console.info(`[pending-approve] pending_id=${id} fetched pending row`);
 
     const cityInputRaw = typeof body?.city === "string" ? body.city : "";
-    const cityInput = normalizeCityInput(cityInputRaw);
+    const cityInput = normalizeSettlementInput(cityInputRaw);
 
-    let cityText = "unknown";
+    let cityText: string | null = "";
     let cityId: number | null = pending.city_id ?? null;
+    let settlementText = normalizeSettlementInput(pending.location_name ?? "");
 
     if (cityInput) {
-      if (/^\d+$/.test(cityInput)) {
-        const cityById = await findCityById(Number(cityInput));
-        if (!cityById) {
-          return fail(id, "city_could_not_be_resolved", 400, "city could not be resolved");
-        }
-
-        cityId = cityById.id;
-        cityText = cityById.slug || cityById.name_bg || cityText;
+      const resolvedCity = await resolveCityReference(adminCtx.supabase, cityInput);
+      if (resolvedCity) {
+        cityId = resolvedCity.id;
+        cityText = resolvedCity.slug || resolvedCity.name_bg || "";
       } else {
-        const resolvedCity = await resolveOrCreateCity(cityInput);
-        if (!resolvedCity.city) {
-          return fail(id, "city_could_not_be_resolved", 400, "city could not be resolved");
-        }
-
-        cityId = resolvedCity.city.id;
-        cityText = resolvedCity.city.slug;
+        cityId = null;
+        cityText = cityInput;
+        settlementText = cityInput;
       }
     } else if (pending.city_id != null) {
       const cityByPendingId = await findCityById(pending.city_id);
-      if (!cityByPendingId) {
-        return fail(id, "city_could_not_be_resolved", 400, "city could not be resolved");
+      if (cityByPendingId) {
+        cityId = cityByPendingId.id;
+        cityText = cityByPendingId.slug || cityByPendingId.name_bg || "";
+      } else {
+        cityId = null;
       }
-
-      cityId = cityByPendingId.id;
-      cityText = cityByPendingId.slug || cityByPendingId.name_bg || cityText;
     }
 
-    console.info(`[pending-approve] pending_id=${id} city resolved city_id=${cityId ?? "null"}`);
+    if (!cityText) {
+      cityText = settlementText || null;
+    }
+
+    console.info(`[pending-approve] pending_id=${id} city resolved city_id=${cityId ?? "null"} city_text="${cityText ?? ""}"`);
 
     if (pending.source_url) {
       const { data: existingBySource, error: existingBySourceError } = await adminCtx.supabase
@@ -201,7 +194,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const normalizedDescription = (pending.description ?? "").trim();
     const normalizedImageUrl = (pending.hero_image ?? "").trim();
-    const normalizedAddress = (pending.location_name ?? "").trim();
+    const normalizedAddress = settlementText;
 
     let rawSourceType: string | null = null;
     if (pending.source_url) {
@@ -228,7 +221,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       title: pending.title,
       slug: finalSlug,
       description: normalizedDescription,
-      city: cityText,
+      city: cityText || null,
       city_id: cityId,
       region: "",
       address: normalizedAddress || null,

@@ -75,7 +75,7 @@ type SaveFestivalResponse = {
 };
 
 export default function FestivalEditForm({ festival }: { festival: FestivalRecord }) {
-  const initialCityDisplay = festival.city_name ?? "";
+  const initialCityDisplay = festival.city_name ?? festival.city ?? "";
 
   const [form, setForm] = useState({
     title: festival.title,
@@ -169,14 +169,13 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
       }
 
       const payload = (await response.json().catch(() => null)) as SaveFestivalResponse | null;
-      const cityCreated = Boolean(payload?.city_created);
       const resolvedCityDisplay = payload?.city?.name_bg ?? payload?.displayed_city ?? payload?.city?.slug ?? cityInput;
 
       if (resolvedCityDisplay) {
         updateField("city", resolvedCityDisplay);
       }
 
-      setMessage(cityCreated ? "Промените са записани успешно. Градът беше създаден автоматично." : "Промените са записани успешно.");
+      setMessage("Промените са записани успешно.");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Възникна грешка.");
     } finally {
@@ -209,7 +208,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
                 <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Град</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Град / населено място (ID / slug / име / свободен текст)</span>
                 <input
                   value={form.city}
                   onChange={(e) => updateField("city", e.target.value)}
@@ -221,6 +220,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
                     ? `Свързан град: id=${festival.city_id ?? "-"} · slug=${festival.city_slug ?? "-"}`
                     : "Свързан град: няма"}
                 </p>
+                {festival.city_id == null && form.city.trim() ? <p className="mt-1 text-xs text-black/50">Unresolved settlement (free text)</p> : null}
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Място</span>

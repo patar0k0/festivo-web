@@ -464,6 +464,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           city: form.city_id.trim() || null,
+          tags: form.tags,
         }),
       });
 

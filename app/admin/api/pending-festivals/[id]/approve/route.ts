@@ -200,7 +200,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       start_date: pending.start_date,
       end_date: pending.end_date,
       category: "festival",
-      category_slug: "festival",
       source_url: pending.source_url,
       source_type: "pending_approval",
       is_free: pending.is_free ?? true,

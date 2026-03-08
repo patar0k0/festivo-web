@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import TagsInput from "@/components/admin/TagsInput";
 
 type PendingFestivalRecord = {
   id: string;
@@ -28,10 +29,16 @@ type PendingFestivalRecord = {
   description_short: string | null;
   category_guess: string | null;
   tags_guess: unknown;
+  tags?: unknown;
   city_guess: string | null;
   location_guess: string | null;
   date_guess: string | null;
   is_free_guess: boolean | null;
+  latitude_guess?: number | string | null;
+  longitude_guess?: number | string | null;
+  lat_guess?: number | string | null;
+  lng_guess?: number | string | null;
+  [key: string]: unknown;
 };
 
 type ResolvedCity = {
@@ -117,6 +124,39 @@ function normalizeTagsGuess(value: unknown): string[] {
     .filter(Boolean);
 }
 
+function normalizeCoordinateValue(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value.toString();
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const parsed = Number(trimmed);
+    if (Number.isNaN(parsed)) {
+      return null;
+    }
+
+    return parsed.toString();
+  }
+
+  return null;
+}
+
+function findCoordinateGuess(record: PendingFestivalRecord, keys: string[]) {
+  for (const key of keys) {
+    const value = normalizeCoordinateValue(record[key]);
+    if (value !== null) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
 function getComparisonStatus(current: string | null, aiGuess: string | null) {
   if (!aiGuess) {
     return null;
@@ -197,13 +237,16 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const locationGuess = normalizeDisplayValue(pendingFestival.location_guess);
   const dateGuess = normalizeDisplayValue(pendingFestival.date_guess);
   const tagsGuess = normalizeTagsGuess(pendingFestival.tags_guess);
+  const hasStoredTagsField = Object.prototype.hasOwnProperty.call(pendingFestival, "tags");
+  const tagsCurrent = normalizeTagsGuess(pendingFestival.tags);
+  const latitudeGuess = findCoordinateGuess(pendingFestival, ["latitude_guess", "lat_guess", "ai_latitude", "extracted_latitude"]);
+  const longitudeGuess = findCoordinateGuess(pendingFestival, ["longitude_guess", "lng_guess", "ai_longitude", "extracted_longitude"]);
   const startDateCurrent = normalizeDisplayValue(asDateInput(pendingFestival.start_date));
   const locationCurrent = normalizeDisplayValue(pendingFestival.location_name);
   const cityCurrent = normalizeDisplayValue(pendingFestival.city_id?.toString() ?? null);
   const titleStatus = getComparisonStatus(normalizeDisplayValue(pendingFestival.title), titleGuess);
   const startDateStatus = getComparisonStatus(startDateCurrent, dateGuess);
   const locationStatus = getComparisonStatus(locationCurrent, locationGuess);
-  const cityStatus = cityCurrent ? null : getComparisonStatus(cityCurrent, cityGuess);
   const freeGuessLabel = pendingFestival.is_free_guess === null ? null : pendingFestival.is_free_guess ? "Free" : "Paid";
   const freeCurrentLabel = pendingFestival.is_free === null ? null : pendingFestival.is_free ? "Free" : "Paid";
   const freeStatus =
@@ -217,7 +260,9 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
     Boolean(locationGuess) ||
     Boolean(dateGuess) ||
     Boolean(freeGuessLabel) ||
-    tagsGuess.length > 0;
+    tagsGuess.length > 0 ||
+    Boolean(latitudeGuess) ||
+    Boolean(longitudeGuess);
 
   const [form, setForm] = useState({
     title: pendingFestival.title,
@@ -233,6 +278,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
     source_url: pendingFestival.source_url ?? "",
     is_free: pendingFestival.is_free ?? true,
     hero_image: pendingFestival.hero_image ?? "",
+    tags: tagsCurrent,
   });
   const [saving, setSaving] = useState(false);
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
@@ -246,7 +292,16 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
     city_id: false,
     location_name: false,
     start_date: false,
+    tags: false,
+    latitude: false,
+    longitude: false,
   });
+
+  const cityStatus = getComparisonStatus(normalizeDisplayValue(form.city_id), cityGuess);
+  const latitudeStatus = getComparisonStatus(normalizeDisplayValue(form.latitude), latitudeGuess);
+  const longitudeStatus = getComparisonStatus(normalizeDisplayValue(form.longitude), longitudeGuess);
+
+  const heroImageUrl = form.hero_image.trim();
 
   const updateField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     if (key === "hero_image") {
@@ -287,6 +342,21 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
       }
     }
 
+    if (field === "tags" && tagsGuess.length > 0) {
+      updateField("tags", tagsGuess);
+      didApply = true;
+    }
+
+    if (field === "latitude" && latitudeGuess) {
+      updateField("latitude", latitudeGuess);
+      didApply = true;
+    }
+
+    if (field === "longitude" && longitudeGuess) {
+      updateField("longitude", longitudeGuess);
+      didApply = true;
+    }
+
     if (didApply) {
       setAppliedAiFields((prev) => ({ ...prev, [field]: true }));
     }
@@ -320,6 +390,21 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
         updateField("start_date", normalizedDateGuess);
         setAppliedAiFields((prev) => ({ ...prev, start_date: true }));
       }
+    }
+
+    if (tagsGuess.length > 0 && form.tags.length === 0) {
+      updateField("tags", tagsGuess);
+      setAppliedAiFields((prev) => ({ ...prev, tags: true }));
+    }
+
+    if (latitudeGuess && !form.latitude.trim()) {
+      updateField("latitude", latitudeGuess);
+      setAppliedAiFields((prev) => ({ ...prev, latitude: true }));
+    }
+
+    if (longitudeGuess && !form.longitude.trim()) {
+      updateField("longitude", longitudeGuess);
+      setAppliedAiFields((prev) => ({ ...prev, longitude: true }));
     }
   };
 
@@ -384,6 +469,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
           source_url: form.source_url.trim() || null,
           is_free: form.is_free,
           hero_image: form.hero_image.trim() || null,
+          ...(hasStoredTagsField ? { tags: form.tags } : {}),
         }),
       });
 
@@ -495,6 +581,12 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Description</span>
                 <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={5} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
+              <div className="md:col-span-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Tags</span>
+                <div className="mt-2">
+                  <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -540,9 +632,9 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Hero image</span>
                 <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-                {form.hero_image.trim() ? (
+                {heroImageUrl ? (
                   <div className="mt-3">
-                    <a href={form.hero_image.trim()} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#0c0e14] underline underline-offset-2">
+                    <a href={heroImageUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#0c0e14] underline underline-offset-2">
                       Open image in new tab
                     </a>
                     <div className="mt-3 overflow-hidden rounded-2xl border border-black/10">
@@ -551,9 +643,11 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                       ) : (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={form.hero_image.trim()}
+                          key={heroImageUrl}
+                          src={heroImageUrl}
                           alt="Hero preview"
                           className="h-auto max-h-[360px] w-full object-cover"
+                          onLoad={() => setHeroPreviewError(false)}
                           onError={() => setHeroPreviewError(true)}
                         />
                       )}
@@ -632,7 +726,17 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
 
                 {tagsGuess.length > 0 ? (
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Tags guess</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Tags guess</p>
+                      <button
+                        type="button"
+                        onClick={() => applyAiValue("tags")}
+                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                      >
+                        {appliedAiFields.tags ? "Applied" : "Use AI tags"}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-sm text-black/85">Current tags: {form.tags.length > 0 ? form.tags.join(", ") : "-"}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {tagsGuess.map((tag) => (
                         <span key={tag} className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs text-black/70">
@@ -655,9 +759,47 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                         {appliedAiFields.city_id ? "Applied" : "Use"}
                       </button>
                     </div>
-                    <p className="mt-1 text-sm text-black/85">Current value: {cityCurrent ?? "-"}</p>
+                    <p className="mt-1 text-sm text-black/85">Current value: {normalizeDisplayValue(form.city_id) ?? cityCurrent ?? "-"}</p>
                     <p className="mt-1 text-sm text-black/85">AI guess: {cityGuess}</p>
                     {statusBadgeLabel(cityStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(cityStatus)}</p> : null}
+                  </div>
+                ) : null}
+
+                {latitudeGuess || longitudeGuess || form.latitude || form.longitude ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Coordinates</p>
+                    <p className="mt-1 text-sm text-black/85">Current latitude: {normalizeDisplayValue(form.latitude) ?? "-"}</p>
+                    <p className="mt-1 text-sm text-black/85">Current longitude: {normalizeDisplayValue(form.longitude) ?? "-"}</p>
+
+                    {latitudeGuess ? (
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <p className="text-sm text-black/85">AI/extracted latitude: {latitudeGuess}</p>
+                        <button
+                          type="button"
+                          onClick={() => applyAiValue("latitude")}
+                          className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                          disabled={Boolean(normalizeDisplayValue(form.latitude))}
+                        >
+                          {appliedAiFields.latitude ? "Applied" : "Use"}
+                        </button>
+                      </div>
+                    ) : null}
+                    {statusBadgeLabel(latitudeStatus) ? <p className="mt-1 text-xs text-black/55">Latitude status: {statusBadgeLabel(latitudeStatus)}</p> : null}
+
+                    {longitudeGuess ? (
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <p className="text-sm text-black/85">AI/extracted longitude: {longitudeGuess}</p>
+                        <button
+                          type="button"
+                          onClick={() => applyAiValue("longitude")}
+                          className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                          disabled={Boolean(normalizeDisplayValue(form.longitude))}
+                        >
+                          {appliedAiFields.longitude ? "Applied" : "Use"}
+                        </button>
+                      </div>
+                    ) : null}
+                    {statusBadgeLabel(longitudeStatus) ? <p className="mt-1 text-xs text-black/55">Longitude status: {statusBadgeLabel(longitudeStatus)}</p> : null}
                   </div>
                 ) : null}
 

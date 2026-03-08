@@ -152,6 +152,7 @@ export default async function FestivalsPage({
       .from("festivals")
       .select(FESTIVAL_SELECT, { count: "exact" })
       .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+      .neq("status", "archived")
       .order("start_date", { ascending: true });
 
     if (city) {

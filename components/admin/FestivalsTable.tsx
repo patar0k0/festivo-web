@@ -61,6 +61,34 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
     }
   };
 
+  const runRowArchiveAction = async (id: string, action: "archive" | "restore") => {
+    if (pendingAction) return;
+
+    setPendingAction(`${action}:${id}`);
+    setMessage("");
+
+    try {
+      const response = await fetch(`/admin/api/festivals/${id}/archive`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error ?? "Неуспешно обновяване на статуса.");
+      }
+
+      setMessage(action === "archive" ? "Фестивалът е архивиран." : "Фестивалът е възстановен.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Възникна грешка.");
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
   if (!rows.length) {
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 px-6 py-12 text-center text-sm text-black/60">Няма резултати за избраните филтри.</div>;
   }
@@ -109,41 +137,63 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
               <th className="px-3 py-3">Start-End</th>
               <th className="px-3 py-3">Category</th>
               <th className="px-3 py-3">Free</th>
-              <th className="px-3 py-3">Status</th>
+              <th className="px-3 py-3">State</th>
               <th className="px-3 py-3">Updated</th>
               <th className="px-3 py-3">Source</th>
               <th className="px-3 py-3">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/[0.06]">
-            {rows.map((row) => (
-              <tr key={row.id} className="hover:bg-black/[0.02]">
-                <td className="px-3 py-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.includes(row.id)}
-                    onChange={() => toggleOne(row.id)}
-                    aria-label={`Select ${row.title}`}
-                  />
-                </td>
-                <td className="px-3 py-3 font-medium text-[#0c0e14]">{row.title}</td>
-                <td className="px-3 py-3 text-black/65">{row.city ?? "-"}</td>
-                <td className="px-3 py-3 text-black/65">{row.start_date ?? "-"} / {row.end_date ?? "-"}</td>
-                <td className="px-3 py-3 text-black/65">{row.category ?? "-"}</td>
-                <td className="px-3 py-3 text-black/65">{row.is_free ? "Yes" : "No"}</td>
-                <td className="px-3 py-3 text-black/65">{row.status ?? "draft"}</td>
-                <td className="px-3 py-3 text-black/65">{row.updated_at ? new Date(row.updated_at).toLocaleString("bg-BG") : "-"}</td>
-                <td className="px-3 py-3 text-black/65">{row.source_type ?? "-"}</td>
-                <td className="px-3 py-3">
-                  <Link
-                    href={`/admin/festivals/${row.id}`}
-                    className="inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] hover:bg-[#f7f6f3]"
-                  >
-                    Edit
-                  </Link>
-                </td>
-              </tr>
-            ))}
+            {rows.map((row) => {
+              const isArchived = row.status === "archived";
+
+              return (
+                <tr key={row.id} className="hover:bg-black/[0.02]">
+                  <td className="px-3 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(row.id)}
+                      onChange={() => toggleOne(row.id)}
+                      aria-label={`Select ${row.title}`}
+                    />
+                  </td>
+                  <td className="px-3 py-3 font-medium text-[#0c0e14]">{row.title}</td>
+                  <td className="px-3 py-3 text-black/65">{row.city ?? "-"}</td>
+                  <td className="px-3 py-3 text-black/65">{row.start_date ?? "-"} / {row.end_date ?? "-"}</td>
+                  <td className="px-3 py-3 text-black/65">{row.category ?? "-"}</td>
+                  <td className="px-3 py-3 text-black/65">{row.is_free ? "Yes" : "No"}</td>
+                  <td className="px-3 py-3">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        isArchived ? "bg-[#f8decf] text-[#b13a1a]" : "bg-[#dcf5e7] text-[#0e7a45]"
+                      }`}
+                    >
+                      {isArchived ? "Archived" : "Active"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-black/65">{row.updated_at ? new Date(row.updated_at).toLocaleString("bg-BG") : "-"}</td>
+                  <td className="px-3 py-3 text-black/65">{row.source_type ?? "-"}</td>
+                  <td className="px-3 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/admin/festivals/${row.id}`}
+                        className="inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] hover:bg-[#f7f6f3]"
+                      >
+                        Edit
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => runRowArchiveAction(row.id, isArchived ? "restore" : "archive")}
+                        disabled={Boolean(pendingAction)}
+                        className="inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] hover:bg-[#f7f6f3] disabled:opacity-50"
+                      >
+                        {isArchived ? "Restore" : "Archive"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

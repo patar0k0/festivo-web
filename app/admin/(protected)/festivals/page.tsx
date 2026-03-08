@@ -32,6 +32,7 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
   const category = asString(params.category);
   const free = asString(params.free);
   const q = asString(params.q);
+  const deleted = asString(params.deleted) === "1";
 
   const queryString = new URLSearchParams();
   if (status && STATUS_OPTIONS.includes(status as (typeof STATUS_OPTIONS)[number])) queryString.set("status", status);
@@ -115,6 +116,8 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
           </div>
         </form>
       </div>
+
+      {deleted ? <div className="rounded-2xl border border-[#18a05e]/20 bg-[#18a05e]/10 p-4 text-sm text-[#0e7a45]">Festival deleted successfully.</div> : null}
 
       {!response.ok ? (
         <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">

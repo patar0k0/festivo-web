@@ -11,8 +11,8 @@ const FESTIVAL_SELECT_DETAIL =
   "id,title,slug,city,region,address,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,website_url";
 
 function applyPublicScope<T>(query: T): T {
-  const typedQuery = query as T & { or: (filters: string) => T };
-  return typedQuery.or("status.eq.published,status.eq.verified,is_verified.eq.true");
+  const typedQuery = query as T & { or: (filters: string) => T; neq: (column: string, value: unknown) => T };
+  return typedQuery.or("status.eq.published,status.eq.verified,is_verified.eq.true").neq("status", "archived");
 }
 
 type FilterQuery<T> = {
@@ -136,6 +136,7 @@ export async function getFestivalBySlug(slug: string): Promise<Festival | null> 
     .select(FESTIVAL_SELECT_DETAIL)
     .eq("slug", slug)
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+    .neq("status", "archived")
     .maybeSingle();
 
   const festival = data as Festival | null;
@@ -274,6 +275,7 @@ export async function getCities(): Promise<string[]> {
     .from("festivals")
     .select("city")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+    .neq("status", "archived")
     .returns<{ city: string | null }[]>();
 
   if (error) {
@@ -321,6 +323,7 @@ export async function getFestivalSlugs(): Promise<string[]> {
     .from("festivals")
     .select("slug")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+    .neq("status", "archived")
     .returns<{ slug: string | null }[]>();
 
   if (error) {

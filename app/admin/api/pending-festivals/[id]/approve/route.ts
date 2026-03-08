@@ -21,12 +21,14 @@ type PendingFestivalRow = {
   description: string | null;
   city_id: number | null;
   location_name: string | null;
+  address: string | null;
   latitude: number | null;
   longitude: number | null;
   start_date: string | null;
   end_date: string | null;
   organizer_name: string | null;
   source_url: string | null;
+  website_url: string | null;
   is_free: boolean | null;
   hero_image: string | null;
   tags: unknown;
@@ -122,7 +124,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: pending, error: pendingError } = await adminCtx.supabase
       .from("pending_festivals")
-      .select("id,title,slug,description,city_id,location_name,latitude,longitude,start_date,end_date,organizer_name,source_url,is_free,hero_image,tags,status")
+      .select("id,title,slug,description,city_id,location_name,address,latitude,longitude,start_date,end_date,organizer_name,source_url,website_url,is_free,hero_image,tags,status")
       .eq("id", id)
       .maybeSingle<PendingFestivalRow>();
 
@@ -146,8 +148,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       cityInput = normalizeSettlementInput(postedCity);
     } else if (pending.city_id != null) {
       cityInput = String(pending.city_id);
-    } else {
-      cityInput = normalizeSettlementInput(pending.location_name ?? "");
     }
 
     if (!cityInput) {
@@ -211,7 +211,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const normalizedDescription = (pending.description ?? "").trim();
     const normalizedImageUrl = (pending.hero_image ?? "").trim();
-    const normalizedAddress = normalizeSettlementInput(pending.location_name ?? "");
+    const normalizedAddress = normalizeSettlementInput(pending.address ?? "");
 
     let rawSourceType: string | null = null;
     if (pending.source_url) {
@@ -246,6 +246,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         end_date: pending.end_date,
         organizer_name: pending.organizer_name,
         source_url: pending.source_url,
+        website_url: pending.website_url,
         is_free: pending.is_free,
         hero_image: pending.hero_image,
         tags: pending.tags,
@@ -264,6 +265,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       end_date: pending.end_date,
       category: "festival",
       source_url: pending.source_url,
+      website_url: pending.website_url,
       source_type: mappedSourceType,
       is_free: pending.is_free ?? true,
       image_url: normalizedImageUrl,

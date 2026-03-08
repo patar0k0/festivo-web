@@ -36,7 +36,7 @@ Festivo is a Next.js + Supabase application for discovering festivals, building 
 - Admin ingestion flow at `/admin/ingest` allows enqueueing source URLs into `ingest_jobs`.
 - Admin moderation flow at `/admin/pending-festivals` allows reviewing/editing `pending_festivals`, approving into `festivals`, or rejecting records.
 - Admin published-festival moderation supports **Archive** (`status = archived`, soft-hide from public pages), **Restore** (`status = verified`), and explicit **Delete** (hard delete in `festivals`) via server-only admin API routes.
-- Admin moderation resolves city input by id/slug/name against `cities`; when no canonical match exists, save/approve continues with `city_id = null` and free-text settlement stored via moderation location fields.
+- Admin moderation resolves city input by id/slug/name against `cities`; when no canonical match exists, save/approve continues with `city_id = null` while keeping venue/location fields (`location_name`, `address`) independent from settlement resolution input.
 
 ## Notification system
 - Notification-producing jobs read planning/follow state and write durable messages into `user_notifications`.

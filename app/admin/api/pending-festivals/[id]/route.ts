@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
 
 type Payload = {
   title?: string;
   slug?: string | null;
   description?: string | null;
+  city?: string | null;
   city_id?: number | string | null;
   location_name?: string | null;
   latitude?: number | null;
@@ -17,19 +19,6 @@ type Payload = {
   hero_image?: string | null;
   tags?: unknown;
 };
-
-function parseCityId(value: Payload["city_id"]) {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-
-  if (typeof value === "number") {
-    return Number.isInteger(value) ? value : Number.NaN;
-  }
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) ? parsed : Number.NaN;
-}
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -65,12 +54,29 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
     });
 
-    if ("city_id" in body) {
-      const cityId = parseCityId(body.city_id);
-      if (Number.isNaN(cityId)) {
-        return NextResponse.json({ error: "Invalid city_id" }, { status: 400 });
+    if ("city" in body) {
+      const cityInput = typeof body.city === "string" ? normalizeSettlementInput(body.city) : "";
+
+      if (!cityInput) {
+        patch.city_id = null;
+      } else {
+        const resolvedCity = await resolveCityReference(ctx.supabase, cityInput);
+        if (resolvedCity) {
+          patch.city_id = resolvedCity.id;
+          if (typeof body.location_name !== "string" || !normalizeSettlementInput(body.location_name)) {
+            patch.location_name = null;
+          }
+        } else {
+          patch.city_id = null;
+          patch.location_name = cityInput;
+        }
       }
-      patch.city_id = cityId;
+    } else if ("city_id" in body) {
+      if (body.city_id === null || body.city_id === undefined || body.city_id === "") {
+        patch.city_id = null;
+      } else {
+        return NextResponse.json({ error: "city_id updates are no longer supported directly. Use city text input." }, { status: 400 });
+      }
     }
 
     if ("tags" in body) {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { resolveOrCreateCity } from "@/lib/admin/resolveOrCreateCity";
+import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
 
 type Payload = {
   title?: string;
@@ -109,26 +109,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     let selectedCity: CityRow | null = null;
 
     if (hasCityInput) {
-      try {
-        const resolved = await resolveOrCreateCity(cityInputRaw);
+      const cityInput = normalizeSettlementInput(cityInputRaw);
 
-        if (resolved.city) {
-          selectedCity = resolved.city;
-          patch.city_id = resolved.city.id;
-          patch.city = resolved.city.slug;
+      if (!cityInput) {
+        patch.city_id = null;
+        patch.city = null;
+      } else {
+        const resolved = await resolveCityReference(ctx.supabase, cityInput);
+
+        if (resolved) {
+          selectedCity = resolved;
+          patch.city_id = resolved.id;
+          patch.city = resolved.slug;
+
         } else {
           patch.city_id = null;
-          patch.city = null;
+          patch.city = cityInput;
+
         }
 
         console.info(
-          `[festival-save] id=${id} city_input="${cityInputRaw}" display_name="${resolved.displayName}" slug="${resolved.slug}" resolved_city_id=${resolved.city?.id ?? "null"} created=${resolved.created}`
+          `[festival-save] id=${id} city_input="${cityInputRaw}" resolved_city_id=${resolved?.id ?? "null"} unresolved=${resolved ? "false" : "true"}`
         );
-
-        patch._resolved_city_created = resolved.created;
-      } catch (cityError) {
-        const message = cityError instanceof Error ? cityError.message : "City resolve failed";
-        return NextResponse.json({ error: message }, { status: 400 });
       }
     } else if (hasCityId) {
       const cityId = parseCityId(body.city_id);
@@ -164,9 +166,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Invalid longitude" }, { status: 400 });
     }
 
-    const resolvedCityCreated = Boolean(patch._resolved_city_created);
-    delete patch._resolved_city_created;
-
     if (!selectedCity && typeof patch.city_id === "number") {
       selectedCity = await findCityById(ctx, patch.city_id);
     }
@@ -186,7 +185,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const response: SaveResponse = {
       ok: true,
-      city_created: resolvedCityCreated,
+      city_created: false,
       city: selectedCity
         ? { id: selectedCity.id, name_bg: selectedCity.name_bg, slug: selectedCity.slug }
         : { id: null, name_bg: null, slug: typeof patch.city === "string" ? patch.city : null },

@@ -24,7 +24,7 @@
 | category_slug | text | normalized category used for follows |
 | image_url | text | hero image URL |
 | is_free | boolean | free/paid flag |
-| status | text | moderation/publish status (`draft`, `verified`, etc.) |
+| status | text | moderation/publish status (`draft`, `verified`, `rejected`, `archived`) |
 | is_verified | boolean | legacy/public visibility flag |
 | lat | numeric / double precision (inferred) | latitude |
 | lng | numeric / double precision (inferred) | longitude |
@@ -48,6 +48,9 @@
 
 **Constraints / indexes visible:**
 - unique partial index `festivals_source_url_unique_idx` on `(source_url)` where `source_url is not null`
+
+- Admin archive flow reuses `festivals.status = "archived"` as a soft-hide signal for public discovery/detail queries (no schema migration required).
+- Admin restore flow sets `festivals.status` back to `"verified"`.
 
 ---
 

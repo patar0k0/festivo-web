@@ -198,3 +198,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const ctx = await getAdminContext();
+  if (!ctx || !ctx.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  console.info(`[festival-delete] festival_id=${id} start`);
+
+  const { error } = await ctx.supabase.from("festivals").delete().eq("id", id);
+
+  if (error) {
+    const reason = error.message.split("\n")[0]?.slice(0, 180) ?? "unknown";
+    console.error(`[festival-delete] festival_id=${id} fail reason=${reason}`);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  console.info(`[festival-delete] festival_id=${id} ok`);
+  return NextResponse.json({ ok: true });
+}

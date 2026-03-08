@@ -26,9 +26,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const { id } = await params;
+
   try {
-    const { id } = await params;
+    console.info(`[pending-save] pending_id=${id} start`);
     const body = (await request.json()) as Payload;
+    console.info(`[pending-save] pending_id=${id} payload keys=${Object.keys(body).join(",")}`);
+    const cityInputForLog = typeof body.city === "string" ? normalizeSettlementInput(body.city) : "";
+    const tagsCountForLog = Array.isArray(body.tags) ? body.tags.length : body.tags === null ? 0 : 0;
+    console.info(`[pending-save] pending_id=${id} city input="${cityInputForLog}"`);
+    console.info(`[pending-save] pending_id=${id} tags_count=${tagsCountForLog}`);
 
     const patch: Record<string, unknown> = {};
     const allowedKeys: Array<keyof Payload> = [
@@ -97,15 +104,31 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Invalid longitude" }, { status: 400 });
     }
 
-    const { error } = await ctx.supabase.from("pending_festivals").update(patch).eq("id", id);
+    const { data, error } = await ctx.supabase
+      .from("pending_festivals")
+      .update(patch)
+      .eq("id", id)
+      .select("id")
+      .maybeSingle();
 
     if (error) {
+      const reason = error.message.split("\n")[0]?.slice(0, 180) ?? "unknown";
+      console.error(`[pending-save] pending_id=${id} fail reason=${reason}`);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    if (!data) {
+      console.error(`[pending-save] pending_id=${id} fail reason=no_row_updated`);
+      return NextResponse.json({ error: "Pending festival was not updated." }, { status: 404 });
+    }
+
+    console.info(`[pending-save] pending_id=${id} db update ok`);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected admin API error";
+    const reason = message.split("\n")[0]?.slice(0, 180) ?? "unexpected";
+    console.error(`[pending-save] pending_id=${id} fail reason=${reason}`);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { normalizeSettlementInput } from "@/lib/admin/resolveCityReference";
+import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
 import { slugify } from "@/lib/utils";
 
 type CityRow = {
@@ -11,6 +11,7 @@ type CityRow = {
 
 type ApprovePayload = {
   city?: string | null;
+  tags?: unknown;
 };
 
 type PendingFestivalRow = {
@@ -28,6 +29,7 @@ type PendingFestivalRow = {
   source_url: string | null;
   is_free: boolean | null;
   hero_image: string | null;
+  tags: unknown;
   status: "pending" | "approved" | "rejected";
 };
 
@@ -104,13 +106,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     console.info(`[pending-approve] pending_id=${id} start`);
 
     const body = (await request.json().catch(() => null)) as ApprovePayload | null;
-    if (body?.city) {
-      console.info(`[pending-approve] pending_id=${id} ignoring request city override; using saved pending fields only`);
+    const hasCityOverride = body && "city" in body;
+    const hasTagsOverride = body && "tags" in body;
+
+    let overrideTags: string[] | null = null;
+    if (hasTagsOverride) {
+      if (Array.isArray(body?.tags)) {
+        overrideTags = body.tags.map((tag) => (typeof tag === "string" ? tag.trim() : "")).filter(Boolean);
+      } else if (body?.tags === null) {
+        overrideTags = [];
+      } else {
+        return fail(id, "invalid_tags", 400, "Invalid tags payload.");
+      }
     }
 
     const { data: pending, error: pendingError } = await adminCtx.supabase
       .from("pending_festivals")
-      .select("id,title,slug,description,city_id,location_name,latitude,longitude,start_date,end_date,organizer_name,source_url,is_free,hero_image,status")
+      .select("id,title,slug,description,city_id,location_name,latitude,longitude,start_date,end_date,organizer_name,source_url,is_free,hero_image,tags,status")
       .eq("id", id)
       .maybeSingle<PendingFestivalRow>();
 
@@ -128,25 +140,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     console.info(`[pending-approve] pending_id=${id} fetched pending row`);
 
-    let cityText: string | null = "";
-    let cityId: number | null = pending.city_id ?? null;
-    const settlementText = normalizeSettlementInput(pending.location_name ?? "");
-
-    if (pending.city_id != null) {
-      const cityByPendingId = await findCityById(pending.city_id);
-      if (cityByPendingId) {
-        cityId = cityByPendingId.id;
-        cityText = cityByPendingId.slug || cityByPendingId.name_bg || "";
-      } else {
-        cityId = null;
-      }
+    let cityInput = "";
+    const postedCity = hasCityOverride && typeof body?.city === "string" ? body.city : "";
+    if (postedCity) {
+      cityInput = normalizeSettlementInput(postedCity);
+    } else if (pending.city_id != null) {
+      cityInput = String(pending.city_id);
+    } else {
+      cityInput = normalizeSettlementInput(pending.location_name ?? "");
     }
 
-    if (!cityText) {
-      cityText = settlementText || null;
+    if (!cityInput) {
+      return fail(id, "missing_city", 400, "City is required before approving this festival.");
     }
 
-    console.info(`[pending-approve] pending_id=${id} city resolved city_id=${cityId ?? "null"} city_text="${cityText ?? ""}"`);
+    const resolvedCity = await resolveCityReference(adminCtx.supabase, cityInput);
+    if (!resolvedCity) {
+      return fail(id, "city_not_resolved", 400, `City could not be resolved: "${cityInput}".`);
+    }
+
+    const cityById = await findCityById(resolvedCity.id);
+    if (!cityById?.slug) {
+      return fail(id, "resolved_city_not_found", 400, "Resolved city is missing canonical data.");
+    }
+
+    const cityId = cityById.id;
+    const cityText = cityById.slug;
+
+    console.info(`[pending-approve] pending_id=${id} city input="${cityInput}" resolved_city_id=${cityId}`);
+
+    const pendingTags = Array.isArray(pending.tags)
+      ? pending.tags.map((tag) => (typeof tag === "string" ? tag.trim() : "")).filter(Boolean)
+      : [];
+    const finalTags = overrideTags ?? pendingTags;
+    console.info(`[pending-approve] pending_id=${id} tags_count=${finalTags.length} tags_mode=column`);
 
     if (pending.source_url) {
       const { data: existingBySource, error: existingBySourceError } = await adminCtx.supabase
@@ -184,7 +211,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const normalizedDescription = (pending.description ?? "").trim();
     const normalizedImageUrl = (pending.hero_image ?? "").trim();
-    const normalizedAddress = settlementText;
+    const normalizedAddress = normalizeSettlementInput(pending.location_name ?? "");
 
     let rawSourceType: string | null = null;
     if (pending.source_url) {
@@ -221,6 +248,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         source_url: pending.source_url,
         is_free: pending.is_free,
         hero_image: pending.hero_image,
+        tags: pending.tags,
       })}`,
     );
 
@@ -239,6 +267,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       source_type: mappedSourceType,
       is_free: pending.is_free ?? true,
       image_url: normalizedImageUrl,
+      tags: finalTags,
       lat: pending.latitude,
       lng: pending.longitude,
       status: "verified",
@@ -246,7 +275,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       updated_at: new Date().toISOString(),
     };
 
-    console.info(`[pending-approve] pending_id=${id} festivals payload keys=${Object.keys(insertPayload).join(",")}`);
+    console.info(`[pending-approve] pending_id=${id} festivals insert payload keys=${Object.keys(insertPayload).join(",")}`);
 
     const { data: insertedFestival, error: insertError } = await adminCtx.supabase.from("festivals").insert(insertPayload).select("id").maybeSingle();
 

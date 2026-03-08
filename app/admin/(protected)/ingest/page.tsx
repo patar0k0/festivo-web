@@ -10,6 +10,7 @@ type IngestJobRow = {
   pending_festival_id: string | null;
   pending_status: "pending" | "approved" | "rejected" | null;
   published_festival_id: string | null;
+  moderation_action: "open_pending" | "open_festival" | "no_pending_record" | "rejected" | "approved_without_festival" | "in_progress";
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -28,6 +29,27 @@ type FestivalLookupRow = {
   source_url: string | null;
   created_at: string;
 };
+
+const pendingStatusPriority: Record<PendingFestivalLookupRow["status"], number> = {
+  pending: 3,
+  approved: 2,
+  rejected: 1,
+};
+
+function pickPreferredPending(
+  current: PendingFestivalLookupRow | undefined,
+  incoming: PendingFestivalLookupRow,
+): PendingFestivalLookupRow {
+  if (!current) return incoming;
+
+  const currentPriority = pendingStatusPriority[current.status];
+  const incomingPriority = pendingStatusPriority[incoming.status];
+
+  if (incomingPriority > currentPriority) return incoming;
+  if (incomingPriority < currentPriority) return current;
+
+  return new Date(incoming.created_at).getTime() > new Date(current.created_at).getTime() ? incoming : current;
+}
 
 export default async function AdminIngestPage() {
   const ctx = await getAdminContext();
@@ -77,16 +99,23 @@ export default async function AdminIngestPage() {
       status: pendingRow.status,
     };
 
-    if (!pendingBySourceUrl.has(pendingRow.source_url)) {
-      pendingBySourceUrl.set(pendingRow.source_url, pendingNormalized);
-    }
+    pendingBySourceUrl.set(
+      pendingRow.source_url,
+      pickPreferredPending(pendingBySourceUrl.get(pendingRow.source_url), pendingNormalized),
+    );
 
     const pendingMeta = getSourceUrlMatchMeta(pendingRow.source_url);
-    if (pendingMeta?.normalizedUrl && !pendingByNormalizedUrl.has(pendingMeta.normalizedUrl)) {
-      pendingByNormalizedUrl.set(pendingMeta.normalizedUrl, pendingNormalized);
+    if (pendingMeta?.normalizedUrl) {
+      pendingByNormalizedUrl.set(
+        pendingMeta.normalizedUrl,
+        pickPreferredPending(pendingByNormalizedUrl.get(pendingMeta.normalizedUrl), pendingNormalized),
+      );
     }
-    if (pendingMeta?.facebookEventId && !pendingByFacebookEventId.has(pendingMeta.facebookEventId)) {
-      pendingByFacebookEventId.set(pendingMeta.facebookEventId, pendingNormalized);
+    if (pendingMeta?.facebookEventId) {
+      pendingByFacebookEventId.set(
+        pendingMeta.facebookEventId,
+        pickPreferredPending(pendingByFacebookEventId.get(pendingMeta.facebookEventId), pendingNormalized),
+      );
     }
   }
 
@@ -141,8 +170,21 @@ export default async function AdminIngestPage() {
     const pendingFestivalId = pendingFestival?.id ?? null;
     const pendingStatus = pendingFestival?.status ?? null;
 
+    const moderationAction: IngestJobRow["moderation_action"] =
+      row.status !== "done"
+        ? "in_progress"
+        : pendingFestivalId && pendingStatus === "pending"
+          ? "open_pending"
+          : publishedFestivalId
+            ? "open_festival"
+            : pendingStatus === "rejected"
+              ? "rejected"
+              : pendingStatus === "approved"
+                ? "approved_without_festival"
+                : "no_pending_record";
+
     console.info(
-      `[admin-ingest] job=${String(row.id)} pending_status=${pendingStatus ?? "null"} published_festival_id=${publishedFestivalId ?? "null"}`,
+      `[admin-ingest] job=${String(row.id)} pending_id=${pendingFestivalId ?? "null"} pending_status=${pendingStatus ?? "null"} published_festival_id=${publishedFestivalId ?? "null"} chosen_action=${moderationAction}`,
     );
 
     return {
@@ -152,6 +194,7 @@ export default async function AdminIngestPage() {
       pending_festival_id: pendingFestivalId,
       pending_status: pendingStatus,
       published_festival_id: publishedFestivalId,
+      moderation_action: moderationAction,
       created_at: row.created_at,
       started_at: row.started_at ?? null,
       finished_at: row.finished_at ?? null,

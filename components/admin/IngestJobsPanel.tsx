@@ -11,6 +11,7 @@ type IngestJobRow = {
   pending_festival_id: string | null;
   pending_status: "pending" | "approved" | "rejected" | null;
   published_festival_id: string | null;
+  moderation_action: "open_pending" | "open_festival" | "no_pending_record" | "rejected" | "approved_without_festival" | "in_progress";
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -183,26 +184,27 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
               rows.map((row) => {
                 const rowBusy = busyRowId === row.id;
                 const canRetry = row.status === "failed";
-                const isDone = row.status === "done";
-                const isPublished = isDone && row.pending_status === "approved" && !!row.published_festival_id;
-                const canReviewPending = isDone && row.pending_status === "pending" && !!row.pending_festival_id;
-                const showNoPendingRecord = isDone && !row.pending_festival_id;
-                const showRejected = isDone && row.pending_status === "rejected";
-                const showApprovedNoLink = isDone && row.pending_status === "approved" && !row.published_festival_id;
 
-                const workflowState = !isDone
-                  ? row.status
-                  : isPublished
-                    ? "published"
-                    : canReviewPending
+                const canReviewPending = row.status === "done" && row.moderation_action === "open_pending" && !!row.pending_festival_id;
+                const canOpenFestival = row.status === "done" && row.moderation_action === "open_festival" && !!row.published_festival_id;
+                const showNoPendingRecord = row.status === "done" && row.moderation_action === "no_pending_record";
+                const showRejected = row.status === "done" && row.moderation_action === "rejected";
+                const showApprovedNoLink = row.status === "done" && row.moderation_action === "approved_without_festival";
+
+                const workflowState =
+                  row.status !== "done"
+                    ? row.status
+                    : row.moderation_action === "open_pending"
                       ? "pending_review"
-                      : showRejected
-                        ? "rejected"
-                        : showNoPendingRecord
-                          ? "no_pending"
-                          : showApprovedNoLink
+                      : row.moderation_action === "open_festival"
+                        ? "published"
+                        : row.moderation_action === "rejected"
+                          ? "rejected"
+                          : row.moderation_action === "approved_without_festival"
                             ? "approved"
-                            : row.status;
+                            : row.moderation_action === "no_pending_record"
+                              ? "no_pending"
+                              : row.status;
 
                 return (
                   <tr key={row.id} className="hover:bg-black/[0.02]">
@@ -234,7 +236,7 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
                             Open Pending
                           </Link>
                         ) : null}
-                        {isPublished && row.published_festival_id ? (
+                        {canOpenFestival && row.published_festival_id ? (
                           <Link
                             href={`/admin/festivals/${row.published_festival_id}`}
                             className="inline-flex rounded-lg border border-[#18a05e]/30 bg-[#18a05e]/10 px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] text-[#0e7a45] hover:bg-[#18a05e]/15"

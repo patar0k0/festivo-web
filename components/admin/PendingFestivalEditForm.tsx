@@ -12,6 +12,8 @@ type PendingFestivalRecord = {
   description: string | null;
   city_id: number | null;
   location_name: string | null;
+  address: string | null;
+  website_url: string | null;
   latitude: number | null;
   longitude: number | null;
   start_date: string | null;
@@ -223,7 +225,6 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const locationGuess = normalizeDisplayValue(pendingFestival.location_guess);
   const dateGuess = normalizeDisplayValue(pendingFestival.date_guess);
   const tagsGuess = normalizeTagsGuess(pendingFestival.tags_guess);
-  const hasStoredTagsField = Object.prototype.hasOwnProperty.call(pendingFestival, "tags");
   const tagsCurrent = normalizeTagsGuess(pendingFestival.tags);
   const latitudeGuess = findCoordinateGuess(pendingFestival, ["latitude_guess", "lat_guess", "ai_latitude", "extracted_latitude"]);
   const longitudeGuess = findCoordinateGuess(pendingFestival, ["longitude_guess", "lng_guess", "ai_longitude", "extracted_longitude"]);
@@ -232,7 +233,6 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const cityCurrent = normalizeDisplayValue(pendingFestival.city_id?.toString() ?? null);
   const cityDisplayValue =
     normalizeDisplayValue(pendingFestival.city?.name_bg) ??
-    normalizeDisplayValue(pendingFestival.location_name) ??
     normalizeDisplayValue(pendingFestival.city?.slug) ??
     cityCurrent ??
     "";
@@ -262,12 +262,14 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
     description: pendingFestival.description ?? "",
     city_id: cityDisplayValue,
     location_name: pendingFestival.location_name ?? "",
+    address: pendingFestival.address ?? "",
     latitude: pendingFestival.latitude?.toString() ?? "",
     longitude: pendingFestival.longitude?.toString() ?? "",
     start_date: asDateInput(pendingFestival.start_date),
     end_date: asDateInput(pendingFestival.end_date),
     organizer_name: pendingFestival.organizer_name ?? "",
     source_url: pendingFestival.source_url ?? "",
+    website_url: pendingFestival.website_url ?? "",
     is_free: pendingFestival.is_free ?? true,
     hero_image: pendingFestival.hero_image ?? "",
     tags: tagsCurrent,
@@ -425,15 +427,17 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
           description: form.description.trim() || null,
           city: cityInput || null,
           location_name: form.location_name.trim() || null,
+          address: form.address.trim() || null,
           latitude: form.latitude.trim() ? Number(form.latitude) : null,
           longitude: form.longitude.trim() ? Number(form.longitude) : null,
           start_date: form.start_date || null,
           end_date: form.end_date || null,
           organizer_name: form.organizer_name.trim() || null,
           source_url: form.source_url.trim() || null,
+          website_url: form.website_url.trim() || null,
           is_free: form.is_free,
           hero_image: form.hero_image.trim() || null,
-          ...(hasStoredTagsField ? { tags: form.tags } : {}),
+          tags: form.tags,
         }),
       });
 
@@ -571,6 +575,10 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Location name</span>
                 <input value={form.location_name} onChange={(e) => updateField("location_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
+              <label className="md:col-span-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Address</span>
+                <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+              </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Latitude</span>
                 <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
@@ -594,6 +602,10 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source URL</span>
                 <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Website URL</span>
+                <input value={form.website_url} onChange={(e) => updateField("website_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Hero image</span>

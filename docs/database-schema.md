@@ -65,15 +65,18 @@
 | slug | text | optional proposed URL slug |
 | description | text | optional description |
 | city_id | bigint | optional FK to `cities.id` |
-| location_name | text | optional venue/location text; also used as free-text settlement fallback when `city_id` is unresolved in moderation |
+| location_name | text | optional venue/location text (venue, square, community center, etc.) |
+| address | text | optional precise address text |
 | latitude | numeric | optional latitude |
 | longitude | numeric | optional longitude |
 | start_date | date | optional festival start date |
 | end_date | date | optional festival end date |
 | organizer_name | text | optional organizer display name |
 | source_url | text | ingestion/source reference URL |
+| website_url | text | optional official event website URL |
 | is_free | boolean | default `true` |
 | hero_image | text | optional hero image URL |
+| tags | text[] (inferred) | optional normalized moderation tags persisted on pending rows |
 | status | text | not null, default `pending`; allowed: `pending`, `approved`, `rejected` |
 | created_at | timestamptz | not null, default `now()` |
 | reviewed_at | timestamptz | set when moderation review is completed |

@@ -9,12 +9,14 @@ type Payload = {
   city?: string | null;
   city_id?: number | string | null;
   location_name?: string | null;
+  address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   start_date?: string | null;
   end_date?: string | null;
   organizer_name?: string | null;
   source_url?: string | null;
+  website_url?: string | null;
   is_free?: boolean;
   hero_image?: string | null;
   tags?: unknown;
@@ -44,12 +46,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       "description",
       "city_id",
       "location_name",
+      "address",
       "latitude",
       "longitude",
       "start_date",
       "end_date",
       "organizer_name",
       "source_url",
+      "website_url",
       "is_free",
       "hero_image",
       "tags",
@@ -70,12 +74,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         const resolvedCity = await resolveCityReference(ctx.supabase, cityInput);
         if (resolvedCity) {
           patch.city_id = resolvedCity.id;
-          if (typeof body.location_name !== "string" || !normalizeSettlementInput(body.location_name)) {
-            patch.location_name = null;
-          }
         } else {
           patch.city_id = null;
-          patch.location_name = cityInput;
         }
       }
     } else if ("city_id" in body) {

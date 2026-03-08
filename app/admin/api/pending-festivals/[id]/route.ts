@@ -15,6 +15,7 @@ type Payload = {
   source_url?: string | null;
   is_free?: boolean;
   hero_image?: string | null;
+  tags?: unknown;
 };
 
 function parseCityId(value: Payload["city_id"]) {
@@ -55,6 +56,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       "source_url",
       "is_free",
       "hero_image",
+      "tags",
     ];
 
     allowedKeys.forEach((key) => {
@@ -69,6 +71,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         return NextResponse.json({ error: "Invalid city_id" }, { status: 400 });
       }
       patch.city_id = cityId;
+    }
+
+    if ("tags" in body) {
+      if (Array.isArray(body.tags)) {
+        patch.tags = body.tags.map((tag) => (typeof tag === "string" ? tag.trim() : "")).filter(Boolean);
+      } else if (body.tags === null) {
+        patch.tags = [];
+      } else {
+        return NextResponse.json({ error: "Invalid tags" }, { status: 400 });
+      }
     }
 
     if (typeof patch.latitude === "number" && (patch.latitude < -90 || patch.latitude > 90)) {

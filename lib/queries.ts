@@ -11,8 +11,14 @@ const FESTIVAL_SELECT_DETAIL =
   "id,title,slug,city,region,address,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,website_url";
 
 function applyPublicScope<T>(query: T): T {
-  const typedQuery = query as T & { or: (filters: string) => T; neq: (column: string, value: unknown) => T };
-  return typedQuery.or("status.eq.published,status.eq.verified,is_verified.eq.true").neq("status", "archived");
+  type QueryWithOrAndNeq<Q> = Q & {
+    or: (filters: string) => Q;
+    neq: (column: string, value: unknown) => Q;
+  };
+
+  const scopedQuery = query as QueryWithOrAndNeq<T>;
+  const withOr = scopedQuery.or("status.eq.published,status.eq.verified,is_verified.eq.true") as QueryWithOrAndNeq<T>;
+  return withOr.neq("status", "archived") as T;
 }
 
 type FilterQuery<T> = {

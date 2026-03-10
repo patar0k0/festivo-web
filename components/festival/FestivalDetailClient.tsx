@@ -21,6 +21,7 @@ type Props = {
   dateText: string;
   venueText: string;
   mapHref: string | null;
+  mapEmbedSrc: string | null;
   citySlug: string | null;
   calendarMonth: string | null;
   relatedFestivals: Festival[];
@@ -111,6 +112,7 @@ export default function FestivalDetailClient({
   dateText,
   venueText,
   mapHref,
+  mapEmbedSrc,
   citySlug,
   calendarMonth,
   relatedFestivals,
@@ -147,11 +149,10 @@ export default function FestivalDetailClient({
     festival_media: media,
   });
   const [heroImageFailed, setHeroImageFailed] = useState(false);
-  const primaryCta = mapHref ? { label: "Навигация", href: mapHref } : null;
   const secondaryCta = festival.ticket_url
     ? { label: "Билети", href: festival.ticket_url }
     : festival.website_url
-      ? { label: "Уебсайт", href: festival.website_url }
+      ? { label: "Официален сайт", href: festival.website_url }
       : null;
   const categoryText = categoryLabel(festival.category);
 
@@ -192,12 +193,12 @@ export default function FestivalDetailClient({
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
             </>
           ) : heroImage ? (
-            <div className="absolute inset-0 bg-[#ece8df]" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#ece8df] via-[#f3efe7] to-[#e3ddd2]" />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#ece8df] text-black/45">
-              <span className="rounded-full border border-black/10 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em]">
-                Няма основна снимка
-              </span>
+            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#ece8df] via-[#f4f1e9] to-[#ddd6c9] text-black/45">
+              <div className="rounded-2xl border border-black/10 bg-white/70 px-5 py-3 text-center backdrop-blur-sm">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em]">Няма основна снимка</span>
+              </div>
             </div>
           )}
           <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6 md:p-8">
@@ -214,16 +215,6 @@ export default function FestivalDetailClient({
             </div>
             <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">{festival.title}</h1>
             <div className="mt-4 flex flex-wrap gap-3">
-              {primaryCta ? (
-                <a
-                  href={primaryCta.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-xl bg-[#0c0e14] px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                >
-                  {primaryCta.label}
-                </a>
-              ) : null}
               {secondaryCta ? (
                 <a
                   href={secondaryCta.href}
@@ -249,6 +240,9 @@ export default function FestivalDetailClient({
             <div className="mt-4 flex flex-wrap items-center gap-2">
               {festival.is_free ? <Badge variant="primary">Безплатен вход</Badge> : <Badge variant="neutral">Платен вход</Badge>}
               {festival.price_range ? <Badge variant="neutral">{festival.price_range}</Badge> : null}
+              {(festival.tags ?? []).filter(Boolean).map((tag) => (
+                <Badge key={tag} variant="neutral">#{tag}</Badge>
+              ))}
             </div>
           </section>
 
@@ -383,7 +377,30 @@ export default function FestivalDetailClient({
                 <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Локация</dt>
                 <dd className="mt-1 text-black/70">{venueText}</dd>
               </div>
+              {festival.address ? (
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Адрес</dt>
+                  <dd className="mt-1 text-black/70">{festival.address}</dd>
+                </div>
+              ) : null}
+              {festival.organizer_name ? (
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Организатор</dt>
+                  <dd className="mt-1 text-black/70">{festival.organizer_name}</dd>
+                </div>
+              ) : null}
             </dl>
+            {mapEmbedSrc ? (
+              <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.1]">
+                <iframe
+                  title={`Карта: ${festival.title}`}
+                  src={mapEmbedSrc}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="h-56 w-full border-0"
+                />
+              </div>
+            ) : null}
             <div className="mt-4 flex flex-col gap-2">
               {mapHref ? (
                 <a
@@ -415,7 +432,7 @@ export default function FestivalDetailClient({
                   rel="noreferrer"
                   className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  Уебсайт
+                  Официален сайт
                 </a>
               ) : null}
             </div>

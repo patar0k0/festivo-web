@@ -92,6 +92,11 @@ function fixFestivalText(festival: Festival): Festival {
     region: festival.region ? fixMojibakeBG(festival.region) : festival.region,
     address: festival.address ? fixMojibakeBG(festival.address) : festival.address,
     location_name: festival.location_name ? fixMojibakeBG(festival.location_name) : festival.location_name,
+    venue_name: festival.location_name ? fixMojibakeBG(festival.location_name) : festival.location_name,
+    city_name_display: festival.cities?.name_bg ?? festival.city ?? null,
+    latitude: festival.lat ?? null,
+    longitude: festival.lng ?? null,
+    hero_image: festival.hero_image ?? festival.image_url ?? null,
     organizer_name: festival.organizer_name ? fixMojibakeBG(festival.organizer_name) : festival.organizer_name,
   };
 }

@@ -19,6 +19,9 @@ export function getFestivalHeroImage(festival: FestivalWithMedia): string | null
   const heroImage = normalizeImageUrl(festival.hero_image);
   if (heroImage) return heroImage;
 
+  const imageUrl = normalizeImageUrl(festival.image_url);
+  if (imageUrl) return imageUrl;
+
   const media = (festival.festival_media ?? []).filter(
     (item) => isImageMedia(item.type) && Boolean(normalizeImageUrl(item.url)),
   );

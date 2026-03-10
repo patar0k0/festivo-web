@@ -9,6 +9,7 @@ type Payload = {
   city?: string | null;
   city_id?: number | string | null;
   location_name?: string | null;
+  venue_name?: string | null;
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -46,6 +47,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       "description",
       "city_id",
       "location_name",
+      "venue_name",
       "address",
       "latitude",
       "longitude",
@@ -64,6 +66,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         patch[key] = body[key];
       }
     });
+
+    if ("venue_name" in body) {
+      patch.location_name = body.venue_name ?? null;
+      delete patch.venue_name;
+    }
 
     if ("city" in body) {
       const cityInput = typeof body.city === "string" ? normalizeSettlementInput(body.city) : "";

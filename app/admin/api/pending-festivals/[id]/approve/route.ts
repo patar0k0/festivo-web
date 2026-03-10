@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
 import { slugify } from "@/lib/utils";
+import { canonicalFromPending } from "@/lib/festival/canonical";
 
 type CityRow = {
   id: number;
@@ -29,6 +30,10 @@ type PendingFestivalRow = {
   organizer_name: string | null;
   source_url: string | null;
   website_url: string | null;
+  ticket_url?: string | null;
+  price_range?: string | null;
+  region?: string | null;
+  category?: string | null;
   is_free: boolean | null;
   hero_image: string | null;
   tags: unknown;
@@ -142,6 +147,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     console.info(`[pending-approve] pending_id=${id} fetched pending row`);
 
+    const canonicalPending = canonicalFromPending(pending);
+
     let cityInput = "";
     const postedCity = hasCityOverride && typeof body?.city === "string" ? body.city : "";
     if (postedCity) {
@@ -209,9 +216,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return fail(id, "missing_start_date", 400, "missing start_date");
     }
 
-    const normalizedDescription = (pending.description ?? "").trim();
-    const normalizedImageUrl = (pending.hero_image ?? "").trim();
-    const normalizedAddress = normalizeSettlementInput(pending.address ?? "");
+    const normalizedAddress = normalizeSettlementInput(canonicalPending.address ?? "");
 
     let rawSourceType: string | null = null;
     if (pending.source_url) {
@@ -254,24 +259,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
 
     const insertPayload = {
-      title: pending.title,
+      title: canonicalPending.title,
       slug: finalSlug,
-      description: normalizedDescription,
+      description: canonicalPending.description,
       city: cityText || null,
       city_id: cityId,
-      region: "",
+      region: canonicalPending.region,
+      location_name: canonicalPending.venue_name,
       address: normalizedAddress || null,
-      start_date: pending.start_date,
-      end_date: pending.end_date,
-      category: "festival",
-      source_url: pending.source_url,
-      website_url: pending.website_url,
+      start_date: canonicalPending.start_date,
+      end_date: canonicalPending.end_date,
+      organizer_name: canonicalPending.organizer_name,
+      category: canonicalPending.category ?? "festival",
+      source_url: canonicalPending.source_url,
+      website_url: canonicalPending.website_url,
+      ticket_url: canonicalPending.ticket_url,
+      price_range: canonicalPending.price_range,
       source_type: mappedSourceType,
       is_free: pending.is_free ?? true,
-      image_url: normalizedImageUrl,
+      hero_image: canonicalPending.hero_image,
+      image_url: canonicalPending.hero_image,
       tags: finalTags,
-      lat: pending.latitude,
-      lng: pending.longitude,
+      lat: canonicalPending.latitude,
+      lng: canonicalPending.longitude,
       status: "verified",
       is_verified: true,
       updated_at: new Date().toISOString(),

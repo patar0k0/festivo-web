@@ -9,10 +9,12 @@ type Payload = {
   city_id?: number | string | null;
   region?: string | null;
   location_name?: string | null;
+  venue_name?: string | null;
   address?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   image_url?: string | null;
+  hero_image?: string | null;
   website_url?: string | null;
   ticket_url?: string | null;
   price_range?: string | null;
@@ -81,10 +83,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       "city",
       "region",
       "location_name",
+      "venue_name",
       "address",
       "start_date",
       "end_date",
       "image_url",
+      "hero_image",
       "website_url",
       "ticket_url",
       "price_range",
@@ -102,6 +106,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         patch[key] = body[key];
       }
     });
+
+    if ("venue_name" in body) {
+      patch.location_name = body.venue_name ?? null;
+      delete patch.venue_name;
+    }
+
+    if ("hero_image" in body) {
+      patch.hero_image = body.hero_image ?? null;
+      patch.image_url = body.hero_image ?? null;
+    }
 
     const cityInputRaw = typeof body.city === "string" ? body.city : null;
     const hasCityInput = cityInputRaw !== null;

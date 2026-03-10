@@ -20,6 +20,7 @@ type FestivalRecord = {
   start_date: string | null;
   end_date: string | null;
   image_url: string | null;
+  hero_image?: string | null;
   website_url: string | null;
   ticket_url: string | null;
   price_range: string | null;
@@ -82,17 +83,17 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
     title: festival.title,
     category: festival.category ?? "",
     city: initialCityDisplay,
-    location_name: festival.location_name ?? "",
+    venue_name: festival.location_name ?? "",
     region: festival.region ?? "",
     address: festival.address ?? "",
     start_date: asDateInput(festival.start_date),
     end_date: asDateInput(festival.end_date),
-    image_url: festival.image_url ?? "",
+    hero_image: festival.hero_image ?? festival.image_url ?? "",
     website_url: festival.website_url ?? "",
     ticket_url: festival.ticket_url ?? "",
     price_range: festival.price_range ?? "",
-    lat: festival.lat?.toString() ?? "",
-    lng: festival.lng?.toString() ?? "",
+    latitude: festival.lat?.toString() ?? "",
+    longitude: festival.lng?.toString() ?? "",
     is_free: festival.is_free ?? false,
     is_verified: festival.is_verified ?? false,
     status: festival.status,
@@ -113,7 +114,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
   };
 
   const onValidateCoords = () => {
-    const validation = validateCoords(form.lat, form.lng);
+    const validation = validateCoords(form.latitude, form.longitude);
     if (validation.valid) {
       setError("");
       setMessage(validation.message);
@@ -129,7 +130,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
     setMessage("");
     setError("");
 
-    const validation = validateCoords(form.lat, form.lng);
+    const validation = validateCoords(form.latitude, form.longitude);
     if (!validation.valid) {
       setError(validation.message);
       return;
@@ -148,17 +149,17 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
           title: form.title,
           category: form.category || null,
           city: cityInput,
-          location_name: form.location_name || null,
+          venue_name: form.venue_name || null,
           region: form.region || null,
           address: form.address || null,
           start_date: form.start_date || null,
           end_date: form.end_date || null,
-          image_url: form.image_url || null,
+          hero_image: form.hero_image || null,
           website_url: form.website_url || null,
           ticket_url: form.ticket_url || null,
           price_range: form.price_range || null,
-          lat: form.lat ? Number(form.lat) : null,
-          lng: form.lng ? Number(form.lng) : null,
+          lat: form.latitude ? Number(form.latitude) : null,
+          lng: form.longitude ? Number(form.longitude) : null,
           is_free: form.is_free,
           is_verified: form.is_verified,
           status: form.status,
@@ -287,10 +288,10 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
                 {festival.city_id == null && form.city.trim() ? <p className="mt-1 text-xs text-black/50">Unresolved settlement (free text)</p> : null}
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Място</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Venue name</span>
                 <input
-                  value={form.location_name}
-                  onChange={(e) => updateField("location_name", e.target.value)}
+                  value={form.venue_name}
+                  onChange={(e) => updateField("venue_name", e.target.value)}
                   placeholder="напр. Читалище „Св. св. Кирил и Методий“"
                   className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
                 />
@@ -329,8 +330,8 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
             <h2 className="text-lg font-bold">Медия</h2>
             <div className="mt-4 grid gap-3">
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Image URL</span>
-                <input value={form.image_url} onChange={(e) => updateField("image_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Hero image</span>
+                <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Website URL</span>
@@ -354,11 +355,11 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Latitude</span>
-                <input value={form.lat} onChange={(e) => updateField("lat", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Longitude</span>
-                <input value={form.lng} onChange={(e) => updateField("lng", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
             </div>
             <button type="button" onClick={onValidateCoords} className="mt-3 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em]">

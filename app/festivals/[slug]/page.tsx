@@ -19,9 +19,11 @@ function formatDateRange(start?: string | null, end?: string | null) {
   return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
 }
 
-function resolveVenueText(data: { location_name?: string | null; cities?: { name_bg?: string | null } | null; address?: string | null }) {
+function resolveVenueText(data: { venue_name?: string | null; location_name?: string | null; city_name_display?: string | null; cities?: { name_bg?: string | null } | null; address?: string | null }) {
   return (
+    data.venue_name?.trim() ||
     data.location_name?.trim() ||
+    data.city_name_display?.trim() ||
     data.cities?.name_bg?.trim() ||
     data.address?.trim() ||
     "Локацията ще бъде уточнена"
@@ -54,14 +56,14 @@ export default async function Page({
   if (!data) return notFound();
 
   const jsonLd = buildFestivalJsonLd(data.festival);
-  const cityDisplayName = data.festival.cities?.name_bg ?? data.festival.city;
+  const cityDisplayName = data.festival.city_name_display ?? data.festival.cities?.name_bg ?? data.festival.city;
   const cityFilterValue = data.festival.city;
   const citySlug = data.festival.cities?.slug ?? (data.festival.city ? slugify(data.festival.city) : null);
   const dateText = formatDateRange(data.festival.start_date, data.festival.end_date);
   const venueText = resolveVenueText(data.festival);
   const mapQuery =
-    data.festival.lat != null && data.festival.lng != null
-      ? `${data.festival.lat},${data.festival.lng}`
+    data.festival.latitude != null && data.festival.longitude != null
+      ? `${data.festival.latitude},${data.festival.longitude}`
       : [data.festival.address, cityDisplayName].filter(Boolean).join(", ");
   const mapHref = mapQuery
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`

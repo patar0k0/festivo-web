@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
 import { slugify } from "@/lib/utils";
-import { canonicalFromPending } from "@/lib/festival/canonical";
+import { canonicalFromPending, festivalPatchFromCanonical } from "@/lib/festival/mappers";
+import { canonicalFromUnknown } from "@/lib/festival/validators";
 
 type CityRow = {
   id: number;
@@ -149,6 +150,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const canonicalPending = canonicalFromPending(pending);
 
+    const canonicalApprovedResult = canonicalFromUnknown({
+      ...canonicalPending,
+      tags: overrideTags ?? canonicalPending.tags,
+      city_name_display: hasCityOverride && typeof body?.city === "string" ? body.city : canonicalPending.city_name_display,
+    });
+
+    if (!canonicalApprovedResult.ok) {
+      return fail(id, "invalid_canonical_payload", 400, canonicalApprovedResult.error);
+    }
+
+    const canonicalApproved = canonicalApprovedResult.data;
+
     let cityInput = "";
     const postedCity = hasCityOverride && typeof body?.city === "string" ? body.city : "";
     if (postedCity) {
@@ -176,10 +189,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     console.info(`[pending-approve] pending_id=${id} city input="${cityInput}" resolved_city_id=${cityId}`);
 
-    const pendingTags = Array.isArray(pending.tags)
-      ? pending.tags.map((tag) => (typeof tag === "string" ? tag.trim() : "")).filter(Boolean)
-      : [];
-    const finalTags = overrideTags ?? pendingTags;
+    const finalTags = canonicalApproved.tags;
     console.info(`[pending-approve] pending_id=${id} tags_count=${finalTags.length} tags_mode=column`);
 
     if (pending.source_url) {
@@ -216,7 +226,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return fail(id, "missing_start_date", 400, "missing start_date");
     }
 
-    const normalizedAddress = normalizeSettlementInput(canonicalPending.address ?? "");
+    const normalizedAddress = normalizeSettlementInput(canonicalApproved.address ?? "");
 
     let rawSourceType: string | null = null;
     if (pending.source_url) {
@@ -258,30 +268,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       })}`,
     );
 
+    const festivalPatch = festivalPatchFromCanonical(canonicalApproved);
     const insertPayload = {
-      title: canonicalPending.title,
+      ...festivalPatch,
       slug: finalSlug,
-      description: canonicalPending.description,
       city: cityText || null,
       city_id: cityId,
-      region: canonicalPending.region,
-      location_name: canonicalPending.venue_name,
       address: normalizedAddress || null,
-      start_date: canonicalPending.start_date,
-      end_date: canonicalPending.end_date,
-      organizer_name: canonicalPending.organizer_name,
-      category: canonicalPending.category ?? "festival",
-      source_url: canonicalPending.source_url,
-      website_url: canonicalPending.website_url,
-      ticket_url: canonicalPending.ticket_url,
-      price_range: canonicalPending.price_range,
+      category: canonicalApproved.category ?? "festival",
       source_type: mappedSourceType,
       is_free: pending.is_free ?? true,
-      hero_image: canonicalPending.hero_image,
-      image_url: canonicalPending.hero_image,
       tags: finalTags,
-      lat: canonicalPending.latitude,
-      lng: canonicalPending.longitude,
       status: "verified",
       is_verified: true,
       updated_at: new Date().toISOString(),

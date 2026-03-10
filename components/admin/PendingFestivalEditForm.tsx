@@ -434,6 +434,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
           slug: form.slug.trim() || null,
           description: form.description.trim() || null,
           category: form.category.trim() || null,
+          city_name_display: cityInput || null,
           city: cityInput || null,
           region: form.region.trim() || null,
           venue_name: form.venue_name.trim() || null,

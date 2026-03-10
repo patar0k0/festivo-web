@@ -1,31 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
+import { festivalPatchFromCanonical } from "@/lib/festival/mappers";
+import { canonicalFromUnknown } from "@/lib/festival/validators";
 
-type Payload = {
-  title?: string;
-  category?: string | null;
-  city?: string | null;
-  city_id?: number | string | null;
-  region?: string | null;
-  location_name?: string | null;
-  venue_name?: string | null;
-  address?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  image_url?: string | null;
-  hero_image?: string | null;
-  website_url?: string | null;
-  ticket_url?: string | null;
-  price_range?: string | null;
-  lat?: number | null;
-  lng?: number | null;
-  is_free?: boolean;
-  is_verified?: boolean;
-  status?: "draft" | "verified" | "rejected" | "archived";
-  tags?: string[];
-  description?: string | null;
-};
 
 type SaveResponse = {
   ok: true;
@@ -40,7 +18,7 @@ type CityRow = {
   name_bg: string;
 };
 
-function parseCityId(value: Payload["city_id"]) {
+function parseCityId(value: unknown) {
   if (value === null || value === undefined || value === "") {
     return null;
   }
@@ -71,53 +49,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   try {
     const { id } = await params;
-    const body = (await request.json()) as Payload;
+    const body = (await request.json()) as Record<string, unknown>;
+    const parsed = canonicalFromUnknown(body);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
 
+    const canonical = parsed.data;
     const patch: Record<string, unknown> = {
+      ...festivalPatchFromCanonical(canonical),
       updated_at: new Date().toISOString(),
     };
 
-    const allowedKeys: Array<keyof Payload> = [
-      "title",
-      "category",
-      "city",
-      "region",
-      "location_name",
-      "venue_name",
-      "address",
-      "start_date",
-      "end_date",
-      "image_url",
-      "hero_image",
-      "website_url",
-      "ticket_url",
-      "price_range",
-      "lat",
-      "lng",
-      "is_free",
-      "is_verified",
-      "status",
-      "tags",
-      "description",
-    ];
-
-    allowedKeys.forEach((key) => {
-      if (key in body) {
-        patch[key] = body[key];
-      }
-    });
-
-    if ("venue_name" in body) {
-      patch.location_name = body.venue_name ?? null;
-      delete patch.venue_name;
+    if ("is_free" in body && typeof body.is_free === "boolean") {
+      patch.is_free = body.is_free;
     }
 
-    if ("hero_image" in body) {
-      patch.hero_image = body.hero_image ?? null;
-      patch.image_url = body.hero_image ?? null;
+    if ("is_verified" in body && typeof body.is_verified === "boolean") {
+      patch.is_verified = body.is_verified;
     }
 
-    const cityInputRaw = typeof body.city === "string" ? body.city : null;
+    const cityInputRaw = typeof canonical.city_name_display === "string" ? canonical.city_name_display : null;
     const hasCityInput = cityInputRaw !== null;
     const hasCityId = "city_id" in body;
     let selectedCity: CityRow | null = null;
@@ -166,18 +118,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         patch.city_id = cityId;
         patch.city = city.slug;
       }
-    }
-
-    if (Array.isArray(body.tags)) {
-      patch.tags = body.tags.map((tag) => tag.trim()).filter(Boolean);
-    }
-
-    if (typeof patch.lat === "number" && (patch.lat < -90 || patch.lat > 90)) {
-      return NextResponse.json({ error: "Invalid latitude" }, { status: 400 });
-    }
-
-    if (typeof patch.lng === "number" && (patch.lng < -180 || patch.lng > 180)) {
-      return NextResponse.json({ error: "Invalid longitude" }, { status: 400 });
     }
 
     if (!selectedCity && typeof patch.city_id === "number") {

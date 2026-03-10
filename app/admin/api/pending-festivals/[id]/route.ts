@@ -1,27 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
-
-type Payload = {
-  title?: string;
-  slug?: string | null;
-  description?: string | null;
-  city?: string | null;
-  city_id?: number | string | null;
-  location_name?: string | null;
-  venue_name?: string | null;
-  address?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  organizer_name?: string | null;
-  source_url?: string | null;
-  website_url?: string | null;
-  is_free?: boolean;
-  hero_image?: string | null;
-  tags?: unknown;
-};
+import { pendingPatchFromCanonical } from "@/lib/festival/mappers";
+import { canonicalFromUnknown } from "@/lib/festival/validators";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -33,47 +14,29 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   try {
     console.info(`[pending-save] pending_id=${id} start`);
-    const body = (await request.json()) as Payload;
+    const body = (await request.json()) as Record<string, unknown>;
     console.info(`[pending-save] pending_id=${id} payload keys=${Object.keys(body).join(",")}`);
-    const cityInputForLog = typeof body.city === "string" ? normalizeSettlementInput(body.city) : "";
+    const cityForInput = typeof body.city_name_display === "string" ? body.city_name_display : typeof body.city === "string" ? body.city : "";
+    const cityInputForLog = cityForInput ? normalizeSettlementInput(cityForInput) : "";
     const tagsCountForLog = Array.isArray(body.tags) ? body.tags.length : body.tags === null ? 0 : 0;
     console.info(`[pending-save] pending_id=${id} city input="${cityInputForLog}"`);
     console.info(`[pending-save] pending_id=${id} tags_count=${tagsCountForLog}`);
 
-    const patch: Record<string, unknown> = {};
-    const allowedKeys: Array<keyof Payload> = [
-      "title",
-      "slug",
-      "description",
-      "city_id",
-      "location_name",
-      "venue_name",
-      "address",
-      "latitude",
-      "longitude",
-      "start_date",
-      "end_date",
-      "organizer_name",
-      "source_url",
-      "website_url",
-      "is_free",
-      "hero_image",
-      "tags",
-    ];
-
-    allowedKeys.forEach((key) => {
-      if (key in body) {
-        patch[key] = body[key];
-      }
-    });
-
-    if ("venue_name" in body) {
-      patch.location_name = body.venue_name ?? null;
-      delete patch.venue_name;
+    const parsed = canonicalFromUnknown(body);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    if ("city" in body) {
-      const cityInput = typeof body.city === "string" ? normalizeSettlementInput(body.city) : "";
+    const canonical = parsed.data;
+    const patch: Record<string, unknown> = pendingPatchFromCanonical(canonical);
+
+    if ("is_free" in body && typeof body.is_free === "boolean") {
+      patch.is_free = body.is_free;
+    }
+
+    if ("city_name_display" in body || "city" in body) {
+      const cityInputRaw = typeof canonical.city_name_display === "string" ? canonical.city_name_display : "";
+      const cityInput = normalizeSettlementInput(cityInputRaw);
 
       if (!cityInput) {
         patch.city_id = null;
@@ -89,7 +52,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         patch.city_id = resolvedCity.id;
       }
     } else if ("city_id" in body) {
-      if (body.city_id === null || body.city_id === undefined || body.city_id === "") {
+      if (canonical.city_id === null) {
         patch.city_id = null;
       } else {
         return NextResponse.json({ error: "city_id updates are no longer supported directly. Use city text input." }, { status: 400 });
@@ -98,24 +61,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (!("city" in body)) {
       console.info(`[pending-save] pending_id=${id} resolved_city_id=${patch.city_id ?? null}`);
-    }
-
-    if ("tags" in body) {
-      if (Array.isArray(body.tags)) {
-        patch.tags = body.tags.map((tag) => (typeof tag === "string" ? tag.trim() : "")).filter(Boolean);
-      } else if (body.tags === null) {
-        patch.tags = [];
-      } else {
-        return NextResponse.json({ error: "Invalid tags" }, { status: 400 });
-      }
-    }
-
-    if (typeof patch.latitude === "number" && (patch.latitude < -90 || patch.latitude > 90)) {
-      return NextResponse.json({ error: "Invalid latitude" }, { status: 400 });
-    }
-
-    if (typeof patch.longitude === "number" && (patch.longitude < -180 || patch.longitude > 180)) {
-      return NextResponse.json({ error: "Invalid longitude" }, { status: 400 });
     }
 
     const { data, error } = await ctx.supabase

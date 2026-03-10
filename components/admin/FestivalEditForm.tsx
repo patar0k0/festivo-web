@@ -148,6 +148,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
         body: JSON.stringify({
           title: form.title,
           category: form.category || null,
+          city_name_display: cityInput,
           city: cityInput,
           venue_name: form.venue_name || null,
           region: form.region || null,

@@ -8,7 +8,7 @@ export const FESTIVAL_SELECT_MIN =
   "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,city,region,address,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,website_url";
+  "id,title,slug,description,start_date,end_date,city_id,city,region,location_name,address,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug)";
 
 function applyPublicScope<T>(query: T): T {
   type QueryWithOrAndNeq<Q> = Q & {
@@ -91,6 +91,8 @@ function fixFestivalText(festival: Festival): Festival {
     city: festival.city ? fixMojibakeBG(festival.city) : festival.city,
     region: festival.region ? fixMojibakeBG(festival.region) : festival.region,
     address: festival.address ? fixMojibakeBG(festival.address) : festival.address,
+    location_name: festival.location_name ? fixMojibakeBG(festival.location_name) : festival.location_name,
+    organizer_name: festival.organizer_name ? fixMojibakeBG(festival.organizer_name) : festival.organizer_name,
   };
 }
 

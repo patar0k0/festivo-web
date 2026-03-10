@@ -3,9 +3,12 @@
   slug: string;
   title: string;
   description?: string | null;
+  city_id?: number | null;
   city?: string | null;
   region?: string | null;
+  location_name?: string | null;
   address?: string | null;
+  organizer_name?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   is_free?: boolean | null;
@@ -17,7 +20,13 @@
   ticket_url?: string | null;
   price_range?: string | null;
   website_url?: string | null;
+  source_url?: string | null;
+  tags?: string[] | null;
   status?: string | null;
+  cities?: {
+    name_bg?: string | null;
+    slug?: string | null;
+  } | null;
   festival_media?: Array<Partial<FestivalMedia> & { is_primary?: boolean | null }> | null;
 };
 

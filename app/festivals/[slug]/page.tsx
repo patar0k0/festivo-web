@@ -19,6 +19,15 @@ function formatDateRange(start?: string | null, end?: string | null) {
   return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
 }
 
+function resolveVenueText(data: { location_name?: string | null; cities?: { name_bg?: string | null } | null; address?: string | null }) {
+  return (
+    data.location_name?.trim() ||
+    data.cities?.name_bg?.trim() ||
+    data.address?.trim() ||
+    "Локацията ще бъде уточнена"
+  );
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const festival = await getFestivalBySlug(slug);
@@ -45,21 +54,27 @@ export default async function Page({
   if (!data) return notFound();
 
   const jsonLd = buildFestivalJsonLd(data.festival);
-  const citySlug = data.festival.city ? slugify(data.festival.city) : null;
+  const cityDisplayName = data.festival.cities?.name_bg ?? data.festival.city;
+  const cityFilterValue = data.festival.city;
+  const citySlug = data.festival.cities?.slug ?? (data.festival.city ? slugify(data.festival.city) : null);
   const dateText = formatDateRange(data.festival.start_date, data.festival.end_date);
-  const venueText = [data.festival.city, data.festival.address].filter(Boolean).join(", ") || "Локация предстои";
-  const mapQuery = data.festival.lat && data.festival.lng
-    ? `${data.festival.lat},${data.festival.lng}`
-    : [data.festival.address, data.festival.city].filter(Boolean).join(", ");
+  const venueText = resolveVenueText(data.festival);
+  const mapQuery =
+    data.festival.lat != null && data.festival.lng != null
+      ? `${data.festival.lat},${data.festival.lng}`
+      : [data.festival.address, cityDisplayName].filter(Boolean).join(", ");
   const mapHref = mapQuery
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
     : null;
+  const mapEmbedSrc = mapQuery
+    ? `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed`
+    : null;
   const calendarMonth = data.festival.start_date ? format(parseISO(data.festival.start_date), "yyyy-MM") : null;
 
-  const relatedResponse = data.festival.city
+  const relatedResponse = cityFilterValue
     ? await getCityFestivals(
-        data.festival.city,
-        { city: [data.festival.city], free: data.festival.is_free ?? true },
+        cityFilterValue,
+        { city: [cityFilterValue], free: data.festival.is_free ?? true },
         1,
         6,
       )
@@ -79,6 +94,7 @@ export default async function Page({
             dateText={dateText}
             venueText={venueText}
             mapHref={mapHref}
+            mapEmbedSrc={mapEmbedSrc}
             citySlug={citySlug}
             calendarMonth={calendarMonth}
             relatedFestivals={relatedFestivals}

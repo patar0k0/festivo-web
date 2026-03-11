@@ -1,0 +1,75 @@
+[
+  {
+    "name": "assigns Bulgarian square marker to address",
+    "input": {
+      "fbEvent": {
+        "place": {
+          "name": "пл. Македония",
+          "location": {
+            "latitude": 42.696,
+            "longitude": 23.321
+          }
+        }
+      },
+      "existing": {}
+    },
+    "expected": {
+      "location_name": null,
+      "address": "пл. Македония"
+    }
+  },
+  {
+    "name": "assigns Bulgarian boulevard marker to address",
+    "input": {
+      "fbEvent": {
+        "place": {
+          "name": "бул. Витоша 1",
+          "location": {}
+        }
+      },
+      "existing": {
+        "location_name": "Зала България"
+      }
+    },
+    "expected": {
+      "location_name": "Зала България",
+      "address": "бул. Витоша 1"
+    }
+  },
+  {
+    "name": "keeps explicit venue name for park",
+    "input": {
+      "fbEvent": {
+        "place": {
+          "name": "парк Заимов",
+          "location": {
+            "street": "ул. Оборище"
+          }
+        }
+      },
+      "existing": {}
+    },
+    "expected": {
+      "location_name": "парк Заимов",
+      "address": "ул. Оборище"
+    }
+  },
+  {
+    "name": "keeps explicit venue name for community center",
+    "input": {
+      "fbEvent": {
+        "place": {
+          "name": "читалище Светлина",
+          "location": {}
+        }
+      },
+      "existing": {
+        "address": "ул. Иван Вазов 5"
+      }
+    },
+    "expected": {
+      "location_name": "читалище Светлина",
+      "address": "ул. Иван Вазов 5"
+    }
+  }
+]

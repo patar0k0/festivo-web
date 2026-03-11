@@ -54,6 +54,8 @@ Moderation table for ingested candidates before publication.
 | slug | text | optional preferred slug seed for publish |
 | description | text | editable/publishable description |
 | city_id | bigint | canonical city reference for moderation/publish |
+| category | text | moderated category used by approve/canonical mapping |
+| region | text | moderated region used by approve/canonical mapping |
 | location_name | text | venue/location label |
 | address | text | venue address |
 | latitude | numeric | moderation coordinates |
@@ -62,7 +64,10 @@ Moderation table for ingested candidates before publication.
 | end_date | date | optional end date |
 | organizer_name | text | source organizer hint |
 | source_url | text | source reference and dedupe key |
+| source_type | text | ingest source type carried into publish mapping |
 | website_url | text | optional website |
+| ticket_url | text | optional ticketing URL |
+| price_range | text | optional pricing label |
 | is_free | boolean | free/paid flag |
 | hero_image | text | moderated hero image URL (often worker-rehosted) |
 | tags | text[] | moderation tags passed into publish |
@@ -76,6 +81,7 @@ AI/normalization-related columns are also consumed when present (selected via `*
 - `category_guess`, `tags_guess`
 - `city_guess`, `location_guess`, `date_guess`, `is_free_guess`
 - coordinate guess variants (`latitude_guess` / `longitude_guess` / `lat_guess` / `lng_guess` and similar)
+- normalization trace/decision metadata payloads (`normalization_version`, `deterministic_guess_json`, `ai_guess_json`, `merge_decisions_json`)
 
 Important behavior:
 - save route updates pending fields only

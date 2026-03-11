@@ -17,6 +17,7 @@ Public users browse verified/published festivals, while ingestion inputs first l
 - Public festival discovery (`festivals` queries scoped to visible statuses)
 - Admin moderation (`pending_festivals` edit/approve/reject)
 - Admin ingest queue (`ingest_jobs` enqueue/retry/delete + job-to-record linking)
+- Admin discovery dashboard (`discovery_sources` monitoring + source activation toggles + recent `discovery_runs` visibility)
 - Planning + reminders + notifications
 - Ingestion helper pipeline for Facebook event extraction and hero image rehosting
 

@@ -21,7 +21,9 @@ type PendingFestivalRow = {
   title: string;
   slug: string | null;
   description: string | null;
+  category: string | null;
   city_id: number | null;
+  region: string | null;
   location_name: string | null;
   address: string | null;
   latitude: number | null;
@@ -30,16 +32,42 @@ type PendingFestivalRow = {
   end_date: string | null;
   organizer_name: string | null;
   source_url: string | null;
+  source_type: string | null;
   website_url: string | null;
-  ticket_url?: string | null;
-  price_range?: string | null;
-  region?: string | null;
-  category?: string | null;
+  ticket_url: string | null;
+  price_range: string | null;
   is_free: boolean | null;
   hero_image: string | null;
   tags: unknown;
   status: "pending" | "approved" | "rejected";
 };
+
+const PENDING_APPROVE_SELECT =
+  "id,title,slug,description,category,city_id,region,location_name,address,latitude,longitude,start_date,end_date,organizer_name,source_url,source_type,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
+
+const REQUIRED_PENDING_CANONICAL_FIELDS: (keyof PendingFestivalRow)[] = [
+  "title",
+  "slug",
+  "description",
+  "category",
+  "tags",
+  "city_id",
+  "region",
+  "location_name",
+  "address",
+  "latitude",
+  "longitude",
+  "start_date",
+  "end_date",
+  "organizer_name",
+  "hero_image",
+  "website_url",
+  "ticket_url",
+  "price_range",
+  "source_url",
+  "source_type",
+  "status",
+];
 
 type IngestJobRow = {
   source_type: string;
@@ -76,6 +104,16 @@ function mapFestivalSourceType(rawSourceType: string | null) {
   }
 
   return rawSourceType;
+}
+
+function findMissingCanonicalField(row: PendingFestivalRow): keyof PendingFestivalRow | null {
+  for (const field of REQUIRED_PENDING_CANONICAL_FIELDS) {
+    if (typeof row[field] === "undefined") {
+      return field;
+    }
+  }
+
+  return null;
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -130,7 +168,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: pending, error: pendingError } = await adminCtx.supabase
       .from("pending_festivals")
-      .select("id,title,slug,description,city_id,location_name,address,latitude,longitude,start_date,end_date,organizer_name,source_url,website_url,is_free,hero_image,tags,status")
+      .select(PENDING_APPROVE_SELECT)
       .eq("id", id)
       .maybeSingle<PendingFestivalRow>();
 
@@ -144,6 +182,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (pending.status !== "pending") {
       return fail(id, "not_pending", 409, `Festival already reviewed with status '${pending.status}'.`);
+    }
+
+    const missingField = findMissingCanonicalField(pending);
+    if (missingField) {
+      return fail(id, "pending_missing_field", 500, `Pending festival is missing required field: ${missingField}`);
     }
 
     console.info(`[pending-approve] pending_id=${id} fetched pending row`);
@@ -261,7 +304,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         end_date: pending.end_date,
         organizer_name: pending.organizer_name,
         source_url: pending.source_url,
+        source_type: pending.source_type,
+        category: pending.category,
+        region: pending.region,
         website_url: pending.website_url,
+        ticket_url: pending.ticket_url,
+        price_range: pending.price_range,
         is_free: pending.is_free,
         hero_image: pending.hero_image,
         tags: pending.tags,

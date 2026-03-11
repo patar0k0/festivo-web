@@ -1,10 +1,19 @@
-import { CANONICAL_FESTIVAL_FIELDS, type CanonicalFestivalPayload } from "@/lib/festival/schema";
+import {
+  CANONICAL_FESTIVAL_FIELDS,
+  type CanonicalFestivalPatchPayload,
+  type CanonicalFestivalPayload,
+} from "@/lib/festival/schema";
 
 export type ValidationResult =
   | { ok: true; data: CanonicalFestivalPayload }
   | { ok: false; error: string };
 
+export type PatchValidationResult =
+  | { ok: true; data: CanonicalFestivalPatchPayload }
+  | { ok: false; error: string };
+
 function normalizeText(value: unknown): string | null {
+  if (value === null) return null;
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed || null;
@@ -41,12 +50,22 @@ function normalizeTags(value: unknown): string[] {
   return [];
 }
 
+function normalizeNullableTags(value: unknown): string[] | null {
+  if (value === null) return null;
+  return normalizeTags(value);
+}
+
 function sourceValue(body: Record<string, unknown>, key: string, aliases: string[] = []) {
   if (key in body) return body[key];
   for (const alias of aliases) {
     if (alias in body) return body[alias];
   }
   return undefined;
+}
+
+function hasSourceValue(body: Record<string, unknown>, key: string, aliases: string[] = []) {
+  if (key in body) return true;
+  return aliases.some((alias) => alias in body);
 }
 
 export function canonicalFromUnknown(raw: unknown): ValidationResult {
@@ -95,6 +114,68 @@ export function canonicalFromUnknown(raw: unknown): ValidationResult {
     source_type: normalizeText(sourceValue(body, "source_type")),
     status: normalizeText(sourceValue(body, "status")),
   };
+
+  return { ok: true, data: canonical };
+}
+
+export function canonicalPatchFromUnknown(raw: unknown): PatchValidationResult {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { ok: false, error: "Invalid festival payload." };
+  }
+
+  const body = raw as Record<string, unknown>;
+  const canonical: CanonicalFestivalPatchPayload = {};
+
+  if (hasSourceValue(body, "title")) {
+    const title = normalizeText(sourceValue(body, "title"));
+    if (!title) {
+      return { ok: false, error: "title cannot be empty when provided" };
+    }
+    canonical.title = title;
+  }
+
+  if (hasSourceValue(body, "slug")) canonical.slug = normalizeText(sourceValue(body, "slug"));
+  if (hasSourceValue(body, "description")) canonical.description = normalizeText(sourceValue(body, "description"));
+  if (hasSourceValue(body, "category")) canonical.category = normalizeText(sourceValue(body, "category"));
+  if (hasSourceValue(body, "tags")) canonical.tags = normalizeNullableTags(sourceValue(body, "tags"));
+  if (hasSourceValue(body, "city_id")) canonical.city_id = normalizeCityId(sourceValue(body, "city_id"));
+  if (hasSourceValue(body, "city_name_display", ["city"])) {
+    canonical.city_name_display = normalizeText(sourceValue(body, "city_name_display", ["city"]));
+  }
+  if (hasSourceValue(body, "region")) canonical.region = normalizeText(sourceValue(body, "region"));
+  if (hasSourceValue(body, "venue_name", ["location_name"])) {
+    canonical.venue_name = normalizeText(sourceValue(body, "venue_name", ["location_name"]));
+  }
+  if (hasSourceValue(body, "address")) canonical.address = normalizeText(sourceValue(body, "address"));
+
+  if (hasSourceValue(body, "latitude", ["lat"])) {
+    const latitude = normalizeNumber(sourceValue(body, "latitude", ["lat"]));
+    if (latitude !== null && (latitude < -90 || latitude > 90)) {
+      return { ok: false, error: "Invalid latitude" };
+    }
+    canonical.latitude = latitude;
+  }
+
+  if (hasSourceValue(body, "longitude", ["lng"])) {
+    const longitude = normalizeNumber(sourceValue(body, "longitude", ["lng"]));
+    if (longitude !== null && (longitude < -180 || longitude > 180)) {
+      return { ok: false, error: "Invalid longitude" };
+    }
+    canonical.longitude = longitude;
+  }
+
+  if (hasSourceValue(body, "start_date")) canonical.start_date = normalizeText(sourceValue(body, "start_date"));
+  if (hasSourceValue(body, "end_date")) canonical.end_date = normalizeText(sourceValue(body, "end_date"));
+  if (hasSourceValue(body, "organizer_name")) canonical.organizer_name = normalizeText(sourceValue(body, "organizer_name"));
+  if (hasSourceValue(body, "hero_image", ["image_url"])) {
+    canonical.hero_image = normalizeText(sourceValue(body, "hero_image", ["image_url"]));
+  }
+  if (hasSourceValue(body, "website_url")) canonical.website_url = normalizeText(sourceValue(body, "website_url"));
+  if (hasSourceValue(body, "ticket_url")) canonical.ticket_url = normalizeText(sourceValue(body, "ticket_url"));
+  if (hasSourceValue(body, "price_range")) canonical.price_range = normalizeText(sourceValue(body, "price_range"));
+  if (hasSourceValue(body, "source_url")) canonical.source_url = normalizeText(sourceValue(body, "source_url"));
+  if (hasSourceValue(body, "source_type")) canonical.source_type = normalizeText(sourceValue(body, "source_type"));
+  if (hasSourceValue(body, "status")) canonical.status = normalizeText(sourceValue(body, "status"));
 
   return { ok: true, data: canonical };
 }

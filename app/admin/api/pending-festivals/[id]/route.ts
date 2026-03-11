@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
-import { pendingPatchFromCanonical } from "@/lib/festival/mappers";
-import { canonicalFromUnknown } from "@/lib/festival/validators";
+import { pendingPatchFromCanonicalPartial } from "@/lib/festival/mappers";
+import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -22,19 +22,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     console.info(`[pending-save] pending_id=${id} city input="${cityInputForLog}"`);
     console.info(`[pending-save] pending_id=${id} tags_count=${tagsCountForLog}`);
 
-    const parsed = canonicalFromUnknown(body);
+    const parsed = canonicalPatchFromUnknown(body);
     if (!parsed.ok) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
     const canonical = parsed.data;
-    const patch: Record<string, unknown> = pendingPatchFromCanonical(canonical);
+    const patch: Record<string, unknown> = pendingPatchFromCanonicalPartial(canonical);
 
     if ("is_free" in body && typeof body.is_free === "boolean") {
       patch.is_free = body.is_free;
     }
 
-    if ("city_name_display" in body || "city" in body) {
+    if ("city_name_display" in canonical) {
       const cityInputRaw = typeof canonical.city_name_display === "string" ? canonical.city_name_display : "";
       const cityInput = normalizeSettlementInput(cityInputRaw);
 
@@ -51,7 +51,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
         patch.city_id = resolvedCity.id;
       }
-    } else if ("city_id" in body) {
+    } else if ("city_id" in canonical) {
       if (canonical.city_id === null) {
         patch.city_id = null;
       } else {

@@ -16,6 +16,9 @@ const FACEBOOK_IMAGE_HOST_PATTERNS = [
   /(^|\.)scontent\./i,
 ];
 
+const BULGARIAN_ADDRESS_MARKER_RE = /^\s*(ул|бул|пл)\.?\s+|^\s*ж\.?\s*к\.?\s+/i;
+const EXPLICIT_VENUE_NAME_RE = /\b(парк|стадион|читалище|дом\s+на\s+културата)\b/i;
+
 function normalizeISODate(value) {
   if (!value || typeof value !== "string") return null;
   const parsed = new Date(value);
@@ -54,7 +57,19 @@ function extractLocation({ fbEvent = {}, existing = {} }) {
   const place = fbEvent.place && typeof fbEvent.place === "object" ? fbEvent.place : null;
   const placeLocation = place && typeof place.location === "object" ? place.location : null;
 
-  const locationName = typeof place?.name === "string" && place.name.trim() ? place.name.trim() : existing.location_name ?? null;
+  const placeName = typeof place?.name === "string" && place.name.trim() ? place.name.trim() : null;
+  const placeStreet = typeof placeLocation?.street === "string" && placeLocation.street.trim() ? placeLocation.street.trim() : null;
+
+  const hasExplicitVenue = placeName ? EXPLICIT_VENUE_NAME_RE.test(placeName) : false;
+  const hasAddressMarker = placeName ? BULGARIAN_ADDRESS_MARKER_RE.test(placeName) : false;
+
+  const locationName = hasExplicitVenue
+    ? placeName
+    : hasAddressMarker
+      ? existing.location_name ?? null
+      : placeName ?? existing.location_name ?? null;
+
+  const address = hasAddressMarker ? placeName : placeStreet ?? existing.address ?? null;
 
   const latitude =
     typeof placeLocation?.latitude === "number"
@@ -72,6 +87,7 @@ function extractLocation({ fbEvent = {}, existing = {} }) {
 
   return {
     location_name: locationName,
+    address,
     latitude,
     longitude,
   };

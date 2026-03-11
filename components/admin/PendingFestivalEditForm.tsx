@@ -70,6 +70,8 @@ type DecisionResponse = {
   error?: string;
 };
 
+type SuggestionComparisonStatus = "empty" | "missing" | "matches" | "different";
+
 function asDateInput(value: string | null) {
   return value ? value.slice(0, 10) : "";
 }
@@ -134,7 +136,7 @@ function normalizeTagsGuess(value: unknown): string[] {
     .filter(Boolean);
 }
 
-function getComparisonStatus(current: string | null, aiGuess: string | null) {
+function getComparisonStatus(current: string | null, aiGuess: string | null): SuggestionComparisonStatus {
   if (!aiGuess) {
     return "empty";
   }
@@ -150,7 +152,7 @@ function getComparisonStatus(current: string | null, aiGuess: string | null) {
   return "different";
 }
 
-function statusBadgeLabel(status: ReturnType<typeof getComparisonStatus>) {
+function statusBadgeLabel(status: SuggestionComparisonStatus) {
   if (status === "matches") {
     return "Matches current";
   }
@@ -194,7 +196,7 @@ function normalizeSourceLabel(source: "merge" | "ai" | "deterministic") {
   return "Deterministic";
 }
 
-function suggestionStateLabel(status: ReturnType<typeof getComparisonStatus>, applied: boolean) {
+function suggestionStateLabel(status: SuggestionComparisonStatus, applied: boolean) {
   if (applied) return "Already applied";
   if (status === "matches") return "Unchanged";
   if (status === "different" || status === "missing") return "Changed";
@@ -306,7 +308,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const suggestionRows = normalizationSuggestions.map((suggestion) => {
     const currentValue = getCurrentValue(suggestion.field);
     const suggestedValue = Array.isArray(suggestion.value) ? suggestion.value.join(", ") : suggestion.value;
-    const comparisonStatus = getComparisonStatus(currentValue, normalizeDisplayValue(suggestedValue));
+    const comparisonStatus: SuggestionComparisonStatus = getComparisonStatus(currentValue, normalizeDisplayValue(suggestedValue));
     const isApplied = appliedAiFields[suggestion.field];
     const canApply = !isApplied && comparisonStatus !== "matches" && comparisonStatus !== "empty";
     return {
@@ -366,7 +368,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
       const currentValue = getCurrentValue(field);
       const suggestionValue = Array.isArray(suggestion.value) ? suggestion.value.join(", ") : suggestion.value;
       const normalizedSuggested = normalizeDisplayValue(suggestionValue);
-      const comparisonStatus = getComparisonStatus(currentValue, normalizedSuggested);
+      const comparisonStatus: SuggestionComparisonStatus = getComparisonStatus(currentValue, normalizedSuggested);
       const canApply = comparisonStatus !== "matches" && comparisonStatus !== "empty";
 
       if (!canApply) {

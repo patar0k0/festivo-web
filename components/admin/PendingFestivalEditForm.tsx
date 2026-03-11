@@ -276,6 +276,9 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
     merge_decisions_json: pendingFestival.merge_decisions_json,
   });
   const hasNormalizeSuggestions = normalizationSuggestions.length > 0;
+  const hasNormalizationData = Boolean(
+    pendingFestival.normalization_version ?? pendingFestival.deterministic_guess_json ?? pendingFestival.ai_guess_json ?? pendingFestival.merge_decisions_json
+  );
 
   const getCurrentValue = (field: SuggestionField) => {
     if (field === "tags") {
@@ -620,67 +623,78 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
             </div>
           </div>
 
-          {hasNormalizeSuggestions ? (
-            <div className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
-              <h2 className="text-lg font-bold">AI Normalize Suggestions</h2>
-              <p className="mt-1 text-xs text-black/60">Suggestions are advisory only. Apply actions only update the local form until you click Save edits.</p>
-              <p className="mt-1 text-xs text-black/60">Normalization version: {pendingFestival.normalization_version ?? "-"}</p>
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={applySafeSuggestions}
-                  className="rounded-lg border border-black/15 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
-                >
-                  Apply safe suggestions
-                </button>
-                {safeApplySummary ? (
-                  <div className="mt-2 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-xs text-black/70">
-                    <p>Applied fields: {safeApplySummary.applied}</p>
-                    {safeApplySummary.skipped.length > 0 ? <p>Skipped: {safeApplySummary.skipped.join("; ")}</p> : null}
-                  </div>
-                ) : null}
-              </div>
+          <div className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
+            <h2 className="text-lg font-bold">AI Normalize Suggestions</h2>
+            <p className="mt-1 text-xs text-black/60">Suggestions are advisory only. Apply actions only update the local form until you click Save edits.</p>
+            <p className="mt-1 text-xs text-black/60">Normalization version: {pendingFestival.normalization_version ?? "-"}</p>
 
-              <div className="mt-4 space-y-3">
-                {normalizationSuggestions.map((suggestion) => {
-                  const currentValue = getCurrentValue(suggestion.field);
-                  const suggestedValue = Array.isArray(suggestion.value) ? suggestion.value.join(", ") : suggestion.value;
-                  const comparisonStatus = getComparisonStatus(currentValue, normalizeDisplayValue(suggestedValue));
-                  const isApplied = appliedAiFields[suggestion.field];
-                  const canApply = comparisonStatus !== "matches" && comparisonStatus !== "empty";
-                  const cardTone = isApplied
-                    ? "border-[#18a05e]/30 bg-[#18a05e]/5"
-                    : comparisonStatus === "matches"
-                      ? "border-black/[0.08] bg-black/[0.03]"
-                      : comparisonStatus === "different"
-                        ? "border-[#0c0e14]/20 bg-white"
-                        : "border-[#b13a1a]/20 bg-[#fff6f3]";
-
-                  return (
-                    <div key={suggestion.field} className={`rounded-xl border px-3 py-2.5 ${cardTone}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">{fieldLabel(suggestion.field)} · Source: {normalizeSourceLabel(suggestion.source)}</p>
-                        <button
-                          type="button"
-                          onClick={() => applySuggestion(suggestion.field, suggestion.value)}
-                          disabled={!canApply}
-                          className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-45"
-                        >
-                          {isApplied ? "Applied" : "Apply"}
-                        </button>
-                      </div>
-                      <p className="mt-1 text-sm text-black/70">Current: {currentValue ?? "-"}</p>
-                      <p className="mt-1 text-sm text-black/85">Suggested: {suggestedValue}</p>
-                      {suggestion.confidence !== null ? <p className="mt-1 text-xs text-black/60">Confidence: {suggestion.confidence}</p> : null}
-                      {suggestion.warning ? <p className="mt-1 text-xs text-[#b13a1a]">Warning: {suggestion.warning}</p> : null}
-                      {suggestion.reason ? <p className="mt-1 text-xs text-black/60">Reason: {suggestion.reason}</p> : null}
-                      {statusBadgeLabel(comparisonStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(comparisonStatus)}</p> : null}
+            {hasNormalizeSuggestions ? (
+              <>
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={applySafeSuggestions}
+                    className="rounded-lg border border-black/15 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                  >
+                    Apply safe suggestions
+                  </button>
+                  {safeApplySummary ? (
+                    <div className="mt-2 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-xs text-black/70">
+                      <p>Applied fields: {safeApplySummary.applied}</p>
+                      {safeApplySummary.skipped.length > 0 ? <p>Skipped: {safeApplySummary.skipped.join("; ")}</p> : null}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
+                  ) : null}
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {normalizationSuggestions.map((suggestion) => {
+                    const currentValue = getCurrentValue(suggestion.field);
+                    const suggestedValue = Array.isArray(suggestion.value) ? suggestion.value.join(", ") : suggestion.value;
+                    const comparisonStatus = getComparisonStatus(currentValue, normalizeDisplayValue(suggestedValue));
+                    const isApplied = appliedAiFields[suggestion.field];
+                    const canApply = comparisonStatus !== "matches" && comparisonStatus !== "empty";
+                    const cardTone = isApplied
+                      ? "border-[#18a05e]/30 bg-[#18a05e]/5"
+                      : comparisonStatus === "matches"
+                        ? "border-black/[0.08] bg-black/[0.03]"
+                        : comparisonStatus === "different"
+                          ? "border-[#0c0e14]/20 bg-white"
+                          : "border-[#b13a1a]/20 bg-[#fff6f3]";
+
+                    return (
+                      <div key={suggestion.field} className={`rounded-xl border px-3 py-2.5 ${cardTone}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">{fieldLabel(suggestion.field)} · Source: {normalizeSourceLabel(suggestion.source)}</p>
+                          <button
+                            type="button"
+                            onClick={() => applySuggestion(suggestion.field, suggestion.value)}
+                            disabled={!canApply}
+                            className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-45"
+                          >
+                            {isApplied ? "Applied" : "Apply"}
+                          </button>
+                        </div>
+                        <p className="mt-1 text-sm text-black/70">Current: {currentValue ?? "-"}</p>
+                        <p className="mt-1 text-sm text-black/85">Suggested: {suggestedValue}</p>
+                        {suggestion.confidence !== null ? <p className="mt-1 text-xs text-black/60">Confidence: {suggestion.confidence}</p> : null}
+                        {suggestion.warning ? <p className="mt-1 text-xs text-[#b13a1a]">Warning: {suggestion.warning}</p> : null}
+                        {suggestion.reason ? <p className="mt-1 text-xs text-black/60">Reason: {suggestion.reason}</p> : null}
+                        {statusBadgeLabel(comparisonStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(comparisonStatus)}</p> : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : hasNormalizationData ? (
+              <p className="mt-3 rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs text-black/70">
+                No applicable suggestions were parsed from available normalization data.
+              </p>
+            ) : (
+              <p className="mt-3 rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs text-black/70">
+                No normalization data available for this pending record yet.
+              </p>
+            )}
+          </div>
 
           <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 text-sm">
             <h2 className="text-lg font-bold">Moderation state</h2>

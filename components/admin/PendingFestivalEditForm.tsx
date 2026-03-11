@@ -136,7 +136,7 @@ function normalizeTagsGuess(value: unknown): string[] {
 
 function getComparisonStatus(current: string | null, aiGuess: string | null) {
   if (!aiGuess) {
-    return null;
+    return "empty";
   }
 
   if (!current) {
@@ -163,7 +163,35 @@ function statusBadgeLabel(status: ReturnType<typeof getComparisonStatus>) {
     return "Different";
   }
 
+  if (status === "empty") {
+    return "Suggestion missing";
+  }
+
   return null;
+}
+
+function fieldLabel(field: SuggestionField) {
+  const labels: Record<SuggestionField, string> = {
+    category: "Category",
+    tags: "Tags",
+    venue_name: "Venue name",
+    region: "Region",
+    city_id: "City",
+    start_date: "Start date",
+    end_date: "End date",
+    organizer_name: "Organizer name",
+    source_url: "Source URL",
+    website_url: "Website URL",
+    ticket_url: "Ticket URL",
+  };
+
+  return labels[field];
+}
+
+function normalizeSourceLabel(source: "merge" | "ai" | "deterministic") {
+  if (source === "ai") return "AI";
+  if (source === "merge") return "Merge";
+  return "Deterministic";
 }
 
 function validateCoords(latitudeRaw: string, longitudeRaw: string) {
@@ -226,6 +254,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [safeApplySummary, setSafeApplySummary] = useState<{ applied: number; skipped: string[] } | null>(null);
   const [heroPreviewError, setHeroPreviewError] = useState(false);
   const [appliedAiFields, setAppliedAiFields] = useState<Record<SuggestionField, boolean>>({
     category: false,
@@ -271,27 +300,60 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   };
 
   const applySuggestion = (field: SuggestionField, value: string | string[]) => {
+    let applied = false;
+
     if (field === "tags") {
       if (Array.isArray(value)) {
         updateField("tags", value);
+        applied = true;
       }
     } else if (typeof value === "string") {
       const normalizedValue = field === "start_date" || field === "end_date" ? normalizeAiDateGuess(value) : value;
       if (normalizedValue) {
         updateField(field, normalizedValue);
+        applied = true;
       }
     }
 
-    setAppliedAiFields((prev) => ({ ...prev, [field]: true }));
+    if (applied) {
+      setAppliedAiFields((prev) => ({ ...prev, [field]: true }));
+    }
+
+    return applied;
   };
 
   const applySafeSuggestions = () => {
     const safeFields: SuggestionField[] = ["category", "tags", "venue_name", "region"];
+    let applied = 0;
+    const skipped: string[] = [];
+
     for (const field of safeFields) {
       const suggestion = normalizationSuggestions.find((entry) => entry.field === field);
-      if (!suggestion) continue;
-      applySuggestion(field, suggestion.value);
+      if (!suggestion) {
+        skipped.push(`${fieldLabel(field)} (no suggestion)`);
+        continue;
+      }
+
+      const currentValue = getCurrentValue(field);
+      const suggestionValue = Array.isArray(suggestion.value) ? suggestion.value.join(", ") : suggestion.value;
+      const normalizedSuggested = normalizeDisplayValue(suggestionValue);
+      const comparisonStatus = getComparisonStatus(currentValue, normalizedSuggested);
+      const canApply = comparisonStatus !== "matches" && comparisonStatus !== "empty";
+
+      if (!canApply) {
+        skipped.push(`${fieldLabel(field)} (${comparisonStatus === "matches" ? "unchanged" : "empty suggestion"})`);
+        continue;
+      }
+
+      const didApply = applySuggestion(field, suggestion.value);
+      if (didApply) {
+        applied += 1;
+      } else {
+        skipped.push(`${fieldLabel(field)} (invalid suggestion value)`);
+      }
     }
+
+    setSafeApplySummary({ applied, skipped });
   };
 
   const onSave = async (event: FormEvent) => {
@@ -571,6 +633,12 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                 >
                   Apply safe suggestions
                 </button>
+                {safeApplySummary ? (
+                  <div className="mt-2 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-xs text-black/70">
+                    <p>Applied fields: {safeApplySummary.applied}</p>
+                    {safeApplySummary.skipped.length > 0 ? <p>Skipped: {safeApplySummary.skipped.join("; ")}</p> : null}
+                  </div>
+                ) : null}
               </div>
 
               <div className="mt-4 space-y-3">
@@ -578,17 +646,27 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                   const currentValue = getCurrentValue(suggestion.field);
                   const suggestedValue = Array.isArray(suggestion.value) ? suggestion.value.join(", ") : suggestion.value;
                   const comparisonStatus = getComparisonStatus(currentValue, normalizeDisplayValue(suggestedValue));
+                  const isApplied = appliedAiFields[suggestion.field];
+                  const canApply = comparisonStatus !== "matches" && comparisonStatus !== "empty";
+                  const cardTone = isApplied
+                    ? "border-[#18a05e]/30 bg-[#18a05e]/5"
+                    : comparisonStatus === "matches"
+                      ? "border-black/[0.08] bg-black/[0.03]"
+                      : comparisonStatus === "different"
+                        ? "border-[#0c0e14]/20 bg-white"
+                        : "border-[#b13a1a]/20 bg-[#fff6f3]";
 
                   return (
-                    <div key={suggestion.field} className="rounded-xl border border-black/[0.08] bg-white px-3 py-2.5">
+                    <div key={suggestion.field} className={`rounded-xl border px-3 py-2.5 ${cardTone}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">{suggestion.field.replace("_", " ")} · {suggestion.source}</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">{fieldLabel(suggestion.field)} · Source: {normalizeSourceLabel(suggestion.source)}</p>
                         <button
                           type="button"
                           onClick={() => applySuggestion(suggestion.field, suggestion.value)}
-                          className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                          disabled={!canApply}
+                          className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-45"
                         >
-                          {appliedAiFields[suggestion.field] ? "Applied" : "Apply"}
+                          {isApplied ? "Applied" : "Apply"}
                         </button>
                       </div>
                       <p className="mt-1 text-sm text-black/70">Current: {currentValue ?? "-"}</p>

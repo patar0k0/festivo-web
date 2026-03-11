@@ -2,6 +2,34 @@ import { notFound, redirect } from "next/navigation";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import PendingFestivalEditForm from "@/components/admin/PendingFestivalEditForm";
 
+type PendingFestivalCityRelation = {
+  id: number;
+  name_bg: string | null;
+  slug: string | null;
+};
+
+function normalizeCityRelation(city: unknown): PendingFestivalCityRelation | null {
+  if (!city) {
+    return null;
+  }
+
+  const candidate = Array.isArray(city) ? city[0] : city;
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+
+  const id = "id" in candidate ? candidate.id : null;
+  if (typeof id !== "number") {
+    return null;
+  }
+
+  return {
+    id,
+    name_bg: "name_bg" in candidate && typeof candidate.name_bg === "string" ? candidate.name_bg : null,
+    slug: "slug" in candidate && typeof candidate.slug === "string" ? candidate.slug : null,
+  };
+}
+
 export default async function AdminPendingFestivalEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const ctx = await getAdminContext();
@@ -25,5 +53,11 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
     notFound();
   }
 
-  return <PendingFestivalEditForm pendingFestival={{ ...data, id: String(data.id) }} />;
+  const pendingFestival = {
+    ...data,
+    id: String(data.id),
+    city: normalizeCityRelation(data.city),
+  };
+
+  return <PendingFestivalEditForm pendingFestival={pendingFestival} />;
 }

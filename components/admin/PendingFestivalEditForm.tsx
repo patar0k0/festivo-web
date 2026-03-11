@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
+import { extractNormalizationSuggestions, type SuggestionField } from "@/lib/festival/normalizationSuggestions";
 
 type PendingFestivalRecord = {
   id: string;
@@ -46,6 +47,10 @@ type PendingFestivalRecord = {
   location_guess: string | null;
   date_guess: string | null;
   is_free_guess: boolean | null;
+  normalization_version?: string | null;
+  deterministic_guess_json?: unknown;
+  ai_guess_json?: unknown;
+  merge_decisions_json?: unknown;
   latitude_guess?: number | string | null;
   longitude_guess?: number | string | null;
   lat_guess?: number | string | null;
@@ -129,39 +134,6 @@ function normalizeTagsGuess(value: unknown): string[] {
     .filter(Boolean);
 }
 
-function normalizeCoordinateValue(value: unknown): string | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value.toString();
-  }
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    const parsed = Number(trimmed);
-    if (Number.isNaN(parsed)) {
-      return null;
-    }
-
-    return parsed.toString();
-  }
-
-  return null;
-}
-
-function findCoordinateGuess(record: PendingFestivalRecord, keys: string[]) {
-  for (const key of keys) {
-    const value = normalizeCoordinateValue(record[key]);
-    if (value !== null) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
 function getComparisonStatus(current: string | null, aiGuess: string | null) {
   if (!aiGuess) {
     return null;
@@ -222,42 +194,11 @@ async function readErrorMessage(response: Response, fallback: string) {
 
 export default function PendingFestivalEditForm({ pendingFestival }: { pendingFestival: PendingFestivalRecord }) {
   const router = useRouter();
-  const titleGuess = normalizeDisplayValue(pendingFestival.title_clean);
-  const descriptionShortGuess = normalizeDisplayValue(pendingFestival.description_short);
-  const descriptionCleanGuess = normalizeDisplayValue(pendingFestival.description_clean);
-  const categoryGuess = normalizeDisplayValue(pendingFestival.category_guess);
-  const cityGuess = normalizeDisplayValue(pendingFestival.city_guess);
-  const locationGuess = normalizeDisplayValue(pendingFestival.location_guess);
-  const dateGuess = normalizeDisplayValue(pendingFestival.date_guess);
-  const tagsGuess = normalizeTagsGuess(pendingFestival.tags_guess);
   const tagsCurrent = normalizeTagsGuess(pendingFestival.tags);
-  const latitudeGuess = findCoordinateGuess(pendingFestival, ["latitude_guess", "lat_guess", "ai_latitude", "extracted_latitude"]);
-  const longitudeGuess = findCoordinateGuess(pendingFestival, ["longitude_guess", "lng_guess", "ai_longitude", "extracted_longitude"]);
-  const startDateCurrent = normalizeDisplayValue(asDateInput(pendingFestival.start_date));
-  const locationCurrent = normalizeDisplayValue(pendingFestival.location_name);
   const cityDisplayValue =
     normalizeDisplayValue(pendingFestival.city?.name_bg) ??
     normalizeDisplayValue(pendingFestival.city?.slug) ??
     "";
-  const titleStatus = getComparisonStatus(normalizeDisplayValue(pendingFestival.title), titleGuess);
-  const startDateStatus = getComparisonStatus(startDateCurrent, dateGuess);
-  const locationStatus = getComparisonStatus(locationCurrent, locationGuess);
-  const freeGuessLabel = pendingFestival.is_free_guess === null ? null : pendingFestival.is_free_guess ? "Free" : "Paid";
-  const freeCurrentLabel = pendingFestival.is_free === null ? null : pendingFestival.is_free ? "Free" : "Paid";
-  const freeStatus =
-    freeGuessLabel === null ? null : freeCurrentLabel === null ? "missing" : freeGuessLabel === freeCurrentLabel ? "matches" : "different";
-  const hasAiAssistance =
-    Boolean(titleGuess) ||
-    Boolean(descriptionShortGuess) ||
-    Boolean(descriptionCleanGuess) ||
-    Boolean(categoryGuess) ||
-    Boolean(cityGuess) ||
-    Boolean(locationGuess) ||
-    Boolean(dateGuess) ||
-    Boolean(freeGuessLabel) ||
-    tagsGuess.length > 0 ||
-    Boolean(latitudeGuess) ||
-    Boolean(longitudeGuess);
 
   const [form, setForm] = useState({
     title: pendingFestival.title,
@@ -286,20 +227,39 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [heroPreviewError, setHeroPreviewError] = useState(false);
-  const [appliedAiFields, setAppliedAiFields] = useState({
-    title: false,
-    description: false,
-    city_id: false,
-    venue_name: false,
-    start_date: false,
+  const [appliedAiFields, setAppliedAiFields] = useState<Record<SuggestionField, boolean>>({
+    category: false,
     tags: false,
-    latitude: false,
-    longitude: false,
+    venue_name: false,
+    region: false,
+    city_id: false,
+    start_date: false,
+    end_date: false,
+    organizer_name: false,
+    source_url: false,
+    website_url: false,
+    ticket_url: false,
   });
 
-  const cityStatus = getComparisonStatus(normalizeDisplayValue(form.city_id), cityGuess);
-  const latitudeStatus = getComparisonStatus(normalizeDisplayValue(form.latitude), latitudeGuess);
-  const longitudeStatus = getComparisonStatus(normalizeDisplayValue(form.longitude), longitudeGuess);
+  const normalizationSuggestions = extractNormalizationSuggestions({
+    deterministic_guess_json: pendingFestival.deterministic_guess_json,
+    ai_guess_json: pendingFestival.ai_guess_json,
+    merge_decisions_json: pendingFestival.merge_decisions_json,
+  });
+  const hasNormalizeSuggestions = normalizationSuggestions.length > 0;
+
+  const getCurrentValue = (field: SuggestionField) => {
+    if (field === "tags") {
+      return form.tags.length > 0 ? form.tags.join(", ") : null;
+    }
+
+    const current = form[field];
+    if (typeof current !== "string") {
+      return null;
+    }
+
+    return normalizeDisplayValue(current);
+  };
 
   const heroImageUrl = form.hero_image.trim();
 
@@ -310,99 +270,27 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const applyAiValue = (field: keyof typeof appliedAiFields) => {
-    let didApply = false;
-
-    if (field === "title" && titleGuess) {
-      updateField("title", titleGuess);
-      didApply = true;
-    }
-
-    if (field === "description" && descriptionCleanGuess) {
-      updateField("description", descriptionCleanGuess);
-      didApply = true;
-    }
-
-    if (field === "city_id" && cityGuess) {
-      updateField("city_id", cityGuess);
-      didApply = true;
-    }
-
-    if (field === "venue_name" && locationGuess) {
-      updateField("venue_name", locationGuess);
-      didApply = true;
-    }
-
-    if (field === "start_date" && dateGuess) {
-      const normalizedDateGuess = normalizeAiDateGuess(dateGuess);
-      if (normalizedDateGuess) {
-        updateField("start_date", normalizedDateGuess);
-        didApply = true;
+  const applySuggestion = (field: SuggestionField, value: string | string[]) => {
+    if (field === "tags") {
+      if (Array.isArray(value)) {
+        updateField("tags", value);
+      }
+    } else if (typeof value === "string") {
+      const normalizedValue = field === "start_date" || field === "end_date" ? normalizeAiDateGuess(value) : value;
+      if (normalizedValue) {
+        updateField(field, normalizedValue);
       }
     }
 
-    if (field === "tags" && tagsGuess.length > 0) {
-      updateField("tags", tagsGuess);
-      didApply = true;
-    }
-
-    if (field === "latitude" && latitudeGuess) {
-      updateField("latitude", latitudeGuess);
-      didApply = true;
-    }
-
-    if (field === "longitude" && longitudeGuess) {
-      updateField("longitude", longitudeGuess);
-      didApply = true;
-    }
-
-    if (didApply) {
-      setAppliedAiFields((prev) => ({ ...prev, [field]: true }));
-    }
+    setAppliedAiFields((prev) => ({ ...prev, [field]: true }));
   };
 
-  const useAllSafeAiValues = () => {
-    if (titleGuess && !form.title.trim()) {
-      updateField("title", titleGuess);
-      setAppliedAiFields((prev) => ({ ...prev, title: true }));
-    }
-
-    if (descriptionCleanGuess && !form.description.trim()) {
-      updateField("description", descriptionCleanGuess);
-      setAppliedAiFields((prev) => ({ ...prev, description: true }));
-    }
-
-    if (cityGuess && !form.city_id.trim()) {
-      updateField("city_id", cityGuess);
-      setAppliedAiFields((prev) => ({ ...prev, city_id: true }));
-    }
-
-    if (locationGuess && !form.venue_name.trim()) {
-      updateField("venue_name", locationGuess);
-      setAppliedAiFields((prev) => ({ ...prev, venue_name: true }));
-    }
-
-    if (dateGuess && !form.start_date.trim()) {
-      const normalizedDateGuess = normalizeAiDateGuess(dateGuess);
-      if (normalizedDateGuess) {
-        updateField("start_date", normalizedDateGuess);
-        setAppliedAiFields((prev) => ({ ...prev, start_date: true }));
-      }
-    }
-
-    if (tagsGuess.length > 0 && form.tags.length === 0) {
-      updateField("tags", tagsGuess);
-      setAppliedAiFields((prev) => ({ ...prev, tags: true }));
-    }
-
-    if (latitudeGuess && !form.latitude.trim()) {
-      updateField("latitude", latitudeGuess);
-      setAppliedAiFields((prev) => ({ ...prev, latitude: true }));
-    }
-
-    if (longitudeGuess && !form.longitude.trim()) {
-      updateField("longitude", longitudeGuess);
-      setAppliedAiFields((prev) => ({ ...prev, longitude: true }));
+  const applySafeSuggestions = () => {
+    const safeFields: SuggestionField[] = ["category", "tags", "venue_name", "region"];
+    for (const field of safeFields) {
+      const suggestion = normalizationSuggestions.find((entry) => entry.field === field);
+      if (!suggestion) continue;
+      applySuggestion(field, suggestion.value);
     }
   };
 
@@ -670,191 +558,48 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
             </div>
           </div>
 
-          {hasAiAssistance ? (
+          {hasNormalizeSuggestions ? (
             <div className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
-              <h2 className="text-lg font-bold">AI Assistance</h2>
-              <p className="mt-1 text-xs text-black/60">Advisory-only hints from normalization/extraction. Core editable fields remain authoritative.</p>
+              <h2 className="text-lg font-bold">AI Normalize Suggestions</h2>
+              <p className="mt-1 text-xs text-black/60">Suggestions are advisory only. Apply actions only update the local form until you click Save edits.</p>
+              <p className="mt-1 text-xs text-black/60">Normalization version: {pendingFestival.normalization_version ?? "-"}</p>
               <div className="mt-3">
                 <button
                   type="button"
-                  onClick={useAllSafeAiValues}
+                  onClick={applySafeSuggestions}
                   className="rounded-lg border border-black/15 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
                 >
-                  Use all
+                  Apply safe suggestions
                 </button>
               </div>
 
-              <div className="mt-4 space-y-4">
-                {titleGuess ? (
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Clean title · AI guess</p>
-                      <button
-                        type="button"
-                        onClick={() => applyAiValue("title")}
-                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
-                      >
-                        {appliedAiFields.title ? "Applied" : "Use"}
-                      </button>
-                    </div>
-                    <p className="mt-1 text-sm text-black/85">{titleGuess}</p>
-                    {statusBadgeLabel(titleStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(titleStatus)}</p> : null}
-                  </div>
-                ) : null}
+              <div className="mt-4 space-y-3">
+                {normalizationSuggestions.map((suggestion) => {
+                  const currentValue = getCurrentValue(suggestion.field);
+                  const suggestedValue = Array.isArray(suggestion.value) ? suggestion.value.join(", ") : suggestion.value;
+                  const comparisonStatus = getComparisonStatus(currentValue, normalizeDisplayValue(suggestedValue));
 
-                {descriptionShortGuess ? (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Short description · AI guess</p>
-                    <p className="mt-1 text-sm text-black/85">{descriptionShortGuess}</p>
-                  </div>
-                ) : null}
-
-                {descriptionCleanGuess ? (
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Clean description · AI guess</p>
-                      <button
-                        type="button"
-                        onClick={() => applyAiValue("description")}
-                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
-                      >
-                        {appliedAiFields.description ? "Applied" : "Use"}
-                      </button>
-                    </div>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-black/85">{descriptionCleanGuess}</p>
-                  </div>
-                ) : null}
-
-                {categoryGuess ? (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Category guess</p>
-                    <p className="mt-1 text-sm text-black/85">{categoryGuess}</p>
-                  </div>
-                ) : null}
-
-                {tagsGuess.length > 0 ? (
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Tags guess</p>
-                      <button
-                        type="button"
-                        onClick={() => applyAiValue("tags")}
-                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
-                      >
-                        {appliedAiFields.tags ? "Applied" : "Use AI tags"}
-                      </button>
-                    </div>
-                    <p className="mt-1 text-sm text-black/85">Current tags: {form.tags.length > 0 ? form.tags.join(", ") : "-"}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {tagsGuess.map((tag) => (
-                        <span key={tag} className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs text-black/70">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {cityGuess ? (
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City · AI guess</p>
-                      <button
-                        type="button"
-                        onClick={() => applyAiValue("city_id")}
-                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
-                      >
-                        {appliedAiFields.city_id ? "Applied" : "Use"}
-                      </button>
-                    </div>
-                    <p className="mt-1 text-sm text-black/85">Current value: {normalizeDisplayValue(form.city_id) ?? "-"}</p>
-                    <p className="mt-1 text-sm text-black/85">AI guess: {cityGuess}</p>
-                    {statusBadgeLabel(cityStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(cityStatus)}</p> : null}
-                  </div>
-                ) : null}
-
-                {latitudeGuess || longitudeGuess || form.latitude || form.longitude ? (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Coordinates</p>
-                    <p className="mt-1 text-sm text-black/85">Current latitude: {normalizeDisplayValue(form.latitude) ?? "-"}</p>
-                    <p className="mt-1 text-sm text-black/85">Current longitude: {normalizeDisplayValue(form.longitude) ?? "-"}</p>
-
-                    {latitudeGuess ? (
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <p className="text-sm text-black/85">AI/extracted latitude: {latitudeGuess}</p>
+                  return (
+                    <div key={suggestion.field} className="rounded-xl border border-black/[0.08] bg-white px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">{suggestion.field.replace("_", " ")} · {suggestion.source}</p>
                         <button
                           type="button"
-                          onClick={() => applyAiValue("latitude")}
+                          onClick={() => applySuggestion(suggestion.field, suggestion.value)}
                           className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
-                          disabled={Boolean(normalizeDisplayValue(form.latitude))}
                         >
-                          {appliedAiFields.latitude ? "Applied" : "Use"}
+                          {appliedAiFields[suggestion.field] ? "Applied" : "Apply"}
                         </button>
                       </div>
-                    ) : null}
-                    {statusBadgeLabel(latitudeStatus) ? <p className="mt-1 text-xs text-black/55">Latitude status: {statusBadgeLabel(latitudeStatus)}</p> : null}
-
-                    {longitudeGuess ? (
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <p className="text-sm text-black/85">AI/extracted longitude: {longitudeGuess}</p>
-                        <button
-                          type="button"
-                          onClick={() => applyAiValue("longitude")}
-                          className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
-                          disabled={Boolean(normalizeDisplayValue(form.longitude))}
-                        >
-                          {appliedAiFields.longitude ? "Applied" : "Use"}
-                        </button>
-                      </div>
-                    ) : null}
-                    {statusBadgeLabel(longitudeStatus) ? <p className="mt-1 text-xs text-black/55">Longitude status: {statusBadgeLabel(longitudeStatus)}</p> : null}
-                  </div>
-                ) : null}
-
-                {locationGuess ? (
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Location · AI guess</p>
-                      <button
-                        type="button"
-                        onClick={() => applyAiValue("venue_name")}
-                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
-                      >
-                        {appliedAiFields.venue_name ? "Applied" : "Use"}
-                      </button>
+                      <p className="mt-1 text-sm text-black/70">Current: {currentValue ?? "-"}</p>
+                      <p className="mt-1 text-sm text-black/85">Suggested: {suggestedValue}</p>
+                      {suggestion.confidence !== null ? <p className="mt-1 text-xs text-black/60">Confidence: {suggestion.confidence}</p> : null}
+                      {suggestion.warning ? <p className="mt-1 text-xs text-[#b13a1a]">Warning: {suggestion.warning}</p> : null}
+                      {suggestion.reason ? <p className="mt-1 text-xs text-black/60">Reason: {suggestion.reason}</p> : null}
+                      {statusBadgeLabel(comparisonStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(comparisonStatus)}</p> : null}
                     </div>
-                    <p className="mt-1 text-sm text-black/85">Current value: {locationCurrent ?? "-"}</p>
-                    <p className="mt-1 text-sm text-black/85">AI guess: {locationGuess}</p>
-                    {statusBadgeLabel(locationStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(locationStatus)}</p> : null}
-                  </div>
-                ) : null}
-
-                {dateGuess ? (
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Date · AI guess</p>
-                      <button
-                        type="button"
-                        onClick={() => applyAiValue("start_date")}
-                        className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
-                      >
-                        {appliedAiFields.start_date ? "Applied" : "Use"}
-                      </button>
-                    </div>
-                    <p className="mt-1 text-sm text-black/85">Current start date: {startDateCurrent ?? "-"}</p>
-                    <p className="mt-1 text-sm text-black/85">AI guess: {dateGuess}</p>
-                    {statusBadgeLabel(startDateStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(startDateStatus)}</p> : null}
-                  </div>
-                ) : null}
-
-                {freeGuessLabel ? (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Free guess</p>
-                    <p className="mt-1 text-sm text-black/85">Current value: {freeCurrentLabel ?? "-"}</p>
-                    <p className="mt-1 text-sm text-black/85">AI guess: {freeGuessLabel}</p>
-                    {statusBadgeLabel(freeStatus) ? <p className="mt-1 text-xs text-black/55">Status: {statusBadgeLabel(freeStatus)}</p> : null}
-                  </div>
-                ) : null}
+                  );
+                })}
               </div>
             </div>
           ) : null}

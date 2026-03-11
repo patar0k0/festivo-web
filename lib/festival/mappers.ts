@@ -1,5 +1,5 @@
 import type { Festival } from "@/lib/types";
-import type { CanonicalFestivalPayload } from "@/lib/festival/schema";
+import type { CanonicalFestivalPatchPayload, CanonicalFestivalPayload } from "@/lib/festival/schema";
 
 type PendingFestivalRowLike = {
   title: string;
@@ -174,4 +174,61 @@ export function festivalPatchFromCanonical(fields: CanonicalFestivalPayload): Re
     lng: fields.longitude,
     status: fields.status,
   };
+}
+
+export function pendingPatchFromCanonicalPartial(fields: CanonicalFestivalPatchPayload): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+
+  if ("title" in fields) patch.title = fields.title;
+  if ("slug" in fields) patch.slug = fields.slug;
+  if ("description" in fields) patch.description = fields.description;
+  if ("category" in fields) patch.category = fields.category;
+  if ("region" in fields) patch.region = fields.region;
+  if ("venue_name" in fields) patch.location_name = fields.venue_name;
+  if ("address" in fields) patch.address = fields.address;
+  if ("latitude" in fields) patch.latitude = fields.latitude;
+  if ("longitude" in fields) patch.longitude = fields.longitude;
+  if ("start_date" in fields) patch.start_date = fields.start_date;
+  if ("end_date" in fields) patch.end_date = fields.end_date;
+  if ("organizer_name" in fields) patch.organizer_name = fields.organizer_name;
+  if ("source_url" in fields) patch.source_url = fields.source_url;
+  if ("source_type" in fields) patch.source_type = fields.source_type;
+  if ("website_url" in fields) patch.website_url = fields.website_url;
+  if ("ticket_url" in fields) patch.ticket_url = fields.ticket_url;
+  if ("price_range" in fields) patch.price_range = fields.price_range;
+  if ("hero_image" in fields) patch.hero_image = fields.hero_image;
+  if ("tags" in fields) patch.tags = fields.tags;
+  if ("status" in fields) patch.status = fields.status;
+
+  return patch;
+}
+
+export function festivalPatchFromCanonicalPartial(fields: CanonicalFestivalPatchPayload): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+
+  if ("title" in fields) patch.title = fields.title;
+  if ("slug" in fields) patch.slug = fields.slug;
+  if ("description" in fields) patch.description = fields.description;
+  if ("category" in fields) patch.category = fields.category;
+  if ("region" in fields) patch.region = fields.region;
+  if ("venue_name" in fields) patch.location_name = fields.venue_name;
+  if ("address" in fields) patch.address = fields.address;
+  if ("start_date" in fields) patch.start_date = fields.start_date;
+  if ("end_date" in fields) patch.end_date = fields.end_date;
+  if ("organizer_name" in fields) patch.organizer_name = fields.organizer_name;
+  if ("hero_image" in fields) {
+    patch.hero_image = fields.hero_image;
+    patch.image_url = fields.hero_image;
+  }
+  if ("website_url" in fields) patch.website_url = fields.website_url;
+  if ("ticket_url" in fields) patch.ticket_url = fields.ticket_url;
+  if ("price_range" in fields) patch.price_range = fields.price_range;
+  if ("source_url" in fields) patch.source_url = fields.source_url;
+  if ("source_type" in fields) patch.source_type = fields.source_type;
+  if ("tags" in fields) patch.tags = fields.tags;
+  if ("latitude" in fields) patch.lat = fields.latitude;
+  if ("longitude" in fields) patch.lng = fields.longitude;
+  if ("status" in fields) patch.status = fields.status;
+
+  return patch;
 }

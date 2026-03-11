@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
-import { festivalPatchFromCanonical } from "@/lib/festival/mappers";
-import { canonicalFromUnknown } from "@/lib/festival/validators";
+import { festivalPatchFromCanonicalPartial } from "@/lib/festival/mappers";
+import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 
 
 type SaveResponse = {
@@ -50,14 +50,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const { id } = await params;
     const body = (await request.json()) as Record<string, unknown>;
-    const parsed = canonicalFromUnknown(body);
+    const parsed = canonicalPatchFromUnknown(body);
     if (!parsed.ok) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
     const canonical = parsed.data;
     const patch: Record<string, unknown> = {
-      ...festivalPatchFromCanonical(canonical),
+      ...festivalPatchFromCanonicalPartial(canonical),
       updated_at: new Date().toISOString(),
     };
 
@@ -69,13 +69,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       patch.is_verified = body.is_verified;
     }
 
+    const hasCityInputField = "city_name_display" in canonical;
     const cityInputRaw = typeof canonical.city_name_display === "string" ? canonical.city_name_display : null;
-    const hasCityInput = cityInputRaw !== null;
+    const hasCityInput = hasCityInputField;
     const hasCityId = "city_id" in body;
     let selectedCity: CityRow | null = null;
 
     if (hasCityInput) {
-      const cityInput = normalizeSettlementInput(cityInputRaw);
+      const cityInput = normalizeSettlementInput(cityInputRaw ?? "");
 
       if (!cityInput) {
         patch.city_id = null;

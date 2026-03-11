@@ -194,6 +194,13 @@ function normalizeSourceLabel(source: "merge" | "ai" | "deterministic") {
   return "Deterministic";
 }
 
+function suggestionStateLabel(status: ReturnType<typeof getComparisonStatus>, applied: boolean) {
+  if (applied) return "Already applied";
+  if (status === "matches") return "Unchanged";
+  if (status === "different" || status === "missing") return "Changed";
+  return "Not applicable";
+}
+
 function validateCoords(latitudeRaw: string, longitudeRaw: string) {
   if (!latitudeRaw && !longitudeRaw) {
     return { valid: true, message: "" };
@@ -254,7 +261,7 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [safeApplySummary, setSafeApplySummary] = useState<{ applied: number; skipped: string[] } | null>(null);
+  const [safeApplySummary, setSafeApplySummary] = useState<{ appliedFields: string[]; skippedUnchangedOrMissing: string[] } | null>(null);
   const [heroPreviewError, setHeroPreviewError] = useState(false);
   const [appliedAiFields, setAppliedAiFields] = useState<Record<SuggestionField, boolean>>({
     category: false,
@@ -294,6 +301,26 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   };
 
   const heroImageUrl = form.hero_image.trim();
+  const safeFields: SuggestionField[] = ["category", "tags", "venue_name", "region"];
+
+  const suggestionRows = normalizationSuggestions.map((suggestion) => {
+    const currentValue = getCurrentValue(suggestion.field);
+    const suggestedValue = Array.isArray(suggestion.value) ? suggestion.value.join(", ") : suggestion.value;
+    const comparisonStatus = getComparisonStatus(currentValue, normalizeDisplayValue(suggestedValue));
+    const isApplied = appliedAiFields[suggestion.field];
+    const canApply = !isApplied && comparisonStatus !== "matches" && comparisonStatus !== "empty";
+    return {
+      suggestion,
+      currentValue,
+      suggestedValue,
+      comparisonStatus,
+      isApplied,
+      canApply,
+    };
+  });
+
+  const applicableSuggestionCount = suggestionRows.filter((row) => row.canApply).length;
+  const safeSuggestionCount = suggestionRows.filter((row) => safeFields.includes(row.suggestion.field) && row.canApply).length;
 
   const updateField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     if (key === "hero_image") {
@@ -326,14 +353,13 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   };
 
   const applySafeSuggestions = () => {
-    const safeFields: SuggestionField[] = ["category", "tags", "venue_name", "region"];
-    let applied = 0;
-    const skipped: string[] = [];
+    const appliedFields: string[] = [];
+    const skippedUnchangedOrMissing: string[] = [];
 
     for (const field of safeFields) {
       const suggestion = normalizationSuggestions.find((entry) => entry.field === field);
       if (!suggestion) {
-        skipped.push(`${fieldLabel(field)} (no suggestion)`);
+        skippedUnchangedOrMissing.push(fieldLabel(field));
         continue;
       }
 
@@ -344,19 +370,17 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
       const canApply = comparisonStatus !== "matches" && comparisonStatus !== "empty";
 
       if (!canApply) {
-        skipped.push(`${fieldLabel(field)} (${comparisonStatus === "matches" ? "unchanged" : "empty suggestion"})`);
+        skippedUnchangedOrMissing.push(fieldLabel(field));
         continue;
       }
 
       const didApply = applySuggestion(field, suggestion.value);
       if (didApply) {
-        applied += 1;
-      } else {
-        skipped.push(`${fieldLabel(field)} (invalid suggestion value)`);
+        appliedFields.push(fieldLabel(field));
       }
     }
 
-    setSafeApplySummary({ applied, skipped });
+    setSafeApplySummary({ appliedFields, skippedUnchangedOrMissing });
   };
 
   const onSave = async (event: FormEvent) => {
@@ -626,7 +650,11 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
           <div className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
             <h2 className="text-lg font-bold">AI Normalize Suggestions</h2>
             <p className="mt-1 text-xs text-black/60">Suggestions are advisory only. Apply actions only update the local form until you click Save edits.</p>
-            <p className="mt-1 text-xs text-black/60">Normalization version: {pendingFestival.normalization_version ?? "-"}</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-black/70 sm:grid-cols-3">
+              <p className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5">Version: <span className="font-semibold text-black/80">{pendingFestival.normalization_version ?? "-"}</span></p>
+              <p className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5">Applicable: <span className="font-semibold text-black/80">{applicableSuggestionCount}</span></p>
+              <p className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5">Safe: <span className="font-semibold text-black/80">{safeSuggestionCount}</span></p>
+            </div>
 
             {hasNormalizeSuggestions ? (
               <>
@@ -640,19 +668,17 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                   </button>
                   {safeApplySummary ? (
                     <div className="mt-2 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-xs text-black/70">
-                      <p>Applied fields: {safeApplySummary.applied}</p>
-                      {safeApplySummary.skipped.length > 0 ? <p>Skipped: {safeApplySummary.skipped.join("; ")}</p> : null}
+                      <p>Fields applied: {safeApplySummary.appliedFields.length > 0 ? safeApplySummary.appliedFields.join(", ") : "none"}</p>
+                      <p>
+                        Skipped (unchanged or missing):{" "}
+                        {safeApplySummary.skippedUnchangedOrMissing.length > 0 ? safeApplySummary.skippedUnchangedOrMissing.join(", ") : "none"}
+                      </p>
                     </div>
                   ) : null}
                 </div>
 
                 <div className="mt-4 space-y-3">
-                  {normalizationSuggestions.map((suggestion) => {
-                    const currentValue = getCurrentValue(suggestion.field);
-                    const suggestedValue = Array.isArray(suggestion.value) ? suggestion.value.join(", ") : suggestion.value;
-                    const comparisonStatus = getComparisonStatus(currentValue, normalizeDisplayValue(suggestedValue));
-                    const isApplied = appliedAiFields[suggestion.field];
-                    const canApply = comparisonStatus !== "matches" && comparisonStatus !== "empty";
+                  {suggestionRows.map(({ suggestion, currentValue, suggestedValue, comparisonStatus, isApplied, canApply }) => {
                     const cardTone = isApplied
                       ? "border-[#18a05e]/30 bg-[#18a05e]/5"
                       : comparisonStatus === "matches"
@@ -664,7 +690,15 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                     return (
                       <div key={suggestion.field} className={`rounded-xl border px-3 py-2.5 ${cardTone}`}>
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">{fieldLabel(suggestion.field)} · Source: {normalizeSourceLabel(suggestion.source)}</p>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">{fieldLabel(suggestion.field)}</p>
+                            <span className="rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/60">
+                              {suggestionStateLabel(comparisonStatus, isApplied)}
+                            </span>
+                            <span className="rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/60">
+                              Source: {normalizeSourceLabel(suggestion.source)}
+                            </span>
+                          </div>
                           <button
                             type="button"
                             onClick={() => applySuggestion(suggestion.field, suggestion.value)}

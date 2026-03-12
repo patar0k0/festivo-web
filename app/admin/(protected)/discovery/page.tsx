@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import DiscoverySourcesTable from "@/components/admin/DiscoverySourcesTable";
+import DiscoveredLinksInspectorTable, { type DiscoveredLinkRow } from "@/components/admin/DiscoveredLinksInspectorTable";
 
 type GenericRow = Record<string, unknown>;
 
@@ -169,7 +170,7 @@ export default async function AdminDiscoveryPage({
   const linkReasonsJsonKey = pickFirstKey(linkRows, ["reasons_json", "score_reasons", "scoring_reasons"]);
   const linkTextKey = pickFirstKey(linkRows, ["anchor_text", "source_text", "title", "context_text"]);
 
-  const mappedLinks = linkRows.map((row) => {
+  const mappedLinks: DiscoveredLinkRow[] = linkRows.map((row) => {
     const sourceId = linkSourceKey ? asString(row[linkSourceKey]) : "";
     const sourceLabel = sourceId ? sourceLabelById.get(sourceId) ?? sourceId : "-";
 
@@ -407,119 +408,7 @@ export default async function AdminDiscoveryPage({
             <p className="mt-1 text-2xl font-black tracking-tight">{avgVisibleScore === null ? "-" : avgVisibleScore.toFixed(2)}</p>
           </div>
         </div>
-        <div className="overflow-x-auto rounded-2xl border border-black/[0.08] bg-white/85 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-          <table className="min-w-full divide-y divide-black/[0.08] text-sm">
-            <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
-              <tr>
-                <th className="px-3 py-3">Created</th>
-                <th className="px-3 py-3">Source</th>
-                <th className="px-3 py-3">Normalized URL</th>
-                <th className="px-3 py-3">Score</th>
-                <th className="px-3 py-3">Decision</th>
-                <th className="px-3 py-3">Ingest job</th>
-                <th className="px-3 py-3">Reject reason</th>
-                <th className="px-3 py-3">Inspect</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-black/[0.06]">
-              {filteredLinks.length ? (
-                filteredLinks.map((link) => {
-                  const normalizedDecision = normalizeDecision(link.decision);
-                  const isSelected = isSelectedDecision(normalizedDecision) || Boolean(link.ingestJobId);
-                  const isRejected = isRejectedDecision(normalizedDecision);
-                  const isStrongScore = link.score !== null && link.score >= 0.7;
-
-                  const rowClass = isRejected
-                    ? "bg-rose-500/[0.04] hover:bg-rose-500/[0.08]"
-                    : isSelected || isStrongScore
-                      ? "bg-emerald-500/[0.05] hover:bg-emerald-500/[0.1]"
-                      : "hover:bg-black/[0.02]";
-
-                  return (
-                    <tr key={link.id || `${link.createdAt}-${link.normalizedUrl}`} className={rowClass}>
-                      <td className="whitespace-nowrap px-3 py-3 text-black/65">{link.createdAt ? new Date(link.createdAt).toLocaleString("bg-BG") : "-"}</td>
-                      <td className="px-3 py-3 text-black/75">{link.sourceLabel}</td>
-                      <td className="max-w-[30rem] px-3 py-3 text-black/75">
-                        <span className="block truncate font-mono text-xs sm:text-sm" title={link.normalizedUrl || "-"}>
-                          {link.normalizedUrl || "-"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-black/65">{link.score ?? "-"}</td>
-                      <td className="px-3 py-3 text-black/65">
-                        <span
-                          className={[
-                            "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold",
-                            isRejected
-                              ? "bg-rose-500/15 text-rose-700"
-                              : isSelected
-                                ? "bg-emerald-500/15 text-emerald-700"
-                                : "bg-black/[0.06] text-black/65",
-                          ].join(" ")}
-                        >
-                          {link.decision}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-black/65">{link.ingestJobId || "-"}</td>
-                      <td className="px-3 py-3 text-[#b13a1a]">{link.rejectReason || "-"}</td>
-                      <td className="px-3 py-3 text-black/75">
-                        <details>
-                          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.1em] text-black/60 hover:text-black">
-                            View details
-                          </summary>
-                          <div className="mt-2 min-w-[22rem] space-y-2 rounded-xl border border-black/10 bg-black/[0.02] p-3 text-xs text-black/75">
-                            <p>
-                              <span className="font-semibold text-black/60">Normalized URL:</span> {link.normalizedUrl || "-"}
-                            </p>
-                            <p>
-                              <span className="font-semibold text-black/60">Source:</span> {link.sourceLabel}
-                              {link.sourceId ? ` (${link.sourceId})` : ""}
-                            </p>
-                            <p>
-                              <span className="font-semibold text-black/60">Score:</span> {link.score ?? "-"}
-                            </p>
-                            <p>
-                              <span className="font-semibold text-black/60">Decision:</span> {link.decision}
-                            </p>
-                            <p>
-                              <span className="font-semibold text-black/60">Selected state:</span>{" "}
-                              {link.selected !== null
-                                ? link.selected
-                                  ? "selected_for_enqueue=true"
-                                  : "selected_for_enqueue=false"
-                                : isSelected
-                                  ? "selected/enqueued (derived)"
-                                  : isRejected
-                                    ? "rejected (derived)"
-                                    : "unknown"}
-                            </p>
-                            <p>
-                              <span className="font-semibold text-black/60">Ingest job id:</span> {link.ingestJobId || "-"}
-                            </p>
-                            <p>
-                              <span className="font-semibold text-black/60">Reject reason:</span> {link.rejectReason || "-"}
-                            </p>
-                            {link.reasonsJsonPretty ? (
-                              <div className="space-y-1">
-                                <p className="font-semibold text-black/60">reasons_json</p>
-                                <pre className="max-h-64 overflow-auto rounded-lg border border-black/10 bg-white/80 p-2 text-[11px] leading-relaxed text-black/80">{link.reasonsJsonPretty}</pre>
-                              </div>
-                            ) : null}
-                          </div>
-                        </details>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td className="px-3 py-6 text-center text-black/50" colSpan={8}>
-                    No discovered links found for the current filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <DiscoveredLinksInspectorTable links={filteredLinks} />
       </section>
     </div>
   );

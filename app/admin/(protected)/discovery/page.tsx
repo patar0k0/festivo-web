@@ -24,7 +24,23 @@ function pickFirstKey(rows: GenericRow[], keys: string[]) {
   return keys.find((key) => rows.some((row) => Object.prototype.hasOwnProperty.call(row, key))) ?? null;
 }
 
-export default async function AdminDiscoveryPage() {
+function normalizeDecision(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isSelectedDecision(decision: string) {
+  return ["selected", "enqueue", "enqueued", "queued", "accepted"].some((candidate) => decision.includes(candidate));
+}
+
+function isRejectedDecision(decision: string) {
+  return ["rejected", "reject", "ignored", "skip", "skipped", "duplicate", "filtered"].some((candidate) => decision.includes(candidate));
+}
+
+export default async function AdminDiscoveryPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
     redirect("/login?next=/admin/discovery");
@@ -124,6 +140,7 @@ export default async function AdminDiscoveryPage() {
   const linkDecisionKey = pickFirstKey(linkRows, ["decision", "selected_for_enqueue"]);
   const linkIngestJobIdKey = pickFirstKey(linkRows, ["ingest_job_id", "job_id"]);
   const linkRejectReasonKey = pickFirstKey(linkRows, ["reject_reason", "skip_reason", "reason"]);
+  const linkTextKey = pickFirstKey(linkRows, ["anchor_text", "source_text", "title", "context_text"]);
 
   const mappedLinks = linkRows.map((row) => {
     const sourceId = linkSourceKey ? asString(row[linkSourceKey]) : "";
@@ -141,6 +158,7 @@ export default async function AdminDiscoveryPage() {
 
     return {
       id: asString(row.id),
+      sourceId,
       createdAt: linkCreatedAtKey ? asTimestamp(row[linkCreatedAtKey]) : null,
       sourceLabel,
       normalizedUrl: linkNormalizedUrlKey ? asString(row[linkNormalizedUrlKey]) : "",
@@ -148,8 +166,57 @@ export default async function AdminDiscoveryPage() {
       decision: decisionValue,
       ingestJobId: linkIngestJobIdKey ? asString(row[linkIngestJobIdKey]) : "",
       rejectReason: linkRejectReasonKey ? asString(row[linkRejectReasonKey]) : "",
+      sourceText: linkTextKey ? asString(row[linkTextKey]) : "",
     };
   });
+
+  const sourceFilter = typeof searchParams?.source === "string" ? searchParams.source : "all";
+  const decisionFilter = typeof searchParams?.decision === "string" ? searchParams.decision : "all";
+  const minScoreRaw = typeof searchParams?.minScore === "string" ? searchParams.minScore : "";
+  const searchFilter = typeof searchParams?.q === "string" ? searchParams.q.trim() : "";
+
+  const minScore = Number(minScoreRaw);
+  const hasMinScoreFilter = minScoreRaw.length > 0 && Number.isFinite(minScore);
+  const query = searchFilter.toLowerCase();
+
+  const filteredLinks = mappedLinks.filter((link) => {
+    if (sourceFilter !== "all" && link.sourceId !== sourceFilter) {
+      return false;
+    }
+
+    const normalizedDecision = normalizeDecision(link.decision);
+    if (decisionFilter === "selected" && !isSelectedDecision(normalizedDecision) && !link.ingestJobId) {
+      return false;
+    }
+    if (decisionFilter === "rejected" && !isRejectedDecision(normalizedDecision)) {
+      return false;
+    }
+    if (decisionFilter === "other" && (isSelectedDecision(normalizedDecision) || isRejectedDecision(normalizedDecision) || link.ingestJobId)) {
+      return false;
+    }
+
+    if (hasMinScoreFilter && (link.score === null || link.score < minScore)) {
+      return false;
+    }
+
+    if (query.length > 0) {
+      const haystack = `${link.normalizedUrl} ${link.sourceText} ${link.sourceLabel}`.toLowerCase();
+      if (!haystack.includes(query)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  const selectedVisibleCount = filteredLinks.filter((link) => isSelectedDecision(normalizeDecision(link.decision)) || Boolean(link.ingestJobId)).length;
+  const rejectedVisibleCount = filteredLinks.filter((link) => isRejectedDecision(normalizeDecision(link.decision))).length;
+  const scoredVisible = filteredLinks.filter((link) => link.score !== null);
+  const avgVisibleScore = scoredVisible.length
+    ? scoredVisible.reduce((sum, link) => sum + (link.score ?? 0), 0) / scoredVisible.length
+    : null;
+
+  const sourceFilterOptions = mappedSources.map((source) => ({ id: source.id, label: source.label }));
 
   const stats = {
     totalSources: mappedSources.length,
@@ -233,6 +300,84 @@ export default async function AdminDiscoveryPage() {
 
       <section className="space-y-3">
         <h2 className="text-xl font-black tracking-tight">Latest Discovered Links</h2>
+        <form className="grid gap-3 rounded-2xl border border-black/[0.08] bg-white/85 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)] md:grid-cols-4">
+          <label className="space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+            Source
+            <select
+              className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+              name="source"
+              defaultValue={sourceFilter}
+            >
+              <option value="all">All sources</option>
+              {sourceFilterOptions.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+            Decision
+            <select
+              className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+              name="decision"
+              defaultValue={decisionFilter}
+            >
+              <option value="all">All decisions</option>
+              <option value="selected">Selected / enqueued</option>
+              <option value="rejected">Rejected</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+            Min score
+            <input
+              className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+              type="number"
+              name="minScore"
+              min="0"
+              step="0.01"
+              defaultValue={minScoreRaw}
+              placeholder="0.00"
+            />
+          </label>
+          <label className="space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+            Search
+            <input
+              className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+              type="search"
+              name="q"
+              defaultValue={searchFilter}
+              placeholder="URL or source text"
+            />
+          </label>
+          <div className="md:col-span-4 flex items-center gap-2">
+            <button type="submit" className="h-10 rounded-xl bg-black px-4 text-sm font-semibold text-white hover:bg-black/85">
+              Apply filters
+            </button>
+            <a href="/admin/discovery" className="h-10 rounded-xl border border-black/10 px-4 text-sm font-semibold leading-10 text-black/70 hover:bg-black/[0.03]">
+              Reset
+            </a>
+          </div>
+        </form>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Visible links</p>
+            <p className="mt-1 text-2xl font-black tracking-tight">{filteredLinks.length}</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Selected / enqueued</p>
+            <p className="mt-1 text-2xl font-black tracking-tight text-emerald-800">{selectedVisibleCount}</p>
+          </div>
+          <div className="rounded-2xl border border-rose-500/20 bg-rose-500/[0.06] p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-700">Rejected</p>
+            <p className="mt-1 text-2xl font-black tracking-tight text-rose-800">{rejectedVisibleCount}</p>
+          </div>
+          <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Average visible score</p>
+            <p className="mt-1 text-2xl font-black tracking-tight">{avgVisibleScore === null ? "-" : avgVisibleScore.toFixed(2)}</p>
+          </div>
+        </div>
         <div className="overflow-x-auto rounded-2xl border border-black/[0.08] bg-white/85 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
           <table className="min-w-full divide-y divide-black/[0.08] text-sm">
             <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
@@ -247,26 +392,52 @@ export default async function AdminDiscoveryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-black/[0.06]">
-              {mappedLinks.length ? (
-                mappedLinks.map((link) => (
-                  <tr key={link.id || `${link.createdAt}-${link.normalizedUrl}`} className="hover:bg-black/[0.02]">
-                    <td className="whitespace-nowrap px-3 py-3 text-black/65">{link.createdAt ? new Date(link.createdAt).toLocaleString("bg-BG") : "-"}</td>
-                    <td className="px-3 py-3 text-black/75">{link.sourceLabel}</td>
-                    <td className="max-w-[28rem] px-3 py-3 text-black/75">
-                      <span className="block truncate" title={link.normalizedUrl || "-"}>
-                        {link.normalizedUrl || "-"}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-black/65">{link.score ?? "-"}</td>
-                    <td className="px-3 py-3 text-black/65">{link.decision}</td>
-                    <td className="px-3 py-3 text-black/65">{link.ingestJobId || "-"}</td>
-                    <td className="px-3 py-3 text-[#b13a1a]">{link.rejectReason || "-"}</td>
-                  </tr>
-                ))
+              {filteredLinks.length ? (
+                filteredLinks.map((link) => {
+                  const normalizedDecision = normalizeDecision(link.decision);
+                  const isSelected = isSelectedDecision(normalizedDecision) || Boolean(link.ingestJobId);
+                  const isRejected = isRejectedDecision(normalizedDecision);
+                  const isStrongScore = link.score !== null && link.score >= 0.7;
+
+                  const rowClass = isRejected
+                    ? "bg-rose-500/[0.04] hover:bg-rose-500/[0.08]"
+                    : isSelected || isStrongScore
+                      ? "bg-emerald-500/[0.05] hover:bg-emerald-500/[0.1]"
+                      : "hover:bg-black/[0.02]";
+
+                  return (
+                    <tr key={link.id || `${link.createdAt}-${link.normalizedUrl}`} className={rowClass}>
+                      <td className="whitespace-nowrap px-3 py-3 text-black/65">{link.createdAt ? new Date(link.createdAt).toLocaleString("bg-BG") : "-"}</td>
+                      <td className="px-3 py-3 text-black/75">{link.sourceLabel}</td>
+                      <td className="max-w-[30rem] px-3 py-3 text-black/75">
+                        <span className="block truncate font-mono text-xs sm:text-sm" title={link.normalizedUrl || "-"}>
+                          {link.normalizedUrl || "-"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-black/65">{link.score ?? "-"}</td>
+                      <td className="px-3 py-3 text-black/65">
+                        <span
+                          className={[
+                            "inline-flex rounded-full px-2 py-0.5 text-xs font-semibold",
+                            isRejected
+                              ? "bg-rose-500/15 text-rose-700"
+                              : isSelected
+                                ? "bg-emerald-500/15 text-emerald-700"
+                                : "bg-black/[0.06] text-black/65",
+                          ].join(" ")}
+                        >
+                          {link.decision}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-black/65">{link.ingestJobId || "-"}</td>
+                      <td className="px-3 py-3 text-[#b13a1a]">{link.rejectReason || "-"}</td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td className="px-3 py-6 text-center text-black/50" colSpan={7}>
-                    No discovered links found.
+                    No discovered links found for the current filters.
                   </td>
                 </tr>
               )}

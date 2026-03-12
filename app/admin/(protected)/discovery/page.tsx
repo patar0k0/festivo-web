@@ -10,7 +10,16 @@ function asString(value: unknown) {
 }
 
 function asNumber(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
 }
 
 function asBoolean(value: unknown) {
@@ -64,7 +73,16 @@ function isRejectedDecision(decision: string) {
 }
 
 function formatPercent(value: number) {
-  return `${value.toFixed(1)}%`;
+  return `${Math.round(value)}%`;
+}
+
+function getSourceIdFromRow(row: GenericRow) {
+  const sourceId = asString(row.source_id);
+  if (sourceId) {
+    return sourceId;
+  }
+
+  return asString(row.discovery_source_id);
 }
 
 export default async function AdminDiscoveryPage({
@@ -81,7 +99,7 @@ export default async function AdminDiscoveryPage({
     ctx.supabase.from("discovery_sources").select("*").order("created_at", { ascending: false }),
     ctx.supabase.from("discovery_runs").select("*").order("started_at", { ascending: false }).limit(50),
     ctx.supabase.from("discovered_links").select("*").order("created_at", { ascending: false }).limit(100),
-    ctx.supabase.from("discovered_links").select("*"),
+    ctx.supabase.from("discovered_links").select("*").order("created_at", { ascending: false }).limit(2000),
   ]);
 
   if (sourcesRes.error) {
@@ -170,7 +188,6 @@ export default async function AdminDiscoveryPage({
     sourceLabelById.set(id, asString(row.name) || asString(row.label) || id);
   }
 
-  const qualitySourceKey = pickFirstKey(qualityLinkRows, ["source_id", "discovery_source_id"]);
   const qualityDecisionKey = pickFirstKey(qualityLinkRows, ["decision", "selected_for_enqueue"]);
   const qualityIngestJobIdKey = pickFirstKey(qualityLinkRows, ["ingest_job_id", "job_id"]);
   const qualityScoreKey = pickFirstKey(qualityLinkRows, ["score", "relevance_score"]);
@@ -209,7 +226,7 @@ export default async function AdminDiscoveryPage({
   }
 
   for (const row of qualityLinkRows) {
-    const sourceId = qualitySourceKey ? asString(row[qualitySourceKey]) : "";
+    const sourceId = getSourceIdFromRow(row);
     if (!sourceId) continue;
 
     const acc = ensureSourceAccumulator(sourceId);
@@ -246,7 +263,8 @@ export default async function AdminDiscoveryPage({
     }
   }
 
-  const qualitySort = typeof searchParams?.qualitySort === "string" ? searchParams.qualitySort : "selection_rate";
+  const qualitySortParam = typeof searchParams?.qualitySort === "string" ? searchParams.qualitySort : "rate";
+  const qualitySort = qualitySortParam === "selected" ? "selected" : "rate";
 
   const sourceQualityRows = Array.from(qualityBySource.values())
     .map((source) => {
@@ -260,7 +278,7 @@ export default async function AdminDiscoveryPage({
       };
     })
     .sort((a, b) => {
-      if (qualitySort === "selected_count") {
+      if (qualitySort === "selected") {
         return b.selectedCount - a.selectedCount || b.selectionRate - a.selectionRate || b.totalLinks - a.totalLinks;
       }
       return b.selectionRate - a.selectionRate || b.selectedCount - a.selectedCount || b.totalLinks - a.totalLinks;
@@ -403,8 +421,8 @@ export default async function AdminDiscoveryPage({
                 name="qualitySort"
                 defaultValue={qualitySort}
               >
-                <option value="selection_rate">Selection rate</option>
-                <option value="selected_count">Selected count</option>
+                <option value="rate">Selection rate</option>
+                <option value="selected">Selected count</option>
               </select>
               <button
                 type="submit"
@@ -419,12 +437,12 @@ export default async function AdminDiscoveryPage({
           <table className="min-w-full divide-y divide-black/[0.08] text-sm">
             <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
               <tr>
-                <th className="px-3 py-3">Source label</th>
+                <th className="px-3 py-3">Source</th>
                 <th className="px-3 py-3">Total links</th>
                 <th className="px-3 py-3">Selected</th>
                 <th className="px-3 py-3">Rejected</th>
-                <th className="px-3 py-3">Selection rate</th>
-                <th className="px-3 py-3">Average score</th>
+                <th className="px-3 py-3">Avg score</th>
+                <th className="px-3 py-3">Selection rate %</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/[0.06]">
@@ -435,8 +453,8 @@ export default async function AdminDiscoveryPage({
                     <td className="px-3 py-3 text-black/65">{row.totalLinks}</td>
                     <td className="px-3 py-3 text-emerald-700">{row.selectedCount}</td>
                     <td className="px-3 py-3 text-rose-700">{row.rejectedCount}</td>
-                    <td className="px-3 py-3 text-black/65">{formatPercent(row.selectionRate)}</td>
                     <td className="px-3 py-3 text-black/65">{row.averageScore === null ? "-" : row.averageScore.toFixed(2)}</td>
+                    <td className="px-3 py-3 text-black/65">{formatPercent(row.selectionRate)}</td>
                   </tr>
                 ))
               ) : (

@@ -30,9 +30,10 @@ export default async function AdminDiscoveryPage() {
     redirect("/login?next=/admin/discovery");
   }
 
-  const [sourcesRes, runsRes] = await Promise.all([
+  const [sourcesRes, runsRes, linksRes] = await Promise.all([
     ctx.supabase.from("discovery_sources").select("*").order("created_at", { ascending: false }),
     ctx.supabase.from("discovery_runs").select("*").order("started_at", { ascending: false }).limit(50),
+    ctx.supabase.from("discovered_links").select("*").order("created_at", { ascending: false }).limit(100),
   ]);
 
   if (sourcesRes.error) {
@@ -43,8 +44,13 @@ export default async function AdminDiscoveryPage() {
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{runsRes.error.message}</div>;
   }
 
+  if (linksRes.error) {
+    return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{linksRes.error.message}</div>;
+  }
+
   const sourceRows = ((sourcesRes.data ?? []) as GenericRow[]);
   const runRows = ((runsRes.data ?? []) as GenericRow[]);
+  const linkRows = ((linksRes.data ?? []) as GenericRow[]);
 
   const runSourceKey = pickFirstKey(runRows, ["source_id", "discovery_source_id"]);
   const runStartedAtKey = pickFirstKey(runRows, ["started_at", "created_at"]);
@@ -103,6 +109,47 @@ export default async function AdminDiscoveryPage() {
     jobsEnqueued: asNumber(row.jobs_enqueued),
     error: asString(row.error) || asString(row.error_summary) || "",
   }));
+
+  const sourceLabelById = new Map<string, string>();
+  for (const row of sourceRows) {
+    const id = asString(row.id);
+    if (!id) continue;
+    sourceLabelById.set(id, asString(row.name) || asString(row.label) || id);
+  }
+
+  const linkSourceKey = pickFirstKey(linkRows, ["source_id", "discovery_source_id"]);
+  const linkCreatedAtKey = pickFirstKey(linkRows, ["created_at", "discovered_at"]);
+  const linkNormalizedUrlKey = pickFirstKey(linkRows, ["normalized_url", "url", "raw_url"]);
+  const linkScoreKey = pickFirstKey(linkRows, ["score", "relevance_score"]);
+  const linkDecisionKey = pickFirstKey(linkRows, ["decision", "selected_for_enqueue"]);
+  const linkIngestJobIdKey = pickFirstKey(linkRows, ["ingest_job_id", "job_id"]);
+  const linkRejectReasonKey = pickFirstKey(linkRows, ["reject_reason", "skip_reason", "reason"]);
+
+  const mappedLinks = linkRows.map((row) => {
+    const sourceId = linkSourceKey ? asString(row[linkSourceKey]) : "";
+    const sourceLabel = sourceId ? sourceLabelById.get(sourceId) ?? sourceId : "-";
+
+    let decisionValue = "-";
+    if (linkDecisionKey) {
+      const rawDecision = row[linkDecisionKey];
+      if (typeof rawDecision === "boolean") {
+        decisionValue = rawDecision ? "selected" : "rejected";
+      } else if (typeof rawDecision === "string" && rawDecision.length > 0) {
+        decisionValue = rawDecision;
+      }
+    }
+
+    return {
+      id: asString(row.id),
+      createdAt: linkCreatedAtKey ? asTimestamp(row[linkCreatedAtKey]) : null,
+      sourceLabel,
+      normalizedUrl: linkNormalizedUrlKey ? asString(row[linkNormalizedUrlKey]) : "",
+      score: linkScoreKey ? asNumber(row[linkScoreKey]) : null,
+      decision: decisionValue,
+      ingestJobId: linkIngestJobIdKey ? asString(row[linkIngestJobIdKey]) : "",
+      rejectReason: linkRejectReasonKey ? asString(row[linkRejectReasonKey]) : "",
+    };
+  });
 
   const stats = {
     totalSources: mappedSources.length,
@@ -176,6 +223,50 @@ export default async function AdminDiscoveryPage() {
                 <tr>
                   <td className="px-3 py-6 text-center text-black/50" colSpan={8}>
                     No discovery runs found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-black tracking-tight">Latest Discovered Links</h2>
+        <div className="overflow-x-auto rounded-2xl border border-black/[0.08] bg-white/85 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+          <table className="min-w-full divide-y divide-black/[0.08] text-sm">
+            <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
+              <tr>
+                <th className="px-3 py-3">Created</th>
+                <th className="px-3 py-3">Source</th>
+                <th className="px-3 py-3">Normalized URL</th>
+                <th className="px-3 py-3">Score</th>
+                <th className="px-3 py-3">Decision</th>
+                <th className="px-3 py-3">Ingest job</th>
+                <th className="px-3 py-3">Reject reason</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-black/[0.06]">
+              {mappedLinks.length ? (
+                mappedLinks.map((link) => (
+                  <tr key={link.id || `${link.createdAt}-${link.normalizedUrl}`} className="hover:bg-black/[0.02]">
+                    <td className="whitespace-nowrap px-3 py-3 text-black/65">{link.createdAt ? new Date(link.createdAt).toLocaleString("bg-BG") : "-"}</td>
+                    <td className="px-3 py-3 text-black/75">{link.sourceLabel}</td>
+                    <td className="max-w-[28rem] px-3 py-3 text-black/75">
+                      <span className="block truncate" title={link.normalizedUrl || "-"}>
+                        {link.normalizedUrl || "-"}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-black/65">{link.score ?? "-"}</td>
+                    <td className="px-3 py-3 text-black/65">{link.decision}</td>
+                    <td className="px-3 py-3 text-black/65">{link.ingestJobId || "-"}</td>
+                    <td className="px-3 py-3 text-[#b13a1a]">{link.rejectReason || "-"}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="px-3 py-6 text-center text-black/50" colSpan={7}>
+                    No discovered links found.
                   </td>
                 </tr>
               )}

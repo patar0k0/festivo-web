@@ -63,6 +63,10 @@ function isRejectedDecision(decision: string) {
   return ["rejected", "reject", "ignored", "skip", "skipped", "duplicate", "filtered"].some((candidate) => decision.includes(candidate));
 }
 
+function formatPercent(value: number) {
+  return `${value.toFixed(1)}%`;
+}
+
 export default async function AdminDiscoveryPage({
   searchParams,
 }: {
@@ -73,10 +77,11 @@ export default async function AdminDiscoveryPage({
     redirect("/login?next=/admin/discovery");
   }
 
-  const [sourcesRes, runsRes, linksRes] = await Promise.all([
+  const [sourcesRes, runsRes, linksRes, qualityLinksRes] = await Promise.all([
     ctx.supabase.from("discovery_sources").select("*").order("created_at", { ascending: false }),
     ctx.supabase.from("discovery_runs").select("*").order("started_at", { ascending: false }).limit(50),
     ctx.supabase.from("discovered_links").select("*").order("created_at", { ascending: false }).limit(100),
+    ctx.supabase.from("discovered_links").select("*"),
   ]);
 
   if (sourcesRes.error) {
@@ -91,9 +96,14 @@ export default async function AdminDiscoveryPage({
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{linksRes.error.message}</div>;
   }
 
+  if (qualityLinksRes.error) {
+    return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{qualityLinksRes.error.message}</div>;
+  }
+
   const sourceRows = ((sourcesRes.data ?? []) as GenericRow[]);
   const runRows = ((runsRes.data ?? []) as GenericRow[]);
   const linkRows = ((linksRes.data ?? []) as GenericRow[]);
+  const qualityLinkRows = ((qualityLinksRes.data ?? []) as GenericRow[]);
 
   const runSourceKey = pickFirstKey(runRows, ["source_id", "discovery_source_id"]);
   const runStartedAtKey = pickFirstKey(runRows, ["started_at", "created_at"]);
@@ -159,6 +169,102 @@ export default async function AdminDiscoveryPage({
     if (!id) continue;
     sourceLabelById.set(id, asString(row.name) || asString(row.label) || id);
   }
+
+  const qualitySourceKey = pickFirstKey(qualityLinkRows, ["source_id", "discovery_source_id"]);
+  const qualityDecisionKey = pickFirstKey(qualityLinkRows, ["decision", "selected_for_enqueue"]);
+  const qualityIngestJobIdKey = pickFirstKey(qualityLinkRows, ["ingest_job_id", "job_id"]);
+  const qualityScoreKey = pickFirstKey(qualityLinkRows, ["score", "relevance_score"]);
+
+  type SourceQualityAccumulator = {
+    sourceId: string;
+    sourceLabel: string;
+    totalLinks: number;
+    selectedCount: number;
+    rejectedCount: number;
+    scoreTotal: number;
+    scoredCount: number;
+  };
+
+  const qualityBySource = new Map<string, SourceQualityAccumulator>();
+
+  const ensureSourceAccumulator = (sourceId: string) => {
+    const existing = qualityBySource.get(sourceId);
+    if (existing) return existing;
+
+    const next: SourceQualityAccumulator = {
+      sourceId,
+      sourceLabel: sourceLabelById.get(sourceId) ?? sourceId,
+      totalLinks: 0,
+      selectedCount: 0,
+      rejectedCount: 0,
+      scoreTotal: 0,
+      scoredCount: 0,
+    };
+    qualityBySource.set(sourceId, next);
+    return next;
+  };
+
+  for (const source of mappedSources) {
+    ensureSourceAccumulator(source.id);
+  }
+
+  for (const row of qualityLinkRows) {
+    const sourceId = qualitySourceKey ? asString(row[qualitySourceKey]) : "";
+    if (!sourceId) continue;
+
+    const acc = ensureSourceAccumulator(sourceId);
+    acc.totalLinks += 1;
+
+    const score = qualityScoreKey ? asNumber(row[qualityScoreKey]) : null;
+    if (score !== null) {
+      acc.scoreTotal += score;
+      acc.scoredCount += 1;
+    }
+
+    let decisionValue = "";
+    const selectedFlag = asBoolean(row.selected_for_enqueue);
+    if (selectedFlag === true) {
+      decisionValue = "selected";
+    } else if (selectedFlag === false) {
+      decisionValue = "rejected";
+    } else if (qualityDecisionKey) {
+      const rawDecision = row[qualityDecisionKey];
+      if (typeof rawDecision === "boolean") {
+        decisionValue = rawDecision ? "selected" : "rejected";
+      } else if (typeof rawDecision === "string") {
+        decisionValue = rawDecision;
+      }
+    }
+
+    const normalizedDecision = normalizeDecision(decisionValue);
+    const hasIngestJob = qualityIngestJobIdKey ? asString(row[qualityIngestJobIdKey]).length > 0 : false;
+    if (isSelectedDecision(normalizedDecision) || hasIngestJob) {
+      acc.selectedCount += 1;
+    }
+    if (isRejectedDecision(normalizedDecision)) {
+      acc.rejectedCount += 1;
+    }
+  }
+
+  const qualitySort = typeof searchParams?.qualitySort === "string" ? searchParams.qualitySort : "selection_rate";
+
+  const sourceQualityRows = Array.from(qualityBySource.values())
+    .map((source) => {
+      const selectionRate = source.totalLinks ? (source.selectedCount / source.totalLinks) * 100 : 0;
+      const averageScore = source.scoredCount ? source.scoreTotal / source.scoredCount : null;
+
+      return {
+        ...source,
+        selectionRate,
+        averageScore,
+      };
+    })
+    .sort((a, b) => {
+      if (qualitySort === "selected_count") {
+        return b.selectedCount - a.selectedCount || b.selectionRate - a.selectionRate || b.totalLinks - a.totalLinks;
+      }
+      return b.selectionRate - a.selectionRate || b.selectedCount - a.selectedCount || b.totalLinks - a.totalLinks;
+    });
 
   const linkSourceKey = pickFirstKey(linkRows, ["source_id", "discovery_source_id"]);
   const linkCreatedAtKey = pickFirstKey(linkRows, ["created_at", "discovered_at"]);
@@ -284,6 +390,65 @@ export default async function AdminDiscoveryPage({
       <section className="space-y-3">
         <h2 className="text-xl font-black tracking-tight">Discovery Sources</h2>
         <DiscoverySourcesTable rows={mappedSources} />
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-black tracking-tight">Discovery Source Quality</h2>
+          <form>
+            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+              Sort by
+              <select
+                className="h-9 rounded-xl border border-black/10 bg-white px-3 text-xs font-semibold normal-case tracking-normal text-black/80"
+                name="qualitySort"
+                defaultValue={qualitySort}
+              >
+                <option value="selection_rate">Selection rate</option>
+                <option value="selected_count">Selected count</option>
+              </select>
+              <button
+                type="submit"
+                className="h-9 rounded-xl border border-black/10 px-3 text-xs font-semibold normal-case tracking-normal text-black/70 hover:bg-black/[0.03]"
+              >
+                Apply
+              </button>
+            </label>
+          </form>
+        </div>
+        <div className="overflow-x-auto rounded-2xl border border-black/[0.08] bg-white/85 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+          <table className="min-w-full divide-y divide-black/[0.08] text-sm">
+            <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
+              <tr>
+                <th className="px-3 py-3">Source label</th>
+                <th className="px-3 py-3">Total links</th>
+                <th className="px-3 py-3">Selected</th>
+                <th className="px-3 py-3">Rejected</th>
+                <th className="px-3 py-3">Selection rate</th>
+                <th className="px-3 py-3">Average score</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-black/[0.06]">
+              {sourceQualityRows.length ? (
+                sourceQualityRows.map((row) => (
+                  <tr key={row.sourceId} className="hover:bg-black/[0.02]">
+                    <td className="px-3 py-3 font-semibold text-black/80">{row.sourceLabel}</td>
+                    <td className="px-3 py-3 text-black/65">{row.totalLinks}</td>
+                    <td className="px-3 py-3 text-emerald-700">{row.selectedCount}</td>
+                    <td className="px-3 py-3 text-rose-700">{row.rejectedCount}</td>
+                    <td className="px-3 py-3 text-black/65">{formatPercent(row.selectionRate)}</td>
+                    <td className="px-3 py-3 text-black/65">{row.averageScore === null ? "-" : row.averageScore.toFixed(2)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="px-3 py-6 text-center text-black/50" colSpan={6}>
+                    No discovered links found for source-quality metrics.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="space-y-3">

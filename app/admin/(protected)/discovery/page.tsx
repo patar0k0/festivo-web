@@ -20,6 +20,32 @@ function asTimestamp(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+
+function prettyJson(value: unknown) {
+  if (value === null || value === undefined) return null;
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    try {
+      return JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch {
+      return trimmed;
+    }
+  }
+
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
+  }
+
+  return String(value);
+}
+
 function pickFirstKey(rows: GenericRow[], keys: string[]) {
   return keys.find((key) => rows.some((row) => Object.prototype.hasOwnProperty.call(row, key))) ?? null;
 }
@@ -140,6 +166,7 @@ export default async function AdminDiscoveryPage({
   const linkDecisionKey = pickFirstKey(linkRows, ["decision", "selected_for_enqueue"]);
   const linkIngestJobIdKey = pickFirstKey(linkRows, ["ingest_job_id", "job_id"]);
   const linkRejectReasonKey = pickFirstKey(linkRows, ["reject_reason", "skip_reason", "reason"]);
+  const linkReasonsJsonKey = pickFirstKey(linkRows, ["reasons_json", "score_reasons", "scoring_reasons"]);
   const linkTextKey = pickFirstKey(linkRows, ["anchor_text", "source_text", "title", "context_text"]);
 
   const mappedLinks = linkRows.map((row) => {
@@ -158,6 +185,7 @@ export default async function AdminDiscoveryPage({
 
     return {
       id: asString(row.id),
+      selected: asBoolean(row.selected_for_enqueue),
       sourceId,
       createdAt: linkCreatedAtKey ? asTimestamp(row[linkCreatedAtKey]) : null,
       sourceLabel,
@@ -166,6 +194,7 @@ export default async function AdminDiscoveryPage({
       decision: decisionValue,
       ingestJobId: linkIngestJobIdKey ? asString(row[linkIngestJobIdKey]) : "",
       rejectReason: linkRejectReasonKey ? asString(row[linkRejectReasonKey]) : "",
+      reasonsJsonPretty: linkReasonsJsonKey ? prettyJson(row[linkReasonsJsonKey]) : null,
       sourceText: linkTextKey ? asString(row[linkTextKey]) : "",
     };
   });
@@ -389,6 +418,7 @@ export default async function AdminDiscoveryPage({
                 <th className="px-3 py-3">Decision</th>
                 <th className="px-3 py-3">Ingest job</th>
                 <th className="px-3 py-3">Reject reason</th>
+                <th className="px-3 py-3">Inspect</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/[0.06]">
@@ -431,12 +461,58 @@ export default async function AdminDiscoveryPage({
                       </td>
                       <td className="px-3 py-3 text-black/65">{link.ingestJobId || "-"}</td>
                       <td className="px-3 py-3 text-[#b13a1a]">{link.rejectReason || "-"}</td>
+                      <td className="px-3 py-3 text-black/75">
+                        <details>
+                          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.1em] text-black/60 hover:text-black">
+                            View details
+                          </summary>
+                          <div className="mt-2 min-w-[22rem] space-y-2 rounded-xl border border-black/10 bg-black/[0.02] p-3 text-xs text-black/75">
+                            <p>
+                              <span className="font-semibold text-black/60">Normalized URL:</span> {link.normalizedUrl || "-"}
+                            </p>
+                            <p>
+                              <span className="font-semibold text-black/60">Source:</span> {link.sourceLabel}
+                              {link.sourceId ? ` (${link.sourceId})` : ""}
+                            </p>
+                            <p>
+                              <span className="font-semibold text-black/60">Score:</span> {link.score ?? "-"}
+                            </p>
+                            <p>
+                              <span className="font-semibold text-black/60">Decision:</span> {link.decision}
+                            </p>
+                            <p>
+                              <span className="font-semibold text-black/60">Selected state:</span>{" "}
+                              {link.selected !== null
+                                ? link.selected
+                                  ? "selected_for_enqueue=true"
+                                  : "selected_for_enqueue=false"
+                                : isSelected
+                                  ? "selected/enqueued (derived)"
+                                  : isRejected
+                                    ? "rejected (derived)"
+                                    : "unknown"}
+                            </p>
+                            <p>
+                              <span className="font-semibold text-black/60">Ingest job id:</span> {link.ingestJobId || "-"}
+                            </p>
+                            <p>
+                              <span className="font-semibold text-black/60">Reject reason:</span> {link.rejectReason || "-"}
+                            </p>
+                            {link.reasonsJsonPretty ? (
+                              <div className="space-y-1">
+                                <p className="font-semibold text-black/60">reasons_json</p>
+                                <pre className="max-h-64 overflow-auto rounded-lg border border-black/10 bg-white/80 p-2 text-[11px] leading-relaxed text-black/80">{link.reasonsJsonPretty}</pre>
+                              </div>
+                            ) : null}
+                          </div>
+                        </details>
+                      </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td className="px-3 py-6 text-center text-black/50" colSpan={7}>
+                  <td className="px-3 py-6 text-center text-black/50" colSpan={8}>
                     No discovered links found for the current filters.
                   </td>
                 </tr>

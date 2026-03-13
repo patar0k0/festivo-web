@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
 import { extractNormalizationSuggestions, type SuggestionField } from "@/lib/festival/normalizationSuggestions";
 
-type PendingFestivalRecord = {
+export type PendingFestivalRecord = {
   id: string;
   title: string;
   slug: string | null;

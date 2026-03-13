@@ -335,8 +335,12 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   const heroImageSource = normalizeOptionalText(pendingFestival.hero_image_source);
   const heroImageOriginalUrl = normalizeOptionalText(pendingFestival.hero_image_original_url);
   const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
-  const heroImageOriginalUrlDiffers = heroImageOriginalUrl && heroImageOriginalUrl !== heroImageUrl;
-  const hasHeroDiagnostics = heroImageSource || heroImageScore !== null || heroImageOriginalUrlDiffers;
+  const hasHeroImageDiagnostics = heroImageSource !== null || heroImageScore !== null || heroImageOriginalUrl !== null;
+  const heroImageStatus = !heroImageUrl
+    ? "No hero image selected by ingestion"
+    : hasHeroImageDiagnostics
+      ? "Hero image selected"
+      : "Hero image present, diagnostics unavailable";
   const safeFields: SuggestionField[] = ["category", "tags", "venue_name", "region"];
 
   const suggestionRows = normalizationSuggestions.map((suggestion) => {
@@ -652,17 +656,27 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Hero image</span>
                 <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-                {hasHeroDiagnostics ? (
-                  <div className="mt-3 rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-xs text-black/65">
-                    <p>Selected source: <span className="font-semibold text-black/80">{heroImageSource ?? "-"}</span></p>
-                    <p>Selected score: <span className="font-semibold text-black/80">{heroImageScore ?? "-"}</span></p>
-                    {heroImageOriginalUrlDiffers ? (
-                      <p className="truncate">
-                        Original URL: <a href={heroImageOriginalUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#0c0e14] underline underline-offset-2">{heroImageOriginalUrl}</a>
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
+                <div className="mt-3 rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-xs text-black/65">
+                  <p>
+                    Selected source: <span className="font-semibold text-black/80">{heroImageSource ?? "—"}</span>
+                  </p>
+                  <p>
+                    Selected score: <span className="font-semibold text-black/80">{heroImageScore ?? "—"}</span>
+                  </p>
+                  <p className="truncate">
+                    Original URL:{" "}
+                    {heroImageOriginalUrl ? (
+                      <a href={heroImageOriginalUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#0c0e14] underline underline-offset-2">
+                        {heroImageOriginalUrl}
+                      </a>
+                    ) : (
+                      <span className="font-semibold text-black/80">—</span>
+                    )}
+                  </p>
+                  <p>
+                    Status: <span className="font-semibold text-black/80">{heroImageStatus}</span>
+                  </p>
+                </div>
                 {heroImageUrl ? (
                   <div className="mt-3">
                     <a href={heroImageUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#0c0e14] underline underline-offset-2">

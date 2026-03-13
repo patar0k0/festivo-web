@@ -37,13 +37,25 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
     redirect(`/login?next=/admin/pending-festivals/${id}`);
   }
 
-  const { data, error } = await ctx.supabase
-    .from("pending_festivals")
-    .select(
-      "id,title,slug,description,city_id,location_name,address,website_url,ticket_url,price_range,category,region,source_type,latitude,longitude,start_date,end_date,organizer_name,source_url,is_free,hero_image,status,created_at,reviewed_at,reviewed_by,title_clean,description_clean,description_short,category_guess,tags_guess,tags,city_guess,location_guess,date_guess,is_free_guess,normalization_version,deterministic_guess_json,ai_guess_json,merge_decisions_json,latitude_guess,longitude_guess,lat_guess,lng_guess,city:cities(id,name_bg,slug)"
-    )
-    .eq("id", id)
-    .maybeSingle();
+  const baseSelectFields =
+    "id,title,slug,description,city_id,location_name,address,website_url,ticket_url,price_range,category,region,source_type,latitude,longitude,start_date,end_date,organizer_name,source_url,is_free,hero_image,status,created_at,reviewed_at,reviewed_by,title_clean,description_clean,description_short,category_guess,tags_guess,tags,city_guess,location_guess,date_guess,is_free_guess,normalization_version,deterministic_guess_json,ai_guess_json,merge_decisions_json,latitude_guess,longitude_guess,lat_guess,lng_guess,city:cities(id,name_bg,slug)";
+  const heroDiagnosticsSelectFields = `${baseSelectFields},hero_image_source,hero_image_original_url,hero_image_score`;
+
+  const runSelect = (fields: string) =>
+    ctx.supabase.from("pending_festivals").select(fields).eq("id", id).maybeSingle();
+
+  let { data, error } = await runSelect(heroDiagnosticsSelectFields);
+
+  const errorMessage = error?.message?.toLocaleLowerCase("en-US") ?? "";
+  const maybeMissingHeroDiagnosticsColumns =
+    error?.code === "42703" ||
+    errorMessage.includes("hero_image_source") ||
+    errorMessage.includes("hero_image_original_url") ||
+    errorMessage.includes("hero_image_score");
+
+  if (error && maybeMissingHeroDiagnosticsColumns) {
+    ({ data, error } = await runSelect(baseSelectFields));
+  }
 
   if (error) {
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{error.message}</div>;

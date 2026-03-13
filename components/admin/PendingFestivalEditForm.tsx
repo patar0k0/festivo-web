@@ -28,6 +28,9 @@ type PendingFestivalRecord = {
   source_url: string | null;
   is_free: boolean | null;
   hero_image: string | null;
+  hero_image_source?: string | null;
+  hero_image_original_url?: string | null;
+  hero_image_score?: number | string | null;
   status: "pending" | "approved" | "rejected";
   created_at: string;
   reviewed_at: string | null;
@@ -101,6 +104,32 @@ function normalizeAiDateGuess(value: string | null) {
 function normalizeDisplayValue(value: string | null | undefined) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
+}
+
+function normalizeOptionalText(value: unknown) {
+  return typeof value === "string" ? normalizeDisplayValue(value) : null;
+}
+
+function normalizeOptionalScore(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const parsed = Number(trimmed);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+
+    return trimmed;
+  }
+
+  return null;
 }
 
 function normalizeTagsGuess(value: unknown): string[] {
@@ -303,6 +332,11 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
   };
 
   const heroImageUrl = form.hero_image.trim();
+  const heroImageSource = normalizeOptionalText(pendingFestival.hero_image_source);
+  const heroImageOriginalUrl = normalizeOptionalText(pendingFestival.hero_image_original_url);
+  const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
+  const heroImageOriginalUrlDiffers = heroImageOriginalUrl && heroImageOriginalUrl !== heroImageUrl;
+  const hasHeroDiagnostics = heroImageSource || heroImageScore !== null || heroImageOriginalUrlDiffers;
   const safeFields: SuggestionField[] = ["category", "tags", "venue_name", "region"];
 
   const suggestionRows = normalizationSuggestions.map((suggestion) => {
@@ -618,6 +652,17 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Hero image</span>
                 <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                {hasHeroDiagnostics ? (
+                  <div className="mt-3 rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-xs text-black/65">
+                    <p>Selected source: <span className="font-semibold text-black/80">{heroImageSource ?? "-"}</span></p>
+                    <p>Selected score: <span className="font-semibold text-black/80">{heroImageScore ?? "-"}</span></p>
+                    {heroImageOriginalUrlDiffers ? (
+                      <p className="truncate">
+                        Original URL: <a href={heroImageOriginalUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#0c0e14] underline underline-offset-2">{heroImageOriginalUrl}</a>
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 {heroImageUrl ? (
                   <div className="mt-3">
                     <a href={heroImageUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#0c0e14] underline underline-offset-2">

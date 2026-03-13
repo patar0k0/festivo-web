@@ -1,12 +1,20 @@
 import { notFound, redirect } from "next/navigation";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import PendingFestivalEditForm from "@/components/admin/PendingFestivalEditForm";
+import PendingFestivalEditForm, { type PendingFestivalRecord } from "@/components/admin/PendingFestivalEditForm";
 
 type PendingFestivalCityRelation = {
   id: number;
   name_bg: string | null;
   slug: string | null;
 };
+
+function normalizePendingFestivalData(data: unknown): PendingFestivalRecord | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return null;
+  }
+
+  return data as PendingFestivalRecord;
+}
 
 function normalizeCityRelation(city: unknown): PendingFestivalCityRelation | null {
   if (!city) {
@@ -65,10 +73,19 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
     notFound();
   }
 
+  const pendingFestivalData = normalizePendingFestivalData(data);
+  if (!pendingFestivalData) {
+    return (
+      <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">
+        Unexpected pending festival payload shape.
+      </div>
+    );
+  }
+
   const pendingFestival = {
-    ...data,
-    id: String(data.id),
-    city: normalizeCityRelation(data.city),
+    ...pendingFestivalData,
+    id: String(pendingFestivalData.id),
+    city: normalizeCityRelation(pendingFestivalData.city),
   };
 
   return <PendingFestivalEditForm pendingFestival={pendingFestival} />;

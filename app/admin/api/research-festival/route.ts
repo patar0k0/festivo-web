@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { researchFestival } from "@/lib/admin/research/provider";
 
+function isValidationError(message: string): boolean {
+  return (
+    message.includes("end_date cannot be before start_date") ||
+    message.includes("must be a valid date in YYYY-MM-DD format") ||
+    message.includes("query is required")
+  );
+}
+
 export async function POST(request: Request) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
@@ -20,11 +28,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected research error";
-    const status =
-      message.includes("end_date cannot be before start_date") ||
-      message.includes("must be a valid date in YYYY-MM-DD format")
-        ? 400
-        : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: message }, { status: isValidationError(message) ? 400 : 500 });
   }
 }

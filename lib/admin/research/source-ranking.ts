@@ -1,58 +1,97 @@
 import type { ResearchSource } from "@/lib/admin/research/types";
 import { extractDomain, normalizeUrl } from "@/lib/admin/research/source-extract";
 
-const TRUSTED_HOST_HINTS = ["gov", "municipality", "obshtina", "visit", "culture", "tourism", "wikipedia", "bta"];
+const OFFICIAL_HINTS = ["official", "официал", "festival", "fest", "surva", "carnival"];
+const INSTITUTIONAL_HINTS = ["gov", "gob", "municipality", "obshtina", "council", "culture", "tourism", "visit", "edu", "org"];
+const TRUSTED_MEDIA_HINTS = ["bta", "bnr", "bnt", "dnevnik", "mediapool", "news", "times"];
+const LOW_QUALITY_HINTS = ["wiki", "wikipedia", "facebook.com/events", "eventbrite", "allevents", "festivall", "events.bg", "directory"];
 
-function hasYearToken(query: string): boolean {
-  return /(?:19|20)\d{2}/.test(query);
-}
-
-function queryTokens(query: string): string[] {
-  return query
+function tokenize(value: string): string[] {
+  return value
     .toLocaleLowerCase("bg-BG")
     .split(/[^\p{L}\p{N}]+/u)
-    .filter((token) => token.length > 2 && !/^\d+$/.test(token));
+    .filter((part) => part.length > 2);
 }
 
-function scoreSource(source: ResearchSource, query: string): number {
-  const q = query.toLocaleLowerCase("bg-BG");
+function baseDomain(hostname: string): string {
+  const parts = hostname.toLocaleLowerCase("en-US").split(".").filter(Boolean);
+  if (parts.length <= 2) return parts.join(".");
+  return parts.slice(-2).join(".");
+}
+
+function containsAny(value: string, hints: string[]): boolean {
+  return hints.some((hint) => value.includes(hint));
+}
+
+function classifySource(source: ResearchSource, query: string): { score: number; isOfficial: boolean } {
   const title = source.title.toLocaleLowerCase("bg-BG");
   const domain = source.domain.toLocaleLowerCase("en-US");
-  const tokens = queryTokens(query);
+  const queryTokens = tokenize(query);
 
   let score = 0;
-  if (source.is_official) score += 80;
-  if (tokens.some((token) => title.includes(token))) score += 20;
-  if (tokens.some((token) => domain.includes(token))) score += 15;
-  if (TRUSTED_HOST_HINTS.some((hint) => domain.includes(hint))) score += 8;
-  if (title.includes("festival") || title.includes("фестив")) score += 10;
-  if (hasYearToken(q) && /(19|20)\d{2}/.test(title)) score += 5;
+  let isOfficial = source.is_official;
 
-  return score;
+  const tokenHits = queryTokens.filter((token) => title.includes(token) || domain.includes(token)).length;
+  if (tokenHits > 0) score += Math.min(26, tokenHits * 8);
+
+  if (containsAny(`${title} ${domain}`, OFFICIAL_HINTS)) {
+    score += 30;
+    isOfficial = true;
+  }
+
+  if (containsAny(domain, INSTITUTIONAL_HINTS)) {
+    score += 18;
+  }
+
+  if (containsAny(domain, TRUSTED_MEDIA_HINTS)) {
+    score += 8;
+  }
+
+  if (containsAny(`${title} ${domain}`, LOW_QUALITY_HINTS)) {
+    score -= 18;
+  }
+
+  if (source.is_official) score += 25;
+
+  return { score, isOfficial };
 }
 
 export function dedupeAndRankSources(sources: ResearchSource[], query: string, limit = 8): ResearchSource[] {
-  const seen = new Set<string>();
-  const unique: ResearchSource[] = [];
+  const uniqueByUrl = new Map<string, ResearchSource>();
 
   for (const source of sources) {
     const normalizedUrl = normalizeUrl(source.url);
     const domain = source.domain || extractDomain(source.url);
-    const key = `${domain}|${normalizedUrl}`;
-    if (!domain || seen.has(key)) continue;
+    if (!normalizedUrl || !domain) continue;
 
-    seen.add(key);
-    unique.push({
-      ...source,
-      domain,
-      url: normalizedUrl,
-      title: source.title.trim() || source.url,
-    });
+    const key = normalizedUrl.toLocaleLowerCase("en-US");
+    if (!uniqueByUrl.has(key)) {
+      uniqueByUrl.set(key, {
+        ...source,
+        url: normalizedUrl,
+        domain,
+        title: source.title.trim() || normalizedUrl,
+      });
+    }
   }
 
-  return unique
-    .map((source) => ({ source, score: scoreSource(source, query) }))
-    .sort((a, b) => b.score - a.score)
+  const byBaseDomain = new Map<string, { source: ResearchSource; score: number; isOfficial: boolean }>();
+
+  for (const source of uniqueByUrl.values()) {
+    const classification = classifySource(source, query);
+    const domainGroup = baseDomain(source.domain);
+    const existing = byBaseDomain.get(domainGroup);
+
+    if (!existing || classification.score > existing.score) {
+      byBaseDomain.set(domainGroup, { source, ...classification });
+    }
+  }
+
+  return [...byBaseDomain.values()]
+    .sort((a, b) => {
+      if (a.isOfficial !== b.isOfficial) return a.isOfficial ? -1 : 1;
+      return b.score - a.score;
+    })
     .slice(0, limit)
-    .map((item) => item.source);
+    .map((entry) => ({ ...entry.source, is_official: entry.isOfficial }));
 }

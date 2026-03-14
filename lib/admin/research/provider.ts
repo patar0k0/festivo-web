@@ -7,6 +7,13 @@ function shouldUseWebProvider(): boolean {
   return Boolean(process.env.WEB_RESEARCH_SEARCH_URL && process.env.WEB_RESEARCH_API_KEY);
 }
 
+function withFallbackWarning(result: ResearchFestivalResult, warning: string): ResearchFestivalResult {
+  return {
+    ...result,
+    warnings: [...result.warnings, warning],
+  };
+}
+
 async function runProvider(query: string): Promise<ResearchFestivalResult> {
   if (!shouldUseWebProvider()) {
     return runMockResearch(query);
@@ -16,14 +23,12 @@ async function runProvider(query: string): Promise<ResearchFestivalResult> {
     const result = await runWebResearch(query);
     if (result.sources.length === 0) {
       const fallback = await runMockResearch(query);
-      fallback.warnings = [...fallback.warnings, "Real web provider unavailable. Returned mock research fallback."];
-      return fallback;
+      return withFallbackWarning(fallback, "Real web provider returned no usable sources. Using mock fallback.");
     }
     return result;
   } catch {
     const fallback = await runMockResearch(query);
-    fallback.warnings = [...fallback.warnings, "Real web provider failed. Returned mock research fallback."];
-    return fallback;
+    return withFallbackWarning(fallback, "Real web provider failed unexpectedly. Using mock fallback.");
   }
 }
 

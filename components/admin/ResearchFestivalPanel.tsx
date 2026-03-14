@@ -115,7 +115,50 @@ export default function ResearchFestivalPanel() {
             <p><span className="font-semibold">Tags:</span> {result.tags.length > 0 ? result.tags.join(", ") : "-"}</p>
             <p><span className="font-semibold">Source:</span> {sourceSummary}</p>
             <p><span className="font-semibold">Confidence:</span> {result.confidence.overall}</p>
-            {result.warnings.length > 0 ? <p><span className="font-semibold">Warnings:</span> {result.warnings.join("; ")}</p> : null}
+            {result.warnings.length > 0 ? (
+              <div>
+                <p className="font-semibold">Warnings:</p>
+                <ul className="ml-5 list-disc space-y-1">
+                  {result.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <div>
+              <p className="font-semibold">Sources:</p>
+              {result.sources.length === 0 ? (
+                <p>-</p>
+              ) : (
+                <ul className="ml-5 list-disc space-y-1">
+                  {result.sources.map((source) => (
+                    <li key={source.url}>
+                      <a href={source.url} target="_blank" rel="noreferrer" className="text-[#0e7a45] underline-offset-2 hover:underline">
+                        {source.title || source.domain}
+                      </a>{" "}
+                      <span className="text-black/60">({source.domain}{source.is_official ? ", official" : ""})</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <p className="font-semibold">Evidence:</p>
+              {result.evidence.length === 0 ? (
+                <p>-</p>
+              ) : (
+                <ul className="ml-5 list-disc space-y-1">
+                  {result.evidence.map((item, index) => (
+                    <li key={`${item.field}-${item.source_url}-${index}`}>
+                      <span className="font-medium">{item.field}:</span> {item.value}{" "}
+                      <a href={item.source_url} target="_blank" rel="noreferrer" className="text-[#0e7a45] underline-offset-2 hover:underline">
+                        source
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         )}
       </div>

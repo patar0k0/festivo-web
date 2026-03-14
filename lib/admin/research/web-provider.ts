@@ -1,14 +1,15 @@
+import { buildResearchQueries } from "@/lib/admin/research/query-builder";
 import { dedupeAndRankSources } from "@/lib/admin/research/source-ranking";
 import { extractDomain, fetchSourceDocument } from "@/lib/admin/research/source-extract";
+import type { ExtractedSourceDocument } from "@/lib/admin/research/source-extract";
 import type { ResearchConfidenceLevel, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
 
 type SearchItem = {
   url: string;
   title: string;
-  snippet: string;
 };
 
-const SEARCH_TIMEOUT_MS = 6000;
+const SEARCH_TIMEOUT_MS = 7000;
 
 function normalizeQuery(query: string): string {
   return query.trim().toLocaleLowerCase("bg-BG");
@@ -20,7 +21,7 @@ function parseSearchItems(payload: unknown): SearchItem[] {
   const root = payload as {
     results?: unknown;
     items?: unknown;
-    data?: { results?: unknown };
+    data?: { results?: unknown; items?: unknown };
   };
 
   const candidate = Array.isArray(root.results)
@@ -29,105 +30,64 @@ function parseSearchItems(payload: unknown): SearchItem[] {
       ? root.items
       : Array.isArray(root.data?.results)
         ? root.data.results
-        : [];
+        : Array.isArray(root.data?.items)
+          ? root.data.items
+          : [];
 
   return candidate
     .map((entry) => {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
       const item = entry as { url?: unknown; link?: unknown; title?: unknown; snippet?: unknown; description?: unknown };
       const url = typeof item.url === "string" ? item.url.trim() : typeof item.link === "string" ? item.link.trim() : "";
-      const title = typeof item.title === "string" ? item.title.trim() : "";
-      const snippet = typeof item.snippet === "string" ? item.snippet.trim() : typeof item.description === "string" ? item.description.trim() : "";
       if (!url) return null;
-      return {
-        url,
-        title: title || url,
-        snippet,
-      };
+
+      const title =
+        typeof item.title === "string" && item.title.trim()
+          ? item.title.trim()
+          : typeof item.snippet === "string" && item.snippet.trim()
+            ? item.snippet.trim()
+            : typeof item.description === "string"
+              ? item.description.trim()
+              : url;
+
+      return { url, title };
     })
     .filter((item): item is SearchItem => item !== null);
 }
 
-function looksOfficial(url: string, title: string, query: string): boolean {
-  const domain = extractDomain(url);
-  const q = query.toLocaleLowerCase("bg-BG");
-  const t = title.toLocaleLowerCase("bg-BG");
-
-  if (t.includes("official") || t.includes("официал")) return true;
-  if (domain.includes("festival") || domain.includes("fest")) return true;
-
-  const withoutYear = q.replace(/\b(19|20)\d{2}\b/g, "").trim();
-  if (withoutYear && domain.includes(withoutYear.replace(/\s+/g, ""))) return true;
-
-  return false;
-}
-
 function pickConfidence(score: number): ResearchConfidenceLevel {
-  if (score >= 70) return "high";
+  if (score >= 72) return "high";
   if (score >= 45) return "medium";
   return "low";
 }
 
-function parseDateCandidates(text: string): string[] {
-  const iso = [...text.matchAll(/\b((?:19|20)\d{2})-(\d{2})-(\d{2})\b/g)].map((m) => m[0]);
-  const dotted = [...text.matchAll(/\b(\d{1,2})[./-](\d{1,2})[./-]((?:19|20)\d{2})\b/g)].map((m) => {
-    const day = m[1].padStart(2, "0");
-    const month = m[2].padStart(2, "0");
-    const year = m[3];
-    return `${year}-${month}-${day}`;
-  });
+function normalizeDateToken(value: string): string | null {
+  const iso = value.match(/^((?:19|20)\d{2})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
 
-  return [...iso, ...dotted];
+  const eu = value.match(/^(\d{1,2})[-/.](\d{1,2})[-/.]((?:19|20)\d{2})$/);
+  if (eu) return `${eu[3]}-${eu[2].padStart(2, "0")}-${eu[1].padStart(2, "0")}`;
+
+  return null;
 }
 
-function extractFieldByKeyword(snippet: string, keyword: RegExp): string | null {
-  const match = snippet.match(keyword);
-  if (!match?.[1]) return null;
-  const value = match[1].trim().replace(/[.,;]+$/, "");
-  return value || null;
+function selectPreferredDocument(docs: ExtractedSourceDocument[]): ExtractedSourceDocument {
+  const official = docs.find((doc) => doc.isOfficial);
+  return official ?? docs[0];
 }
 
-async function searchWeb(query: string): Promise<ResearchSource[]> {
-  const endpoint = process.env.WEB_RESEARCH_SEARCH_URL;
-  const apiKey = process.env.WEB_RESEARCH_API_KEY;
+function pickFieldValue(values: string[]): string | null {
+  const filtered = values.map((value) => value.trim()).filter((value) => value.length > 0);
+  if (filtered.length === 0) return null;
 
-  if (!endpoint || !apiKey) {
-    return [];
+  const counts = new Map<string, number>();
+  for (const value of filtered) {
+    const key = value.toLocaleLowerCase("bg-BG");
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
-
-  try {
-    const requestUrl = new URL(endpoint);
-    requestUrl.searchParams.set("q", query);
-    requestUrl.searchParams.set("limit", "12");
-
-    const response = await fetch(requestUrl, {
-      method: "GET",
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) return [];
-    const payload = (await response.json().catch(() => null)) as unknown;
-    const items = parseSearchItems(payload);
-
-    return items.map((item) => ({
-      url: item.url,
-      domain: extractDomain(item.url),
-      title: item.title,
-      is_official: looksOfficial(item.url, item.title, query),
-    }));
-  } catch {
-    return [];
-  } finally {
-    clearTimeout(timer);
-  }
+  const [bestKey] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  return filtered.find((value) => value.toLocaleLowerCase("bg-BG") === bestKey) ?? filtered[0] ?? null;
 }
 
 function buildLowConfidenceResult(query: string, warning: string): ResearchFestivalResult {
@@ -159,92 +119,135 @@ function buildLowConfidenceResult(query: string, warning: string): ResearchFesti
   };
 }
 
-export async function runWebResearch(query: string): Promise<ResearchFestivalResult> {
-  const normalizedQuery = normalizeQuery(query);
-  const warnings: string[] = [];
+async function searchWebQuery(query: string): Promise<ResearchSource[]> {
+  const endpoint = process.env.WEB_RESEARCH_SEARCH_URL;
+  const apiKey = process.env.WEB_RESEARCH_API_KEY;
 
-  const rawSources = await searchWeb(query);
+  if (!endpoint || !apiKey) {
+    return [];
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+
+  try {
+    const requestUrl = new URL(endpoint);
+    requestUrl.searchParams.set("q", query);
+    requestUrl.searchParams.set("limit", process.env.WEB_RESEARCH_SEARCH_LIMIT ?? "10");
+
+    const response = await fetch(requestUrl, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) return [];
+
+    const payload = (await response.json().catch(() => null)) as unknown;
+    const items = parseSearchItems(payload);
+
+    return items.map((item) => ({
+      url: item.url,
+      title: item.title,
+      domain: extractDomain(item.url),
+      is_official: false,
+    }));
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function runWebResearch(query: string): Promise<ResearchFestivalResult> {
+  const warnings: string[] = [];
+  const expandedQueries = buildResearchQueries(query);
+
+  if (expandedQueries.length === 0) {
+    return buildLowConfidenceResult(query, "Query is empty after normalization.");
+  }
+
+  const rawSources = (await Promise.all(expandedQueries.map((item) => searchWebQuery(item)))).flat();
   if (rawSources.length === 0) {
     return buildLowConfidenceResult(query, "Real web provider returned no sources.");
   }
 
-  const rankedSources = dedupeAndRankSources(rawSources, query, 8);
+  const rankedSources = dedupeAndRankSources(rawSources, query, 10);
   const extractedDocs = (await Promise.all(rankedSources.slice(0, 5).map((source) => fetchSourceDocument(source)))).filter(
-    (item): item is NonNullable<typeof item> => item !== null,
+    (item): item is ExtractedSourceDocument => item !== null,
   );
 
   if (extractedDocs.length === 0) {
-    return {
-      ...buildLowConfidenceResult(query, "Unable to extract content from ranked sources."),
-      sources: rankedSources,
-    };
+    return { ...buildLowConfidenceResult(query, "Unable to extract content from ranked sources."), sources: rankedSources };
   }
 
-  const topDoc = extractedDocs[0];
-  const fullText = extractedDocs.map((doc) => `${doc.title} ${doc.description ?? ""} ${doc.snippet}`).join(" \n ");
+  const preferredDoc = selectPreferredDocument(extractedDocs);
+  const title = preferredDoc.title || query.trim() || null;
 
-  const dateCandidates = parseDateCandidates(fullText);
-  const uniqueDates = [...new Set(dateCandidates)].sort();
+  const allDateTokens = extractedDocs.flatMap((doc) => doc.dateLike.map((token) => normalizeDateToken(token)).filter((item): item is string => Boolean(item)));
+  const uniqueDates = [...new Set(allDateTokens)].sort();
+
   let startDate: string | null = uniqueDates[0] ?? null;
-  let endDate: string | null = uniqueDates.length > 1 ? uniqueDates[uniqueDates.length - 1] : uniqueDates[0] ?? null;
+  let endDate: string | null = uniqueDates[1] ?? (uniqueDates[0] ?? null);
 
   if (uniqueDates.length > 2) {
-    warnings.push("Multiple date candidates detected across sources. Date confidence reduced.");
+    warnings.push("Multiple conflicting date candidates detected.");
   }
 
   if (startDate && endDate && endDate < startDate) {
-    const swappedStart = endDate;
-    const swappedEnd = startDate;
-    startDate = swappedStart;
-    endDate = swappedEnd;
-    warnings.push("Date candidates had reversed order in sources.");
+    warnings.push("Date candidates conflict in ordering.");
+    const temp = startDate;
+    startDate = endDate;
+    endDate = temp;
   }
 
-  const city =
-    extractFieldByKeyword(fullText, /(?:гр\.|город|city)\s*[:\-]?\s*([\p{L}\-\s]{2,60})/iu) ??
-    extractFieldByKeyword(fullText, /(?:в\s+)([А-ЯA-Z][\p{L}\-]{2,40})(?:\s|,|\.)/u) ??
-    null;
-  const organizer = extractFieldByKeyword(fullText, /(?:организатор|organizer)\s*[:\-]?\s*([\p{L}\d"'\-\s]{3,120})/iu);
-  const location = extractFieldByKeyword(fullText, /(?:локац(?:ия)?|location|venue)\s*[:\-]?\s*([\p{L}\d"'\-\s,]{3,140})/iu);
+  const cityCandidate = pickFieldValue(
+    extractedDocs
+      .flatMap((doc) => doc.locationLike)
+      .filter((value) => /\b(?:гр\.?|city|перник|софия|пловдив|варна|бургас|русе|stara zagora)\b/iu.test(value)),
+  );
 
-  const titleFromQuery = query.trim();
-  const title = topDoc.title || titleFromQuery || null;
-  const description = topDoc.description ?? (topDoc.snippet.length > 140 ? `${topDoc.snippet.slice(0, 180)}...` : null);
+  const location = pickFieldValue(extractedDocs.flatMap((doc) => doc.locationLike));
+  const organizer = pickFieldValue(extractedDocs.flatMap((doc) => doc.organizerLike));
+  const description = preferredDoc.description ?? (preferredDoc.snippet.length > 120 ? `${preferredDoc.snippet.slice(0, 220)}...` : null);
+  const heroImage = preferredDoc.ogImage;
 
-  const titleEvidence = rankedSources[0];
-  const datesEvidence = rankedSources.find((source) => source.url === topDoc.url) ?? rankedSources[0];
+  if (!startDate) warnings.push("No reliable start date found.");
+  if (!cityCandidate) warnings.push("City could not be confirmed from sources.");
+  if (!organizer) warnings.push("Organizer could not be confirmed from sources.");
 
   const officialCount = rankedSources.filter((source) => source.is_official).length;
-  if (officialCount === 0) {
-    warnings.push("No official source detected among top results.");
+  const docsFromOfficial = extractedDocs.filter((doc) => doc.isOfficial).length;
+  const weakSourceMode = officialCount === 0 && docsFromOfficial === 0;
+  if (weakSourceMode) {
+    warnings.push("Only weak or non-official sources were found.");
   }
 
-  if (!startDate) warnings.push("No reliable start date found in extracted sources.");
-  if (!city) warnings.push("City is uncertain from available sources.");
-  if (!organizer) warnings.push("Organizer is uncertain from available sources.");
+  const score = Math.max(
+    0,
+    Math.min(
+      100,
+      officialCount * 20 + docsFromOfficial * 12 + (startDate ? 16 : 0) + (cityCandidate ? 10 : 0) + (organizer ? 10 : 0) + extractedDocs.length * 4 - warnings.length * 8,
+    ),
+  );
 
-  const qualityScore = Math.max(0, Math.min(100, officialCount * 20 + extractedDocs.length * 8 + (startDate ? 20 : 0) + (city ? 10 : 0) + (organizer ? 10 : 0) - warnings.length * 8));
-  const fieldConfidence = {
-    title: pickConfidence(qualityScore),
-    dates: pickConfidence((startDate ? qualityScore : qualityScore - 25) - (uniqueDates.length > 2 ? 15 : 0)),
-    city: pickConfidence(city ? qualityScore - 10 : 20),
-    location: pickConfidence(location ? qualityScore - 15 : 20),
-    description: pickConfidence(description ? qualityScore - 15 : 20),
-    organizer: pickConfidence(organizer ? qualityScore - 10 : 20),
-    hero_image: pickConfidence(topDoc.ogImage ? qualityScore - 10 : 15),
-  } as const;
+  const overallConfidence = weakSourceMode ? pickConfidence(Math.min(score, 58)) : pickConfidence(score);
 
   return {
     query,
-    normalized_query: normalizedQuery,
+    normalized_query: normalizeQuery(query),
     title,
     start_date: startDate,
     end_date: endDate,
-    city,
+    city: cityCandidate,
     location,
     description,
     organizer,
-    hero_image: topDoc.ogImage,
+    hero_image: heroImage,
     tags: query
       .split(/\s+/)
       .map((part) => part.trim().toLocaleLowerCase("bg-BG"))
@@ -252,30 +255,43 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
       .slice(0, 5),
     sources: rankedSources,
     confidence: {
-      overall: pickConfidence(qualityScore),
-      ...fieldConfidence,
+      overall: overallConfidence,
+      title: pickConfidence(score),
+      dates: pickConfidence(startDate ? score - (uniqueDates.length > 2 ? 20 : 0) : 18),
+      city: pickConfidence(cityCandidate ? score - 8 : 18),
+      location: pickConfidence(location ? score - 12 : 18),
+      description: pickConfidence(description ? score - 10 : 18),
+      organizer: pickConfidence(organizer ? score - 8 : 18),
+      hero_image: pickConfidence(heroImage ? score - 14 : 15),
     },
     warnings,
     evidence: [
-      title && titleEvidence
+      title
         ? {
             field: "title",
             value: title,
-            source_url: titleEvidence.url,
+            source_url: preferredDoc.canonicalUrl ?? preferredDoc.url,
           }
         : null,
-      startDate && datesEvidence
+      startDate
         ? {
             field: "dates",
             value: endDate && endDate !== startDate ? `${startDate} to ${endDate}` : startDate,
-            source_url: datesEvidence.url,
+            source_url: preferredDoc.canonicalUrl ?? preferredDoc.url,
           }
         : null,
-      city && datesEvidence
+      cityCandidate
         ? {
             field: "city",
-            value: city,
-            source_url: datesEvidence.url,
+            value: cityCandidate,
+            source_url: preferredDoc.canonicalUrl ?? preferredDoc.url,
+          }
+        : null,
+      organizer
+        ? {
+            field: "organizer",
+            value: organizer,
+            source_url: preferredDoc.canonicalUrl ?? preferredDoc.url,
           }
         : null,
     ].filter((item): item is NonNullable<typeof item> => item !== null),

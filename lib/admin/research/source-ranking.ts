@@ -40,12 +40,64 @@ const WEAK_DOMAIN_HINTS = [
   "trip",
 ];
 
+const TIER1_DOMAIN_HINTS = [
+  "gov.bg",
+  "government.bg",
+  "municipality",
+  "obshtina",
+  "kmet",
+  "tourism",
+  "visit",
+  "culture",
+  "festival",
+  "fest",
+  "surva",
+  "carnival",
+  "mincult",
+  "ministry",
+  "edu",
+  "org",
+];
+
+const TIER1_TITLE_HINTS = ["официал", "official", "организатор", "организира", "община", "министер", "туриз", "култур", "festival"];
+
+const TIER2_DOMAIN_HINTS = ["bta", "bnr", "bnt", "dnevnik", "mediapool", "news", "times", "capital", "offnews", "darik"];
+const TIER3_DOMAIN_HINTS = ["wikipedia", "wiki", "britannica", "encyclopedia", "directory", "programata"];
+const TIER4_DOMAIN_HINTS = [
+  "tripadvisor",
+  "booking",
+  "expedia",
+  "airbnb",
+  "agoda",
+  "kayak",
+  "viator",
+  "travel",
+  "tour",
+  "tickets",
+  "eventbrite",
+  "allevents",
+  "10times",
+  "evensi",
+  "getyourguide",
+];
+const TIER5_DOMAIN_HINTS = ["facebook.com/pages", "facebook.com/groups", "instagram.com", "tiktok.com", "linkedin.com", "foursquare"];
+
+const COMMERCIAL_PAGE_HINTS = ["package", "offer", "deal", "book", "booking", "travel guide", "things to do", "attraction", "reseller", "price"];
+
+export type SourceAuthorityTier =
+  | "tier1_official"
+  | "tier2_reputable"
+  | "tier3_reference"
+  | "tier4_commercial"
+  | "tier5_weak";
+
 export type SourceQualityClass = "strong" | "medium" | "weak";
 
 export type SourceAssessment = {
   score: number;
   isOfficial: boolean;
   qualityClass: SourceQualityClass;
+  authorityTier: SourceAuthorityTier;
 };
 
 function tokenize(value: string): string[] {
@@ -104,9 +156,52 @@ function classifySource(source: ResearchSource, query: string): SourceAssessment
     score -= 42;
   }
 
-  const qualityClass: SourceQualityClass = score >= 52 || isOfficial ? "strong" : score >= 22 ? "medium" : "weak";
+  const text = `${title} ${domain}`;
+  const isBgDomain = domain.endsWith(".bg");
+  const hasInstitutionalSignal = containsAny(domain, TIER1_DOMAIN_HINTS) || containsAny(title, TIER1_TITLE_HINTS) || source.is_official;
+  const hasReputableSignal = containsAny(domain, TIER2_DOMAIN_HINTS);
+  const isReferenceSignal = containsAny(domain, TIER3_DOMAIN_HINTS) || /\b(wikipedia|reference|encyclopedia|directory)\b/iu.test(text);
+  const isCommercialSignal =
+    containsAny(text, TIER4_DOMAIN_HINTS) || /\b(travel|tour|booking|package|tickets?|deals?|guide|offer|reseller)\b/iu.test(text);
+  const isWeakSignal = containsAny(text, TIER5_DOMAIN_HINTS) || /\b(profile|listing|group|page)\b/iu.test(text);
 
-  return { score, isOfficial, qualityClass };
+  let authorityTier: SourceAuthorityTier;
+  if (hasInstitutionalSignal && !isCommercialSignal) {
+    authorityTier = "tier1_official";
+  } else if (hasReputableSignal && !isCommercialSignal) {
+    authorityTier = "tier2_reputable";
+  } else if (isReferenceSignal && !isCommercialSignal) {
+    authorityTier = "tier3_reference";
+  } else if (isCommercialSignal) {
+    authorityTier = "tier4_commercial";
+  } else if (isWeakSignal) {
+    authorityTier = "tier5_weak";
+  } else {
+    authorityTier = "tier5_weak";
+  }
+
+  if (isBgDomain && (authorityTier === "tier1_official" || authorityTier === "tier2_reputable")) {
+    score += 24;
+  }
+
+  if (containsAny(text, COMMERCIAL_PAGE_HINTS) && authorityTier !== "tier1_official") {
+    score -= 70;
+  }
+
+  if (authorityTier === "tier1_official") score += 170;
+  if (authorityTier === "tier2_reputable") score += 95;
+  if (authorityTier === "tier3_reference") score += 35;
+  if (authorityTier === "tier4_commercial") score -= 130;
+  if (authorityTier === "tier5_weak") score -= 170;
+
+  const qualityClass: SourceQualityClass =
+    authorityTier === "tier1_official" || authorityTier === "tier2_reputable"
+      ? "strong"
+      : authorityTier === "tier3_reference"
+        ? "medium"
+        : "weak";
+
+  return { score, isOfficial: isOfficial || authorityTier === "tier1_official", qualityClass, authorityTier };
 }
 
 export function assessSourceQuality(source: ResearchSource, query: string): SourceAssessment {
@@ -132,7 +227,7 @@ export function dedupeAndRankSources(sources: ResearchSource[], query: string, l
     }
   }
 
-  const byBaseDomain = new Map<string, { source: ResearchSource; score: number; isOfficial: boolean }>();
+  const byBaseDomain = new Map<string, { source: ResearchSource; score: number; isOfficial: boolean; authorityTier: SourceAuthorityTier }>();
 
   for (const source of uniqueByUrl.values()) {
     const classification = classifySource(source, query);
@@ -146,6 +241,16 @@ export function dedupeAndRankSources(sources: ResearchSource[], query: string, l
 
   return [...byBaseDomain.values()]
     .sort((a, b) => {
+      if (a.authorityTier !== b.authorityTier) {
+        const tierRank: Record<SourceAuthorityTier, number> = {
+          tier1_official: 1,
+          tier2_reputable: 2,
+          tier3_reference: 3,
+          tier4_commercial: 4,
+          tier5_weak: 5,
+        };
+        return tierRank[a.authorityTier] - tierRank[b.authorityTier];
+      }
       if (a.isOfficial !== b.isOfficial) return a.isOfficial ? -1 : 1;
       return b.score - a.score;
     })

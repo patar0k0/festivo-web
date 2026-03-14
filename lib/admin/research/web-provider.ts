@@ -3,7 +3,7 @@ import { assessSourceQuality, dedupeAndRankSources } from "@/lib/admin/research/
 import { extractDomain, fetchSourceDocument } from "@/lib/admin/research/source-extract";
 import type { ExtractedSourceDocument } from "@/lib/admin/research/source-extract";
 import type { ResearchConfidenceLevel, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
-import type { SourceQualityClass } from "@/lib/admin/research/source-ranking";
+import type { SourceAuthorityTier, SourceQualityClass } from "@/lib/admin/research/source-ranking";
 
 type SearchItem = {
   url: string;
@@ -20,6 +20,7 @@ type SearchPayloadRoot = {
 type AssessedDocument = ExtractedSourceDocument & {
   qualityClass: SourceQualityClass;
   qualityScore: number;
+  authorityTier: SourceAuthorityTier;
   isStrong: boolean;
 };
 
@@ -130,16 +131,19 @@ function logSearchDiagnostics(params: {
 }
 
 function logRankingDiagnostics(docs: AssessedDocument[]): void {
-  const topDomains = docs.slice(0, 5).map((doc) => ({ domain: doc.domain, quality: doc.qualityClass, score: doc.qualityScore }));
+  const topDomains = docs.slice(0, 5).map((doc) => ({ domain: doc.domain, tier: doc.authorityTier, score: doc.qualityScore }));
   console.info("[research:web-provider] ranked source diagnostics", { top_domains: topDomains });
 }
 
 function logFieldSelectionDiagnostics(details: {
   titleSource: string | null;
+  titleTier: SourceAuthorityTier | null;
   dateSource: string | null;
+  dateTier: SourceAuthorityTier | null;
   locationSource: string | null;
-  organizerSource: string | null;
+  locationTier: SourceAuthorityTier | null;
   sourceUrl: string | null;
+  sourceUrlTier: SourceAuthorityTier | null;
 }): void {
   console.info("[research:web-provider] canonical field selection", details);
 }
@@ -157,6 +161,30 @@ function pickConfidence(score: number): ResearchConfidenceLevel {
   if (score >= 72) return "high";
   if (score >= 45) return "medium";
   return "low";
+}
+const TIER_RANK: Record<SourceAuthorityTier, number> = {
+  tier1_official: 1,
+  tier2_reputable: 2,
+  tier3_reference: 3,
+  tier4_commercial: 4,
+  tier5_weak: 5,
+};
+
+function isAuthoritativeTier(tier: SourceAuthorityTier): boolean {
+  return tier === "tier1_official" || tier === "tier2_reputable";
+}
+
+function pickDocsByTier(docs: AssessedDocument[]): {
+  authoritative: AssessedDocument[];
+  fallback: AssessedDocument[];
+  weakOnly: boolean;
+} {
+  const sorted = [...docs].sort((a, b) => TIER_RANK[a.authorityTier] - TIER_RANK[b.authorityTier] || b.qualityScore - a.qualityScore);
+  const authoritative = sorted.filter((doc) => isAuthoritativeTier(doc.authorityTier));
+  const reference = sorted.filter((doc) => doc.authorityTier === "tier3_reference");
+  const fallback = authoritative.length > 0 ? authoritative : reference;
+  const weakOnly = fallback.length === 0;
+  return { authoritative, fallback, weakOnly };
 }
 
 function normalizeDateToken(value: string): string | null {
@@ -212,83 +240,83 @@ function isLikelyEventTitle(value: string): boolean {
   return /\b(фестивал|festival|carnival|маскарад|празник|събор|surva)\b/iu.test(title);
 }
 
-function pickTitleWithSource(strongDocs: AssessedDocument[], mediumDocs: AssessedDocument[]): { value: string | null; sourceUrl: string | null } {
-  const docs = strongDocs.length > 0 ? strongDocs : mediumDocs;
+function pickTitleWithSource(docs: AssessedDocument[]): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null } {
 
   for (const doc of docs) {
     const cleaned = stripSiteBrandTail(doc.title);
     if (cleaned && isLikelyEventTitle(cleaned)) {
-      return { value: cleaned, sourceUrl: doc.canonicalUrl ?? doc.url };
+      return { value: cleaned, sourceUrl: doc.canonicalUrl ?? doc.url, tier: doc.authorityTier };
     }
   }
 
-  return { value: null, sourceUrl: null };
+  return { value: null, sourceUrl: null, tier: null };
 }
 
-function pickDateRangeFromStrongSources(strongDocs: AssessedDocument[]): {
+function pickDateRangeFromStrongSources(docs: AssessedDocument[]): {
   startDate: string | null;
   endDate: string | null;
   warning: string | null;
   sourceUrl: string | null;
+  tier: SourceAuthorityTier | null;
 } {
-  if (strongDocs.length === 0) {
-    return { startDate: null, endDate: null, warning: "No strong sources available for reliable date extraction.", sourceUrl: null };
+  if (docs.length === 0) {
+    return { startDate: null, endDate: null, warning: "No authoritative/reputable sources available for reliable date extraction.", sourceUrl: null, tier: null };
   }
 
-  const tokenOwners: Array<{ date: string; sourceUrl: string }> = [];
-  for (const doc of strongDocs) {
+  const tokenOwners: Array<{ date: string; sourceUrl: string; tier: SourceAuthorityTier }> = [];
+  for (const doc of docs) {
     for (const token of doc.dateLike) {
       const normalized = normalizeDateToken(token);
       if (!normalized) continue;
-      tokenOwners.push({ date: normalized, sourceUrl: doc.canonicalUrl ?? doc.url });
+      tokenOwners.push({ date: normalized, sourceUrl: doc.canonicalUrl ?? doc.url, tier: doc.authorityTier });
     }
   }
 
   const uniqueDates = [...new Set(tokenOwners.map((entry) => entry.date))].sort();
 
   if (uniqueDates.length === 0) {
-    return { startDate: null, endDate: null, warning: "No reliable date-like pattern found in strong sources.", sourceUrl: null };
+    return { startDate: null, endDate: null, warning: "No reliable date-like pattern found in authoritative/reputable sources.", sourceUrl: null, tier: null };
   }
 
   if (uniqueDates.length > 2) {
-    return { startDate: null, endDate: null, warning: "Date candidates are conflicting across strong sources.", sourceUrl: null };
+    return { startDate: null, endDate: null, warning: "Date candidates are conflicting across authoritative/reputable sources.", sourceUrl: null, tier: null };
   }
 
   const startDate = uniqueDates[0] ?? null;
   const endDate = uniqueDates[1] ?? uniqueDates[0] ?? null;
 
   if (startDate && endDate && endDate < startDate) {
-    return { startDate: null, endDate: null, warning: "Date candidates conflict in ordering across strong sources.", sourceUrl: null };
+    return { startDate: null, endDate: null, warning: "Date candidates conflict in ordering across authoritative/reputable sources.", sourceUrl: null, tier: null };
   }
 
-  const sourceUrl = tokenOwners.find((entry) => entry.date === startDate)?.sourceUrl ?? null;
-  return { startDate, endDate, warning: null, sourceUrl };
+  const owner = tokenOwners.find((entry) => entry.date === startDate) ?? null;
+  return { startDate, endDate, warning: null, sourceUrl: owner?.sourceUrl ?? null, tier: owner?.tier ?? null };
 }
 
-function pickLocationWithSource(docs: AssessedDocument[]): { value: string | null; sourceUrl: string | null } {
+function pickLocationWithSource(docs: AssessedDocument[]): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null } {
   for (const doc of docs) {
     const cleaned = doc.locationLike.map((value) => cleanLocationCandidate(value)).filter((value): value is string => Boolean(value));
     const value = pickFieldValue(cleaned);
-    if (value) return { value, sourceUrl: doc.canonicalUrl ?? doc.url };
+    if (value) return { value, sourceUrl: doc.canonicalUrl ?? doc.url, tier: doc.authorityTier };
   }
-  return { value: null, sourceUrl: null };
+  return { value: null, sourceUrl: null, tier: null };
 }
 
-function pickOrganizerWithSource(docs: AssessedDocument[]): { value: string | null; sourceUrl: string | null } {
+function pickOrganizerWithSource(docs: AssessedDocument[]): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null } {
   for (const doc of docs) {
     const value = pickFieldValue(doc.organizerLike);
-    if (value) return { value, sourceUrl: doc.canonicalUrl ?? doc.url };
+    if (value) return { value, sourceUrl: doc.canonicalUrl ?? doc.url, tier: doc.authorityTier };
   }
-  return { value: null, sourceUrl: null };
+  return { value: null, sourceUrl: null, tier: null };
 }
 
-function pickCityFromDocs(docs: AssessedDocument[]): { value: string | null; sourceUrl: string | null } {
+function pickCityFromDocs(docs: AssessedDocument[]): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null } {
   const cityRegex = /\b(?:гр\.?|city|перник|софия|пловдив|варна|бургас|русе|stara zagora)\b/iu;
   for (const doc of docs) {
     const value = pickFieldValue(doc.locationLike.filter((item) => cityRegex.test(item)));
-    if (value) return { value, sourceUrl: doc.canonicalUrl ?? doc.url };
+    if (value) return { value, sourceUrl: doc.canonicalUrl ?? doc.url, tier: doc.authorityTier };
   }
-  return { value: null, sourceUrl: null };
+  return { value: null, sourceUrl: null, tier: null };
 }
 
 function buildLowConfidenceResult(query: string, warning: string): ResearchFestivalResult {
@@ -467,67 +495,82 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
       );
 
       const isStrong = assessment.qualityClass === "strong";
-      return { ...doc, qualityClass: assessment.qualityClass, qualityScore: assessment.score, isStrong };
+      return {
+        ...doc,
+        qualityClass: assessment.qualityClass,
+        qualityScore: assessment.score,
+        authorityTier: assessment.authorityTier,
+        isStrong,
+      };
     })
-    .sort((a, b) => b.qualityScore - a.qualityScore);
+    .sort((a, b) => TIER_RANK[a.authorityTier] - TIER_RANK[b.authorityTier] || b.qualityScore - a.qualityScore);
 
   logRankingDiagnostics(assessedDocs);
 
-  const strongDocs = assessedDocs.filter((doc) => doc.qualityClass === "strong");
-  const mediumDocs = assessedDocs.filter((doc) => doc.qualityClass === "medium");
+  const { authoritative, fallback, weakOnly } = pickDocsByTier(assessedDocs);
 
-  const docsForCanonical = strongDocs.length > 0 ? strongDocs : mediumDocs;
-
-  const titleSelection = pickTitleWithSource(strongDocs, mediumDocs);
-  const dateRange = pickDateRangeFromStrongSources(strongDocs);
-  const citySelection = pickCityFromDocs(docsForCanonical);
-  const locationSelection = pickLocationWithSource(docsForCanonical);
-  const organizerSelection = pickOrganizerWithSource(docsForCanonical);
+  const titleSelection = pickTitleWithSource(fallback);
+  const dateRange = pickDateRangeFromStrongSources(fallback);
+  const citySelection = pickCityFromDocs(fallback);
+  const locationSelection = pickLocationWithSource(fallback);
+  const organizerSelection = pickOrganizerWithSource(fallback);
 
   if (dateRange.warning) warnings.push(dateRange.warning);
 
-  const preferredDoc = docsForCanonical[0] ?? assessedDocs[0];
+  const preferredDoc = fallback[0] ?? null;
   const sourceUrl = preferredDoc ? preferredDoc.canonicalUrl ?? preferredDoc.url : null;
 
-  const title = titleSelection.value;
-  const startDate = dateRange.startDate;
-  const endDate = dateRange.endDate;
-  const cityCandidate = citySelection.value;
-  const location = locationSelection.value;
-  const organizer = organizerSelection.value;
+  const title = weakOnly ? null : titleSelection.value;
+  const startDate = weakOnly ? null : dateRange.startDate;
+  const endDate = weakOnly ? null : dateRange.endDate;
+  const cityCandidate = weakOnly ? null : citySelection.value;
+  const location = weakOnly ? null : locationSelection.value;
+  const organizer = weakOnly ? null : organizerSelection.value;
   const description = preferredDoc?.description ?? (preferredDoc && preferredDoc.snippet.length > 120 ? `${preferredDoc.snippet.slice(0, 220)}...` : null);
   const heroImage = preferredDoc?.ogImage ?? null;
 
-  if (!title) warnings.push("No reliable event title found in ranked strong/medium sources.");
-  if (!startDate) warnings.push("No reliable start date found.");
-  if (!cityCandidate) warnings.push("City could not be confirmed from ranked strong/medium sources.");
-  if (!organizer) warnings.push("Organizer could not be confirmed from ranked strong/medium sources.");
+  if (!title) warnings.push("No reliable event title found in authoritative/reputable sources.");
+  if (!startDate) warnings.push("No reliable start date found in authoritative/reputable sources.");
+  if (!cityCandidate) warnings.push("City could not be confirmed from authoritative/reputable sources.");
+  if (!organizer) warnings.push("Organizer could not be confirmed from authoritative/reputable sources.");
 
-  if (strongDocs.length === 0 && mediumDocs.length === 0) {
-    warnings.push("Only weak sources were found; canonical fields intentionally left low-confidence.");
+  if (weakOnly) {
+    warnings.push("Only commercial or weak sources were found; canonical fields intentionally left null/low-confidence.");
   }
 
   logFieldSelectionDiagnostics({
     titleSource: titleSelection.sourceUrl,
+    titleTier: titleSelection.tier,
     dateSource: dateRange.sourceUrl,
+    dateTier: dateRange.tier,
     locationSource: locationSelection.sourceUrl,
-    organizerSource: organizerSelection.sourceUrl,
+    locationTier: locationSelection.tier,
     sourceUrl,
+    sourceUrlTier: preferredDoc?.authorityTier ?? null,
   });
 
-  const officialCount = rankedSources.filter((source) => source.is_official).length;
-  const docsFromOfficial = assessedDocs.filter((doc) => doc.isOfficial).length;
-  const weakSourceMode = strongDocs.length === 0 && mediumDocs.length === 0;
-
+  const authoritativeCount = assessedDocs.filter((doc) => isAuthoritativeTier(doc.authorityTier)).length;
+  const officialCount = assessedDocs.filter((doc) => doc.authorityTier === "tier1_official").length;
   const score = Math.max(
     0,
     Math.min(
       100,
-      officialCount * 20 + docsFromOfficial * 12 + (title ? 14 : 0) + (startDate ? 16 : 0) + (cityCandidate ? 10 : 0) + (organizer ? 10 : 0) + assessedDocs.length * 4 - warnings.length * 8,
+      officialCount * 22 + authoritativeCount * 14 + (title ? 12 : 0) + (startDate ? 14 : 0) + (cityCandidate ? 10 : 0) + assessedDocs.length * 2 - warnings.length * 8,
     ),
   );
 
-  const overallConfidence = weakSourceMode ? "low" : pickConfidence(score);
+  const canonicalBackedByAuthority =
+    !!titleSelection.tier &&
+    !!dateRange.tier &&
+    !!citySelection.tier &&
+    !!locationSelection.tier &&
+    isAuthoritativeTier(titleSelection.tier) &&
+    isAuthoritativeTier(dateRange.tier) &&
+    isAuthoritativeTier(citySelection.tier) &&
+    isAuthoritativeTier(locationSelection.tier);
+
+  const overallConfidence: ResearchConfidenceLevel =
+    weakOnly || authoritative.length === 0 ? "low" : canonicalBackedByAuthority ? pickConfidence(score) : "medium";
 
   return {
     query,
@@ -548,13 +591,13 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
     sources: rankedSources,
     confidence: {
       overall: overallConfidence,
-      title: pickConfidence(title ? score : 16),
-      dates: pickConfidence(startDate ? score : 16),
-      city: pickConfidence(cityCandidate ? score - 8 : 16),
-      location: pickConfidence(location ? score - 12 : 16),
-      description: pickConfidence(description ? score - 10 : 16),
-      organizer: pickConfidence(organizer ? score - 8 : 16),
-      hero_image: pickConfidence(heroImage ? score - 14 : 14),
+      title: title && titleSelection.tier && isAuthoritativeTier(titleSelection.tier) ? pickConfidence(score) : "low",
+      dates: startDate && dateRange.tier && isAuthoritativeTier(dateRange.tier) ? pickConfidence(score) : "low",
+      city: cityCandidate && citySelection.tier && isAuthoritativeTier(citySelection.tier) ? pickConfidence(score - 8) : "low",
+      location: location && locationSelection.tier && isAuthoritativeTier(locationSelection.tier) ? pickConfidence(score - 12) : "low",
+      description: description && preferredDoc && isAuthoritativeTier(preferredDoc.authorityTier) ? pickConfidence(score - 10) : "low",
+      organizer: organizer && organizerSelection.tier && isAuthoritativeTier(organizerSelection.tier) ? pickConfidence(score - 8) : "low",
+      hero_image: heroImage && preferredDoc && isAuthoritativeTier(preferredDoc.authorityTier) ? pickConfidence(score - 14) : "low",
     },
     warnings,
     evidence: [

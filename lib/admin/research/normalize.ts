@@ -113,6 +113,22 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
           })
           .filter((item): item is NonNullable<typeof item> => item !== null)
       : [],
+    metadata:
+      raw.metadata && typeof raw.metadata === "object"
+        ? {
+            provider: raw.metadata.provider === "web" ? "web" : "mock",
+            mode:
+              raw.metadata.mode === "real_web"
+                ? "real_web"
+                : raw.metadata.mode === "special_case_mock"
+                  ? "special_case_mock"
+                  : "generic_mock",
+            source_count:
+              typeof raw.metadata.source_count === "number" && Number.isFinite(raw.metadata.source_count)
+                ? Math.max(0, Math.floor(raw.metadata.source_count))
+                : 0,
+          }
+        : undefined,
   };
 }
 

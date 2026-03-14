@@ -4,7 +4,7 @@ import { extractDomain, normalizeUrl } from "@/lib/admin/research/source-extract
 const OFFICIAL_HINTS = ["official", "официал", "festival", "fest", "surva", "carnival"];
 const INSTITUTIONAL_HINTS = ["gov", "gob", "municipality", "obshtina", "council", "culture", "tourism", "visit", "edu", "org"];
 const TRUSTED_MEDIA_HINTS = ["bta", "bnr", "bnt", "dnevnik", "mediapool", "news", "times"];
-const LOW_QUALITY_HINTS = ["wiki", "wikipedia", "facebook.com/events", "eventbrite", "allevents", "festivall", "events.bg", "directory"];
+const LOW_QUALITY_HINTS = ["wiki", "wikipedia", "facebook.com/events", "eventbrite", "allevents", "festivall", "events.bg", "directory", "tripadvisor", "couchsurfing", "listing", "profile", "things to do"];
 const STRONG_DOMAIN_HINTS = [
   "gov.bg",
   "government",
@@ -31,6 +31,7 @@ const WEAK_DOMAIN_HINTS = [
   "evensi",
   "facebook.com/pages",
   "facebook.com/groups",
+  "facebook.com/public",
   "instagram.com",
   "tiktok.com",
   "linkedin.com",

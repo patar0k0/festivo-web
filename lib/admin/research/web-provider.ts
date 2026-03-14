@@ -9,6 +9,13 @@ type SearchItem = {
   title: string;
 };
 
+type SearchPayloadRoot = {
+  results?: unknown;
+  items?: unknown;
+  data?: unknown;
+  response?: unknown;
+};
+
 const SEARCH_TIMEOUT_MS = 7000;
 
 function normalizeQuery(query: string): string {
@@ -18,41 +25,110 @@ function normalizeQuery(query: string): string {
 function parseSearchItems(payload: unknown): SearchItem[] {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
 
-  const root = payload as {
-    results?: unknown;
-    items?: unknown;
-    data?: { results?: unknown; items?: unknown };
-  };
+  const root = payload as SearchPayloadRoot;
+  const dataObj = root.data && typeof root.data === "object" && !Array.isArray(root.data) ? (root.data as Record<string, unknown>) : null;
+  const responseObj =
+    root.response && typeof root.response === "object" && !Array.isArray(root.response) ? (root.response as Record<string, unknown>) : null;
 
   const candidate = Array.isArray(root.results)
     ? root.results
     : Array.isArray(root.items)
       ? root.items
-      : Array.isArray(root.data?.results)
-        ? root.data.results
-        : Array.isArray(root.data?.items)
-          ? root.data.items
-          : [];
+      : Array.isArray(root.data)
+        ? root.data
+        : Array.isArray(dataObj?.results)
+          ? dataObj.results
+          : Array.isArray(dataObj?.items)
+            ? dataObj.items
+            : Array.isArray(responseObj?.results)
+              ? responseObj.results
+              : Array.isArray(responseObj?.items)
+                ? responseObj.items
+                : [];
 
   return candidate
     .map((entry) => {
       if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
-      const item = entry as { url?: unknown; link?: unknown; title?: unknown; snippet?: unknown; description?: unknown };
-      const url = typeof item.url === "string" ? item.url.trim() : typeof item.link === "string" ? item.link.trim() : "";
-      if (!url) return null;
+      const item = entry as {
+        url?: unknown;
+        link?: unknown;
+        href?: unknown;
+        title?: unknown;
+        snippet?: unknown;
+        description?: unknown;
+        content?: unknown;
+      };
+      const normalizedUrl =
+        typeof item.url === "string" && item.url.trim()
+          ? item.url.trim()
+          : typeof item.link === "string" && item.link.trim()
+            ? item.link.trim()
+            : typeof item.href === "string"
+              ? item.href.trim()
+              : "";
+
+      if (!normalizedUrl) return null;
 
       const title =
         typeof item.title === "string" && item.title.trim()
           ? item.title.trim()
           : typeof item.snippet === "string" && item.snippet.trim()
             ? item.snippet.trim()
-            : typeof item.description === "string"
+            : typeof item.description === "string" && item.description.trim()
               ? item.description.trim()
-              : url;
+              : typeof item.content === "string" && item.content.trim()
+                ? item.content.trim().slice(0, 180)
+                : normalizedUrl;
 
-      return { url, title };
+      return { url: normalizedUrl, title };
     })
     .filter((item): item is SearchItem => item !== null);
+}
+
+function countRawResults(payload: unknown): number {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return 0;
+  const root = payload as SearchPayloadRoot;
+
+  if (Array.isArray(root.results)) return root.results.length;
+  if (Array.isArray(root.items)) return root.items.length;
+  if (Array.isArray(root.data)) return root.data.length;
+
+  const dataObj = root.data && typeof root.data === "object" && !Array.isArray(root.data) ? (root.data as Record<string, unknown>) : null;
+  if (Array.isArray(dataObj?.results)) return dataObj.results.length;
+  if (Array.isArray(dataObj?.items)) return dataObj.items.length;
+
+  const responseObj =
+    root.response && typeof root.response === "object" && !Array.isArray(root.response) ? (root.response as Record<string, unknown>) : null;
+  if (Array.isArray(responseObj?.results)) return responseObj.results.length;
+  if (Array.isArray(responseObj?.items)) return responseObj.items.length;
+
+  return 0;
+}
+
+function getTopLevelKeys(payload: unknown): string[] {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
+  return Object.keys(payload as Record<string, unknown>);
+}
+
+function logSearchDiagnostics(params: {
+  query: string;
+  endpoint: string;
+  status?: number;
+  jsonParsed: boolean;
+  responseKeys: string[];
+  rawResultsCount: number;
+  normalizedSourcesCount: number;
+}): void {
+  console.info("[research:web-provider] search diagnostics", params);
+}
+
+function isTavilyEndpoint(endpoint: string): boolean {
+  try {
+    const parsed = new URL(endpoint);
+    return parsed.hostname.toLocaleLowerCase("en-US").includes("tavily.com");
+  } catch {
+    return endpoint.toLocaleLowerCase("en-US").includes("tavily");
+  }
 }
 
 function pickConfidence(score: number): ResearchConfidenceLevel {
@@ -136,32 +212,92 @@ async function searchWebQuery(query: string): Promise<ResearchSource[]> {
   const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
 
   try {
+    const limit = Number(process.env.WEB_RESEARCH_SEARCH_LIMIT ?? "10");
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 20) : 10;
+    const useTavily = isTavilyEndpoint(endpoint);
+
+    const requestInit: RequestInit = useTavily
+      ? {
+          method: "POST",
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            api_key: apiKey,
+            query,
+            max_results: safeLimit,
+            search_depth: "advanced",
+            include_answer: false,
+            include_raw_content: false,
+          }),
+          cache: "no-store",
+        }
+      : {
+          method: "GET",
+          signal: controller.signal,
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        };
+
     const requestUrl = new URL(endpoint);
-    requestUrl.searchParams.set("q", query);
-    requestUrl.searchParams.set("limit", process.env.WEB_RESEARCH_SEARCH_LIMIT ?? "10");
+    if (!useTavily) {
+      requestUrl.searchParams.set("q", query);
+      requestUrl.searchParams.set("limit", String(safeLimit));
+    }
 
-    const response = await fetch(requestUrl, {
-      method: "GET",
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
+    const response = await fetch(requestUrl, requestInit);
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+      logSearchDiagnostics({
+        query,
+        endpoint: requestUrl.toString(),
+        status: response.status,
+        jsonParsed: false,
+        responseKeys: [],
+        rawResultsCount: 0,
+        normalizedSourcesCount: 0,
+      });
+      return [];
+    }
 
-    const payload = (await response.json().catch(() => null)) as unknown;
+    let jsonParsed = false;
+    const payload = (await response.json().then((data) => {
+      jsonParsed = true;
+      return data;
+    }).catch(() => null)) as unknown;
     const items = parseSearchItems(payload);
-
-    return items.map((item) => ({
+    const normalizedSources = items.map((item) => ({
       url: item.url,
       title: item.title,
       domain: extractDomain(item.url),
       is_official: false,
     }));
+
+    logSearchDiagnostics({
+      query,
+      endpoint: requestUrl.toString(),
+      status: response.status,
+      jsonParsed,
+      responseKeys: getTopLevelKeys(payload),
+      rawResultsCount: countRawResults(payload),
+      normalizedSourcesCount: normalizedSources.length,
+    });
+
+    return normalizedSources;
   } catch {
+    logSearchDiagnostics({
+      query,
+      endpoint,
+      jsonParsed: false,
+      responseKeys: [],
+      rawResultsCount: 0,
+      normalizedSourcesCount: 0,
+    });
     return [];
   } finally {
     clearTimeout(timer);

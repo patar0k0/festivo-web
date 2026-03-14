@@ -5,6 +5,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
 import { extractNormalizationSuggestions, type SuggestionField } from "@/lib/festival/normalizationSuggestions";
+import type { PendingFestivalQuality } from "@/lib/admin/pendingFestivalQuality";
 
 export type PendingFestivalRecord = {
   id: string;
@@ -258,7 +259,25 @@ async function readErrorMessage(response: Response, fallback: string) {
 
 
 
-export default function PendingFestivalEditForm({ pendingFestival }: { pendingFestival: PendingFestivalRecord }) {
+function qualityBucketTone(bucket: PendingFestivalQuality["quality_bucket"]) {
+  if (bucket === "ready") return "border-[#18a05e]/30 bg-[#18a05e]/10 text-[#0e7a45]";
+  if (bucket === "needs_fix") return "border-[#b8891e]/30 bg-[#fff7e6] text-[#8a6516]";
+  return "border-[#b13a1a]/30 bg-[#fff1ec] text-[#9f3115]";
+}
+
+function qualityBucketLabel(bucket: PendingFestivalQuality["quality_bucket"]) {
+  if (bucket === "ready") return "Ready";
+  if (bucket === "needs_fix") return "Needs fix";
+  return "Weak";
+}
+
+export default function PendingFestivalEditForm({
+  pendingFestival,
+  qualityDiagnostics,
+}: {
+  pendingFestival: PendingFestivalRecord;
+  qualityDiagnostics: PendingFestivalQuality;
+}) {
   const router = useRouter();
   const tagsCurrent = normalizeTagsGuess(pendingFestival.tags);
   const cityDisplayValue =
@@ -342,6 +361,12 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
       ? "Hero image selected"
       : "Hero image present, diagnostics unavailable";
   const safeFields: SuggestionField[] = ["category", "tags", "venue_name", "region"];
+
+  const guessedPairs = [
+    { label: "Date guess", value: qualityDiagnostics.guessed_values.date ?? null },
+    { label: "City guess", value: qualityDiagnostics.guessed_values.city ?? null },
+    { label: "Location guess", value: qualityDiagnostics.guessed_values.location ?? null },
+  ];
 
   const suggestionRows = normalizationSuggestions.map((suggestion) => {
     const currentValue = getCurrentValue(suggestion.field);
@@ -789,6 +814,62 @@ export default function PendingFestivalEditForm({ pendingFestival }: { pendingFe
                 No normalization data available for this pending record yet.
               </p>
             )}
+          </div>
+
+          <div className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
+            <h2 className="text-lg font-bold">Pending quality diagnostics</h2>
+            <p className="mt-1 text-xs text-black/60">Derived score for moderation prioritization only. It does not change approve/reject behavior.</p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.1em] ${qualityBucketTone(qualityDiagnostics.quality_bucket)}`}>
+                {qualityBucketLabel(qualityDiagnostics.quality_bucket)}
+              </span>
+              <span className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-black/70">
+                Score: {qualityDiagnostics.quality_score}
+              </span>
+              <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${qualityDiagnostics.hero_image_missing ? "border-[#b13a1a]/30 bg-[#fff1ec] text-[#9f3115]" : "border-[#18a05e]/30 bg-[#18a05e]/10 text-[#0e7a45]"}`}>
+                Hero image: {qualityDiagnostics.hero_image_missing ? "Missing" : "Present"}
+              </span>
+            </div>
+
+            <div className="mt-3 grid gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Missing fields</p>
+              {qualityDiagnostics.missing_fields.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {qualityDiagnostics.missing_fields.map((field) => (
+                    <span key={field} className="rounded-full border border-[#b13a1a]/25 bg-[#fff1ec] px-2 py-0.5 text-[11px] text-[#9f3115]">
+                      {field}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-[#0e7a45]">No critical missing fields detected.</p>
+              )}
+            </div>
+
+            <div className="mt-3 grid gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Guessed normalization values</p>
+              <div className="grid gap-1.5">
+                {guessedPairs.map((entry) => (
+                  <p key={entry.label} className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5 text-xs text-black/70">
+                    {entry.label}: <span className="font-semibold text-black/80">{entry.value ?? "-"}</span>
+                  </p>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Autofill reuse signal</p>
+              <p className="mt-1 text-xs text-black/70">
+                {qualityDiagnostics.autofilled_fields.length > 0
+                  ? `Already aligned with guesses: ${qualityDiagnostics.autofilled_fields.join(", ")}`
+                  : "No clear autofill-aligned fields detected yet."}
+              </p>
+            </div>
+
+            <div className="mt-3 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-xs text-black/70">
+              Scoring guide: title (16), description (14), start date (16), end date (8), city (12/8 guessed), location (10/7 guessed), organizer (8), hero image (8), category/tags (8), date guess fallback (+4).
+            </div>
           </div>
 
           <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 text-sm">

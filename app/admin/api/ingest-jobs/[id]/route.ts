@@ -18,7 +18,11 @@ export async function PATCH(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Missing job id." }, { status: 400 });
   }
 
-  const { data: current, error: currentError } = await ctx.supabase.from("ingest_jobs").select("id,status").eq("id", id).maybeSingle();
+  const { data: current, error: currentError } = await ctx.supabase
+    .from("ingest_jobs")
+    .select("id,status,source_url")
+    .eq("id", id)
+    .maybeSingle();
 
   if (currentError) {
     return NextResponse.json({ error: currentError.message }, { status: 500 });
@@ -32,9 +36,24 @@ export async function PATCH(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Only failed jobs can be retried." }, { status: 409 });
   }
 
+  const { error: deletePendingError } = await ctx.supabase
+    .from("pending_festivals")
+    .delete()
+    .eq("source_url", current.source_url);
+
+  if (deletePendingError) {
+    return NextResponse.json({ error: deletePendingError.message }, { status: 500 });
+  }
+
   const { error: updateError } = await ctx.supabase
     .from("ingest_jobs")
-    .update({ status: "pending", started_at: null, finished_at: null, error: null })
+    .update({
+      status: "queued",
+      attempt_count: 0,
+      started_at: null,
+      finished_at: null,
+      error: null,
+    })
     .eq("id", id);
 
   if (updateError) {

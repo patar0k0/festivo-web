@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 type IngestJobRow = {
   id: string;
-  status: "pending" | "processing" | "done" | "failed";
+  status: "queued" | "pending" | "processing" | "done" | "failed";
   source_url: string;
   pending_festival_id: string | null;
   pending_status: "pending" | "approved" | "rejected" | null;
@@ -97,7 +97,7 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
         throw new Error(await readErrorMessage(response, "Failed to retry job."));
       }
 
-      setMessage(`Job ${row.id} was moved back to pending.`);
+      setMessage(`Job ${row.id} was reset and queued for re-ingestion.`);
       router.refresh();
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Unexpected retry error.");

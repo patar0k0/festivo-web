@@ -5,7 +5,7 @@ import { getSourceUrlMatchMeta } from "@/lib/admin/sourceUrlMatching";
 
 type IngestJobRow = {
   id: string;
-  status: "pending" | "processing" | "done" | "failed";
+  status: "queued" | "pending" | "processing" | "done" | "failed";
   source_url: string;
   pending_festival_id: string | null;
   pending_status: "pending" | "approved" | "rejected" | null;

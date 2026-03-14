@@ -16,13 +16,9 @@ function withFallbackWarning(result: ResearchFestivalResult, warning: string): R
 
 function withMetadata(result: ResearchFestivalResult): ResearchFestivalResult {
   const sourceCount = result.metadata?.source_count ?? result.sources.length;
-
-  const isRealWebResult = result.metadata?.provider === "web" && result.metadata?.mode === "real_web";
-  const provider = isRealWebResult ? "web" : result.metadata?.provider ?? "mock";
+  const provider = result.metadata?.provider ?? "mock";
   const mode =
-    isRealWebResult
-      ? "real_web"
-      : result.metadata?.mode ?? (provider === "web" ? "real_web" : result.sources.length > 0 ? "special_case_mock" : "generic_mock");
+    result.metadata?.mode ?? (provider === "web" ? "real_web" : result.sources.length > 0 ? "special_case_mock" : "generic_mock");
 
   return {
     ...result,
@@ -40,9 +36,15 @@ async function runProvider(query: string): Promise<ResearchFestivalResult> {
   }
 
   try {
-    // Important: when the web provider is configured and returns any usable response,
-    // we return it as-is (even if weak/partial) for transparent behavior.
-    return withMetadata(await runWebResearch(query));
+    const result = withMetadata(await runWebResearch(query));
+    console.info("[research:provider] raw provider output metadata", {
+      query,
+      provider: result.metadata?.provider,
+      mode: result.metadata?.mode,
+      source_count: result.metadata?.source_count,
+      source_urls: result.sources.slice(0, 3).map((source) => source.url),
+    });
+    return result;
   } catch {
     const fallback = await runMockResearch(query);
     return withMetadata(withFallbackWarning(fallback, "Real web provider failed unexpectedly. Using mock fallback."));
@@ -57,6 +59,13 @@ export async function researchFestival(query: string): Promise<ResearchFestivalR
   }
 
   const normalized = normalizeResearchResult(rawResult);
+  console.info("[research:provider] normalized output metadata", {
+    query,
+    provider: normalized.metadata?.provider,
+    mode: normalized.metadata?.mode,
+    source_count: normalized.metadata?.source_count,
+  });
+
   const dateRangeError = validateDateRangeOrError(normalized);
 
   if (dateRangeError) {

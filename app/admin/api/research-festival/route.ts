@@ -25,6 +25,13 @@ export async function POST(request: Request) {
 
   try {
     const result = await researchFestival(query);
+    console.info("[research:api] response payload metadata", {
+      query,
+      provider: result.metadata?.provider,
+      mode: result.metadata?.mode,
+      source_count: result.metadata?.source_count,
+      source_urls: result.sources.slice(0, 3).map((source) => source.url),
+    });
     return NextResponse.json({ ok: true, result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected research error";

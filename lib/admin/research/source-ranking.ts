@@ -5,6 +5,47 @@ const OFFICIAL_HINTS = ["official", "официал", "festival", "fest", "surva
 const INSTITUTIONAL_HINTS = ["gov", "gob", "municipality", "obshtina", "council", "culture", "tourism", "visit", "edu", "org"];
 const TRUSTED_MEDIA_HINTS = ["bta", "bnr", "bnt", "dnevnik", "mediapool", "news", "times"];
 const LOW_QUALITY_HINTS = ["wiki", "wikipedia", "facebook.com/events", "eventbrite", "allevents", "festivall", "events.bg", "directory"];
+const STRONG_DOMAIN_HINTS = [
+  "gov.bg",
+  "government",
+  "municipality",
+  "obshtina",
+  "visit",
+  "tourism",
+  "culture",
+  "festival",
+  "fest",
+  "surva",
+  "bta.bg",
+  "bnr.bg",
+  "bntnews.bg",
+  "programata.bg",
+];
+const WEAK_DOMAIN_HINTS = [
+  "tripadvisor",
+  "couchsurfing",
+  "eventbrite",
+  "allevents",
+  "eventsin",
+  "10times",
+  "evensi",
+  "facebook.com/pages",
+  "facebook.com/groups",
+  "instagram.com",
+  "tiktok.com",
+  "linkedin.com",
+  "foursquare",
+  "booking",
+  "trip",
+];
+
+export type SourceQualityClass = "strong" | "medium" | "weak";
+
+export type SourceAssessment = {
+  score: number;
+  isOfficial: boolean;
+  qualityClass: SourceQualityClass;
+};
 
 function tokenize(value: string): string[] {
   return value
@@ -23,7 +64,7 @@ function containsAny(value: string, hints: string[]): boolean {
   return hints.some((hint) => value.includes(hint));
 }
 
-function classifySource(source: ResearchSource, query: string): { score: number; isOfficial: boolean } {
+function classifySource(source: ResearchSource, query: string): SourceAssessment {
   const title = source.title.toLocaleLowerCase("bg-BG");
   const domain = source.domain.toLocaleLowerCase("en-US");
   const queryTokens = tokenize(query);
@@ -53,7 +94,22 @@ function classifySource(source: ResearchSource, query: string): { score: number;
 
   if (source.is_official) score += 25;
 
-  return { score, isOfficial };
+  if (containsAny(domain, STRONG_DOMAIN_HINTS) || /\b(община|municipality|tourism|култур[аеи])\b/iu.test(title)) {
+    score += 28;
+    isOfficial = true;
+  }
+
+  if (containsAny(`${title} ${domain}`, WEAK_DOMAIN_HINTS) || /\b(listing|directory|things to do|attractions?)\b/iu.test(title)) {
+    score -= 42;
+  }
+
+  const qualityClass: SourceQualityClass = score >= 52 || isOfficial ? "strong" : score >= 22 ? "medium" : "weak";
+
+  return { score, isOfficial, qualityClass };
+}
+
+export function assessSourceQuality(source: ResearchSource, query: string): SourceAssessment {
+  return classifySource(source, query);
 }
 
 export function dedupeAndRankSources(sources: ResearchSource[], query: string, limit = 8): ResearchSource[] {

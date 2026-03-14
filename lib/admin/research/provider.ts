@@ -15,16 +15,21 @@ function withFallbackWarning(result: ResearchFestivalResult, warning: string): R
 }
 
 function withMetadata(result: ResearchFestivalResult): ResearchFestivalResult {
-  const provider = result.metadata?.provider ?? "mock";
+  const sourceCount = result.metadata?.source_count ?? result.sources.length;
+
+  const isRealWebResult = result.metadata?.provider === "web" && result.metadata?.mode === "real_web";
+  const provider = isRealWebResult ? "web" : result.metadata?.provider ?? "mock";
   const mode =
-    result.metadata?.mode ?? (provider === "web" ? "real_web" : result.sources.length > 0 ? "special_case_mock" : "generic_mock");
+    isRealWebResult
+      ? "real_web"
+      : result.metadata?.mode ?? (provider === "web" ? "real_web" : result.sources.length > 0 ? "special_case_mock" : "generic_mock");
 
   return {
     ...result,
     metadata: {
       provider,
       mode,
-      source_count: result.metadata?.source_count ?? result.sources.length,
+      source_count: sourceCount,
     },
   };
 }

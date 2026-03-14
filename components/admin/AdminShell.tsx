@@ -25,6 +25,9 @@ export default function AdminShell({ children, email }: { children: React.ReactN
             <Link href="/admin/discovery" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
               Discovery
             </Link>
+            <Link href="/admin/research" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
+              Research
+            </Link>
             <form action="/api/auth/logout" method="post">
               <button type="submit" className="rounded-xl bg-[#0c0e14] px-3 py-2 text-white hover:bg-[#1d202b]">
                 Logout

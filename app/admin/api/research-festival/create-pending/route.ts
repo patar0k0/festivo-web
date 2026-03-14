@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       warnings: normalized.warnings,
       evidence: normalized.evidence,
       sources: normalized.sources,
+      metadata: normalized.metadata,
     },
     verification_status: normalized.confidence.overall,
     verification_score: mapConfidenceToVerificationScore(normalized.confidence.overall),

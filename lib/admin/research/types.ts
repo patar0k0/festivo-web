@@ -40,6 +40,11 @@ export type ResearchFestivalResult = {
   confidence: ResearchConfidence;
   warnings: string[];
   evidence: ResearchEvidence[];
+  metadata?: {
+    provider: "mock" | "web";
+    mode: "generic_mock" | "special_case_mock" | "real_web";
+    source_count: number;
+  };
 };
 
 export type ResearchFestivalRequest = {

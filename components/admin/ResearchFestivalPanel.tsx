@@ -114,6 +114,9 @@ export default function ResearchFestivalPanel() {
             <p><span className="font-semibold">Organizer:</span> {result.organizer ?? "-"}</p>
             <p><span className="font-semibold">Tags:</span> {result.tags.length > 0 ? result.tags.join(", ") : "-"}</p>
             <p><span className="font-semibold">Source:</span> {sourceSummary}</p>
+            <p><span className="font-semibold">Provider:</span> {result.metadata?.provider ?? "-"}</p>
+            <p><span className="font-semibold">Mode:</span> {result.metadata?.mode ?? "-"}</p>
+            <p><span className="font-semibold">Source count:</span> {result.metadata?.source_count ?? result.sources.length}</p>
             <p><span className="font-semibold">Confidence:</span> {result.confidence.overall}</p>
             {result.warnings.length > 0 ? (
               <div>

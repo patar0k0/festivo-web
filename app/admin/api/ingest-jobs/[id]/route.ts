@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 
 type RouteContext = {
@@ -20,7 +21,7 @@ export async function PATCH(_request: Request, context: RouteContext) {
 
   const { data: current, error: currentError } = await ctx.supabase
     .from("ingest_jobs")
-    .select("id,status,source_url")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
 
@@ -32,33 +33,62 @@ export async function PATCH(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Ingest job not found." }, { status: 404 });
   }
 
-  if (current.status !== "failed") {
-    return NextResponse.json({ error: "Only failed jobs can be retried." }, { status: 409 });
+  const sourceUrl = typeof current.source_url === "string" ? current.source_url : "";
+  if (!sourceUrl) {
+    return NextResponse.json({ error: "Retry requires a job with a valid source URL." }, { status: 409 });
   }
 
   const { error: deletePendingError } = await ctx.supabase
     .from("pending_festivals")
     .delete()
-    .eq("source_url", current.source_url);
+    .eq("source_url", sourceUrl);
 
   if (deletePendingError) {
     return NextResponse.json({ error: deletePendingError.message }, { status: 500 });
   }
 
+  const resetPatch: Record<string, unknown> = {
+    status: "queued",
+    started_at: null,
+    finished_at: null,
+  };
+
+  if ("error" in current) {
+    resetPatch.error = null;
+  }
+  if ("error_message" in current) {
+    resetPatch.error_message = null;
+  }
+  if ("attempt_count" in current) {
+    resetPatch.attempt_count = 0;
+  }
+  if ("lock_token" in current) {
+    resetPatch.lock_token = null;
+  }
+  if ("locked_at" in current) {
+    resetPatch.locked_at = null;
+  }
+  if ("lock_expires_at" in current) {
+    resetPatch.lock_expires_at = null;
+  }
+  if ("next_retry_at" in current) {
+    resetPatch.next_retry_at = null;
+  }
+  if ("pending_festival_id" in current) {
+    resetPatch.pending_festival_id = null;
+  }
+
   const { error: updateError } = await ctx.supabase
     .from("ingest_jobs")
-    .update({
-      status: "queued",
-      attempt_count: 0,
-      started_at: null,
-      finished_at: null,
-      error: null,
-    })
+    .update(resetPatch)
     .eq("id", id);
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
+
+  revalidatePath("/admin/ingest");
+  revalidatePath("/admin/pending-festivals");
 
   return NextResponse.json({ ok: true });
 }

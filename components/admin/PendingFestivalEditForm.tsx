@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
 import { extractNormalizationSuggestions, type SuggestionField } from "@/lib/festival/normalizationSuggestions";
@@ -71,6 +71,13 @@ type DecisionResponse = {
   ok?: boolean;
   festival_id?: string;
   redirect_to?: string;
+  error?: string;
+};
+
+type HeroImageUploadResponse = {
+  ok?: boolean;
+  hero_image?: string | null;
+  hero_image_source?: string | null;
   error?: string;
 };
 
@@ -309,6 +316,10 @@ export default function PendingFestivalEditForm({
   });
   const [saving, setSaving] = useState(false);
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
+  const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
+  const [removingHeroImage, setRemovingHeroImage] = useState(false);
+  const [heroImageSourceState, setHeroImageSourceState] = useState<string | null>(normalizeOptionalText(pendingFestival.hero_image_source));
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [safeApplySummary, setSafeApplySummary] = useState<{ appliedFields: string[]; skippedUnchangedOrMissing: string[] } | null>(null);
@@ -351,7 +362,7 @@ export default function PendingFestivalEditForm({
   };
 
   const heroImageUrl = form.hero_image.trim();
-  const heroImageSource = normalizeOptionalText(pendingFestival.hero_image_source);
+  const heroImageSource = heroImageSourceState;
   const heroImageOriginalUrl = normalizeOptionalText(pendingFestival.hero_image_original_url);
   const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   const hasHeroImageDiagnostics = heroImageSource !== null || heroImageScore !== null || heroImageOriginalUrl !== null;
@@ -569,6 +580,89 @@ export default function PendingFestivalEditForm({
     }
   };
 
+  const uploadHeroImage = async () => {
+    if (saving || runningAction || uploadingHeroImage || removingHeroImage) return;
+
+    const selectedFile = fileInputRef.current?.files?.[0] ?? null;
+    if (!selectedFile) {
+      setError("Select an image file before uploading.");
+      return;
+    }
+
+    if (!selectedFile.type.toLowerCase().startsWith("image/")) {
+      setError("Only image files are allowed.");
+      return;
+    }
+
+    setUploadingHeroImage(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/hero-image`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      const payload = (await response.json().catch(() => null)) as HeroImageUploadResponse | null;
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? "Failed to upload hero image.");
+      }
+
+      const uploadedHeroImage = typeof payload.hero_image === "string" ? payload.hero_image : "";
+      updateField("hero_image", uploadedHeroImage);
+      setHeroImageSourceState(typeof payload.hero_image_source === "string" ? payload.hero_image_source : "manual_upload");
+      setMessage("Hero image uploaded successfully.");
+      router.refresh();
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Unexpected hero image upload error.");
+    } finally {
+      setUploadingHeroImage(false);
+    }
+  };
+
+  const removeHeroImage = async () => {
+    if (saving || runningAction || uploadingHeroImage || removingHeroImage) return;
+    if (!form.hero_image.trim()) {
+      setError("There is no hero image to remove.");
+      return;
+    }
+
+    setRemovingHeroImage(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/hero-image`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const payload = (await response.json().catch(() => null)) as HeroImageUploadResponse | null;
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? "Failed to remove hero image.");
+      }
+
+      updateField("hero_image", "");
+      setHeroImageSourceState(null);
+      setMessage("Hero image removed.");
+      router.refresh();
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "Unexpected hero image remove error.");
+    } finally {
+      setRemovingHeroImage(false);
+    }
+  };
+
   return (
     <form onSubmit={onSave} className="space-y-5 pb-20">
       <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
@@ -681,6 +775,29 @@ export default function PendingFestivalEditForm({
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Hero image</span>
                 <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <div className="mt-3 rounded-xl border border-black/[0.08] bg-white px-3 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Manual upload</p>
+                  <p className="mt-1 text-xs text-black/65">Use this when extraction picks a weak image. Max file size: 8MB.</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <input ref={fileInputRef} type="file" accept="image/*" className="text-xs" />
+                    <button
+                      type="button"
+                      onClick={uploadHeroImage}
+                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || removingHeroImage}
+                      className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+                    >
+                      {uploadingHeroImage ? "Uploading..." : heroImageUrl ? "Replace image" : "Upload image"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={removeHeroImage}
+                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || removingHeroImage || !heroImageUrl}
+                      className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+                    >
+                      {removingHeroImage ? "Removing..." : "Remove image"}
+                    </button>
+                  </div>
+                </div>
                 <div className="mt-3 rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-xs text-black/65">
                   <p>
                     Selected source: <span className="font-semibold text-black/80">{heroImageSource ?? "—"}</span>

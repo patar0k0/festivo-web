@@ -22,9 +22,73 @@ type AssessedDocument = ExtractedSourceDocument & {
   qualityScore: number;
   authorityTier: SourceAuthorityTier;
   isStrong: boolean;
+  languageSignal: LanguageSignal;
 };
 
 const SEARCH_TIMEOUT_MS = 7000;
+const BG_TAG_MAP: Record<string, string> = {
+  festival: "фестивал",
+  carnival: "карнавал",
+  masquerade: "маскарад",
+  folklore: "фолклор",
+  music: "музика",
+  art: "изкуство",
+  culture: "култура",
+  tourism: "туризъм",
+};
+
+type LanguageSignal = "bg" | "mixed" | "non_bg";
+
+type ScoredCandidate = {
+  value: string;
+  sourceUrl: string;
+  tier: SourceAuthorityTier;
+  languageSignal: LanguageSignal;
+  score: number;
+};
+
+function isBulgarianQuery(query: string): boolean {
+  return /[\u0400-\u04FF]/u.test(query) || /\b(фестивал|събор|празник|карнавал|сурва)\b/iu.test(query);
+}
+
+function detectLanguageSignal(value: string): LanguageSignal {
+  const normalized = value.toLocaleLowerCase("bg-BG");
+  const cyrillic = (normalized.match(/[\u0400-\u04FF]/g) ?? []).length;
+  const latin = (normalized.match(/[a-z]/g) ?? []).length;
+
+  if (cyrillic > 0 && cyrillic >= latin) return "bg";
+  if (cyrillic > 0) return "mixed";
+  return "non_bg";
+}
+
+function candidateScore(tier: SourceAuthorityTier, signal: LanguageSignal, bgQuery: boolean, base = 0): number {
+  const tierWeight: Record<SourceAuthorityTier, number> = {
+    tier1_official: 100,
+    tier2_reputable: 72,
+    tier3_reference: 38,
+    tier4_commercial: 10,
+    tier5_weak: 0,
+  };
+
+  const languageWeight = bgQuery
+    ? signal === "bg"
+      ? 36
+      : signal === "mixed"
+        ? 12
+        : -22
+    : signal === "bg"
+      ? 6
+      : 0;
+
+  return tierWeight[tier] + languageWeight + base;
+}
+
+function pickBestCandidate(candidates: ScoredCandidate[]): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null; languageSignal: LanguageSignal | null } {
+  if (candidates.length === 0) return { value: null, sourceUrl: null, tier: null, languageSignal: null };
+  const best = [...candidates].sort((a, b) => b.score - a.score)[0];
+  return { value: best.value, sourceUrl: best.sourceUrl, tier: best.tier, languageSignal: best.languageSignal };
+}
+
 
 function normalizeQuery(query: string): string {
   return query.trim().toLocaleLowerCase("bg-BG");
@@ -131,19 +195,31 @@ function logSearchDiagnostics(params: {
 }
 
 function logRankingDiagnostics(docs: AssessedDocument[]): void {
-  const topDomains = docs.slice(0, 5).map((doc) => ({ domain: doc.domain, tier: doc.authorityTier, score: doc.qualityScore }));
+  const topDomains = docs.slice(0, 5).map((doc) => ({
+    domain: doc.domain,
+    tier: doc.authorityTier,
+    score: doc.qualityScore,
+    language: doc.languageSignal,
+    is_official: doc.isOfficial,
+  }));
   console.info("[research:web-provider] ranked source diagnostics", { top_domains: topDomains });
 }
 
 function logFieldSelectionDiagnostics(details: {
   titleSource: string | null;
   titleTier: SourceAuthorityTier | null;
+  titleLanguage: LanguageSignal | null;
   dateSource: string | null;
   dateTier: SourceAuthorityTier | null;
   locationSource: string | null;
   locationTier: SourceAuthorityTier | null;
+  locationLanguage: LanguageSignal | null;
+  organizerSource: string | null;
+  organizerTier: SourceAuthorityTier | null;
+  organizerLanguage: LanguageSignal | null;
   sourceUrl: string | null;
   sourceUrlTier: SourceAuthorityTier | null;
+  sourceLanguage: LanguageSignal | null;
 }): void {
   console.info("[research:web-provider] canonical field selection", details);
 }
@@ -240,16 +316,27 @@ function isLikelyEventTitle(value: string): boolean {
   return /\b(фестивал|festival|carnival|маскарад|празник|събор|surva)\b/iu.test(title);
 }
 
-function pickTitleWithSource(docs: AssessedDocument[]): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null } {
+function pickTitleWithSource(
+  docs: AssessedDocument[],
+  bgQuery: boolean,
+): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null; languageSignal: LanguageSignal | null } {
+  const candidates: ScoredCandidate[] = [];
 
   for (const doc of docs) {
     const cleaned = stripSiteBrandTail(doc.title);
-    if (cleaned && isLikelyEventTitle(cleaned)) {
-      return { value: cleaned, sourceUrl: doc.canonicalUrl ?? doc.url, tier: doc.authorityTier };
-    }
+    if (!cleaned || !isLikelyEventTitle(cleaned)) continue;
+
+    const signal = detectLanguageSignal(cleaned);
+    candidates.push({
+      value: cleaned,
+      sourceUrl: doc.canonicalUrl ?? doc.url,
+      tier: doc.authorityTier,
+      languageSignal: signal,
+      score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore),
+    });
   }
 
-  return { value: null, sourceUrl: null, tier: null };
+  return pickBestCandidate(candidates);
 }
 
 function pickDateRangeFromStrongSources(docs: AssessedDocument[]): {
@@ -293,30 +380,66 @@ function pickDateRangeFromStrongSources(docs: AssessedDocument[]): {
   return { startDate, endDate, warning: null, sourceUrl: owner?.sourceUrl ?? null, tier: owner?.tier ?? null };
 }
 
-function pickLocationWithSource(docs: AssessedDocument[]): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null } {
+function pickLocationWithSource(
+  docs: AssessedDocument[],
+  bgQuery: boolean,
+): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null; languageSignal: LanguageSignal | null } {
+  const candidates: ScoredCandidate[] = [];
   for (const doc of docs) {
     const cleaned = doc.locationLike.map((value) => cleanLocationCandidate(value)).filter((value): value is string => Boolean(value));
     const value = pickFieldValue(cleaned);
-    if (value) return { value, sourceUrl: doc.canonicalUrl ?? doc.url, tier: doc.authorityTier };
+    if (!value) continue;
+    const signal = detectLanguageSignal(value);
+    candidates.push({
+      value,
+      sourceUrl: doc.canonicalUrl ?? doc.url,
+      tier: doc.authorityTier,
+      languageSignal: signal,
+      score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore),
+    });
   }
-  return { value: null, sourceUrl: null, tier: null };
+  return pickBestCandidate(candidates);
 }
 
-function pickOrganizerWithSource(docs: AssessedDocument[]): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null } {
+function pickOrganizerWithSource(
+  docs: AssessedDocument[],
+  bgQuery: boolean,
+): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null; languageSignal: LanguageSignal | null } {
+  const candidates: ScoredCandidate[] = [];
   for (const doc of docs) {
     const value = pickFieldValue(doc.organizerLike);
-    if (value) return { value, sourceUrl: doc.canonicalUrl ?? doc.url, tier: doc.authorityTier };
+    if (!value) continue;
+    const signal = detectLanguageSignal(value);
+    candidates.push({
+      value,
+      sourceUrl: doc.canonicalUrl ?? doc.url,
+      tier: doc.authorityTier,
+      languageSignal: signal,
+      score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore),
+    });
   }
-  return { value: null, sourceUrl: null, tier: null };
+  return pickBestCandidate(candidates);
 }
 
-function pickCityFromDocs(docs: AssessedDocument[]): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null } {
-  const cityRegex = /\b(?:гр\.?|city|перник|софия|пловдив|варна|бургас|русе|stara zagora)\b/iu;
+function pickCityFromDocs(
+  docs: AssessedDocument[],
+  bgQuery: boolean,
+): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null; languageSignal: LanguageSignal | null } {
+  const cityRegex = /\b(?:гр\.?|city|перник|софия|пловдив|варна|бургас|русе|стара\s+загора|велико\s+търново|stara zagora|veliko tarnovo)\b/iu;
+  const candidates: ScoredCandidate[] = [];
   for (const doc of docs) {
     const value = pickFieldValue(doc.locationLike.filter((item) => cityRegex.test(item)));
-    if (value) return { value, sourceUrl: doc.canonicalUrl ?? doc.url, tier: doc.authorityTier };
+    if (!value) continue;
+    const signal = detectLanguageSignal(value);
+    candidates.push({
+      value,
+      sourceUrl: doc.canonicalUrl ?? doc.url,
+      tier: doc.authorityTier,
+      languageSignal: signal,
+      score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore),
+    });
   }
-  return { value: null, sourceUrl: null, tier: null };
+  return pickBestCandidate(candidates);
 }
 
 function buildLowConfidenceResult(query: string, warning: string): ResearchFestivalResult {
@@ -462,6 +585,7 @@ async function searchWebQuery(query: string): Promise<ResearchSource[]> {
 
 export async function runWebResearch(query: string): Promise<ResearchFestivalResult> {
   const warnings: string[] = [];
+  const bgQuery = isBulgarianQuery(query);
   const expandedQueries = buildResearchQueries(query);
 
   if (expandedQueries.length === 0) {
@@ -501,6 +625,7 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
         qualityScore: assessment.score,
         authorityTier: assessment.authorityTier,
         isStrong,
+        languageSignal: assessment.languageSignal,
       };
     })
     .sort((a, b) => TIER_RANK[a.authorityTier] - TIER_RANK[b.authorityTier] || b.qualityScore - a.qualityScore);
@@ -509,15 +634,18 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
 
   const { authoritative, fallback, weakOnly } = pickDocsByTier(assessedDocs);
 
-  const titleSelection = pickTitleWithSource(fallback);
+  const titleSelection = pickTitleWithSource(fallback, bgQuery);
   const dateRange = pickDateRangeFromStrongSources(fallback);
-  const citySelection = pickCityFromDocs(fallback);
-  const locationSelection = pickLocationWithSource(fallback);
-  const organizerSelection = pickOrganizerWithSource(fallback);
+  const citySelection = pickCityFromDocs(fallback, bgQuery);
+  const locationSelection = pickLocationWithSource(fallback, bgQuery);
+  const organizerSelection = pickOrganizerWithSource(fallback, bgQuery);
 
   if (dateRange.warning) warnings.push(dateRange.warning);
 
-  const preferredDoc = fallback[0] ?? null;
+  const preferredDoc =
+    bgQuery
+      ? fallback.find((doc) => detectLanguageSignal(`${doc.title} ${doc.snippet}`) !== "non_bg") ?? fallback[0] ?? null
+      : fallback[0] ?? null;
   const sourceUrl = preferredDoc ? preferredDoc.canonicalUrl ?? preferredDoc.url : null;
 
   const title = weakOnly ? null : titleSelection.value;
@@ -526,13 +654,17 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
   const cityCandidate = weakOnly ? null : citySelection.value;
   const location = weakOnly ? null : locationSelection.value;
   const organizer = weakOnly ? null : organizerSelection.value;
-  const description = preferredDoc?.description ?? (preferredDoc && preferredDoc.snippet.length > 120 ? `${preferredDoc.snippet.slice(0, 220)}...` : null);
+  const description =
+    preferredDoc?.description ??
+    (preferredDoc && preferredDoc.snippet.length > 120 ? `${preferredDoc.snippet.slice(0, 220)}...` : null);
   const heroImage = preferredDoc?.ogImage ?? null;
 
   if (!title) warnings.push("No reliable event title found in authoritative/reputable sources.");
   if (!startDate) warnings.push("No reliable start date found in authoritative/reputable sources.");
   if (!cityCandidate) warnings.push("City could not be confirmed from authoritative/reputable sources.");
   if (!organizer) warnings.push("Organizer could not be confirmed from authoritative/reputable sources.");
+  if (bgQuery && titleSelection.languageSignal === "non_bg") warnings.push("Title remained non-Bulgarian because authoritative Bulgarian evidence was not confirmed.");
+  if (bgQuery && locationSelection.languageSignal === "non_bg") warnings.push("Location remained non-Bulgarian because authoritative Bulgarian evidence was not confirmed.");
 
   if (weakOnly) {
     warnings.push("Only commercial or weak sources were found; canonical fields intentionally left null/low-confidence.");
@@ -541,12 +673,18 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
   logFieldSelectionDiagnostics({
     titleSource: titleSelection.sourceUrl,
     titleTier: titleSelection.tier,
+    titleLanguage: titleSelection.languageSignal,
     dateSource: dateRange.sourceUrl,
     dateTier: dateRange.tier,
     locationSource: locationSelection.sourceUrl,
     locationTier: locationSelection.tier,
+    locationLanguage: locationSelection.languageSignal,
+    organizerSource: organizerSelection.sourceUrl,
+    organizerTier: organizerSelection.tier,
+    organizerLanguage: organizerSelection.languageSignal,
     sourceUrl,
     sourceUrlTier: preferredDoc?.authorityTier ?? null,
+    sourceLanguage: preferredDoc ? detectLanguageSignal(`${preferredDoc.title} ${preferredDoc.snippet}`) : null,
   });
 
   const authoritativeCount = assessedDocs.filter((doc) => isAuthoritativeTier(doc.authorityTier)).length;
@@ -587,6 +725,7 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
       .split(/\s+/)
       .map((part) => part.trim().toLocaleLowerCase("bg-BG"))
       .filter((part) => part.length > 2 && !/^(19|20)\d{2}$/.test(part))
+      .map((part) => (bgQuery ? BG_TAG_MAP[part] ?? part : part))
       .slice(0, 5),
     sources: rankedSources,
     confidence: {

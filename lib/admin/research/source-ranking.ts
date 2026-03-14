@@ -98,7 +98,31 @@ export type SourceAssessment = {
   isOfficial: boolean;
   qualityClass: SourceQualityClass;
   authorityTier: SourceAuthorityTier;
+  languageSignal: "bg" | "mixed" | "non_bg";
+  languageScore: number;
 };
+
+const BG_STOP_WORDS = [" и ", " за ", " на ", " от ", " в ", " с ", "фестивал", "община", "култура", "туризъм", "организатор"];
+
+function detectPrimaryLanguage(value: string): { signal: "bg" | "mixed" | "non_bg"; score: number } {
+  const normalized = ` ${value.toLocaleLowerCase("bg-BG")} `;
+  const cyrillic = (normalized.match(/[\u0400-\u04FF]/g) ?? []).length;
+  const latin = (normalized.match(/[a-z]/g) ?? []).length;
+  const stopWordHits = BG_STOP_WORDS.filter((word) => normalized.includes(word)).length;
+
+  const score = cyrillic * 2 + stopWordHits * 6 - Math.floor(latin / 2);
+  if (score >= 12 || (cyrillic > 0 && cyrillic >= latin)) {
+    return { signal: "bg", score };
+  }
+  if (cyrillic > 0) {
+    return { signal: "mixed", score };
+  }
+  return { signal: "non_bg", score };
+}
+
+function isBulgarianQuery(query: string): boolean {
+  return /[\u0400-\u04FF]/u.test(query) || /\b(фестивал|събор|празник|карнавал|сурва)\b/iu.test(query);
+}
 
 function tokenize(value: string): string[] {
   return value
@@ -121,6 +145,8 @@ function classifySource(source: ResearchSource, query: string): SourceAssessment
   const title = source.title.toLocaleLowerCase("bg-BG");
   const domain = source.domain.toLocaleLowerCase("en-US");
   const queryTokens = tokenize(query);
+  const bgQuery = isBulgarianQuery(query);
+  const language = detectPrimaryLanguage(`${source.title} ${source.domain}`);
 
   let score = 0;
   let isOfficial = source.is_official;
@@ -184,6 +210,14 @@ function classifySource(source: ResearchSource, query: string): SourceAssessment
     score += 24;
   }
 
+  if (bgQuery && language.signal === "bg") score += 34;
+  if (bgQuery && language.signal === "mixed") score += 12;
+  if (bgQuery && language.signal === "non_bg" && authorityTier !== "tier1_official") score -= 28;
+
+  if (bgQuery && authorityTier === "tier4_commercial" && language.signal !== "bg") {
+    score -= 45;
+  }
+
   if (containsAny(text, COMMERCIAL_PAGE_HINTS) && authorityTier !== "tier1_official") {
     score -= 70;
   }
@@ -201,7 +235,14 @@ function classifySource(source: ResearchSource, query: string): SourceAssessment
         ? "medium"
         : "weak";
 
-  return { score, isOfficial: isOfficial || authorityTier === "tier1_official", qualityClass, authorityTier };
+  return {
+    score,
+    isOfficial: isOfficial || authorityTier === "tier1_official",
+    qualityClass,
+    authorityTier,
+    languageSignal: language.signal,
+    languageScore: language.score,
+  };
 }
 
 export function assessSourceQuality(source: ResearchSource, query: string): SourceAssessment {
@@ -227,7 +268,17 @@ export function dedupeAndRankSources(sources: ResearchSource[], query: string, l
     }
   }
 
-  const byBaseDomain = new Map<string, { source: ResearchSource; score: number; isOfficial: boolean; authorityTier: SourceAuthorityTier }>();
+  const byBaseDomain = new Map<
+    string,
+    {
+      source: ResearchSource;
+      score: number;
+      isOfficial: boolean;
+      authorityTier: SourceAuthorityTier;
+      languageSignal: "bg" | "mixed" | "non_bg";
+      languageScore: number;
+    }
+  >();
 
   for (const source of uniqueByUrl.values()) {
     const classification = classifySource(source, query);
@@ -252,6 +303,11 @@ export function dedupeAndRankSources(sources: ResearchSource[], query: string, l
         return tierRank[a.authorityTier] - tierRank[b.authorityTier];
       }
       if (a.isOfficial !== b.isOfficial) return a.isOfficial ? -1 : 1;
+      if (a.languageSignal !== b.languageSignal) {
+        const langRank = { bg: 1, mixed: 2, non_bg: 3 };
+        return langRank[a.languageSignal] - langRank[b.languageSignal];
+      }
+      if (a.languageScore !== b.languageScore) return b.languageScore - a.languageScore;
       return b.score - a.score;
     })
     .slice(0, limit)

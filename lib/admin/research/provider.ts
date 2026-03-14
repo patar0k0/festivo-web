@@ -14,21 +14,33 @@ function withFallbackWarning(result: ResearchFestivalResult, warning: string): R
   };
 }
 
+function withMetadata(result: ResearchFestivalResult): ResearchFestivalResult {
+  const provider = result.metadata?.provider ?? "mock";
+  const mode =
+    result.metadata?.mode ?? (provider === "web" ? "real_web" : result.sources.length > 0 ? "special_case_mock" : "generic_mock");
+
+  return {
+    ...result,
+    metadata: {
+      provider,
+      mode,
+      source_count: result.metadata?.source_count ?? result.sources.length,
+    },
+  };
+}
+
 async function runProvider(query: string): Promise<ResearchFestivalResult> {
   if (!shouldUseWebProvider()) {
-    return runMockResearch(query);
+    return withMetadata(await runMockResearch(query));
   }
 
   try {
-    const result = await runWebResearch(query);
-    if (result.sources.length === 0) {
-      const fallback = await runMockResearch(query);
-      return withFallbackWarning(fallback, "Real web provider returned no usable sources. Using mock fallback.");
-    }
-    return result;
+    // Important: when the web provider is configured and returns any usable response,
+    // we return it as-is (even if weak/partial) for transparent behavior.
+    return withMetadata(await runWebResearch(query));
   } catch {
     const fallback = await runMockResearch(query);
-    return withFallbackWarning(fallback, "Real web provider failed unexpectedly. Using mock fallback.");
+    return withMetadata(withFallbackWarning(fallback, "Real web provider failed unexpectedly. Using mock fallback."));
   }
 }
 
@@ -46,5 +58,5 @@ export async function researchFestival(query: string): Promise<ResearchFestivalR
     throw new Error(dateRangeError);
   }
 
-  return normalized;
+  return withMetadata(normalized);
 }

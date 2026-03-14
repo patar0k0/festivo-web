@@ -116,6 +116,11 @@ function buildLowConfidenceResult(query: string, warning: string): ResearchFesti
     },
     warnings: [warning],
     evidence: [],
+    metadata: {
+      provider: "web",
+      mode: "real_web",
+      source_count: 0,
+    },
   };
 }
 
@@ -295,5 +300,10 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
           }
         : null,
     ].filter((item): item is NonNullable<typeof item> => item !== null),
+    metadata: {
+      provider: "web",
+      mode: "real_web",
+      source_count: rankedSources.length,
+    },
   };
 }

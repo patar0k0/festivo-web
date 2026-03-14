@@ -58,6 +58,11 @@ export async function runMockResearch(query: string): Promise<ResearchFestivalRe
           source_url: "https://surva.org/",
         },
       ],
+      metadata: {
+        provider: "mock",
+        mode: "special_case_mock",
+        source_count: 2,
+      },
     };
   }
 
@@ -86,5 +91,10 @@ export async function runMockResearch(query: string): Promise<ResearchFestivalRe
     },
     warnings: ["Mock provider has limited knowledge for this query."],
     evidence: [],
+    metadata: {
+      provider: "mock",
+      mode: "generic_mock",
+      source_count: 0,
+    },
   };
 }

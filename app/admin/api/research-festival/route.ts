@@ -30,8 +30,7 @@ async function searchWebSources(query: string): Promise<ResearchSource[]> {
   if (!html) return [];
 
   const matches = [...html.matchAll(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gim)];
-  return matches
-    .map((match) => {
+  const maybeSources: Array<ResearchSource | null> = matches.map((match) => {
       const url = match[1]?.trim();
       if (!url || !url.startsWith("http")) return null;
       const title = match[2]?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || url;
@@ -42,8 +41,9 @@ async function searchWebSources(query: string): Promise<ResearchSource[]> {
         return null;
       }
       return { url, title, domain, is_official: false } satisfies ResearchSource;
-    })
-    .filter((source): source is ResearchSource => Boolean(source));
+    });
+
+  return maybeSources.filter((source): source is ResearchSource => source !== null);
 }
 
 function lowConfidenceFallback(query: string, sources: ResearchSource[], warning: string, diagnostics: Partial<ResearchFestivalResult["metadata"]>): ResearchFestivalResult {

@@ -278,6 +278,34 @@ function qualityBucketLabel(bucket: PendingFestivalQuality["quality_bucket"]) {
   return "Weak";
 }
 
+function asInputValue(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return typeof value === "string" ? value : "";
+}
+
+function prettyJson(value: unknown) {
+  if (value === null || typeof value === "undefined") {
+    return "—";
+  }
+
+  if (typeof value === "string") {
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  }
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
 export default function PendingFestivalEditForm({
   pendingFestival,
   qualityDiagnostics,
@@ -296,23 +324,56 @@ export default function PendingFestivalEditForm({
     title: pendingFestival.title,
     slug: pendingFestival.slug ?? "",
     description: pendingFestival.description ?? "",
+    description_clean: pendingFestival.description_clean ?? "",
+    description_short: asInputValue(pendingFestival.description_short),
     category: (typeof pendingFestival.category === "string" ? pendingFestival.category : "") ?? "",
+    category_guess: asInputValue(pendingFestival.category_guess),
     city_id: cityDisplayValue,
+    city_guess: asInputValue(pendingFestival.city_guess),
+    city_name_display: asInputValue(pendingFestival.city_name_display),
     region: (typeof pendingFestival.region === "string" ? pendingFestival.region : "") ?? "",
+    location_name: pendingFestival.location_name ?? "",
+    location_guess: asInputValue(pendingFestival.location_guess),
     venue_name: pendingFestival.location_name ?? "",
     address: pendingFestival.address ?? "",
+    address_guess: asInputValue(pendingFestival.address_guess),
     latitude: pendingFestival.latitude?.toString() ?? "",
     longitude: pendingFestival.longitude?.toString() ?? "",
+    latitude_guess: asInputValue(pendingFestival.latitude_guess),
+    longitude_guess: asInputValue(pendingFestival.longitude_guess),
+    lat_guess: asInputValue(pendingFestival.lat_guess),
+    lng_guess: asInputValue(pendingFestival.lng_guess),
     start_date: asDateInput(pendingFestival.start_date),
     end_date: asDateInput(pendingFestival.end_date),
+    date_guess: asInputValue(pendingFestival.date_guess),
     organizer_name: pendingFestival.organizer_name ?? "",
     source_url: pendingFestival.source_url ?? "",
+    source_primary_url: asInputValue(pendingFestival.source_primary_url),
     website_url: pendingFestival.website_url ?? "",
     ticket_url: (typeof pendingFestival.ticket_url === "string" ? pendingFestival.ticket_url : "") ?? "",
+    source_type: asInputValue(pendingFestival.source_type),
+    source_count: asInputValue(pendingFestival.source_count),
+    discovered_via: asInputValue(pendingFestival.discovered_via),
     price_range: (typeof pendingFestival.price_range === "string" ? pendingFestival.price_range : "") ?? "",
     is_free: pendingFestival.is_free ?? true,
+    is_free_guess: Boolean(pendingFestival.is_free_guess),
     hero_image: pendingFestival.hero_image ?? "",
+    hero_image_source: asInputValue(pendingFestival.hero_image_source),
+    hero_image_original_url: asInputValue(pendingFestival.hero_image_original_url),
+    hero_image_score: asInputValue(pendingFestival.hero_image_score),
+    title_clean: asInputValue(pendingFestival.title_clean),
+    title_guess: asInputValue(pendingFestival.title_guess),
+    normalization_version: asInputValue(pendingFestival.normalization_version),
+    verification_status: asInputValue(pendingFestival.verification_status),
+    verification_score: asInputValue(pendingFestival.verification_score),
+    extraction_version: asInputValue(pendingFestival.extraction_version),
+    status: asInputValue(pendingFestival.status),
+    duplicate_of: asInputValue(pendingFestival.duplicate_of),
+    reviewed_at: asInputValue(pendingFestival.reviewed_at),
+    reviewed_by: asInputValue(pendingFestival.reviewed_by),
+    created_at: asInputValue(pendingFestival.created_at),
     tags: tagsCurrent,
+    tags_guess: normalizeTagsGuess(pendingFestival.tags_guess),
   });
   const [saving, setSaving] = useState(false);
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
@@ -490,6 +551,7 @@ export default function PendingFestivalEditForm({
           city_name_display: cityInput || null,
           city: cityInput || null,
           region: form.region.trim() || null,
+          location_name: form.location_name.trim() || null,
           venue_name: form.venue_name.trim() || null,
           address: form.address.trim() || null,
           latitude: form.latitude.trim() ? Number(form.latitude) : null,
@@ -501,6 +563,7 @@ export default function PendingFestivalEditForm({
           website_url: form.website_url.trim() || null,
           ticket_url: form.ticket_url.trim() || null,
           price_range: form.price_range.trim() || null,
+          status: form.status.trim() || null,
           is_free: form.is_free,
           hero_image: form.hero_image.trim() || null,
           tags: form.tags,
@@ -842,7 +905,10 @@ export default function PendingFestivalEditForm({
                   </div>
                 ) : null}
               </label>
-              <div className="rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-xs text-black/60">Source type: {pendingFestival.source_type ?? "-"} · Status: {pendingFestival.status}</div>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Status</span>
+                <input value={form.status} onChange={(e) => updateField("status", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+              </label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
                 is_free
@@ -850,13 +916,111 @@ export default function PendingFestivalEditForm({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
-            <h2 className="text-lg font-bold">AI Normalize Suggestions</h2>
-            <p className="mt-1 text-xs text-black/60">Suggestions are advisory only. Apply actions only update the local form until you click Save edits.</p>
+          <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 text-sm">
+            <h2 className="text-lg font-bold">Secondary moderation metadata</h2>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">ID</span>
+                <input value={pendingFestival.id} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source primary URL</span>
+                <input value={form.source_primary_url} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source count</span>
+                <input value={form.source_count} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source type</span>
+                <input value={form.source_type} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label className="md:col-span-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Discovered via</span>
+                <input value={form.discovered_via} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Verification status</span>
+                <input value={form.verification_status} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Verification score</span>
+                <input value={form.verification_score} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Duplicate of</span>
+                <input value={form.duplicate_of} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Created at</span>
+                <input value={form.created_at} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Reviewed at</span>
+                <input value={form.reviewed_at} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label className="md:col-span-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Reviewed by</span>
+                <input value={form.reviewed_by} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+            </div>
+          </div>
+
+          <details className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
+            <summary className="cursor-pointer text-lg font-bold">Debug / AI / ingestion (collapsed)</summary>
+            <p className="mt-1 text-xs text-black/60">Advisory diagnostics and extraction traces. Read-only by default.</p>
             <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-black/70 sm:grid-cols-3">
               <p className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5">Version: <span className="font-semibold text-black/80">{pendingFestival.normalization_version ?? "-"}</span></p>
               <p className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5">Applicable: <span className="font-semibold text-black/80">{applicableSuggestionCount}</span></p>
               <p className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5">Safe: <span className="font-semibold text-black/80">{safeSuggestionCount}</span></p>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">description_clean</span>
+                <textarea value={form.description_clean} readOnly rows={3} className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">description_short</span>
+                <textarea value={form.description_short} readOnly rows={3} className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">category_guess</span><input value={form.category_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">tags_guess</span><input value={form.tags_guess.join(", ")} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">city_guess</span><input value={form.city_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">is_free_guess</span><input value={pendingFestival.is_free_guess === null ? "" : pendingFestival.is_free_guess ? "true" : "false"} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">hero_image_source</span><input value={form.hero_image_source} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">title_clean</span><input value={form.title_clean} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">location_guess</span><input value={form.location_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">date_guess</span><input value={form.date_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">title_guess</span><input value={form.title_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">latitude_guess</span><input value={form.latitude_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">longitude_guess</span><input value={form.longitude_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">address_guess</span><input value={form.address_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">lat_guess</span><input value={form.lat_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">lng_guess</span><input value={form.lng_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">hero_image_original_url</span><input value={form.hero_image_original_url} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">hero_image_score</span><input value={form.hero_image_score} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">normalization_version</span><input value={form.normalization_version} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">extraction_version</span><input value={form.extraction_version} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <details className="rounded-xl border border-black/[0.1] bg-black/[0.02] p-3">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-black/60">deterministic_guess_json</summary>
+                <pre className="mt-2 overflow-x-auto rounded-lg bg-white p-3 text-xs text-black/75">{prettyJson(pendingFestival.deterministic_guess_json)}</pre>
+              </details>
+              <details className="rounded-xl border border-black/[0.1] bg-black/[0.02] p-3">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-black/60">ai_guess_json</summary>
+                <pre className="mt-2 overflow-x-auto rounded-lg bg-white p-3 text-xs text-black/75">{prettyJson(pendingFestival.ai_guess_json)}</pre>
+              </details>
+              <details className="rounded-xl border border-black/[0.1] bg-black/[0.02] p-3">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-black/60">merge_decisions_json</summary>
+                <pre className="mt-2 overflow-x-auto rounded-lg bg-white p-3 text-xs text-black/75">{prettyJson(pendingFestival.merge_decisions_json)}</pre>
+              </details>
+              <details className="rounded-xl border border-black/[0.1] bg-black/[0.02] p-3">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-black/60">evidence_json</summary>
+                <pre className="mt-2 overflow-x-auto rounded-lg bg-white p-3 text-xs text-black/75">{prettyJson(pendingFestival.evidence_json)}</pre>
+              </details>
             </div>
 
             {hasNormalizeSuggestions ? (
@@ -931,7 +1095,7 @@ export default function PendingFestivalEditForm({
                 No normalization data available for this pending record yet.
               </p>
             )}
-          </div>
+          </details>
 
           <div className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
             <h2 className="text-lg font-bold">Pending quality diagnostics</h2>
@@ -989,13 +1153,6 @@ export default function PendingFestivalEditForm({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 text-sm">
-            <h2 className="text-lg font-bold">Moderation state</h2>
-            <p className="mt-2 text-black/65">Status: {pendingFestival.status}</p>
-            <p className="mt-1 text-black/65">Created: {new Date(pendingFestival.created_at).toLocaleString("bg-BG")}</p>
-            <p className="mt-1 text-black/65">Reviewed at: {pendingFestival.reviewed_at ? new Date(pendingFestival.reviewed_at).toLocaleString("bg-BG") : "-"}</p>
-            <p className="mt-1 text-black/65">Reviewed by: {pendingFestival.reviewed_by ?? "-"}</p>
-          </div>
         </div>
       </section>
 

@@ -4,6 +4,45 @@ import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/reso
 import { pendingPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 
+const EXTRA_EDITABLE_FIELDS = [
+  "description_clean",
+  "description_short",
+  "category_guess",
+  "tags_guess",
+  "city_guess",
+  "city_name_display",
+  "location_guess",
+  "address_guess",
+  "latitude_guess",
+  "longitude_guess",
+  "lat_guess",
+  "lng_guess",
+  "date_guess",
+  "source_primary_url",
+  "source_count",
+  "discovered_via",
+  "hero_image_source",
+  "hero_image_original_url",
+  "hero_image_score",
+  "title_clean",
+  "title_guess",
+  "normalization_version",
+  "verification_status",
+  "verification_score",
+  "extraction_version",
+  "duplicate_of",
+] as const;
+
+function isAllowedExtraValue(value: unknown) {
+  if (value === null) return true;
+  if (typeof value === "string") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "boolean") return true;
+  if (Array.isArray(value)) return true;
+  if (typeof value === "object") return true;
+  return false;
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
@@ -61,6 +100,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (!("city" in body)) {
       console.info(`[pending-save] pending_id=${id} resolved_city_id=${patch.city_id ?? null}`);
+    }
+
+    for (const key of EXTRA_EDITABLE_FIELDS) {
+      if (!(key in body)) {
+        continue;
+      }
+
+      const value = body[key];
+      if (!isAllowedExtraValue(value)) {
+        return NextResponse.json({ error: `Invalid value for ${key}` }, { status: 400 });
+      }
+
+      patch[key] = value;
     }
 
     const { data, error } = await ctx.supabase

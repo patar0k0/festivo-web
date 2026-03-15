@@ -12,6 +12,7 @@ import type {
   ResearchSource,
 } from "@/lib/admin/research/types";
 import type { SourceAuthorityTier, SourceQualityClass } from "@/lib/admin/research/source-ranking";
+import { isLlmExtractionEnabled, runLlmFieldExtraction } from "@/lib/admin/research/llm-extract";
 
 type SearchItem = {
   url: string;
@@ -927,11 +928,23 @@ function dedupeFieldCandidates(candidates: ResearchFieldCandidate[]): ResearchFi
 function buildFieldCandidates(selection: CandidateSelection, extras: ScoredCandidate[] = []): ResearchFieldCandidate[] {
   const merged: ResearchFieldCandidate[] = [];
   if (selection.value && selection.sourceUrl) {
-    merged.push({ value: selection.value, source_url: normalizeUrl(selection.sourceUrl), tier: selection.tier, language: selection.languageSignal });
+    merged.push({
+      value: selection.value,
+      source_url: normalizeUrl(selection.sourceUrl),
+      tier: selection.tier,
+      language: selection.languageSignal,
+      reason: selection.reason,
+    });
   }
 
   for (const item of extras) {
-    merged.push({ value: item.value, source_url: normalizeUrl(item.sourceUrl), tier: item.tier, language: item.languageSignal });
+    merged.push({
+      value: item.value,
+      source_url: normalizeUrl(item.sourceUrl),
+      tier: item.tier,
+      language: item.languageSignal,
+      reason: item.reason ?? "Alternative candidate collected from source text.",
+    });
   }
 
   return dedupeFieldCandidates(
@@ -956,6 +969,23 @@ function collectCandidatesFromDocs(docs: AssessedDocument[], picker: (doc: Asses
     });
   }
   return out.sort((a, b) => TIER_RANK[a.tier] - TIER_RANK[b.tier] || b.score - a.score);
+}
+
+function pickLlmSourcesForExtraction(docs: AssessedDocument[]): AssessedDocument[] {
+  const maxSources = 5;
+  const preferred = docs.filter((doc) => doc.authorityTier === "tier1_official" || doc.authorityTier === "tier2_reputable");
+  const pool = preferred.length >= 3 ? preferred : docs.filter((doc) => doc.authorityTier !== "tier5_weak");
+  const selected = pool.slice(0, maxSources);
+  if (selected.length >= 3) return selected;
+  return docs.slice(0, Math.max(3, Math.min(maxSources, docs.length)));
+}
+
+function applyReasonToFieldCandidates(candidates: ResearchFieldCandidate[], reason: string): ResearchFieldCandidate[] {
+  return candidates.map((candidate) => ({ ...candidate, reason: candidate.reason ?? reason }));
+}
+
+function applyReasonToDateCandidates(candidates: ResearchDateCandidate[], reason: string): ResearchDateCandidate[] {
+  return candidates.map((candidate) => ({ ...candidate, reason: candidate.reason ?? reason }));
 }
 
 function buildLowConfidenceResult(query: string, warning: string): ResearchFestivalResult {
@@ -1272,7 +1302,7 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
   const locationAlternatives = collectCandidatesFromDocs(fallback, (doc) => pickFieldValue(doc.locationLike.map((entry) => cleanLocationCandidate(entry)).filter((entry): entry is string => Boolean(entry))));
   const organizerAlternatives = collectCandidatesFromDocs(fallback, (doc) => pickFieldValue(doc.organizerLike.map((entry) => decodeResearchText(entry))));
 
-  const candidates: ResearchCandidates = {
+  const heuristicCandidates: ResearchCandidates = {
     titles: buildFieldCandidates(titleSelection.value ? titleSelection : fallbackTitleSelection, titleAlternatives),
     dates: dateRange.candidates.map<ResearchDateCandidate>((item) => ({
       start_date: item.startDate,
@@ -1280,6 +1310,7 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
       source_url: normalizeUrl(item.sourceUrl),
       tier: item.tier,
       language: item.languageSignal,
+      reason: "Extracted via deterministic date pattern matching from source text.",
       label: item.startDate === item.endDate ? item.startDate : `${item.startDate} → ${item.endDate}`,
     })),
     cities: buildFieldCandidates(citySelection, cityAlternatives),
@@ -1287,66 +1318,130 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
     organizers: buildFieldCandidates(organizerSelection, organizerAlternatives),
   };
 
+  const normalizedQuery = normalizeQuery(query);
+
+  const llmSources = pickLlmSourcesForExtraction(fallback).map((doc) => ({
+    source_url: normalizeUrl(doc.canonicalUrl ?? doc.url),
+    domain: doc.domain,
+    source_title: doc.title,
+    tier: doc.authorityTier,
+    language: doc.languageSignal,
+    text_excerpt: doc.text.slice(0, 2200),
+    metadata: {
+      description: doc.description,
+      date_hints: doc.dateLike.slice(0, 5),
+    },
+  }));
+
+  let llmWarnings: string[] = [];
+  let llmBestGuess: {
+    title: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    city: string | null;
+    location: string | null;
+    organizer: string | null;
+    tags: string[];
+  } | null = null;
+  let llmCandidates: ResearchCandidates | null = null;
+
+  if (isLlmExtractionEnabled() && llmSources.length > 0) {
+    try {
+      const llm = await runLlmFieldExtraction({
+        query,
+        normalized_query: normalizedQuery,
+        sources: llmSources,
+      });
+
+      llmBestGuess = llm.best_guess;
+      llmCandidates = {
+        titles: llm.candidates.titles,
+        dates: llm.candidates.dates,
+        cities: llm.candidates.cities,
+        locations: llm.candidates.locations,
+        organizers: llm.candidates.organizers,
+      };
+      llmWarnings = llm.warnings;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown error";
+      warnings.push(`LLM extraction failed; using deterministic fallback candidates (${message}).`);
+    }
+  } else {
+    warnings.push("LLM extraction disabled or no eligible sources; using deterministic source-backed extraction.");
+  }
+
+  const finalCandidates: ResearchCandidates = {
+    titles: llmCandidates?.titles.length ? llmCandidates.titles : applyReasonToFieldCandidates(heuristicCandidates.titles, "Deterministic fallback extraction."),
+    dates: llmCandidates?.dates.length ? llmCandidates.dates : applyReasonToDateCandidates(heuristicCandidates.dates, "Deterministic fallback extraction."),
+    cities: llmCandidates?.cities.length ? llmCandidates.cities : applyReasonToFieldCandidates(heuristicCandidates.cities, "Deterministic fallback extraction."),
+    locations: llmCandidates?.locations.length ? llmCandidates.locations : applyReasonToFieldCandidates(heuristicCandidates.locations, "Deterministic fallback extraction."),
+    organizers: llmCandidates?.organizers.length ? llmCandidates.organizers : applyReasonToFieldCandidates(heuristicCandidates.organizers, "Deterministic fallback extraction."),
+  };
+
+  const finalBestGuess = {
+    title: llmBestGuess?.title ?? title,
+    start_date: llmBestGuess?.start_date ?? startDate,
+    end_date: llmBestGuess?.end_date ?? endDate,
+    city: llmBestGuess?.city ?? cityCandidate,
+    location: llmBestGuess?.location ?? location,
+    description,
+    organizer: llmBestGuess?.organizer ?? organizer,
+    hero_image: heroImage,
+    tags: llmBestGuess?.tags?.length ? llmBestGuess.tags : tags,
+  };
+
+  warnings.push(...llmWarnings);
+
   return {
     query,
     normalized_query: normalizeQuery(query),
-    best_guess: {
-      title,
-      start_date: startDate,
-      end_date: endDate,
-      city: cityCandidate,
-      location,
-      description,
-      organizer,
-      hero_image: heroImage,
-      tags,
-    },
-    candidates,
+    best_guess: finalBestGuess,
+    candidates: finalCandidates,
     sources: rankedSources.map((source) => ({ ...source, url: normalizeUrl(source.url) })),
     confidence: {
       overall: overallConfidence,
-      title: title && titleSelection.tier && isAuthoritativeTier(titleSelection.tier) ? pickConfidence(adjustedScore) : "low",
-      dates: startDate && dateRange.tier && isAuthoritativeTier(dateRange.tier) ? pickConfidence(adjustedScore) : "low",
-      city: cityCandidate && citySelection.tier && isAuthoritativeTier(citySelection.tier) ? pickConfidence(adjustedScore - 8) : "low",
-      location: location && locationSelection.tier && isAuthoritativeTier(locationSelection.tier) ? pickConfidence(adjustedScore - 12) : "low",
+      title: finalBestGuess.title && titleSelection.tier && isAuthoritativeTier(titleSelection.tier) ? pickConfidence(adjustedScore) : "low",
+      dates: finalBestGuess.start_date && dateRange.tier && isAuthoritativeTier(dateRange.tier) ? pickConfidence(adjustedScore) : "low",
+      city: finalBestGuess.city && citySelection.tier && isAuthoritativeTier(citySelection.tier) ? pickConfidence(adjustedScore - 8) : "low",
+      location: finalBestGuess.location && locationSelection.tier && isAuthoritativeTier(locationSelection.tier) ? pickConfidence(adjustedScore - 12) : "low",
       description: description && preferredDoc && isAuthoritativeTier(preferredDoc.authorityTier) ? pickConfidence(adjustedScore - 10) : "low",
-      organizer: organizer && organizerSelection.tier && isAuthoritativeTier(organizerSelection.tier) ? pickConfidence(adjustedScore - 8) : "low",
+      organizer: finalBestGuess.organizer && organizerSelection.tier && isAuthoritativeTier(organizerSelection.tier) ? pickConfidence(adjustedScore - 8) : "low",
       hero_image: heroImage && preferredDoc && isAuthoritativeTier(preferredDoc.authorityTier) ? pickConfidence(adjustedScore - 14) : "low",
     },
     warnings,
     evidence: [
-      title && (titleSelection.sourceUrl ?? fallbackTitleSelection.sourceUrl)
+      finalBestGuess.title && (titleSelection.sourceUrl ?? fallbackTitleSelection.sourceUrl)
         ? {
             field: "title",
-            value: title,
+            value: finalBestGuess.title,
             source_url: normalizeUrl((titleSelection.sourceUrl ?? fallbackTitleSelection.sourceUrl)!),
           }
         : null,
-      startDate && dateRange.sourceUrl
+      finalBestGuess.start_date && dateRange.sourceUrl
         ? {
             field: "dates",
-            value: endDate && endDate !== startDate ? `${startDate} to ${endDate}` : startDate,
+            value: finalBestGuess.end_date && finalBestGuess.end_date !== finalBestGuess.start_date ? `${finalBestGuess.start_date} to ${finalBestGuess.end_date}` : finalBestGuess.start_date,
             source_url: normalizeUrl(dateRange.sourceUrl),
           }
         : null,
-      cityCandidate && citySelection.sourceUrl
+      finalBestGuess.city && citySelection.sourceUrl
         ? {
             field: "city",
-            value: cityCandidate,
+            value: finalBestGuess.city,
             source_url: normalizeUrl(citySelection.sourceUrl),
           }
         : null,
-      location && locationSelection.sourceUrl
+      finalBestGuess.location && locationSelection.sourceUrl
         ? {
             field: "location",
-            value: location,
+            value: finalBestGuess.location,
             source_url: normalizeUrl(locationSelection.sourceUrl),
           }
         : null,
-      organizer && organizerSelection.sourceUrl
+      finalBestGuess.organizer && organizerSelection.sourceUrl
         ? {
             field: "organizer",
-            value: organizer,
+            value: finalBestGuess.organizer,
             source_url: normalizeUrl(organizerSelection.sourceUrl),
           }
         : null,

@@ -19,16 +19,22 @@ export type ResearchEvidence = {
 export type ResearchFieldCandidate = {
   value: string;
   source_url: string;
+  source_title?: string | null;
   tier: SourceAuthorityTier | null;
   language: ResearchLanguageSignal | null;
+  confidence?: ResearchConfidenceLevel | null;
+  reason?: string | null;
 };
 
 export type ResearchDateCandidate = {
   start_date: string;
   end_date: string;
   source_url: string;
+  source_title?: string | null;
   tier: SourceAuthorityTier | null;
   language: ResearchLanguageSignal | null;
+  confidence?: ResearchConfidenceLevel | null;
+  reason?: string | null;
   label: string;
 };
 

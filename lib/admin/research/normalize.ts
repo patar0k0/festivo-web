@@ -67,6 +67,10 @@ function normalizeConfidenceLevel(value: unknown, fallback: ResearchConfidenceLe
   return value === "high" || value === "medium" || value === "low" ? value : fallback;
 }
 
+function normalizeOptionalConfidenceLevel(value: unknown): ResearchConfidenceLevel | null {
+  return value === "high" || value === "medium" || value === "low" ? value : null;
+}
+
 function normalizeTier(value: unknown): SourceAuthorityTier | null {
   return value === "tier1_official" || value === "tier2_reputable" || value === "tier3_reference" || value === "tier4_commercial" || value === "tier5_weak"
     ? value
@@ -93,8 +97,11 @@ function normalizeFieldCandidates(value: unknown): ResearchFieldCandidate[] {
     out.push({
       value: candidateValue,
       source_url: sourceUrl,
+      source_title: normalizeText((item as { source_title?: unknown }).source_title),
       tier: normalizeTier((item as { tier?: unknown }).tier),
       language: normalizeLanguage((item as { language?: unknown }).language),
+      confidence: normalizeOptionalConfidenceLevel((item as { confidence?: unknown }).confidence),
+      reason: normalizeText((item as { reason?: unknown }).reason),
     });
   }
 
@@ -121,9 +128,12 @@ function normalizeDateCandidates(value: unknown): ResearchDateCandidate[] {
       start_date: startDate,
       end_date: endDate,
       source_url: sourceUrl,
+      source_title: normalizeText((item as { source_title?: unknown }).source_title),
       label,
       tier: normalizeTier((item as { tier?: unknown }).tier),
       language: normalizeLanguage((item as { language?: unknown }).language),
+      confidence: normalizeOptionalConfidenceLevel((item as { confidence?: unknown }).confidence),
+      reason: normalizeText((item as { reason?: unknown }).reason),
     });
   }
 

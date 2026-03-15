@@ -66,7 +66,9 @@ export async function POST(request: Request) {
     tags_guess: finalValues.tags,
     start_date: finalValues.start_date,
     end_date: finalValues.end_date,
+    is_free: finalValues.is_free,
     source_url: sourceUrl,
+    website_url: sourceUrl,
     source_primary_url: sourcePrimaryUrl,
     source_count: normalized.sources.length,
     evidence_json: {
@@ -107,6 +109,8 @@ export async function POST(request: Request) {
       continue;
     }
 
+    if (isMissingColumnError(message, "website_url")) delete insertPayload.website_url;
+    if (isMissingColumnError(message, "is_free")) delete insertPayload.is_free;
     if (isMissingColumnError(message, "source_primary_url")) delete insertPayload.source_primary_url;
     if (isMissingColumnError(message, "source_count")) delete insertPayload.source_count;
     if (isMissingColumnError(message, "evidence_json")) delete insertPayload.evidence_json;

@@ -29,15 +29,15 @@ export type ResearchFieldCandidate = {
 };
 
 export type ResearchDateCandidate = {
-  start_date: string;
-  end_date: string;
+  start_date: string | null;
+  end_date: string | null;
   source_url: string;
   source_title?: string | null;
   tier: SourceAuthorityTier | null;
   language: ResearchLanguageSignal | null;
   confidence?: ResearchConfidenceLevel | null;
   reason?: string | null;
-  label: string;
+  label: string | null;
 };
 
 export type ResearchCandidates = {
@@ -58,6 +58,7 @@ export type ResearchBestGuess = {
   description: string | null;
   hero_image: string | null;
   tags: string[];
+  is_free?: boolean | null;
 };
 
 export type ResearchConfidence = {
@@ -69,6 +70,7 @@ export type ResearchConfidence = {
   description: ResearchConfidenceLevel;
   organizer: ResearchConfidenceLevel;
   hero_image: ResearchConfidenceLevel;
+  is_free?: ResearchConfidenceLevel;
 };
 
 export type ResearchFestivalResult = {
@@ -81,11 +83,14 @@ export type ResearchFestivalResult = {
   warnings: string[];
   evidence: ResearchEvidence[];
   metadata?: {
-    provider: "mock" | "web";
-    mode: "generic_mock" | "special_case_mock" | "real_web";
+    provider: "mock" | "web" | "openai_web";
+    mode: "generic_mock" | "special_case_mock" | "real_web" | "openai_structured" | "fallback_minimal";
     source_count: number;
+    model?: string;
+    openai_attempted?: boolean;
+    openai_json_parsed?: boolean;
+    fallback_used?: boolean;
   };
-  // Legacy mirror fields for compatibility in consumers still expecting flat payloads.
   title?: string | null;
   start_date?: string | null;
   end_date?: string | null;
@@ -95,6 +100,7 @@ export type ResearchFestivalResult = {
   organizer?: string | null;
   hero_image?: string | null;
   tags?: string[];
+  is_free?: boolean | null;
 };
 
 export type ResearchFestivalRequest = {

@@ -15,6 +15,7 @@ const EMPTY_FINAL_VALUES: EditableFinalValues = {
   organizer: null,
   hero_image: null,
   tags: [],
+  is_free: null,
 };
 
 export default function ResearchFestivalPanel() {
@@ -129,7 +130,7 @@ export default function ResearchFestivalPanel() {
             onClick={() => setFinalValues((prev) => ({ ...prev, start_date: candidate.start_date, end_date: candidate.end_date }))}
             className="rounded-lg border border-black/[0.1] bg-white px-2 py-1 text-left text-xs hover:bg-black/[0.03]"
           >
-            <div className="font-medium">{candidate.label}</div>
+            <div className="font-medium">{candidate.label ?? `${candidate.start_date ?? "?"} → ${candidate.end_date ?? "?"}`}</div>
             <div className="text-black/55">{candidate.tier ?? "unknown tier"} • {candidate.language ?? "unknown lang"}</div>
           </button>
         ))}
@@ -189,6 +190,17 @@ export default function ResearchFestivalPanel() {
               <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Organizer</label>
               <input value={finalValues.organizer ?? ""} onChange={(e) => setFromCandidate("organizer", e.target.value || null)} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm" />
               {renderTextCandidates("organizer", result.candidates.organizers)}
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Free entry</label>
+              <select value={finalValues.is_free === null ? "unknown" : finalValues.is_free ? "yes" : "no"} onChange={(e) => setFinalValues((prev) => ({ ...prev, is_free: e.target.value === "unknown" ? null : e.target.value === "yes" }))} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm">
+                <option value="unknown">Unknown</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
             </div>
           </div>
 

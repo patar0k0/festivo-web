@@ -182,19 +182,102 @@ function buildPrompt(input: LlmExtractInput): { system: string; user: string } {
   return { system, user };
 }
 
+export type LlmExtractionDiagnostics = {
+  enabled: boolean;
+  missingPrerequisites: string[];
+  prerequisites: {
+    webResearchLlmApiKey: boolean;
+    openAiApiKey: boolean;
+    llmUrlConfigured: boolean;
+    llmModelConfigured: boolean;
+  };
+  resolvedConfig: {
+    endpoint: string;
+    model: string;
+    timeoutMs: number;
+    authMode: "WEB_RESEARCH_LLM_API_KEY" | "OPENAI_API_KEY" | "missing";
+  };
+};
+
+function resolveLlmApiKey(): { apiKey: string | null; authMode: LlmExtractionDiagnostics["resolvedConfig"]["authMode"] } {
+  const webResearchApiKey = process.env.WEB_RESEARCH_LLM_API_KEY?.trim();
+  if (webResearchApiKey) {
+    return { apiKey: webResearchApiKey, authMode: "WEB_RESEARCH_LLM_API_KEY" };
+  }
+
+  const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
+  if (openAiApiKey) {
+    return { apiKey: openAiApiKey, authMode: "OPENAI_API_KEY" };
+  }
+
+  return { apiKey: null, authMode: "missing" };
+}
+
+export function getLlmExtractionDiagnostics(): LlmExtractionDiagnostics {
+  const { apiKey, authMode } = resolveLlmApiKey();
+  const endpoint = process.env.WEB_RESEARCH_LLM_URL ?? "https://api.openai.com/v1/chat/completions";
+  const model = process.env.WEB_RESEARCH_LLM_MODEL ?? "gpt-4o-mini";
+  const timeoutMsRaw = Number(process.env.WEB_RESEARCH_LLM_TIMEOUT_MS ?? "9000");
+  const timeoutMs = Number.isFinite(timeoutMsRaw) ? Math.max(3000, timeoutMsRaw) : 9000;
+
+  const missingPrerequisites: string[] = [];
+  if (!apiKey) {
+    missingPrerequisites.push("WEB_RESEARCH_LLM_API_KEY or OPENAI_API_KEY");
+  }
+
+  return {
+    enabled: missingPrerequisites.length === 0,
+    missingPrerequisites,
+    prerequisites: {
+      webResearchLlmApiKey: Boolean(process.env.WEB_RESEARCH_LLM_API_KEY?.trim()),
+      openAiApiKey: Boolean(process.env.OPENAI_API_KEY?.trim()),
+      llmUrlConfigured: Boolean(process.env.WEB_RESEARCH_LLM_URL?.trim()),
+      llmModelConfigured: Boolean(process.env.WEB_RESEARCH_LLM_MODEL?.trim()),
+    },
+    resolvedConfig: {
+      endpoint,
+      model,
+      timeoutMs,
+      authMode,
+    },
+  };
+}
+
 export function isLlmExtractionEnabled(): boolean {
-  return Boolean(process.env.WEB_RESEARCH_LLM_API_KEY);
+  return getLlmExtractionDiagnostics().enabled;
+}
+
+function hasMeaningfulLlmResult(result: LlmExtractResult): boolean {
+  const hasBestGuess = Boolean(
+    result.best_guess.title ||
+      result.best_guess.start_date ||
+      result.best_guess.end_date ||
+      result.best_guess.city ||
+      result.best_guess.location ||
+      result.best_guess.organizer ||
+      result.best_guess.tags.length,
+  );
+
+  const hasCandidates =
+    result.candidates.titles.length > 0 ||
+    result.candidates.dates.length > 0 ||
+    result.candidates.cities.length > 0 ||
+    result.candidates.locations.length > 0 ||
+    result.candidates.organizers.length > 0;
+
+  return hasBestGuess || hasCandidates;
 }
 
 export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<LlmExtractResult> {
-  const apiKey = process.env.WEB_RESEARCH_LLM_API_KEY;
+  const diagnostics = getLlmExtractionDiagnostics();
+  const { apiKey } = resolveLlmApiKey();
   if (!apiKey) {
-    throw new Error("WEB_RESEARCH_LLM_API_KEY is missing.");
+    throw new Error(`LLM prerequisites missing: ${diagnostics.missingPrerequisites.join(", ")}.`);
   }
 
-  const endpoint = process.env.WEB_RESEARCH_LLM_URL ?? "https://api.openai.com/v1/chat/completions";
-  const model = process.env.WEB_RESEARCH_LLM_MODEL ?? "gpt-4o-mini";
-  const timeoutMs = Number(process.env.WEB_RESEARCH_LLM_TIMEOUT_MS ?? "9000");
+  const endpoint = diagnostics.resolvedConfig.endpoint;
+  const model = diagnostics.resolvedConfig.model;
+  const timeoutMs = diagnostics.resolvedConfig.timeoutMs;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? Math.max(3000, timeoutMs) : 9000);
 
@@ -239,7 +322,7 @@ export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<Llm
     };
 
     const best = parsed.best_guess ?? {};
-    return {
+    const normalizedResult: LlmExtractResult = {
       best_guess: {
         title: normalizeText(best.title),
         start_date: normalizeDate(best.start_date),
@@ -263,6 +346,12 @@ export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<Llm
         : [],
       notes: normalizeText(parsed.notes),
     };
+
+    if (!hasMeaningfulLlmResult(normalizedResult)) {
+      throw new Error("LLM response was parsed but did not contain usable festival candidates.");
+    }
+
+    return normalizedResult;
   } finally {
     clearTimeout(timer);
   }

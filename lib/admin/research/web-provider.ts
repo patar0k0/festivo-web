@@ -12,7 +12,7 @@ import type {
   ResearchSource,
 } from "@/lib/admin/research/types";
 import type { SourceAuthorityTier, SourceQualityClass } from "@/lib/admin/research/source-ranking";
-import { isLlmExtractionEnabled, runLlmFieldExtraction } from "@/lib/admin/research/llm-extract";
+import { getLlmExtractionDiagnostics, runLlmFieldExtraction } from "@/lib/admin/research/llm-extract";
 
 type SearchItem = {
   url: string;
@@ -33,6 +33,29 @@ type AssessedDocument = ExtractedSourceDocument & {
   isStrong: boolean;
   languageSignal: LanguageSignal;
   authorityReason: string;
+};
+
+type LlmSourceRejection = {
+  sourceUrl: string;
+  domain: string;
+  tier: SourceAuthorityTier;
+  reason: string;
+};
+
+type PreparedLlmSources = {
+  eligible: Array<{
+    source_url: string;
+    domain: string;
+    source_title: string;
+    tier: SourceAuthorityTier;
+    language: LanguageSignal;
+    text_excerpt: string;
+    metadata: {
+      description: string | null;
+      date_hints: string[];
+    };
+  }>;
+  rejected: LlmSourceRejection[];
 };
 
 const SEARCH_TIMEOUT_MS = 7000;
@@ -971,13 +994,56 @@ function collectCandidatesFromDocs(docs: AssessedDocument[], picker: (doc: Asses
   return out.sort((a, b) => TIER_RANK[a.tier] - TIER_RANK[b.tier] || b.score - a.score);
 }
 
-function pickLlmSourcesForExtraction(docs: AssessedDocument[]): AssessedDocument[] {
+function prepareLlmSourcesForExtraction(docs: AssessedDocument[]): PreparedLlmSources {
   const maxSources = 5;
-  const preferred = docs.filter((doc) => doc.authorityTier === "tier1_official" || doc.authorityTier === "tier2_reputable");
-  const pool = preferred.length >= 3 ? preferred : docs.filter((doc) => doc.authorityTier !== "tier5_weak");
-  const selected = pool.slice(0, maxSources);
-  if (selected.length >= 3) return selected;
-  return docs.slice(0, Math.max(3, Math.min(maxSources, docs.length)));
+  const minExcerptLength = 180;
+  const rejected: LlmSourceRejection[] = [];
+
+  const eligibleDocs = docs.filter((doc) => {
+    const sourceUrl = normalizeUrl(doc.canonicalUrl ?? doc.url);
+    const bestExcerpt = doc.text.slice(0, 2200).trim() || doc.snippet.slice(0, 2200).trim();
+
+    if (doc.authorityTier === "tier5_weak") {
+      rejected.push({ sourceUrl, domain: doc.domain, tier: doc.authorityTier, reason: "authority_tier_too_weak" });
+      return false;
+    }
+
+    if (bestExcerpt.length < minExcerptLength) {
+      rejected.push({ sourceUrl, domain: doc.domain, tier: doc.authorityTier, reason: "insufficient_extracted_text" });
+      return false;
+    }
+
+    return true;
+  });
+
+  const selectedDocs = [...eligibleDocs]
+    .sort((a, b) => {
+      const tierDelta = TIER_RANK[a.authorityTier] - TIER_RANK[b.authorityTier];
+      if (tierDelta !== 0) return tierDelta;
+      if (a.languageSignal !== b.languageSignal) {
+        const aBg = a.languageSignal === "bg" || a.languageSignal === "mixed";
+        const bBg = b.languageSignal === "bg" || b.languageSignal === "mixed";
+        if (aBg !== bBg) return aBg ? -1 : 1;
+      }
+      return b.qualityScore - a.qualityScore;
+    })
+    .slice(0, maxSources);
+
+  return {
+    eligible: selectedDocs.map((doc) => ({
+      source_url: normalizeUrl(doc.canonicalUrl ?? doc.url),
+      domain: doc.domain,
+      source_title: doc.title,
+      tier: doc.authorityTier,
+      language: doc.languageSignal,
+      text_excerpt: (doc.text.slice(0, 2200).trim() || doc.snippet.slice(0, 2200).trim()),
+      metadata: {
+        description: doc.description,
+        date_hints: doc.dateLike.slice(0, 5),
+      },
+    })),
+    rejected,
+  };
 }
 
 function applyReasonToFieldCandidates(candidates: ResearchFieldCandidate[], reason: string): ResearchFieldCandidate[] {
@@ -1320,18 +1386,9 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
 
   const normalizedQuery = normalizeQuery(query);
 
-  const llmSources = pickLlmSourcesForExtraction(fallback).map((doc) => ({
-    source_url: normalizeUrl(doc.canonicalUrl ?? doc.url),
-    domain: doc.domain,
-    source_title: doc.title,
-    tier: doc.authorityTier,
-    language: doc.languageSignal,
-    text_excerpt: doc.text.slice(0, 2200),
-    metadata: {
-      description: doc.description,
-      date_hints: doc.dateLike.slice(0, 5),
-    },
-  }));
+  const llmDiagnostics = getLlmExtractionDiagnostics();
+  const preparedLlmSources = prepareLlmSourcesForExtraction(fallback);
+  const llmSources = preparedLlmSources.eligible;
 
   let llmWarnings: string[] = [];
   let llmBestGuess: {
@@ -1345,7 +1402,42 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
   } | null = null;
   let llmCandidates: ResearchCandidates | null = null;
 
-  if (isLlmExtractionEnabled() && llmSources.length > 0) {
+  console.info("[research:web] LLM extraction diagnostics", {
+    query,
+    llm_enabled: llmDiagnostics.enabled,
+    llm_missing_prerequisites: llmDiagnostics.missingPrerequisites,
+    llm_prerequisites_present: llmDiagnostics.prerequisites,
+    llm_config: {
+      endpoint: llmDiagnostics.resolvedConfig.endpoint,
+      model: llmDiagnostics.resolvedConfig.model,
+      timeout_ms: llmDiagnostics.resolvedConfig.timeoutMs,
+      auth_mode: llmDiagnostics.resolvedConfig.authMode,
+    },
+    ranked_source_count: fallback.length,
+    llm_eligible_source_count: llmSources.length,
+    llm_rejected_source_count: preparedLlmSources.rejected.length,
+    llm_rejected_sources_sample: preparedLlmSources.rejected.slice(0, 5),
+  });
+
+  if (!llmDiagnostics.enabled) {
+    warnings.push(
+      `LLM extraction disabled by missing prerequisites (${llmDiagnostics.missingPrerequisites.join(", ")}); using deterministic source-backed extraction.`,
+    );
+  } else if (llmSources.length === 0) {
+    const sampleReasons = preparedLlmSources.rejected
+      .slice(0, 3)
+      .map((item) => `${item.domain}: ${item.reason}`)
+      .join("; ");
+    warnings.push(
+      `LLM extraction skipped because no eligible source text was extracted${sampleReasons ? ` (${sampleReasons})` : ""}; using deterministic source-backed extraction.`,
+    );
+  } else {
+    console.info("[research:web] attempting LLM extraction", {
+      query,
+      llm_eligible_source_count: llmSources.length,
+      llm_source_urls: llmSources.map((source) => source.source_url),
+    });
+
     try {
       const llm = await runLlmFieldExtraction({
         query,
@@ -1362,12 +1454,44 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
         organizers: llm.candidates.organizers,
       };
       llmWarnings = llm.warnings;
+
+      const accepted =
+        Boolean(llmBestGuess?.title || llmBestGuess?.start_date || llmBestGuess?.city || llmBestGuess?.location || llmBestGuess?.organizer) ||
+        Boolean(llmBestGuess?.tags?.length) ||
+        Boolean(
+          llmCandidates.titles.length ||
+            llmCandidates.dates.length ||
+            llmCandidates.cities.length ||
+            llmCandidates.locations.length ||
+            llmCandidates.organizers.length,
+        );
+
+      console.info("[research:web] LLM extraction response", {
+        query,
+        llm_response_accepted: accepted,
+        candidate_counts: {
+          titles: llmCandidates.titles.length,
+          dates: llmCandidates.dates.length,
+          cities: llmCandidates.cities.length,
+          locations: llmCandidates.locations.length,
+          organizers: llmCandidates.organizers.length,
+        },
+        warning_count: llmWarnings.length,
+      });
+
+      if (!accepted) {
+        warnings.push("LLM extraction returned no usable candidates; using deterministic source-backed extraction.");
+        llmBestGuess = null;
+        llmCandidates = null;
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "unknown error";
-      warnings.push(`LLM extraction failed; using deterministic fallback candidates (${message}).`);
+      console.warn("[research:web] LLM extraction failed", {
+        query,
+        error: message,
+      });
+      warnings.push(`LLM extraction failed at runtime (${message}); using deterministic source-backed extraction.`);
     }
-  } else {
-    warnings.push("LLM extraction disabled or no eligible sources; using deterministic source-backed extraction.");
   }
 
   const finalCandidates: ResearchCandidates = {

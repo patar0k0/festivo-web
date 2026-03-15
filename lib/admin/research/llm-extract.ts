@@ -21,8 +21,8 @@ type LlmExtractInput = {
 };
 
 const DEFAULT_LLM_TIMEOUT_MS = 25_000;
-const MIN_LLM_TIMEOUT_MS = 8_000;
-const MAX_LLM_TIMEOUT_MS = 60_000;
+const MIN_LLM_TIMEOUT_MS = 10_000;
+const MAX_LLM_TIMEOUT_MS = 90_000;
 
 type LlmExtractResult = {
   best_guess: {
@@ -267,6 +267,14 @@ export function estimateLlmPromptSizeChars(input: LlmExtractInput): number {
   return prompt.system.length + prompt.user.length;
 }
 
+export function isLlmTimeoutError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "name" in error && (error as { name?: unknown }).name === "LlmTimeoutError");
+}
+
+export function isLlmAbortError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "name" in error && (error as { name?: unknown }).name === "LlmAbortError");
+}
+
 function hasMeaningfulLlmResult(result: LlmExtractResult): boolean {
   const hasBestGuess = Boolean(
     result.best_guess.title ||
@@ -299,7 +307,11 @@ export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<Llm
   const model = diagnostics.resolvedConfig.model;
   const timeoutMs = diagnostics.resolvedConfig.timeoutMs;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let didTimeout = false;
+  const timer = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, timeoutMs);
 
   const prompt = buildPrompt(input);
 
@@ -373,11 +385,18 @@ export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<Llm
 
     return normalizedResult;
   } catch (error) {
-    if (isAbortError(error) || controller.signal.aborted) {
+    if (didTimeout || (controller.signal.aborted && isAbortError(error))) {
       const timeoutError = new Error(`LLM extraction timed out after ${timeoutMs}ms.`);
       timeoutError.name = "LlmTimeoutError";
       throw timeoutError;
     }
+
+    if (isAbortError(error)) {
+      const abortError = new Error("LLM extraction request was aborted before a response was received.");
+      abortError.name = "LlmAbortError";
+      throw abortError;
+    }
+
     throw error;
   } finally {
     clearTimeout(timer);

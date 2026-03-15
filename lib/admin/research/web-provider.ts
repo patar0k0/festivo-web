@@ -2,7 +2,15 @@ import { buildResearchQueries } from "@/lib/admin/research/query-builder";
 import { assessSourceQuality, dedupeAndRankSources } from "@/lib/admin/research/source-ranking";
 import { decodeHtmlEntities, extractDomain, fetchSourceDocument, normalizeUrl } from "@/lib/admin/research/source-extract";
 import type { ExtractedSourceDocument } from "@/lib/admin/research/source-extract";
-import type { ResearchConfidenceLevel, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
+import type {
+  ResearchCandidates,
+  ResearchConfidenceLevel,
+  ResearchDateCandidate,
+  ResearchFestivalResult,
+  ResearchFieldCandidate,
+  ResearchLanguageSignal,
+  ResearchSource,
+} from "@/lib/admin/research/types";
 import type { SourceAuthorityTier, SourceQualityClass } from "@/lib/admin/research/source-ranking";
 
 type SearchItem = {
@@ -38,7 +46,7 @@ const BG_TAG_MAP: Record<string, string> = {
   tourism: "туризъм",
 };
 
-type LanguageSignal = "bg" | "mixed" | "non_bg";
+type LanguageSignal = ResearchLanguageSignal;
 
 type ScoredCandidate = {
   value: string;
@@ -659,9 +667,10 @@ function pickDateRangeFromStrongSources(docs: AssessedDocument[]): {
   warning: string | null;
   sourceUrl: string | null;
   tier: SourceAuthorityTier | null;
+  candidates: Array<{ startDate: string; endDate: string; sourceUrl: string; tier: SourceAuthorityTier; languageSignal: LanguageSignal }>;
 } {
   if (docs.length === 0) {
-    return { startDate: null, endDate: null, warning: "No authoritative/reputable sources available for reliable date extraction.", sourceUrl: null, tier: null };
+    return { startDate: null, endDate: null, warning: "No authoritative/reputable sources available for reliable date extraction.", sourceUrl: null, tier: null, candidates: [] };
   }
 
   const tokenOwners: Array<{ startDate: string; endDate: string; sourceUrl: string; tier: SourceAuthorityTier; evidence: string }> = [];
@@ -707,11 +716,11 @@ function pickDateRangeFromStrongSources(docs: AssessedDocument[]): {
   const rankedRanges = [...rangeVotes.entries()].sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
 
   if (rankedRanges.length === 0) {
-    return { startDate: null, endDate: null, warning: "No reliable date-like pattern found in authoritative/reputable sources.", sourceUrl: null, tier: null };
+    return { startDate: null, endDate: null, warning: "No reliable date-like pattern found in authoritative/reputable sources.", sourceUrl: null, tier: null, candidates: [] };
   }
 
   if (rankedRanges.length > 1 && rankedRanges[0][1].count === rankedRanges[1][1].count) {
-    return { startDate: null, endDate: null, warning: "Date candidates are conflicting across authoritative/reputable sources.", sourceUrl: null, tier: null };
+    return { startDate: null, endDate: null, warning: "Date candidates are conflicting across authoritative/reputable sources.", sourceUrl: null, tier: null, candidates: rankedRanges.map((entry) => ({ startDate: entry[1].sample.startDate, endDate: entry[1].sample.endDate, sourceUrl: entry[1].sample.sourceUrl, tier: entry[1].sample.tier, languageSignal: detectLanguageSignal(entry[1].sample.evidence) })) };
   }
 
   const winner = rankedRanges[0][1].sample;
@@ -719,10 +728,10 @@ function pickDateRangeFromStrongSources(docs: AssessedDocument[]): {
   const endDate = winner.endDate;
 
   if (startDate && endDate && endDate < startDate) {
-    return { startDate: null, endDate: null, warning: "Date candidates conflict in ordering across authoritative/reputable sources.", sourceUrl: null, tier: null };
+    return { startDate: null, endDate: null, warning: "Date candidates conflict in ordering across authoritative/reputable sources.", sourceUrl: null, tier: null, candidates: rankedRanges.map((entry) => ({ startDate: entry[1].sample.startDate, endDate: entry[1].sample.endDate, sourceUrl: entry[1].sample.sourceUrl, tier: entry[1].sample.tier, languageSignal: detectLanguageSignal(entry[1].sample.evidence) })) };
   }
 
-  return { startDate, endDate, warning: null, sourceUrl: winner.sourceUrl, tier: winner.tier };
+  return { startDate, endDate, warning: null, sourceUrl: winner.sourceUrl, tier: winner.tier, candidates: rankedRanges.map((entry) => ({ startDate: entry[1].sample.startDate, endDate: entry[1].sample.endDate, sourceUrl: entry[1].sample.sourceUrl, tier: entry[1].sample.tier, languageSignal: detectLanguageSignal(entry[1].sample.evidence) })) };
 }
 
 function pickLocationWithSource(
@@ -904,19 +913,73 @@ function pickCityFromDocs(
   return selection;
 }
 
+
+function dedupeFieldCandidates(candidates: ResearchFieldCandidate[]): ResearchFieldCandidate[] {
+  const seen = new Set<string>();
+  return candidates.filter((item) => {
+    const key = `${item.value.toLocaleLowerCase("bg-BG")}::${item.source_url}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function buildFieldCandidates(selection: CandidateSelection, extras: ScoredCandidate[] = []): ResearchFieldCandidate[] {
+  const merged: ResearchFieldCandidate[] = [];
+  if (selection.value && selection.sourceUrl) {
+    merged.push({ value: selection.value, source_url: normalizeUrl(selection.sourceUrl), tier: selection.tier, language: selection.languageSignal });
+  }
+
+  for (const item of extras) {
+    merged.push({ value: item.value, source_url: normalizeUrl(item.sourceUrl), tier: item.tier, language: item.languageSignal });
+  }
+
+  return dedupeFieldCandidates(
+    merged.sort((a, b) => (TIER_RANK[a.tier ?? "tier5_weak"] - TIER_RANK[b.tier ?? "tier5_weak"]) || a.value.localeCompare(b.value, "bg")),
+  );
+}
+
+function collectCandidatesFromDocs(docs: AssessedDocument[], picker: (doc: AssessedDocument) => string | null): ScoredCandidate[] {
+  const out: ScoredCandidate[] = [];
+  for (const doc of docs) {
+    const value = picker(doc);
+    if (!value) continue;
+    const sourceUrl = normalizeUrl(doc.canonicalUrl ?? doc.url);
+    const signal = detectLanguageSignal(value);
+    out.push({
+      value,
+      sourceUrl,
+      tier: doc.authorityTier,
+      languageSignal: signal,
+      score: candidateScore(doc.authorityTier, signal, true, doc.qualityScore),
+      reason: "Collected as alternative candidate from extracted source.",
+    });
+  }
+  return out.sort((a, b) => TIER_RANK[a.tier] - TIER_RANK[b.tier] || b.score - a.score);
+}
+
 function buildLowConfidenceResult(query: string, warning: string): ResearchFestivalResult {
   return {
     query,
     normalized_query: normalizeQuery(query),
-    title: null,
-    start_date: null,
-    end_date: null,
-    city: null,
-    location: null,
-    description: null,
-    organizer: null,
-    hero_image: null,
-    tags: [],
+    best_guess: {
+      title: null,
+      start_date: null,
+      end_date: null,
+      city: null,
+      location: null,
+      description: null,
+      organizer: null,
+      hero_image: null,
+      tags: [],
+    },
+    candidates: {
+      titles: [],
+      dates: [],
+      cities: [],
+      locations: [],
+      organizers: [],
+    },
     sources: [],
     confidence: {
       overall: "low",
@@ -1194,23 +1257,51 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
   const overallConfidence: ResearchConfidenceLevel =
     weakOnly || authoritative.length === 0 ? "low" : canonicalBackedByAuthority ? pickConfidence(adjustedScore) : "medium";
 
+  const tags = query
+    .split(/\s+/)
+    .map((part) => part.trim().toLocaleLowerCase("bg-BG"))
+    .filter((part) => part.length > 2 && !/^(19|20)\d{2}$/.test(part))
+    .map((part) => (bgQuery ? BG_TAG_MAP[part] ?? part : part))
+    .slice(0, 5);
+
+  const titleAlternatives = collectCandidatesFromDocs(fallback, (doc) => cleanTitleCandidate(doc.title).cleaned);
+  const cityAlternatives = collectCandidatesFromDocs(fallback, (doc) => {
+    const matched = matchBulgarianCityAlias(`${doc.title} ${doc.snippet}`);
+    return matched ? matched.canonical : null;
+  });
+  const locationAlternatives = collectCandidatesFromDocs(fallback, (doc) => pickFieldValue(doc.locationLike.map((entry) => cleanLocationCandidate(entry)).filter((entry): entry is string => Boolean(entry))));
+  const organizerAlternatives = collectCandidatesFromDocs(fallback, (doc) => pickFieldValue(doc.organizerLike.map((entry) => decodeResearchText(entry))));
+
+  const candidates: ResearchCandidates = {
+    titles: buildFieldCandidates(titleSelection.value ? titleSelection : fallbackTitleSelection, titleAlternatives),
+    dates: dateRange.candidates.map<ResearchDateCandidate>((item) => ({
+      start_date: item.startDate,
+      end_date: item.endDate,
+      source_url: normalizeUrl(item.sourceUrl),
+      tier: item.tier,
+      language: item.languageSignal,
+      label: item.startDate === item.endDate ? item.startDate : `${item.startDate} → ${item.endDate}`,
+    })),
+    cities: buildFieldCandidates(citySelection, cityAlternatives),
+    locations: buildFieldCandidates(locationSelection, locationAlternatives),
+    organizers: buildFieldCandidates(organizerSelection, organizerAlternatives),
+  };
+
   return {
     query,
     normalized_query: normalizeQuery(query),
-    title,
-    start_date: startDate,
-    end_date: endDate,
-    city: cityCandidate,
-    location,
-    description,
-    organizer,
-    hero_image: heroImage,
-    tags: query
-      .split(/\s+/)
-      .map((part) => part.trim().toLocaleLowerCase("bg-BG"))
-      .filter((part) => part.length > 2 && !/^(19|20)\d{2}$/.test(part))
-      .map((part) => (bgQuery ? BG_TAG_MAP[part] ?? part : part))
-      .slice(0, 5),
+    best_guess: {
+      title,
+      start_date: startDate,
+      end_date: endDate,
+      city: cityCandidate,
+      location,
+      description,
+      organizer,
+      hero_image: heroImage,
+      tags,
+    },
+    candidates,
     sources: rankedSources.map((source) => ({ ...source, url: normalizeUrl(source.url) })),
     confidence: {
       overall: overallConfidence,

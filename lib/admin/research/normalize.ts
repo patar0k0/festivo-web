@@ -1,4 +1,5 @@
-import { ResearchConfidenceLevel, type ResearchFestivalResult, type ResearchSource } from "@/lib/admin/research/types";
+import { ResearchConfidenceLevel, type ResearchDateCandidate, type ResearchFestivalResult, type ResearchFieldCandidate, type ResearchSource } from "@/lib/admin/research/types";
+import type { SourceAuthorityTier } from "@/lib/admin/research/source-ranking";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -56,12 +57,7 @@ function normalizeSources(value: unknown): ResearchSource[] {
 
     if (!url || !domain || !title) continue;
 
-    out.push({
-      url,
-      domain,
-      title,
-      is_official: isOfficial,
-    });
+    out.push({ url, domain, title, is_official: isOfficial });
   }
 
   return out;
@@ -71,22 +67,105 @@ function normalizeConfidenceLevel(value: unknown, fallback: ResearchConfidenceLe
   return value === "high" || value === "medium" || value === "low" ? value : fallback;
 }
 
-export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFestivalResult {
-  const startDate = normalizeDate(raw.start_date);
-  const endDate = normalizeDate(raw.end_date);
+function normalizeTier(value: unknown): SourceAuthorityTier | null {
+  return value === "tier1_official" || value === "tier2_reputable" || value === "tier3_reference" || value === "tier4_commercial" || value === "tier5_weak"
+    ? value
+    : null;
+}
 
-  return {
+function normalizeLanguage(value: unknown): "bg" | "mixed" | "non_bg" | null {
+  return value === "bg" || value === "mixed" || value === "non_bg" ? value : null;
+}
+
+function normalizeFieldCandidates(value: unknown): ResearchFieldCandidate[] {
+  if (!Array.isArray(value)) return [];
+  const deduped = new Set<string>();
+  const out: ResearchFieldCandidate[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const candidateValue = normalizeText((item as { value?: unknown }).value);
+    const sourceUrl = normalizeText((item as { source_url?: unknown }).source_url);
+    if (!candidateValue || !sourceUrl) continue;
+    const key = `${candidateValue.toLocaleLowerCase("bg-BG")}::${sourceUrl}`;
+    if (deduped.has(key)) continue;
+    deduped.add(key);
+    out.push({
+      value: candidateValue,
+      source_url: sourceUrl,
+      tier: normalizeTier((item as { tier?: unknown }).tier),
+      language: normalizeLanguage((item as { language?: unknown }).language),
+    });
+  }
+
+  return out;
+}
+
+function normalizeDateCandidates(value: unknown): ResearchDateCandidate[] {
+  if (!Array.isArray(value)) return [];
+  const deduped = new Set<string>();
+  const out: ResearchDateCandidate[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const startDate = normalizeDate((item as { start_date?: unknown }).start_date);
+    const endDate = normalizeDate((item as { end_date?: unknown }).end_date) ?? startDate;
+    const sourceUrl = normalizeText((item as { source_url?: unknown }).source_url);
+    if (!startDate || !endDate || !sourceUrl) continue;
+    const key = `${startDate}::${endDate}::${sourceUrl}`;
+    if (deduped.has(key)) continue;
+    deduped.add(key);
+
+    const label = normalizeText((item as { label?: unknown }).label) ?? (startDate === endDate ? startDate : `${startDate} → ${endDate}`);
+    out.push({
+      start_date: startDate,
+      end_date: endDate,
+      source_url: sourceUrl,
+      label,
+      tier: normalizeTier((item as { tier?: unknown }).tier),
+      language: normalizeLanguage((item as { language?: unknown }).language),
+    });
+  }
+
+  return out;
+}
+
+export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFestivalResult {
+  const rawBestGuess = raw.best_guess ?? {
+    title: raw.title ?? null,
+    start_date: raw.start_date ?? null,
+    end_date: raw.end_date ?? null,
+    city: raw.city ?? null,
+    location: raw.location ?? null,
+    description: raw.description ?? null,
+    organizer: raw.organizer ?? null,
+    hero_image: raw.hero_image ?? null,
+    tags: raw.tags ?? [],
+  };
+
+  const bestGuess = {
+    title: normalizeText(rawBestGuess.title),
+    start_date: normalizeDate(rawBestGuess.start_date),
+    end_date: normalizeDate(rawBestGuess.end_date),
+    city: normalizeText(rawBestGuess.city),
+    location: normalizeText(rawBestGuess.location),
+    description: normalizeText(rawBestGuess.description),
+    organizer: normalizeText(rawBestGuess.organizer),
+    hero_image: normalizeText(rawBestGuess.hero_image),
+    tags: normalizeTags(rawBestGuess.tags),
+  };
+
+  const normalized: ResearchFestivalResult = {
     query: raw.query.trim(),
     normalized_query: raw.normalized_query.trim(),
-    title: normalizeText(raw.title),
-    start_date: startDate,
-    end_date: endDate,
-    city: normalizeText(raw.city),
-    location: normalizeText(raw.location),
-    description: normalizeText(raw.description),
-    organizer: normalizeText(raw.organizer),
-    hero_image: normalizeText(raw.hero_image),
-    tags: normalizeTags(raw.tags),
+    best_guess: bestGuess,
+    candidates: {
+      titles: normalizeFieldCandidates(raw.candidates?.titles),
+      dates: normalizeDateCandidates(raw.candidates?.dates),
+      cities: normalizeFieldCandidates(raw.candidates?.cities),
+      locations: normalizeFieldCandidates(raw.candidates?.locations),
+      organizers: normalizeFieldCandidates(raw.candidates?.organizers),
+    },
     sources: normalizeSources(raw.sources),
     confidence: {
       overall: normalizeConfidenceLevel(raw.confidence.overall, "low"),
@@ -98,9 +177,7 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
       organizer: normalizeConfidenceLevel(raw.confidence.organizer, "low"),
       hero_image: normalizeConfidenceLevel(raw.confidence.hero_image, "low"),
     },
-    warnings: Array.isArray(raw.warnings)
-      ? raw.warnings.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean)
-      : [],
+    warnings: Array.isArray(raw.warnings) ? raw.warnings.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean) : [],
     evidence: Array.isArray(raw.evidence)
       ? raw.evidence
           .map((item) => {
@@ -129,17 +206,30 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
                 : 0,
           }
         : undefined,
+    title: bestGuess.title,
+    start_date: bestGuess.start_date,
+    end_date: bestGuess.end_date,
+    city: bestGuess.city,
+    location: bestGuess.location,
+    description: bestGuess.description,
+    organizer: bestGuess.organizer,
+    hero_image: bestGuess.hero_image,
+    tags: bestGuess.tags,
   };
+
+  return normalized;
 }
 
 export function validateDateFieldsOrErrors(raw: ResearchFestivalResult): string[] {
   const errors: string[] = [];
+  const startDate = raw.best_guess?.start_date ?? raw.start_date;
+  const endDate = raw.best_guess?.end_date ?? raw.end_date;
 
-  if (isDateProvided(raw.start_date) && !normalizeDate(raw.start_date)) {
+  if (isDateProvided(startDate) && !normalizeDate(startDate)) {
     errors.push("start_date must be a valid date in YYYY-MM-DD format");
   }
 
-  if (isDateProvided(raw.end_date) && !normalizeDate(raw.end_date)) {
+  if (isDateProvided(endDate) && !normalizeDate(endDate)) {
     errors.push("end_date must be a valid date in YYYY-MM-DD format");
   }
 
@@ -147,11 +237,14 @@ export function validateDateFieldsOrErrors(raw: ResearchFestivalResult): string[
 }
 
 export function validateDateRangeOrError(result: ResearchFestivalResult): string | null {
-  if (!result.start_date || !result.end_date) {
+  const startDate = result.best_guess?.start_date ?? result.start_date;
+  const endDate = result.best_guess?.end_date ?? result.end_date;
+
+  if (!startDate || !endDate) {
     return null;
   }
 
-  if (result.end_date < result.start_date) {
+  if (endDate < startDate) {
     return "end_date cannot be before start_date";
   }
 

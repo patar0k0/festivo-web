@@ -57,7 +57,14 @@ function normalizeSources(value: unknown): ResearchSource[] {
 
     if (!url || !domain || !title) continue;
 
-    out.push({ url, domain, title, is_official: isOfficial });
+    out.push({
+      url,
+      domain,
+      title,
+      is_official: isOfficial,
+      tier: normalizeTier((source as { tier?: unknown }).tier),
+      language: normalizeLanguage((source as { language?: unknown }).language),
+    });
   }
 
   return out;
@@ -116,14 +123,14 @@ function normalizeDateCandidates(value: unknown): ResearchDateCandidate[] {
   for (const item of value) {
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
     const startDate = normalizeDate((item as { start_date?: unknown }).start_date);
-    const endDate = normalizeDate((item as { end_date?: unknown }).end_date) ?? startDate;
+    const endDate = normalizeDate((item as { end_date?: unknown }).end_date);
     const sourceUrl = normalizeText((item as { source_url?: unknown }).source_url);
-    if (!startDate || !endDate || !sourceUrl) continue;
-    const key = `${startDate}::${endDate}::${sourceUrl}`;
+    if (!sourceUrl || (!startDate && !endDate)) continue;
+    const key = `${startDate ?? "null"}::${endDate ?? "null"}::${sourceUrl}`;
     if (deduped.has(key)) continue;
     deduped.add(key);
 
-    const label = normalizeText((item as { label?: unknown }).label) ?? (startDate === endDate ? startDate : `${startDate} → ${endDate}`);
+    const label = normalizeText((item as { label?: unknown }).label) ?? (startDate && endDate ? (startDate === endDate ? startDate : `${startDate} → ${endDate}`) : null);
     out.push({
       start_date: startDate,
       end_date: endDate,
@@ -151,6 +158,7 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     organizer: raw.organizer ?? null,
     hero_image: raw.hero_image ?? null,
     tags: raw.tags ?? [],
+    is_free: raw.is_free ?? null,
   };
 
   const bestGuess = {
@@ -163,6 +171,7 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     organizer: normalizeText(rawBestGuess.organizer),
     hero_image: normalizeText(rawBestGuess.hero_image),
     tags: normalizeTags(rawBestGuess.tags),
+    is_free: typeof rawBestGuess.is_free === "boolean" ? rawBestGuess.is_free : null,
   };
 
   const normalized: ResearchFestivalResult = {
@@ -186,6 +195,7 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
       description: normalizeConfidenceLevel(raw.confidence.description, "low"),
       organizer: normalizeConfidenceLevel(raw.confidence.organizer, "low"),
       hero_image: normalizeConfidenceLevel(raw.confidence.hero_image, "low"),
+      is_free: normalizeConfidenceLevel(raw.confidence.is_free, "low"),
     },
     warnings: Array.isArray(raw.warnings) ? raw.warnings.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean) : [],
     evidence: Array.isArray(raw.evidence)
@@ -203,17 +213,25 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     metadata:
       raw.metadata && typeof raw.metadata === "object"
         ? {
-            provider: raw.metadata.provider === "web" ? "web" : "mock",
+            provider: raw.metadata.provider === "web" || raw.metadata.provider === "openai_web" ? raw.metadata.provider : "mock",
             mode:
               raw.metadata.mode === "real_web"
                 ? "real_web"
                 : raw.metadata.mode === "special_case_mock"
                   ? "special_case_mock"
-                  : "generic_mock",
+                  : raw.metadata.mode === "openai_structured"
+                    ? "openai_structured"
+                    : raw.metadata.mode === "fallback_minimal"
+                      ? "fallback_minimal"
+                      : "generic_mock",
             source_count:
               typeof raw.metadata.source_count === "number" && Number.isFinite(raw.metadata.source_count)
                 ? Math.max(0, Math.floor(raw.metadata.source_count))
                 : 0,
+            model: normalizeText(raw.metadata.model) ?? undefined,
+            openai_attempted: raw.metadata.openai_attempted === true,
+            openai_json_parsed: raw.metadata.openai_json_parsed === true,
+            fallback_used: raw.metadata.fallback_used === true,
           }
         : undefined,
     title: bestGuess.title,
@@ -225,6 +243,7 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     organizer: bestGuess.organizer,
     hero_image: bestGuess.hero_image,
     tags: bestGuess.tags,
+    is_free: bestGuess.is_free,
   };
 
   return normalized;

@@ -1,108 +1,6 @@
 import type { ResearchSource } from "@/lib/admin/research/types";
 import { extractDomain, normalizeUrl } from "@/lib/admin/research/source-extract";
 
-const OFFICIAL_HINTS = ["official", "официал", "festival", "fest", "surva", "carnival"];
-const INSTITUTIONAL_HINTS = ["gov", "gob", "municipality", "obshtina", "council", "culture", "tourism", "visit", "edu", "org"];
-const TRUSTED_MEDIA_HINTS = ["bta", "bnr", "bnt", "dnevnik", "mediapool", "news", "times"];
-const LOW_QUALITY_HINTS = ["wiki", "wikipedia", "facebook.com/events", "eventbrite", "allevents", "festivall", "events.bg", "directory", "tripadvisor", "couchsurfing", "listing", "profile", "things to do"];
-const STRONG_DOMAIN_HINTS = [
-  "gov.bg",
-  "government",
-  "municipality",
-  "obshtina",
-  "visit",
-  "tourism",
-  "culture",
-  "festival",
-  "fest",
-  "surva",
-  "bta.bg",
-  "bnr.bg",
-  "bntnews.bg",
-  "programata.bg",
-];
-const WEAK_DOMAIN_HINTS = [
-  "tripadvisor",
-  "couchsurfing",
-  "eventbrite",
-  "allevents",
-  "eventsin",
-  "10times",
-  "evensi",
-  "facebook.com/pages",
-  "facebook.com/groups",
-  "facebook.com/public",
-  "instagram.com",
-  "tiktok.com",
-  "linkedin.com",
-  "foursquare",
-  "booking",
-  "trip",
-];
-
-const TIER1_DOMAIN_HINTS = [
-  "gov.bg",
-  "government.bg",
-  "municipality",
-  "obshtina",
-  "kmet",
-  "tourism",
-  "visit",
-  "culture",
-  "mincult",
-  "ministry",
-];
-
-const TIER1_TITLE_HINTS = ["официал", "official", "организатор", "организира", "община", "министер", "туриз", "култур", "festival"];
-
-const TIER2_DOMAIN_HINTS = ["bta", "bnr", "bnt", "dnevnik", "mediapool", "news", "times", "capital", "offnews", "darik"];
-const TIER3_DOMAIN_HINTS = ["wikipedia", "wiki", "britannica", "encyclopedia", "directory", "programata"];
-const TIER4_DOMAIN_HINTS = [
-  "tripadvisor",
-  "booking",
-  "expedia",
-  "airbnb",
-  "agoda",
-  "kayak",
-  "viator",
-  "travel",
-  "tour",
-  "tickets",
-  "eventbrite",
-  "allevents",
-  "10times",
-  "evensi",
-  "getyourguide",
-  "blog",
-  "guide",
-  "offers",
-  "package",
-];
-const TIER5_DOMAIN_HINTS = ["facebook.com/pages", "facebook.com/groups", "instagram.com", "tiktok.com", "linkedin.com", "foursquare"];
-
-const COMMERCIAL_PAGE_HINTS = ["package", "offer", "deal", "book", "booking", "travel guide", "things to do", "attraction", "reseller", "price"];
-const AUTHORITY_DENY_HINTS = [
-  "wikipedia",
-  "wiki",
-  "blog",
-  "guide",
-  "codanec",
-  "newwave",
-  "tripadvisor",
-  "eventbrite",
-  "allevents",
-  "10times",
-  "listing",
-  "directory",
-  "package",
-  "offer",
-  "deals",
-  "booking",
-  "tickets",
-  "travel",
-  "tour",
-];
-
 export type SourceAuthorityTier =
   | "tier1_official"
   | "tier2_reputable"
@@ -110,248 +8,77 @@ export type SourceAuthorityTier =
   | "tier4_commercial"
   | "tier5_weak";
 
-export type SourceQualityClass = "strong" | "medium" | "weak";
+const TIER_1_HINTS = ["gov.bg", "municipality", "obshtina", "kmet", "tourism", "visit", "culture", "ministry", "surva", "official"];
+const TIER_2_HINTS = ["bta.bg", "bnr.bg", "bnt", "dnevnik", "capital", "offnews", "darik", "news"];
+const TIER_4_HINTS = ["eventbrite", "allevents", "tripadvisor", "booking", "tickets", "travel", "blog", "guide"];
+const TIER_5_HINTS = ["facebook.com/groups", "facebook.com/pages", "instagram.com", "tiktok.com", "linkedin.com"];
 
-export type SourceAssessment = {
-  score: number;
-  isOfficial: boolean;
-  qualityClass: SourceQualityClass;
-  authorityTier: SourceAuthorityTier;
-  languageSignal: "bg" | "mixed" | "non_bg";
-  languageScore: number;
-  authorityReason: string;
-};
-
-const BG_STOP_WORDS = [" и ", " за ", " на ", " от ", " в ", " с ", "фестивал", "община", "култура", "туризъм", "организатор"];
-
-function detectPrimaryLanguage(value: string): { signal: "bg" | "mixed" | "non_bg"; score: number } {
-  const normalized = ` ${value.toLocaleLowerCase("bg-BG")} `;
-  const cyrillic = (normalized.match(/[\u0400-\u04FF]/g) ?? []).length;
-  const latin = (normalized.match(/[a-z]/g) ?? []).length;
-  const stopWordHits = BG_STOP_WORDS.filter((word) => normalized.includes(word)).length;
-
-  const score = cyrillic * 2 + stopWordHits * 6 - Math.floor(latin / 2);
-  if (score >= 12 || (cyrillic > 0 && cyrillic >= latin)) {
-    return { signal: "bg", score };
-  }
-  if (cyrillic > 0) {
-    return { signal: "mixed", score };
-  }
-  return { signal: "non_bg", score };
-}
-
-function isBulgarianQuery(query: string): boolean {
-  return /[\u0400-\u04FF]/u.test(query) || /\b(фестивал|събор|празник|карнавал|сурва)\b/iu.test(query);
-}
-
-function tokenize(value: string): string[] {
-  return value
-    .toLocaleLowerCase("bg-BG")
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((part) => part.length > 2);
-}
-
-function baseDomain(hostname: string): string {
-  const parts = hostname.toLocaleLowerCase("en-US").split(".").filter(Boolean);
-  if (parts.length <= 2) return parts.join(".");
-  return parts.slice(-2).join(".");
-}
-
-function containsAny(value: string, hints: string[]): boolean {
+function includesAny(value: string, hints: string[]): boolean {
   return hints.some((hint) => value.includes(hint));
 }
 
-function classifySource(source: ResearchSource, query: string): SourceAssessment {
-  const title = source.title.toLocaleLowerCase("bg-BG");
-  const domain = source.domain.toLocaleLowerCase("en-US");
-  const queryTokens = tokenize(query);
-  const bgQuery = isBulgarianQuery(query);
-  const language = detectPrimaryLanguage(`${source.title} ${source.domain}`);
-
-  let score = 0;
-  let isOfficial = source.is_official;
-
-  const tokenHits = queryTokens.filter((token) => title.includes(token) || domain.includes(token)).length;
-  if (tokenHits > 0) score += Math.min(26, tokenHits * 8);
-
-  if (containsAny(`${title} ${domain}`, OFFICIAL_HINTS)) {
-    score += 30;
-    isOfficial = true;
-  }
-
-  if (containsAny(domain, INSTITUTIONAL_HINTS)) {
-    score += 18;
-  }
-
-  if (containsAny(domain, TRUSTED_MEDIA_HINTS)) {
-    score += 8;
-  }
-
-  if (containsAny(`${title} ${domain}`, LOW_QUALITY_HINTS)) {
-    score -= 18;
-  }
-
-  if (source.is_official) score += 25;
-
-  if (containsAny(domain, STRONG_DOMAIN_HINTS) || /\b(община|municipality|tourism|култур[аеи])\b/iu.test(title)) {
-    score += 28;
-    isOfficial = true;
-  }
-
-  if (containsAny(`${title} ${domain}`, WEAK_DOMAIN_HINTS) || /\b(listing|directory|things to do|attractions?)\b/iu.test(title)) {
-    score -= 42;
-  }
-
-  const text = `${title} ${domain}`;
-  const isBgDomain = domain.endsWith(".bg");
-  const isWikipedia = /(^|\.)wikipedia\.org$/iu.test(domain) || /\bwiki\b/iu.test(domain);
-  const hasAuthorityDenySignal = containsAny(text, AUTHORITY_DENY_HINTS) || /\b(blog|guide|package|offer|listing|directory|tickets?|travel|tour)\b/iu.test(text);
-  const hasInstitutionalSignal = containsAny(domain, TIER1_DOMAIN_HINTS) || containsAny(title, TIER1_TITLE_HINTS);
-  const isMunicipalityOrGov = /(gov\.bg|government\.bg|obshtina|municipality|kmet|ministry|mincult)/iu.test(domain);
-  const isTourismBoard = isBgDomain && /(tourism|visit|destination|travel-bulgaria|tourist)/iu.test(domain);
-  const isAuthoritativeOrganizer = isBgDomain && /(association|foundation|committee|chitalishte|culture|kultura|org)/iu.test(domain);
-  const isFestivalOfficialDomain = isBgDomain && /(festival|fest|surva|carnival)/iu.test(domain) && /(official|официал|организатор|община|municipality)/iu.test(title);
-  const hasReputableSignal = containsAny(domain, TIER2_DOMAIN_HINTS);
-  const isReferenceSignal = containsAny(domain, TIER3_DOMAIN_HINTS) || /\b(wikipedia|reference|encyclopedia|directory)\b/iu.test(text);
-  const isCommercialSignal =
-    containsAny(text, TIER4_DOMAIN_HINTS) || /\b(travel|tour|booking|package|tickets?|deals?|guide|offer|reseller)\b/iu.test(text);
-  const isWeakSignal = containsAny(text, TIER5_DOMAIN_HINTS) || /\b(profile|listing|group|page)\b/iu.test(text);
-
-  let authorityTier: SourceAuthorityTier;
-  if (isWikipedia) {
-    authorityTier = "tier3_reference";
-  } else if (hasAuthorityDenySignal || isCommercialSignal || isWeakSignal) {
-    authorityTier = isCommercialSignal ? "tier4_commercial" : "tier5_weak";
-  } else if (isMunicipalityOrGov || isTourismBoard || isFestivalOfficialDomain || isAuthoritativeOrganizer || (source.is_official && hasInstitutionalSignal && isBgDomain)) {
-    authorityTier = "tier1_official";
-  } else if (hasReputableSignal && !isCommercialSignal) {
-    authorityTier = "tier2_reputable";
-  } else if (isReferenceSignal && !isCommercialSignal) {
-    authorityTier = "tier3_reference";
-  } else if (isCommercialSignal) {
-    authorityTier = "tier4_commercial";
-  } else if (isWeakSignal) {
-    authorityTier = "tier5_weak";
-  } else {
-    authorityTier = "tier5_weak";
-  }
-
-  if (isBgDomain && (authorityTier === "tier1_official" || authorityTier === "tier2_reputable")) {
-    score += 24;
-  }
-
-  if (bgQuery && language.signal === "bg") score += 34;
-  if (bgQuery && language.signal === "mixed") score += 12;
-  if (bgQuery && language.signal === "non_bg" && authorityTier !== "tier1_official") score -= 28;
-
-  if (bgQuery && authorityTier === "tier4_commercial" && language.signal !== "bg") {
-    score -= 45;
-  }
-
-  if (containsAny(text, COMMERCIAL_PAGE_HINTS) && authorityTier !== "tier1_official") {
-    score -= 70;
-  }
-
-  if (authorityTier === "tier1_official") score += 170;
-  if (authorityTier === "tier2_reputable") score += 95;
-  if (authorityTier === "tier3_reference") score += 35;
-  if (authorityTier === "tier4_commercial") score -= 130;
-  if (authorityTier === "tier5_weak") score -= 170;
-
-  const qualityClass: SourceQualityClass =
-    authorityTier === "tier1_official" || authorityTier === "tier2_reputable"
-      ? "strong"
-      : authorityTier === "tier3_reference"
-        ? "medium"
-        : "weak";
-
-  const authorityReason =
-    authorityTier === "tier1_official"
-      ? "Official only when domain is municipal/gov/tourism-board/authoritative organizer or explicitly official BG festival site."
-      : authorityTier === "tier3_reference"
-        ? "Reference tier: encyclopedia/reference source (Wikipedia never promoted to official)."
-        : authorityTier === "tier4_commercial"
-          ? "Commercial tier: travel/package/offer/listing indicators detected."
-          : authorityTier === "tier2_reputable"
-            ? "Reputable tier: trusted media-like source without official/institutional authority."
-            : "Weak tier: missing authority signals or denied by weak/listing/blog indicators.";
-
-  return {
-    score,
-    isOfficial: isOfficial || authorityTier === "tier1_official",
-    qualityClass,
-    authorityTier,
-    languageSignal: language.signal,
-    languageScore: language.score,
-    authorityReason,
-  };
+function languageSignal(value: string): "bg" | "mixed" | "non_bg" {
+  const cyrillic = (value.match(/[\u0400-\u04FF]/g) ?? []).length;
+  const latin = (value.match(/[A-Za-z]/g) ?? []).length;
+  if (cyrillic > 0 && cyrillic >= latin) return "bg";
+  if (cyrillic > 0) return "mixed";
+  return "non_bg";
 }
 
-export function assessSourceQuality(source: ResearchSource, query: string): SourceAssessment {
-  return classifySource(source, query);
+export function getSourceAuthorityTier(source: Pick<ResearchSource, "url" | "domain" | "title">): SourceAuthorityTier {
+  const scope = `${source.domain} ${source.url} ${source.title}`.toLocaleLowerCase("bg-BG");
+
+  if (includesAny(scope, TIER_1_HINTS)) return "tier1_official";
+  if (includesAny(scope, TIER_2_HINTS)) return "tier2_reputable";
+  if (scope.includes("wikipedia") || scope.includes("wiki")) return "tier3_reference";
+  if (includesAny(scope, TIER_5_HINTS)) return "tier5_weak";
+  if (includesAny(scope, TIER_4_HINTS)) return "tier4_commercial";
+  return "tier3_reference";
 }
 
-export function dedupeAndRankSources(sources: ResearchSource[], query: string, limit = 8): ResearchSource[] {
-  const uniqueByUrl = new Map<string, ResearchSource>();
+const TIER_SCORE: Record<SourceAuthorityTier, number> = {
+  tier1_official: 100,
+  tier2_reputable: 70,
+  tier3_reference: 40,
+  tier4_commercial: 15,
+  tier5_weak: 0,
+};
+
+export function rankSourcesAuthorityFirst(sources: ResearchSource[]): ResearchSource[] {
+  const deduped = new Map<string, ResearchSource>();
 
   for (const source of sources) {
     const normalizedUrl = normalizeUrl(source.url);
-    const domain = source.domain || extractDomain(source.url);
-    if (!normalizedUrl || !domain) continue;
+    if (!normalizedUrl) continue;
+    const domain = extractDomain(normalizedUrl);
+    if (!domain) continue;
 
-    const key = normalizedUrl.toLocaleLowerCase("en-US");
-    if (!uniqueByUrl.has(key)) {
-      uniqueByUrl.set(key, {
+    const normalized: ResearchSource = {
+      ...source,
+      url: normalizedUrl,
+      domain,
+      title: source.title?.trim() || domain,
+    };
+
+    const key = `${domain}::${normalized.title.toLocaleLowerCase("bg-BG")}`;
+    if (!deduped.has(key)) deduped.set(key, normalized);
+  }
+
+  return [...deduped.values()]
+    .map((source) => {
+      const tier = getSourceAuthorityTier(source);
+      const lang = languageSignal(`${source.title} ${source.domain}`);
+      return {
         ...source,
-        url: normalizedUrl,
-        domain,
-        title: source.title.trim() || normalizedUrl,
-      });
-    }
-  }
-
-  const byBaseDomain = new Map<
-    string,
-    {
-      source: ResearchSource;
-      score: number;
-      isOfficial: boolean;
-      authorityTier: SourceAuthorityTier;
-      languageSignal: "bg" | "mixed" | "non_bg";
-      languageScore: number;
-    }
-  >();
-
-  for (const source of uniqueByUrl.values()) {
-    const classification = classifySource(source, query);
-    const domainGroup = baseDomain(source.domain);
-    const existing = byBaseDomain.get(domainGroup);
-
-    if (!existing || classification.score > existing.score) {
-      byBaseDomain.set(domainGroup, { source, ...classification });
-    }
-  }
-
-  return [...byBaseDomain.values()]
-    .sort((a, b) => {
-      if (a.authorityTier !== b.authorityTier) {
-        const tierRank: Record<SourceAuthorityTier, number> = {
-          tier1_official: 1,
-          tier2_reputable: 2,
-          tier3_reference: 3,
-          tier4_commercial: 4,
-          tier5_weak: 5,
-        };
-        return tierRank[a.authorityTier] - tierRank[b.authorityTier];
-      }
-      if (a.isOfficial !== b.isOfficial) return a.isOfficial ? -1 : 1;
-      if (a.languageSignal !== b.languageSignal) {
-        const langRank = { bg: 1, mixed: 2, non_bg: 3 };
-        return langRank[a.languageSignal] - langRank[b.languageSignal];
-      }
-      if (a.languageScore !== b.languageScore) return b.languageScore - a.languageScore;
-      return b.score - a.score;
+        tier,
+        language: lang,
+        is_official: source.is_official || tier === "tier1_official",
+      };
     })
-    .slice(0, limit)
-    .map((entry) => ({ ...entry.source, is_official: entry.isOfficial }));
+    .sort((a, b) => {
+      const tierDelta = TIER_SCORE[b.tier ?? "tier5_weak"] - TIER_SCORE[a.tier ?? "tier5_weak"];
+      if (tierDelta !== 0) return tierDelta;
+      if ((a.language === "bg") !== (b.language === "bg")) return a.language === "bg" ? -1 : 1;
+      return a.domain.localeCompare(b.domain, "bg-BG");
+    });
 }

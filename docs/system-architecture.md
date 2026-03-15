@@ -71,7 +71,14 @@ Current behavior in admin edit UI:
 - “Use all safe values” only fills missing fields
 - core moderated fields remain authoritative for save/approve
 
-No Next.js route in this repo currently generates AI guesses; it only consumes whichever guess columns already exist on pending rows.
+Admin festival research (`/admin/api/research-festival`) uses a simplified backend flow:
+- query generation + web search
+- authority-first ranking of trustworthy Bulgarian sources
+- fetch and clean top source text excerpts
+- one structured LLM extraction call over source payloads
+- moderator review and optional insert into `pending_festivals`
+
+If LLM extraction fails/unavailable, the API returns a low-confidence minimal result with sources + warnings (preferring null over speculative values).
 
 ## Hero image pipeline safeguards
 Ingestion helper behavior for candidate hero image:

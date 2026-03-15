@@ -8,6 +8,8 @@ export type ResearchSource = {
   domain: string;
   title: string;
   is_official: boolean;
+  tier?: SourceAuthorityTier | null;
+  language?: ResearchLanguageSignal | null;
 };
 
 export type ResearchEvidence = {

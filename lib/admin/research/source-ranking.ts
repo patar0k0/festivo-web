@@ -49,14 +49,8 @@ const TIER1_DOMAIN_HINTS = [
   "tourism",
   "visit",
   "culture",
-  "festival",
-  "fest",
-  "surva",
-  "carnival",
   "mincult",
   "ministry",
-  "edu",
-  "org",
 ];
 
 const TIER1_TITLE_HINTS = ["официал", "official", "организатор", "организира", "община", "министер", "туриз", "култур", "festival"];
@@ -79,10 +73,35 @@ const TIER4_DOMAIN_HINTS = [
   "10times",
   "evensi",
   "getyourguide",
+  "blog",
+  "guide",
+  "offers",
+  "package",
 ];
 const TIER5_DOMAIN_HINTS = ["facebook.com/pages", "facebook.com/groups", "instagram.com", "tiktok.com", "linkedin.com", "foursquare"];
 
 const COMMERCIAL_PAGE_HINTS = ["package", "offer", "deal", "book", "booking", "travel guide", "things to do", "attraction", "reseller", "price"];
+const AUTHORITY_DENY_HINTS = [
+  "wikipedia",
+  "wiki",
+  "blog",
+  "guide",
+  "codanec",
+  "newwave",
+  "tripadvisor",
+  "eventbrite",
+  "allevents",
+  "10times",
+  "listing",
+  "directory",
+  "package",
+  "offer",
+  "deals",
+  "booking",
+  "tickets",
+  "travel",
+  "tour",
+];
 
 export type SourceAuthorityTier =
   | "tier1_official"
@@ -100,6 +119,7 @@ export type SourceAssessment = {
   authorityTier: SourceAuthorityTier;
   languageSignal: "bg" | "mixed" | "non_bg";
   languageScore: number;
+  authorityReason: string;
 };
 
 const BG_STOP_WORDS = [" и ", " за ", " на ", " от ", " в ", " с ", "фестивал", "община", "култура", "туризъм", "организатор"];
@@ -184,7 +204,13 @@ function classifySource(source: ResearchSource, query: string): SourceAssessment
 
   const text = `${title} ${domain}`;
   const isBgDomain = domain.endsWith(".bg");
-  const hasInstitutionalSignal = containsAny(domain, TIER1_DOMAIN_HINTS) || containsAny(title, TIER1_TITLE_HINTS) || source.is_official;
+  const isWikipedia = /(^|\.)wikipedia\.org$/iu.test(domain) || /\bwiki\b/iu.test(domain);
+  const hasAuthorityDenySignal = containsAny(text, AUTHORITY_DENY_HINTS) || /\b(blog|guide|package|offer|listing|directory|tickets?|travel|tour)\b/iu.test(text);
+  const hasInstitutionalSignal = containsAny(domain, TIER1_DOMAIN_HINTS) || containsAny(title, TIER1_TITLE_HINTS);
+  const isMunicipalityOrGov = /(gov\.bg|government\.bg|obshtina|municipality|kmet|ministry|mincult)/iu.test(domain);
+  const isTourismBoard = isBgDomain && /(tourism|visit|destination|travel-bulgaria|tourist)/iu.test(domain);
+  const isAuthoritativeOrganizer = isBgDomain && /(association|foundation|committee|chitalishte|culture|kultura|org)/iu.test(domain);
+  const isFestivalOfficialDomain = isBgDomain && /(festival|fest|surva|carnival)/iu.test(domain) && /(official|официал|организатор|община|municipality)/iu.test(title);
   const hasReputableSignal = containsAny(domain, TIER2_DOMAIN_HINTS);
   const isReferenceSignal = containsAny(domain, TIER3_DOMAIN_HINTS) || /\b(wikipedia|reference|encyclopedia|directory)\b/iu.test(text);
   const isCommercialSignal =
@@ -192,7 +218,11 @@ function classifySource(source: ResearchSource, query: string): SourceAssessment
   const isWeakSignal = containsAny(text, TIER5_DOMAIN_HINTS) || /\b(profile|listing|group|page)\b/iu.test(text);
 
   let authorityTier: SourceAuthorityTier;
-  if (hasInstitutionalSignal && !isCommercialSignal) {
+  if (isWikipedia) {
+    authorityTier = "tier3_reference";
+  } else if (hasAuthorityDenySignal || isCommercialSignal || isWeakSignal) {
+    authorityTier = isCommercialSignal ? "tier4_commercial" : "tier5_weak";
+  } else if (isMunicipalityOrGov || isTourismBoard || isFestivalOfficialDomain || isAuthoritativeOrganizer || (source.is_official && hasInstitutionalSignal && isBgDomain)) {
     authorityTier = "tier1_official";
   } else if (hasReputableSignal && !isCommercialSignal) {
     authorityTier = "tier2_reputable";
@@ -235,6 +265,17 @@ function classifySource(source: ResearchSource, query: string): SourceAssessment
         ? "medium"
         : "weak";
 
+  const authorityReason =
+    authorityTier === "tier1_official"
+      ? "Official only when domain is municipal/gov/tourism-board/authoritative organizer or explicitly official BG festival site."
+      : authorityTier === "tier3_reference"
+        ? "Reference tier: encyclopedia/reference source (Wikipedia never promoted to official)."
+        : authorityTier === "tier4_commercial"
+          ? "Commercial tier: travel/package/offer/listing indicators detected."
+          : authorityTier === "tier2_reputable"
+            ? "Reputable tier: trusted media-like source without official/institutional authority."
+            : "Weak tier: missing authority signals or denied by weak/listing/blog indicators.";
+
   return {
     score,
     isOfficial: isOfficial || authorityTier === "tier1_official",
@@ -242,6 +283,7 @@ function classifySource(source: ResearchSource, query: string): SourceAssessment
     authorityTier,
     languageSignal: language.signal,
     languageScore: language.score,
+    authorityReason,
   };
 }
 

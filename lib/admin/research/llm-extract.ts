@@ -20,6 +20,10 @@ type LlmExtractInput = {
   sources: LlmSourcePayload[];
 };
 
+const DEFAULT_LLM_TIMEOUT_MS = 25_000;
+const MIN_LLM_TIMEOUT_MS = 8_000;
+const MAX_LLM_TIMEOUT_MS = 60_000;
+
 type LlmExtractResult = {
   best_guess: {
     title: string | null;
@@ -199,6 +203,18 @@ export type LlmExtractionDiagnostics = {
   };
 };
 
+function resolveLlmTimeoutMs(): number {
+  const timeoutMsRaw = Number(process.env.WEB_RESEARCH_LLM_TIMEOUT_MS ?? String(DEFAULT_LLM_TIMEOUT_MS));
+  if (!Number.isFinite(timeoutMsRaw)) {
+    return DEFAULT_LLM_TIMEOUT_MS;
+  }
+  return Math.min(MAX_LLM_TIMEOUT_MS, Math.max(MIN_LLM_TIMEOUT_MS, Math.round(timeoutMsRaw)));
+}
+
+function isAbortError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "name" in error && (error as { name?: unknown }).name === "AbortError");
+}
+
 function resolveLlmApiKey(): { apiKey: string | null; authMode: LlmExtractionDiagnostics["resolvedConfig"]["authMode"] } {
   const webResearchApiKey = process.env.WEB_RESEARCH_LLM_API_KEY?.trim();
   if (webResearchApiKey) {
@@ -217,8 +233,7 @@ export function getLlmExtractionDiagnostics(): LlmExtractionDiagnostics {
   const { apiKey, authMode } = resolveLlmApiKey();
   const endpoint = process.env.WEB_RESEARCH_LLM_URL ?? "https://api.openai.com/v1/chat/completions";
   const model = process.env.WEB_RESEARCH_LLM_MODEL ?? "gpt-4o-mini";
-  const timeoutMsRaw = Number(process.env.WEB_RESEARCH_LLM_TIMEOUT_MS ?? "9000");
-  const timeoutMs = Number.isFinite(timeoutMsRaw) ? Math.max(3000, timeoutMsRaw) : 9000;
+  const timeoutMs = resolveLlmTimeoutMs();
 
   const missingPrerequisites: string[] = [];
   if (!apiKey) {
@@ -245,6 +260,11 @@ export function getLlmExtractionDiagnostics(): LlmExtractionDiagnostics {
 
 export function isLlmExtractionEnabled(): boolean {
   return getLlmExtractionDiagnostics().enabled;
+}
+
+export function estimateLlmPromptSizeChars(input: LlmExtractInput): number {
+  const prompt = buildPrompt(input);
+  return prompt.system.length + prompt.user.length;
 }
 
 function hasMeaningfulLlmResult(result: LlmExtractResult): boolean {
@@ -279,7 +299,7 @@ export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<Llm
   const model = diagnostics.resolvedConfig.model;
   const timeoutMs = diagnostics.resolvedConfig.timeoutMs;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), Number.isFinite(timeoutMs) ? Math.max(3000, timeoutMs) : 9000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   const prompt = buildPrompt(input);
 
@@ -352,6 +372,13 @@ export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<Llm
     }
 
     return normalizedResult;
+  } catch (error) {
+    if (isAbortError(error) || controller.signal.aborted) {
+      const timeoutError = new Error(`LLM extraction timed out after ${timeoutMs}ms.`);
+      timeoutError.name = "LlmTimeoutError";
+      throw timeoutError;
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }

@@ -12,7 +12,7 @@ import type {
   ResearchSource,
 } from "@/lib/admin/research/types";
 import type { SourceAuthorityTier, SourceQualityClass } from "@/lib/admin/research/source-ranking";
-import { getLlmExtractionDiagnostics, runLlmFieldExtraction } from "@/lib/admin/research/llm-extract";
+import { estimateLlmPromptSizeChars, getLlmExtractionDiagnostics, runLlmFieldExtraction } from "@/lib/admin/research/llm-extract";
 
 type SearchItem = {
   url: string;
@@ -994,14 +994,32 @@ function collectCandidatesFromDocs(docs: AssessedDocument[], picker: (doc: Asses
   return out.sort((a, b) => TIER_RANK[a.tier] - TIER_RANK[b.tier] || b.score - a.score);
 }
 
+function buildLlmTextExcerpt(doc: AssessedDocument): string {
+  const segments = [doc.title, doc.description ?? "", ...(doc.dateLike ?? []), ...(doc.locationLike ?? []), ...(doc.organizerLike ?? []), doc.snippet, doc.text]
+    .map((segment) => decodeResearchText(segment))
+    .filter((segment) => segment.length >= 20);
+
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  for (const segment of segments) {
+    const normalized = segment.toLocaleLowerCase("bg-BG");
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    deduped.push(segment);
+    if (deduped.join("\n").length >= 1600) break;
+  }
+
+  return deduped.join("\n").slice(0, 1600).trim();
+}
+
 function prepareLlmSourcesForExtraction(docs: AssessedDocument[]): PreparedLlmSources {
-  const maxSources = 5;
-  const minExcerptLength = 180;
+  const maxSources = 3;
+  const minExcerptLength = 140;
   const rejected: LlmSourceRejection[] = [];
 
   const eligibleDocs = docs.filter((doc) => {
     const sourceUrl = normalizeUrl(doc.canonicalUrl ?? doc.url);
-    const bestExcerpt = doc.text.slice(0, 2200).trim() || doc.snippet.slice(0, 2200).trim();
+    const bestExcerpt = buildLlmTextExcerpt(doc);
 
     if (doc.authorityTier === "tier5_weak") {
       rejected.push({ sourceUrl, domain: doc.domain, tier: doc.authorityTier, reason: "authority_tier_too_weak" });
@@ -1036,7 +1054,7 @@ function prepareLlmSourcesForExtraction(docs: AssessedDocument[]): PreparedLlmSo
       source_title: doc.title,
       tier: doc.authorityTier,
       language: doc.languageSignal,
-      text_excerpt: (doc.text.slice(0, 2200).trim() || doc.snippet.slice(0, 2200).trim()),
+      text_excerpt: buildLlmTextExcerpt(doc),
       metadata: {
         description: doc.description,
         date_hints: doc.dateLike.slice(0, 5),
@@ -1432,18 +1450,24 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
       `LLM extraction skipped because no eligible source text was extracted${sampleReasons ? ` (${sampleReasons})` : ""}; using deterministic source-backed extraction.`,
     );
   } else {
+    const llmInput = {
+      query,
+      normalized_query: normalizedQuery,
+      sources: llmSources,
+    };
+    const llmPromptSizeChars = estimateLlmPromptSizeChars(llmInput);
+
     console.info("[research:web] attempting LLM extraction", {
       query,
+      llm_timeout_ms: llmDiagnostics.resolvedConfig.timeoutMs,
       llm_eligible_source_count: llmSources.length,
       llm_source_urls: llmSources.map((source) => source.source_url),
+      llm_prompt_size_chars: llmPromptSizeChars,
+      llm_source_payload_chars: llmSources.reduce((total, source) => total + source.text_excerpt.length, 0),
     });
 
     try {
-      const llm = await runLlmFieldExtraction({
-        query,
-        normalized_query: normalizedQuery,
-        sources: llmSources,
-      });
+      const llm = await runLlmFieldExtraction(llmInput);
 
       llmBestGuess = llm.best_guess;
       llmCandidates = {
@@ -1486,11 +1510,20 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "unknown error";
+      const isTimeoutAbort = Boolean(error && typeof error === "object" && "name" in error && (error as { name?: unknown }).name === "LlmTimeoutError");
+
       console.warn("[research:web] LLM extraction failed", {
         query,
         error: message,
+        failure_type: isTimeoutAbort ? "timeout_abort" : "runtime_error",
+        llm_timeout_ms: llmDiagnostics.resolvedConfig.timeoutMs,
       });
-      warnings.push(`LLM extraction failed at runtime (${message}); using deterministic source-backed extraction.`);
+
+      if (isTimeoutAbort) {
+        warnings.push(`LLM extraction timed out/aborted (${message}); using deterministic source-backed extraction.`);
+      } else {
+        warnings.push(`LLM extraction failed at runtime (${message}); using deterministic source-backed extraction.`);
+      }
     }
   }
 

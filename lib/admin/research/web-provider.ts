@@ -1104,6 +1104,31 @@ function applyReasonToDateCandidates(candidates: ResearchDateCandidate[], reason
   return candidates.map((candidate) => ({ ...candidate, reason: candidate.reason ?? reason }));
 }
 
+function buildAcceptedLlmWarnings(
+  bestGuess: {
+    title: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    city: string | null;
+    location: string | null;
+    organizer: string | null;
+  },
+  llmWarnings: string[],
+): string[] {
+  const merged = [...llmWarnings];
+
+  if (!bestGuess.title) merged.push("LLM extraction did not provide a confirmed title.");
+  if (!bestGuess.start_date) merged.push("LLM extraction did not provide a confirmed start date.");
+  if (!bestGuess.city) merged.push("LLM extraction did not provide a confirmed city.");
+  if (!bestGuess.location) merged.push("LLM extraction did not provide a confirmed location.");
+  if (!bestGuess.organizer) merged.push("LLM extraction did not provide a confirmed organizer.");
+  if (bestGuess.start_date && bestGuess.end_date && bestGuess.end_date < bestGuess.start_date) {
+    merged.push("LLM extraction returned end_date before start_date; verify date candidates.");
+  }
+
+  return Array.from(new Set(merged));
+}
+
 function buildLowConfidenceResult(query: string, warning: string): ResearchFestivalResult {
   return {
     query,
@@ -1255,7 +1280,7 @@ async function searchWebQuery(query: string): Promise<ResearchSource[]> {
 }
 
 export async function runWebResearch(query: string): Promise<ResearchFestivalResult> {
-  const warnings: string[] = [];
+  const deterministicWarnings: string[] = [];
   const bgQuery = isBulgarianQuery(query);
   const expandedQueries = buildResearchQueries(query);
 
@@ -1312,7 +1337,7 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
   const locationSelection = pickLocationWithSource(fallback, bgQuery);
   const organizerSelection = pickOrganizerWithSource(fallback, bgQuery);
 
-  if (dateRange.warning) warnings.push(dateRange.warning);
+  if (dateRange.warning) deterministicWarnings.push(dateRange.warning);
 
   const preferredDoc =
     bgQuery
@@ -1332,20 +1357,20 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
     (preferredDoc && preferredDoc.snippet.length > 120 ? `${preferredDoc.snippet.slice(0, 220)}...` : null);
   const heroImage = preferredDoc?.ogImage ?? null;
 
-  if (!title) warnings.push("No reliable event title found in authoritative/reputable sources.");
-  if (!startDate) warnings.push("No reliable start date found in authoritative/reputable sources.");
-  if (!cityCandidate) warnings.push("City could not be confirmed from authoritative/reputable sources.");
-  if (!organizer) warnings.push("Organizer set to null: only low-quality/prose organizer candidates were found.");
-  if (!location) warnings.push("Location set to null: only partial address or low-quality location candidates were found.");
+  if (!title) deterministicWarnings.push("No reliable event title found in authoritative/reputable sources.");
+  if (!startDate) deterministicWarnings.push("No reliable start date found in authoritative/reputable sources.");
+  if (!cityCandidate) deterministicWarnings.push("City could not be confirmed from authoritative/reputable sources.");
+  if (!organizer) deterministicWarnings.push("Organizer set to null: only low-quality/prose organizer candidates were found.");
+  if (!location) deterministicWarnings.push("Location set to null: only partial address or low-quality location candidates were found.");
   if (bgQuery && titleSelection.languageSignal === "non_bg" && (authoritative.some((doc) => doc.languageSignal === "bg" || doc.languageSignal === "mixed") || fallback.some((doc) => doc.languageSignal === "bg" || doc.languageSignal === "mixed"))) {
-    warnings.push("Title remained non-Bulgarian despite Bulgarian authoritative/reputable sources; confidence reduced.");
+    deterministicWarnings.push("Title remained non-Bulgarian despite Bulgarian authoritative/reputable sources; confidence reduced.");
   } else if (bgQuery && titleSelection.languageSignal === "non_bg") {
-    warnings.push("Title remained non-Bulgarian because authoritative Bulgarian evidence was not confirmed.");
+    deterministicWarnings.push("Title remained non-Bulgarian because authoritative Bulgarian evidence was not confirmed.");
   }
-  if (bgQuery && locationSelection.languageSignal === "non_bg") warnings.push("Location remained non-Bulgarian because authoritative Bulgarian evidence was not confirmed.");
+  if (bgQuery && locationSelection.languageSignal === "non_bg") deterministicWarnings.push("Location remained non-Bulgarian because authoritative Bulgarian evidence was not confirmed.");
 
   if (weakOnly) {
-    warnings.push("Only commercial or weak sources were found; canonical fields intentionally left null/low-confidence.");
+    deterministicWarnings.push("Only commercial or weak sources were found; canonical fields intentionally left null/low-confidence.");
   }
 
   logFieldSelectionDiagnostics({
@@ -1441,6 +1466,8 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
   const llmSources = preparedLlmSources.eligible;
 
   let llmWarnings: string[] = [];
+  let llmAccepted = false;
+  const llmMergeWarnings: string[] = [];
   let llmBestGuess: {
     title: string | null;
     start_date: string | null;
@@ -1470,7 +1497,7 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
   });
 
   if (!llmDiagnostics.enabled) {
-    warnings.push(
+    llmMergeWarnings.push(
       `LLM extraction disabled by missing prerequisites (${llmDiagnostics.missingPrerequisites.join(", ")}); using deterministic source-backed extraction.`,
     );
   } else if (llmSources.length === 0) {
@@ -1478,7 +1505,7 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
       .slice(0, 3)
       .map((item) => `${item.domain}: ${item.reason}`)
       .join("; ");
-    warnings.push(
+    llmMergeWarnings.push(
       `LLM extraction skipped because no eligible source text was extracted${sampleReasons ? ` (${sampleReasons})` : ""}; using deterministic source-backed extraction.`,
     );
   } else {
@@ -1538,8 +1565,10 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
         warning_count: llmWarnings.length,
       });
 
+      llmAccepted = accepted;
+
       if (!accepted) {
-        warnings.push("LLM extraction returned no usable candidates; using deterministic source-backed extraction.");
+        llmMergeWarnings.push("LLM extraction returned no usable candidates; using deterministic source-backed extraction.");
         llmBestGuess = null;
         llmCandidates = null;
       }
@@ -1556,36 +1585,67 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
       });
 
       if (timeoutAbort) {
-        warnings.push(`LLM extraction timed out (${message}); using deterministic source-backed extraction.`);
+        llmMergeWarnings.push(`LLM extraction timed out (${message}); using deterministic source-backed extraction.`);
       } else if (nonTimeoutAbort) {
-        warnings.push(`LLM extraction aborted before completion (${message}); using deterministic source-backed extraction.`);
+        llmMergeWarnings.push(`LLM extraction aborted before completion (${message}); using deterministic source-backed extraction.`);
       } else {
-        warnings.push(`LLM extraction failed at runtime (${message}); using deterministic source-backed extraction.`);
+        llmMergeWarnings.push(`LLM extraction failed at runtime (${message}); using deterministic source-backed extraction.`);
       }
     }
   }
 
-  const finalCandidates: ResearchCandidates = {
-    titles: llmCandidates?.titles.length ? llmCandidates.titles : applyReasonToFieldCandidates(heuristicCandidates.titles, "Deterministic fallback extraction."),
-    dates: llmCandidates?.dates.length ? llmCandidates.dates : applyReasonToDateCandidates(heuristicCandidates.dates, "Deterministic fallback extraction."),
-    cities: llmCandidates?.cities.length ? llmCandidates.cities : applyReasonToFieldCandidates(heuristicCandidates.cities, "Deterministic fallback extraction."),
-    locations: llmCandidates?.locations.length ? llmCandidates.locations : applyReasonToFieldCandidates(heuristicCandidates.locations, "Deterministic fallback extraction."),
-    organizers: llmCandidates?.organizers.length ? llmCandidates.organizers : applyReasonToFieldCandidates(heuristicCandidates.organizers, "Deterministic fallback extraction."),
-  };
+  const finalCandidates: ResearchCandidates = llmAccepted && llmCandidates
+    ? {
+        titles: llmCandidates.titles,
+        dates: llmCandidates.dates,
+        cities: llmCandidates.cities,
+        locations: llmCandidates.locations,
+        organizers: llmCandidates.organizers,
+      }
+    : {
+        titles: applyReasonToFieldCandidates(heuristicCandidates.titles, "Deterministic fallback extraction."),
+        dates: applyReasonToDateCandidates(heuristicCandidates.dates, "Deterministic fallback extraction."),
+        cities: applyReasonToFieldCandidates(heuristicCandidates.cities, "Deterministic fallback extraction."),
+        locations: applyReasonToFieldCandidates(heuristicCandidates.locations, "Deterministic fallback extraction."),
+        organizers: applyReasonToFieldCandidates(heuristicCandidates.organizers, "Deterministic fallback extraction."),
+      };
 
   const finalBestGuess = {
-    title: llmBestGuess?.title ?? title,
-    start_date: llmBestGuess?.start_date ?? startDate,
-    end_date: llmBestGuess?.end_date ?? endDate,
-    city: llmBestGuess?.city ?? cityCandidate,
-    location: llmBestGuess?.location ?? location,
+    title: llmAccepted ? (llmBestGuess?.title ?? null) : title,
+    start_date: llmAccepted ? (llmBestGuess?.start_date ?? null) : startDate,
+    end_date: llmAccepted ? (llmBestGuess?.end_date ?? null) : endDate,
+    city: llmAccepted ? (llmBestGuess?.city ?? null) : cityCandidate,
+    location: llmAccepted ? (llmBestGuess?.location ?? null) : location,
     description,
-    organizer: llmBestGuess?.organizer ?? organizer,
+    organizer: llmAccepted ? (llmBestGuess?.organizer ?? null) : organizer,
     hero_image: heroImage,
-    tags: llmBestGuess?.tags?.length ? llmBestGuess.tags : tags,
+    tags: llmAccepted ? (llmBestGuess?.tags ?? []) : tags,
   };
 
-  warnings.push(...llmWarnings);
+  const llmFieldDiagnostics = {
+    title: Boolean(llmAccepted && llmBestGuess?.title),
+    start_date: Boolean(llmAccepted && llmBestGuess?.start_date),
+    end_date: Boolean(llmAccepted && llmBestGuess?.end_date),
+    city: Boolean(llmAccepted && llmBestGuess?.city),
+    location: Boolean(llmAccepted && llmBestGuess?.location),
+    organizer: Boolean(llmAccepted && llmBestGuess?.organizer),
+    tags: Boolean(llmAccepted && llmBestGuess?.tags?.length),
+  };
+  const nulledInsteadOfDeterministic = llmAccepted
+    ? (["title", "start_date", "end_date", "city", "location", "organizer", "tags"] as const).filter((field) => !llmFieldDiagnostics[field])
+    : [];
+
+  const warnings = llmAccepted
+    ? buildAcceptedLlmWarnings(finalBestGuess, llmWarnings)
+    : [...deterministicWarnings, ...llmMergeWarnings, ...llmWarnings];
+
+  console.info("[research:web] merge diagnostics", {
+    query,
+    llm_accepted: llmAccepted,
+    llm_fields_used: llmFieldDiagnostics,
+    fields_nulled_instead_of_deterministic_fallback: nulledInsteadOfDeterministic,
+    final_warning_count: warnings.length,
+  });
 
   return {
     query,

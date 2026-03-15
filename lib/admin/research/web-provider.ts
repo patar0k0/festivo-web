@@ -128,6 +128,7 @@ const NOISY_UI_TEXT_HINT = /\b(print|switch|menu|share|cookie|accept|decline|log
 const CTA_SNIPPET_HINT = /\b(book\s*now|buy\s*tickets?|learn\s*more|join\s*us|read\s*more|reserve|вземи\s*билет|купи\s*билет|запази|резервирай|научи\s*повече|заповядайте)\b/iu;
 const GARBAGE_FRAGMENT_HINT = /[|]{2,}|\s[-–—]\s(home|начало|menu|меню|blog|guide)\b|\b(home|начало)\s*[>»]/iu;
 const LOW_AUTHORITY_DOMAIN_HINT = /\b(codanec|newwave|tripadvisor|eventbrite|allevents|10times|booking|offers?|package|blog|guide|listing)\b/iu;
+const AUTH_NAV_LOCATION_GARBAGE_HINT = /\b(reset\s+(?:your\s+)?password|forgot\s+password|login|log\s*in|sign\s*in|account|my\s+account|profile|register|dashboard|вход|регистрация|профил|акаунт|парола)\b/iu;
 
 function isBulgarianQuery(query: string): boolean {
   return /[\u0400-\u04FF]/u.test(query) || /\b(фестивал|събор|празник|карнавал|сурва)\b/iu.test(query);
@@ -488,6 +489,7 @@ function pickFieldValue(values: string[]): string | null {
 function cleanLocationCandidate(value: string): string | null {
   const cleaned = value.replace(/\s+/g, " ").replace(/[.;]+$/g, "").trim();
   if (!cleaned) return null;
+  if (AUTH_NAV_LOCATION_GARBAGE_HINT.test(cleaned)) return null;
   if (cleaned.length > 80) return null;
   const sentenceParts = cleaned.split(/[.!?]/).filter((part) => part.trim().length > 0);
   if (sentenceParts.length > 1) return null;
@@ -498,6 +500,13 @@ function cleanLocationCandidate(value: string): string | null {
   if (!LOCATION_VENUE_HINT.test(cleaned) && cleaned.split(/\s+/).length > 6) return null;
   if (isNoisyTextCandidate(cleaned)) return null;
   return cleaned;
+}
+
+function sanitizeLocationResult(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  if (!cleaned) return null;
+  return AUTH_NAV_LOCATION_GARBAGE_HINT.test(cleaned) ? null : cleaned;
 }
 
 function stripSiteBrandTail(value: string): string {
@@ -1535,12 +1544,19 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
     organizers: llmCandidates?.organizers.length ? llmCandidates.organizers : applyReasonToFieldCandidates(heuristicCandidates.organizers, "Deterministic fallback extraction."),
   };
 
+  const sanitizedLocationCandidates = finalCandidates.locations
+    .map((candidate) => {
+      const sanitizedValue = sanitizeLocationResult(candidate.value);
+      return sanitizedValue ? { ...candidate, value: sanitizedValue } : null;
+    })
+    .filter((candidate): candidate is (typeof finalCandidates.locations)[number] => candidate !== null);
+
   const finalBestGuess = {
     title: llmBestGuess?.title ?? title,
     start_date: llmBestGuess?.start_date ?? startDate,
     end_date: llmBestGuess?.end_date ?? endDate,
     city: llmBestGuess?.city ?? cityCandidate,
-    location: llmBestGuess?.location ?? location,
+    location: sanitizeLocationResult(llmBestGuess?.location ?? location),
     description,
     organizer: llmBestGuess?.organizer ?? organizer,
     hero_image: heroImage,
@@ -1549,11 +1565,23 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
 
   warnings.push(...llmWarnings);
 
+  const filteredWarnings = warnings.filter((warning) => {
+    if (warning === "No reliable event title found in authoritative/reputable sources." && finalBestGuess.title) return false;
+    if (warning === "City could not be confirmed from authoritative/reputable sources." && finalBestGuess.city) return false;
+    if (warning === "No reliable start date found in authoritative/reputable sources." && finalBestGuess.start_date) return false;
+    if (warning === "No reliable date-like pattern found in authoritative/reputable sources." && finalBestGuess.start_date && finalBestGuess.end_date) return false;
+    if (warning === "Organizer set to null: only low-quality/prose organizer candidates were found." && finalBestGuess.organizer) return false;
+    return true;
+  });
+
   return {
     query,
     normalized_query: normalizeQuery(query),
     best_guess: finalBestGuess,
-    candidates: finalCandidates,
+    candidates: {
+      ...finalCandidates,
+      locations: sanitizedLocationCandidates,
+    },
     sources: rankedSources.map((source) => ({ ...source, url: normalizeUrl(source.url) })),
     confidence: {
       overall: overallConfidence,
@@ -1565,7 +1593,7 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
       organizer: finalBestGuess.organizer && organizerSelection.tier && isAuthoritativeTier(organizerSelection.tier) ? pickConfidence(adjustedScore - 8) : "low",
       hero_image: heroImage && preferredDoc && isAuthoritativeTier(preferredDoc.authorityTier) ? pickConfidence(adjustedScore - 14) : "low",
     },
-    warnings,
+    warnings: filteredWarnings,
     evidence: [
       finalBestGuess.title && (titleSelection.sourceUrl ?? fallbackTitleSelection.sourceUrl)
         ? {

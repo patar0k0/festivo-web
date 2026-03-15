@@ -1,6 +1,6 @@
 import { buildResearchQueries } from "@/lib/admin/research/query-builder";
 import { assessSourceQuality, dedupeAndRankSources } from "@/lib/admin/research/source-ranking";
-import { extractDomain, fetchSourceDocument } from "@/lib/admin/research/source-extract";
+import { decodeHtmlEntities, extractDomain, fetchSourceDocument, normalizeUrl } from "@/lib/admin/research/source-extract";
 import type { ExtractedSourceDocument } from "@/lib/admin/research/source-extract";
 import type { ResearchConfidenceLevel, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
 import type { SourceAuthorityTier, SourceQualityClass } from "@/lib/admin/research/source-ranking";
@@ -145,6 +145,43 @@ function normalizeQuery(query: string): string {
   return query.trim().toLocaleLowerCase("bg-BG");
 }
 
+function decodeResearchText(value: string | null | undefined): string {
+  if (!value) return "";
+  return decodeHtmlEntities(value).replace(/\s+/g, " ").trim();
+}
+
+function toBulgarianTitleCase(value: string): string {
+  if (!value) return value;
+  return value.charAt(0).toLocaleUpperCase("bg-BG") + value.slice(1);
+}
+
+function normalizeBulgarianCityAlias(value: string): string {
+  const normalized = value.trim().toLocaleLowerCase("bg-BG");
+  if (!normalized) return "";
+
+  const latinAliasMap: Array<{ pattern: RegExp; canonical: string }> = [
+    { pattern: /^(st\.?\s*zagora|stara\s+zagora)$/iu, canonical: "Стара Загора" },
+    { pattern: /^(veliko\s+tarnovo|veliko\s+turnovo)$/iu, canonical: "Велико Търново" },
+    { pattern: /^plovdiv$/iu, canonical: "Пловдив" },
+    { pattern: /^sofia$/iu, canonical: "София" },
+    { pattern: /^varna$/iu, canonical: "Варна" },
+    { pattern: /^burgas$/iu, canonical: "Бургас" },
+    { pattern: /^ruse$/iu, canonical: "Русе" },
+    { pattern: /^pernik$/iu, canonical: "Перник" },
+    { pattern: /^kazanlak$/iu, canonical: "Казанлък" },
+  ];
+
+  for (const entry of latinAliasMap) {
+    if (entry.pattern.test(normalized)) return entry.canonical;
+  }
+
+  for (const entry of BULGARIAN_CITY_ALIASES) {
+    if (entry.pattern.test(normalized)) return entry.canonical;
+  }
+
+  return toBulgarianTitleCase(normalized);
+}
+
 function parseSearchItems(payload: unknown): SearchItem[] {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
 
@@ -203,7 +240,7 @@ function parseSearchItems(payload: unknown): SearchItem[] {
                 ? item.content.trim().slice(0, 180)
                 : normalizedUrl;
 
-      return { url: normalizedUrl, title };
+      return { url: normalizeUrl(normalizedUrl), title: decodeResearchText(title) };
     })
     .filter((item): item is SearchItem => item !== null);
 }
@@ -291,7 +328,7 @@ function logFieldSelectionDiagnostics(details: {
 function logCandidateRejection(field: "title" | "city" | "location" | "organizer", value: string, reason: string, sourceUrl: string, tier: SourceAuthorityTier): void {
   console.info("[research:web-provider] candidate rejected", {
     field,
-    value_preview: value.slice(0, 120),
+    value_preview: decodeResearchText(value).slice(0, 120),
     reason,
     source_url: sourceUrl,
     source_tier: tier,
@@ -389,9 +426,8 @@ function cleanLocationCandidate(value: string): string | null {
 
 function stripSiteBrandTail(value: string): string {
   return value
-    .replace(/\s+[\-|–|—|·|•]\s+(official\s+site|официален\s+сайт|home|начало|tripadvisor|couchsurfing|facebook)\b.*$/iu, "")
-    .replace(/\s+\|\s+[^|]{2,70}$/u, "")
-    .replace(/\s+[-–—]\s+[^-–—]{2,70}$/u, "")
+    .replace(/\s+[|·•]\s+[^|·•]{2,120}$/u, "")
+    .replace(/\s+[-–—]\s+(официален\s+сайт|official\s+site|home|начало|tripadvisor|facebook)\b.*$/iu, "")
     .trim();
 }
 
@@ -402,7 +438,7 @@ function isWeakTitle(value: string): boolean {
 
 function isPageBrandFormatting(value: string): boolean {
   const title = value.toLocaleLowerCase("bg-BG");
-  return /\b(home|начало|официален\s+сайт|official\s+site|tripadvisor|facebook)\b/iu.test(title) || /\|\s*[^|]{1,20}$/.test(value);
+  return /\b(home|начало|официален\s+сайт|official\s+site|tripadvisor|facebook)\b/iu.test(title) || /^[^\p{L}\d]*$/u.test(value);
 }
 
 function isLikelyEventTitle(value: string): boolean {
@@ -412,6 +448,38 @@ function isLikelyEventTitle(value: string): boolean {
   return /\b(фестивал|festival|carnival|маскарад|празник|събор|surva)\b/iu.test(title);
 }
 
+function extractEventLikeBulgarianTitle(value: string): string | null {
+  const decoded = decodeResearchText(value);
+  const eventMatch = decoded.match(/([\p{Lu}][^|]{4,160}?\b(?:фестивал|празник|събор|карнавал|маскарад)\b[^|–—-]{0,120})/iu);
+  if (!eventMatch?.[1]) return null;
+
+  return eventMatch[1]
+    .replace(/[\s,;:.!\-–—]+$/u, "")
+    .replace(/\s+\b(официален\s+сайт|official\s+site|посети\s+[\p{L}\s]+|visit\s+[\p{L}\s]+)$/iu, "")
+    .trim();
+}
+
+function cleanTitleCandidate(value: string): { cleaned: string | null; acceptanceReason: string | null; decoded: string; stripped: string } {
+  const decoded = decodeResearchText(value);
+  const stripped = stripSiteBrandTail(decoded);
+
+  if (!stripped) return { cleaned: null, acceptanceReason: null, decoded, stripped };
+
+  const noisyReason = isNoisyTextCandidate(stripped);
+  if (noisyReason) return { cleaned: null, acceptanceReason: null, decoded, stripped };
+
+  if (isLikelyEventTitle(stripped) && !isPageBrandFormatting(stripped)) {
+    return { cleaned: toBulgarianTitleCase(stripped), acceptanceReason: "direct_event_title", decoded, stripped };
+  }
+
+  const extracted = extractEventLikeBulgarianTitle(stripped);
+  if (extracted && isLikelyEventTitle(extracted)) {
+    return { cleaned: toBulgarianTitleCase(extracted), acceptanceReason: "event_subtitle_extracted_from_bulgarian_authoritative_headline", decoded, stripped };
+  }
+
+  return { cleaned: null, acceptanceReason: null, decoded, stripped };
+}
+
 function pickTitleWithSource(
   docs: AssessedDocument[],
   bgQuery: boolean,
@@ -419,30 +487,39 @@ function pickTitleWithSource(
   const candidates: ScoredCandidate[] = [];
 
   for (const doc of docs) {
-    const sourceUrl = doc.canonicalUrl ?? doc.url;
+    const sourceUrl = normalizeUrl(doc.canonicalUrl ?? doc.url);
     if (!isAuthoritativeTier(doc.authorityTier) && doc.authorityTier !== "tier3_reference") continue;
     if (!isAuthoritativeTier(doc.authorityTier) && bgQuery) {
       logCandidateRejection("title", doc.title, "non_authoritative_source_for_canonical_bg_title", sourceUrl, doc.authorityTier);
       continue;
     }
-    const cleaned = stripSiteBrandTail(doc.title);
-    const noisyReason = cleaned ? isNoisyTextCandidate(cleaned) : "empty_after_brand_strip";
-    if (!cleaned || noisyReason || !isLikelyEventTitle(cleaned) || isPageBrandFormatting(cleaned)) {
+    const titleCandidate = cleanTitleCandidate(doc.title);
+    console.info("[research:web-provider] title candidate normalization", {
+      source_url: sourceUrl,
+      decoded_before_cleaning: titleCandidate.decoded.slice(0, 180),
+      after_cleaning: titleCandidate.cleaned,
+      tier: doc.authorityTier,
+    });
+
+    if (!titleCandidate.cleaned) {
+      const noisyReason = titleCandidate.stripped ? isNoisyTextCandidate(titleCandidate.stripped) : "empty_after_brand_strip";
       logCandidateRejection("title", doc.title, noisyReason ?? "not_likely_event_title_or_brand_tail", sourceUrl, doc.authorityTier);
       continue;
     }
 
-    const signal = detectLanguageSignal(cleaned);
-    const compactNameBonus = signal === "bg" ? Math.max(0, 16 - Math.floor(cleaned.length / 4)) : 0;
+    const signal = detectLanguageSignal(titleCandidate.cleaned);
+    const compactNameBonus = signal === "bg" ? Math.max(0, 16 - Math.floor(titleCandidate.cleaned.length / 4)) : 0;
     candidates.push({
-      value: cleaned,
-      sourceUrl: doc.canonicalUrl ?? doc.url,
+      value: titleCandidate.cleaned,
+      sourceUrl: normalizeUrl(doc.canonicalUrl ?? doc.url),
       tier: doc.authorityTier,
       languageSignal: signal,
       score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore + compactNameBonus),
       reason:
         signal === "bg"
-          ? "Bulgarian event title from authoritative/reputable source; shorter canonical event name preferred."
+          ? titleCandidate.acceptanceReason === "event_subtitle_extracted_from_bulgarian_authoritative_headline"
+            ? "Accepted Bulgarian authoritative headline after stripping branded tail and preserving event segment."
+            : "Bulgarian event title from authoritative/reputable source; shorter canonical event name preferred."
           : "Fallback non-Bulgarian title because no stronger Bulgarian title candidate won.",
     });
   }
@@ -464,18 +541,19 @@ function fallbackBulgarianTitleFromQuery(query: string, docs: AssessedDocument[]
     .trim();
 
   const baseTitle = /\bфестивал\b/iu.test(normalized) ? normalized : `${normalized} фестивал`;
-  const cleanedTitle = stripSiteBrandTail(baseTitle)
-    .replace(/\s+/g, " ")
-    .replace(/(^|\s)(на|в)\s*$/iu, "")
-    .trim();
+  const cleanedCandidate =
+    cleanTitleCandidate(baseTitle).cleaned
+      ?.replace(/\s+/g, " ")
+      .replace(/(^|\s)(на|в)\s*$/iu, "")
+      .trim() ?? null;
 
-  if (!cleanedTitle || !isLikelyEventTitle(cleanedTitle)) {
+  if (!cleanedCandidate || !isLikelyEventTitle(cleanedCandidate)) {
     return { value: null, sourceUrl: null, tier: null, languageSignal: null, reason: "Query fallback did not form a safe Bulgarian festival title." };
   }
 
   return {
-    value: cleanedTitle.charAt(0).toLocaleUpperCase("bg-BG") + cleanedTitle.slice(1),
-    sourceUrl: authoritativeBgDoc.canonicalUrl ?? authoritativeBgDoc.url,
+    value: toBulgarianTitleCase(cleanedCandidate),
+    sourceUrl: normalizeUrl(authoritativeBgDoc.canonicalUrl ?? authoritativeBgDoc.url),
     tier: authoritativeBgDoc.authorityTier,
     languageSignal: "bg",
     reason: "Conservative Bulgarian title fallback from query, gated by authoritative Bulgarian source evidence.",
@@ -498,7 +576,7 @@ function pickDateRangeFromStrongSources(docs: AssessedDocument[]): {
     for (const token of doc.dateLike) {
       const normalized = normalizeDateToken(token);
       if (!normalized) continue;
-      tokenOwners.push({ date: normalized, sourceUrl: doc.canonicalUrl ?? doc.url, tier: doc.authorityTier });
+      tokenOwners.push({ date: normalized, sourceUrl: normalizeUrl(doc.canonicalUrl ?? doc.url), tier: doc.authorityTier });
     }
   }
 
@@ -529,14 +607,14 @@ function pickLocationWithSource(
 ): CandidateSelection {
   const candidates: ScoredCandidate[] = [];
   for (const doc of docs) {
-    const sourceUrl = doc.canonicalUrl ?? doc.url;
+    const sourceUrl = normalizeUrl(doc.canonicalUrl ?? doc.url);
     if (!isAuthoritativeTier(doc.authorityTier) && doc.authorityTier !== "tier3_reference") continue;
     if (!isAuthoritativeTier(doc.authorityTier) && bgQuery) {
       logCandidateRejection("location", doc.locationLike.join(" | "), "non_authoritative_source_for_canonical_bg_location", sourceUrl, doc.authorityTier);
       continue;
     }
 
-    const cleaned = doc.locationLike.map((value) => cleanLocationCandidate(value)).filter((value): value is string => Boolean(value));
+    const cleaned = doc.locationLike.map((value) => cleanLocationCandidate(decodeResearchText(value))).filter((value): value is string => Boolean(value));
     const value = pickFieldValue(cleaned.filter((item) => !/^\d{4}\s+/u.test(item)));
     if (!value) {
       logCandidateRejection("location", doc.locationLike.join(" | "), "location_fragments_rejected_by_cleaner", sourceUrl, doc.authorityTier);
@@ -581,13 +659,13 @@ function pickOrganizerWithSource(
   };
 
   for (const doc of docs) {
-    const sourceUrl = doc.canonicalUrl ?? doc.url;
+    const sourceUrl = normalizeUrl(doc.canonicalUrl ?? doc.url);
     if (!isAuthoritativeTier(doc.authorityTier) && doc.authorityTier !== "tier3_reference") continue;
     if (!isAuthoritativeTier(doc.authorityTier) && bgQuery) {
       logCandidateRejection("organizer", doc.organizerLike.join(" | "), "non_authoritative_source_for_canonical_bg_organizer", sourceUrl, doc.authorityTier);
       continue;
     }
-    const value = pickFieldValue(doc.organizerLike.map((item) => cleanOrganizerCandidate(item)).filter((item): item is string => Boolean(item)));
+    const value = pickFieldValue(doc.organizerLike.map((item) => cleanOrganizerCandidate(decodeResearchText(item))).filter((item): item is string => Boolean(item)));
     if (!value) {
       logCandidateRejection("organizer", doc.organizerLike.join(" | "), "organizer_fragments_rejected_by_cleaner", sourceUrl, doc.authorityTier);
       continue;
@@ -599,7 +677,7 @@ function pickOrganizerWithSource(
     const signal = detectLanguageSignal(value);
     candidates.push({
       value,
-      sourceUrl: doc.canonicalUrl ?? doc.url,
+      sourceUrl,
       tier: doc.authorityTier,
       languageSignal: signal,
       score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore),
@@ -617,25 +695,45 @@ function pickCityFromDocs(
   const candidates: ScoredCandidate[] = [];
 
   const findCity = (value: string): string | null => {
+    const decoded = decodeResearchText(value);
+
     for (const entry of BULGARIAN_CITY_ALIASES) {
-      if (entry.pattern.test(value)) return entry.canonical;
+      if (entry.pattern.test(decoded)) return entry.canonical;
     }
-    const explicit = value.match(/\bгр\.?\s*([\p{Lu}][\p{L}]+(?:\s+[\p{Lu}][\p{L}]+)?)\b/u);
-    return explicit?.[1] ?? null;
+
+    const explicitMatches = decoded.match(/\b(?:гр\.?\s*)?[\p{Lu}][\p{L}]+(?:\s+[\p{Lu}][\p{L}]+)?\b/gu) ?? [];
+    for (const match of explicitMatches) {
+      const cleaned = match.replace(/^\s*гр\.?\s*/iu, "").trim();
+      for (const entry of BULGARIAN_CITY_ALIASES) {
+        if (entry.pattern.test(cleaned)) return entry.canonical;
+      }
+    }
+
+    return null;
   };
 
-  const queryCity = findCity(query);
+  const queryCityRaw = findCity(query);
+  const queryCity = queryCityRaw ? normalizeBulgarianCityAlias(queryCityRaw) : null;
+  console.info("[research:web-provider] detected query city", {
+    normalized_query: normalizeQuery(query),
+    query_city: queryCity,
+  });
   const authoritativeCityVotes = new Map<string, number>();
 
   for (const doc of docs) {
-    const sourceUrl = doc.canonicalUrl ?? doc.url;
+    const sourceUrl = normalizeUrl(doc.canonicalUrl ?? doc.url);
     if (!isAuthoritativeTier(doc.authorityTier) && doc.authorityTier !== "tier3_reference") continue;
     if (!isAuthoritativeTier(doc.authorityTier) && bgQuery) {
       logCandidateRejection("city", doc.title, "non_authoritative_source_for_canonical_bg_city", sourceUrl, doc.authorityTier);
       continue;
     }
-    const pool = [...doc.locationLike, doc.title, doc.snippet.slice(0, 380)];
-    const city = pickFieldValue(pool.map((item) => findCity(item)).filter((item): item is string => Boolean(item)));
+    const pool = [...doc.locationLike, doc.title, doc.snippet.slice(0, 380)].map((item) => decodeResearchText(item));
+    const city = pickFieldValue(
+      pool
+        .map((item) => findCity(item))
+        .filter((item): item is string => Boolean(item))
+        .map((item) => normalizeBulgarianCityAlias(item)),
+    );
     if (!city) {
       logCandidateRejection("city", doc.title, "no_city_detected_from_document_pool", sourceUrl, doc.authorityTier);
       continue;
@@ -646,7 +744,7 @@ function pickCityFromDocs(
     const signal = detectLanguageSignal(city);
     candidates.push({
       value: city,
-      sourceUrl: doc.canonicalUrl ?? doc.url,
+      sourceUrl: normalizeUrl(doc.canonicalUrl ?? doc.url),
       tier: doc.authorityTier,
       languageSignal: signal,
       score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore),
@@ -656,9 +754,10 @@ function pickCityFromDocs(
 
   if (queryCity) {
     const votes = authoritativeCityVotes.get(queryCity) ?? 0;
-    if (votes >= 1) {
+    const hasAuthoritativeBgEvidence = candidates.some((item) => isAuthoritativeTier(item.tier) && item.languageSignal !== "non_bg");
+    if (votes >= 1 || hasAuthoritativeBgEvidence) {
       console.info("[research:web-provider] city extraction reason", {
-        reason: "query_city_confirmed_by_authoritative_bg_sources",
+        reason: votes >= 1 ? "query_city_confirmed_by_authoritative_bg_sources" : "query_city_supported_by_authoritative_bg_candidates",
         query_city: queryCity,
         authoritative_votes: votes,
       });
@@ -888,7 +987,7 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
     bgQuery
       ? fallback.find((doc) => detectLanguageSignal(`${doc.title} ${doc.snippet}`) !== "non_bg") ?? fallback[0] ?? null
       : fallback[0] ?? null;
-  const sourceUrl = preferredDoc ? preferredDoc.canonicalUrl ?? preferredDoc.url : null;
+  const sourceUrl = preferredDoc ? normalizeUrl(preferredDoc.canonicalUrl ?? preferredDoc.url) : null;
 
   const fallbackTitleSelection = titleSelection.value ? titleSelection : fallbackBulgarianTitleFromQuery(query, fallback, bgQuery);
   const title = weakOnly ? null : (titleSelection.value ?? fallbackTitleSelection.value);
@@ -990,7 +1089,7 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
       .filter((part) => part.length > 2 && !/^(19|20)\d{2}$/.test(part))
       .map((part) => (bgQuery ? BG_TAG_MAP[part] ?? part : part))
       .slice(0, 5),
-    sources: rankedSources,
+    sources: rankedSources.map((source) => ({ ...source, url: normalizeUrl(source.url) })),
     confidence: {
       overall: overallConfidence,
       title: title && titleSelection.tier && isAuthoritativeTier(titleSelection.tier) ? pickConfidence(adjustedScore) : "low",
@@ -1007,35 +1106,35 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
         ? {
             field: "title",
             value: title,
-            source_url: (titleSelection.sourceUrl ?? fallbackTitleSelection.sourceUrl)!,
+            source_url: normalizeUrl((titleSelection.sourceUrl ?? fallbackTitleSelection.sourceUrl)!),
           }
         : null,
       startDate && dateRange.sourceUrl
         ? {
             field: "dates",
             value: endDate && endDate !== startDate ? `${startDate} to ${endDate}` : startDate,
-            source_url: dateRange.sourceUrl,
+            source_url: normalizeUrl(dateRange.sourceUrl),
           }
         : null,
       cityCandidate && citySelection.sourceUrl
         ? {
             field: "city",
             value: cityCandidate,
-            source_url: citySelection.sourceUrl,
+            source_url: normalizeUrl(citySelection.sourceUrl),
           }
         : null,
       location && locationSelection.sourceUrl
         ? {
             field: "location",
             value: location,
-            source_url: locationSelection.sourceUrl,
+            source_url: normalizeUrl(locationSelection.sourceUrl),
           }
         : null,
       organizer && organizerSelection.sourceUrl
         ? {
             field: "organizer",
             value: organizer,
-            source_url: organizerSelection.sourceUrl,
+            source_url: normalizeUrl(organizerSelection.sourceUrl),
           }
         : null,
     ].filter((item): item is NonNullable<typeof item> => item !== null),

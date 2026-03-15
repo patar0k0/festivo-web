@@ -28,14 +28,40 @@ function stripHtml(value: string): string {
   return collapseWhitespace(value.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " "));
 }
 
-function decodeHtmlEntities(value: string): string {
-  return value
+const NAMED_ENTITIES: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  quot: '"',
+  apos: "'",
+  lt: "<",
+  gt: ">",
+  ndash: "–",
+  mdash: "—",
+  hellip: "…",
+};
+
+export function decodeHtmlEntities(value: string): string {
+  const namedDecoded = value
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
+
+  return namedDecoded.replace(/&#(x?[0-9a-f]+);/giu, (match, codePoint) => {
+    const parsed = codePoint.toLocaleLowerCase("en-US").startsWith("x")
+      ? Number.parseInt(codePoint.slice(1), 16)
+      : Number.parseInt(codePoint, 10);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) return match;
+
+    try {
+      return String.fromCodePoint(parsed);
+    } catch {
+      return match;
+    }
+  }).replace(/&([a-z]+);/giu, (match, entityName) => NAMED_ENTITIES[entityName.toLocaleLowerCase("en-US")] ?? match);
 }
 
 function extractTagContent(html: string, regex: RegExp): string | null {
@@ -85,6 +111,29 @@ export function normalizeUrl(url: string): string {
   try {
     const parsed = new URL(url);
     parsed.hash = "";
+
+    const removableTrackingParams = [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+      "fbclid",
+      "gclid",
+      "yclid",
+      "mc_cid",
+      "mc_eid",
+    ];
+    for (const key of removableTrackingParams) {
+      parsed.searchParams.delete(key);
+    }
+
+    const downloadLike = ["download", "dl", "export", "attachment", "format", "output", "print"];
+    const hasDownloadLikeQuery = [...parsed.searchParams.keys()].some((key) => downloadLike.includes(key.toLocaleLowerCase("en-US")));
+    if (hasDownloadLikeQuery && parsed.pathname !== "/") {
+      parsed.search = "";
+    }
+
     if (parsed.pathname.endsWith("/")) {
       parsed.pathname = parsed.pathname.slice(0, -1) || "/";
     }
@@ -134,7 +183,8 @@ export async function fetchSourceDocument(source: ResearchSource): Promise<Extra
     const description =
       extractMetaContent(html, "name", "description") ?? extractMetaContent(html, "property", "og:description") ?? null;
 
-    const canonicalUrl = absoluteUrl(extractLinkHref(html, "canonical"), source.url);
+    const canonicalUrlRaw = absoluteUrl(extractLinkHref(html, "canonical"), source.url);
+    const canonicalUrl = canonicalUrlRaw ? normalizeUrl(canonicalUrlRaw) : null;
     const ogImage = absoluteUrl(extractMetaContent(html, "property", "og:image"), source.url);
     const plainText = stripHtml(decodeHtmlEntities(html));
 
@@ -156,8 +206,8 @@ export async function fetchSourceDocument(source: ResearchSource): Promise<Extra
       normalizedUrl: normalizeUrl(source.url),
       canonicalUrl,
       domain: source.domain,
-      title,
-      description,
+      title: collapseWhitespace(decodeHtmlEntities(title)),
+      description: description ? collapseWhitespace(decodeHtmlEntities(description)) : null,
       ogImage,
       snippet: plainText.slice(0, MAX_SNIPPET_LENGTH),
       text: plainText,

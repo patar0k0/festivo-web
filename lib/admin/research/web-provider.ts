@@ -57,17 +57,34 @@ type CandidateSelection = {
   reason: string;
 };
 
-const BULGARIAN_CITY_ALIASES: Array<{ pattern: RegExp; canonical: string }> = [
-  { pattern: /\b(казанлък|kazanlak)\b/iu, canonical: "Казанлък" },
-  { pattern: /\b(софия|sofia)\b/iu, canonical: "София" },
-  { pattern: /\b(пловдив|plovdiv)\b/iu, canonical: "Пловдив" },
-  { pattern: /\b(варна|varna)\b/iu, canonical: "Варна" },
-  { pattern: /\b(бургас|burgas)\b/iu, canonical: "Бургас" },
-  { pattern: /\b(русе|ruse)\b/iu, canonical: "Русе" },
-  { pattern: /\b(перник|pernik)\b/iu, canonical: "Перник" },
-  { pattern: /\b(стара\s+загора|stara\s+zagora)\b/iu, canonical: "Стара Загора" },
-  { pattern: /\b(велико\s+търново|veliko\s+tarnovo)\b/iu, canonical: "Велико Търново" },
+type CityAliasEntry = { canonical: string; aliases: string[] };
+
+const BULGARIAN_CITY_ALIASES: CityAliasEntry[] = [
+  { canonical: "Казанлък", aliases: ["казанлък", "kazanlak", "kazanluk"] },
+  { canonical: "София", aliases: ["софия", "sofia", "sofiya"] },
+  { canonical: "Пловдив", aliases: ["пловдив", "plovdiv"] },
+  { canonical: "Варна", aliases: ["варна", "varna"] },
+  { canonical: "Бургас", aliases: ["бургас", "burgas"] },
+  { canonical: "Русе", aliases: ["русе", "ruse", "rousse"] },
+  { canonical: "Перник", aliases: ["перник", "pernik"] },
+  { canonical: "Стара Загора", aliases: ["стара загора", "stara zagora", "st. zagora"] },
+  { canonical: "Велико Търново", aliases: ["велико търново", "veliko tarnovo", "veliko turnovo"] },
 ];
+
+const BG_MONTH_MAP: Record<string, number> = {
+  януари: 1,
+  февруари: 2,
+  март: 3,
+  април: 4,
+  май: 5,
+  юни: 6,
+  юли: 7,
+  август: 8,
+  септември: 9,
+  октомври: 10,
+  ноември: 11,
+  декември: 12,
+};
 
 const ORGANIZER_ENTITY_HINT =
   /\b(община|municipality|кметств|министер|комитет|committee|фондац|foundation|асоциац|association|сдружени|организатор|организира|читалище|дружество|съюз)\b/iu;
@@ -155,6 +172,34 @@ function toBulgarianTitleCase(value: string): string {
   return value.charAt(0).toLocaleUpperCase("bg-BG") + value.slice(1);
 }
 
+function normalizeCityMatchSpace(value: string): string {
+  return value
+    .toLocaleLowerCase("bg-BG")
+    .replace(/[.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function makeAliasPattern(alias: string): RegExp {
+  const escapedAlias = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+  return new RegExp(`(^|[^\\p{L}\\p{N}])(${escapedAlias})(?=$|[^\\p{L}\\p{N}])`, "iu");
+}
+
+function matchBulgarianCityAlias(value: string): { canonical: string; alias: string } | null {
+  const normalized = normalizeCityMatchSpace(value);
+  if (!normalized) return null;
+
+  for (const entry of BULGARIAN_CITY_ALIASES) {
+    for (const alias of entry.aliases) {
+      if (makeAliasPattern(alias).test(normalized)) {
+        return { canonical: entry.canonical, alias };
+      }
+    }
+  }
+
+  return null;
+}
+
 function normalizeBulgarianCityAlias(value: string): string {
   const normalized = value.trim().toLocaleLowerCase("bg-BG");
   if (!normalized) return "";
@@ -175,9 +220,8 @@ function normalizeBulgarianCityAlias(value: string): string {
     if (entry.pattern.test(normalized)) return entry.canonical;
   }
 
-  for (const entry of BULGARIAN_CITY_ALIASES) {
-    if (entry.pattern.test(normalized)) return entry.canonical;
-  }
+  const matched = matchBulgarianCityAlias(normalized);
+  if (matched) return matched.canonical;
 
   return toBulgarianTitleCase(normalized);
 }
@@ -448,36 +492,52 @@ function isLikelyEventTitle(value: string): boolean {
   return /\b(фестивал|festival|carnival|маскарад|празник|събор|surva)\b/iu.test(title);
 }
 
-function extractEventLikeBulgarianTitle(value: string): string | null {
+function extractEventLikeBulgarianTitle(value: string): { title: string | null; pattern: string } {
   const decoded = decodeResearchText(value);
-  const eventMatch = decoded.match(/([\p{Lu}][^|]{4,160}?\b(?:фестивал|празник|събор|карнавал|маскарад)\b[^|–—-]{0,120})/iu);
-  if (!eventMatch?.[1]) return null;
+  const explicitDateEventMatch = decoded.match(/\b(?:датите\s+на|дните\s+на|програма(?:та)?\s+за)\s+([\p{Lu}][^|–—-]{4,120}?\b(?:фестивал|празник|събор|карнавал|маскарад)\b[^|–—-]{0,60}\b(?:19|20)\d{2})/iu);
+  if (explicitDateEventMatch?.[1]) {
+    return { title: explicitDateEventMatch[1].replace(/[\s,;:.!\-–—]+$/u, "").trim(), pattern: "bg_dates_of_event_phrase" };
+  }
 
-  return eventMatch[1]
+  const eventMatch = decoded.match(/([\p{Lu}][^|]{4,180}?\b(?:фестивал|празник|събор|карнавал|маскарад)\b[^|]{0,120})/iu);
+  if (!eventMatch?.[1]) return { title: null, pattern: "no_event_pattern_match" };
+
+  const extracted = eventMatch[1]
     .replace(/[\s,;:.!\-–—]+$/u, "")
     .replace(/\s+\b(официален\s+сайт|official\s+site|посети\s+[\p{L}\s]+|visit\s+[\p{L}\s]+)$/iu, "")
+    .replace(/^\s*(кулминационните\s+дни\s+на|кулминация(?:та)?\s+на|дните\s+на)\s+/iu, "")
+    .replace(/\s+(?:в|на)\s+[\p{Lu}][\p{L}\s-]{2,40}\s+през\s+(19|20)\d{2}\s*г\.?/iu, "")
+    .replace(/\s+през\s+(19|20)\d{2}\s*г\.?/iu, "")
     .trim();
+
+  return { title: extracted, pattern: "bg_event_segment_from_headline" };
 }
 
-function cleanTitleCandidate(value: string): { cleaned: string | null; acceptanceReason: string | null; decoded: string; stripped: string } {
+function cleanTitleCandidate(value: string): { cleaned: string | null; acceptanceReason: string | null; decoded: string; stripped: string; pattern: string } {
   const decoded = decodeResearchText(value);
   const stripped = stripSiteBrandTail(decoded);
 
-  if (!stripped) return { cleaned: null, acceptanceReason: null, decoded, stripped };
+  if (!stripped) return { cleaned: null, acceptanceReason: null, decoded, stripped, pattern: "empty_after_brand_strip" };
 
   const noisyReason = isNoisyTextCandidate(stripped);
-  if (noisyReason) return { cleaned: null, acceptanceReason: null, decoded, stripped };
+  if (noisyReason) return { cleaned: null, acceptanceReason: null, decoded, stripped, pattern: noisyReason };
 
   if (isLikelyEventTitle(stripped) && !isPageBrandFormatting(stripped)) {
-    return { cleaned: toBulgarianTitleCase(stripped), acceptanceReason: "direct_event_title", decoded, stripped };
+    return { cleaned: toBulgarianTitleCase(stripped), acceptanceReason: "direct_event_title", decoded, stripped, pattern: "direct_event_title" };
   }
 
   const extracted = extractEventLikeBulgarianTitle(stripped);
-  if (extracted && isLikelyEventTitle(extracted)) {
-    return { cleaned: toBulgarianTitleCase(extracted), acceptanceReason: "event_subtitle_extracted_from_bulgarian_authoritative_headline", decoded, stripped };
+  if (extracted.title && isLikelyEventTitle(extracted.title)) {
+    return {
+      cleaned: toBulgarianTitleCase(extracted.title),
+      acceptanceReason: "event_subtitle_extracted_from_bulgarian_authoritative_headline",
+      decoded,
+      stripped,
+      pattern: extracted.pattern,
+    };
   }
 
-  return { cleaned: null, acceptanceReason: null, decoded, stripped };
+  return { cleaned: null, acceptanceReason: null, decoded, stripped, pattern: extracted.pattern };
 }
 
 function pickTitleWithSource(
@@ -498,6 +558,7 @@ function pickTitleWithSource(
       source_url: sourceUrl,
       decoded_before_cleaning: titleCandidate.decoded.slice(0, 180),
       after_cleaning: titleCandidate.cleaned,
+      extraction_pattern: titleCandidate.pattern,
       tier: doc.authorityTier,
     });
 
@@ -560,6 +621,38 @@ function fallbackBulgarianTitleFromQuery(query: string, docs: AssessedDocument[]
   };
 }
 
+function toIsoDate(year: number, month: number, day: number): string | null {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+}
+
+function extractBgDateRanges(value: string, fallbackYear: number | null): Array<{ startDate: string; endDate: string; evidence: string }> {
+  const normalized = decodeResearchText(value).toLocaleLowerCase("bg-BG");
+  const out: Array<{ startDate: string; endDate: string; evidence: string }> = [];
+  const year = Number((normalized.match(/\b((?:19|20)\d{2})\s*г?\.?\b/u)?.[1] ?? fallbackYear ?? 0));
+  if (!year) return out;
+
+  for (const [monthText, monthNum] of Object.entries(BG_MONTH_MAP)) {
+    const listPattern = new RegExp(`\\b(\\d{1,2})\\s*,\\s*(\\d{1,2})\\s*и\\s*(\\d{1,2})\\s+${monthText}\\b`, "giu");
+    for (const match of normalized.matchAll(listPattern)) {
+      const days = [Number(match[1]), Number(match[2]), Number(match[3])].sort((a, b) => a - b);
+      const startDate = toIsoDate(year, monthNum, days[0]);
+      const endDate = toIsoDate(year, monthNum, days[2]);
+      if (startDate && endDate) out.push({ startDate, endDate, evidence: match[0] });
+    }
+
+    const rangePattern = new RegExp(`\\b(\\d{1,2})\\s*[–—-]\\s*(\\d{1,2})\\s+${monthText}(?:\\s+((?:19|20)\\d{2}))?\\b`, "giu");
+    for (const match of normalized.matchAll(rangePattern)) {
+      const rangeYear = Number(match[3] ?? year);
+      const startDate = toIsoDate(rangeYear, monthNum, Number(match[1]));
+      const endDate = toIsoDate(rangeYear, monthNum, Number(match[2]));
+      if (startDate && endDate) out.push({ startDate, endDate, evidence: match[0] });
+    }
+  }
+
+  return out;
+}
+
 function pickDateRangeFromStrongSources(docs: AssessedDocument[]): {
   startDate: string | null;
   endDate: string | null;
@@ -571,34 +664,65 @@ function pickDateRangeFromStrongSources(docs: AssessedDocument[]): {
     return { startDate: null, endDate: null, warning: "No authoritative/reputable sources available for reliable date extraction.", sourceUrl: null, tier: null };
   }
 
-  const tokenOwners: Array<{ date: string; sourceUrl: string; tier: SourceAuthorityTier }> = [];
+  const tokenOwners: Array<{ startDate: string; endDate: string; sourceUrl: string; tier: SourceAuthorityTier; evidence: string }> = [];
   for (const doc of docs) {
+    if (!isAuthoritativeTier(doc.authorityTier)) continue;
+    const sourceUrl = normalizeUrl(doc.canonicalUrl ?? doc.url);
+    const docYear = Number((`${doc.title} ${doc.snippet}`.match(/\b((?:19|20)\d{2})\b/u)?.[1] ?? 0));
+    const explicitRanges = [
+      ...extractBgDateRanges(doc.title, docYear || null),
+      ...extractBgDateRanges(doc.snippet.slice(0, 460), docYear || null),
+    ];
+    for (const range of explicitRanges) {
+      tokenOwners.push({ ...range, sourceUrl, tier: doc.authorityTier, evidence: range.evidence });
+    }
+
     for (const token of doc.dateLike) {
       const normalized = normalizeDateToken(token);
       if (!normalized) continue;
-      tokenOwners.push({ date: normalized, sourceUrl: normalizeUrl(doc.canonicalUrl ?? doc.url), tier: doc.authorityTier });
+      tokenOwners.push({ startDate: normalized, endDate: normalized, sourceUrl, tier: doc.authorityTier, evidence: token });
     }
   }
 
-  const uniqueDates = [...new Set(tokenOwners.map((entry) => entry.date))].sort();
+  console.info("[research:web-provider] date extraction candidates", {
+    candidates: tokenOwners.slice(0, 12).map((item) => ({
+      start_date: item.startDate,
+      end_date: item.endDate,
+      source_url: item.sourceUrl,
+      tier: item.tier,
+      evidence: item.evidence.slice(0, 120),
+    })),
+  });
 
-  if (uniqueDates.length === 0) {
+  const rangeVotes = new Map<string, { count: number; sample: typeof tokenOwners[number] }>();
+  for (const item of tokenOwners) {
+    const key = `${item.startDate}..${item.endDate}`;
+    const existing = rangeVotes.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      rangeVotes.set(key, { count: 1, sample: item });
+    }
+  }
+  const rankedRanges = [...rangeVotes.entries()].sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]));
+
+  if (rankedRanges.length === 0) {
     return { startDate: null, endDate: null, warning: "No reliable date-like pattern found in authoritative/reputable sources.", sourceUrl: null, tier: null };
   }
 
-  if (uniqueDates.length > 2) {
+  if (rankedRanges.length > 1 && rankedRanges[0][1].count === rankedRanges[1][1].count) {
     return { startDate: null, endDate: null, warning: "Date candidates are conflicting across authoritative/reputable sources.", sourceUrl: null, tier: null };
   }
 
-  const startDate = uniqueDates[0] ?? null;
-  const endDate = uniqueDates[1] ?? uniqueDates[0] ?? null;
+  const winner = rankedRanges[0][1].sample;
+  const startDate = winner.startDate;
+  const endDate = winner.endDate;
 
   if (startDate && endDate && endDate < startDate) {
     return { startDate: null, endDate: null, warning: "Date candidates conflict in ordering across authoritative/reputable sources.", sourceUrl: null, tier: null };
   }
 
-  const owner = tokenOwners.find((entry) => entry.date === startDate) ?? null;
-  return { startDate, endDate, warning: null, sourceUrl: owner?.sourceUrl ?? null, tier: owner?.tier ?? null };
+  return { startDate, endDate, warning: null, sourceUrl: winner.sourceUrl, tier: winner.tier };
 }
 
 function pickLocationWithSource(
@@ -694,28 +818,26 @@ function pickCityFromDocs(
 ): CandidateSelection {
   const candidates: ScoredCandidate[] = [];
 
-  const findCity = (value: string): string | null => {
+  const findCity = (value: string): { city: string; alias: string } | null => {
     const decoded = decodeResearchText(value);
-
-    for (const entry of BULGARIAN_CITY_ALIASES) {
-      if (entry.pattern.test(decoded)) return entry.canonical;
-    }
+    const directMatch = matchBulgarianCityAlias(decoded);
+    if (directMatch) return { city: directMatch.canonical, alias: directMatch.alias };
 
     const explicitMatches = decoded.match(/\b(?:гр\.?\s*)?[\p{Lu}][\p{L}]+(?:\s+[\p{Lu}][\p{L}]+)?\b/gu) ?? [];
-    for (const match of explicitMatches) {
-      const cleaned = match.replace(/^\s*гр\.?\s*/iu, "").trim();
-      for (const entry of BULGARIAN_CITY_ALIASES) {
-        if (entry.pattern.test(cleaned)) return entry.canonical;
-      }
+    for (const explicitMatch of explicitMatches) {
+      const cleaned = explicitMatch.replace(/^\s*гр\.?\s*/iu, "").trim();
+      const matchedAlias = matchBulgarianCityAlias(cleaned);
+      if (matchedAlias) return { city: matchedAlias.canonical, alias: matchedAlias.alias };
     }
 
     return null;
   };
 
   const queryCityRaw = findCity(query);
-  const queryCity = queryCityRaw ? normalizeBulgarianCityAlias(queryCityRaw) : null;
+  const queryCity = queryCityRaw ? normalizeBulgarianCityAlias(queryCityRaw.city) : null;
   console.info("[research:web-provider] detected query city", {
     normalized_query: normalizeQuery(query),
+    matched_alias: queryCityRaw?.alias ?? null,
     query_city: queryCity,
   });
   const authoritativeCityVotes = new Map<string, number>();
@@ -731,8 +853,8 @@ function pickCityFromDocs(
     const city = pickFieldValue(
       pool
         .map((item) => findCity(item))
-        .filter((item): item is string => Boolean(item))
-        .map((item) => normalizeBulgarianCityAlias(item)),
+        .filter((item): item is { city: string; alias: string } => Boolean(item))
+        .map((item) => normalizeBulgarianCityAlias(item.city)),
     );
     if (!city) {
       logCandidateRejection("city", doc.title, "no_city_detected_from_document_pool", sourceUrl, doc.authorityTier);

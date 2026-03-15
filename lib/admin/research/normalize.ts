@@ -1,4 +1,4 @@
-import { ResearchConfidenceLevel, type ResearchDateCandidate, type ResearchFestivalResult, type ResearchFieldCandidate, type ResearchSource } from "@/lib/admin/research/types";
+import type { ResearchConfidenceLevel, ResearchDateCandidate, ResearchFestivalResult, ResearchFieldCandidate, ResearchSource } from "@/lib/admin/research/types";
 import type { SourceAuthorityTier } from "@/lib/admin/research/source-ranking";
 
 function normalizeText(value: unknown): string | null {

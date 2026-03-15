@@ -45,7 +45,33 @@ type ScoredCandidate = {
   tier: SourceAuthorityTier;
   languageSignal: LanguageSignal;
   score: number;
+  reason?: string;
 };
+
+type CandidateSelection = {
+  value: string | null;
+  sourceUrl: string | null;
+  tier: SourceAuthorityTier | null;
+  languageSignal: LanguageSignal | null;
+  reason: string;
+};
+
+const BULGARIAN_CITY_ALIASES: Array<{ pattern: RegExp; canonical: string }> = [
+  { pattern: /\b(казанлък|kazanlak)\b/iu, canonical: "Казанлък" },
+  { pattern: /\b(софия|sofia)\b/iu, canonical: "София" },
+  { pattern: /\b(пловдив|plovdiv)\b/iu, canonical: "Пловдив" },
+  { pattern: /\b(варна|varna)\b/iu, canonical: "Варна" },
+  { pattern: /\b(бургас|burgas)\b/iu, canonical: "Бургас" },
+  { pattern: /\b(русе|ruse)\b/iu, canonical: "Русе" },
+  { pattern: /\b(перник|pernik)\b/iu, canonical: "Перник" },
+  { pattern: /\b(стара\s+загора|stara\s+zagora)\b/iu, canonical: "Стара Загора" },
+  { pattern: /\b(велико\s+търново|veliko\s+tarnovo)\b/iu, canonical: "Велико Търново" },
+];
+
+const ORGANIZER_ENTITY_HINT =
+  /\b(община|municipality|кметств|министер|комитет|committee|фондац|foundation|асоциац|association|сдружени|организатор|организира|читалище|дружество|съюз)\b/iu;
+const LOCATION_VENUE_HINT =
+  /\b(площад|парк|стадион|читалище|дом\s+на\s+културата|културен\s+дом|амфитеат|venue|hall|square|park|center|centre|градина|езеро|комплекс)\b/iu;
 
 function isBulgarianQuery(query: string): boolean {
   return /[\u0400-\u04FF]/u.test(query) || /\b(фестивал|събор|празник|карнавал|сурва)\b/iu.test(query);
@@ -83,10 +109,28 @@ function candidateScore(tier: SourceAuthorityTier, signal: LanguageSignal, bgQue
   return tierWeight[tier] + languageWeight + base;
 }
 
-function pickBestCandidate(candidates: ScoredCandidate[]): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null; languageSignal: LanguageSignal | null } {
-  if (candidates.length === 0) return { value: null, sourceUrl: null, tier: null, languageSignal: null };
-  const best = [...candidates].sort((a, b) => b.score - a.score)[0];
-  return { value: best.value, sourceUrl: best.sourceUrl, tier: best.tier, languageSignal: best.languageSignal };
+function canonicalPriorityBucket(candidate: ScoredCandidate): number {
+  const bgLike = candidate.languageSignal === "bg" || candidate.languageSignal === "mixed";
+  if (bgLike && isAuthoritativeTier(candidate.tier)) return 1;
+  if (bgLike && candidate.tier === "tier3_reference") return 2;
+  if (!bgLike && isAuthoritativeTier(candidate.tier)) return 3;
+  if (!bgLike && candidate.tier === "tier3_reference") return 4;
+  return 99;
+}
+
+function pickBestCandidate(candidates: ScoredCandidate[]): CandidateSelection {
+  if (candidates.length === 0) {
+    return { value: null, sourceUrl: null, tier: null, languageSignal: null, reason: "No valid candidates after quality filters." };
+  }
+
+  const best = [...candidates].sort((a, b) => canonicalPriorityBucket(a) - canonicalPriorityBucket(b) || b.score - a.score)[0];
+  return {
+    value: best.value,
+    sourceUrl: best.sourceUrl,
+    tier: best.tier,
+    languageSignal: best.languageSignal,
+    reason: best.reason ?? `Selected via priority bucket ${canonicalPriorityBucket(best)} and highest score in bucket.`,
+  };
 }
 
 
@@ -206,17 +250,28 @@ function logRankingDiagnostics(docs: AssessedDocument[]): void {
 }
 
 function logFieldSelectionDiagnostics(details: {
+  titleValue: string | null;
   titleSource: string | null;
   titleTier: SourceAuthorityTier | null;
   titleLanguage: LanguageSignal | null;
+  titleReason: string;
   dateSource: string | null;
   dateTier: SourceAuthorityTier | null;
+  cityValue: string | null;
+  citySource: string | null;
+  cityTier: SourceAuthorityTier | null;
+  cityLanguage: LanguageSignal | null;
+  cityReason: string;
+  locationValue: string | null;
   locationSource: string | null;
   locationTier: SourceAuthorityTier | null;
   locationLanguage: LanguageSignal | null;
+  locationReason: string;
+  organizerValue: string | null;
   organizerSource: string | null;
   organizerTier: SourceAuthorityTier | null;
   organizerLanguage: LanguageSignal | null;
+  organizerReason: string;
   sourceUrl: string | null;
   sourceUrlTier: SourceAuthorityTier | null;
   sourceLanguage: LanguageSignal | null;
@@ -294,6 +349,8 @@ function cleanLocationCandidate(value: string): string | null {
   const sentenceParts = cleaned.split(/[.!?]/).filter((part) => part.trim().length > 0);
   if (sentenceParts.length > 1) return null;
   if (/,/.test(cleaned) && cleaned.split(",").length > 3) return null;
+  if (/\b\d{4}\s+[\p{L}\s]+,\s*(ул\.?|бул\.?|street)\b/iu.test(cleaned)) return null;
+  if (/[,\-]\s*(ул\.?|бул\.?|street|кв\.?|жк\.?)\s*$/iu.test(cleaned)) return null;
   return cleaned;
 }
 
@@ -309,6 +366,11 @@ function isWeakTitle(value: string): boolean {
   return /(tripadvisor|couchsurfing|things to do|booking|events? in|directory|listing|profile|group|page)\b/iu.test(title);
 }
 
+function isPageBrandFormatting(value: string): boolean {
+  const title = value.toLocaleLowerCase("bg-BG");
+  return /\b(home|начало|официален\s+сайт|official\s+site|tripadvisor|facebook)\b/iu.test(title) || /\|\s*[^|]{1,20}$/.test(value);
+}
+
 function isLikelyEventTitle(value: string): boolean {
   const title = value.toLocaleLowerCase("bg-BG");
   if (title.length < 8) return false;
@@ -319,20 +381,26 @@ function isLikelyEventTitle(value: string): boolean {
 function pickTitleWithSource(
   docs: AssessedDocument[],
   bgQuery: boolean,
-): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null; languageSignal: LanguageSignal | null } {
+): CandidateSelection {
   const candidates: ScoredCandidate[] = [];
 
   for (const doc of docs) {
+    if (!isAuthoritativeTier(doc.authorityTier) && doc.authorityTier !== "tier3_reference") continue;
     const cleaned = stripSiteBrandTail(doc.title);
-    if (!cleaned || !isLikelyEventTitle(cleaned)) continue;
+    if (!cleaned || !isLikelyEventTitle(cleaned) || isPageBrandFormatting(cleaned)) continue;
 
     const signal = detectLanguageSignal(cleaned);
+    const compactNameBonus = signal === "bg" ? Math.max(0, 16 - Math.floor(cleaned.length / 4)) : 0;
     candidates.push({
       value: cleaned,
       sourceUrl: doc.canonicalUrl ?? doc.url,
       tier: doc.authorityTier,
       languageSignal: signal,
-      score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore),
+      score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore + compactNameBonus),
+      reason:
+        signal === "bg"
+          ? "Bulgarian event title from authoritative/reputable source; shorter canonical event name preferred."
+          : "Fallback non-Bulgarian title because no stronger Bulgarian title candidate won.",
     });
   }
 
@@ -383,12 +451,14 @@ function pickDateRangeFromStrongSources(docs: AssessedDocument[]): {
 function pickLocationWithSource(
   docs: AssessedDocument[],
   bgQuery: boolean,
-): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null; languageSignal: LanguageSignal | null } {
+): CandidateSelection {
   const candidates: ScoredCandidate[] = [];
   for (const doc of docs) {
+    if (!isAuthoritativeTier(doc.authorityTier) && doc.authorityTier !== "tier3_reference") continue;
     const cleaned = doc.locationLike.map((value) => cleanLocationCandidate(value)).filter((value): value is string => Boolean(value));
-    const value = pickFieldValue(cleaned);
+    const value = pickFieldValue(cleaned.filter((item) => !/^\d{4}\s+/u.test(item)));
     if (!value) continue;
+    if (!LOCATION_VENUE_HINT.test(value) && /\b(ул\.?|бул\.?|жк\.?|кв\.?)\b/iu.test(value)) continue;
     const signal = detectLanguageSignal(value);
     candidates.push({
       value,
@@ -396,6 +466,7 @@ function pickLocationWithSource(
       tier: doc.authorityTier,
       languageSignal: signal,
       score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore),
+      reason: "Venue/place-like location from higher-authority source after fragment filtering.",
     });
   }
   return pickBestCandidate(candidates);
@@ -404,11 +475,24 @@ function pickLocationWithSource(
 function pickOrganizerWithSource(
   docs: AssessedDocument[],
   bgQuery: boolean,
-): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null; languageSignal: LanguageSignal | null } {
+): CandidateSelection {
   const candidates: ScoredCandidate[] = [];
+
+  const cleanOrganizerCandidate = (value: string): string | null => {
+    const cleaned = value.replace(/\s+/g, " ").replace(/[.;]+$/g, "").trim();
+    if (!cleaned || cleaned.length < 3 || cleaned.length > 90) return null;
+    if (/[!?]/.test(cleaned)) return null;
+    if ((cleaned.match(/[,.;:]/g) ?? []).length > 2) return null;
+    if (/\b(ще|представя|заповядайте|очаква|can join|join us|learn more|прочетете)\b/iu.test(cleaned)) return null;
+    if (!ORGANIZER_ENTITY_HINT.test(cleaned) && cleaned.split(/\s+/).length > 6) return null;
+    return cleaned;
+  };
+
   for (const doc of docs) {
-    const value = pickFieldValue(doc.organizerLike);
+    if (!isAuthoritativeTier(doc.authorityTier) && doc.authorityTier !== "tier3_reference") continue;
+    const value = pickFieldValue(doc.organizerLike.map((item) => cleanOrganizerCandidate(item)).filter((item): item is string => Boolean(item)));
     if (!value) continue;
+    if (!ORGANIZER_ENTITY_HINT.test(value) && value.split(/\s+/).length < 2) continue;
     const signal = detectLanguageSignal(value);
     candidates.push({
       value,
@@ -416,6 +500,7 @@ function pickOrganizerWithSource(
       tier: doc.authorityTier,
       languageSignal: signal,
       score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore),
+      reason: "Organizer candidate looks like an entity (institution/association/committee), not prose.",
     });
   }
   return pickBestCandidate(candidates);
@@ -424,19 +509,30 @@ function pickOrganizerWithSource(
 function pickCityFromDocs(
   docs: AssessedDocument[],
   bgQuery: boolean,
-): { value: string | null; sourceUrl: string | null; tier: SourceAuthorityTier | null; languageSignal: LanguageSignal | null } {
-  const cityRegex = /\b(?:гр\.?|city|перник|софия|пловдив|варна|бургас|русе|стара\s+загора|велико\s+търново|stara zagora|veliko tarnovo)\b/iu;
+): CandidateSelection {
   const candidates: ScoredCandidate[] = [];
+
+  const findCity = (value: string): string | null => {
+    for (const entry of BULGARIAN_CITY_ALIASES) {
+      if (entry.pattern.test(value)) return entry.canonical;
+    }
+    const explicit = value.match(/\bгр\.?\s*([\p{Lu}][\p{L}]+(?:\s+[\p{Lu}][\p{L}]+)?)\b/u);
+    return explicit?.[1] ?? null;
+  };
+
   for (const doc of docs) {
-    const value = pickFieldValue(doc.locationLike.filter((item) => cityRegex.test(item)));
-    if (!value) continue;
-    const signal = detectLanguageSignal(value);
+    if (!isAuthoritativeTier(doc.authorityTier) && doc.authorityTier !== "tier3_reference") continue;
+    const pool = [...doc.locationLike, doc.title, doc.snippet.slice(0, 380)];
+    const city = pickFieldValue(pool.map((item) => findCity(item)).filter((item): item is string => Boolean(item)));
+    if (!city) continue;
+    const signal = detectLanguageSignal(city);
     candidates.push({
-      value,
+      value: city,
       sourceUrl: doc.canonicalUrl ?? doc.url,
       tier: doc.authorityTier,
       languageSignal: signal,
       score: candidateScore(doc.authorityTier, signal, bgQuery, doc.qualityScore),
+      reason: "City normalized from Bulgarian authoritative location/title/snippet signals.",
     });
   }
   return pickBestCandidate(candidates);
@@ -662,8 +758,13 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
   if (!title) warnings.push("No reliable event title found in authoritative/reputable sources.");
   if (!startDate) warnings.push("No reliable start date found in authoritative/reputable sources.");
   if (!cityCandidate) warnings.push("City could not be confirmed from authoritative/reputable sources.");
-  if (!organizer) warnings.push("Organizer could not be confirmed from authoritative/reputable sources.");
-  if (bgQuery && titleSelection.languageSignal === "non_bg") warnings.push("Title remained non-Bulgarian because authoritative Bulgarian evidence was not confirmed.");
+  if (!organizer) warnings.push("Organizer set to null: only low-quality/prose organizer candidates were found.");
+  if (!location) warnings.push("Location set to null: only partial address or low-quality location candidates were found.");
+  if (bgQuery && titleSelection.languageSignal === "non_bg" && (authoritative.some((doc) => doc.languageSignal === "bg" || doc.languageSignal === "mixed") || fallback.some((doc) => doc.languageSignal === "bg" || doc.languageSignal === "mixed"))) {
+    warnings.push("Title remained non-Bulgarian despite Bulgarian authoritative/reputable sources; confidence reduced.");
+  } else if (bgQuery && titleSelection.languageSignal === "non_bg") {
+    warnings.push("Title remained non-Bulgarian because authoritative Bulgarian evidence was not confirmed.");
+  }
   if (bgQuery && locationSelection.languageSignal === "non_bg") warnings.push("Location remained non-Bulgarian because authoritative Bulgarian evidence was not confirmed.");
 
   if (weakOnly) {
@@ -671,17 +772,28 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
   }
 
   logFieldSelectionDiagnostics({
+    titleValue: title,
     titleSource: titleSelection.sourceUrl,
     titleTier: titleSelection.tier,
     titleLanguage: titleSelection.languageSignal,
+    titleReason: titleSelection.reason,
     dateSource: dateRange.sourceUrl,
     dateTier: dateRange.tier,
+    cityValue: cityCandidate,
+    citySource: citySelection.sourceUrl,
+    cityTier: citySelection.tier,
+    cityLanguage: citySelection.languageSignal,
+    cityReason: citySelection.reason,
+    locationValue: location,
     locationSource: locationSelection.sourceUrl,
     locationTier: locationSelection.tier,
     locationLanguage: locationSelection.languageSignal,
+    locationReason: locationSelection.reason,
+    organizerValue: organizer,
     organizerSource: organizerSelection.sourceUrl,
     organizerTier: organizerSelection.tier,
     organizerLanguage: organizerSelection.languageSignal,
+    organizerReason: organizerSelection.reason,
     sourceUrl,
     sourceUrlTier: preferredDoc?.authorityTier ?? null,
     sourceLanguage: preferredDoc ? detectLanguageSignal(`${preferredDoc.title} ${preferredDoc.snippet}`) : null,
@@ -697,6 +809,10 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
     ),
   );
 
+  const hasStrongBulgarianDocs = authoritative.some((doc) => doc.languageSignal === "bg" || doc.languageSignal === "mixed");
+  const titleIsNonBgWithStrongBgDocs = bgQuery && titleSelection.languageSignal === "non_bg" && hasStrongBulgarianDocs;
+  const adjustedScore = titleIsNonBgWithStrongBgDocs ? Math.max(0, score - 18) : score;
+
   const canonicalBackedByAuthority =
     !!titleSelection.tier &&
     !!dateRange.tier &&
@@ -708,7 +824,7 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
     isAuthoritativeTier(locationSelection.tier);
 
   const overallConfidence: ResearchConfidenceLevel =
-    weakOnly || authoritative.length === 0 ? "low" : canonicalBackedByAuthority ? pickConfidence(score) : "medium";
+    weakOnly || authoritative.length === 0 ? "low" : canonicalBackedByAuthority ? pickConfidence(adjustedScore) : "medium";
 
   return {
     query,
@@ -730,13 +846,13 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
     sources: rankedSources,
     confidence: {
       overall: overallConfidence,
-      title: title && titleSelection.tier && isAuthoritativeTier(titleSelection.tier) ? pickConfidence(score) : "low",
-      dates: startDate && dateRange.tier && isAuthoritativeTier(dateRange.tier) ? pickConfidence(score) : "low",
-      city: cityCandidate && citySelection.tier && isAuthoritativeTier(citySelection.tier) ? pickConfidence(score - 8) : "low",
-      location: location && locationSelection.tier && isAuthoritativeTier(locationSelection.tier) ? pickConfidence(score - 12) : "low",
-      description: description && preferredDoc && isAuthoritativeTier(preferredDoc.authorityTier) ? pickConfidence(score - 10) : "low",
-      organizer: organizer && organizerSelection.tier && isAuthoritativeTier(organizerSelection.tier) ? pickConfidence(score - 8) : "low",
-      hero_image: heroImage && preferredDoc && isAuthoritativeTier(preferredDoc.authorityTier) ? pickConfidence(score - 14) : "low",
+      title: title && titleSelection.tier && isAuthoritativeTier(titleSelection.tier) ? pickConfidence(adjustedScore) : "low",
+      dates: startDate && dateRange.tier && isAuthoritativeTier(dateRange.tier) ? pickConfidence(adjustedScore) : "low",
+      city: cityCandidate && citySelection.tier && isAuthoritativeTier(citySelection.tier) ? pickConfidence(adjustedScore - 8) : "low",
+      location: location && locationSelection.tier && isAuthoritativeTier(locationSelection.tier) ? pickConfidence(adjustedScore - 12) : "low",
+      description: description && preferredDoc && isAuthoritativeTier(preferredDoc.authorityTier) ? pickConfidence(adjustedScore - 10) : "low",
+      organizer: organizer && organizerSelection.tier && isAuthoritativeTier(organizerSelection.tier) ? pickConfidence(adjustedScore - 8) : "low",
+      hero_image: heroImage && preferredDoc && isAuthoritativeTier(preferredDoc.authorityTier) ? pickConfidence(adjustedScore - 14) : "low",
     },
     warnings,
     evidence: [

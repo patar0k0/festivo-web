@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       mode: result.metadata?.mode,
       source_count: result.metadata?.source_count,
       source_urls: result.sources.slice(0, 3).map((source) => source.url),
+      warnings_count: result.warnings.length,
     });
     return NextResponse.json({ ok: true, result });
   } catch (error) {

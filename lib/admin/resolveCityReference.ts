@@ -9,7 +9,15 @@ export type ResolvedCity = {
 };
 
 export function normalizeSettlementInput(value: string) {
-  return value.trim().replace(/\s+/g, " ");
+  const trimmed = value.trim().replace(/\s+/g, " ");
+
+  if (!trimmed) {
+    return "";
+  }
+
+  // Strip common Bulgarian locality prefixes at the beginning (e.g. "с. ", "гр. ").
+  // Keep this conservative to avoid changing unrelated free-form location strings.
+  return trimmed.replace(/^(?:гр|град|с|село)\.?\s+/i, "");
 }
 
 export async function resolveCityReference(client: SupabaseClient, input: string): Promise<ResolvedCity | null> {

@@ -31,6 +31,15 @@ function parseCityId(value: unknown) {
   return Number.isInteger(parsed) ? parsed : Number.NaN;
 }
 
+
+function parseOrganizerId(value: unknown): string | null | typeof Number.NaN {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value !== "string") return Number.NaN;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed;
+}
+
 async function findCityById(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, cityId: number) {
   const { data, error } = await ctx.supabase.from("cities").select("id,slug,name_bg").eq("id", cityId).maybeSingle();
 
@@ -67,6 +76,29 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if ("is_verified" in body && typeof body.is_verified === "boolean") {
       patch.is_verified = body.is_verified;
+    }
+
+    if ("organizer_id" in body) {
+      const organizerId = parseOrganizerId(body.organizer_id);
+      if (Number.isNaN(organizerId)) {
+        return NextResponse.json({ error: "Invalid organizer_id" }, { status: 400 });
+      }
+
+      patch.organizer_id = organizerId;
+
+      if (organizerId) {
+        const { data: organizer, error: organizerError } = await ctx.supabase
+          .from("organizers")
+          .select("name")
+          .eq("id", organizerId)
+          .maybeSingle<{ name: string }>();
+
+        if (organizerError) {
+          return NextResponse.json({ error: organizerError.message }, { status: 500 });
+        }
+
+        patch.organizer_name = organizer?.name ?? patch.organizer_name ?? null;
+      }
     }
 
     const hasCityInputField = "city_name_display" in canonical;

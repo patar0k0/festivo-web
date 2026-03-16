@@ -179,12 +179,33 @@ export type Database = {
       organizers: {
         Row: {
           id: string
+          name: string
+          slug: string
+          description: string | null
+          logo_url: string | null
+          website_url: string | null
+          facebook_url: string | null
+          instagram_url: string | null
         }
         Insert: {
           id?: string
+          name: string
+          slug: string
+          description?: string | null
+          logo_url?: string | null
+          website_url?: string | null
+          facebook_url?: string | null
+          instagram_url?: string | null
         }
         Update: {
           id?: string
+          name?: string
+          slug?: string
+          description?: string | null
+          logo_url?: string | null
+          website_url?: string | null
+          facebook_url?: string | null
+          instagram_url?: string | null
         }
       }
       profiles: {

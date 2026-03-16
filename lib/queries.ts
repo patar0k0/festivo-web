@@ -1,6 +1,6 @@
 ﻿import { addDays, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, PaginatedResult } from "@/lib/types";
+import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, OrganizerProfile, PaginatedResult } from "@/lib/types";
 import { withDefaultFilters } from "@/lib/filters";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 
@@ -8,7 +8,7 @@ export const FESTIVAL_SELECT_MIN =
   "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,city_id,city,region,location_name,address,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug)";
+  "id,title,slug,description,start_date,end_date,city_id,city,region,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug),organizer:organizers!left(id,name,slug)";
 
 function applyPublicScope<T>(query: T): T {
   type QueryWithOrAndNeq<Q> = Q & {
@@ -97,7 +97,7 @@ function fixFestivalText(festival: Festival): Festival {
     latitude: festival.lat ?? null,
     longitude: festival.lng ?? null,
     hero_image: festival.hero_image ?? festival.image_url ?? null,
-    organizer_name: festival.organizer_name ? fixMojibakeBG(festival.organizer_name) : festival.organizer_name,
+    organizer_name: festival.organizer_name ? fixMojibakeBG(festival.organizer_name) : festival.organizer?.name ? fixMojibakeBG(festival.organizer.name) : festival.organizer_name,
   };
 }
 
@@ -344,4 +344,39 @@ export async function getFestivalSlugs(): Promise<string[]> {
   }
 
   return (data ?? []).map((row) => row.slug).filter((slug): slug is string => Boolean(slug));
+}
+
+export async function getOrganizerWithFestivals(
+  slug: string,
+): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
+  const supabase = supabaseServer();
+  if (!supabase) return null;
+
+  const { data: organizer, error: organizerError } = await supabase
+    .from("organizers")
+    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url")
+    .eq("slug", slug)
+    .maybeSingle<OrganizerProfile>();
+
+  if (organizerError || !organizer) {
+    return null;
+  }
+
+  const { data: festivals, error: festivalsError } = await supabase
+    .from("festivals")
+    .select(FESTIVAL_SELECT_MIN)
+    .eq("organizer_id", organizer.id)
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+    .neq("status", "archived")
+    .order("start_date", { ascending: true })
+    .returns<Festival[]>();
+
+  if (festivalsError) {
+    throw new Error(festivalsError.message);
+  }
+
+  return {
+    organizer,
+    festivals: (festivals ?? []).map(fixFestivalText),
+  };
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { type SupabaseClient } from "@supabase/supabase-js";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { transliteratedSlug } from "@/lib/text/slug";
 
 type OrganizerPayload = {
@@ -13,10 +15,10 @@ type OrganizerPayload = {
 };
 
 
-async function pickOrganizerSlug(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, baseSlug: string) {
+async function pickOrganizerSlug(client: SupabaseClient, baseSlug: string) {
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const candidate = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`;
-    const { data, error } = await ctx.supabase.from("organizers").select("id").eq("slug", candidate).maybeSingle();
+    const { data, error } = await client.from("organizers").select("id").eq("slug", candidate).maybeSingle();
     if (error) {
       throw new Error(error.message);
     }
@@ -72,7 +74,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not generate slug" }, { status: 400 });
   }
 
-  const slug = await pickOrganizerSlug(ctx, slugBase);
+  let adminClient: SupabaseClient;
+  try {
+    adminClient = createSupabaseAdmin();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to initialize admin client";
+    console.error("[admin/api/organizers][POST] Admin client initialization failed", { message });
+    return NextResponse.json({ error: "Organizer creation is temporarily unavailable" }, { status: 500 });
+  }
+
+  console.info("[admin/api/organizers][POST] Using service-role client for organizer insert");
+
+  const slug = await pickOrganizerSlug(adminClient, slugBase);
 
   const payload = {
     name,
@@ -84,15 +97,18 @@ export async function POST(request: Request) {
     instagram_url: normalizeText(body.instagram_url),
   };
 
-  const { data, error } = await ctx.supabase
+  const { data, error } = await adminClient
     .from("organizers")
     .insert(payload)
     .select("id,name,slug")
     .single();
 
   if (error) {
+    console.error("[admin/api/organizers][POST] Organizer insert failed", { message: error.message });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  console.info("[admin/api/organizers][POST] Organizer insert succeeded", { organizerId: data.id });
 
   return NextResponse.json({ row: data }, { status: 201 });
 }

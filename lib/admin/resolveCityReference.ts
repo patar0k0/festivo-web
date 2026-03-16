@@ -1,6 +1,7 @@
 import "server-only";
 
 import { type SupabaseClient } from "@supabase/supabase-js";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export type ResolvedCity = {
   id: number;
@@ -155,10 +156,22 @@ export async function resolveOrCreateCityReference(client: SupabaseClient, input
     return { city: existingByName, created: false };
   }
 
-  const baseSlug = citySlugFromName(normalizedInput);
-  const slug = await pickAvailableSlug(client, baseSlug);
+  const adminClient = createSupabaseAdmin();
 
-  const inserted = await client.from("cities").insert({ name_bg: normalizedInput, slug }).select("id,slug,name_bg").single();
+  const resolvedViaAdmin = await resolveCityReference(adminClient, normalizedInput);
+  if (resolvedViaAdmin) {
+    return { city: resolvedViaAdmin, created: false };
+  }
+
+  const existingByNameViaAdmin = await findCityByExactName(adminClient, normalizedInput);
+  if (existingByNameViaAdmin) {
+    return { city: existingByNameViaAdmin, created: false };
+  }
+
+  const baseSlug = citySlugFromName(normalizedInput);
+  const slug = await pickAvailableSlug(adminClient, baseSlug);
+
+  const inserted = await adminClient.from("cities").insert({ name_bg: normalizedInput, slug }).select("id,slug,name_bg").single();
   if (inserted.error) {
     throw new Error(`City insert failed: ${inserted.error.message}`);
   }

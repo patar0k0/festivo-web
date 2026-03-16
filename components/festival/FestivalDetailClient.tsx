@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
+import { bg } from "date-fns/locale";
 import Badge from "@/components/ui/Badge";
 import EventCard from "@/components/ui/EventCard";
 import FallbackImage from "@/components/ui/FallbackImage";
@@ -35,7 +36,7 @@ function formatDayLabel(day: FestivalDay): string {
   if (day.title) return day.title;
   if (!day.date) return "Ден";
   try {
-    return format(parseISO(day.date), "d MMMM");
+    return format(parseISO(day.date), "d MMMM", { locale: bg });
   } catch {
     return day.date;
   }
@@ -55,6 +56,30 @@ function formatTimeRange(start?: string | null, end?: string | null): string {
   const to = end ? end.slice(0, 5) : "";
   if (from && to) return `${from} - ${to}`;
   return from || "Час предстои";
+}
+
+function formatFestivalDate(value?: string | null): string | null {
+  if (!value) return null;
+
+  try {
+    return format(parseISO(value), "d MMMM yyyy", { locale: bg });
+  } catch {
+    return value;
+  }
+}
+
+function formatFestivalDateRange(start?: string | null, end?: string | null): string | null {
+  const formattedStart = formatFestivalDate(start);
+  if (!formattedStart) return null;
+
+  if (!end || end === start) {
+    return formattedStart;
+  }
+
+  const formattedEnd = formatFestivalDate(end);
+  if (!formattedEnd) return formattedStart;
+
+  return `${formattedStart} – ${formattedEnd}`;
 }
 
 function categoryLabel(category?: string | null): string | null {
@@ -146,25 +171,31 @@ export default function FestivalDetailClient({
   });
   const [heroImageFailed, setHeroImageFailed] = useState(false);
   const categoryText = categoryLabel(festival.category);
+  const formattedDateRange = formatFestivalDateRange(festival.start_date, festival.end_date);
   const descriptionText = festival.description?.trim() ?? "";
   const tags = (festival.tags ?? []).filter((tag): tag is string => Boolean(tag?.trim()));
+  const visibleTags = tags.slice(0, 7);
+  const hiddenTagsCount = Math.max(tags.length - visibleTags.length, 0);
   const priceRange = festival.price_range?.trim() ?? "";
   const showFreeBadge = festival.is_free === true;
   const showPriceRange = Boolean(priceRange) && !showFreeBadge;
   const showDescriptionSection = Boolean(descriptionText) || tags.length > 0 || showPriceRange || showFreeBadge;
   const locationName = festival.location_name?.trim() ?? "";
+  const cityName = festival.city_name_display?.trim() || festival.city?.trim() || "";
+  const cityOrLocationText = cityName || locationName;
   const venueName = festival.venue_name?.trim() ?? "";
   const showVenueName = Boolean(venueName) && venueName.toLocaleLowerCase() !== locationName.toLocaleLowerCase();
+  const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
+  const hasGalleryContent = imageMedia.length > 0;
   const showInfoSection = Boolean(
-    festival.start_date ||
-      festival.end_date ||
+    formattedDateRange ||
       locationName ||
       showVenueName ||
       festival.address?.trim() ||
       festival.organizer_name?.trim() ||
       festival.region?.trim(),
   );
-  const showMapSection = Boolean(mapEmbedSrc && mapHref && festival.address?.trim() && locationName);
+  const showMapSection = Boolean(mapEmbedSrc && mapHref && (locationName || cityName || festival.address?.trim()));
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
 
   useEffect(() => {
@@ -186,7 +217,7 @@ export default function FestivalDetailClient({
   };
 
   return (
-    <div className="space-y-8 md:space-y-10">
+    <div className="space-y-10 md:space-y-12">
       <section className="overflow-hidden rounded-[24px] border border-black/[0.08] bg-white shadow-[0_2px_0_rgba(12,14,20,0.06),0_12px_32px_rgba(12,14,20,0.07)]">
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
           {heroImage && !heroImageFailed ? (
@@ -213,19 +244,19 @@ export default function FestivalDetailClient({
             </div>
           )}
           <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6 md:p-8">
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-white/85">
-              {festival.start_date ? <span className="rounded-full bg-white/15 px-3 py-1">Начало: {festival.start_date}</span> : null}
-              {festival.end_date ? <span className="rounded-full bg-white/15 px-3 py-1">Край: {festival.end_date}</span> : null}
+            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{festival.title}</h1>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/90">
+              {formattedDateRange ? <span className="rounded-full bg-white/15 px-3 py-1">{formattedDateRange}</span> : null}
+              {cityOrLocationText ? <span className="rounded-full bg-white/15 px-3 py-1">{cityOrLocationText}</span> : null}
               {categoryText ? <span className="rounded-full bg-white/15 px-3 py-1">{categoryText}</span> : null}
               {showFreeBadge ? <span className="rounded-full bg-white/15 px-3 py-1">Безплатен вход</span> : null}
             </div>
-            <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">{festival.title}</h1>
           </div>
         </div>
       </section>
 
-      <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="min-w-0 space-y-7">
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0 space-y-8">
           {showDescriptionSection ? (
             <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
               <h2 className="text-xl font-semibold text-[#0c0e14]">Описание</h2>
@@ -236,17 +267,18 @@ export default function FestivalDetailClient({
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   {showFreeBadge ? <Badge variant="primary">Безплатен вход</Badge> : null}
                   {showPriceRange ? <Badge variant="neutral">{priceRange}</Badge> : null}
-                  {tags.map((tag) => (
+                  {visibleTags.map((tag) => (
                     <Badge key={tag} variant="neutral">#{tag}</Badge>
                   ))}
+                  {hiddenTagsCount > 0 ? <Badge variant="neutral">+{hiddenTagsCount}</Badge> : null}
                 </div>
               ) : null}
             </section>
           ) : null}
 
-          <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-            <h2 className="text-xl font-semibold text-[#0c0e14]">Галерия</h2>
-            {imageMedia.length ? (
+          {hasGalleryContent ? (
+            <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
+              <h2 className="text-xl font-semibold text-[#0c0e14]">Галерия</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {imageMedia.slice(0, 8).map((item) => (
                   <figure key={item.id} className="overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.03]">
@@ -257,20 +289,12 @@ export default function FestivalDetailClient({
                   </figure>
                 ))}
               </div>
-            ) : (
-              <div className="mt-4 rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-6 text-sm text-black/50">
-                Галерията още не е публикувана.
-              </div>
-            )}
-          </section>
+            </section>
+          ) : null}
 
-          <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-            <h2 className="text-xl font-semibold text-[#0c0e14]">Програма</h2>
-            {!groupedDays.length ? (
-              <div className="mt-4 rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-6 text-sm text-black/50">
-                Програмата още не е публикувана.
-              </div>
-            ) : (
+          {hasProgramContent ? (
+            <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
+              <h2 className="text-xl font-semibold text-[#0c0e14]">Програма</h2>
               <>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {groupedDays.map((day) => (
@@ -326,14 +350,12 @@ export default function FestivalDetailClient({
                       );
                     })
                   ) : (
-                    <div className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-6 text-sm text-black/50">
-                      Няма публикувани точки за избрания ден.
-                    </div>
+                    <p className="text-sm text-black/55">Няма публикувани точки за избрания ден.</p>
                   )}
                 </div>
               </>
-            )}
-          </section>
+            </section>
+          ) : null}
 
           {relatedFestivals.length ? (
             <section className="space-y-4">
@@ -368,16 +390,10 @@ export default function FestivalDetailClient({
             <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
               <h2 className="text-lg font-semibold text-[#0c0e14]">Информация</h2>
               <dl className="mt-4 space-y-3 text-sm">
-                {festival.start_date ? (
+                {formattedDateRange ? (
                   <div>
-                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Начална дата</dt>
-                    <dd className="mt-1 text-black/70">{festival.start_date}</dd>
-                  </div>
-                ) : null}
-                {festival.end_date ? (
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Крайна дата</dt>
-                    <dd className="mt-1 text-black/70">{festival.end_date}</dd>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Дата</dt>
+                    <dd className="mt-1 text-black/70">{formattedDateRange}</dd>
                   </div>
                 ) : null}
                 {locationName ? (
@@ -417,7 +433,15 @@ export default function FestivalDetailClient({
           {showMapSection ? (
             <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
               <h2 className="text-lg font-semibold text-[#0c0e14]">Карта и навигация</h2>
-              <p className="mt-2 text-sm text-black/70">{locationName}</p>
+              {cityOrLocationText ? (
+                citySlug ? (
+                  <Link href={cityHref(citySlug)} className="mt-2 inline-block text-sm font-medium text-black/75 underline decoration-black/30 underline-offset-2 hover:text-black">
+                    {cityOrLocationText}
+                  </Link>
+                ) : (
+                  <p className="mt-2 text-sm text-black/70">{cityOrLocationText}</p>
+                )
+              ) : null}
               {festival.address ? <p className="mt-1 text-sm text-black/60">{festival.address}</p> : null}
               <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.1]">
                 <iframe
@@ -460,7 +484,11 @@ export default function FestivalDetailClient({
                     href={festival.ticket_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                    className={`rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
+                      showFreeBadge
+                        ? "border-black/[0.08] bg-[#f8f7f3] text-black/55 hover:bg-[#f0ede6]"
+                        : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]"
+                    }`}
                   >
                     Билети
                   </a>

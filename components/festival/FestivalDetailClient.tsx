@@ -18,8 +18,6 @@ type Props = {
   media: FestivalMedia[];
   days: FestivalDay[];
   scheduleItems: FestivalScheduleItem[];
-  dateText: string;
-  venueText: string;
   mapHref: string | null;
   mapEmbedSrc: string | null;
   citySlug: string | null;
@@ -109,8 +107,6 @@ export default function FestivalDetailClient({
   media,
   days,
   scheduleItems,
-  dateText,
-  venueText,
   mapHref,
   mapEmbedSrc,
   citySlug,
@@ -149,12 +145,27 @@ export default function FestivalDetailClient({
     festival_media: media,
   });
   const [heroImageFailed, setHeroImageFailed] = useState(false);
-  const secondaryCta = festival.ticket_url
-    ? { label: "Билети", href: festival.ticket_url }
-    : festival.website_url
-      ? { label: "Официален сайт", href: festival.website_url }
-      : null;
   const categoryText = categoryLabel(festival.category);
+  const descriptionText = festival.description?.trim() ?? "";
+  const tags = (festival.tags ?? []).filter((tag): tag is string => Boolean(tag?.trim()));
+  const priceRange = festival.price_range?.trim() ?? "";
+  const showFreeBadge = festival.is_free === true;
+  const showPriceRange = Boolean(priceRange) && !showFreeBadge;
+  const showDescriptionSection = Boolean(descriptionText) || tags.length > 0 || showPriceRange || showFreeBadge;
+  const locationName = festival.location_name?.trim() ?? "";
+  const venueName = festival.venue_name?.trim() ?? "";
+  const showVenueName = Boolean(venueName) && venueName.toLocaleLowerCase() !== locationName.toLocaleLowerCase();
+  const showInfoSection = Boolean(
+    festival.start_date ||
+      festival.end_date ||
+      locationName ||
+      showVenueName ||
+      festival.address?.trim() ||
+      festival.organizer_name?.trim() ||
+      festival.region?.trim(),
+  );
+  const showMapSection = Boolean(mapEmbedSrc && mapHref && festival.address?.trim() && locationName);
+  const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
 
   useEffect(() => {
     setHeroImageFailed(false);
@@ -203,48 +214,35 @@ export default function FestivalDetailClient({
           )}
           <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6 md:p-8">
             <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-white/85">
-              {festival.city && citySlug ? (
-                <Link href={cityHref(citySlug)} className="rounded-full bg-white/15 px-3 py-1 transition hover:bg-white/25">
-                  {festival.city}
-                </Link>
-              ) : (
-                <span className="rounded-full bg-white/15 px-3 py-1">Град: —</span>
-              )}
-              <span className="rounded-full bg-white/15 px-3 py-1">{dateText}</span>
+              {festival.start_date ? <span className="rounded-full bg-white/15 px-3 py-1">Начало: {festival.start_date}</span> : null}
+              {festival.end_date ? <span className="rounded-full bg-white/15 px-3 py-1">Край: {festival.end_date}</span> : null}
               {categoryText ? <span className="rounded-full bg-white/15 px-3 py-1">{categoryText}</span> : null}
+              {showFreeBadge ? <span className="rounded-full bg-white/15 px-3 py-1">Безплатен вход</span> : null}
             </div>
             <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">{festival.title}</h1>
-            <div className="mt-4 flex flex-wrap gap-3">
-              {secondaryCta ? (
-                <a
-                  href={secondaryCta.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-xl border border-white/35 bg-white/10 px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-                >
-                  {secondaryCta.label}
-                </a>
-              ) : null}
-            </div>
           </div>
         </div>
       </section>
 
       <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-7">
-          <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-            <h2 className="text-xl font-semibold text-[#0c0e14]">Описание</h2>
-            <p className="mt-3 whitespace-pre-line text-sm leading-7 text-black/65">
-              {festival.description?.trim() || "Описанието още не е публикувано."}
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              {festival.is_free ? <Badge variant="primary">Безплатен вход</Badge> : <Badge variant="neutral">Платен вход</Badge>}
-              {festival.price_range ? <Badge variant="neutral">{festival.price_range}</Badge> : null}
-              {(festival.tags ?? []).filter(Boolean).map((tag) => (
-                <Badge key={tag} variant="neutral">#{tag}</Badge>
-              ))}
-            </div>
-          </section>
+          {showDescriptionSection ? (
+            <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
+              <h2 className="text-xl font-semibold text-[#0c0e14]">Описание</h2>
+              {descriptionText ? (
+                <p className="mt-3 whitespace-pre-line text-sm leading-7 text-black/65">{descriptionText}</p>
+              ) : null}
+              {(showFreeBadge || showPriceRange || tags.length > 0) ? (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {showFreeBadge ? <Badge variant="primary">Безплатен вход</Badge> : null}
+                  {showPriceRange ? <Badge variant="neutral">{priceRange}</Badge> : null}
+                  {tags.map((tag) => (
+                    <Badge key={tag} variant="neutral">#{tag}</Badge>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
             <h2 className="text-xl font-semibold text-[#0c0e14]">Галерия</h2>
@@ -366,31 +364,61 @@ export default function FestivalDetailClient({
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-[90px]">
-          <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-            <h2 className="text-lg font-semibold text-[#0c0e14]">Къде и кога</h2>
-            <dl className="mt-4 space-y-3 text-sm">
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Дата</dt>
-                <dd className="mt-1 text-black/70">{dateText}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Локация</dt>
-                <dd className="mt-1 text-black/70">{venueText}</dd>
-              </div>
-              {festival.address ? (
-                <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Адрес</dt>
-                  <dd className="mt-1 text-black/70">{festival.address}</dd>
-                </div>
-              ) : null}
-              {festival.organizer_name ? (
-                <div>
-                  <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Организатор</dt>
-                  <dd className="mt-1 text-black/70">{festival.organizer_name}</dd>
-                </div>
-              ) : null}
-            </dl>
-            {mapEmbedSrc ? (
+          {showInfoSection ? (
+            <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+              <h2 className="text-lg font-semibold text-[#0c0e14]">Информация</h2>
+              <dl className="mt-4 space-y-3 text-sm">
+                {festival.start_date ? (
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Начална дата</dt>
+                    <dd className="mt-1 text-black/70">{festival.start_date}</dd>
+                  </div>
+                ) : null}
+                {festival.end_date ? (
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Крайна дата</dt>
+                    <dd className="mt-1 text-black/70">{festival.end_date}</dd>
+                  </div>
+                ) : null}
+                {locationName ? (
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Локация</dt>
+                    <dd className="mt-1 text-black/70">{locationName}</dd>
+                  </div>
+                ) : null}
+                {showVenueName ? (
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Място</dt>
+                    <dd className="mt-1 text-black/70">{venueName}</dd>
+                  </div>
+                ) : null}
+                {festival.address ? (
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Адрес</dt>
+                    <dd className="mt-1 text-black/70">{festival.address}</dd>
+                  </div>
+                ) : null}
+                {festival.organizer_name ? (
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Организатор</dt>
+                    <dd className="mt-1 text-black/70">{festival.organizer_name}</dd>
+                  </div>
+                ) : null}
+                {festival.region ? (
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Регион</dt>
+                    <dd className="mt-1 text-black/70">{festival.region}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </section>
+          ) : null}
+
+          {showMapSection ? (
+            <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+              <h2 className="text-lg font-semibold text-[#0c0e14]">Карта и навигация</h2>
+              <p className="mt-2 text-sm text-black/70">{locationName}</p>
+              {festival.address ? <p className="mt-1 text-sm text-black/60">{festival.address}</p> : null}
               <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.1]">
                 <iframe
                   title={`Карта: ${festival.title}`}
@@ -400,43 +428,46 @@ export default function FestivalDetailClient({
                   className="h-56 w-full border-0"
                 />
               </div>
-            ) : null}
-            <div className="mt-4 flex flex-col gap-2">
-              {mapHref ? (
+              <div className="mt-4">
                 <a
                   href={mapHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-xl bg-[#0c0e14] px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  className="block rounded-xl bg-[#0c0e14] px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
                   Навигация
                 </a>
-              ) : (
-                <span className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
-                  Няма данни за навигация
-                </span>
-              )}
-              {festival.ticket_url ? (
-                <a
-                  href={festival.ticket_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Билети
-                </a>
-              ) : festival.website_url ? (
-                <a
-                  href={festival.website_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Официален сайт
-                </a>
-              ) : null}
-            </div>
-          </section>
+              </div>
+            </section>
+          ) : null}
+
+          {hasCtaButtons ? (
+            <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+              <h2 className="text-lg font-semibold text-[#0c0e14]">Полезни връзки</h2>
+              <div className="mt-4 flex flex-col gap-2">
+                {festival.website_url ? (
+                  <a
+                    href={festival.website_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  >
+                    Официален сайт
+                  </a>
+                ) : null}
+                {festival.ticket_url ? (
+                  <a
+                    href={festival.ticket_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  >
+                    Билети
+                  </a>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
 
           <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
             <div className="flex items-center justify-between gap-3">

@@ -10,26 +10,6 @@ import "../../landing.css";
 
 export const revalidate = 21600;
 
-function formatDateRange(start?: string | null, end?: string | null) {
-  if (!start) return "Дата предстои";
-  const startDate = parseISO(start);
-  if (!end || end === start) {
-    return format(startDate, "d MMM yyyy");
-  }
-  return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
-}
-
-function resolveVenueText(data: { venue_name?: string | null; location_name?: string | null; city_name_display?: string | null; cities?: { name_bg?: string | null } | null; address?: string | null }) {
-  return (
-    data.venue_name?.trim() ||
-    data.location_name?.trim() ||
-    data.city_name_display?.trim() ||
-    data.cities?.name_bg?.trim() ||
-    data.address?.trim() ||
-    "Локацията ще бъде уточнена"
-  );
-}
-
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const festival = await getFestivalBySlug(slug);
@@ -56,15 +36,12 @@ export default async function Page({
   if (!data) return notFound();
 
   const jsonLd = buildFestivalJsonLd(data.festival);
-  const cityDisplayName = data.festival.city_name_display ?? data.festival.cities?.name_bg ?? data.festival.city;
   const cityFilterValue = data.festival.city;
   const citySlug = data.festival.cities?.slug ?? (data.festival.city ? slugify(data.festival.city) : null);
-  const dateText = formatDateRange(data.festival.start_date, data.festival.end_date);
-  const venueText = resolveVenueText(data.festival);
   const mapQuery =
     data.festival.latitude != null && data.festival.longitude != null
       ? `${data.festival.latitude},${data.festival.longitude}`
-      : [data.festival.address, cityDisplayName].filter(Boolean).join(", ");
+      : null;
   const mapHref = mapQuery
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
     : null;
@@ -93,8 +70,6 @@ export default async function Page({
             media={data.media}
             days={data.days}
             scheduleItems={data.scheduleItems}
-            dateText={dateText}
-            venueText={venueText}
             mapHref={mapHref}
             mapEmbedSrc={mapEmbedSrc}
             citySlug={citySlug}

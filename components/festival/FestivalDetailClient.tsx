@@ -422,7 +422,7 @@ export default function FestivalDetailClient({
               <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.1]">
                 <iframe
                   title={`Карта: ${festival.title}`}
-                  src={mapEmbedSrc}
+                  src={mapEmbedSrc ?? undefined}
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                   className="h-56 w-full border-0"

@@ -75,7 +75,33 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const hasCityId = "city_id" in body;
     let selectedCity: CityRow | null = null;
 
-    if (hasCityInput) {
+    if (hasCityId) {
+      const cityId = parseCityId(body.city_id);
+      if (Number.isNaN(cityId)) {
+        return NextResponse.json({ error: "Invalid city_id" }, { status: 400 });
+      }
+
+      if (cityId === null) {
+        if (hasCityInput) {
+          const cityInput = normalizeSettlementInput(cityInputRaw ?? "");
+          patch.city_id = null;
+          patch.city = cityInput || null;
+        } else {
+          patch.city_id = null;
+          patch.city = null;
+        }
+      } else {
+        const city = await findCityById(ctx, cityId);
+
+        if (!city?.slug) {
+          return NextResponse.json({ error: "City not found" }, { status: 404 });
+        }
+
+        selectedCity = city;
+        patch.city_id = cityId;
+        patch.city = city.slug;
+      }
+    } else if (hasCityInput) {
       const cityInput = normalizeSettlementInput(cityInputRaw ?? "");
 
       if (!cityInput) {
@@ -98,26 +124,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         console.info(
           `[festival-save] id=${id} city_input="${cityInputRaw}" resolved_city_id=${resolved?.id ?? "null"} unresolved=${resolved ? "false" : "true"}`
         );
-      }
-    } else if (hasCityId) {
-      const cityId = parseCityId(body.city_id);
-      if (Number.isNaN(cityId)) {
-        return NextResponse.json({ error: "Invalid city_id" }, { status: 400 });
-      }
-
-      if (cityId === null) {
-        patch.city_id = null;
-        patch.city = null;
-      } else {
-        const city = await findCityById(ctx, cityId);
-
-        if (!city?.slug) {
-          return NextResponse.json({ error: "City not found" }, { status: 404 });
-        }
-
-        selectedCity = city;
-        patch.city_id = cityId;
-        patch.city = city.slug;
       }
     }
 

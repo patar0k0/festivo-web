@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
+import { transliteratedSlug } from "@/lib/text/slug";
+import type { OrganizerProfile } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
 
@@ -34,6 +36,7 @@ type FestivalRecord = {
   source_url: string | null;
   source_type: string | null;
   organizer_name?: string | null;
+  organizer_id?: string | null;
   updated_at?: string | null;
   [key: string]: unknown;
 };
@@ -131,7 +134,9 @@ type SaveFestivalResponse = {
   displayed_city?: string | null;
 };
 
-export default function FestivalEditForm({ festival }: { festival: FestivalRecord }) {
+type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug">;
+
+export default function FestivalEditForm({ festival, organizers }: { festival: FestivalRecord; organizers: OrganizerOption[] }) {
   const initialCityDisplay = festival.city_name ?? festival.city ?? "";
 
   const [form, setForm] = useState({
@@ -149,6 +154,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
     website_url: festival.website_url ?? "",
     ticket_url: festival.ticket_url ?? "",
     organizer_name: typeof festival.organizer_name === "string" ? festival.organizer_name : "",
+    organizer_id: typeof festival.organizer_id === "string" ? festival.organizer_id : "",
     source_url: festival.source_url ?? "",
     price_range: festival.price_range ?? "",
     latitude: festival.lat?.toString() ?? "",
@@ -161,6 +167,17 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
   });
 
   const [message, setMessage] = useState<string>("");
+  const [organizerOptions, setOrganizerOptions] = useState<OrganizerOption[]>(organizers);
+  const [creatingOrganizer, setCreatingOrganizer] = useState(false);
+  const [newOrganizer, setNewOrganizer] = useState({
+    name: "",
+    slug: "",
+    description: "",
+    logo_url: "",
+    website_url: "",
+    facebook_url: "",
+    instagram_url: "",
+  });
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
@@ -199,6 +216,55 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
 
     setMessage("");
     setError(validation.message);
+  };
+
+  const onCreateOrganizer = async () => {
+    setMessage("");
+    setError("");
+
+    if (!newOrganizer.name.trim()) {
+      setError("Името на организатора е задължително.");
+      return;
+    }
+
+    const slug = transliteratedSlug(newOrganizer.name);
+    setCreatingOrganizer(true);
+
+    try {
+      const response = await fetch("/admin/api/organizers", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...newOrganizer, slug: newOrganizer.slug || slug }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Неуспешно създаване на организатор."));
+      }
+
+      const payload = (await response.json().catch(() => null)) as { row?: OrganizerOption } | null;
+      if (payload?.row) {
+        setOrganizerOptions((prev) => [...prev, payload.row].sort((a, b) => a.name.localeCompare(b.name, "bg")));
+        updateField("organizer_id", payload.row.id);
+        updateField("organizer_name", payload.row.name);
+      }
+
+      setNewOrganizer({
+        name: "",
+        slug: "",
+        description: "",
+        logo_url: "",
+        website_url: "",
+        facebook_url: "",
+        instagram_url: "",
+      });
+
+      setMessage("Организаторът е създаден успешно.");
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Възникна грешка.");
+    } finally {
+      setCreatingOrganizer(false);
+    }
   };
 
   const onSubmit = async (event: FormEvent) => {
@@ -242,6 +308,7 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
           start_date: form.start_date || null,
           end_date: form.end_date || null,
           organizer_name: form.organizer_name || null,
+          organizer_id: form.organizer_id || null,
           source_url: form.source_url || null,
           website_url: form.website_url || null,
           ticket_url: form.ticket_url || null,
@@ -400,9 +467,44 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
             <input type="date" value={form.end_date} onChange={(e) => updateField("end_date", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizer_id</span>
+            <select
+              value={form.organizer_id}
+              onChange={(e) => {
+                const selectedId = e.target.value;
+                const selectedOrganizer = organizerOptions.find((item) => item.id === selectedId);
+                updateField("organizer_id", selectedId);
+                if (selectedOrganizer) {
+                  updateField("organizer_name", selectedOrganizer.name);
+                }
+              }}
+              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+            >
+              <option value="">Без организатор</option>
+              {organizerOptions.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizer_name</span>
             <input value={form.organizer_name} onChange={(e) => updateField("organizer_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
+          <div className="md:col-span-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Нов организатор</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <input placeholder="name" value={newOrganizer.name} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, name: e.target.value, slug: transliteratedSlug(e.target.value) }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input placeholder="slug (auto)" value={newOrganizer.slug} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, slug: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input placeholder="description" value={newOrganizer.description} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, description: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2 md:col-span-2" />
+              <input placeholder="logo_url" value={newOrganizer.logo_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, logo_url: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input placeholder="website_url" value={newOrganizer.website_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, website_url: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input placeholder="facebook_url" value={newOrganizer.facebook_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, facebook_url: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input placeholder="instagram_url" value={newOrganizer.instagram_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, instagram_url: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
+            </div>
+            <button type="button" onClick={onCreateOrganizer} disabled={creatingOrganizer} className="mt-3 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50">
+              {creatingOrganizer ? "Създаване..." : "Създай организатор"}
+            </button>
+          </div>
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">source_url</span>
             <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />

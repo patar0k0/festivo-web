@@ -11,6 +11,7 @@
   venue_name?: string | null;
   address?: string | null;
   organizer_name?: string | null;
+  organizer_id?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   is_free?: boolean | null;
@@ -30,6 +31,11 @@
   status?: string | null;
   cities?: {
     name_bg?: string | null;
+    slug?: string | null;
+  } | null;
+  organizer?: {
+    id?: string | null;
+    name?: string | null;
     slug?: string | null;
   } | null;
   festival_media?: Array<Partial<FestivalMedia> & { is_primary?: boolean | null }> | null;
@@ -79,4 +85,16 @@ export type PaginatedResult<T> = {
   pageSize: number;
   total: number;
   totalPages: number;
+};
+
+
+export type OrganizerProfile = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  logo_url?: string | null;
+  website_url?: string | null;
+  facebook_url?: string | null;
+  instagram_url?: string | null;
 };

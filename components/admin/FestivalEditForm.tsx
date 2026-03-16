@@ -243,10 +243,14 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
       }
 
       const payload = (await response.json().catch(() => null)) as { row?: OrganizerOption } | null;
-      if (payload?.row) {
-        setOrganizerOptions((prev) => [...prev, payload.row].sort((a, b) => a.name.localeCompare(b.name, "bg")));
-        updateField("organizer_id", payload.row.id);
-        updateField("organizer_name", payload.row.name);
+      const createdOrganizer = payload?.row;
+      if (createdOrganizer) {
+        setOrganizerOptions((prev) => {
+          const nextOptions: OrganizerOption[] = [...prev, createdOrganizer];
+          return nextOptions.sort((a, b) => a.name.localeCompare(b.name, "bg"));
+        });
+        updateField("organizer_id", createdOrganizer.id);
+        updateField("organizer_name", createdOrganizer.name);
       }
 
       setNewOrganizer({

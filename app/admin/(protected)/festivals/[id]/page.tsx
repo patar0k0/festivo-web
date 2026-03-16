@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import FestivalEditForm from "@/components/admin/FestivalEditForm";
+import type { OrganizerProfile } from "@/lib/types";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 
 export default async function AdminFestivalEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,6 +24,14 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
     notFound();
   }
 
+
+  const { data: organizersData } = await ctx.supabase
+    .from("organizers")
+    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url")
+    .order("name", { ascending: true });
+
+  const organizers = (organizersData ?? []) as OrganizerProfile[];
+
   const cityRow = Array.isArray(data.cities) ? data.cities[0] : data.cities;
   const cityDetails = cityRow ?? null;
 
@@ -34,6 +43,7 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
 
   return (
     <FestivalEditForm
+      organizers={organizers}
       festival={{
         ...data,
         id: String(data.id),

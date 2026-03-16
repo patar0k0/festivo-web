@@ -187,12 +187,13 @@ export default function FestivalDetailClient({
   const showVenueName = Boolean(venueName) && venueName.toLocaleLowerCase() !== locationName.toLocaleLowerCase();
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
   const hasGalleryContent = imageMedia.length > 0;
+  const showOrganizer = Boolean(festival.organizer_id && festival.organizer_name?.trim());
   const showInfoSection = Boolean(
     formattedDateRange ||
       locationName ||
       showVenueName ||
       festival.address?.trim() ||
-      festival.organizer_name?.trim() ||
+      showOrganizer ||
       festival.region?.trim(),
   );
   const showMapSection = Boolean(mapEmbedSrc && mapHref && (locationName || cityName || festival.address?.trim()));
@@ -419,10 +420,18 @@ export default function FestivalDetailClient({
                     <dd className="mt-1 text-black/70">{festival.address}</dd>
                   </div>
                 ) : null}
-                {festival.organizer_name ? (
+                {showOrganizer ? (
                   <div>
                     <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Организатор</dt>
-                    <dd className="mt-1 text-black/70">{festival.organizer_name}</dd>
+                    <dd className="mt-1 text-black/70">
+                      {festival.organizer?.slug ? (
+                        <Link href={`/organizers/${festival.organizer.slug}`} className="underline decoration-black/30 underline-offset-2 hover:text-black">
+                          {festival.organizer_name}
+                        </Link>
+                      ) : (
+                        festival.organizer_name
+                      )}
+                    </dd>
                   </div>
                 ) : null}
                 {festival.region ? (

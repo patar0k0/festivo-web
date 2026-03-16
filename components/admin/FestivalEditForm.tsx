@@ -217,14 +217,10 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
     try {
       const cityInput = form.city.trim();
       const trimmedCityId = form.city_id.trim();
-      let cityId: number | null = null;
+      const cityId = trimmedCityId ? Number(trimmedCityId) : null;
 
-      if (trimmedCityId) {
-        const parsedCityId = Number(trimmedCityId);
-        if (!Number.isInteger(parsedCityId) || parsedCityId <= 0) {
-          throw new Error("city_id трябва да е положително цяло число.");
-        }
-        cityId = parsedCityId;
+      if (trimmedCityId && (!Number.isInteger(cityId) || cityId <= 0)) {
+        throw new Error("city_id трябва да е положително цяло число.");
       }
 
       const response = await fetch(`/admin/api/festivals/${festival.id}`, {

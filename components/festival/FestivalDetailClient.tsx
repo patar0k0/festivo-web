@@ -430,7 +430,7 @@ export default function FestivalDetailClient({
               </div>
               <div className="mt-4">
                 <a
-                  href={mapHref}
+                  href={mapHref ?? undefined}
                   target="_blank"
                   rel="noreferrer"
                   className="block rounded-xl bg-[#0c0e14] px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"

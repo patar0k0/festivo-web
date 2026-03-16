@@ -243,13 +243,18 @@ export default function FestivalDetailClient({
               </div>
             </div>
           )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/45 to-black/10" />
           <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6 md:p-8">
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{festival.title}</h1>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/90">
-              {formattedDateRange ? <span className="rounded-full bg-white/15 px-3 py-1">{formattedDateRange}</span> : null}
-              {cityOrLocationText ? <span className="rounded-full bg-white/15 px-3 py-1">{cityOrLocationText}</span> : null}
-              {categoryText ? <span className="rounded-full bg-white/15 px-3 py-1">{categoryText}</span> : null}
-              {showFreeBadge ? <span className="rounded-full bg-white/15 px-3 py-1">Безплатен вход</span> : null}
+            <div className="max-w-3xl space-y-3 rounded-2xl bg-black/25 p-3 backdrop-blur-[1.5px] sm:p-4 md:max-w-4xl">
+              <h1 className="max-w-[22ch] text-3xl font-black leading-[1.05] tracking-tight sm:text-4xl sm:leading-[1.02]">
+                {festival.title}
+              </h1>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85 sm:text-xs">
+                {formattedDateRange ? <span className="rounded-full bg-black/35 px-3 py-1">{formattedDateRange}</span> : null}
+                {cityOrLocationText ? <span className="rounded-full bg-black/35 px-3 py-1">{cityOrLocationText}</span> : null}
+                {categoryText ? <span className="rounded-full bg-black/35 px-3 py-1">{categoryText}</span> : null}
+                {showFreeBadge ? <span className="rounded-full bg-black/35 px-3 py-1">Безплатен вход</span> : null}
+              </div>
             </div>
           </div>
         </div>
@@ -497,9 +502,9 @@ export default function FestivalDetailClient({
             </section>
           ) : null}
 
-          <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+          <section className="rounded-2xl border border-black/[0.08] bg-[#fbfaf7] p-5 shadow-[0_1px_0_rgba(12,14,20,0.04),0_6px_14px_rgba(12,14,20,0.05)]">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-[#0c0e14]">Моят план</h2>
+              <h2 className="text-lg font-semibold text-black/80">Моят план</h2>
               {selectedItems.length ? (
                 <button
                   type="button"
@@ -546,8 +551,8 @@ export default function FestivalDetailClient({
                   disabled={isPlanButtonLoading}
                   className={`w-full rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
                     festivalInPlan
-                      ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#1d202b]"
-                      : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]"
+                      ? "border-[#1e2230] bg-[#1e2230] text-white hover:bg-[#2a3040]"
+                      : "border-black/[0.12] bg-white/95 text-black/80 hover:border-black/20 hover:bg-black/[0.03]"
                   } disabled:cursor-not-allowed disabled:opacity-50`}
                 >
                   {festivalInPlan ? "Премахни от план" : "Добави в план"}
@@ -556,7 +561,7 @@ export default function FestivalDetailClient({
                 <button
                   type="button"
                   disabled
-                  className="w-full cursor-not-allowed rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-black/45 opacity-70"
+                  className="w-full cursor-not-allowed rounded-xl border border-black/[0.12] bg-white/95 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-black/45 opacity-70"
                 >
                   Добави в план
                 </button>
@@ -567,7 +572,7 @@ export default function FestivalDetailClient({
             <div className="mt-4 space-y-2">
               {selectedItems.length ? (
                 selectedItems.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-black/[0.08] bg-white px-3 py-2">
+                  <div key={item.id} className="rounded-xl border border-black/[0.08] bg-white/95 px-3 py-2">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/45">
                       {formatTimeRange(item.start_time, item.end_time)}
                     </p>
@@ -575,7 +580,7 @@ export default function FestivalDetailClient({
                   </div>
                 ))
               ) : (
-                <div className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f4f0] px-4 py-5 text-sm text-black/50">
+                <div className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f3ec] px-4 py-5 text-sm text-black/50">
                   Добави точки от програмата, за да създадеш личен план.
                 </div>
               )}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
+import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { pendingPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 
@@ -73,29 +73,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       patch.is_free = body.is_free;
     }
 
-    if ("city_name_display" in canonical) {
+    if ("city_id" in canonical && canonical.city_id !== null) {
+      patch.city_id = canonical.city_id;
+      console.info(`[pending-save] pending_id=${id} explicit_city_id=${canonical.city_id}`);
+    } else if ("city_name_display" in canonical) {
       const cityInputRaw = typeof canonical.city_name_display === "string" ? canonical.city_name_display : "";
       const cityInput = normalizeSettlementInput(cityInputRaw);
+      patch.city_name_display = cityInput || null;
 
       if (!cityInput) {
         patch.city_id = null;
       } else {
-        const resolvedCity = await resolveCityReference(ctx.supabase, cityInput);
-        console.info(`[pending-save] pending_id=${id} resolved_city_id=${resolvedCity?.id ?? null}`);
-
-        if (!resolvedCity) {
-          console.error(`[pending-save] pending_id=${id} fail reason=city_not_resolved`);
-          return NextResponse.json({ error: `City could not be resolved: "${cityInput}".` }, { status: 400 });
-        }
-
-        patch.city_id = resolvedCity.id;
+        const cityResolution = await resolveOrCreateCityReference(ctx.supabase, cityInput);
+        console.info(
+          `[pending-save] pending_id=${id} resolved_city_id=${cityResolution?.city.id ?? null} city_created=${cityResolution?.created ? "true" : "false"}`
+        );
+        patch.city_id = cityResolution?.city.id ?? null;
       }
-    } else if ("city_id" in canonical) {
-      if (canonical.city_id === null) {
-        patch.city_id = null;
-      } else {
-        return NextResponse.json({ error: "city_id updates are no longer supported directly. Use city text input." }, { status: 400 });
-      }
+    } else if ("city_id" in canonical && canonical.city_id === null) {
+      patch.city_id = null;
     }
 
     if (!("city" in body)) {

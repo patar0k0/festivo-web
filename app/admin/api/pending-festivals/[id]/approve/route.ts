@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
+import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { slugify } from "@/lib/utils";
 import { canonicalFromPending, festivalPatchFromCanonical } from "@/lib/festival/mappers";
 import { canonicalFromUnknown } from "@/lib/festival/validators";
@@ -217,12 +217,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return fail(id, "missing_city", 400, "City is required before approving this festival.");
     }
 
-    const resolvedCity = await resolveCityReference(adminCtx.supabase, cityInput);
-    if (!resolvedCity) {
+    const cityResolution = await resolveOrCreateCityReference(adminCtx.supabase, cityInput);
+    if (!cityResolution?.city) {
       return fail(id, "city_not_resolved", 400, `City could not be resolved: "${cityInput}".`);
     }
 
-    const cityById = await findCityById(resolvedCity.id);
+    const cityById = await findCityById(cityResolution.city.id);
     if (!cityById?.slug) {
       return fail(id, "resolved_city_not_found", 400, "Resolved city is missing canonical data.");
     }
@@ -230,7 +230,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const cityId = cityById.id;
     const cityText = cityById.slug;
 
-    console.info(`[pending-approve] pending_id=${id} city input="${cityInput}" resolved_city_id=${cityId}`);
+    console.info(`[pending-approve] pending_id=${id} city input="${cityInput}" resolved_city_id=${cityId} city_created=${cityResolution.created ? "true" : "false"}`);
 
     const finalTags = canonicalApproved.tags;
     console.info(`[pending-approve] pending_id=${id} tags_count=${finalTags.length} tags_mode=column`);

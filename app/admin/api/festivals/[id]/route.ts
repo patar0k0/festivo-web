@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { normalizeSettlementInput, resolveCityReference } from "@/lib/admin/resolveCityReference";
+import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { festivalPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 
@@ -74,6 +74,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const hasCityInput = hasCityInputField;
     const hasCityId = "city_id" in body;
     let selectedCity: CityRow | null = null;
+    let cityCreated = false;
 
     if (hasCityId) {
       const cityId = parseCityId(body.city_id);
@@ -84,8 +85,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (cityId === null) {
         if (hasCityInput) {
           const cityInput = normalizeSettlementInput(cityInputRaw ?? "");
-          patch.city_id = null;
-          patch.city = cityInput || null;
+
+          if (!cityInput) {
+            patch.city_id = null;
+            patch.city = null;
+          } else {
+            const cityResolution = await resolveOrCreateCityReference(ctx.supabase, cityInput);
+            selectedCity = cityResolution?.city ?? null;
+            cityCreated = cityResolution?.created ?? false;
+            patch.city_id = cityResolution?.city.id ?? null;
+            patch.city = cityResolution?.city.slug ?? cityInput;
+          }
         } else {
           patch.city_id = null;
           patch.city = null;
@@ -108,21 +118,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         patch.city_id = null;
         patch.city = null;
       } else {
-        const resolved = await resolveCityReference(ctx.supabase, cityInput);
+        const cityResolution = await resolveOrCreateCityReference(ctx.supabase, cityInput);
 
-        if (resolved) {
-          selectedCity = resolved;
-          patch.city_id = resolved.id;
-          patch.city = resolved.slug;
-
+        if (cityResolution?.city) {
+          selectedCity = cityResolution.city;
+          cityCreated = cityResolution.created;
+          patch.city_id = cityResolution.city.id;
+          patch.city = cityResolution.city.slug;
         } else {
           patch.city_id = null;
-          patch.city = cityInput;
-
+          patch.city = null;
         }
 
         console.info(
-          `[festival-save] id=${id} city_input="${cityInputRaw}" resolved_city_id=${resolved?.id ?? "null"} unresolved=${resolved ? "false" : "true"}`
+          `[festival-save] id=${id} city_input="${cityInputRaw}" resolved_city_id=${cityResolution?.city.id ?? "null"} city_created=${cityResolution?.created ? "true" : "false"}`
         );
       }
     }
@@ -146,7 +155,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const response: SaveResponse = {
       ok: true,
-      city_created: false,
+      city_created: cityCreated,
       city: selectedCity
         ? { id: selectedCity.id, name_bg: selectedCity.name_bg, slug: selectedCity.slug }
         : { id: null, name_bg: null, slug: typeof patch.city === "string" ? patch.city : null },

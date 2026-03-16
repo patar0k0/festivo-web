@@ -219,11 +219,8 @@ export default function FestivalEditForm({ festival }: { festival: FestivalRecor
       const trimmedCityId = form.city_id.trim();
       const cityId = trimmedCityId ? Number(trimmedCityId) : null;
 
-      if (trimmedCityId) {
-        const parsedCityId = Number(trimmedCityId);
-        if (!Number.isInteger(parsedCityId) || parsedCityId <= 0) {
-          throw new Error("city_id трябва да е положително цяло число.");
-        }
+      if (cityId !== null && (!Number.isInteger(cityId) || cityId <= 0)) {
+        throw new Error("city_id трябва да е положително цяло число.");
       }
 
       const response = await fetch(`/admin/api/festivals/${festival.id}`, {

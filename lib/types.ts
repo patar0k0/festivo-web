@@ -97,4 +97,10 @@ export type OrganizerProfile = {
   website_url?: string | null;
   facebook_url?: string | null;
   instagram_url?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  verified?: boolean | null;
+  city_id?: number | null;
+  claimed_events_count?: number | null;
+  created_at?: string | null;
 };

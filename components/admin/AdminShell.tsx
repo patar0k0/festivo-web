@@ -16,6 +16,9 @@ export default function AdminShell({ children, email }: { children: React.ReactN
             <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
               Festivals
             </Link>
+            <Link href="/admin/organizers" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
+              Organizers
+            </Link>
             <Link href="/admin/pending-festivals" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
               Pending
             </Link>

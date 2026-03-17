@@ -133,3 +133,29 @@ Behavior tied to these columns:
 ## Notes on authoritative vs advisory data
 - Authoritative publish inputs are moderated core columns on `pending_festivals`.
 - AI/normalization guess columns are advisory and only become authoritative if copied into core fields by admin actions.
+
+
+## public.organizers
+
+Organizer profiles referenced by `festivals.organizer_id`.
+
+| column | type | usage intent in code |
+|---|---|---|
+| id | uuid | primary identifier |
+| name | text | organizer display name |
+| slug | text | organizer profile slug |
+| description | text | optional rich profile content |
+| logo_url | text | optional organizer logo |
+| website_url | text | official site |
+| facebook_url | text | social link |
+| instagram_url | text | social link |
+| email | text | contact field editable in admin |
+| phone | text | contact field editable in admin |
+| verified | boolean | organizer trust marker |
+| city_id | bigint | optional city relation |
+| claimed_events_count | integer | admin visibility metric |
+| created_at | timestamptz | record timestamp |
+
+Behavior tied to this table:
+- Pending approval resolves/creates organizers from `pending_festivals.organizer_name` and writes `festivals.organizer_id`.
+- Admin list/detail pages support post-approval organizer enrichment workflows.

@@ -19,12 +19,17 @@ export default async function AdminOrganizerDetailPage({ params }: { params: { i
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">Organizer detail is temporarily unavailable.</div>;
   }
 
+  console.info("[admin/organizers/[id]/page] Loading organizer via service-role client", { id });
+
   const { data, error } = await adminClient
     .schema("public")
     .from("organizers")
-    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id,claimed_events_count,created_at")
+    .select("*")
     .eq("id", id)
+    .limit(1)
     .maybeSingle();
+
+  console.info("[admin/organizers/[id]/page] Organizer query completed", { id, found: Boolean(data) });
 
   if (error) {
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{error.message}</div>;

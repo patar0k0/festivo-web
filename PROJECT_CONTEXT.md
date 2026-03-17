@@ -15,7 +15,7 @@ Public users browse verified/published festivals, while ingestion inputs first l
 
 ## Core System Modules
 - Public festival discovery (`festivals` queries scoped to visible statuses)
-- Admin moderation (`pending_festivals` edit/approve/reject)
+- Admin moderation (`pending_festivals` edit/approve/reject, including organizer resolve/create on approve)
 - Admin ingest queue (`ingest_jobs` enqueue/retry/delete + job-to-record linking)
 - Admin discovery dashboard (`discovery_sources` monitoring + source activation toggles + recent `discovery_runs` visibility)
 - Planning + reminders + notifications
@@ -68,7 +68,7 @@ Failure behavior is fail-closed by default (`allowOriginalOnFailure=false`): if 
 ## Public vs admin visibility
 - Public queries include verified/published rows and exclude archived (`status != archived`).
 - Pending festivals are admin-only moderation records.
-- Published admin management supports archive/restore/delete on `festivals`.
+- Published admin management supports archive/restore/delete on `festivals`, and links into organizer profile enrichment in admin organizers pages.
 
 ## Key Database Entities
 - `cities`

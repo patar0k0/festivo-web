@@ -4,6 +4,8 @@ import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/ad
 import { slugify } from "@/lib/utils";
 import { canonicalFromPending, festivalPatchFromCanonical } from "@/lib/festival/mappers";
 import { canonicalFromUnknown } from "@/lib/festival/validators";
+import { resolveOrCreateOrganizerId } from "@/lib/admin/organizers";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type CityRow = {
   id: number;
@@ -290,6 +292,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const mappedSourceType = mapFestivalSourceType(rawSourceType);
 
+    let organizerId: string | null = null;
+    let organizerDisplayName: string | null = canonicalApproved.organizer_name ?? null;
+
+    if (canonicalApproved.organizer_name) {
+      const serviceSupabase = createSupabaseAdmin();
+      const organizerResolution = await resolveOrCreateOrganizerId(serviceSupabase, canonicalApproved.organizer_name);
+      organizerId = organizerResolution.organizerId;
+      organizerDisplayName = organizerResolution.organizerName;
+      console.info(
+        `[pending-approve] pending_id=${id} organizer resolution organizer_id=${organizerId ?? "null"} created=${organizerResolution.created ? "true" : "false"}`
+      );
+    }
+
     console.info(`[pending-approve] pending_id=${id} source_type raw="${rawSourceType ?? ""}" mapped="${mappedSourceType ?? ""}"`);
     console.info(
       `[pending-approve] pending_id=${id} publish source fields=${JSON.stringify({
@@ -326,6 +341,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       category: canonicalApproved.category ?? "festival",
       source_type: mappedSourceType,
       is_free: pending.is_free ?? true,
+      organizer_id: organizerId,
+      organizer_name: organizerDisplayName,
       tags: finalTags,
       status: "verified",
       is_verified: true,

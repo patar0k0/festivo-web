@@ -107,3 +107,9 @@ Failure policy for detected Facebook URLs is fail-closed in current defaults:
 
 ## Notification pipelines (current)
 Reminder/discovery jobs and push delivery remain as implemented in `/api/jobs/*` and documented in `docs/notification-system.md`; this ingest/moderation sync does not change those flows.
+
+
+## Admin organizers management
+- Admin has dedicated organizer management screens at `/admin/organizers` and `/admin/organizers/[id]`.
+- Pending approval resolves `pending_festivals.organizer_name` to `organizers.id` (exact normalized-name match), auto-creating organizer rows when needed.
+- Approved festivals persist both `organizer_id` (relationship) and `organizer_name` (display fallback).

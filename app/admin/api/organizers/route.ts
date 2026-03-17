@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { normalizeOrganizerName, pickOrganizerSlug } from "@/lib/admin/organizers";
 import { transliteratedSlug } from "@/lib/text/slug";
 
 type OrganizerPayload = {
@@ -13,28 +14,6 @@ type OrganizerPayload = {
   facebook_url?: string | null;
   instagram_url?: string | null;
 };
-
-
-async function pickOrganizerSlug(client: SupabaseClient, baseSlug: string) {
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const candidate = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`;
-    const { data, error } = await client.from("organizers").select("id").eq("slug", candidate).maybeSingle();
-    if (error) {
-      throw new Error(error.message);
-    }
-    if (!data) {
-      return candidate;
-    }
-  }
-
-  throw new Error("Failed to generate unique organizer slug");
-}
-
-function normalizeText(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed || null;
-}
 
 export async function GET() {
   const ctx = await getAdminContext();
@@ -61,14 +40,13 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as OrganizerPayload;
-  const name = normalizeText(body.name);
+  const name = normalizeOrganizerName(body.name);
 
   if (!name) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
-  const generatedSlug = transliteratedSlug(name);
-  const slugBase = normalizeText(body.slug) || generatedSlug;
+  const slugBase = normalizeOrganizerName(body.slug) || transliteratedSlug(name);
 
   if (!slugBase) {
     return NextResponse.json({ error: "Could not generate slug" }, { status: 400 });
@@ -90,11 +68,11 @@ export async function POST(request: Request) {
   const payload = {
     name,
     slug,
-    description: normalizeText(body.description),
-    logo_url: normalizeText(body.logo_url),
-    website_url: normalizeText(body.website_url),
-    facebook_url: normalizeText(body.facebook_url),
-    instagram_url: normalizeText(body.instagram_url),
+    description: normalizeOrganizerName(body.description),
+    logo_url: normalizeOrganizerName(body.logo_url),
+    website_url: normalizeOrganizerName(body.website_url),
+    facebook_url: normalizeOrganizerName(body.facebook_url),
+    instagram_url: normalizeOrganizerName(body.instagram_url),
   };
 
   const { data, error } = await adminClient

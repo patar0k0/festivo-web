@@ -472,6 +472,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           </label>
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizer_id</span>
+            <div className="mt-2 flex items-center gap-2">
             <select
               value={form.organizer_id}
               onChange={(e) => {
@@ -489,6 +490,15 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
                 <option key={item.id} value={item.id}>{item.name}</option>
               ))}
             </select>
+            {form.organizer_id ? (
+              <Link
+                href={`/admin/organizers/${form.organizer_id}`}
+                className="shrink-0 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] hover:bg-black/[0.03]"
+              >
+                Open
+              </Link>
+            ) : null}
+            </div>
           </label>
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizer_name</span>

@@ -1,0 +1,76 @@
+import { NextResponse } from "next/server";
+import { getAdminContext } from "@/lib/admin/isAdmin";
+
+function normalizeText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+type OrganizerPatchPayload = {
+  name?: string;
+  slug?: string;
+  description?: string | null;
+  logo_url?: string | null;
+  website_url?: string | null;
+  facebook_url?: string | null;
+  instagram_url?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  verified?: boolean;
+  city_id?: number | null;
+};
+
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const ctx = await getAdminContext();
+  if (!ctx || !ctx.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const { data, error } = await ctx.supabase
+    .from("organizers")
+    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id,claimed_events_count,created_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  return NextResponse.json({ row: data });
+}
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const ctx = await getAdminContext();
+  if (!ctx || !ctx.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = (await request.json().catch(() => ({}))) as OrganizerPatchPayload;
+  const patch = {
+    name: normalizeText(body.name),
+    slug: normalizeText(body.slug),
+    description: normalizeText(body.description),
+    logo_url: normalizeText(body.logo_url),
+    website_url: normalizeText(body.website_url),
+    facebook_url: normalizeText(body.facebook_url),
+    instagram_url: normalizeText(body.instagram_url),
+    email: normalizeText(body.email),
+    phone: normalizeText(body.phone),
+    verified: typeof body.verified === "boolean" ? body.verified : undefined,
+    city_id: typeof body.city_id === "number" ? body.city_id : body.city_id === null ? null : undefined,
+  };
+
+  const finalPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));
+  if (Object.keys(finalPatch).length === 0) {
+    return NextResponse.json({ error: "No changes provided" }, { status: 400 });
+  }
+
+  const { id } = await params;
+  const { data, error } = await ctx.supabase.from("organizers").update(finalPatch).eq("id", id).select("id").maybeSingle();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  return NextResponse.json({ ok: true, id: data.id });
+}

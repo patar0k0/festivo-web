@@ -18,9 +18,10 @@ export default async function AdminOrganizersPage() {
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">Organizer list is temporarily unavailable.</div>;
   }
 
-  const { data, error } = await adminClient
+  const { data, error, count } = await adminClient
+    .schema("public")
     .from("organizers")
-    .select("id,name,slug,verified,claimed_events_count,created_at")
+    .select("id,name,slug,verified,claimed_events_count,created_at", { count: "exact" })
     .order("created_at", { ascending: false, nullsFirst: false })
     .order("name", { ascending: true });
 
@@ -30,7 +31,7 @@ export default async function AdminOrganizersPage() {
   }
 
   const rows = data ?? [];
-  console.info("[admin/organizers/page] organizers loaded", { rowCount: rows.length });
+  console.info("[admin/organizers/page] organizers loaded", { rowCount: rows.length, exactCount: count ?? null });
 
   return (
     <div className="space-y-4">
@@ -58,7 +59,7 @@ export default async function AdminOrganizersPage() {
                     {row.name}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-black/70">{row.slug}</td>
+                <td className="px-4 py-3 text-black/70">{row.slug ?? "-"}</td>
                 <td className="px-4 py-3 text-black/70">{row.verified ? "Yes" : "No"}</td>
                 <td className="px-4 py-3 text-black/70">{row.claimed_events_count ?? 0}</td>
                 <td className="px-4 py-3 text-black/70">{row.created_at ? new Date(row.created_at).toLocaleString() : "-"}</td>

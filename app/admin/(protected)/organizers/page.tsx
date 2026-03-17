@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export default async function AdminOrganizersPage() {
   const ctx = await getAdminContext();
@@ -8,16 +9,28 @@ export default async function AdminOrganizersPage() {
     redirect("/login?next=/admin/organizers");
   }
 
-  const { data, error } = await ctx.supabase
+  let adminClient;
+  try {
+    adminClient = createSupabaseAdmin();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to initialize admin client";
+    console.error("[admin/organizers/page] Admin client initialization failed", { message });
+    return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">Organizer list is temporarily unavailable.</div>;
+  }
+
+  const { data, error } = await adminClient
     .from("organizers")
     .select("id,name,slug,verified,claimed_events_count,created_at")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .order("name", { ascending: true });
 
   if (error) {
+    console.error("[admin/organizers/page] organizers query failed", { message: error.message });
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{error.message}</div>;
   }
 
   const rows = data ?? [];
+  console.info("[admin/organizers/page] organizers loaded", { rowCount: rows.length });
 
   return (
     <div className="space-y-4">

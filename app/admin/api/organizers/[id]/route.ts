@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -46,6 +47,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  let adminClient;
+  try {
+    adminClient = createSupabaseAdmin();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to initialize admin client";
+    console.error("[admin/api/organizers/[id]][PATCH] Admin client initialization failed", { message });
+    return NextResponse.json({ error: "Organizer update is temporarily unavailable" }, { status: 500 });
+  }
+
   const body = (await request.json().catch(() => ({}))) as OrganizerPatchPayload;
   const patch = {
     name: normalizeText(body.name),
@@ -67,9 +77,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
-  const { data, error } = await ctx.supabase.from("organizers").update(finalPatch).eq("id", id).select("id").maybeSingle();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const payloadKeys = Object.keys(finalPatch);
+  console.info("[admin/api/organizers/[id]][PATCH] Update request received", {
+    organizerId: id,
+    payloadKeys,
+  });
+
+  const { data, error } = await adminClient
+    .from("organizers")
+    .update(finalPatch)
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+
+  console.info("[admin/api/organizers/[id]][PATCH] Update query completed", {
+    organizerId: id,
+    payloadKeys,
+    rowReturned: Boolean(data),
+    queryError: error ? error.message : null,
+  });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({ ok: true, id: data.id });

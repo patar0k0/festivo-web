@@ -3,8 +3,8 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import OrganizerEditForm from "@/components/admin/OrganizerEditForm";
 
-export default async function AdminOrganizerDetailPage({ params }: { params: { id: string } | Promise<{ id: string }> }) {
-  const { id } = await Promise.resolve(params);
+export default async function AdminOrganizerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
     redirect(`/login?next=/admin/organizers/${id}`);
@@ -15,40 +15,42 @@ export default async function AdminOrganizerDetailPage({ params }: { params: { i
     adminClient = createSupabaseAdmin();
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to initialize admin client";
-    console.error("[admin/organizers/[id]/page] Admin client initialization failed", { message, id });
+    console.error("[admin/organizers/[id]/page] Admin client initialization failed", { message, routeParamId: id });
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">Organizer detail is temporarily unavailable.</div>;
   }
 
   console.info("[admin/organizers/[id]/page] Loading organizer via service-role client", {
-    id,
+    routeParamId: id,
     usingAdminClient: true,
   });
 
-  const { data, error } = await adminClient
+  const { data: organizerRow, error: organizerError } = await adminClient
     .schema("public")
     .from("organizers")
     .select("*")
     .eq("id", id)
-    .limit(1)
     .maybeSingle();
 
   console.info("[admin/organizers/[id]/page] Organizer query completed", {
-    id,
-    found: Boolean(data),
-    rowId: data?.id ?? null,
-    rowName: data?.name ?? null,
-    queryError: error ? error.message : null,
+    routeParamId: id,
+    usingAdminClient: true,
+    rowId: organizerRow?.id ?? null,
+    rowName: organizerRow?.name ?? null,
+    queryError: organizerError ? organizerError.message : null,
   });
 
-  if (error) {
-    console.error("[admin/organizers/[id]/page] Organizer query failed", { id, message: error.message });
-    return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{error.message}</div>;
+  if (organizerError) {
+    console.error("[admin/organizers/[id]/page] Organizer query failed", {
+      routeParamId: id,
+      message: organizerError.message,
+    });
+    return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">Failed to load organizer: {organizerError.message}</div>;
   }
 
-  if (!data) {
-    console.info("[admin/organizers/[id]/page] Organizer not found by id", { id });
+  if (!organizerRow) {
+    console.info("[admin/organizers/[id]/page] Organizer not found by id", { routeParamId: id });
     notFound();
   }
 
-  return <OrganizerEditForm organizer={data} />;
+  return <OrganizerEditForm organizer={organizerRow} />;
 }

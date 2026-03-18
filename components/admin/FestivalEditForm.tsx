@@ -487,7 +487,9 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             >
               <option value="">Без организатор</option>
               {organizerOptions.map((item) => (
-                <option key={item.id} value={item.id}>{item.name}</option>
+                <option key={item.id} value={item.id}>
+                  {item.slug ? `${item.name} (${item.slug})` : item.name}
+                </option>
               ))}
             </select>
             {form.organizer_id ? (

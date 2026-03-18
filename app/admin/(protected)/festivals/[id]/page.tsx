@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import FestivalEditForm from "@/components/admin/FestivalEditForm";
 import type { OrganizerProfile } from "@/lib/types";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export default async function AdminFestivalEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -24,13 +25,33 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
     notFound();
   }
 
+  let organizers: OrganizerProfile[] = [];
+  try {
+    const adminClient = createSupabaseAdmin();
+    const { data: organizersData, error: organizersError, count } = await adminClient
+      .schema("public")
+      .from("organizers")
+      .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,created_at", { count: "exact" })
+      .order("name", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false, nullsFirst: false });
 
-  const { data: organizersData } = await ctx.supabase
-    .from("organizers")
-    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url")
-    .order("name", { ascending: true });
-
-  const organizers = (organizersData ?? []) as OrganizerProfile[];
+    if (organizersError) {
+      console.error("[admin-festival-edit] organizers query failed", {
+        festivalId: id,
+        message: organizersError.message,
+      });
+    } else {
+      organizers = (organizersData ?? []) as OrganizerProfile[];
+      console.info("[admin-festival-edit] organizers loaded", {
+        festivalId: id,
+        rowCount: organizers.length,
+        exactCount: count ?? null,
+      });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown admin client initialization error";
+    console.error("[admin-festival-edit] failed to initialize admin organizer client", { festivalId: id, message });
+  }
 
   const cityRow = Array.isArray(data.cities) ? data.cities[0] : data.cities;
   const cityDetails = cityRow ?? null;

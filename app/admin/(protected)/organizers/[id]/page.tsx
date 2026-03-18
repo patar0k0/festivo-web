@@ -3,8 +3,12 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import OrganizerEditForm from "@/components/admin/OrganizerEditForm";
 
-export default async function AdminOrganizerDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function AdminOrganizerDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const { id } = params;
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
     redirect(`/login?next=/admin/organizers/${id}`);

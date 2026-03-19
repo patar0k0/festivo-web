@@ -4,9 +4,9 @@ import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
 import FallbackImage from "@/components/ui/FallbackImage";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Festival, OrganizerProfile } from "@/lib/types";
 import { getBaseUrl } from "@/lib/seo";
+import { getOrganizerWithFestivals } from "@/lib/queries";
 import "../../landing.css";
 
 export const revalidate = 21600;
@@ -14,7 +14,7 @@ export const revalidate = 21600;
 const FESTIVAL_SELECT_MIN =
   "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
 
-async function getOrganizerWithFestivalsServer(slug: string): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
+async function getOrganizerWithFestivals(slug: string): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
   const supabase = await createSupabaseServerClient();
 
   console.info("[organizer-public] lookup start", { slug });
@@ -59,7 +59,7 @@ async function getOrganizerWithFestivalsServer(slug: string): Promise<{ organize
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getOrganizerWithFestivalsServer(slug);
+  const data = await getOrganizerWithFestivals(slug);
   if (!data) return {};
 
   const title = `${data.organizer.name} | Организатор | Festivo`;
@@ -76,7 +76,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function OrganizerPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getOrganizerWithFestivalsServer(slug);
+  const data = await getOrganizerWithFestivals(slug);
   if (!data) return notFound();
 
   const { organizer, festivals } = data;
@@ -120,7 +120,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                     {organizer.verified ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700 ring-1 ring-emerald-100">
                         <span aria-hidden="true">✓</span>
-                        Потвърден профил
+                        Потвърден организатор
                       </span>
                     ) : null}
                   </div>
@@ -175,7 +175,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
               </p>
             </section>
 
-            <section className="space-y-5">
+            <section className="space-y-4 md:space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">Фестивали от този организатор</h2>
                 <Link

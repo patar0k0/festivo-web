@@ -107,6 +107,11 @@ export type OrganizerProfile = {
   phone?: string | null;
   verified?: boolean | null;
   city_id?: number | null;
+  cities?: {
+    name_bg?: string | null;
+    slug?: string | null;
+  } | null;
+  city_name_display?: string | null;
   claimed_events_count?: number | null;
   created_at?: string | null;
 };

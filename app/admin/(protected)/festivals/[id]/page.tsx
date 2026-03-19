@@ -53,6 +53,30 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
     console.error("[admin-festival-edit] failed to initialize admin organizer client", { festivalId: id, message });
   }
 
+
+  let selectedOrganizerIds: string[] = [];
+  try {
+    const adminClient = createSupabaseAdmin();
+    const { data: links, error: linksError } = await adminClient
+      .from("festival_organizers")
+      .select("organizer_id,sort_order")
+      .eq("festival_id", id)
+      .order("sort_order", { ascending: true })
+      .returns<Array<{ organizer_id: string; sort_order: number | null }>>();
+
+    if (linksError) {
+      console.error("[admin-festival-edit] selected organizers query failed", {
+        festivalId: id,
+        message: linksError.message,
+      });
+    } else {
+      selectedOrganizerIds = (links ?? []).map((row) => row.organizer_id).filter(Boolean);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown selected organizers lookup error";
+    console.error("[admin-festival-edit] failed to initialize selected organizer lookup", { festivalId: id, message });
+  }
+
   const cityRow = Array.isArray(data.cities) ? data.cities[0] : data.cities;
   const cityDetails = cityRow ?? null;
 
@@ -70,6 +94,7 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
         id: String(data.id),
         city_name: cityDisplay,
         city_slug: cityDetails?.slug ?? data.city ?? null,
+        organizer_ids: selectedOrganizerIds.length ? selectedOrganizerIds : data.organizer_id ? [data.organizer_id] : [],
       }}
     />
   );

@@ -14,6 +14,10 @@ type FestivalRow = {
   organizer_id: string | null;
 };
 
+type FestivalOrganizerRow = {
+  organizer_id: string;
+};
+
 type UserRow = {
   user_id: string;
 };
@@ -75,7 +79,29 @@ export async function POST(request: Request) {
     citySlug = city?.slug ?? null;
   }
 
-  if (!citySlug && !festivalRow.category_slug && !festivalRow.organizer_id) {
+  const organizerIds = new Set<string>();
+
+  if (festivalRow.organizer_id) {
+    organizerIds.add(festivalRow.organizer_id);
+  }
+
+  const { data: festivalOrganizerLinks, error: festivalOrganizerLinksError } = await supabase
+    .from("festival_organizers")
+    .select("organizer_id")
+    .eq("festival_id", festivalRow.id)
+    .returns<FestivalOrganizerRow[]>();
+
+  if (festivalOrganizerLinksError) {
+    return NextResponse.json({ error: festivalOrganizerLinksError.message }, { status: 500 });
+  }
+
+  for (const row of festivalOrganizerLinks ?? []) {
+    if (row.organizer_id) {
+      organizerIds.add(row.organizer_id);
+    }
+  }
+
+  if (!citySlug && !festivalRow.category_slug && organizerIds.size === 0) {
     return NextResponse.json({ created: 0, skipped: 0, recipients: 0 });
   }
 
@@ -113,11 +139,11 @@ export async function POST(request: Request) {
     }
   }
 
-  if (festivalRow.organizer_id) {
+  if (organizerIds.size > 0) {
     const { data, error } = await supabase
       .from("user_followed_organizers")
       .select("user_id")
-      .eq("organizer_id", festivalRow.organizer_id);
+      .in("organizer_id", Array.from(organizerIds));
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

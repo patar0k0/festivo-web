@@ -4,9 +4,9 @@ import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
 import FallbackImage from "@/components/ui/FallbackImage";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Festival, OrganizerProfile } from "@/lib/types";
 import { getBaseUrl } from "@/lib/seo";
+import { getOrganizerWithFestivals } from "@/lib/queries";
 import "../../landing.css";
 
 export const revalidate = 21600;
@@ -120,7 +120,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                     {organizer.verified ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700 ring-1 ring-emerald-100">
                         <span aria-hidden="true">✓</span>
-                        Потвърден профил
+                        Потвърден организатор
                       </span>
                     ) : null}
                   </div>
@@ -175,7 +175,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
               </p>
             </section>
 
-            <section className="space-y-5">
+            <section className="space-y-4 md:space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">Фестивали от този организатор</h2>
                 <Link

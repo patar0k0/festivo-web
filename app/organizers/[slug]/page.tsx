@@ -4,15 +4,63 @@ import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
 import FallbackImage from "@/components/ui/FallbackImage";
-import { getOrganizerWithFestivals } from "@/lib/queries";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { Festival, OrganizerProfile } from "@/lib/types";
 import { getBaseUrl } from "@/lib/seo";
 import "../../landing.css";
 
 export const revalidate = 21600;
 
+
+const FESTIVAL_SELECT_MIN =
+  "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
+
+async function getOrganizerWithFestivalsServer(slug: string): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
+  const supabase = await createSupabaseServerClient();
+
+  console.info("[organizer-public] lookup start", { slug });
+
+  const { data: organizer, error: organizerError } = await supabase
+    .from("organizers")
+    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url")
+    .eq("slug", slug)
+    .maybeSingle<OrganizerProfile>();
+
+  if (organizerError) {
+    console.error("[organizer-public] organizer lookup error", {
+      slug,
+      error: organizerError.message,
+    });
+  }
+
+  console.info("[organizer-public] organizer lookup result", {
+    slug,
+    found: Boolean(organizer),
+    organizerId: organizer?.id ?? null,
+    organizerName: organizer?.name ?? null,
+  });
+
+  if (!organizer) return null;
+
+  const { data: festivals, error: festivalsError } = await supabase
+    .from("festivals")
+    .select(FESTIVAL_SELECT_MIN)
+    .eq("organizer_id", organizer.id)
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+    .neq("status", "archived")
+    .order("start_date", { ascending: true })
+    .returns<Festival[]>();
+
+  if (festivalsError) {
+    throw new Error(festivalsError.message);
+  }
+
+  return { organizer, festivals: festivals ?? [] };
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getOrganizerWithFestivals(slug);
+  const data = await getOrganizerWithFestivalsServer(slug);
   if (!data) return {};
 
   const title = `${data.organizer.name} | Организатор | Festivo`;
@@ -29,7 +77,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function OrganizerPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getOrganizerWithFestivals(slug);
+  const data = await getOrganizerWithFestivalsServer(slug);
   if (!data) return notFound();
 
   const { organizer, festivals } = data;

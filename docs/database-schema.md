@@ -155,6 +155,10 @@ Constraints/indexes:
 - index on `organizer_id`
 - index on `(festival_id, sort_order)`
 
+RLS policy model:
+- `select`: public read policy (`using (true)`) to support public festival/organizer joins.
+- `insert` / `update` / `delete`: restricted to authenticated admins via `public.is_admin()`.
+
 Backfill behavior:
 - Existing `festivals.organizer_id` rows are inserted into `festival_organizers` during migration.
 

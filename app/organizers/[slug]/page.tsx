@@ -14,7 +14,7 @@ export const revalidate = 21600;
 const FESTIVAL_SELECT_MIN =
   "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
 
-async function getOrganizerWithFestivalsServer(slug: string): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
+async function getOrganizerWithFestivals(slug: string): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
   const supabase = await createSupabaseServerClient();
 
   console.info("[organizer-public] lookup start", { slug });
@@ -59,7 +59,7 @@ async function getOrganizerWithFestivalsServer(slug: string): Promise<{ organize
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getOrganizerWithFestivalsServer(slug);
+  const data = await getOrganizerWithFestivals(slug);
   if (!data) return {};
 
   const title = `${data.organizer.name} | Организатор | Festivo`;
@@ -76,7 +76,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function OrganizerPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getOrganizerWithFestivalsServer(slug);
+  const data = await getOrganizerWithFestivals(slug);
   if (!data) return notFound();
 
   const { organizer, festivals } = data;

@@ -24,6 +24,7 @@ export async function GET() {
   const { data, error } = await ctx.supabase
     .from("organizers")
     .select("id,name,slug")
+    .eq("is_active", true)
     .order("name", { ascending: true });
 
   if (error) {

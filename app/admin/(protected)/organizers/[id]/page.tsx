@@ -33,6 +33,7 @@ export default async function AdminOrganizerDetailPage({
     .from("organizers")
     .select("*")
     .eq("id", id)
+    .eq("is_active", true)
     .maybeSingle();
 
   console.info("[admin/organizers/[id]/page] Organizer query completed", {

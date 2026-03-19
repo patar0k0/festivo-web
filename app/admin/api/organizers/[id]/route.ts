@@ -33,6 +33,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .from("organizers")
     .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id,claimed_events_count,created_at")
     .eq("id", id)
+    .eq("is_active", true)
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

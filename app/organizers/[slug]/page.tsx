@@ -24,6 +24,7 @@ async function getOrganizerWithFestivalsServer(slug: string): Promise<{ organize
     .from("organizers")
     .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,verified")
     .eq("slug", slug)
+    .eq("is_active", true)
     .maybeSingle<OrganizerProfile>();
 
   if (organizerError) {

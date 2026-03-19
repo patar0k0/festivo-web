@@ -6,7 +6,6 @@ import EventCard from "@/components/ui/EventCard";
 import FallbackImage from "@/components/ui/FallbackImage";
 import type { Festival, OrganizerProfile } from "@/lib/types";
 import { getBaseUrl } from "@/lib/seo";
-import { getOrganizerWithFestivals } from "@/lib/queries";
 import "../../landing.css";
 
 export const revalidate = 21600;

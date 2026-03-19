@@ -384,7 +384,7 @@ export async function getOrganizerWithFestivals(
 
   const { data: organizer, error: organizerError } = await supabase
     .from("organizers")
-    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url")
+    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id,cities:cities!left(name_bg,slug)")
     .eq("slug", slug)
     .eq("is_active", true)
     .maybeSingle<OrganizerProfile>();
@@ -407,6 +407,13 @@ export async function getOrganizerWithFestivals(
     return null;
   }
 
+  const fixedOrganizer: OrganizerProfile = {
+    ...organizer,
+    name: fixMojibakeBG(organizer.name),
+    description: organizer.description ? fixMojibakeBG(organizer.description) : organizer.description,
+    city_name_display: organizer.cities?.name_bg ? fixMojibakeBG(organizer.cities.name_bg) : null,
+  };
+
   const { data: links, error: linksError } = await supabase
     .from("festival_organizers")
     .select("festival_id,sort_order")
@@ -422,7 +429,7 @@ export async function getOrganizerWithFestivals(
 
   if (!festivalIds.length) {
     return {
-      organizer,
+      organizer: fixedOrganizer,
       festivals: [],
     };
   }
@@ -442,7 +449,7 @@ export async function getOrganizerWithFestivals(
   const sortOrderByFestivalId = new Map((links ?? []).map((row) => [row.festival_id, row.sort_order ?? 9999]));
 
   return {
-    organizer,
+    organizer: fixedOrganizer,
     festivals: (festivals ?? [])
       .map(fixFestivalText)
       .sort((a, b) => {

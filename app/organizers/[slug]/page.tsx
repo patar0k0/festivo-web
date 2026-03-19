@@ -45,7 +45,13 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
     .slice(0, 2)
     .join("")
     .toUpperCase();
-  const cityDisplayCandidate = festivals.find((festival) => festival.city_name_display?.trim())?.city_name_display?.trim();
+  const cityDisplayCandidate =
+    organizer.city_name_display?.trim() ??
+    festivals.find((festival) => festival.city_name_display?.trim())?.city_name_display?.trim() ??
+    null;
+  const email = organizer.email?.trim() ?? "";
+  const phone = organizer.phone?.trim() ?? "";
+  const hasMetaDetails = Boolean(cityDisplayCandidate || email || phone);
 
   return (
     <div className="landing-bg bg-[#f6f7fb] text-[#0c0e14]">
@@ -78,7 +84,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                     {organizer.verified ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700 ring-1 ring-emerald-100">
                         <span aria-hidden="true">✓</span>
-                        Потвърден профил
+                        Потвърден организатор
                       </span>
                     ) : null}
                   </div>
@@ -131,6 +137,39 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
               <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
                 {organizer.description?.trim() || "Този организатор все още няма добавено описание."}
               </p>
+
+              {hasMetaDetails ? (
+                <dl className="mt-6 grid gap-3 text-sm md:grid-cols-3">
+                  {cityDisplayCandidate ? (
+                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 px-4 py-3">
+                      <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Град</dt>
+                      <dd className="mt-1 font-medium text-slate-700">{cityDisplayCandidate}</dd>
+                    </div>
+                  ) : null}
+
+                  {email ? (
+                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 px-4 py-3">
+                      <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Имейл</dt>
+                      <dd className="mt-1 font-medium text-slate-700">
+                        <a href={`mailto:${email}`} className="transition hover:text-slate-950">
+                          {email}
+                        </a>
+                      </dd>
+                    </div>
+                  ) : null}
+
+                  {phone ? (
+                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 px-4 py-3">
+                      <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Телефон</dt>
+                      <dd className="mt-1 font-medium text-slate-700">
+                        <a href={`tel:${phone}`} className="transition hover:text-slate-950">
+                          {phone}
+                        </a>
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+              ) : null}
             </section>
 
             <section className="space-y-4 md:space-y-5">

@@ -4,6 +4,7 @@ import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
 import FallbackImage from "@/components/ui/FallbackImage";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Festival, OrganizerProfile } from "@/lib/types";
 import { getBaseUrl } from "@/lib/seo";
 import "../../landing.css";

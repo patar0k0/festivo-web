@@ -38,6 +38,12 @@
     name?: string | null;
     slug?: string | null;
   } | null;
+  organizers?: Array<{
+    id?: string | null;
+    name?: string | null;
+    slug?: string | null;
+    sort_order?: number | null;
+  }> | null;
   festival_media?: Array<Partial<FestivalMedia> & { is_primary?: boolean | null }> | null;
 };
 

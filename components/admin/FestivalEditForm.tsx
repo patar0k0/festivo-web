@@ -37,6 +37,7 @@ type FestivalRecord = {
   source_type: string | null;
   organizer_name?: string | null;
   organizer_id?: string | null;
+  organizer_ids?: string[] | null;
   updated_at?: string | null;
   [key: string]: unknown;
 };
@@ -155,6 +156,12 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
     ticket_url: festival.ticket_url ?? "",
     organizer_name: typeof festival.organizer_name === "string" ? festival.organizer_name : "",
     organizer_id: typeof festival.organizer_id === "string" ? festival.organizer_id : "",
+    organizer_ids:
+      Array.isArray(festival.organizer_ids) && festival.organizer_ids.length
+        ? festival.organizer_ids.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        : typeof festival.organizer_id === "string" && festival.organizer_id
+          ? [festival.organizer_id]
+          : [],
     source_url: festival.source_url ?? "",
     price_range: festival.price_range ?? "",
     latitude: festival.lat?.toString() ?? "",
@@ -206,6 +213,19 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const updateOrganizerIds = (organizerIds: string[]) => {
+    const selected = organizerOptions.filter((item) => organizerIds.includes(item.id));
+    const firstSelected = selected[0];
+
+    setForm((prev) => ({
+      ...prev,
+      organizer_ids: organizerIds,
+      organizer_id: firstSelected?.id ?? "",
+      organizer_name: firstSelected?.name ?? prev.organizer_name,
+    }));
+  };
+
+
   const onValidateCoords = () => {
     const validation = validateCoords(form.latitude, form.longitude);
     if (validation.valid) {
@@ -249,7 +269,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           const nextOptions: OrganizerOption[] = [...prev, createdOrganizer];
           return nextOptions.sort((a, b) => a.name.localeCompare(b.name, "bg"));
         });
-        updateField("organizer_id", createdOrganizer.id);
+        updateOrganizerIds([createdOrganizer.id]);
         updateField("organizer_name", createdOrganizer.name);
       }
 
@@ -313,6 +333,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           end_date: form.end_date || null,
           organizer_name: form.organizer_name || null,
           organizer_id: form.organizer_id || null,
+          organizer_ids: form.organizer_ids,
           source_url: form.source_url || null,
           website_url: form.website_url || null,
           ticket_url: form.ticket_url || null,
@@ -471,36 +492,33 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <input type="date" value={form.end_date} onChange={(e) => updateField("end_date", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizer_id</span>
-            <div className="mt-2 flex items-center gap-2">
-            <select
-              value={form.organizer_id}
-              onChange={(e) => {
-                const selectedId = e.target.value;
-                const selectedOrganizer = organizerOptions.find((item) => item.id === selectedId);
-                updateField("organizer_id", selectedId);
-                if (selectedOrganizer) {
-                  updateField("organizer_name", selectedOrganizer.name);
-                }
-              }}
-              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
-            >
-              <option value="">Без организатор</option>
-              {organizerOptions.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.slug ? `${item.name} (${item.slug})` : item.name}
-                </option>
-              ))}
-            </select>
-            {form.organizer_id ? (
-              <Link
-                href={`/admin/organizers/${form.organizer_id}`}
-                className="shrink-0 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] hover:bg-black/[0.03]"
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizers (multi-select)</span>
+            <div className="mt-2 flex items-start gap-2">
+              <select
+                multiple
+                value={form.organizer_ids}
+                onChange={(e) => {
+                  const values = Array.from(e.target.selectedOptions).map((option) => option.value);
+                  updateOrganizerIds(values);
+                }}
+                className="h-36 w-full rounded-xl border border-black/[0.1] px-3 py-2"
               >
-                Open
-              </Link>
-            ) : null}
+                {organizerOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.slug ? `${item.name} (${item.slug})` : item.name}
+                  </option>
+                ))}
+              </select>
+              {form.organizer_id ? (
+                <Link
+                  href={`/admin/organizers/${form.organizer_id}`}
+                  className="shrink-0 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] hover:bg-black/[0.03]"
+                >
+                  Open main
+                </Link>
+              ) : null}
             </div>
+            <p className="mt-2 text-xs text-black/55">Първият избран организатор остава compatibility organizer_id.</p>
           </label>
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizer_name</span>

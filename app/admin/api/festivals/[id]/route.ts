@@ -3,6 +3,7 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { festivalPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
+import { normalizeOrganizerIds, syncFestivalOrganizers } from "@/lib/festivalOrganizers";
 
 
 type SaveResponse = {
@@ -31,6 +32,12 @@ function parseCityId(value: unknown) {
   return Number.isInteger(parsed) ? parsed : Number.NaN;
 }
 
+
+function parseOrganizerIds(value: unknown): string[] | typeof Number.NaN {
+  if (value === null || typeof value === "undefined") return [];
+  if (!Array.isArray(value)) return Number.NaN;
+  return normalizeOrganizerIds(value);
+}
 
 function parseOrganizerId(value: unknown): string | null | typeof Number.NaN {
   if (value === null || value === undefined || value === "") return null;
@@ -78,19 +85,31 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       patch.is_verified = body.is_verified;
     }
 
-    if ("organizer_id" in body) {
+    let organizerIdsFromBody: string[] | null = null;
+
+    if ("organizer_ids" in body) {
+      const organizerIds = parseOrganizerIds(body.organizer_ids);
+      if (Number.isNaN(organizerIds)) {
+        return NextResponse.json({ error: "Invalid organizer_ids" }, { status: 400 });
+      }
+      organizerIdsFromBody = organizerIds;
+    } else if ("organizer_id" in body) {
       const organizerId = parseOrganizerId(body.organizer_id);
       if (Number.isNaN(organizerId)) {
         return NextResponse.json({ error: "Invalid organizer_id" }, { status: 400 });
       }
+      organizerIdsFromBody = organizerId ? [organizerId] : [];
+    }
 
-      patch.organizer_id = organizerId;
+    if (organizerIdsFromBody) {
+      const primaryOrganizerId = organizerIdsFromBody[0] ?? null;
+      patch.organizer_id = primaryOrganizerId;
 
-      if (organizerId) {
+      if (primaryOrganizerId) {
         const { data: organizer, error: organizerError } = await ctx.supabase
           .from("organizers")
           .select("name")
-          .eq("id", organizerId)
+          .eq("id", primaryOrganizerId)
           .maybeSingle<{ name: string }>();
 
         if (organizerError) {
@@ -183,6 +202,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (organizerIdsFromBody) {
+      try {
+        await syncFestivalOrganizers(ctx.supabase, id, organizerIdsFromBody);
+      } catch (syncError) {
+        const message = syncError instanceof Error ? syncError.message : "Failed to sync festival organizers";
+        return NextResponse.json({ error: message }, { status: 500 });
+      }
     }
 
     const response: SaveResponse = {

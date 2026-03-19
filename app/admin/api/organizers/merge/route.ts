@@ -95,6 +95,34 @@ export async function POST(request: Request) {
     if (updateTargetError) return NextResponse.json({ error: updateTargetError.message }, { status: 500 });
   }
 
+
+  const { data: targetFestivalLinks, error: targetFestivalLinksError } = await adminClient
+    .from("festival_organizers")
+    .select("festival_id")
+    .eq("organizer_id", targetId)
+    .returns<Array<{ festival_id: string }>>();
+
+  if (targetFestivalLinksError) return NextResponse.json({ error: targetFestivalLinksError.message }, { status: 500 });
+
+  const targetFestivalIds = (targetFestivalLinks ?? []).map((row) => row.festival_id).filter(Boolean);
+
+  if (targetFestivalIds.length > 0) {
+    const { error: dedupeFestivalOrganizerLinksError } = await adminClient
+      .from("festival_organizers")
+      .delete()
+      .eq("organizer_id", sourceId)
+      .in("festival_id", targetFestivalIds);
+
+    if (dedupeFestivalOrganizerLinksError) return NextResponse.json({ error: dedupeFestivalOrganizerLinksError.message }, { status: 500 });
+  }
+
+  const { error: festivalOrganizerMoveError } = await adminClient
+    .from("festival_organizers")
+    .update({ organizer_id: targetId })
+    .eq("organizer_id", sourceId);
+
+  if (festivalOrganizerMoveError) return NextResponse.json({ error: festivalOrganizerMoveError.message }, { status: 500 });
+
   const { error: festivalMoveError } = await adminClient.from("festivals").update({ organizer_id: targetId }).eq("organizer_id", sourceId);
   if (festivalMoveError) return NextResponse.json({ error: festivalMoveError.message }, { status: 500 });
 

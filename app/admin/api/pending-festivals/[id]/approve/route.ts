@@ -6,6 +6,7 @@ import { canonicalFromPending, festivalPatchFromCanonical } from "@/lib/festival
 import { canonicalFromUnknown } from "@/lib/festival/validators";
 import { resolveOrCreateOrganizerId } from "@/lib/admin/organizers";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { syncFestivalOrganizers } from "@/lib/festivalOrganizers";
 
 type CityRow = {
   id: number;
@@ -367,6 +368,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     console.info(`[pending-approve] pending_id=${id} published festival_id=${insertedFestival.id}`);
+
+    if (organizerId) {
+      try {
+        await syncFestivalOrganizers(adminCtx.supabase, insertedFestival.id, [organizerId]);
+      } catch (syncError) {
+        await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
+        const message = syncError instanceof Error ? syncError.message : "festival_organizers sync failed";
+        return fail(id, "festival_organizers_sync_failed", 500, message);
+      }
+    }
 
     const { data: reviewRow, error: reviewError } = await adminCtx.supabase
       .from("pending_festivals")

@@ -55,25 +55,46 @@ export default async function AdminOrganizersPage() {
               <th className="px-4 py-3">Verified</th>
               <th className="px-4 py-3">Claimed events</th>
               <th className="px-4 py-3">Created</th>
+              <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.id} className="border-t border-black/[0.06]">
                 <td className="px-4 py-3 font-semibold">
-                  <Link href={`/admin/organizers/${row.id}`} className="hover:underline">
-                    {row.name}
-                  </Link>
+                  {row.slug ? (
+                    <Link href={`/organizers/${row.slug}`} className="hover:underline">
+                      {row.name}
+                    </Link>
+                  ) : (
+                    row.name
+                  )}
                 </td>
                 <td className="px-4 py-3 text-black/70">{row.slug ?? "-"}</td>
                 <td className="px-4 py-3 text-black/70">{row.verified ? "Yes" : "No"}</td>
                 <td className="px-4 py-3 text-black/70">{row.claimed_events_count ?? 0}</td>
                 <td className="px-4 py-3 text-black/70">{row.created_at ? new Date(row.created_at).toLocaleString() : "-"}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    {row.slug ? (
+                      <Link href={`/organizers/${row.slug}`} className="inline-flex items-center rounded-md border border-black/[0.12] px-2 py-1 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.04]">
+                        View
+                      </Link>
+                    ) : (
+                      <span className="inline-flex items-center rounded-md border border-black/[0.08] px-2 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-black/35">
+                        View
+                      </span>
+                    )}
+                    <Link href={`/admin/organizers/${row.id}/edit`} className="inline-flex items-center rounded-md border border-black/[0.12] px-2 py-1 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.04]">
+                      Edit
+                    </Link>
+                  </div>
+                </td>
               </tr>
             ))}
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-black/60">
+                <td colSpan={6} className="px-4 py-8 text-center text-black/60">
                   No organizers found.
                 </td>
               </tr>

@@ -106,3 +106,44 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   return NextResponse.json({ ok: true, id: data.id });
 }
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const ctx = await getAdminContext();
+  if (!ctx || !ctx.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  let adminClient;
+  try {
+    adminClient = createSupabaseAdmin();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to initialize admin client";
+    console.error("[admin/api/organizers/[id]][DELETE] Admin client initialization failed", { message });
+    return NextResponse.json({ error: "Organizer delete is temporarily unavailable" }, { status: 500 });
+  }
+
+  const { id } = await params;
+
+  console.info("[admin/api/organizers/[id]][DELETE] Deactivate request received", { organizerId: id });
+
+  const { data, error } = await adminClient
+    .from("organizers")
+    .update({ is_active: false })
+    .eq("id", id)
+    .eq("is_active", true)
+    .select("id")
+    .maybeSingle();
+
+  console.info("[admin/api/organizers/[id]][DELETE] Deactivate query completed", {
+    organizerId: id,
+    rowReturned: Boolean(data),
+    queryError: error ? error.message : null,
+  });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  return NextResponse.json({ ok: true, id: data.id });
+}

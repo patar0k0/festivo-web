@@ -1,5 +1,6 @@
 ﻿import { addDays, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, OrganizerProfile, PaginatedResult } from "@/lib/types";
 import { withDefaultFilters } from "@/lib/filters";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
@@ -349,8 +350,9 @@ export async function getFestivalSlugs(): Promise<string[]> {
 export async function getOrganizerWithFestivals(
   slug: string,
 ): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
-  const supabase = supabaseServer();
-  if (!supabase) return null;
+  const supabase = await createSupabaseServerClient();
+
+  console.info("[organizer-public] lookup start", { slug });
 
   const { data: organizer, error: organizerError } = await supabase
     .from("organizers")
@@ -358,7 +360,21 @@ export async function getOrganizerWithFestivals(
     .eq("slug", slug)
     .maybeSingle<OrganizerProfile>();
 
-  if (organizerError || !organizer) {
+  if (organizerError) {
+    console.error("[organizer-public] organizer lookup error", {
+      slug,
+      error: organizerError.message,
+    });
+  }
+
+  console.info("[organizer-public] organizer lookup result", {
+    slug,
+    found: Boolean(organizer),
+    organizerId: organizer?.id ?? null,
+    organizerName: organizer?.name ?? null,
+  });
+
+  if (!organizer) {
     return null;
   }
 

@@ -111,8 +111,8 @@ Reminder/discovery jobs and push delivery remain as implemented in `/api/jobs/*`
 
 ## Admin organizers management
 - Admin has dedicated organizer management screens at `/admin/organizers`, `/admin/organizers/[id]`, and duplicate review at `/admin/organizers/duplicates`.
-- Pending approval resolves `pending_festivals.organizer_name` to `organizers.id` (exact normalized-name match), auto-creating organizer rows when needed.
+- Pending approval resolves `pending_festivals.organizer_name` to `organizers.id` (exact normalized-name match), auto-creating organizer rows when needed, then writes relation rows to `festival_organizers`.
 - Duplicate candidates are conservative-only (exact normalized name, exact slug, exact `facebook_url` when present).
-- Manual merge endpoint `/admin/api/organizers/merge` reassigns `festivals.organizer_id` and `pending_festivals.organizer_id`, backfills missing target profile fields from source, then marks source organizer inactive (`is_active=false`, `merged_into=target_id`).
+- Manual merge endpoint `/admin/api/organizers/merge` reassigns `festival_organizers.organizer_id` (plus compatibility fields `festivals.organizer_id` and `pending_festivals.organizer_id`), backfills missing target profile fields from source, then marks source organizer inactive (`is_active=false`, `merged_into=target_id`).
 - Organizer list and public organizer profile lookups use active organizers by default (`is_active=true`).
-- Approved festivals persist both `organizer_id` (relationship) and `organizer_name` (display fallback).
+- Approved festivals persist organizer links in `festival_organizers`, keep `festivals.organizer_id` as compatibility, and keep `organizer_name` as display fallback only.

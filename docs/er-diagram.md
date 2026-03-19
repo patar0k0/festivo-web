@@ -71,6 +71,14 @@ erDiagram
     text url
   }
 
+  festival_organizers {
+    uuid festival_id FK
+    uuid organizer_id FK
+    text role
+    integer sort_order
+    timestamptz created_at
+  }
+
   organizers {
     uuid id PK
     boolean is_active
@@ -129,6 +137,8 @@ erDiagram
   festivals ||--o{ festival_days : has
   festival_days ||--o{ festival_schedule_items : has
   festivals ||--o{ festival_media : has
+  festivals ||--o{ festival_organizers : has
+  organizers ||--o{ festival_organizers : linked_to
 
   festivals ||--o{ user_plan_festivals : planned
   festivals ||--o{ user_plan_reminders : reminder_for

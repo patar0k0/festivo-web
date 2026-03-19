@@ -9,7 +9,27 @@ export const FESTIVAL_SELECT_MIN =
   "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,city_id,city,region,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug),organizer:organizers!left(id,name,slug)";
+  "id,title,slug,description,start_date,end_date,city_id,city,region,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug),organizer:organizers!left(id,name,slug),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+
+
+function getFestivalOrganizers(festival: Festival): Array<{ id?: string | null; name?: string | null; slug?: string | null; sort_order?: number | null }> {
+  const links = (festival as Festival & {
+    festival_organizers?: Array<{
+      sort_order?: number | null;
+      organizers?: { id?: string | null; name?: string | null; slug?: string | null } | null;
+    }> | null;
+  }).festival_organizers;
+
+  return (links ?? [])
+    .map((link) => ({
+      id: link.organizers?.id ?? null,
+      name: link.organizers?.name ?? null,
+      slug: link.organizers?.slug ?? null,
+      sort_order: typeof link.sort_order === "number" ? link.sort_order : null,
+    }))
+    .filter((row) => Boolean(row.id && row.name))
+    .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999));
+}
 
 function applyPublicScope<T>(query: T): T {
   type QueryWithOrAndNeq<Q> = Q & {
@@ -98,7 +118,15 @@ function fixFestivalText(festival: Festival): Festival {
     latitude: festival.lat ?? null,
     longitude: festival.lng ?? null,
     hero_image: festival.hero_image ?? festival.image_url ?? null,
-    organizer_name: festival.organizer_name ? fixMojibakeBG(festival.organizer_name) : festival.organizer?.name ? fixMojibakeBG(festival.organizer.name) : festival.organizer_name,
+    organizer_name: (() => {
+      if (festival.organizer_name) return fixMojibakeBG(festival.organizer_name);
+      const organizers = getFestivalOrganizers(festival);
+      const firstOrganizerName = organizers[0]?.name;
+      if (firstOrganizerName) return fixMojibakeBG(firstOrganizerName);
+      if (festival.organizer?.name) return fixMojibakeBG(festival.organizer.name);
+      return festival.organizer_name;
+    })(),
+    organizers: getFestivalOrganizers(festival),
   };
 }
 
@@ -358,6 +386,7 @@ export async function getOrganizerWithFestivals(
     .from("organizers")
     .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url")
     .eq("slug", slug)
+    .eq("is_active", true)
     .maybeSingle<OrganizerProfile>();
 
   if (organizerError) {
@@ -378,21 +407,48 @@ export async function getOrganizerWithFestivals(
     return null;
   }
 
+  const { data: links, error: linksError } = await supabase
+    .from("festival_organizers")
+    .select("festival_id,sort_order")
+    .eq("organizer_id", organizer.id)
+    .order("sort_order", { ascending: true })
+    .returns<Array<{ festival_id: string; sort_order: number | null }>>();
+
+  if (linksError) {
+    throw new Error(linksError.message);
+  }
+
+  const festivalIds = Array.from(new Set((links ?? []).map((row) => row.festival_id).filter(Boolean)));
+
+  if (!festivalIds.length) {
+    return {
+      organizer,
+      festivals: [],
+    };
+  }
+
   const { data: festivals, error: festivalsError } = await supabase
     .from("festivals")
     .select(FESTIVAL_SELECT_MIN)
-    .eq("organizer_id", organizer.id)
+    .in("id", festivalIds)
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
-    .order("start_date", { ascending: true })
     .returns<Festival[]>();
 
   if (festivalsError) {
     throw new Error(festivalsError.message);
   }
 
+  const sortOrderByFestivalId = new Map((links ?? []).map((row) => [row.festival_id, row.sort_order ?? 9999]));
+
   return {
     organizer,
-    festivals: (festivals ?? []).map(fixFestivalText),
+    festivals: (festivals ?? [])
+      .map(fixFestivalText)
+      .sort((a, b) => {
+        const bySort = (sortOrderByFestivalId.get(String(a.id)) ?? 9999) - (sortOrderByFestivalId.get(String(b.id)) ?? 9999);
+        if (bySort !== 0) return bySort;
+        return (a.start_date ?? "").localeCompare(b.start_date ?? "");
+      }),
   };
 }

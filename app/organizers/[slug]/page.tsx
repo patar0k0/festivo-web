@@ -7,7 +7,6 @@ import FallbackImage from "@/components/ui/FallbackImage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Festival, OrganizerProfile } from "@/lib/types";
 import { getBaseUrl } from "@/lib/seo";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import "../../landing.css";
 
 export const revalidate = 21600;

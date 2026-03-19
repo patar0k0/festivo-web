@@ -11,8 +11,50 @@ import "../../landing.css";
 
 export const revalidate = 21600;
 
+const FESTIVAL_SELECT_MIN =
+  "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
+
 async function getOrganizerWithFestivalsServer(slug: string): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
-  return getOrganizerWithFestivals(slug);
+  const supabase = await createSupabaseServerClient();
+
+  console.info("[organizer-public] lookup start", { slug });
+
+  const { data: organizer, error: organizerError } = await supabase
+    .from("organizers")
+    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,verified")
+    .eq("slug", slug)
+    .maybeSingle<OrganizerProfile>();
+
+  if (organizerError) {
+    console.error("[organizer-public] organizer lookup error", {
+      slug,
+      error: organizerError.message,
+    });
+  }
+
+  console.info("[organizer-public] organizer lookup result", {
+    slug,
+    found: Boolean(organizer),
+    organizerId: organizer?.id ?? null,
+    organizerName: organizer?.name ?? null,
+  });
+
+  if (!organizer) return null;
+
+  const { data: festivals, error: festivalsError } = await supabase
+    .from("festivals")
+    .select(FESTIVAL_SELECT_MIN)
+    .eq("organizer_id", organizer.id)
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+    .neq("status", "archived")
+    .order("start_date", { ascending: true })
+    .returns<Festival[]>();
+
+  if (festivalsError) {
+    throw new Error(festivalsError.message);
+  }
+
+  return { organizer, festivals: festivals ?? [] };
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -45,13 +87,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
     .slice(0, 2)
     .join("")
     .toUpperCase();
-  const cityDisplayCandidate =
-    organizer.city_name_display?.trim() ??
-    festivals.find((festival) => festival.city_name_display?.trim())?.city_name_display?.trim() ??
-    null;
-  const email = organizer.email?.trim() ?? "";
-  const phone = organizer.phone?.trim() ?? "";
-  const hasMetaDetails = Boolean(cityDisplayCandidate || email || phone);
+  const cityDisplayCandidate = festivals.find((festival) => festival.city_name_display?.trim())?.city_name_display?.trim();
 
   return (
     <div className="landing-bg bg-[#f6f7fb] text-[#0c0e14]">
@@ -137,39 +173,6 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
               <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
                 {organizer.description?.trim() || "Този организатор все още няма добавено описание."}
               </p>
-
-              {hasMetaDetails ? (
-                <dl className="mt-6 grid gap-3 text-sm md:grid-cols-3">
-                  {cityDisplayCandidate ? (
-                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 px-4 py-3">
-                      <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Град</dt>
-                      <dd className="mt-1 font-medium text-slate-700">{cityDisplayCandidate}</dd>
-                    </div>
-                  ) : null}
-
-                  {email ? (
-                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 px-4 py-3">
-                      <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Имейл</dt>
-                      <dd className="mt-1 font-medium text-slate-700">
-                        <a href={`mailto:${email}`} className="transition hover:text-slate-950">
-                          {email}
-                        </a>
-                      </dd>
-                    </div>
-                  ) : null}
-
-                  {phone ? (
-                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 px-4 py-3">
-                      <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Телефон</dt>
-                      <dd className="mt-1 font-medium text-slate-700">
-                        <a href={`tel:${phone}`} className="transition hover:text-slate-950">
-                          {phone}
-                        </a>
-                      </dd>
-                    </div>
-                  ) : null}
-                </dl>
-              ) : null}
             </section>
 
             <section className="space-y-4 md:space-y-5">

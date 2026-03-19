@@ -23,6 +23,7 @@ type OrganizerRecord = {
 export default function OrganizerEditForm({ organizer }: { organizer: OrganizerRecord }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -69,6 +70,33 @@ export default function OrganizerEditForm({ organizer }: { organizer: OrganizerR
       setError(submitError instanceof Error ? submitError.message : "Unexpected error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onDelete() {
+    const confirmed = window.confirm("Delete this organizer? This will remove it from active organizers.");
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`/admin/api/organizers/${organizer.id}`, {
+        method: "DELETE",
+      });
+
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to delete organizer");
+      }
+
+      router.push("/admin/organizers");
+      router.refresh();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unexpected error");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -130,9 +158,19 @@ export default function OrganizerEditForm({ organizer }: { organizer: OrganizerR
       {error ? <p className="text-sm text-[#b13a1a]">{error}</p> : null}
       {success ? <p className="text-sm text-[#1f7a37]">{success}</p> : null}
 
-      <button disabled={saving} className="rounded-lg bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white disabled:opacity-50">
-        {saving ? "Saving..." : "Save organizer"}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button disabled={saving || deleting} className="rounded-lg bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white disabled:opacity-50">
+          {saving ? "Saving..." : "Save organizer"}
+        </button>
+        <button
+          type="button"
+          disabled={saving || deleting}
+          onClick={onDelete}
+          className="rounded-lg border border-[#b13a1a]/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#b13a1a] hover:bg-[#b13a1a]/5 disabled:opacity-50"
+        >
+          {deleting ? "Deleting..." : "Delete organizer"}
+        </button>
+      </div>
     </form>
   );
 }

@@ -33,18 +33,18 @@ function parseCityId(value: unknown) {
 }
 
 
-function parseOrganizerIds(value: unknown): string[] | typeof Number.NaN {
+function parseOrganizerIds(value: unknown): string[] | null {
   if (value === null || typeof value === "undefined") return [];
-  if (!Array.isArray(value)) return Number.NaN;
+  if (!Array.isArray(value)) return null;
   return normalizeOrganizerIds(value);
 }
 
-function parseOrganizerId(value: unknown): string | null | typeof Number.NaN {
-  if (value === null || value === undefined || value === "") return null;
-  if (typeof value !== "string") return Number.NaN;
+function parseOrganizerId(value: unknown): string[] | null {
+  if (value === null || value === undefined || value === "") return [];
+  if (typeof value !== "string") return null;
   const trimmed = value.trim();
-  if (!trimmed) return null;
-  return trimmed;
+  if (!trimmed) return [];
+  return [trimmed];
 }
 
 async function findCityById(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, cityId: number) {
@@ -89,19 +89,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if ("organizer_ids" in body) {
       const organizerIds = parseOrganizerIds(body.organizer_ids);
-      if (Number.isNaN(organizerIds)) {
+      if (organizerIds === null) {
         return NextResponse.json({ error: "Invalid organizer_ids" }, { status: 400 });
       }
       organizerIdsFromBody = organizerIds;
     } else if ("organizer_id" in body) {
       const organizerId = parseOrganizerId(body.organizer_id);
-      if (Number.isNaN(organizerId)) {
+      if (organizerId === null) {
         return NextResponse.json({ error: "Invalid organizer_id" }, { status: 400 });
       }
-      organizerIdsFromBody = organizerId ? [organizerId] : [];
+      organizerIdsFromBody = organizerId;
     }
 
-    if (organizerIdsFromBody) {
+    if (organizerIdsFromBody !== null) {
       const primaryOrganizerId = organizerIdsFromBody[0] ?? null;
       patch.organizer_id = primaryOrganizerId;
 
@@ -204,7 +204,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (organizerIdsFromBody) {
+    if (organizerIdsFromBody !== null) {
       try {
         await syncFestivalOrganizers(ctx.supabase, id, organizerIdsFromBody);
       } catch (syncError) {

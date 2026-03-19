@@ -154,8 +154,12 @@ Organizer profiles referenced by `festivals.organizer_id`.
 | verified | boolean | organizer trust marker |
 | city_id | bigint | optional city relation |
 | claimed_events_count | integer | admin visibility metric |
+| is_active | boolean | active profile flag; default scope for admin/public organizer queries |
+| merged_into | uuid | self-reference to canonical organizer after manual merge |
 | created_at | timestamptz | record timestamp |
 
 Behavior tied to this table:
 - Pending approval resolves/creates organizers from `pending_festivals.organizer_name` and writes `festivals.organizer_id`.
 - Admin list/detail pages support post-approval organizer enrichment workflows.
+- Admin duplicate review uses conservative match keys (normalized name / slug / facebook_url) and requires manual merge execution.
+- Manual merge sets source organizer inactive and linked via `merged_into`, while festival/pending organizer foreign keys are reassigned to canonical organizer id.

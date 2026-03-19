@@ -73,6 +73,8 @@ erDiagram
 
   organizers {
     uuid id PK
+    boolean is_active
+    uuid merged_into FK
   }
 
   user_roles {
@@ -133,6 +135,8 @@ erDiagram
   festivals ||--o{ user_notifications : notification_for
 
   festival_schedule_items ||--o{ user_plan_items : planned_item
+
+  organizers ||--o{ organizers : merged_into
 
   ingest_jobs ..> pending_festivals : ingest_to_moderation
   pending_festivals ..> festivals : approve_publishes

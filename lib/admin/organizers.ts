@@ -1,30 +1,19 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { slugify } from "@/lib/utils";
 import { transliteratedSlug } from "@/lib/text/slug";
+import { normalizeOrganizerName, normalizeOrganizerNameForMatch } from "@/lib/admin/organizerNormalization";
 
 type OrganizerLookupRow = {
   id: string;
   name: string | null;
 };
 
-function normalizeDisplayName(value: string) {
-  return value.trim().replace(/\s+/g, " ");
-}
-
-export function normalizeOrganizerNameForMatch(value: string) {
-  return normalizeDisplayName(value).toLocaleLowerCase("bg-BG");
-}
-
-export function normalizeOrganizerName(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const normalized = normalizeDisplayName(value);
-  return normalized || null;
-}
+export { normalizeOrganizerName, normalizeOrganizerNameForMatch };
 
 export async function pickOrganizerSlug(client: SupabaseClient, baseSlug: string) {
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const candidate = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`;
-    const { data, error } = await client.from("organizers").select("id").eq("slug", candidate).maybeSingle();
+    const { data, error } = await client.from("organizers").select("id").eq("slug", candidate).eq("is_active", true).maybeSingle();
     if (error) {
       throw new Error(error.message);
     }
@@ -43,8 +32,15 @@ export async function resolveOrCreateOrganizerId(client: SupabaseClient, organiz
   }
 
   const normalizedNeedle = normalizeOrganizerNameForMatch(organizerName);
+  if (!normalizedNeedle) {
+    return { organizerId: null, created: false, organizerName: null as string | null };
+  }
 
-  const { data: organizers, error: organizerLookupError } = await client.from("organizers").select("id,name").returns<OrganizerLookupRow[]>();
+  const { data: organizers, error: organizerLookupError } = await client
+    .from("organizers")
+    .select("id,name")
+    .eq("is_active", true)
+    .returns<OrganizerLookupRow[]>();
 
   if (organizerLookupError) {
     throw new Error(`Organizer lookup failed: ${organizerLookupError.message}`);
@@ -77,4 +73,3 @@ export async function resolveOrCreateOrganizerId(client: SupabaseClient, organiz
 
   return { organizerId: inserted.id, created: true, organizerName };
 }
-

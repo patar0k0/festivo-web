@@ -187,7 +187,9 @@ export default function FestivalDetailClient({
   const showVenueName = Boolean(venueName) && venueName.toLocaleLowerCase() !== locationName.toLocaleLowerCase();
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
   const hasGalleryContent = imageMedia.length > 0;
-  const showOrganizer = Boolean(festival.organizer_id && festival.organizer_name?.trim());
+  const organizerName = festival.organizer_name?.trim() || festival.organizer?.name?.trim() || "";
+  const organizerSlug = festival.organizer?.slug?.trim() || "";
+  const showOrganizer = Boolean(organizerName);
   const showInfoSection = Boolean(
     formattedDateRange ||
       locationName ||
@@ -424,12 +426,15 @@ export default function FestivalDetailClient({
                   <div>
                     <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Организатор</dt>
                     <dd className="mt-1 text-black/70">
-                      {festival.organizer?.slug ? (
-                        <Link href={`/organizers/${festival.organizer.slug}`} className="underline decoration-black/30 underline-offset-2 hover:text-black">
-                          {festival.organizer_name}
+                      {organizerSlug ? (
+                        <Link
+                          href={`/organizers/${organizerSlug}`}
+                          className="underline decoration-black/30 underline-offset-2 transition hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                        >
+                          {organizerName}
                         </Link>
                       ) : (
-                        festival.organizer_name
+                        organizerName
                       )}
                     </dd>
                   </div>

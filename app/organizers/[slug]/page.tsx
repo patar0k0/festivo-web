@@ -84,8 +84,8 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
   const organizerInitials = organizer.name
     .split(" ")
     .filter(Boolean)
-    .slice(0, 2)
     .map((chunk) => chunk.charAt(0))
+    .slice(0, 2)
     .join("")
     .toUpperCase();
 
@@ -95,23 +95,22 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
         <Container>
           <div className="grid gap-7 lg:grid-cols-[320px,1fr] xl:grid-cols-[360px,1fr]">
             <aside className="h-fit rounded-3xl bg-white p-6 shadow-[0_1px_0_rgba(12,14,20,0.05),0_16px_38px_rgba(12,14,20,0.08)]">
-              <div className="flex items-start gap-4">
-                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-[#f5f7fb] ring-1 ring-black/5">
+              <div className="flex items-start gap-5">
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-[#eef2ff] to-[#e6ecff] ring-1 ring-black/5">
                   {organizer.logo_url ? (
-                    <FallbackImage src={organizer.logo_url} alt={organizer.name} fill className="object-contain p-3" />
+                    <FallbackImage src={organizer.logo_url} alt={organizer.name} fill className="object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-lg font-semibold tracking-wide text-black/50">
+                    <div className="flex h-full w-full items-center justify-center text-2xl font-bold tracking-wide text-black/55">
                       {organizerInitials || "OF"}
                     </div>
                   )}
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <span className="inline-flex rounded-full bg-black/[0.04] px-3 py-1 text-xs font-medium uppercase tracking-[0.08em] text-black/60">
-                    Организатор
-                  </span>
-                  <h1 className="mt-2 text-3xl font-bold leading-tight md:text-4xl">{organizer.name}</h1>
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-black/60">
+                  <h1 className="text-3xl font-extrabold leading-tight tracking-tight md:text-[2.65rem]">{organizer.name}</h1>
+                  <p className="mt-1 text-sm font-medium text-black/55">Организатор на събития</p>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2.5 text-xs text-black/60">
                     {organizer.verified ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-emerald-100">
                         <span aria-hidden="true">✓</span>
@@ -125,9 +124,9 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                 </div>
               </div>
 
-              {organizer.description ? <p className="mt-5 text-sm leading-relaxed text-black/70">{organizer.description}</p> : null}
+              {organizer.description ? <p className="mt-7 text-sm leading-relaxed text-black/70">{organizer.description}</p> : null}
 
-              <div className="mt-5 flex flex-wrap gap-2.5 text-sm">
+              <div className="mt-6 flex flex-wrap gap-2.5 text-sm">
                 {organizer.website_url ? (
                   <a
                     href={organizer.website_url}
@@ -143,8 +142,11 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                     href={organizer.facebook_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center rounded-full bg-black/[0.04] px-3 py-1.5 font-medium text-black/70 transition hover:bg-black/[0.07] hover:text-black"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-[#1877F2]/10 px-3 py-1.5 font-semibold text-[#155ec0] ring-1 ring-[#1877F2]/20 transition hover:bg-[#1877F2]/15"
                   >
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+                      <path d="M13.74 22v-8.01h2.7l.4-3.12h-3.1V8.88c0-.9.25-1.5 1.54-1.5h1.65V4.6c-.29-.04-1.27-.12-2.4-.12-2.38 0-4.01 1.46-4.01 4.14v2.3H7.8v3.12h2.72V22h3.22Z" />
+                    </svg>
                     Facebook
                   </a>
                 ) : null}

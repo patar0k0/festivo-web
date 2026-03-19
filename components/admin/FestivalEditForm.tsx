@@ -175,6 +175,8 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
 
   const [message, setMessage] = useState<string>("");
   const [organizerOptions, setOrganizerOptions] = useState<OrganizerOption[]>(organizers);
+  const [organizerSearch, setOrganizerSearch] = useState("");
+  const [pendingOrganizerId, setPendingOrganizerId] = useState("");
   const [creatingOrganizer, setCreatingOrganizer] = useState(false);
   const [newOrganizer, setNewOrganizer] = useState({
     name: "",
@@ -214,15 +216,55 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
   };
 
   const updateOrganizerIds = (organizerIds: string[]) => {
-    const selected = organizerOptions.filter((item) => organizerIds.includes(item.id));
-    const firstSelected = selected[0];
+    const uniqueOrganizerIds = organizerIds.filter((id, index) => organizerIds.indexOf(id) === index);
+    const organizerById = new Map(organizerOptions.map((item) => [item.id, item]));
+    const firstSelected = uniqueOrganizerIds.length ? organizerById.get(uniqueOrganizerIds[0]) : null;
 
     setForm((prev) => ({
       ...prev,
-      organizer_ids: organizerIds,
+      organizer_ids: uniqueOrganizerIds,
       organizer_id: firstSelected?.id ?? "",
       organizer_name: firstSelected?.name ?? prev.organizer_name,
     }));
+  };
+
+  const selectedOrganizers = useMemo(() => {
+    const organizerById = new Map(organizerOptions.map((item) => [item.id, item]));
+    return form.organizer_ids
+      .map((id) => organizerById.get(id))
+      .filter((item): item is OrganizerOption => Boolean(item));
+  }, [form.organizer_ids, organizerOptions]);
+
+  const availableOrganizerOptions = useMemo(() => {
+    const selectedIds = new Set(form.organizer_ids);
+    const query = organizerSearch.trim().toLowerCase();
+
+    return organizerOptions.filter((item) => {
+      if (selectedIds.has(item.id)) {
+        return false;
+      }
+      if (!query) {
+        return true;
+      }
+
+      const haystack = `${item.name} ${item.slug ?? ""}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [form.organizer_ids, organizerOptions, organizerSearch]);
+
+  const onAddOrganizer = () => {
+    if (!pendingOrganizerId) return;
+    if (form.organizer_ids.includes(pendingOrganizerId)) {
+      setPendingOrganizerId("");
+      return;
+    }
+
+    updateOrganizerIds([...form.organizer_ids, pendingOrganizerId]);
+    setPendingOrganizerId("");
+  };
+
+  const onRemoveOrganizer = (organizerId: string) => {
+    updateOrganizerIds(form.organizer_ids.filter((id) => id !== organizerId));
   };
 
 
@@ -269,7 +311,9 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           const nextOptions: OrganizerOption[] = [...prev, createdOrganizer];
           return nextOptions.sort((a, b) => a.name.localeCompare(b.name, "bg"));
         });
-        updateOrganizerIds([createdOrganizer.id]);
+        updateOrganizerIds(
+          form.organizer_ids.includes(createdOrganizer.id) ? form.organizer_ids : [...form.organizer_ids, createdOrganizer.id],
+        );
         updateField("organizer_name", createdOrganizer.name);
       }
 
@@ -492,31 +536,68 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <input type="date" value={form.end_date} onChange={(e) => updateField("end_date", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizers (multi-select)</span>
-            <div className="mt-2 flex items-start gap-2">
-              <select
-                multiple
-                value={form.organizer_ids}
-                onChange={(e) => {
-                  const values = Array.from(e.target.selectedOptions).map((option) => option.value);
-                  updateOrganizerIds(values);
-                }}
-                className="h-36 w-full rounded-xl border border-black/[0.1] px-3 py-2"
-              >
-                {organizerOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.slug ? `${item.name} (${item.slug})` : item.name}
-                  </option>
-                ))}
-              </select>
-              {form.organizer_id ? (
-                <Link
-                  href={`/admin/organizers/${form.organizer_id}`}
-                  className="shrink-0 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] hover:bg-black/[0.03]"
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizers</span>
+            <div className="mt-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-3">
+              <input
+                value={organizerSearch}
+                onChange={(event) => setOrganizerSearch(event.target.value)}
+                placeholder="Търси по име или slug"
+                className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+              />
+              <div className="mt-2 flex items-center gap-2">
+                <select
+                  value={pendingOrganizerId}
+                  onChange={(event) => setPendingOrganizerId(event.target.value)}
+                  className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
                 >
-                  Open main
-                </Link>
-              ) : null}
+                  <option value="">Избери организатор…</option>
+                  {availableOrganizerOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.slug ? `${item.name} (${item.slug})` : item.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={onAddOrganizer}
+                  disabled={!pendingOrganizerId}
+                  className="shrink-0 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] hover:bg-black/[0.03] disabled:opacity-50"
+                >
+                  Add organizer
+                </button>
+              </div>
+              {selectedOrganizers.length ? (
+                <div className="mt-3 space-y-2">
+                  {selectedOrganizers.map((item, index) => (
+                    <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-sm">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">
+                          {item.name}{" "}
+                          {index === 0 ? <span className="rounded bg-black/[0.06] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-black/65">Main</span> : null}
+                        </p>
+                        {item.slug ? <p className="truncate text-xs text-black/55">{item.slug}</p> : null}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/admin/organizers/${item.id}`}
+                          className="rounded-md border border-black/[0.1] bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] hover:bg-black/[0.03]"
+                        >
+                          Open
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveOrganizer(item.id)}
+                          className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-red-700 hover:bg-red-100"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-black/55">Няма избрани организатори.</p>
+              )}
             </div>
             <p className="mt-2 text-xs text-black/55">Първият избран организатор остава compatibility organizer_id.</p>
           </label>

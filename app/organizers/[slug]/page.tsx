@@ -177,7 +177,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
               </p>
             </section>
 
-            <section className="space-y-5">
+            <section className="space-y-4 md:space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">Фестивали от този организатор</h2>
                 <Link

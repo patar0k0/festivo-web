@@ -108,7 +108,6 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Организатор на събития</p>
                   <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight text-slate-950 md:text-4xl">{organizer.name}</h1>
-                  <p className="mt-2 text-sm text-slate-500">Публичен профил с фестивалите, организирани от {organizer.name}.</p>
 
                   <div className="mt-5 flex flex-wrap gap-2 text-sm text-slate-600">
                     <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 font-medium">

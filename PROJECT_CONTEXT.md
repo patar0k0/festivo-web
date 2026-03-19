@@ -92,7 +92,7 @@ Full schema docs: `docs/database-schema.md`.
 - Organizer duplicates are reviewed manually in admin at `/admin/organizers/duplicates`.
 - Duplicate candidates are conservative-only: exact normalized name, exact slug, exact `facebook_url` (when present).
 - Merges are manual via `/admin/api/organizers/merge`; no auto-merge job exists.
-- Merge behavior moves `festivals.organizer_id` and `pending_festivals.organizer_id` to a canonical organizer, backfills missing target profile fields, then marks source organizer inactive (`is_active=false`, `merged_into=target`).
+- Merge behavior moves organizer links in `festival_organizers` (plus compatibility fields `festivals.organizer_id` and `pending_festivals.organizer_id`) to a canonical organizer, backfills missing target profile fields, then marks source organizer inactive (`is_active=false`, `merged_into=target`).
 - Organizer list/public lookups use active organizers by default (`is_active=true`).
 
 ## Notification System

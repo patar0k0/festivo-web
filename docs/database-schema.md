@@ -135,9 +135,36 @@ Behavior tied to these columns:
 - AI/normalization guess columns are advisory and only become authoritative if copied into core fields by admin actions.
 
 
+## public.festival_organizers
+
+Many-to-many organizer links for published festivals. `festivals.organizer_id` remains a compatibility field during migration.
+
+| column | type | usage intent in code |
+|---|---|---|
+| festival_id | uuid | FK to `festivals.id` |
+| organizer_id | uuid | FK to `organizers.id` |
+| role | text | optional role (reserved for future use) |
+| sort_order | integer | ordering of organizers per festival |
+| created_at | timestamptz | link creation timestamp |
+
+Constraints/indexes:
+- foreign key `festival_id -> festivals.id` (`on delete cascade`)
+- foreign key `organizer_id -> organizers.id` (`on delete cascade`)
+- unique `(festival_id, organizer_id)`
+- index on `festival_id`
+- index on `organizer_id`
+- index on `(festival_id, sort_order)`
+
+RLS policy model:
+- `select`: public read policy (`using (true)`) to support public festival/organizer joins.
+- `insert` / `update` / `delete`: restricted to authenticated admins via `public.is_admin()`.
+
+Backfill behavior:
+- Existing `festivals.organizer_id` rows are inserted into `festival_organizers` during migration.
+
 ## public.organizers
 
-Organizer profiles referenced by `festivals.organizer_id`.
+Organizer profiles referenced by `festival_organizers.organizer_id` (and compatibility field `festivals.organizer_id`).
 
 | column | type | usage intent in code |
 |---|---|---|
@@ -159,7 +186,7 @@ Organizer profiles referenced by `festivals.organizer_id`.
 | created_at | timestamptz | record timestamp |
 
 Behavior tied to this table:
-- Pending approval resolves/creates organizers from `pending_festivals.organizer_name` and writes `festivals.organizer_id`.
+- Pending approval resolves/creates organizers from `pending_festivals.organizer_name`, inserts organizer links in `festival_organizers`, and keeps `festivals.organizer_id` synchronized as compatibility.
 - Admin list/detail pages support post-approval organizer enrichment workflows.
 - Admin duplicate review uses conservative match keys (normalized name / slug / facebook_url) and requires manual merge execution.
 - Manual merge sets source organizer inactive and linked via `merged_into`, while festival/pending organizer foreign keys are reassigned to canonical organizer id.

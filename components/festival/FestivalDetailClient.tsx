@@ -187,9 +187,17 @@ export default function FestivalDetailClient({
   const showVenueName = Boolean(venueName) && venueName.toLocaleLowerCase() !== locationName.toLocaleLowerCase();
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
   const hasGalleryContent = imageMedia.length > 0;
+  const linkedOrganizers = (festival.organizers ?? [])
+    .map((row) => ({
+      name: row.name?.trim() ?? "",
+      slug: row.slug?.trim() ?? "",
+    }))
+    .filter((row) => Boolean(row.name));
   const organizerName = festival.organizer_name?.trim() || festival.organizer?.name?.trim() || "";
   const organizerSlug = festival.organizer?.slug?.trim() || "";
-  const showOrganizer = Boolean(organizerName);
+  const fallbackOrganizers = organizerName ? [{ name: organizerName, slug: organizerSlug }] : [];
+  const displayOrganizers = linkedOrganizers.length ? linkedOrganizers : fallbackOrganizers;
+  const showOrganizer = displayOrganizers.length > 0;
   const showInfoSection = Boolean(
     formattedDateRange ||
       locationName ||
@@ -424,18 +432,25 @@ export default function FestivalDetailClient({
                 ) : null}
                 {showOrganizer ? (
                   <div>
-                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Организатор</dt>
-                    <dd className="mt-1 text-black/70">
-                      {organizerSlug ? (
-                        <Link
-                          href={`/organizers/${organizerSlug}`}
-                          className="underline decoration-black/30 underline-offset-2 transition hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                        >
-                          {organizerName}
-                        </Link>
-                      ) : (
-                        organizerName
-                      )}
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
+                      {displayOrganizers.length > 1 ? "Организатори" : "Организатор"}
+                    </dt>
+                    <dd className="mt-1 flex flex-wrap items-center gap-1 text-black/70">
+                      {displayOrganizers.map((row, index) => (
+                        <span key={`${row.slug || row.name}-${index}`}>
+                          {row.slug ? (
+                            <Link
+                              href={`/organizers/${row.slug}`}
+                              className="underline decoration-black/30 underline-offset-2 transition hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                            >
+                              {row.name}
+                            </Link>
+                          ) : (
+                            row.name
+                          )}
+                          {index < displayOrganizers.length - 1 ? ", " : ""}
+                        </span>
+                      ))}
                     </dd>
                   </div>
                 ) : null}

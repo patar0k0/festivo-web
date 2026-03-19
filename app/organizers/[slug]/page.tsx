@@ -11,11 +11,10 @@ import "../../landing.css";
 
 export const revalidate = 21600;
 
-
 const FESTIVAL_SELECT_MIN =
   "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
 
-async function getOrganizerWithFestivalsServer(slug: string): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
+async function getOrganizerWithFestivals(slug: string): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
   const supabase = await createSupabaseServerClient();
 
   console.info("[organizer-public] lookup start", { slug });
@@ -24,7 +23,6 @@ async function getOrganizerWithFestivalsServer(slug: string): Promise<{ organize
     .from("organizers")
     .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,verified")
     .eq("slug", slug)
-    .eq("is_active", true)
     .maybeSingle<OrganizerProfile>();
 
   if (organizerError) {
@@ -61,7 +59,7 @@ async function getOrganizerWithFestivalsServer(slug: string): Promise<{ organize
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getOrganizerWithFestivalsServer(slug);
+  const data = await getOrganizerWithFestivals(slug);
   if (!data) return {};
 
   const title = `${data.organizer.name} | Организатор | Festivo`;
@@ -78,7 +76,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function OrganizerPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const data = await getOrganizerWithFestivalsServer(slug);
+  const data = await getOrganizerWithFestivals(slug);
   if (!data) return notFound();
 
   const { organizer, festivals } = data;
@@ -89,84 +87,107 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
     .slice(0, 2)
     .join("")
     .toUpperCase();
+  const cityDisplayCandidate = festivals.find((festival) => festival.city_name_display?.trim())?.city_name_display?.trim();
 
   return (
-    <div className="landing-bg text-[#0c0e14]">
-      <Section className="py-8 md:py-10">
+    <div className="landing-bg bg-[#f6f7fb] text-[#0c0e14]">
+      <Section className="py-8 md:py-12">
         <Container>
-          <div className="grid gap-7 lg:grid-cols-[320px,1fr] xl:grid-cols-[360px,1fr]">
-            <aside className="h-fit rounded-3xl bg-white p-6 shadow-[0_1px_0_rgba(12,14,20,0.05),0_16px_38px_rgba(12,14,20,0.08)]">
-              <div className="flex items-start gap-5">
-                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-[#eef2ff] to-[#e6ecff] ring-1 ring-black/5">
+          <div className="mx-auto max-w-6xl space-y-8 md:space-y-10">
+            <section className="rounded-3xl border border-black/[0.05] bg-white p-6 shadow-sm md:p-8 lg:p-9">
+              <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-3xl bg-gradient-to-br from-[#f4f6ff] to-[#eef3ff] ring-1 ring-black/5 md:h-28 md:w-28">
                   {organizer.logo_url ? (
                     <FallbackImage src={organizer.logo_url} alt={organizer.name} fill className="object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-2xl font-bold tracking-wide text-black/55">
-                      {organizerInitials || "OF"}
-                    </div>
+                    <div className="flex h-full w-full items-center justify-center text-2xl font-bold tracking-wide text-black/55">{organizerInitials || "OF"}</div>
                   )}
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <h1 className="text-3xl font-extrabold leading-tight tracking-tight md:text-[2.65rem]">{organizer.name}</h1>
-                  <p className="mt-1 text-sm font-medium text-black/55">Организатор на събития</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Организатор на събития</p>
+                  <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight text-slate-950 md:text-4xl">{organizer.name}</h1>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2.5 text-xs text-black/60">
+                  <div className="mt-5 flex flex-wrap gap-2 text-sm text-slate-600">
+                    <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 font-medium">
+                      {festivals.length} {festivals.length === 1 ? "фестивал" : "фестивала"}
+                    </span>
+
+                    {cityDisplayCandidate ? (
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 font-medium">{cityDisplayCandidate}</span>
+                    ) : null}
+
                     {organizer.verified ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700 ring-1 ring-emerald-100">
                         <span aria-hidden="true">✓</span>
                         Потвърден профил
                       </span>
                     ) : null}
-                    <span className="inline-flex rounded-full bg-black/[0.04] px-2.5 py-1 font-medium">
-                      {festivals.length} {festivals.length === 1 ? "фестивал" : "фестивала"}
-                    </span>
                   </div>
+
+                  {(organizer.website_url || organizer.facebook_url || organizer.instagram_url) ? (
+                    <div className="mt-6 flex flex-wrap gap-2.5 text-sm">
+                      {organizer.website_url ? (
+                        <a
+                          href={organizer.website_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3.5 py-1.5 font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                        >
+                          Уебсайт
+                        </a>
+                      ) : null}
+
+                      {organizer.facebook_url ? (
+                        <a
+                          href={organizer.facebook_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-[#1877F2]/10 px-3.5 py-1.5 font-semibold text-[#155ec0] ring-1 ring-[#1877F2]/20 transition hover:bg-[#1877F2]/15"
+                        >
+                          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-current">
+                            <path d="M13.74 22v-8.01h2.7l.4-3.12h-3.1V8.88c0-.9.25-1.5 1.54-1.5h1.65V4.6c-.29-.04-1.27-.12-2.4-.12-2.38 0-4.01 1.46-4.01 4.14v2.3H7.8v3.12h2.72V22h3.22Z" />
+                          </svg>
+                          Facebook
+                        </a>
+                      ) : null}
+
+                      {organizer.instagram_url ? (
+                        <a
+                          href={organizer.instagram_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center rounded-full bg-[#E1306C]/10 px-3.5 py-1.5 font-semibold text-[#bf2558] ring-1 ring-[#E1306C]/20 transition hover:bg-[#E1306C]/15"
+                        >
+                          Instagram
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
+            </section>
 
-              {organizer.description ? <p className="mt-7 text-sm leading-relaxed text-black/70">{organizer.description}</p> : null}
-
-              <div className="mt-6 flex flex-wrap gap-2.5 text-sm">
-                {organizer.website_url ? (
-                  <a
-                    href={organizer.website_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center rounded-full bg-black/[0.04] px-3 py-1.5 font-medium text-black/70 transition hover:bg-black/[0.07] hover:text-black"
-                  >
-                    Уебсайт
-                  </a>
-                ) : null}
-                {organizer.facebook_url ? (
-                  <a
-                    href={organizer.facebook_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full bg-[#1877F2]/10 px-3 py-1.5 font-semibold text-[#155ec0] ring-1 ring-[#1877F2]/20 transition hover:bg-[#1877F2]/15"
-                  >
-                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 fill-current">
-                      <path d="M13.74 22v-8.01h2.7l.4-3.12h-3.1V8.88c0-.9.25-1.5 1.54-1.5h1.65V4.6c-.29-.04-1.27-.12-2.4-.12-2.38 0-4.01 1.46-4.01 4.14v2.3H7.8v3.12h2.72V22h3.22Z" />
-                    </svg>
-                    Facebook
-                  </a>
-                ) : null}
-              </div>
-            </aside>
+            <section className="rounded-3xl border border-black/[0.05] bg-white p-6 shadow-sm md:p-8">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">За организатора</h2>
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
+                {organizer.description?.trim() || "Този организатор все още няма добавено описание."}
+              </p>
+            </section>
 
             <section className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-2xl font-semibold tracking-tight">Фестивали ({festivals.length})</h2>
+                <h2 className="text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">Фестивали от този организатор</h2>
                 <Link
                   href="/festivals"
-                  className="inline-flex items-center rounded-full bg-black/[0.04] px-3 py-1.5 text-sm font-medium text-black/70 transition hover:bg-black/[0.07] hover:text-black"
+                  className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
                 >
                   Всички фестивали
                 </Link>
               </div>
 
               {festivals.length ? (
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
                   {festivals.map((festival) => (
                     <EventCard
                       key={festival.id}
@@ -182,7 +203,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                   ))}
                 </div>
               ) : (
-                <div className="rounded-2xl bg-white p-5 text-sm text-black/65 shadow-[0_1px_0_rgba(12,14,20,0.05),0_12px_28px_rgba(12,14,20,0.08)]">
+                <div className="rounded-2xl border border-black/[0.06] bg-white p-6 text-sm text-slate-600 shadow-sm">
                   Няма публикувани фестивали за този организатор.
                 </div>
               )}

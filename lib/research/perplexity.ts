@@ -30,6 +30,25 @@ type ExtractionContext = {
   explicitYear: number | null;
 };
 
+type NullableResultField = {
+  [K in keyof PerplexityFestivalResearchResult]-?: null extends PerplexityFestivalResearchResult[K] ? K : never;
+}[keyof PerplexityFestivalResearchResult];
+
+type StrictNullableField = Extract<
+  NullableResultField,
+  | "start_date"
+  | "end_date"
+  | "organizer_name"
+  | "location_name"
+  | "address"
+  | "website_url"
+  | "facebook_url"
+  | "instagram_url"
+  | "ticket_url"
+  | "hero_image"
+  | "is_free"
+>;
+
 const ENDPOINT = "https://api.perplexity.ai/chat/completions";
 const MODEL = "sonar-pro";
 const TIMEOUT_MS = 30_000;
@@ -61,7 +80,7 @@ const OFFICIAL_SOURCE_PATTERNS = [
   "instagram.com/",
 ];
 
-const STRICT_NULL_FIELDS: Array<keyof PerplexityFestivalResearchResult> = [
+const STRICT_NULL_FIELDS: readonly StrictNullableField[] = [
   "start_date",
   "end_date",
   "organizer_name",

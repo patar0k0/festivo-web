@@ -20,12 +20,31 @@ type OrganizerRecord = {
   created_at: string | null;
 };
 
+type OrganizerAiResearchResult = {
+  name: string | null;
+  description: string | null;
+  logo_url: string | null;
+  website_url: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
+  email: string | null;
+  phone: string | null;
+  source_urls: string[];
+  confidence: "low" | "medium" | "high";
+  missing_fields: string[];
+};
+
 export default function OrganizerEditForm({ organizer }: { organizer: OrganizerRecord }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [researching, setResearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [researchError, setResearchError] = useState<string | null>(null);
+  const [researchSuccess, setResearchSuccess] = useState<string | null>(null);
+  const [researchQuery, setResearchQuery] = useState(organizer.name ?? "");
+  const [researchResult, setResearchResult] = useState<OrganizerAiResearchResult | null>(null);
   const [form, setForm] = useState({
     name: organizer.name ?? "",
     slug: organizer.slug ?? "",
@@ -42,6 +61,57 @@ export default function OrganizerEditForm({ organizer }: { organizer: OrganizerR
 
   function updateField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function runOrganizerResearch() {
+    const query = researchQuery.trim() || form.name.trim();
+    if (!query) {
+      setResearchError("Organizer name/query is required.");
+      return;
+    }
+
+    setResearching(true);
+    setResearchError(null);
+    setResearchSuccess(null);
+
+    try {
+      const response = await fetch("/api/admin/research-organizer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { error?: string; result?: OrganizerAiResearchResult } | null;
+      if (!response.ok || !payload?.result) {
+        throw new Error(payload?.error ?? "Organizer AI research failed.");
+      }
+
+      setResearchResult(payload.result);
+      setResearchSuccess("Organizer AI research completed.");
+    } catch (researchRunError) {
+      setResearchError(researchRunError instanceof Error ? researchRunError.message : "Unexpected organizer AI research error.");
+    } finally {
+      setResearching(false);
+    }
+  }
+
+  function applyResearchValues() {
+    if (!researchResult) return;
+
+    setForm((prev) => ({
+      ...prev,
+      name: researchResult.name ?? prev.name,
+      description: researchResult.description ?? prev.description,
+      logo_url: researchResult.logo_url ?? prev.logo_url,
+      website_url: researchResult.website_url ?? prev.website_url,
+      facebook_url: researchResult.facebook_url ?? prev.facebook_url,
+      instagram_url: researchResult.instagram_url ?? prev.instagram_url,
+      email: researchResult.email ?? prev.email,
+      phone: researchResult.phone ?? prev.phone,
+    }));
+
+    setResearchSuccess("Extracted values applied to the form. Save organizer to persist.");
+    setResearchError(null);
   }
 
   async function onSubmit(event: FormEvent) {
@@ -105,6 +175,77 @@ export default function OrganizerEditForm({ organizer }: { organizer: OrganizerR
       <div>
         <h1 className="text-2xl font-black tracking-tight">Edit organizer</h1>
         <p className="mt-1 text-sm text-black/65">Update organizer profile fields used by festivals and follow flows.</p>
+      </div>
+
+      <div className="space-y-3 rounded-2xl border border-black/[0.08] bg-[#fafafa] p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Organizer AI research</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            value={researchQuery}
+            onChange={(e) => setResearchQuery(e.target.value)}
+            placeholder="Organizer query"
+            className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+          />
+          <button
+            type="button"
+            onClick={runOrganizerResearch}
+            disabled={researching}
+            className="rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
+          >
+            {researching ? "Researching..." : "Research with AI"}
+          </button>
+          <button
+            type="button"
+            onClick={applyResearchValues}
+            disabled={!researchResult || researching}
+            className="rounded-xl border border-black/[0.12] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
+          >
+            Apply extracted values
+          </button>
+        </div>
+
+        {researchError ? <p className="text-sm text-[#b13a1a]">{researchError}</p> : null}
+        {researchSuccess ? <p className="text-sm text-[#1f7a37]">{researchSuccess}</p> : null}
+
+        {researchResult ? (
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="grid gap-2 md:grid-cols-2">
+              <div><span className="text-xs text-black/55">name</span><p className="text-sm">{researchResult.name ?? "—"}</p></div>
+              <div><span className="text-xs text-black/55">confidence</span><p className="text-sm">{researchResult.confidence}</p></div>
+              <div><span className="text-xs text-black/55">website_url</span><p className="break-all text-sm">{researchResult.website_url ?? "—"}</p></div>
+              <div><span className="text-xs text-black/55">facebook_url</span><p className="break-all text-sm">{researchResult.facebook_url ?? "—"}</p></div>
+              <div><span className="text-xs text-black/55">instagram_url</span><p className="break-all text-sm">{researchResult.instagram_url ?? "—"}</p></div>
+              <div><span className="text-xs text-black/55">email / phone</span><p className="text-sm">{researchResult.email ?? "—"} {researchResult.phone ? `· ${researchResult.phone}` : ""}</p></div>
+              <div className="md:col-span-2"><span className="text-xs text-black/55">description</span><p className="text-sm">{researchResult.description ?? "—"}</p></div>
+            </div>
+            <aside className="space-y-2 rounded-xl border border-black/[0.08] bg-white p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Sources</p>
+              {researchResult.source_urls.length === 0 ? (
+                <p className="text-sm text-black/60">No sources returned.</p>
+              ) : (
+                <div className="space-y-2">
+                  {researchResult.source_urls.map((url) => (
+                    <a key={url} href={url} target="_blank" rel="noreferrer" className="block break-all text-sm text-[#0e7a45] hover:underline">
+                      {url}
+                    </a>
+                  ))}
+                </div>
+              )}
+              <p className="pt-2 text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Missing fields</p>
+              <div className="flex flex-wrap gap-2">
+                {researchResult.missing_fields.length === 0 ? (
+                  <span className="rounded-full border border-black/[0.12] bg-white px-2 py-0.5 text-xs">none</span>
+                ) : (
+                  researchResult.missing_fields.map((field) => (
+                    <span key={field} className="rounded-full border border-black/[0.12] bg-white px-2 py-0.5 text-xs">
+                      {field}
+                    </span>
+                  ))
+                )}
+              </div>
+            </aside>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">

@@ -46,7 +46,10 @@ type StrictNullableField = Extract<
 const ENDPOINT = "https://api.perplexity.ai/chat/completions";
 const MODEL = "sonar-pro";
 const TIMEOUT_MS = 30_000;
-const ENRICHMENT_MISSING_THRESHOLD = 6;
+/** Run enrichment when this many factual fields are still null (admin tool: prefer more passes over sparse forms). */
+const ENRICHMENT_MISSING_THRESHOLD = 3;
+/** After merge, if still this many missing, run one more targeted pass. */
+const THIRD_PASS_MISSING_THRESHOLD = 5;
 
 const LOW_VALUE_SOURCE_PATTERNS = [
   "allevents.",
@@ -331,6 +334,10 @@ function hasAnyYearSpecificEvidence(result: PerplexityFestivalResearchResult, co
     return true;
   }
 
+  if (result.title?.includes(yearString) || result.description?.includes(yearString)) {
+    return true;
+  }
+
   return result.source_urls.some((url) => url.includes(yearString));
 }
 
@@ -415,8 +422,24 @@ function buildMissingFields(result: PerplexityFestivalResearchResult): string[] 
   return Array.from(new Set(missing));
 }
 
-function normalizeResult(data: Record<string, unknown>, context: ExtractionContext, query: string): PerplexityFestivalResearchResult {
-  const source_urls = cleanSourceUrls(sanitizeStringArray(data.source_urls));
+type NormalizeResultOptions = {
+  /**
+   * Merge these URLs into `source_urls` before validation.
+   * Required for enrichment passes: Perplexity sometimes omits `source_urls` on follow-up JSON;
+   * without this, `hasFactualClaims && source_urls.length === 0` wipes all extracted fields.
+   */
+  inheritSourceUrls?: string[];
+};
+
+function normalizeResult(
+  data: Record<string, unknown>,
+  context: ExtractionContext,
+  query: string,
+  options?: NormalizeResultOptions,
+): PerplexityFestivalResearchResult {
+  const fromModel = cleanSourceUrls(sanitizeStringArray(data.source_urls));
+  const inherited = options?.inheritSourceUrls?.length ? cleanSourceUrls(options.inheritSourceUrls) : [];
+  const source_urls = cleanSourceUrls([...fromModel, ...inherited]);
 
   const result: PerplexityFestivalResearchResult = {
     title: sanitizeNullableString(data.title),
@@ -487,10 +510,28 @@ function normalizeResult(data: Record<string, unknown>, context: ExtractionConte
     result.end_date = null;
   }
 
+  // Single-day events: many sources only state one date; mirror start -> end for admin convenience.
+  if (result.start_date && !result.end_date) {
+    result.end_date = result.start_date;
+  }
+
   const hasFactualClaims = FACTUAL_FIELDS.some((field) => result[field] !== null);
   if (hasFactualClaims && result.source_urls.length === 0) {
     for (const key of FACTUAL_FIELDS) {
       result[key] = null;
+    }
+  }
+
+  // Light heuristic when model omitted boolean (admin-only hint).
+  if (result.is_free === null && result.description) {
+    const d = result.description.toLowerCase();
+    if (
+      /\bбезплатн/i.test(d) ||
+      /\bfree\b/i.test(d) ||
+      /\bвходът\s+е\s+свободен/i.test(d) ||
+      /\bсвободен\s+вход/i.test(d)
+    ) {
+      result.is_free = true;
     }
   }
 
@@ -610,6 +651,7 @@ function buildEnrichmentMessages(query: string, context: ExtractionContext, firs
         "Known facts from first pass (treat as stable context, do not degrade):",
         JSON.stringify(knownFacts, null, 2),
         "Focus on filling missing fields using explicit evidence from authoritative/event sources.",
+        "You MUST include in source_urls every URL you used, plus re-list the known first-pass source URLs if still relevant.",
         "Use source_urls to cite the pages used.",
         "Return STRICT JSON with this exact schema and no extra keys:",
         JSON.stringify(
@@ -779,13 +821,30 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
     return firstPass;
   }
 
+  let merged = firstPass;
+
   try {
     const enrichmentJson = await fetchPerplexityJson(apiKey, buildEnrichmentMessages(normalizedQuery, context, firstPass));
-    const enrichmentPass = normalizeResult(enrichmentJson, context, normalizedQuery);
-    return mergeResults(firstPass, enrichmentPass, context);
+    const enrichmentPass = normalizeResult(enrichmentJson, context, normalizedQuery, { inheritSourceUrls: firstPass.source_urls });
+    merged = mergeResults(firstPass, enrichmentPass, context);
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown enrichment error";
     console.warn(`[research-ai] enrichment pass failed: ${message}`);
     return firstPass;
   }
+
+  if (merged.missing_fields.length < THIRD_PASS_MISSING_THRESHOLD) {
+    return merged;
+  }
+
+  try {
+    const thirdJson = await fetchPerplexityJson(apiKey, buildEnrichmentMessages(normalizedQuery, context, merged));
+    const thirdPass = normalizeResult(thirdJson, context, normalizedQuery, { inheritSourceUrls: merged.source_urls });
+    merged = mergeResults(merged, thirdPass, context);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown third pass error";
+    console.warn(`[research-ai] third extraction pass failed: ${message}`);
+  }
+
+  return merged;
 }

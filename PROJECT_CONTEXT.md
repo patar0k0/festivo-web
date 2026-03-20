@@ -56,10 +56,11 @@ These guesses are non-authoritative:
 - core pending fields remain authoritative for save/approve
 - only core moderated values are written into `festivals` during approval
 
-`Research with AI` extraction (`/api/admin/research-ai`) now supports a second enrichment pass when too many fields are missing.
-- first pass returns strict structured values
-- if missing fields exceed threshold, enrichment pass re-queries with focus on unresolved fields
-- merge strategy is additive-only (fills null fields, does not overwrite already extracted values)
+`Research with AI` extraction (`/api/admin/research-ai`) uses multiple additive passes when many fields stay null.
+- first pass returns strict structured values; follow-up passes target unresolved fields
+- later passes inherit prior `source_urls` so extracted facts are not wiped when the model omits URLs in JSON
+- optional third pass when the merged form is still sparse
+- merge is additive-only (fills null fields, does not overwrite already extracted values)
 
 ## Hero image rehosting role
 Worker helper `workers/ingest_fb_event.js` performs hero image handling for ingestion patches:
@@ -99,6 +100,7 @@ Full schema docs: `docs/database-schema.md`.
 - Merges are manual via `/admin/api/organizers/merge`; no auto-merge job exists.
 - Merge behavior moves organizer links in `festival_organizers` (plus compatibility fields `festivals.organizer_id` and `pending_festivals.organizer_id`) to a canonical organizer, backfills missing target profile fields, then marks source organizer inactive (`is_active=false`, `merged_into=target`).
 - Organizer list/public lookups use active organizers by default (`is_active=true`).
+- Organizer edit now includes AI enrichment (`/api/admin/research-organizer`) for profile fields (`description`, `logo_url`, official/social URLs, contact data) with admin review before save.
 
 ## Notification System
 Reminder and discovery notifications write to `user_notifications`, then push delivery reads unsent rows and dispatches via `device_tokens`.

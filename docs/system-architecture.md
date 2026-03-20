@@ -80,10 +80,13 @@ Admin festival research (`/admin/api/research-festival`) uses a simplified backe
 
 If LLM extraction fails/unavailable, the API returns a low-confidence minimal result with sources + warnings (preferring null over speculative values).
 
-`/api/admin/research-ai` (Perplexity-backed extraction) uses a strict structured first pass and optional enrichment second pass:
-- enrichment is triggered only when first-pass missing fields exceed threshold
-- second pass targets unresolved fields (organizer/location/address/links and similar)
+`/api/admin/research-ai` (Perplexity-backed extraction) uses a strict structured first pass plus additive follow-up passes:
+- enrichment runs when first-pass has enough still-null factual fields (low threshold for admin UX)
+- follow-up passes inherit `source_urls` from the prior pass so Perplexity responses that omit URLs do not trigger “facts without sources” wipes
+- optional third pass runs when merged result still has many missing fields
 - merge is additive-only (fills nulls, preserves already extracted non-null values)
+- single-day convenience: if `end_date` is null but `start_date` is set, `end_date` mirrors `start_date`
+- light `is_free` hint from description text (e.g. “безплатен”) when the model omitted the boolean
 - on enrichment failure, system returns first-pass result (no hard failure)
 
 ## Hero image pipeline safeguards
@@ -122,3 +125,4 @@ Reminder/discovery jobs and push delivery remain as implemented in `/api/jobs/*`
 - Manual merge endpoint `/admin/api/organizers/merge` reassigns `festival_organizers.organizer_id` (plus compatibility fields `festivals.organizer_id` and `pending_festivals.organizer_id`), backfills missing target profile fields from source, then marks source organizer inactive (`is_active=false`, `merged_into=target_id`).
 - Organizer list and public organizer profile lookups use active organizers by default (`is_active=true`).
 - Approved festivals persist organizer links in `festival_organizers`, keep `festivals.organizer_id` as compatibility, and keep `organizer_name` as display fallback only.
+- Organizer profile enrichment supports admin AI research via `/api/admin/research-organizer` (Perplexity structured extraction); UI is embedded in organizer edit form and applies extracted values only after moderator action.

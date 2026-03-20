@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ResearchBestGuess, ResearchDateCandidate, ResearchFestivalResult, ResearchFieldCandidate } from "@/lib/admin/research/types";
+import type { PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 
 type EditableFinalValues = ResearchBestGuess;
 
@@ -22,13 +23,21 @@ export default function ResearchFestivalPanel() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<ResearchFestivalResult | null>(null);
   const [finalValues, setFinalValues] = useState<EditableFinalValues>(EMPTY_FINAL_VALUES);
+
+  const [aiQuery, setAiQuery] = useState("");
+  const [aiResult, setAiResult] = useState<PerplexityFestivalResearchResult | null>(null);
+  const [aiError, setAiError] = useState("");
+  const [aiSuccess, setAiSuccess] = useState("");
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isResearching, setIsResearching] = useState(false);
+  const [isAiResearching, setIsAiResearching] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
   const canResearch = query.trim().length > 0 && !isResearching;
-  const canCreate = Boolean(result) && !isCreating;
+  const canAiResearch = aiQuery.trim().length > 0 && !isAiResearching;
+  const canCreate = Boolean(result || aiResult) && !isCreating;
 
   const sourceSummary = useMemo(() => {
     if (!result) return "";
@@ -58,6 +67,7 @@ export default function ResearchFestivalPanel() {
       }
 
       setResult(payload.result);
+      setAiResult(null);
       setFinalValues(payload.result.best_guess ?? EMPTY_FINAL_VALUES);
       setSuccess("Research completed. Review candidates and finalize values below.");
     } catch (err) {
@@ -67,18 +77,47 @@ export default function ResearchFestivalPanel() {
     }
   };
 
+  const runAiResearch = async () => {
+    setAiError("");
+    setAiSuccess("");
+    setIsAiResearching(true);
+
+    try {
+      const response = await fetch("/api/admin/research-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: aiQuery }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { error?: string; result?: PerplexityFestivalResearchResult } | null;
+      if (!response.ok || !payload?.result) {
+        throw new Error(payload?.error ?? "AI research request failed.");
+      }
+
+      setAiResult(payload.result);
+      setResult(null);
+      setAiSuccess("AI research completed. Review extracted values and sources.");
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Unexpected error while running AI research.");
+    } finally {
+      setIsAiResearching(false);
+    }
+  };
+
   const createPendingFestival = async () => {
-    if (!result) return;
+    if (!result && !aiResult) return;
 
     setError("");
     setSuccess("");
+    setAiError("");
+    setAiSuccess("");
     setIsCreating(true);
 
     try {
       const response = await fetch("/admin/api/research-festival/create-pending", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ result, final_values: finalValues }),
+        body: JSON.stringify(aiResult ? { ai_result: aiResult } : { result, final_values: finalValues }),
       });
 
       const payload = (await response.json().catch(() => null)) as { error?: string; id?: string } | null;
@@ -86,9 +125,19 @@ export default function ResearchFestivalPanel() {
         throw new Error(payload?.error ?? "Failed to create pending festival.");
       }
 
-      setSuccess(`Pending festival created (#${payload.id}).`);
+      const message = `Pending festival created (#${payload.id}).`;
+      if (aiResult) {
+        setAiSuccess(message);
+      } else {
+        setSuccess(message);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unexpected error while creating pending festival.");
+      const message = err instanceof Error ? err.message : "Unexpected error while creating pending festival.";
+      if (aiResult) {
+        setAiError(message);
+      } else {
+        setError(message);
+      }
     } finally {
       setIsCreating(false);
     }
@@ -138,13 +187,67 @@ export default function ResearchFestivalPanel() {
     );
   };
 
+  const aiLinks = aiResult
+    ? [
+        { label: "Website", value: aiResult.website_url },
+        { label: "Facebook", value: aiResult.facebook_url },
+        { label: "Instagram", value: aiResult.instagram_url },
+        { label: "Tickets", value: aiResult.ticket_url },
+      ]
+    : [];
+
   return (
-    <div className="space-y-4 rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+    <div className="space-y-6 rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
       <div className="space-y-2">
-        <label htmlFor="research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Festival query</label>
+        <h2 className="text-lg font-bold">AI Research</h2>
+        <label htmlFor="ai-research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Search query</label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input id="ai-research-query" value={aiQuery} onChange={(event) => setAiQuery(event.target.value)} placeholder="сурва 2026" className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm" />
+          <button type="button" onClick={runAiResearch} disabled={!canAiResearch} className="rounded-xl bg-[#0c0e14] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45">
+            {isAiResearching ? "Researching..." : "Research with AI"}
+          </button>
+        </div>
+        {aiError ? <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{aiError}</p> : null}
+        {aiSuccess ? <p className="rounded-xl border border-[#0e7a45]/20 bg-[#f0fbf4] px-3 py-2 text-sm text-[#0e7a45]">{aiSuccess}</p> : null}
+      </div>
+
+      {aiResult ? (
+        <div className="space-y-3 rounded-xl border border-black/[0.08] bg-white p-4 text-sm text-black/85">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">AI result</p>
+          <p><span className="font-semibold">Title:</span> {aiResult.title ?? "-"}</p>
+          <p><span className="font-semibold">Dates:</span> {aiResult.start_date ?? "-"} {aiResult.end_date ? `→ ${aiResult.end_date}` : ""}</p>
+          <p><span className="font-semibold">City:</span> {aiResult.city ?? "-"}</p>
+          <p><span className="font-semibold">Organizer:</span> {aiResult.organizer_name ?? "-"}</p>
+          <p><span className="font-semibold">Description:</span> {aiResult.description ?? "-"}</p>
+          <div>
+            <p className="font-semibold">Links</p>
+            <ul className="ml-5 list-disc">
+              {aiLinks.map((link) => (
+                <li key={link.label}>{link.label}: {link.value ? <a href={link.value} target="_blank" rel="noreferrer" className="text-[#0e7a45] underline-offset-2 hover:underline">{link.value}</a> : "-"}</li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="font-semibold">source_urls</p>
+            {aiResult.source_urls.length === 0 ? <p className="text-black/60">-</p> : (
+              <ul className="ml-5 list-disc space-y-1">
+                {aiResult.source_urls.map((url) => (
+                  <li key={url}><a href={url} target="_blank" rel="noreferrer" className="text-[#0e7a45] underline-offset-2 hover:underline">{url}</a></li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <p><span className="font-semibold">Confidence:</span> {aiResult.confidence}</p>
+        </div>
+      ) : null}
+
+      <div className="h-px bg-black/[0.08]" />
+
+      <div className="space-y-2">
+        <label htmlFor="research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Festival query (legacy)</label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input id="research-query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Сурва 2026" className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm" />
-          <button type="button" onClick={runResearch} disabled={!canResearch} className="rounded-xl bg-[#0c0e14] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45">
+          <button type="button" onClick={runResearch} disabled={!canResearch} className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45">
             {isResearching ? "Researching..." : "Research"}
           </button>
         </div>
@@ -153,7 +256,7 @@ export default function ResearchFestivalPanel() {
       {error ? <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
       {success ? <p className="rounded-xl border border-[#0e7a45]/20 bg-[#f0fbf4] px-3 py-2 text-sm text-[#0e7a45]">{success}</p> : null}
 
-      {!result ? <p className="text-sm text-black/55">No result yet. Run research to preview extracted festival data.</p> : (
+      {!result ? <p className="text-sm text-black/55">No legacy result yet. Run legacy research to preview extracted festival data.</p> : (
         <div className="space-y-4 rounded-xl border border-black/[0.08] bg-white p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Best guess review</p>
 
@@ -193,46 +296,12 @@ export default function ResearchFestivalPanel() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Free entry</label>
-              <select value={finalValues.is_free === null ? "unknown" : finalValues.is_free ? "yes" : "no"} onChange={(e) => setFinalValues((prev) => ({ ...prev, is_free: e.target.value === "unknown" ? null : e.target.value === "yes" }))} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm">
-                <option value="unknown">Unknown</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-              </select>
-            </div>
-          </div>
-
           <div className="text-sm text-black/80 space-y-1">
             <p><span className="font-semibold">Provider:</span> {result.metadata?.provider ?? "-"}</p>
             <p><span className="font-semibold">Mode:</span> {result.metadata?.mode ?? "-"}</p>
             <p><span className="font-semibold">Source count:</span> {result.metadata?.source_count ?? result.sources.length}</p>
             <p><span className="font-semibold">Primary source:</span> {sourceSummary}</p>
             <p><span className="font-semibold">Confidence:</span> {result.confidence.overall}</p>
-          </div>
-
-          {result.warnings.length > 0 ? (
-            <div>
-              <p className="font-semibold text-sm">Warnings</p>
-              <ul className="ml-5 list-disc text-sm text-black/80">
-                {result.warnings.map((warning) => <li key={warning}>{warning}</li>)}
-              </ul>
-            </div>
-          ) : null}
-
-          <div>
-            <p className="font-semibold text-sm">Sources</p>
-            {result.sources.length === 0 ? <p className="text-sm text-black/55">-</p> : (
-              <ul className="ml-5 list-disc space-y-1 text-sm text-black/80">
-                {result.sources.map((source) => (
-                  <li key={source.url}>
-                    <a href={source.url} target="_blank" rel="noreferrer" className="text-[#0e7a45] underline-offset-2 hover:underline">{source.title || source.domain}</a>
-                    <span className="text-black/60"> ({source.domain}{source.is_official ? ", official" : ""})</span>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
         </div>
       )}

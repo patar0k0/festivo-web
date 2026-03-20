@@ -3,9 +3,11 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { mapConfidenceToVerificationScore } from "@/lib/admin/research/scoring";
 import { normalizeResearchResult, validateDateFieldsOrErrors, validateDateRangeOrError } from "@/lib/admin/research/normalize";
 import type { ResearchBestGuess, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
+import type { PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 
 type CreatePendingRequest = {
   result?: ResearchFestivalResult;
+  ai_result?: PerplexityFestivalResearchResult;
   final_values?: Partial<ResearchBestGuess>;
 };
 
@@ -18,6 +20,69 @@ function isMissingColumnError(message: string, columnName: string): boolean {
   return message.includes(columnName) || message.includes(`column \"${columnName}\"`) || message.includes(`'${columnName}'`);
 }
 
+function sanitizeNullableString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function sanitizeSourceUrls(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((entry) => sanitizeNullableString(entry))
+    .filter((entry): entry is string => Boolean(entry));
+}
+
+type AdminContext = NonNullable<Awaited<ReturnType<typeof getAdminContext>>>;
+
+async function insertPendingWithFallback(ctx: AdminContext, payload: Record<string, unknown>) {
+  const insertPayload: Record<string, unknown> = { ...payload };
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { data, error } = await ctx.supabase.from("pending_festivals").insert(insertPayload).select("id").single();
+
+    if (!error) {
+      return NextResponse.json({ ok: true, id: String(data.id) });
+    }
+
+    const message = error.message.toLocaleLowerCase("en-US");
+
+    if (attempt === 0 && isMissingColumnError(message, "source_type")) {
+      delete insertPayload.source_type;
+      continue;
+    }
+
+    if (attempt === 0 && message.includes("source_type") && message.includes("check")) {
+      insertPayload.source_type = null;
+      continue;
+    }
+
+    if (isMissingColumnError(message, "website_url")) delete insertPayload.website_url;
+    if (isMissingColumnError(message, "facebook_url")) delete insertPayload.facebook_url;
+    if (isMissingColumnError(message, "instagram_url")) delete insertPayload.instagram_url;
+    if (isMissingColumnError(message, "ticket_url")) delete insertPayload.ticket_url;
+    if (isMissingColumnError(message, "location_name")) delete insertPayload.location_name;
+    if (isMissingColumnError(message, "address")) delete insertPayload.address;
+    if (isMissingColumnError(message, "category")) delete insertPayload.category;
+    if (isMissingColumnError(message, "is_free")) delete insertPayload.is_free;
+    if (isMissingColumnError(message, "source_primary_url")) delete insertPayload.source_primary_url;
+    if (isMissingColumnError(message, "source_count")) delete insertPayload.source_count;
+    if (isMissingColumnError(message, "evidence_json")) delete insertPayload.evidence_json;
+    if (isMissingColumnError(message, "verification_status")) delete insertPayload.verification_status;
+    if (isMissingColumnError(message, "verification_score")) delete insertPayload.verification_score;
+    if (isMissingColumnError(message, "extraction_version")) delete insertPayload.extraction_version;
+
+    const { data: retryData, error: retryError } = await ctx.supabase.from("pending_festivals").insert(insertPayload).select("id").single();
+    if (!retryError) {
+      return NextResponse.json({ ok: true, id: String(retryData.id) });
+    }
+
+    return NextResponse.json({ error: retryError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ error: "Could not create pending festival." }, { status: 500 });
+}
+
 export async function POST(request: Request) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
@@ -25,6 +90,46 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => null)) as CreatePendingRequest | null;
+
+  if (body?.ai_result) {
+    const ai = body.ai_result;
+    const sourceUrls = sanitizeSourceUrls(ai.source_urls);
+    const sourcePrimaryUrl = sourceUrls[0] ?? null;
+
+    const insertPayload: Record<string, unknown> = {
+      title: sanitizeNullableString(ai.title) ?? "Untitled festival",
+      description: sanitizeNullableString(ai.description),
+      category: sanitizeNullableString(ai.category),
+      start_date: sanitizeNullableString(ai.start_date),
+      end_date: sanitizeNullableString(ai.end_date),
+      location_name: sanitizeNullableString(ai.location_name),
+      address: sanitizeNullableString(ai.address),
+      organizer_name: sanitizeNullableString(ai.organizer_name),
+      website_url: sanitizeNullableString(ai.website_url),
+      facebook_url: sanitizeNullableString(ai.facebook_url),
+      instagram_url: sanitizeNullableString(ai.instagram_url),
+      ticket_url: sanitizeNullableString(ai.ticket_url),
+      hero_image: sanitizeNullableString(ai.hero_image),
+      is_free: typeof ai.is_free === "boolean" ? ai.is_free : null,
+      source_url: sourcePrimaryUrl,
+      source_primary_url: sourcePrimaryUrl,
+      source_count: sourceUrls.length,
+      evidence_json: {
+        provider: "perplexity",
+        source_urls: sourceUrls,
+        confidence: ai.confidence,
+        missing_fields: sanitizeSourceUrls(ai.missing_fields),
+      },
+      verification_status: ai.confidence,
+      verification_score: mapConfidenceToVerificationScore(ai.confidence),
+      extraction_version: "research_ai_perplexity_v1",
+      source_type: "ai_research",
+      status: "pending",
+    };
+
+    return insertPendingWithFallback(ctx, insertPayload);
+  }
+
   if (!body?.result) {
     return NextResponse.json({ error: "result is required" }, { status: 400 });
   }
@@ -88,43 +193,5 @@ export async function POST(request: Request) {
     status: "pending",
   };
 
-  const insertPayload: Record<string, unknown> = { ...sharedInsertPayload };
-
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const { data, error } = await ctx.supabase.from("pending_festivals").insert(insertPayload).select("id").single();
-
-    if (!error) {
-      return NextResponse.json({ ok: true, id: String(data.id) });
-    }
-
-    const message = error.message.toLocaleLowerCase("en-US");
-
-    if (attempt === 0 && isMissingColumnError(message, "source_type")) {
-      delete insertPayload.source_type;
-      continue;
-    }
-
-    if (attempt === 0 && message.includes("source_type") && message.includes("check")) {
-      insertPayload.source_type = null;
-      continue;
-    }
-
-    if (isMissingColumnError(message, "website_url")) delete insertPayload.website_url;
-    if (isMissingColumnError(message, "is_free")) delete insertPayload.is_free;
-    if (isMissingColumnError(message, "source_primary_url")) delete insertPayload.source_primary_url;
-    if (isMissingColumnError(message, "source_count")) delete insertPayload.source_count;
-    if (isMissingColumnError(message, "evidence_json")) delete insertPayload.evidence_json;
-    if (isMissingColumnError(message, "verification_status")) delete insertPayload.verification_status;
-    if (isMissingColumnError(message, "verification_score")) delete insertPayload.verification_score;
-    if (isMissingColumnError(message, "extraction_version")) delete insertPayload.extraction_version;
-
-    const { data: retryData, error: retryError } = await ctx.supabase.from("pending_festivals").insert(insertPayload).select("id").single();
-    if (!retryError) {
-      return NextResponse.json({ ok: true, id: String(retryData.id) });
-    }
-
-    return NextResponse.json({ error: retryError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ error: "Could not create pending festival." }, { status: 500 });
+  return insertPendingWithFallback(ctx, sharedInsertPayload);
 }

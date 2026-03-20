@@ -36,6 +36,12 @@ type PendingFestivalRow = {
   organizer_name: string | null;
   source_url: string | null;
   source_type: string | null;
+  source_primary_url: string | null;
+  source_count: number | null;
+  evidence_json: unknown;
+  verification_status: string | null;
+  verification_score: number | null;
+  extraction_version: string | null;
   website_url: string | null;
   ticket_url: string | null;
   price_range: string | null;
@@ -46,7 +52,7 @@ type PendingFestivalRow = {
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,category,city_id,region,location_name,address,latitude,longitude,start_date,end_date,organizer_name,source_url,source_type,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
+  "id,title,slug,description,category,city_id,region,location_name,address,latitude,longitude,start_date,end_date,organizer_name,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
 
 const REQUIRED_PENDING_CANONICAL_FIELDS: (keyof PendingFestivalRow)[] = [
   "title",
@@ -321,6 +327,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         organizer_name: pending.organizer_name,
         source_url: pending.source_url,
         source_type: pending.source_type,
+        source_primary_url: pending.source_primary_url,
+        source_count: pending.source_count,
+        evidence_json: pending.evidence_json,
+        verification_status: pending.verification_status,
+        verification_score: pending.verification_score,
+        extraction_version: pending.extraction_version,
         category: pending.category,
         region: pending.region,
         website_url: pending.website_url,
@@ -341,6 +353,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       address: normalizedAddress || null,
       category: canonicalApproved.category ?? "festival",
       source_type: mappedSourceType,
+      source_primary_url: pending.source_primary_url,
+      source_count: pending.source_count,
+      evidence_json: pending.evidence_json,
+      verification_status: pending.verification_status,
+      verification_score: pending.verification_score,
+      extraction_version: pending.extraction_version,
       is_free: pending.is_free ?? true,
       organizer_id: organizerId,
       organizer_name: organizerDisplayName,

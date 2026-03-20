@@ -37,8 +37,8 @@ type AiEditableStringField =
 
 const AI_EDITABLE_TEXT_FIELDS: Array<{ key: Exclude<AiEditableStringField, "description">; label: string; placeholder?: string; type?: "text" | "date" | "url" }> = [
   { key: "title", label: "Title" },
-  { key: "start_date", label: "Start date", placeholder: "YYYY-MM-DD", type: "date" },
-  { key: "end_date", label: "End date", placeholder: "YYYY-MM-DD", type: "date" },
+  { key: "start_date", label: "Start date", placeholder: "DD.MM.YYYY г.", type: "text" },
+  { key: "end_date", label: "End date", placeholder: "DD.MM.YYYY г.", type: "text" },
   { key: "city", label: "City" },
   { key: "organizer_name", label: "Organizer" },
   { key: "category", label: "Category" },
@@ -54,6 +54,50 @@ const AI_EDITABLE_TEXT_FIELDS: Array<{ key: Exclude<AiEditableStringField, "desc
 function sanitizeInputValue(value: string): string | null {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
+const BULGARIAN_DATE_REGEX = /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s*г\.)?$/i;
+
+function isValidDateParts(year: number, month: number, day: number): boolean {
+  const utcDate = new Date(Date.UTC(year, month - 1, day));
+  return utcDate.getUTCFullYear() === year && utcDate.getUTCMonth() === month - 1 && utcDate.getUTCDate() === day;
+}
+
+function toBulgarianDateDisplayFromIso(isoDate: string): string {
+  const [, year, month, day] = isoDate.match(ISO_DATE_REGEX) ?? [];
+  return `${day}.${month}.${year} г.`;
+}
+
+function normalizeDisplayDateToIso(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const isoMatch = trimmed.match(ISO_DATE_REGEX);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    return isValidDateParts(year, month, day) ? `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}` : trimmed;
+  }
+
+  const bulgarianMatch = trimmed.match(BULGARIAN_DATE_REGEX);
+  if (!bulgarianMatch) return trimmed;
+
+  const day = Number(bulgarianMatch[1]);
+  const month = Number(bulgarianMatch[2]);
+  const year = Number(bulgarianMatch[3]);
+  if (!isValidDateParts(year, month, day)) return trimmed;
+
+  return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+}
+
+function formatDateForBulgarianDisplay(value: string | null): string | null {
+  const normalized = normalizeDisplayDateToIso(value);
+  if (!normalized) return null;
+  if (ISO_DATE_REGEX.test(normalized)) return toBulgarianDateDisplayFromIso(normalized);
+  return normalized;
 }
 
 function confidenceBadgeStyle(confidence: AiResearchConfidence): string {
@@ -164,7 +208,11 @@ export default function ResearchFestivalPanel() {
       }
 
       setAiResult(payload.result);
-      setAiDraft(payload.result);
+      setAiDraft({
+        ...payload.result,
+        start_date: formatDateForBulgarianDisplay(payload.result.start_date),
+        end_date: formatDateForBulgarianDisplay(payload.result.end_date),
+      });
       setResult(null);
       setAiSuccess("AI research completed. Review and edit values before creating a pending draft.");
     } catch (err) {
@@ -184,10 +232,18 @@ export default function ResearchFestivalPanel() {
     setIsCreating(true);
 
     try {
+      const normalizedAiDraft = aiDraft
+        ? {
+            ...aiDraft,
+            start_date: normalizeDisplayDateToIso(aiDraft.start_date),
+            end_date: normalizeDisplayDateToIso(aiDraft.end_date),
+          }
+        : null;
+
       const response = await fetch("/admin/api/research-festival/create-pending", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(aiDraft ? { ai_result: aiDraft } : { result, final_values: finalValues }),
+        body: JSON.stringify(normalizedAiDraft ? { ai_result: normalizedAiDraft } : { result, final_values: finalValues }),
       });
 
       const payload = (await response.json().catch(() => null)) as { error?: string; id?: string } | null;

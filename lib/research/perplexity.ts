@@ -27,7 +27,7 @@ type PerplexityMessage = {
 };
 
 const ENDPOINT = "https://api.perplexity.ai/chat/completions";
-const MODEL = "sonar";
+const MODEL = "sonar-pro";
 const TIMEOUT_MS = 30_000;
 
 const REQUIRED_SCHEMA_FIELDS: Array<keyof PerplexityFestivalResearchResult> = [

@@ -412,6 +412,23 @@ function normalizeResult(data: Record<string, unknown>, context: ExtractionConte
     missing_fields: [],
   };
 
+  // If model does not provide a canonical website, keep first resolved source URL
+  // so admin moderation still has a concrete landing page to review.
+  if (!result.website_url && source_urls.length > 0) {
+    result.website_url = source_urls[0];
+  }
+
+  // Social links are often returned only as source URLs in structured extraction.
+  if (!result.facebook_url) {
+    const facebookSource = source_urls.find((url) => /(^|\.|\/\/)(www\.)?facebook\.com\//i.test(url));
+    if (facebookSource) result.facebook_url = facebookSource;
+  }
+
+  if (!result.instagram_url) {
+    const instagramSource = source_urls.find((url) => /(^|\.|\/\/)(www\.)?instagram\.com\//i.test(url));
+    if (instagramSource) result.instagram_url = instagramSource;
+  }
+
   const hasExactYearEvidence = hasAnyYearSpecificEvidence(result, context);
   const hasStrongCanonicalMatch = hasStrongCanonicalIdentityMatch(result, query, context);
 
@@ -476,6 +493,7 @@ function buildMessages(query: string, context: ExtractionContext): PerplexityMes
         "5) generic event listing pages only as fallback",
         "If stronger and weaker sources conflict, prefer the stronger source and set uncertain fields to null.",
         "Always include source_urls you relied on.",
+        "When explicit event listing pages contain direct facts (organizer, venue/location, address, schedule, links), treat them as valid evidence for those fields.",
       ].join("\n"),
     },
     {
@@ -512,6 +530,9 @@ function buildMessages(query: string, context: ExtractionContext): PerplexityMes
         "- unknown/uncertain = null",
         "- do NOT infer current-year dates/location/organizer from older editions",
         "- if exact-year evidence is missing, keep unsupported fields null",
+        "- if website_url is unknown but an event page URL is confirmed in source_urls, set website_url to that event page",
+        "- extract organizer_name/location_name/address whenever explicitly written in any cited source",
+        "- preserve provided social links (facebook_url, instagram_url) when they appear in cited sources",
         "- program/schedule details must be null unless explicitly supported by trusted sources",
         "- confidence must be one of: low, medium, high",
         "- source_urls should prioritize high-value sources and avoid noisy duplicates",

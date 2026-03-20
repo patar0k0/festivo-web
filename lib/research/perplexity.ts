@@ -26,9 +26,73 @@ type PerplexityMessage = {
   content: string;
 };
 
+type ExtractionContext = {
+  explicitYear: number | null;
+};
+
+type NullableResultField = {
+  [K in keyof PerplexityFestivalResearchResult]-?: null extends PerplexityFestivalResearchResult[K] ? K : never;
+}[keyof PerplexityFestivalResearchResult];
+
+type StrictNullableField = Extract<
+  NullableResultField,
+  | "start_date"
+  | "end_date"
+  | "organizer_name"
+  | "location_name"
+  | "address"
+  | "website_url"
+  | "facebook_url"
+  | "instagram_url"
+  | "ticket_url"
+  | "hero_image"
+  | "is_free"
+>;
+
 const ENDPOINT = "https://api.perplexity.ai/chat/completions";
 const MODEL = "sonar-pro";
 const TIMEOUT_MS = 30_000;
+
+const LOW_VALUE_SOURCE_PATTERNS = [
+  "allevents.",
+  "eventsin",
+  "events.",
+  "grabo.",
+  "programata.",
+  "kade.bg",
+  "fest-bg.",
+  "ticketportal",
+  "tickets.",
+];
+
+const OFFICIAL_SOURCE_PATTERNS = [
+  ".gov",
+  "government",
+  "municipality",
+  "muni",
+  "obshtina",
+  "culture",
+  "kultura",
+  "tourism",
+  "visit",
+  "facebook.com/events",
+  "facebook.com/",
+  "instagram.com/",
+];
+
+const STRICT_NULL_FIELDS: readonly StrictNullableField[] = [
+  "start_date",
+  "end_date",
+  "organizer_name",
+  "location_name",
+  "address",
+  "website_url",
+  "facebook_url",
+  "instagram_url",
+  "ticket_url",
+  "hero_image",
+  "is_free",
+];
 
 const REQUIRED_SCHEMA_FIELDS: Array<keyof PerplexityFestivalResearchResult> = [
   "title",
@@ -49,6 +113,24 @@ const REQUIRED_SCHEMA_FIELDS: Array<keyof PerplexityFestivalResearchResult> = [
   "source_urls",
   "confidence",
   "missing_fields",
+];
+
+const FACTUAL_FIELDS: Array<keyof PerplexityFestivalResearchResult> = [
+  "title",
+  "description",
+  "category",
+  "start_date",
+  "end_date",
+  "city",
+  "location_name",
+  "address",
+  "organizer_name",
+  "website_url",
+  "facebook_url",
+  "instagram_url",
+  "ticket_url",
+  "hero_image",
+  "is_free",
 ];
 
 function sanitizeNullableString(value: unknown): string | null {
@@ -73,6 +155,34 @@ function sanitizeStringArray(value: unknown): string[] {
     .filter((entry): entry is string => Boolean(entry));
 }
 
+function sanitizeUrl(value: unknown): string | null {
+  const candidate = sanitizeNullableString(value);
+  if (!candidate) return null;
+
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeDate(value: unknown, context: ExtractionContext): string | null {
+  const date = sanitizeNullableString(value);
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  if (context.explicitYear && parsed.getUTCFullYear() !== context.explicitYear) {
+    return null;
+  }
+
+  return date;
+}
+
 function parseJsonObject(raw: string): Record<string, unknown> {
   const direct = raw.trim();
   try {
@@ -86,40 +196,185 @@ function parseJsonObject(raw: string): Record<string, unknown> {
   }
 }
 
-function normalizeResult(data: Record<string, unknown>): PerplexityFestivalResearchResult {
-  return {
+function normalizeSourceUrl(raw: string): string | null {
+  try {
+    const url = new URL(raw.trim());
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    url.hash = "";
+    const params = [...url.searchParams.keys()];
+    for (const key of params) {
+      if (key.toLowerCase().startsWith("utm_") || key.toLowerCase() === "fbclid") {
+        url.searchParams.delete(key);
+      }
+    }
+    if ((url.protocol === "https:" && url.port === "443") || (url.protocol === "http:" && url.port === "80")) {
+      url.port = "";
+    }
+    const pathname = url.pathname.replace(/\/$/, "");
+    url.pathname = pathname || "/";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function isLowValueSource(url: string): boolean {
+  const normalized = url.toLowerCase();
+  return LOW_VALUE_SOURCE_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+function isOfficialLikeSource(url: string): boolean {
+  const normalized = url.toLowerCase();
+  return OFFICIAL_SOURCE_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+function cleanSourceUrls(urls: string[]): string[] {
+  const uniqueExact = new Map<string, string>();
+  for (const raw of urls) {
+    const normalized = normalizeSourceUrl(raw);
+    if (!normalized) continue;
+    if (!uniqueExact.has(normalized)) uniqueExact.set(normalized, normalized);
+  }
+
+  const preferred: string[] = [];
+  const lowValueByHost = new Map<string, string>();
+
+  for (const url of uniqueExact.values()) {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    if (!isLowValueSource(url)) {
+      preferred.push(url);
+      continue;
+    }
+
+    if (!lowValueByHost.has(host)) {
+      lowValueByHost.set(host, url);
+    }
+  }
+
+  return [...preferred, ...lowValueByHost.values()];
+}
+
+function extractExplicitYear(query: string): number | null {
+  const match = query.match(/\b(19\d{2}|20\d{2})\b/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  return Number.isFinite(year) ? year : null;
+}
+
+function hasAnyYearSpecificEvidence(result: PerplexityFestivalResearchResult, context: ExtractionContext): boolean {
+  if (!context.explicitYear) return true;
+
+  const yearString = String(context.explicitYear);
+  if (result.start_date?.startsWith(yearString) || result.end_date?.startsWith(yearString)) {
+    return true;
+  }
+
+  return result.source_urls.some((url) => url.includes(yearString));
+}
+
+function countMissingImportantFields(result: PerplexityFestivalResearchResult): number {
+  return STRICT_NULL_FIELDS.filter((field) => result[field] === null).length;
+}
+
+function deriveConfidence(
+  modelConfidence: AiResearchConfidence,
+  result: PerplexityFestivalResearchResult,
+  context: ExtractionContext,
+): AiResearchConfidence {
+  const hasOfficialSource = result.source_urls.some((url) => isOfficialLikeSource(url) || !isLowValueSource(url));
+  const hasExactYearEvidence = hasAnyYearSpecificEvidence(result, context);
+  const hasDates = Boolean(result.start_date);
+  const lowValueCount = result.source_urls.filter((url) => isLowValueSource(url)).length;
+  const mostlyLowValueSources = result.source_urls.length > 0 && lowValueCount / result.source_urls.length >= 0.67;
+  const missingImportant = countMissingImportantFields(result);
+
+  if (!hasOfficialSource || !hasExactYearEvidence || !hasDates || mostlyLowValueSources || missingImportant >= 5) {
+    return "low";
+  }
+
+  if (modelConfidence === "high" && missingImportant <= 1) return "high";
+  return "medium";
+}
+
+function buildMissingFields(result: PerplexityFestivalResearchResult): string[] {
+  const missing = FACTUAL_FIELDS.filter((field) => result[field] === null);
+  return Array.from(new Set(missing));
+}
+
+function normalizeResult(data: Record<string, unknown>, context: ExtractionContext): PerplexityFestivalResearchResult {
+  const source_urls = cleanSourceUrls(sanitizeStringArray(data.source_urls));
+
+  const result: PerplexityFestivalResearchResult = {
     title: sanitizeNullableString(data.title),
     description: sanitizeNullableString(data.description),
     category: sanitizeNullableString(data.category),
-    start_date: sanitizeNullableString(data.start_date),
-    end_date: sanitizeNullableString(data.end_date),
+    start_date: sanitizeDate(data.start_date, context),
+    end_date: sanitizeDate(data.end_date, context),
     city: sanitizeNullableString(data.city),
     location_name: sanitizeNullableString(data.location_name),
     address: sanitizeNullableString(data.address),
     organizer_name: sanitizeNullableString(data.organizer_name),
-    website_url: sanitizeNullableString(data.website_url),
-    facebook_url: sanitizeNullableString(data.facebook_url),
-    instagram_url: sanitizeNullableString(data.instagram_url),
-    ticket_url: sanitizeNullableString(data.ticket_url),
-    hero_image: sanitizeNullableString(data.hero_image),
+    website_url: sanitizeUrl(data.website_url),
+    facebook_url: sanitizeUrl(data.facebook_url),
+    instagram_url: sanitizeUrl(data.instagram_url),
+    ticket_url: sanitizeUrl(data.ticket_url),
+    hero_image: sanitizeUrl(data.hero_image),
     is_free: sanitizeBooleanOrNull(data.is_free),
-    source_urls: sanitizeStringArray(data.source_urls),
+    source_urls,
     confidence: sanitizeConfidence(data.confidence),
-    missing_fields: sanitizeStringArray(data.missing_fields),
+    missing_fields: [],
   };
+
+  if (context.explicitYear && !hasAnyYearSpecificEvidence(result, context)) {
+    for (const key of STRICT_NULL_FIELDS) {
+      result[key] = null;
+    }
+  }
+
+  if (result.start_date && result.end_date && result.end_date < result.start_date) {
+    result.end_date = null;
+  }
+
+  const hasFactualClaims = FACTUAL_FIELDS.some((field) => result[field] !== null);
+  if (hasFactualClaims && result.source_urls.length === 0) {
+    for (const key of STRICT_NULL_FIELDS) {
+      result[key] = null;
+    }
+  }
+
+  result.missing_fields = buildMissingFields(result);
+  result.confidence = deriveConfidence(result.confidence, result, context);
+
+  return result;
 }
 
-function buildMessages(query: string): PerplexityMessage[] {
+function buildMessages(query: string, context: ExtractionContext): PerplexityMessage[] {
+  const yearInstruction = context.explicitYear
+    ? `The query contains explicit target year ${context.explicitYear}. Treat evidence for other years only as weak context. Do not promote other-year facts as confirmed ${context.explicitYear} facts.`
+    : "No explicit year in query. Prefer the most recent explicitly dated evidence and avoid assumptions.";
+
   return [
     {
       role: "system",
-      content:
-        "You extract festival facts from web sources. Return ONLY valid JSON. Unknown values must be null. Never hallucinate. Always include source_urls with the URLs you relied on.",
+      content: [
+        "You extract festival facts from web sources. Return ONLY valid JSON.",
+        "Unknown or weakly-supported values must be null.",
+        "Never hallucinate or infer from prior years.",
+        "Prioritize evidence in this order:",
+        "1) official organizer site/page",
+        "2) official municipality/tourism/culture page",
+        "3) current-year event page or announcement",
+        "4) reputable local news source",
+        "5) generic event listing pages only as fallback",
+        "If stronger and weaker sources conflict, prefer the stronger source and set uncertain fields to null.",
+        "Always include source_urls you relied on.",
+      ].join("\n"),
     },
     {
       role: "user",
       content: [
         `Research query: ${query}`,
+        yearInstruction,
         "Return STRICT JSON with this exact schema and no extra keys:",
         JSON.stringify(
           {
@@ -145,12 +400,14 @@ function buildMessages(query: string): PerplexityMessage[] {
           null,
           2,
         ),
-        "Rules:",
-        "- unknown = null",
-        "- do not infer missing facts",
+        "Extraction rules:",
+        "- unknown/uncertain = null",
+        "- do NOT infer current-year dates/location/organizer from older editions",
+        "- if exact-year evidence is missing, keep unsupported fields null",
+        "- program/schedule details must be null unless explicitly supported by trusted sources",
         "- confidence must be one of: low, medium, high",
-        "- source_urls must contain at least one source URL if any factual claim is present",
-        "- missing_fields must list schema keys that are still null or unknown",
+        "- source_urls should prioritize high-value sources and avoid noisy duplicates",
+        "- missing_fields must list schema keys that remain unknown/null",
       ].join("\n"),
     },
   ];
@@ -173,6 +430,10 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
   if (!normalizedQuery) {
     throw new Error("query is required");
   }
+
+  const context: ExtractionContext = {
+    explicitYear: extractExplicitYear(normalizedQuery),
+  };
 
   const response = await fetch(ENDPOINT, {
     method: "POST",
@@ -213,7 +474,7 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
           },
         },
       },
-      messages: buildMessages(normalizedQuery),
+      messages: buildMessages(normalizedQuery, context),
     }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
@@ -246,5 +507,5 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
   const asJson = parseJsonObject(text);
   assertRequiredKeys(asJson);
 
-  return normalizeResult(asJson);
+  return normalizeResult(asJson, context);
 }

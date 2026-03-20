@@ -41,6 +41,7 @@ Environment variables (no secrets in repo):
 - `FESTIVO_PREVIEW_SECRET` (production)
 - `NEXT_PUBLIC_SITE_URL=https://festivo.bg`
 - `FESTIVO_PUBLIC_MODE=coming-soon` (or `live`)
+- `PERPLEXITY_API_KEY` (server-only, for admin AI research)
 
 ## How to test
 

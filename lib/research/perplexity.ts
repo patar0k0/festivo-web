@@ -668,7 +668,8 @@ function mergeResults(
   context: ExtractionContext,
 ): PerplexityFestivalResearchResult {
   const merged: PerplexityFestivalResearchResult = { ...base };
-  const mergeableFields: Exclude<keyof PerplexityFestivalResearchResult, "source_urls" | "confidence" | "missing_fields">[] = [
+  type MergeableField = Exclude<keyof PerplexityFestivalResearchResult, "source_urls" | "confidence" | "missing_fields">;
+  const mergeableFields: MergeableField[] = [
     "title",
     "description",
     "category",
@@ -686,10 +687,16 @@ function mergeResults(
     "is_free",
   ];
 
-  for (const field of mergeableFields) {
-    if (merged[field] === null && enrichment[field] !== null) {
-      merged[field] = enrichment[field];
+  const assignFromEnrichment = <K extends MergeableField>(field: K) => {
+    const currentValue = merged[field];
+    const nextValue = enrichment[field];
+    if (currentValue === null && nextValue !== null) {
+      merged[field] = nextValue;
     }
+  };
+
+  for (const field of mergeableFields) {
+    assignFromEnrichment(field);
   }
 
   merged.source_urls = cleanSourceUrls([...base.source_urls, ...enrichment.source_urls]);

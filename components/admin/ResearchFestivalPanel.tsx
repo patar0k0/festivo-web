@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ResearchBestGuess, ResearchDateCandidate, ResearchFestivalResult, ResearchFieldCandidate } from "@/lib/admin/research/types";
-import type { PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
+import type { AiResearchConfidence, PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 
 type EditableFinalValues = ResearchBestGuess;
 
@@ -19,6 +19,53 @@ const EMPTY_FINAL_VALUES: EditableFinalValues = {
   is_free: null,
 };
 
+const AI_EDITABLE_TEXT_FIELDS: Array<{ key: keyof PerplexityFestivalResearchResult; label: string; placeholder?: string; type?: "text" | "date" | "url" }> = [
+  { key: "title", label: "Title" },
+  { key: "start_date", label: "Start date", placeholder: "YYYY-MM-DD", type: "date" },
+  { key: "end_date", label: "End date", placeholder: "YYYY-MM-DD", type: "date" },
+  { key: "city", label: "City" },
+  { key: "organizer_name", label: "Organizer" },
+  { key: "category", label: "Category" },
+  { key: "location_name", label: "Location name" },
+  { key: "address", label: "Address" },
+  { key: "website_url", label: "Website URL", type: "url" },
+  { key: "facebook_url", label: "Facebook URL", type: "url" },
+  { key: "instagram_url", label: "Instagram URL", type: "url" },
+  { key: "ticket_url", label: "Ticket URL", type: "url" },
+  { key: "hero_image", label: "Hero image", type: "url" },
+];
+
+function sanitizeInputValue(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function confidenceBadgeStyle(confidence: AiResearchConfidence): string {
+  if (confidence === "high") return "border-[#0e7a45]/30 bg-[#f0fbf4] text-[#0e7a45]";
+  if (confidence === "medium") return "border-[#9a6700]/30 bg-[#fffbeb] text-[#8a5d00]";
+  return "border-[#c23c1f]/25 bg-[#fff4ef] text-[#b13a1a]";
+}
+
+function confidenceLabel(confidence: AiResearchConfidence): string {
+  if (confidence === "high") return "High";
+  if (confidence === "medium") return "Medium";
+  return "Low";
+}
+
+function getDomainLabel(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./i, "");
+  } catch {
+    return "Unknown domain";
+  }
+}
+
+function formatMissingField(field: string): string {
+  const normalized = field.replace(/_url$/, "").replace(/_/g, " ");
+  return `${normalized} missing`;
+}
+
 export default function ResearchFestivalPanel() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<ResearchFestivalResult | null>(null);
@@ -26,6 +73,7 @@ export default function ResearchFestivalPanel() {
 
   const [aiQuery, setAiQuery] = useState("");
   const [aiResult, setAiResult] = useState<PerplexityFestivalResearchResult | null>(null);
+  const [aiDraft, setAiDraft] = useState<PerplexityFestivalResearchResult | null>(null);
   const [aiError, setAiError] = useState("");
   const [aiSuccess, setAiSuccess] = useState("");
 
@@ -37,7 +85,7 @@ export default function ResearchFestivalPanel() {
 
   const canResearch = query.trim().length > 0 && !isResearching;
   const canAiResearch = aiQuery.trim().length > 0 && !isAiResearching;
-  const canCreate = Boolean(result || aiResult) && !isCreating;
+  const canCreate = Boolean(result || aiDraft) && !isCreating;
 
   const sourceSummary = useMemo(() => {
     if (!result) return "";
@@ -47,6 +95,10 @@ export default function ResearchFestivalPanel() {
 
   const setFromCandidate = (field: keyof EditableFinalValues, value: string | null) => {
     setFinalValues((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const setAiDraftField = (field: keyof PerplexityFestivalResearchResult, rawValue: string) => {
+    setAiDraft((prev) => (prev ? { ...prev, [field]: sanitizeInputValue(rawValue) } : prev));
   };
 
   const runResearch = async () => {
@@ -68,6 +120,7 @@ export default function ResearchFestivalPanel() {
 
       setResult(payload.result);
       setAiResult(null);
+      setAiDraft(null);
       setFinalValues(payload.result.best_guess ?? EMPTY_FINAL_VALUES);
       setSuccess("Research completed. Review candidates and finalize values below.");
     } catch (err) {
@@ -95,8 +148,9 @@ export default function ResearchFestivalPanel() {
       }
 
       setAiResult(payload.result);
+      setAiDraft(payload.result);
       setResult(null);
-      setAiSuccess("AI research completed. Review extracted values and sources.");
+      setAiSuccess("AI research completed. Review and edit values before creating a pending draft.");
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "Unexpected error while running AI research.");
     } finally {
@@ -105,7 +159,7 @@ export default function ResearchFestivalPanel() {
   };
 
   const createPendingFestival = async () => {
-    if (!result && !aiResult) return;
+    if (!result && !aiDraft) return;
 
     setError("");
     setSuccess("");
@@ -117,7 +171,7 @@ export default function ResearchFestivalPanel() {
       const response = await fetch("/admin/api/research-festival/create-pending", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(aiResult ? { ai_result: aiResult } : { result, final_values: finalValues }),
+        body: JSON.stringify(aiDraft ? { ai_result: aiDraft } : { result, final_values: finalValues }),
       });
 
       const payload = (await response.json().catch(() => null)) as { error?: string; id?: string } | null;
@@ -126,14 +180,14 @@ export default function ResearchFestivalPanel() {
       }
 
       const message = `Pending festival created (#${payload.id}).`;
-      if (aiResult) {
+      if (aiDraft) {
         setAiSuccess(message);
       } else {
         setSuccess(message);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error while creating pending festival.";
-      if (aiResult) {
+      if (aiDraft) {
         setAiError(message);
       } else {
         setError(message);
@@ -187,15 +241,6 @@ export default function ResearchFestivalPanel() {
     );
   };
 
-  const aiLinks = aiResult
-    ? [
-        { label: "Website", value: aiResult.website_url },
-        { label: "Facebook", value: aiResult.facebook_url },
-        { label: "Instagram", value: aiResult.instagram_url },
-        { label: "Tickets", value: aiResult.ticket_url },
-      ]
-    : [];
-
   return (
     <div className="space-y-6 rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
       <div className="space-y-2">
@@ -211,33 +256,110 @@ export default function ResearchFestivalPanel() {
         {aiSuccess ? <p className="rounded-xl border border-[#0e7a45]/20 bg-[#f0fbf4] px-3 py-2 text-sm text-[#0e7a45]">{aiSuccess}</p> : null}
       </div>
 
-      {aiResult ? (
-        <div className="space-y-3 rounded-xl border border-black/[0.08] bg-white p-4 text-sm text-black/85">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">AI result</p>
-          <p><span className="font-semibold">Title:</span> {aiResult.title ?? "-"}</p>
-          <p><span className="font-semibold">Dates:</span> {aiResult.start_date ?? "-"} {aiResult.end_date ? `→ ${aiResult.end_date}` : ""}</p>
-          <p><span className="font-semibold">City:</span> {aiResult.city ?? "-"}</p>
-          <p><span className="font-semibold">Organizer:</span> {aiResult.organizer_name ?? "-"}</p>
-          <p><span className="font-semibold">Description:</span> {aiResult.description ?? "-"}</p>
-          <div>
-            <p className="font-semibold">Links</p>
-            <ul className="ml-5 list-disc">
-              {aiLinks.map((link) => (
-                <li key={link.label}>{link.label}: {link.value ? <a href={link.value} target="_blank" rel="noreferrer" className="text-[#0e7a45] underline-offset-2 hover:underline">{link.value}</a> : "-"}</li>
-              ))}
-            </ul>
+      {aiDraft ? (
+        <div className="space-y-4 rounded-xl border border-black/[0.08] bg-white p-4">
+          <div className="flex flex-col gap-3 border-b border-black/[0.08] pb-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">AI Research Result</p>
+              <p className="mt-1 text-sm text-black/65">Review extracted values, edit as needed, then create a pending draft.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${confidenceBadgeStyle(aiDraft.confidence)}`}>
+                Confidence: {confidenceLabel(aiDraft.confidence)}
+              </span>
+              <button type="button" onClick={createPendingFestival} disabled={!canCreate} className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45">
+                {isCreating ? "Creating..." : "Create pending draft"}
+              </button>
+              <button type="button" onClick={runAiResearch} disabled={!canAiResearch} className="rounded-xl bg-[#0c0e14] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45">
+                {isAiResearching ? "Researching..." : "Research again"}
+              </button>
+            </div>
           </div>
-          <div>
-            <p className="font-semibold">source_urls</p>
-            {aiResult.source_urls.length === 0 ? <p className="text-black/60">-</p> : (
-              <ul className="ml-5 list-disc space-y-1">
-                {aiResult.source_urls.map((url) => (
-                  <li key={url}><a href={url} target="_blank" rel="noreferrer" className="text-[#0e7a45] underline-offset-2 hover:underline">{url}</a></li>
+
+          <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+            <div className="space-y-4 rounded-xl border border-black/[0.08] bg-[#fafafa] p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Editable extracted fields</p>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {AI_EDITABLE_TEXT_FIELDS.map((field) => (
+                  <div key={field.key} className={field.key === "address" ? "md:col-span-2" : ""}>
+                    <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">{field.label}</label>
+                    <input
+                      type={field.type ?? "text"}
+                      value={typeof aiDraft[field.key] === "string" ? aiDraft[field.key] ?? "" : ""}
+                      onChange={(event) => setAiDraftField(field.key, event.target.value)}
+                      placeholder={field.placeholder}
+                      className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+                    />
+                  </div>
                 ))}
-              </ul>
-            )}
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">Description</label>
+                <textarea
+                  value={aiDraft.description ?? ""}
+                  onChange={(event) => setAiDraftField("description", event.target.value)}
+                  rows={5}
+                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={aiDraft.is_free === true}
+                  onChange={(event) => setAiDraft((prev) => (prev ? { ...prev, is_free: event.target.checked ? true : null } : prev))}
+                  className="h-4 w-4 rounded border-black/20"
+                />
+                Festival is free
+              </label>
+            </div>
+
+            <aside className="space-y-4 rounded-xl border border-black/[0.08] bg-[#fcfcfc] p-4">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Evidence & metadata</p>
+                <p className="text-sm text-black/75">{aiResult?.source_urls.length ?? 0} source{(aiResult?.source_urls.length ?? 0) === 1 ? "" : "s"} reviewed.</p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Sources</p>
+                {aiDraft.source_urls.length === 0 ? (
+                  <p className="text-sm text-black/60">No sources returned.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {aiDraft.source_urls.map((url) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block rounded-lg border border-black/[0.1] bg-white p-2.5 hover:bg-black/[0.02]"
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-black/45">{getDomainLabel(url)}</p>
+                        <p className="mt-1 break-all text-sm text-[#0e7a45] underline-offset-2 hover:underline">{url}</p>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Missing fields</p>
+                {aiDraft.missing_fields.length === 0 ? (
+                  <p className="text-sm text-black/60">No missing fields flagged.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {aiDraft.missing_fields.map((field) => (
+                      <span key={field} className="rounded-full border border-black/[0.12] bg-white px-2.5 py-1 text-xs text-black/75">
+                        {formatMissingField(field)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </aside>
           </div>
-          <p><span className="font-semibold">Confidence:</span> {aiResult.confidence}</p>
         </div>
       ) : null}
 
@@ -296,7 +418,7 @@ export default function ResearchFestivalPanel() {
             </div>
           </div>
 
-          <div className="text-sm text-black/80 space-y-1">
+          <div className="space-y-1 text-sm text-black/80">
             <p><span className="font-semibold">Provider:</span> {result.metadata?.provider ?? "-"}</p>
             <p><span className="font-semibold">Mode:</span> {result.metadata?.mode ?? "-"}</p>
             <p><span className="font-semibold">Source count:</span> {result.metadata?.source_count ?? result.sources.length}</p>

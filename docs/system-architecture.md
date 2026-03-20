@@ -80,6 +80,12 @@ Admin festival research (`/admin/api/research-festival`) uses a simplified backe
 
 If LLM extraction fails/unavailable, the API returns a low-confidence minimal result with sources + warnings (preferring null over speculative values).
 
+`/api/admin/research-ai` (Perplexity-backed extraction) uses a strict structured first pass and optional enrichment second pass:
+- enrichment is triggered only when first-pass missing fields exceed threshold
+- second pass targets unresolved fields (organizer/location/address/links and similar)
+- merge is additive-only (fills nulls, preserves already extracted non-null values)
+- on enrichment failure, system returns first-pass result (no hard failure)
+
 ## Hero image pipeline safeguards
 Ingestion helper behavior for candidate hero image:
 - source preference: `fbEvent.cover.source` → OG image → existing pending hero image

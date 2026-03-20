@@ -46,6 +46,7 @@ type StrictNullableField = Extract<
 const ENDPOINT = "https://api.perplexity.ai/chat/completions";
 const MODEL = "sonar-pro";
 const TIMEOUT_MS = 30_000;
+const ENRICHMENT_MISSING_THRESHOLD = 6;
 
 const LOW_VALUE_SOURCE_PATTERNS = [
   "allevents.",
@@ -128,6 +129,32 @@ const REQUIRED_SCHEMA_FIELDS: Array<keyof PerplexityFestivalResearchResult> = [
   "confidence",
   "missing_fields",
 ];
+
+const PERPLEXITY_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: REQUIRED_SCHEMA_FIELDS,
+  properties: {
+    title: { type: ["string", "null"] },
+    description: { type: ["string", "null"] },
+    category: { type: ["string", "null"] },
+    start_date: { type: ["string", "null"] },
+    end_date: { type: ["string", "null"] },
+    city: { type: ["string", "null"] },
+    location_name: { type: ["string", "null"] },
+    address: { type: ["string", "null"] },
+    organizer_name: { type: ["string", "null"] },
+    website_url: { type: ["string", "null"] },
+    facebook_url: { type: ["string", "null"] },
+    instagram_url: { type: ["string", "null"] },
+    ticket_url: { type: ["string", "null"] },
+    hero_image: { type: ["string", "null"] },
+    is_free: { type: ["boolean", "null"] },
+    source_urls: { type: "array", items: { type: "string" } },
+    confidence: { type: "string", enum: ["low", "medium", "high"] },
+    missing_fields: { type: "array", items: { type: "string" } },
+  },
+} as const;
 
 const FACTUAL_FIELDS: readonly NullableResultField[] = [
   "title",
@@ -542,11 +569,185 @@ function buildMessages(query: string, context: ExtractionContext): PerplexityMes
   ];
 }
 
+function buildEnrichmentMessages(query: string, context: ExtractionContext, firstPass: PerplexityFestivalResearchResult): PerplexityMessage[] {
+  const yearInstruction = context.explicitYear
+    ? `Target year is ${context.explicitYear}. Do not use conflicting data from other years unless explicitly marked as historical context.`
+    : "No explicit target year. Prefer explicit current event details.";
+
+  const knownFacts = {
+    title: firstPass.title,
+    start_date: firstPass.start_date,
+    end_date: firstPass.end_date,
+    city: firstPass.city,
+    organizer_name: firstPass.organizer_name,
+    category: firstPass.category,
+    location_name: firstPass.location_name,
+    address: firstPass.address,
+    website_url: firstPass.website_url,
+    facebook_url: firstPass.facebook_url,
+    instagram_url: firstPass.instagram_url,
+    ticket_url: firstPass.ticket_url,
+    hero_image: firstPass.hero_image,
+    is_free: firstPass.is_free,
+  };
+
+  return [
+    {
+      role: "system",
+      content: [
+        "You are performing a second extraction pass to fill missing festival fields.",
+        "Return ONLY valid JSON matching the provided schema.",
+        "Use explicit evidence only. Never invent values.",
+        "When a field is uncertain, return null.",
+      ].join("\n"),
+    },
+    {
+      role: "user",
+      content: [
+        `Research query: ${query}`,
+        yearInstruction,
+        `Missing fields from first pass: ${firstPass.missing_fields.join(", ") || "none"}`,
+        "Known facts from first pass (treat as stable context, do not degrade):",
+        JSON.stringify(knownFacts, null, 2),
+        "Focus on filling missing fields using explicit evidence from authoritative/event sources.",
+        "Use source_urls to cite the pages used.",
+        "Return STRICT JSON with this exact schema and no extra keys:",
+        JSON.stringify(
+          {
+            title: null,
+            description: null,
+            category: null,
+            start_date: null,
+            end_date: null,
+            city: null,
+            location_name: null,
+            address: null,
+            organizer_name: null,
+            website_url: null,
+            facebook_url: null,
+            instagram_url: null,
+            ticket_url: null,
+            hero_image: null,
+            is_free: null,
+            source_urls: [],
+            confidence: "low",
+            missing_fields: [],
+          },
+          null,
+          2,
+        ),
+      ].join("\n"),
+    },
+  ];
+}
+
 function assertRequiredKeys(result: Record<string, unknown>) {
   const missing = REQUIRED_SCHEMA_FIELDS.filter((key) => !(key in result));
   if (missing.length > 0) {
     throw new Error(`Perplexity response missing required keys: ${missing.join(", ")}`);
   }
+}
+
+function confidenceScore(value: AiResearchConfidence): number {
+  if (value === "high") return 3;
+  if (value === "medium") return 2;
+  return 1;
+}
+
+function chooseHigherConfidence(a: AiResearchConfidence, b: AiResearchConfidence): AiResearchConfidence {
+  return confidenceScore(b) > confidenceScore(a) ? b : a;
+}
+
+function shouldRunEnrichmentPass(result: PerplexityFestivalResearchResult): boolean {
+  return result.missing_fields.length >= ENRICHMENT_MISSING_THRESHOLD;
+}
+
+function mergeResults(
+  base: PerplexityFestivalResearchResult,
+  enrichment: PerplexityFestivalResearchResult,
+  context: ExtractionContext,
+): PerplexityFestivalResearchResult {
+  const merged: PerplexityFestivalResearchResult = { ...base };
+  const mergeableFields: Exclude<keyof PerplexityFestivalResearchResult, "source_urls" | "confidence" | "missing_fields">[] = [
+    "title",
+    "description",
+    "category",
+    "start_date",
+    "end_date",
+    "city",
+    "location_name",
+    "address",
+    "organizer_name",
+    "website_url",
+    "facebook_url",
+    "instagram_url",
+    "ticket_url",
+    "hero_image",
+    "is_free",
+  ];
+
+  for (const field of mergeableFields) {
+    if (merged[field] === null && enrichment[field] !== null) {
+      merged[field] = enrichment[field];
+    }
+  }
+
+  merged.source_urls = cleanSourceUrls([...base.source_urls, ...enrichment.source_urls]);
+  merged.confidence = chooseHigherConfidence(base.confidence, enrichment.confidence);
+  merged.missing_fields = buildMissingFields(merged);
+  merged.confidence = deriveConfidence(merged.confidence, merged, context);
+
+  return merged;
+}
+
+async function fetchPerplexityJson(apiKey: string, messages: PerplexityMessage[]): Promise<Record<string, unknown>> {
+  const response = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      temperature: 0,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          schema: PERPLEXITY_JSON_SCHEMA,
+        },
+      },
+      messages,
+    }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    const payloadText = await response.text().catch(() => "");
+    throw new Error(`Perplexity request failed (${response.status}): ${payloadText || response.statusText}`);
+  }
+
+  const payload = (await response.json().catch(() => null)) as
+    | { choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }> }
+    | null;
+
+  const content = payload?.choices?.[0]?.message?.content;
+  const text =
+    typeof content === "string"
+      ? content
+      : Array.isArray(content)
+        ? content
+            .map((item) => (item?.type === "text" ? item.text ?? "" : ""))
+            .join("\n")
+            .trim()
+        : "";
+
+  if (!text) {
+    throw new Error("Perplexity response did not include content");
+  }
+
+  const asJson = parseJsonObject(text);
+  assertRequiredKeys(asJson);
+  return asJson;
 }
 
 export async function researchFestival(query: string): Promise<PerplexityFestivalResearchResult> {
@@ -564,77 +765,20 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
     explicitYear: extractExplicitYear(normalizedQuery),
   };
 
-  const response = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      temperature: 0,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            required: REQUIRED_SCHEMA_FIELDS,
-            properties: {
-              title: { type: ["string", "null"] },
-              description: { type: ["string", "null"] },
-              category: { type: ["string", "null"] },
-              start_date: { type: ["string", "null"] },
-              end_date: { type: ["string", "null"] },
-              city: { type: ["string", "null"] },
-              location_name: { type: ["string", "null"] },
-              address: { type: ["string", "null"] },
-              organizer_name: { type: ["string", "null"] },
-              website_url: { type: ["string", "null"] },
-              facebook_url: { type: ["string", "null"] },
-              instagram_url: { type: ["string", "null"] },
-              ticket_url: { type: ["string", "null"] },
-              hero_image: { type: ["string", "null"] },
-              is_free: { type: ["boolean", "null"] },
-              source_urls: { type: "array", items: { type: "string" } },
-              confidence: { type: "string", enum: ["low", "medium", "high"] },
-              missing_fields: { type: "array", items: { type: "string" } },
-            },
-          },
-        },
-      },
-      messages: buildMessages(normalizedQuery, context),
-    }),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
+  const firstPassJson = await fetchPerplexityJson(apiKey, buildMessages(normalizedQuery, context));
+  const firstPass = normalizeResult(firstPassJson, context, normalizedQuery);
 
-  if (!response.ok) {
-    const payloadText = await response.text().catch(() => "");
-    throw new Error(`Perplexity request failed (${response.status}): ${payloadText || response.statusText}`);
+  if (!shouldRunEnrichmentPass(firstPass)) {
+    return firstPass;
   }
 
-  const payload = (await response.json().catch(() => null)) as
-    | { choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }> }
-    | null;
-
-  const content = payload?.choices?.[0]?.message?.content;
-
-  const text =
-    typeof content === "string"
-      ? content
-      : Array.isArray(content)
-        ? content
-            .map((item) => (item?.type === "text" ? item.text ?? "" : ""))
-            .join("\n")
-            .trim()
-        : "";
-
-  if (!text) {
-    throw new Error("Perplexity response did not include content");
+  try {
+    const enrichmentJson = await fetchPerplexityJson(apiKey, buildEnrichmentMessages(normalizedQuery, context, firstPass));
+    const enrichmentPass = normalizeResult(enrichmentJson, context, normalizedQuery);
+    return mergeResults(firstPass, enrichmentPass, context);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown enrichment error";
+    console.warn(`[research-ai] enrichment pass failed: ${message}`);
+    return firstPass;
   }
-
-  const asJson = parseJsonObject(text);
-  assertRequiredKeys(asJson);
-
-  return normalizeResult(asJson, context, normalizedQuery);
 }

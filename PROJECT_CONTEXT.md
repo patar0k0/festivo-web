@@ -56,6 +56,11 @@ These guesses are non-authoritative:
 - core pending fields remain authoritative for save/approve
 - only core moderated values are written into `festivals` during approval
 
+`Research with AI` extraction (`/api/admin/research-ai`) now supports a second enrichment pass when too many fields are missing.
+- first pass returns strict structured values
+- if missing fields exceed threshold, enrichment pass re-queries with focus on unresolved fields
+- merge strategy is additive-only (fills null fields, does not overwrite already extracted values)
+
 ## Hero image rehosting role
 Worker helper `workers/ingest_fb_event.js` performs hero image handling for ingestion patches:
 - extracts candidate image from Facebook cover first, OG image second

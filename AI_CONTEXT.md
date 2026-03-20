@@ -121,6 +121,7 @@ Users can:
 - Do not modify database schema unless explicitly asked.
 - Use Supabase queries compatible with `@supabase/supabase-js`.
 - Use existing API patterns in `/app/api`.
+- For AI extraction endpoints, prefer strict-first extraction plus additive enrichment (fill-null-only) instead of overwriting accepted values.
 
 ## Admin rules
 

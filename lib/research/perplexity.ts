@@ -99,6 +99,15 @@ const STRICT_NULL_FIELDS: readonly StrictNullableField[] = [
   "is_free",
 ];
 
+type ImportantMissingField = StrictNullableField | "title" | "city" | "organizer_name";
+
+const IMPORTANT_MISSING_FIELDS: readonly ImportantMissingField[] = [
+  ...STRICT_NULL_FIELDS,
+  "title",
+  "city",
+  "organizer_name",
+];
+
 const REQUIRED_SCHEMA_FIELDS: Array<keyof PerplexityFestivalResearchResult> = [
   "title",
   "description",
@@ -120,7 +129,7 @@ const REQUIRED_SCHEMA_FIELDS: Array<keyof PerplexityFestivalResearchResult> = [
   "missing_fields",
 ];
 
-const FACTUAL_FIELDS: Array<keyof PerplexityFestivalResearchResult> = [
+const FACTUAL_FIELDS: readonly NullableResultField[] = [
   "title",
   "description",
   "category",
@@ -351,7 +360,7 @@ function hasStrongCanonicalIdentityMatch(
 }
 
 function countMissingImportantFields(result: PerplexityFestivalResearchResult): number {
-  return [...STRICT_NULL_FIELDS, "title", "city", "organizer_name"].filter((field) => result[field] === null).length;
+  return IMPORTANT_MISSING_FIELDS.filter((field) => result[field] === null).length;
 }
 
 function deriveConfidence(

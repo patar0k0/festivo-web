@@ -38,12 +38,6 @@ type StrictNullableField = Extract<
   NullableResultField,
   | "start_date"
   | "end_date"
-  | "organizer_name"
-  | "location_name"
-  | "address"
-  | "website_url"
-  | "facebook_url"
-  | "instagram_url"
   | "ticket_url"
   | "hero_image"
   | "is_free"
@@ -66,6 +60,12 @@ const LOW_VALUE_SOURCE_PATTERNS = [
 ];
 
 const OFFICIAL_SOURCE_PATTERNS = [
+  "facebook.com/events",
+  "facebook.com/",
+  "instagram.com/",
+];
+
+const MUNICIPALITY_SOURCE_PATTERNS = [
   ".gov",
   "government",
   "municipality",
@@ -75,20 +75,25 @@ const OFFICIAL_SOURCE_PATTERNS = [
   "kultura",
   "tourism",
   "visit",
-  "facebook.com/events",
-  "facebook.com/",
-  "instagram.com/",
+];
+
+const LOCAL_MEDIA_SOURCE_PATTERNS = [
+  "bnr.bg",
+  "bntnews.bg",
+  "24chasa.bg",
+  "dariknews.bg",
+  "dnevnik.bg",
+  "marica.bg",
+  "plovdiv24.bg",
+  "flagman.bg",
+  "trud.bg",
+  "novini.bg",
+  "focus-news.net",
 ];
 
 const STRICT_NULL_FIELDS: readonly StrictNullableField[] = [
   "start_date",
   "end_date",
-  "organizer_name",
-  "location_name",
-  "address",
-  "website_url",
-  "facebook_url",
-  "instagram_url",
   "ticket_url",
   "hero_image",
   "is_free",
@@ -228,6 +233,27 @@ function isOfficialLikeSource(url: string): boolean {
   return OFFICIAL_SOURCE_PATTERNS.some((pattern) => normalized.includes(pattern));
 }
 
+function isMunicipalityLikeSource(url: string): boolean {
+  const normalized = url.toLowerCase();
+  return MUNICIPALITY_SOURCE_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+function isLocalMediaSource(url: string): boolean {
+  const normalized = url.toLowerCase();
+  return LOCAL_MEDIA_SOURCE_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+function classifySourcePriority(url: string): number {
+  if (isLowValueSource(url)) return 3;
+  if (isMunicipalityLikeSource(url)) return 1;
+  if (isLocalMediaSource(url)) return 2;
+  return 0;
+}
+
+function isLikelyCanonicalOfficialUrl(url: string): boolean {
+  return classifySourcePriority(url) <= 1 && !isLowValueSource(url) && !isLocalMediaSource(url);
+}
+
 function cleanSourceUrls(urls: string[]): string[] {
   const uniqueExact = new Map<string, string>();
   for (const raw of urls) {
@@ -251,7 +277,7 @@ function cleanSourceUrls(urls: string[]): string[] {
     }
   }
 
-  return [...preferred, ...lowValueByHost.values()];
+  return [...preferred, ...lowValueByHost.values()].sort((a, b) => classifySourcePriority(a) - classifySourcePriority(b));
 }
 
 function extractExplicitYear(query: string): number | null {
@@ -272,8 +298,60 @@ function hasAnyYearSpecificEvidence(result: PerplexityFestivalResearchResult, co
   return result.source_urls.some((url) => url.includes(yearString));
 }
 
+function tokenizeForSimilarity(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((token) => token.length >= 3);
+}
+
+function tokenOverlapScore(a: string, b: string): number {
+  const left = new Set(tokenizeForSimilarity(a));
+  const right = new Set(tokenizeForSimilarity(b));
+  if (left.size === 0 || right.size === 0) return 0;
+
+  let intersection = 0;
+  for (const token of left) {
+    if (right.has(token)) intersection += 1;
+  }
+
+  return intersection / Math.max(left.size, right.size);
+}
+
+function hasTokenInText(token: string, text: string): boolean {
+  const normalizedToken = token.toLowerCase().trim();
+  return normalizedToken.length > 0 && text.toLowerCase().includes(normalizedToken);
+}
+
+function hasStrongCanonicalIdentityMatch(
+  result: PerplexityFestivalResearchResult,
+  query: string,
+  context: ExtractionContext,
+): boolean {
+  if (!result.title) return false;
+
+  let score = 0;
+  const titleOverlap = tokenOverlapScore(query, result.title);
+  if (titleOverlap >= 0.45) score += 2;
+  else if (titleOverlap >= 0.25) score += 1;
+
+  if (result.city && hasTokenInText(result.city, query)) score += 1;
+  if (result.organizer_name && (hasTokenInText(result.organizer_name, query) || result.source_urls.some((url) => hasTokenInText(result.organizer_name!, url)))) {
+    score += 1;
+  }
+
+  const nonListingSources = result.source_urls.filter((url) => !isLowValueSource(url));
+  const distinctHosts = new Set(nonListingSources.map((url) => new URL(url).hostname.replace(/^www\./, "")));
+  if (distinctHosts.size >= 2) score += 1;
+  if (nonListingSources.some((url) => classifySourcePriority(url) <= 1)) score += 1;
+  if (!context.explicitYear) score += 1;
+
+  return score >= 3;
+}
+
 function countMissingImportantFields(result: PerplexityFestivalResearchResult): number {
-  return STRICT_NULL_FIELDS.filter((field) => result[field] === null).length;
+  return [...STRICT_NULL_FIELDS, "title", "city", "organizer_name"].filter((field) => result[field] === null).length;
 }
 
 function deriveConfidence(
@@ -301,7 +379,7 @@ function buildMissingFields(result: PerplexityFestivalResearchResult): string[] 
   return Array.from(new Set(missing));
 }
 
-function normalizeResult(data: Record<string, unknown>, context: ExtractionContext): PerplexityFestivalResearchResult {
+function normalizeResult(data: Record<string, unknown>, context: ExtractionContext, query: string): PerplexityFestivalResearchResult {
   const source_urls = cleanSourceUrls(sanitizeStringArray(data.source_urls));
 
   const result: PerplexityFestivalResearchResult = {
@@ -325,10 +403,31 @@ function normalizeResult(data: Record<string, unknown>, context: ExtractionConte
     missing_fields: [],
   };
 
-  if (context.explicitYear && !hasAnyYearSpecificEvidence(result, context)) {
+  const hasExactYearEvidence = hasAnyYearSpecificEvidence(result, context);
+  const hasStrongCanonicalMatch = hasStrongCanonicalIdentityMatch(result, query, context);
+
+  if (context.explicitYear && !hasExactYearEvidence) {
     for (const key of STRICT_NULL_FIELDS) {
       result[key] = null;
     }
+
+    if (!hasStrongCanonicalMatch) {
+      result.address = null;
+      result.organizer_name = null;
+      result.location_name = null;
+    }
+
+    const clearNonCanonicalUrl = (field: "website_url" | "facebook_url" | "instagram_url") => {
+      const current = result[field];
+      if (!current) return;
+      if (!isLikelyCanonicalOfficialUrl(current)) {
+        result[field] = null;
+      }
+    };
+
+    clearNonCanonicalUrl("website_url");
+    clearNonCanonicalUrl("facebook_url");
+    clearNonCanonicalUrl("instagram_url");
   }
 
   if (result.start_date && result.end_date && result.end_date < result.start_date) {
@@ -337,7 +436,7 @@ function normalizeResult(data: Record<string, unknown>, context: ExtractionConte
 
   const hasFactualClaims = FACTUAL_FIELDS.some((field) => result[field] !== null);
   if (hasFactualClaims && result.source_urls.length === 0) {
-    for (const key of STRICT_NULL_FIELDS) {
+    for (const key of FACTUAL_FIELDS) {
       result[key] = null;
     }
   }
@@ -507,5 +606,5 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
   const asJson = parseJsonObject(text);
   assertRequiredKeys(asJson);
 
-  return normalizeResult(asJson, context);
+  return normalizeResult(asJson, context, normalizedQuery);
 }

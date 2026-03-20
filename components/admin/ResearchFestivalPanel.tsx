@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ResearchBestGuess, ResearchDateCandidate, ResearchFestivalResult, ResearchFieldCandidate } from "@/lib/admin/research/types";
 import type { AiResearchConfidence, PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 
@@ -127,6 +128,7 @@ function formatMissingField(field: string): string {
 }
 
 export default function ResearchFestivalPanel() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<ResearchFestivalResult | null>(null);
   const [finalValues, setFinalValues] = useState<EditableFinalValues>(EMPTY_FINAL_VALUES);
@@ -257,6 +259,8 @@ export default function ResearchFestivalPanel() {
       } else {
         setSuccess(message);
       }
+
+      router.push(`/admin/pending-festivals/${payload.id}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unexpected error while creating pending festival.";
       if (aiDraft) {

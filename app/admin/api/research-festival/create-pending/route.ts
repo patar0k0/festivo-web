@@ -20,6 +20,16 @@ function isMissingColumnError(message: string, columnName: string): boolean {
   return message.includes(columnName) || message.includes(`column \"${columnName}\"`) || message.includes(`'${columnName}'`);
 }
 
+function extractMissingColumnName(message: string): string | null {
+  const fromColumnPattern = message.match(/column\s+["']?([a-zA-Z0-9_]+)["']?\s+(?:of\s+relation\s+["'][^"']+["']\s+)?does\s+not\s+exist/i);
+  if (fromColumnPattern?.[1]) return fromColumnPattern[1].toLowerCase();
+
+  const fromCouldNotFindPattern = message.match(/could\s+not\s+find\s+the\s+["']([a-zA-Z0-9_]+)["']\s+column/i);
+  if (fromCouldNotFindPattern?.[1]) return fromCouldNotFindPattern[1].toLowerCase();
+
+  return null;
+}
+
 function sanitizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -68,8 +78,25 @@ type AdminContext = NonNullable<Awaited<ReturnType<typeof getAdminContext>>>;
 
 async function insertPendingWithFallback(ctx: AdminContext, payload: Record<string, unknown>) {
   const insertPayload: Record<string, unknown> = { ...payload };
+  const removableColumns = new Set([
+    "source_type",
+    "website_url",
+    "facebook_url",
+    "instagram_url",
+    "ticket_url",
+    "location_name",
+    "address",
+    "category",
+    "is_free",
+    "source_primary_url",
+    "source_count",
+    "evidence_json",
+    "verification_status",
+    "verification_score",
+    "extraction_version",
+  ]);
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
     const { data, error } = await ctx.supabase.from("pending_festivals").insert(insertPayload).select("id").single();
 
     if (!error) {
@@ -88,30 +115,28 @@ async function insertPendingWithFallback(ctx: AdminContext, payload: Record<stri
       continue;
     }
 
-    if (isMissingColumnError(message, "website_url")) delete insertPayload.website_url;
-    if (isMissingColumnError(message, "facebook_url")) delete insertPayload.facebook_url;
-    if (isMissingColumnError(message, "instagram_url")) delete insertPayload.instagram_url;
-    if (isMissingColumnError(message, "ticket_url")) delete insertPayload.ticket_url;
-    if (isMissingColumnError(message, "location_name")) delete insertPayload.location_name;
-    if (isMissingColumnError(message, "address")) delete insertPayload.address;
-    if (isMissingColumnError(message, "category")) delete insertPayload.category;
-    if (isMissingColumnError(message, "is_free")) delete insertPayload.is_free;
-    if (isMissingColumnError(message, "source_primary_url")) delete insertPayload.source_primary_url;
-    if (isMissingColumnError(message, "source_count")) delete insertPayload.source_count;
-    if (isMissingColumnError(message, "evidence_json")) delete insertPayload.evidence_json;
-    if (isMissingColumnError(message, "verification_status")) delete insertPayload.verification_status;
-    if (isMissingColumnError(message, "verification_score")) delete insertPayload.verification_score;
-    if (isMissingColumnError(message, "extraction_version")) delete insertPayload.extraction_version;
-
-    const { data: retryData, error: retryError } = await ctx.supabase.from("pending_festivals").insert(insertPayload).select("id").single();
-    if (!retryError) {
-      return NextResponse.json({ ok: true, id: String(retryData.id) });
+    const discoveredMissingColumn = extractMissingColumnName(message);
+    if (discoveredMissingColumn && removableColumns.has(discoveredMissingColumn) && discoveredMissingColumn in insertPayload) {
+      delete insertPayload[discoveredMissingColumn];
+      continue;
     }
 
-    return NextResponse.json({ error: retryError.message }, { status: 500 });
+    let removedColumn = false;
+    for (const column of removableColumns) {
+      if (isMissingColumnError(message, column) && column in insertPayload) {
+        delete insertPayload[column];
+        removedColumn = true;
+      }
+    }
+
+    if (removedColumn) {
+      continue;
+    }
+
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ error: "Could not create pending festival." }, { status: 500 });
+  return NextResponse.json({ error: "Could not create pending festival after fallback attempts." }, { status: 500 });
 }
 
 export async function POST(request: Request) {

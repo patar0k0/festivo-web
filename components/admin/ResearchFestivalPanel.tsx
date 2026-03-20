@@ -19,7 +19,23 @@ const EMPTY_FINAL_VALUES: EditableFinalValues = {
   is_free: null,
 };
 
-const AI_EDITABLE_TEXT_FIELDS: Array<{ key: keyof PerplexityFestivalResearchResult; label: string; placeholder?: string; type?: "text" | "date" | "url" }> = [
+type AiEditableStringField =
+  | "title"
+  | "start_date"
+  | "end_date"
+  | "city"
+  | "organizer_name"
+  | "category"
+  | "location_name"
+  | "address"
+  | "description"
+  | "website_url"
+  | "facebook_url"
+  | "instagram_url"
+  | "ticket_url"
+  | "hero_image";
+
+const AI_EDITABLE_TEXT_FIELDS: Array<{ key: Exclude<AiEditableStringField, "description">; label: string; placeholder?: string; type?: "text" | "date" | "url" }> = [
   { key: "title", label: "Title" },
   { key: "start_date", label: "Start date", placeholder: "YYYY-MM-DD", type: "date" },
   { key: "end_date", label: "End date", placeholder: "YYYY-MM-DD", type: "date" },
@@ -97,7 +113,7 @@ export default function ResearchFestivalPanel() {
     setFinalValues((prev) => ({ ...prev, [field]: value }));
   };
 
-  const setAiDraftField = (field: keyof PerplexityFestivalResearchResult, rawValue: string) => {
+  const setAiDraftField = (field: AiEditableStringField, rawValue: string) => {
     setAiDraft((prev) => (prev ? { ...prev, [field]: sanitizeInputValue(rawValue) } : prev));
   };
 
@@ -286,7 +302,7 @@ export default function ResearchFestivalPanel() {
                     <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">{field.label}</label>
                     <input
                       type={field.type ?? "text"}
-                      value={typeof aiDraft[field.key] === "string" ? aiDraft[field.key] ?? "" : ""}
+                      value={aiDraft[field.key] ?? ""}
                       onChange={(event) => setAiDraftField(field.key, event.target.value)}
                       placeholder={field.placeholder}
                       className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"

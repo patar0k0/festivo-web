@@ -116,9 +116,15 @@ async function insertPendingWithFallback(ctx: AdminContext, payload: Record<stri
     }
 
     const discoveredMissingColumn = extractMissingColumnName(message);
-    if (discoveredMissingColumn && removableColumns.has(discoveredMissingColumn) && discoveredMissingColumn in insertPayload) {
-      delete insertPayload[discoveredMissingColumn];
-      continue;
+    if (discoveredMissingColumn) {
+      if (removableColumns.has(discoveredMissingColumn)) {
+        if (discoveredMissingColumn in insertPayload) {
+          delete insertPayload[discoveredMissingColumn];
+          continue;
+        }
+      } else {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
     }
 
     let removedColumn = false;

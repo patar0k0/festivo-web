@@ -33,6 +33,37 @@ function sanitizeSourceUrls(input: unknown): string[] {
     .filter((entry): entry is string => Boolean(entry));
 }
 
+const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
+const BULGARIAN_DATE_REGEX = /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s*г\.)?$/i;
+
+function isValidDateParts(year: number, month: number, day: number): boolean {
+  const utcDate = new Date(Date.UTC(year, month - 1, day));
+  return utcDate.getUTCFullYear() === year && utcDate.getUTCMonth() === month - 1 && utcDate.getUTCDate() === day;
+}
+
+function normalizeDateForDb(value: unknown): string | null {
+  const sanitized = sanitizeNullableString(value);
+  if (!sanitized) return null;
+
+  const isoMatch = sanitized.match(ISO_DATE_REGEX);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    return isValidDateParts(year, month, day) ? `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}` : sanitized;
+  }
+
+  const bgMatch = sanitized.match(BULGARIAN_DATE_REGEX);
+  if (!bgMatch) return sanitized;
+
+  const day = Number(bgMatch[1]);
+  const month = Number(bgMatch[2]);
+  const year = Number(bgMatch[3]);
+  if (!isValidDateParts(year, month, day)) return sanitized;
+
+  return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+}
+
 type AdminContext = NonNullable<Awaited<ReturnType<typeof getAdminContext>>>;
 
 async function insertPendingWithFallback(ctx: AdminContext, payload: Record<string, unknown>) {
@@ -100,8 +131,8 @@ export async function POST(request: Request) {
       title: sanitizeNullableString(ai.title) ?? "Untitled festival",
       description: sanitizeNullableString(ai.description),
       category: sanitizeNullableString(ai.category),
-      start_date: sanitizeNullableString(ai.start_date),
-      end_date: sanitizeNullableString(ai.end_date),
+      start_date: normalizeDateForDb(ai.start_date),
+      end_date: normalizeDateForDb(ai.end_date),
       location_name: sanitizeNullableString(ai.location_name),
       address: sanitizeNullableString(ai.address),
       organizer_name: sanitizeNullableString(ai.organizer_name),

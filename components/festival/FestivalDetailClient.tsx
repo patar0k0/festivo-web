@@ -6,10 +6,10 @@ import { format, parseISO } from "date-fns";
 import { bg } from "date-fns/locale";
 import Badge from "@/components/ui/Badge";
 import EventCard from "@/components/ui/EventCard";
-import FallbackImage from "@/components/ui/FallbackImage";
 import Select from "@/components/ui/Select";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
+import FestivalGallery from "@/components/festival/FestivalGallery";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import type { ReminderType } from "@/lib/plan/server";
@@ -174,6 +174,24 @@ export default function FestivalDetailClient({
     festival_media: media,
   });
   const [heroImageFailed, setHeroImageFailed] = useState(false);
+
+  const galleryItems = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Array<{ id: string | number; url: string; caption?: string | null }> = [];
+    const add = (id: string | number, url: string | null | undefined, caption?: string | null) => {
+      const u = normalizeHeroUrl(url);
+      if (!u || seen.has(u)) return;
+      seen.add(u);
+      out.push({ id, url: u, caption });
+    };
+    if (heroImage && !heroImageFailed) {
+      add(`hero-${festival.id}`, heroImage, null);
+    }
+    for (const m of imageMedia) {
+      add(m.id, m.url, m.caption);
+    }
+    return out;
+  }, [festival.id, heroImage, heroImageFailed, imageMedia]);
   const categoryText = categoryLabel(festival.category);
   const formattedDateRange = formatFestivalDateRange(festival.start_date, festival.end_date);
   const descriptionText = festival.description?.trim() ?? "";
@@ -190,7 +208,7 @@ export default function FestivalDetailClient({
   const venueName = festival.venue_name?.trim() ?? "";
   const showVenueName = Boolean(venueName) && venueName.toLocaleLowerCase() !== locationName.toLocaleLowerCase();
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
-  const hasGalleryContent = imageMedia.length > 0;
+  const hasGalleryContent = galleryItems.length > 0;
   const linkedOrganizers = (festival.organizers ?? [])
     .map((row) => ({
       name: row.name?.trim() ?? "",
@@ -305,19 +323,7 @@ export default function FestivalDetailClient({
           ) : null}
 
           {hasGalleryContent ? (
-            <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-              <h2 className="text-xl font-semibold text-[#0c0e14]">Галерия</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {imageMedia.slice(0, 8).map((item) => (
-                  <figure key={item.id} className="overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.03]">
-                    <div className="relative h-44">
-                      <FallbackImage src={item.url} alt={item.caption ?? festival.title} fill className="object-cover" />
-                    </div>
-                    {item.caption ? <figcaption className="px-3 py-2 text-xs text-black/55">{item.caption}</figcaption> : null}
-                  </figure>
-                ))}
-              </div>
-            </section>
+            <FestivalGallery items={galleryItems} festivalTitle={festival.title || "Фестивал"} />
           ) : null}
 
           {hasProgramContent ? (

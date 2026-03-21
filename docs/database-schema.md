@@ -185,6 +185,8 @@ Organizer profiles referenced by `festival_organizers.organizer_id` (and compati
 | merged_into | uuid | self-reference to canonical organizer after manual merge |
 | created_at | timestamptz | record timestamp |
 
+RLS (recommended): allow `select` for `anon` and `authenticated` where `is_active = true` (see `scripts/sql/20260321_organizers_public_select_active.sql`). Without this, public festival detail cannot resolve organizer names from `festival_organizers` when using only the anon API key.
+
 Behavior tied to this table:
 - Pending approval resolves/creates organizers from `pending_festivals.organizer_name`, inserts organizer links in `festival_organizers`, and keeps `festivals.organizer_id` synchronized as compatibility.
 - Admin list/detail pages support post-approval organizer enrichment workflows.

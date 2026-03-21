@@ -1,5 +1,6 @@
 import { addDays, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, OrganizerProfile, PaginatedResult } from "@/lib/types";
 import { withDefaultFilters } from "@/lib/filters";
@@ -46,13 +47,18 @@ function getFestivalOrganizers(festival: Festival): Array<{ id?: string | null; 
     .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999));
 }
 
-/** Явно зареждане на M2M връзки — вграденият select към festivals често връща грешен/непълен масив при >1 организатор. */
+/**
+ * Явно зареждане на M2M връзки — вграденият select към festivals често връща грешен/непълен масив при >1 организатор.
+ * Използва service role клиент, когато е наличен: при anon ключа RLS често позволява `festival_organizers`, но не и `organizers`,
+ * и вторият SELECT връща 0 реда → празна секция „Информация“.
+ */
 async function mergeFestivalOrganizersFromJoinTable(
   supabase: NonNullable<ReturnType<typeof supabaseServer>>,
   festival: Festival
 ): Promise<Festival> {
+  const db = supabaseAdmin() ?? supabase;
   const festivalId = String(festival.id);
-  const { data: links, error: linksError } = await supabase
+  const { data: links, error: linksError } = await db
     .from("festival_organizers")
     .select("organizer_id,sort_order")
     .eq("festival_id", festivalId)
@@ -70,7 +76,7 @@ async function mergeFestivalOrganizersFromJoinTable(
     return festival;
   }
 
-  const { data: orgRows, error: orgError } = await supabase.from("organizers").select("id,name,slug").in("id", ids);
+  const { data: orgRows, error: orgError } = await db.from("organizers").select("id,name,slug").in("id", ids);
 
   if (orgError) {
     console.error("[queries] organizers by id lookup failed", { festivalId, message: orgError.message });

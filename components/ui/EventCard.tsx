@@ -2,7 +2,7 @@ import { format } from "date-fns";
 import { bg } from "date-fns/locale";
 import Link from "next/link";
 import FallbackImage from "@/components/ui/FallbackImage";
-import PlanInlineControls from "@/components/plan/PlanInlineControls";
+import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
 import { Card, CardContent } from "@/components/ui/Card";
 
 /** Кратко име на месец за оранжева значка (3–4 знака). */
@@ -37,7 +37,6 @@ type EventCardProps = {
   showDescription?: boolean;
   showPlanControls?: boolean;
   festivalId?: string | number;
-  scheduleItemId?: string | null;
 };
 
 function getDateBadge(date?: string | null) {
@@ -107,7 +106,6 @@ export default function EventCard({
   showDescription = false,
   showPlanControls = false,
   festivalId,
-  scheduleItemId,
 }: EventCardProps) {
   const badge = getDateBadge(startDate);
   const dateText = dateLine?.trim() ? dateLine : formatDateRange(startDate, endDate);
@@ -230,7 +228,10 @@ export default function EventCard({
 
         <div className="mt-auto pt-4">
           {showPlanControls && festivalId != null ? (
-            <PlanInlineControls festivalId={String(festivalId)} scheduleItemId={scheduleItemId} />
+            <PlanFestivalBookmark
+              festivalId={String(festivalId)}
+              programmeHref={detailsHref ?? undefined}
+            />
           ) : null}
         </div>
       </CardContent>

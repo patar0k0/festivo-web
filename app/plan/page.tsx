@@ -77,7 +77,10 @@ export default async function PlanPage() {
       <div className="mx-auto w-full max-w-[1100px] space-y-5">
         <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
           <h1 className="text-3xl font-black tracking-tight">Моят план</h1>
-          <p className="mt-2 text-sm text-black/65">Предстоящи събития и напомняния.</p>
+          <p className="mt-2 text-sm text-black/65">
+            <span className="font-semibold text-black/75">Запазени фестивали</span> — цели събития и напомняния.{" "}
+            <span className="font-semibold text-black/75">Програма</span> — конкретни часове, които си избрал от графика.
+          </p>
           {isAdmin ? (
             <Link
               href="/admin"

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
-import PlanInlineControls from "@/components/plan/PlanInlineControls";
+import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 
@@ -20,7 +20,6 @@ type MapViewProps = {
   onSelectFestival: (festival: Festival) => void;
   focusCoords: FocusCoords | null;
   resetViewToken: number;
-  primaryScheduleByFestival: Record<string, string>;
 };
 
 const DEFAULT_CENTER: [number, number] = [42.6977, 23.3219];
@@ -39,7 +38,6 @@ export default function MapView({
   onSelectFestival,
   focusCoords,
   resetViewToken,
-  primaryScheduleByFestival,
 }: MapViewProps) {
   const [hasMoved, setHasMoved] = useState(false);
   const selectedFestival = useMemo(
@@ -118,9 +116,9 @@ export default function MapView({
               Детайли
             </Link>
             <div className="mt-2">
-              <PlanInlineControls
+              <PlanFestivalBookmark
                 festivalId={String(selectedFestival.id)}
-                scheduleItemId={primaryScheduleByFestival[String(selectedFestival.id)] ?? null}
+                programmeHref={`/festivals/${selectedFestival.slug}`}
               />
             </div>
           </div>

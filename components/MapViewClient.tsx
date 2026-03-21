@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import dynamic from "next/dynamic";
 import { Festival } from "@/lib/types";
@@ -15,7 +15,6 @@ type MapViewClientProps = {
   onSelectFestival: (festival: Festival) => void;
   focusCoords: FocusCoords | null;
   resetViewToken: number;
-  primaryScheduleByFestival: Record<string, string>;
 };
 
 const MapView = dynamic(() => import("@/components/MapView"), {

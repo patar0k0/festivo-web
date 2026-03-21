@@ -306,6 +306,9 @@ export default function FestivalDetailClient({
           {hasProgramContent ? (
             <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
               <h2 className="text-xl font-semibold text-[#0c0e14]">Програма</h2>
+              <p className="mt-2 text-sm text-black/55">
+                Добави конкретни часове в личния си план; запазеният фестивал (встрани) е за цялото събитие и напомнянията.
+              </p>
               <>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {groupedDays.map((day) => (
@@ -354,7 +357,7 @@ export default function FestivalDetailClient({
                                   : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]"
                               }`}
                             >
-                              {selected ? "Премахни" : "Добави"}
+                              {selected ? "Премахни от програмата" : "Добави в програмата"}
                             </button>
                           </div>
                         </article>
@@ -527,9 +530,12 @@ export default function FestivalDetailClient({
             </section>
           ) : null}
 
-          <section className="rounded-2xl border border-black/[0.08] bg-[#fbfaf7] p-5 shadow-[0_1px_0_rgba(12,14,20,0.04),0_6px_14px_rgba(12,14,20,0.05)]">
+            <section className="rounded-2xl border border-black/[0.08] bg-[#fbfaf7] p-5 shadow-[0_1px_0_rgba(12,14,20,0.04),0_6px_14px_rgba(12,14,20,0.05)]">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-black/80">Моят план</h2>
+              <h2 className="text-lg font-semibold text-black/80">Запазен фестивал</h2>
+              <p className="mt-1 text-xs text-black/50">
+                Отделно от часовете в програмата — за списъка „Запазени“ и напомняния към събитието.
+              </p>
               {selectedItems.length ? (
                 <button
                   type="button"
@@ -580,7 +586,7 @@ export default function FestivalDetailClient({
                       : "border-black/[0.12] bg-white/95 text-black/80 hover:border-black/20 hover:bg-black/[0.03]"
                   } disabled:cursor-not-allowed disabled:opacity-50`}
                 >
-                  {festivalInPlan ? "Премахни от план" : "Добави в план"}
+                  {festivalInPlan ? "Премахни от запазените" : "Запази фестивала"}
                 </button>
               ) : (
                 <button
@@ -588,7 +594,7 @@ export default function FestivalDetailClient({
                   disabled
                   className="w-full cursor-not-allowed rounded-xl border border-black/[0.12] bg-white/95 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-black/45 opacity-70"
                 >
-                  Добави в план
+                  Запази фестивала
                 </button>
               )}
             </div>
@@ -606,7 +612,7 @@ export default function FestivalDetailClient({
                 ))
               ) : (
                 <div className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f3ec] px-4 py-5 text-sm text-black/50">
-                  Добави точки от програмата, за да създадеш личен план.
+                  От секцията „Програма“ добави отделни часове в плана си.
                 </div>
               )}
             </div>
@@ -627,7 +633,7 @@ export default function FestivalDetailClient({
               </Select>
               {!isAuthenticated ? (
                 <p className="mt-2 text-xs text-black/55">
-                  Влез, за да ползваш Моят план. <Link href="/login" className="underline">Вход</Link>
+                  Влез, за да запазваш фестивали и напомняния. <Link href="/login" className="underline">Вход</Link>
                 </p>
               ) : null}
             </div>

@@ -13,6 +13,8 @@ type PlanStatePayload = {
 type PlanContextValue = {
   isAuthenticated: boolean;
   authRequired: boolean;
+  /** Call when a guest tries a plan action; surfaces the login hint. */
+  requireAuthForPlan: () => void;
   festivalIds: string[];
   festivalPlanError: string | null;
   isScheduleItemInPlan: (scheduleItemId?: string | null) => boolean;
@@ -237,9 +239,14 @@ export function PlanStateProvider({
     }
   }, [authenticated, refreshPlanState, reminders]);
 
+  const requireAuthForPlan = useCallback(() => {
+    setAuthRequired(true);
+  }, []);
+
   const value: PlanContextValue = {
     isAuthenticated: authenticated,
     authRequired,
+    requireAuthForPlan,
     festivalIds: Array.from(festivalIds),
     festivalPlanError,
     isScheduleItemInPlan: (scheduleItemId?: string | null) => {

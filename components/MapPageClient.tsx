@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -21,7 +21,6 @@ type MapPageClientProps = {
   filters: Filters;
   festivals: Festival[];
   total: number;
-  primaryScheduleByFestival: Record<string, string>;
 };
 
 type FocusCoords = {
@@ -53,7 +52,7 @@ function paramsWithPageReset(params: URLSearchParams) {
   return params;
 }
 
-export default function MapPageClient({ filters, festivals, total, primaryScheduleByFestival }: MapPageClientProps) {
+export default function MapPageClient({ filters, festivals, total }: MapPageClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -324,7 +323,6 @@ export default function MapPageClient({ filters, festivals, total, primarySchedu
                       festivals={festivals}
                       selectedFestivalId={selectedFestivalId}
                       onSelectFestival={onSelectFestival}
-                      primaryScheduleByFestival={primaryScheduleByFestival}
                     />
                   </div>
                 </div>
@@ -361,7 +359,6 @@ export default function MapPageClient({ filters, festivals, total, primarySchedu
                       onSelectFestival={onSelectFestival}
                       focusCoords={focusCoords}
                       resetViewToken={resetViewToken}
-                      primaryScheduleByFestival={primaryScheduleByFestival}
                     />
                   </div>
                 </div>
@@ -376,7 +373,6 @@ export default function MapPageClient({ filters, festivals, total, primarySchedu
                         festivals={festivals}
                         selectedFestivalId={selectedFestivalId}
                         onSelectFestival={onSelectFestival}
-                        primaryScheduleByFestival={primaryScheduleByFestival}
                       />
                     </div>
                   </details>
@@ -390,7 +386,6 @@ export default function MapPageClient({ filters, festivals, total, primarySchedu
                   festivals={festivals}
                   selectedFestivalId={selectedFestivalId}
                   onSelectFestival={onSelectFestival}
-                  primaryScheduleByFestival={primaryScheduleByFestival}
                 />
               </MapMobileResultsSheet>
               <div className="fixed bottom-5 right-4 z-30 flex flex-col gap-2">

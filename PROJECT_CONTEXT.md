@@ -99,6 +99,8 @@ Failure behavior is fail-closed by default (`allowOriginalOnFailure=false`): if 
 - `user_plan_festivals`
 - `user_plan_items`
 - `user_plan_reminders`
+
+**Моят план (UX):** „Запази“ на картите/картата записва целия фестивал (`user_plan_festivals`); отделни часове се добавят само от детайлната страница в секция „Програма“ (`user_plan_items`). Напомнянията са към фестивала.
 - `user_notifications`
 - `device_tokens`
 

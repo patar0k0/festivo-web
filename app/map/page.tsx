@@ -1,7 +1,6 @@
 import MapPageClient from "@/components/MapPageClient";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
-import { getPrimaryScheduleItemByFestivalIds } from "@/lib/plan/server";
 import { getBaseUrl, listMeta } from "@/lib/seo";
 import "../landing.css";
 
@@ -26,14 +25,12 @@ export default async function MapPage({
 }) {
   const filters = withDefaultFilters(parseFilters(searchParams));
   const data = await listFestivals(filters, 1, 30);
-  const primaryScheduleByFestival = await getPrimaryScheduleItemByFestivalIds(data.data.map((festival) => festival.id));
 
   return (
     <MapPageClient
       filters={filters}
       festivals={data.data}
       total={data.total}
-      primaryScheduleByFestival={primaryScheduleByFestival}
     />
   );
 }

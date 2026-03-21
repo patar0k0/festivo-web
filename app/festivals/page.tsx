@@ -7,7 +7,6 @@ import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
-import { getPrimaryScheduleItemByFestivalIds } from "@/lib/plan/server";
 import { getBaseUrl, listMeta } from "@/lib/seo";
 import { fixFestivalText } from "@/lib/queries";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
@@ -220,8 +219,6 @@ export default async function FestivalsPage({
     queryError = error instanceof Error ? error.message : "Unknown error";
   }
 
-  const primaryScheduleByFestival = await getPrimaryScheduleItemByFestivalIds(festivals.map((festival) => festival.id));
-
   const activeFiltersCount = Number(Boolean(city)) + Number(Boolean(parsedDate)) + Number(Boolean(tag));
   const clearHref = "/festivals";
 
@@ -341,7 +338,6 @@ export default async function FestivalsPage({
                         detailsHref={`/festivals/${festival.slug}`}
                         showPlanControls
                         festivalId={festival.id}
-                        scheduleItemId={primaryScheduleByFestival[String(festival.id)] ?? null}
                       />
                     ))}
                   </div>

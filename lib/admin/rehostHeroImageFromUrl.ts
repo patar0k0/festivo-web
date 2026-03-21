@@ -8,6 +8,58 @@ const MAX_HERO_IMAGE_BYTES = 8 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 25_000;
 const MAX_REDIRECTS = 5;
 
+/** Facebook CDNs often return HTML for non-browser requests; match a real Chrome fetch. */
+const BROWSER_LIKE_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+function isFacebookCdnHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h === "lookaside.facebook.com" || h === "lookaside.fbsbx.com") return true;
+  if (h === "fbcdn.net" || h.endsWith(".fbcdn.net")) return true;
+  if (h.endsWith(".fbsbx.com")) return true;
+  if (h.startsWith("scontent") || h.includes(".scontent.")) return true;
+  return false;
+}
+
+function buildHeroImportHeaders(requestUrl: string): Record<string, string> {
+  let parsed: URL;
+  try {
+    parsed = new URL(requestUrl);
+  } catch {
+    return {
+      "user-agent": "festivo-admin-hero-import/1.0",
+      accept: "image/*,*/*;q=0.8",
+    };
+  }
+
+  if (!isFacebookCdnHost(parsed.hostname)) {
+    return {
+      "user-agent": "festivo-admin-hero-import/1.0",
+      accept: "image/*,*/*;q=0.8",
+    };
+  }
+
+  const headers: Record<string, string> = {
+    "user-agent": BROWSER_LIKE_UA,
+    accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+    "accept-language": "en-US,en;q=0.9",
+    referer: "https://www.facebook.com/",
+    "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "sec-fetch-dest": "image",
+    "sec-fetch-mode": "no-cors",
+    "sec-fetch-site": "cross-site",
+  };
+
+  const fbCookie = process.env.FESTIVO_ADMIN_FB_IMAGE_COOKIE?.trim();
+  if (fbCookie) {
+    headers.cookie = fbCookie;
+  }
+
+  return headers;
+}
+
 export function getHeroImagesBucketName() {
   return HERO_IMAGES_BUCKET;
 }
@@ -151,10 +203,7 @@ async function fetchRemoteImage(urlStr: string): Promise<{ buffer: Buffer; conte
         method: "GET",
         redirect: "manual",
         signal: abortController.signal,
-        headers: {
-          "user-agent": "festivo-admin-hero-import/1.0",
-          accept: "image/*,*/*;q=0.8",
-        },
+        headers: buildHeroImportHeaders(currentUrl),
       });
     } finally {
       clearTimeout(timeout);
@@ -197,8 +246,20 @@ async function fetchRemoteImage(urlStr: string): Promise<{ buffer: Buffer; conte
       if (sniffed) {
         effectiveContentType = sniffed;
       } else if (responseBodyLooksLikeHtml(buffer)) {
+        const host = (() => {
+          try {
+            return new URL(currentUrl).hostname;
+          } catch {
+            return "";
+          }
+        })();
+        const fb = host && isFacebookCdnHost(host);
+        const cookieHint =
+          fb && !process.env.FESTIVO_ADMIN_FB_IMAGE_COOKIE?.trim()
+            ? " Alternatively set FESTIVO_ADMIN_FB_IMAGE_COOKIE on the server (Facebook session cookie) if Referer alone is not enough."
+            : "";
         throw new Error(
-          "The URL returned HTML instead of an image. Facebook and similar CDNs often do this for server-side requests (login wall or bot block). Try uploading the file manually, or rely on ingest rehosting with a browser session.",
+          `The URL returned HTML instead of an image (Facebook/CDN block or login wall). Try manual file upload, ingest rehost with browser session, or a direct image URL.${cookieHint}`,
         );
       } else {
         const ct = headerContentType.trim() || "missing";

@@ -782,7 +782,7 @@ export default function PendingFestivalEditForm({
 
     await runHeroImportFromUrl(
       ingestOriginalHeroUrl,
-      "Качено от Original URL (ingest). Ако е Facebook lookaside и сървърът върне HTML, опитай директен scontent линк или качване на файл.",
+      "Качено от Original URL (ingest).",
     );
   };
 
@@ -989,7 +989,7 @@ export default function PendingFestivalEditForm({
                   <p className="mt-2 text-xs text-black/55">
                     Import from URL downloads the file on the server and uploads it to Supabase; only the storage public URL is stored, not the external link.{" "}
                     <span className="text-black/65">
-                      „Import original URL“ ползва <span className="font-medium">Original URL</span> от ingest (удобно, когато Hero е празен, но има кандидат линк).
+                      „Import original URL“ ползва <span className="font-medium">Original URL</span> от ingest. За Facebook CDN понякога сървърът получава HTML вместо снимка — тогава отвори линка по-долу (логнат във FB), запази изображението и ползвай „Upload image“, или остави ingest да рехостне с браузър контекст.
                     </span>
                   </p>
                 </div>

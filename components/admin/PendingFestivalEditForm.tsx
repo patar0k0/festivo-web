@@ -450,7 +450,9 @@ export default function PendingFestivalEditForm({
 
   const heroImageUrl = form.hero_image.trim();
   const heroImageSource = heroImageSourceState;
-  const heroImageOriginalUrl = normalizeOptionalText(pendingFestival.hero_image_original_url);
+  const heroImageOriginalUrl = normalizeOptionalText(form.hero_image_original_url);
+  const ingestOriginalHeroUrl = form.hero_image_original_url.trim();
+  const canImportFromIngestOriginal = /^https?:\/\//i.test(ingestOriginalHeroUrl);
   const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   const hasHeroImageDiagnostics = heroImageSource !== null || heroImageScore !== null || heroImageOriginalUrl !== null;
   const heroImageStatus = !heroImageUrl
@@ -719,19 +721,7 @@ export default function PendingFestivalEditForm({
     }
   };
 
-  const importHeroImageFromUrl = async () => {
-    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
-
-    const url = form.hero_image.trim();
-    if (!url) {
-      setError("Paste an image URL in the Hero image field first.");
-      return;
-    }
-    if (!/^https?:\/\//i.test(url)) {
-      setError("Hero image URL must start with http:// or https://.");
-      return;
-    }
-
+  const runHeroImportFromUrl = async (url: string, successMessage: string) => {
     setImportingHeroFromUrl(true);
     setMessage("");
     setError("");
@@ -753,13 +743,47 @@ export default function PendingFestivalEditForm({
       const importedHeroImage = typeof payload.hero_image === "string" ? payload.hero_image : "";
       updateField("hero_image", importedHeroImage);
       setHeroImageSourceState(typeof payload.hero_image_source === "string" ? payload.hero_image_source : "url_import");
-      setMessage("Hero image downloaded and saved to storage (external URL was not stored).");
+      setMessage(successMessage);
       router.refresh();
     } catch (importUrlError) {
       setError(importUrlError instanceof Error ? importUrlError.message : "Unexpected hero image import error.");
     } finally {
       setImportingHeroFromUrl(false);
     }
+  };
+
+  const importHeroImageFromUrl = async () => {
+    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+
+    const url = form.hero_image.trim();
+    if (!url) {
+      setError("Paste an image URL in the Hero image field first.");
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      setError("Hero image URL must start with http:// or https://.");
+      return;
+    }
+
+    await runHeroImportFromUrl(url, "Hero image downloaded and saved to storage (external URL was not stored).");
+  };
+
+  const importHeroImageFromIngestOriginal = async () => {
+    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+
+    if (!ingestOriginalHeroUrl) {
+      setError("Няма записан Original URL от ingest.");
+      return;
+    }
+    if (!/^https?:\/\//i.test(ingestOriginalHeroUrl)) {
+      setError("Original URL трябва да започва с http:// или https://.");
+      return;
+    }
+
+    await runHeroImportFromUrl(
+      ingestOriginalHeroUrl,
+      "Качено от Original URL (ingest). Ако е Facebook lookaside и сървърът върне HTML, опитай директен scontent линк или качване на файл.",
+    );
   };
 
   const removeHeroImage = async () => {
@@ -939,6 +963,22 @@ export default function PendingFestivalEditForm({
                     </button>
                     <button
                       type="button"
+                      onClick={importHeroImageFromIngestOriginal}
+                      disabled={
+                        saving ||
+                        Boolean(runningAction) ||
+                        uploadingHeroImage ||
+                        importingHeroFromUrl ||
+                        removingHeroImage ||
+                        !canImportFromIngestOriginal
+                      }
+                      title="Ползва полето Original URL по-долу (от ingest), без да го копираш в Hero image"
+                      className="rounded-lg border border-[#18a05e]/35 bg-[#18a05e]/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#0e7a45] disabled:opacity-50"
+                    >
+                      {importingHeroFromUrl ? "Importing..." : "Import original URL"}
+                    </button>
+                    <button
+                      type="button"
                       onClick={removeHeroImage}
                       disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage || !heroImageUrl}
                       className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
@@ -947,7 +987,10 @@ export default function PendingFestivalEditForm({
                     </button>
                   </div>
                   <p className="mt-2 text-xs text-black/55">
-                    Import from URL downloads the file on the server and uploads it to Supabase; only the storage public URL is stored, not the external link.
+                    Import from URL downloads the file on the server and uploads it to Supabase; only the storage public URL is stored, not the external link.{" "}
+                    <span className="text-black/65">
+                      „Import original URL“ ползва <span className="font-medium">Original URL</span> от ingest (удобно, когато Hero е празен, но има кандидат линк).
+                    </span>
                   </p>
                 </div>
                 <div className="mt-3 rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-xs text-black/65">

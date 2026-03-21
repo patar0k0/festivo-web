@@ -1,4 +1,4 @@
-﻿import { addDays, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
+import { addDays, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, OrganizerProfile, PaginatedResult } from "@/lib/types";
@@ -12,23 +12,93 @@ const FESTIVAL_SELECT_DETAIL =
   "id,title,slug,description,start_date,end_date,city_id,city,region,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug),organizer:organizers!left(id,name,slug),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
 
 
+type FestivalOrganizerLinkRow = {
+  sort_order?: number | null;
+  organizers?: { id?: string | null; name?: string | null; slug?: string | null } | null;
+  /** PostgREST често връща ед. число за FK към organizers */
+  organizer?: { id?: string | null; name?: string | null; slug?: string | null } | null;
+};
+
+function nestedOrganizerFromLink(link: FestivalOrganizerLinkRow): { id?: string | null; name?: string | null; slug?: string | null } | null {
+  const raw = link.organizers ?? link.organizer;
+  if (!raw) return null;
+  if (Array.isArray(raw)) {
+    const first = raw[0];
+    return first && typeof first === "object" ? first : null;
+  }
+  return raw;
+}
+
 function getFestivalOrganizers(festival: Festival): Array<{ id?: string | null; name?: string | null; slug?: string | null; sort_order?: number | null }> {
-  const links = (festival as Festival & {
-    festival_organizers?: Array<{
-      sort_order?: number | null;
-      organizers?: { id?: string | null; name?: string | null; slug?: string | null } | null;
-    }> | null;
-  }).festival_organizers;
+  const links = (festival as Festival & { festival_organizers?: FestivalOrganizerLinkRow[] | null }).festival_organizers;
 
   return (links ?? [])
-    .map((link) => ({
-      id: link.organizers?.id ?? null,
-      name: link.organizers?.name ?? null,
-      slug: link.organizers?.slug ?? null,
-      sort_order: typeof link.sort_order === "number" ? link.sort_order : null,
-    }))
-    .filter((row) => Boolean(row.id && row.name))
+    .map((link) => {
+      const org = nestedOrganizerFromLink(link);
+      return {
+        id: org?.id ?? null,
+        name: org?.name ?? null,
+        slug: org?.slug ?? null,
+        sort_order: typeof link.sort_order === "number" ? link.sort_order : null,
+      };
+    })
+    .filter((row) => Boolean(String(row.id ?? "").trim() && String(row.name ?? "").trim()))
     .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999));
+}
+
+/** Явно зареждане на M2M връзки — вграденият select към festivals често връща грешен/непълен масив при >1 организатор. */
+async function mergeFestivalOrganizersFromJoinTable(
+  supabase: NonNullable<ReturnType<typeof supabaseServer>>,
+  festival: Festival
+): Promise<Festival> {
+  const festivalId = String(festival.id);
+  const { data: links, error: linksError } = await supabase
+    .from("festival_organizers")
+    .select("organizer_id,sort_order")
+    .eq("festival_id", festivalId)
+    .order("sort_order", { ascending: true })
+    .returns<Array<{ organizer_id: string; sort_order: number | null }>>();
+
+  if (linksError) {
+    console.error("[queries] festival_organizers lookup failed", { festivalId, message: linksError.message });
+    return festival;
+  }
+
+  const orderedLinks = links ?? [];
+  const ids = [...new Set(orderedLinks.map((l) => l.organizer_id).filter(Boolean))];
+  if (ids.length === 0) {
+    return festival;
+  }
+
+  const { data: orgRows, error: orgError } = await supabase.from("organizers").select("id,name,slug").in("id", ids);
+
+  if (orgError) {
+    console.error("[queries] organizers by id lookup failed", { festivalId, message: orgError.message });
+    return festival;
+  }
+
+  const orgById = new Map((orgRows ?? []).map((o) => [String(o.id), o]));
+
+  const syntheticLinks = orderedLinks
+    .map((link): FestivalOrganizerLinkRow | null => {
+      const org = orgById.get(String(link.organizer_id));
+      const name = org?.name?.trim() ?? "";
+      if (!org || !name) return null;
+      return {
+        sort_order: link.sort_order,
+        organizers: { id: org.id, name: org.name, slug: org.slug },
+      };
+    })
+    .filter((row): row is FestivalOrganizerLinkRow => row !== null);
+
+  if (syntheticLinks.length === 0) {
+    return festival;
+  }
+
+  return {
+    ...festival,
+    festival_organizers: syntheticLinks,
+  } as Festival;
 }
 
 function applyPublicScope<T>(query: T): T {
@@ -187,7 +257,8 @@ export async function getFestivalBySlug(slug: string): Promise<Festival | null> 
     return null;
   }
 
-  return fixFestivalText(festival);
+  const withOrganizers = await mergeFestivalOrganizersFromJoinTable(supabase, festival);
+  return fixFestivalText(withOrganizers);
 }
 
 export async function getFestivalDetail(
@@ -249,7 +320,7 @@ export async function getFestivalDetail(
   }));
 
   return {
-    festival: fixFestivalText(festival),
+    festival,
     media: fixedMedia,
     days: fixedDays,
     scheduleItems: fixedScheduleItems,

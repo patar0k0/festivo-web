@@ -14,7 +14,7 @@ Public users browse verified/published festivals, while ingestion inputs first l
 **Deployment:** Vercel
 
 ## Core System Modules
-- Public festival discovery (`festivals` queries scoped to visible statuses)
+- Public festival discovery (`festivals` queries scoped to visible statuses); public festival detail loads all `festival_organizers` rows via a dedicated query (not only the embedded select) so multiple organizers show under „Информация“.
 - Admin moderation (`pending_festivals` edit/approve/reject, including organizer resolve/create on approve)
 - Admin organizer quality controls (duplicate detection + manual merge workflow)
 - Admin ingest queue (`ingest_jobs` enqueue/retry/delete + job-to-record linking)

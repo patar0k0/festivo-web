@@ -133,6 +133,7 @@ type SaveFestivalResponse = {
     slug?: string | null;
   };
   displayed_city?: string | null;
+  hero_image?: string | null;
 };
 
 type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug">;
@@ -189,6 +190,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
   });
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
   const router = useRouter();
 
@@ -267,6 +269,49 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
     updateOrganizerIds(form.organizer_ids.filter((id) => id !== organizerId));
   };
 
+  const importHeroImageFromUrl = async () => {
+    if (saving || importingHeroFromUrl || actionPending) return;
+
+    const url = form.hero_image.trim();
+    if (!url) {
+      setError("Поставете URL на изображение в полето hero_image.");
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      setError("URL трябва да започва с http:// или https://.");
+      return;
+    }
+
+    setImportingHeroFromUrl(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await fetch(`/admin/api/festivals/${festival.id}/hero-image`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_url: url }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { ok?: boolean; hero_image?: string; error?: string } | null;
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? "Неуспешен импорт на hero изображение.");
+      }
+
+      const imported = typeof payload.hero_image === "string" ? payload.hero_image : "";
+      if (imported) {
+        updateField("hero_image", imported);
+      }
+      setMessage("Изображението е свалено и записано в Supabase; външният линк не се пази като hero_image.");
+      router.refresh();
+    } catch (importErr) {
+      setError(importErr instanceof Error ? importErr.message : "Възникна грешка при импорт.");
+    } finally {
+      setImportingHeroFromUrl(false);
+    }
+  };
 
   const onValidateCoords = () => {
     const validation = validateCoords(form.latitude, form.longitude);
@@ -403,6 +448,10 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
       }
       if (payload?.city?.id) {
         updateField("city_id", String(payload.city.id));
+      }
+
+      if (typeof payload?.hero_image === "string" && payload.hero_image.length > 0) {
+        updateField("hero_image", payload.hero_image);
       }
 
       setMessage("Промените са записани успешно.");
@@ -636,9 +685,22 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">price_range</span>
             <input value={form.price_range} onChange={(e) => updateField("price_range", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
-          <label>
+          <label className="md:col-span-2">
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">hero_image</span>
             <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={importHeroImageFromUrl}
+                disabled={saving || importingHeroFromUrl || Boolean(actionPending) || !form.hero_image.trim()}
+                className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+              >
+                {importingHeroFromUrl ? "Импорт..." : "Импорт от URL"}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-black/55">
+              Импортът сваля файла на сървъра и го качва в Supabase; в базата остава само публичният адрес от storage. При запис с http(s) линк към чуждо изображение същото се случва автоматично.
+            </p>
           </label>
           <label className="flex items-center gap-2 text-sm pt-6">
             <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
@@ -715,7 +777,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           <button
             type="button"
             onClick={() => runArchiveAction(form.status === "archived" ? "restore" : "archive")}
-            disabled={saving || Boolean(actionPending)}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
             className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
           >
             {actionPending === "archive" || actionPending === "restore"
@@ -727,14 +789,14 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           <button
             type="button"
             onClick={runDeleteAction}
-            disabled={saving || Boolean(actionPending)}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
             className="rounded-xl border border-[#b13a1a]/30 bg-[#ff4c1f]/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#b13a1a] disabled:opacity-50"
           >
             {actionPending === "delete" ? "Deleting..." : "Delete"}
           </button>
           <button
             type="submit"
-            disabled={saving || Boolean(actionPending)}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
             className="rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}

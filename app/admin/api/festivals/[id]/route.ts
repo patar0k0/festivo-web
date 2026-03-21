@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { isAlreadyOurSupabaseHeroPublicUrl, rehostHeroImageIfRemote } from "@/lib/admin/rehostHeroImageFromUrl";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { festivalPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
@@ -11,6 +13,7 @@ type SaveResponse = {
   city_created: boolean;
   city: { id: number | null; name_bg: string | null; slug: string | null };
   displayed_city: string | null;
+  hero_image?: string | null;
 };
 
 type CityRow = {
@@ -76,6 +79,31 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       ...festivalPatchFromCanonicalPartial(canonical),
       updated_at: new Date().toISOString(),
     };
+
+    let responseHeroImage: string | null | undefined;
+
+    if ("hero_image" in canonical) {
+      const heroVal = patch.hero_image;
+      if (typeof heroVal === "string" && heroVal.trim()) {
+        const inc = heroVal.trim();
+        if (/^https?:\/\//i.test(inc) && !isAlreadyOurSupabaseHeroPublicUrl(inc)) {
+          try {
+            const supabaseAdmin = createSupabaseAdmin();
+            const timestamp = Date.now();
+            const outcome = await rehostHeroImageIfRemote(supabaseAdmin, inc, (ext) => `festival-hero/manual/festival-${id}-${timestamp}.${ext}`);
+            if (!outcome.ok) {
+              return NextResponse.json({ error: `Hero image: ${outcome.error}` }, { status: 422 });
+            }
+            patch.hero_image = outcome.publicUrl;
+            patch.image_url = outcome.publicUrl;
+            responseHeroImage = outcome.publicUrl;
+          } catch (heroImportError) {
+            const message = heroImportError instanceof Error ? heroImportError.message : "Hero image import failed.";
+            return NextResponse.json({ error: message }, { status: 500 });
+          }
+        }
+      }
+    }
 
     if ("is_free" in body && typeof body.is_free === "boolean") {
       patch.is_free = body.is_free;
@@ -220,6 +248,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         ? { id: selectedCity.id, name_bg: selectedCity.name_bg, slug: selectedCity.slug }
         : { id: null, name_bg: null, slug: typeof patch.city === "string" ? patch.city : null },
       displayed_city: cityDisplay || null,
+      ...(responseHeroImage !== undefined ? { hero_image: responseHeroImage } : {}),
     };
 
     return NextResponse.json(response);

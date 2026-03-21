@@ -1,5 +1,4 @@
-import SiteFooter from "@/components/SiteFooter";
-import SiteHeader from "@/components/SiteHeader";
+import ConditionalSiteChrome from "@/components/ConditionalSiteChrome";
 
 export default function LayoutShell({
   children,
@@ -7,11 +6,5 @@ export default function LayoutShell({
   children: React.ReactNode;
   forceChrome?: boolean;
 }) {
-  return (
-    <>
-      <SiteHeader />
-      <main>{children}</main>
-      <SiteFooter />
-    </>
-  );
+  return <ConditionalSiteChrome>{children}</ConditionalSiteChrome>;
 }

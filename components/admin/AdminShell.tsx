@@ -1,39 +1,28 @@
 import Link from "next/link";
+import AdminTopNav from "@/components/admin/AdminTopNav";
 
 export default function AdminShell({ children, email }: { children: React.ReactNode; email?: string | null }) {
   return (
     <div className="landing-bg min-h-screen text-[#0c0e14]">
       <div className="border-b border-black/[0.08] bg-white/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Festivo Admin</p>
-            <p className="text-sm text-black/60">{email ?? "admin"}</p>
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Festivo админ</p>
+              <p className="text-sm text-black/60">{email ?? "admin"}</p>
+            </div>
+            <Link
+              href="/"
+              className="shrink-0 rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-black/70 hover:bg-[#f7f6f3]"
+            >
+              Към сайта
+            </Link>
           </div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em]">
-            <Link href="/admin" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
-              Dashboard
-            </Link>
-            <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
-              Festivals
-            </Link>
-            <Link href="/admin/organizers" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
-              Organizers
-            </Link>
-            <Link href="/admin/pending-festivals" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
-              Pending
-            </Link>
-            <Link href="/admin/ingest" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
-              Ingest
-            </Link>
-            <Link href="/admin/discovery" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
-              Discovery
-            </Link>
-            <Link href="/admin/research" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 hover:bg-[#f7f6f3]">
-              Research
-            </Link>
-            <form action="/api/auth/logout" method="post">
-              <button type="submit" className="rounded-xl bg-[#0c0e14] px-3 py-2 text-white hover:bg-[#1d202b]">
-                Logout
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <AdminTopNav />
+            <form action="/api/auth/logout" method="post" className="flex sm:justify-end">
+              <button type="submit" className="w-full rounded-xl bg-[#0c0e14] px-3 py-2 text-white hover:bg-[#1d202b] sm:w-auto">
+                Изход
               </button>
             </form>
           </div>

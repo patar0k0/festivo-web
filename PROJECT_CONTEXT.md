@@ -73,6 +73,8 @@ Worker helper `workers/ingest_fb_event.js` performs hero image handling for inge
 Failure behavior is fail-closed by default (`allowOriginalOnFailure=false`): if rehosting/validation fails for detected Facebook URLs, hero image is set to `null` rather than preserving original URL.
 
 ## Public vs admin visibility
+
+- Routes under `/admin` render without the public site header/footer (`ConditionalSiteChrome`); admin chrome is `AdminShell` (BG labels, active nav, single „Изход“, link „Към сайта“).
 - Public queries include verified/published rows and exclude archived (`status != archived`).
 - Pending festivals are admin-only moderation records.
 - Published admin management supports archive/restore/delete on `festivals`, and links into organizer profile enrichment in admin organizers pages.

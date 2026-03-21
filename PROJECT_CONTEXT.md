@@ -100,7 +100,7 @@ Failure behavior is fail-closed by default (`allowOriginalOnFailure=false`): if 
 - `user_plan_items`
 - `user_plan_reminders`
 
-**Моят план (UX):** „Запази“ на картите/картата записва целия фестивал (`user_plan_festivals`); отделни часове се добавят само от детайлната страница в секция „Програма“ (`user_plan_items`). Напомнянията са към фестивала. На детайлна страница секцията „Програма“ винаги е налична с anchor `#festival-program` (виж `lib/festival/programmeAnchor.ts`).
+**Моят план (UX):** На листинг картите само „Запази“/„Запазено“ (без линк „Програма“ и без напомняне в картата). На картата (`MapView`) и детайла остават програма + напомняне където е подходящо. „Запази“ записва целия фестивал (`user_plan_festivals`); отделни часове — от детайлна страница „Програма“ (`user_plan_items`). Напомнянията са към фестивала. Секция „Програма“ на детайл: anchor `#festival-program` (`lib/festival/programmeAnchor.ts`).
 - `user_notifications`
 - `device_tokens`
 

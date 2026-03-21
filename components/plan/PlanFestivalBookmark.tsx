@@ -7,14 +7,24 @@ import type { ReminderType } from "@/lib/plan/server";
 
 type PlanFestivalBookmarkProps = {
   festivalId: string;
-  /** Link to festival detail (програма се избира там). */
+  /** Link to festival detail programme block (`#festival-program`). */
   programmeHref?: string | null;
   compact?: boolean;
+  /** Listing cards: hide programme shortcut (default true elsewhere). */
+  showProgrammeLink?: boolean;
+  /** Listing cards: hide reminder select (default true elsewhere). */
+  showReminder?: boolean;
 };
 
 const LOGIN_HREF = "/login";
 
-export default function PlanFestivalBookmark({ festivalId, programmeHref, compact = true }: PlanFestivalBookmarkProps) {
+export default function PlanFestivalBookmark({
+  festivalId,
+  programmeHref,
+  compact = true,
+  showProgrammeLink = true,
+  showReminder = true,
+}: PlanFestivalBookmarkProps) {
   const {
     isAuthenticated,
     authRequired,
@@ -31,6 +41,7 @@ export default function PlanFestivalBookmark({ festivalId, programmeHref, compac
 
   const saved = isFestivalInPlan(festivalId);
   const reminder = reminderTypeByFestivalId[String(festivalId)] ?? "none";
+  const programmeLink = showProgrammeLink && programmeHref ? programmeHref : null;
 
   const stopEvent = (event: SyntheticEvent) => {
     event.preventDefault();
@@ -91,9 +102,9 @@ export default function PlanFestivalBookmark({ festivalId, programmeHref, compac
           {loading ? "…" : saved ? "Запазено" : "Запази"}
         </button>
 
-        {programmeHref ? (
+        {programmeLink ? (
           <Link
-            href={programmeHref}
+            href={programmeLink}
             onClick={stopEvent}
             className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
           >
@@ -101,30 +112,40 @@ export default function PlanFestivalBookmark({ festivalId, programmeHref, compac
           </Link>
         ) : null}
 
-        <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
-          Напомняне
-          <select
-            value={reminder}
-            onClick={stopEvent}
-            onChange={(event) => {
-              stopEvent(event);
-              void setFestivalReminder(String(festivalId), event.target.value as ReminderType);
-            }}
-            disabled={!isAuthenticated}
-            className="ml-2 rounded-lg border border-black/[0.1] bg-white px-2 py-1 text-xs text-[#0c0e14] disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            <option value="none">Без</option>
-            <option value="24h">24h</option>
-            <option value="same_day_09">09:00</option>
-          </select>
-        </label>
+        {showReminder ? (
+          <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+            Напомняне
+            <select
+              value={reminder}
+              onClick={stopEvent}
+              onChange={(event) => {
+                stopEvent(event);
+                void setFestivalReminder(String(festivalId), event.target.value as ReminderType);
+              }}
+              disabled={!isAuthenticated}
+              className="ml-2 rounded-lg border border-black/[0.1] bg-white px-2 py-1 text-xs text-[#0c0e14] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <option value="none">Без</option>
+              <option value="24h">24h</option>
+              <option value="same_day_09">09:00</option>
+            </select>
+          </label>
+        ) : null}
       </div>
 
       {error ? <p className="text-xs text-red-700">{error}</p> : null}
 
       {!isAuthenticated || authRequired ? (
         <p className="text-xs text-black/55">
-          Влез, за да запазваш фестивали и напомняния. <Link href={LOGIN_HREF} className="underline">Вход</Link>
+          {showReminder ? (
+            <>
+              Влез, за да запазваш фестивали и напомняния. <Link href={LOGIN_HREF} className="underline">Вход</Link>
+            </>
+          ) : (
+            <>
+              Влез, за да запазваш фестивали. <Link href={LOGIN_HREF} className="underline">Вход</Link>
+            </>
+          )}
         </p>
       ) : null}
     </div>

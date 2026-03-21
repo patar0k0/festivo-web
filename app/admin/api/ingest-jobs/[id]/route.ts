@@ -77,6 +77,9 @@ export async function PATCH(_request: Request, context: RouteContext) {
   if ("pending_festival_id" in current) {
     resetPatch.pending_festival_id = null;
   }
+  if ("fb_browser_context" in current) {
+    resetPatch.fb_browser_context = null;
+  }
 
   const { error: updateError } = await ctx.supabase
     .from("ingest_jobs")

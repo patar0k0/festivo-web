@@ -15,6 +15,7 @@ type IngestJobRow = {
   started_at: string | null;
   finished_at: string | null;
   error: string | null;
+  fb_browser_context: "authenticated" | "anonymous" | null;
 };
 
 type PendingFestivalLookupRow = {
@@ -46,7 +47,7 @@ export default async function AdminIngestPage() {
 
   const { data, error } = await ctx.supabase
     .from("ingest_jobs")
-    .select("id,status,source_url,created_at,started_at,finished_at,error")
+    .select("id,status,source_url,created_at,started_at,finished_at,error,fb_browser_context")
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -197,6 +198,10 @@ export default async function AdminIngestPage() {
       `[admin-ingest] job=${String(row.id)} matched_pending=${consideredPending || "none"} pending_id=${pendingFestivalId ?? "null"} pending_status=${pendingStatus ?? "null"} published_festival_id=${publishedFestivalId ?? "null"} chosen_status=${pendingStatus ?? "none"} chosen_action=${moderationAction}`,
     );
 
+    const fbCtx = row.fb_browser_context;
+    const fb_browser_context: IngestJobRow["fb_browser_context"] =
+      fbCtx === "authenticated" || fbCtx === "anonymous" ? fbCtx : null;
+
     return {
       id: String(row.id),
       status: row.status as IngestJobRow["status"],
@@ -209,6 +214,7 @@ export default async function AdminIngestPage() {
       started_at: row.started_at ?? null,
       finished_at: row.finished_at ?? null,
       error: row.error ?? null,
+      fb_browser_context,
     };
   });
 

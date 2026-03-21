@@ -16,7 +16,16 @@ type IngestJobRow = {
   started_at: string | null;
   finished_at: string | null;
   error: string | null;
+  fb_browser_context: "authenticated" | "anonymous" | null;
 };
+
+function fbBrowserContextLabel(row: IngestJobRow): string {
+  if (row.status === "pending" || row.status === "queued") return "—";
+  if (row.status === "processing" && row.fb_browser_context == null) return "…";
+  if (row.fb_browser_context === "authenticated") return "С FB сесия";
+  if (row.fb_browser_context === "anonymous") return "Анонимно";
+  return "—";
+}
 
 type RowAction = "retry" | "delete";
 
@@ -140,7 +149,9 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
     <div className="space-y-5">
       <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
         <h2 className="text-lg font-bold">Queue Facebook event</h2>
-        <p className="mt-1 text-sm text-black/65">Paste a Facebook event URL to enqueue it for worker ingestion.</p>
+        <p className="mt-1 text-sm text-black/65">
+          Paste a Facebook event URL to enqueue it for worker ingestion. „С FB сесия“ означава, че worker-ът е ползвал запазен Facebook login (FB_STORAGE_STATE_B64).
+        </p>
 
         <form onSubmit={onSubmit} className="mt-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-black/50">
@@ -171,6 +182,7 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
           <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
             <tr>
               <th className="px-3 py-3">Status</th>
+              <th className="px-3 py-3">FB браузър</th>
               <th className="px-3 py-3">Source URL</th>
               <th className="px-3 py-3">Created</th>
               <th className="px-3 py-3">Started</th>
@@ -209,6 +221,9 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
                 return (
                   <tr key={row.id} className="hover:bg-black/[0.02]">
                     <td className="px-3 py-3 text-black/75">{workflowState}</td>
+                    <td className="px-3 py-3 text-black/65" title="Playwright: логнат FB профил или анонимно">
+                      {fbBrowserContextLabel(row)}
+                    </td>
                     <td className="px-3 py-3 text-black/75">
                       <a href={row.source_url} target="_blank" rel="noreferrer" className="break-all underline decoration-black/25 underline-offset-2">
                         {row.source_url}
@@ -270,7 +285,7 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
               })
             ) : (
               <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-sm text-black/60">
+                <td colSpan={8} className="px-6 py-12 text-center text-sm text-black/60">
                   No jobs queued yet.
                 </td>
               </tr>

@@ -60,6 +60,17 @@ Example:
 
 `20260305_user_notification_preferences.sql`
 
+## Documentation sync (same PR / same agent task)
+
+When you add or change schema, RPCs, RLS, or meaningful API/product behavior, update the in-repo source-of-truth docs in the **same change**, without waiting for a separate request:
+
+- `docs/database-schema.md` (tables, columns, functions, grants)
+- `docs/system-architecture.md` (flows)
+- `docs/er-diagram.md` (if entity attributes in the diagram change)
+- `PROJECT_CONTEXT.md` (high-level product/module notes)
+
+See `.cursor/rules/festivo.mdc` for the full checklist.
+
 ## Migration quality requirements
 
 When generating migrations always include:

@@ -1,0 +1,53 @@
+---
+description: Festivo mandatory context, doc sync, DB and coding rules
+alwaysApply: true
+---
+
+# Festivo agent rules
+
+## 1) Mandatory context loading (before substantive work)
+
+Read in this order when the task touches product behavior, data, or APIs:
+
+1. `PROJECT_CONTEXT.md`
+2. `AI_CONTEXT.md`
+3. `AI_DEVELOPER_RULES.md`
+4. `AI_SYSTEM_ARCHITECT.md`
+5. `docs/database-schema.md`
+6. `docs/system-architecture.md`
+7. `docs/notification-system.md`
+8. `docs/er-diagram.md`
+
+Skip only for purely mechanical edits (typos, formatting) that cannot affect schema or architecture.
+
+## 2) Documentation sync (same task as the code change)
+
+After completing a task, **update docs in-repo without asking**, when anything relevant changed:
+
+| Change type | Update |
+|-------------|--------|
+| New/altered tables, columns, functions, RPCs, grants, RLS | `docs/database-schema.md` + new/edited `scripts/sql/*.sql` reference; `docs/er-diagram.md` if entity shapes change |
+| Product flows, moderation, public vs admin | `PROJECT_CONTEXT.md`, `docs/system-architecture.md` |
+| Cross-cutting AI/migration conventions | `AI_CONTEXT.md` (only if conventions change) |
+| Notifications / jobs | `docs/notification-system.md` |
+
+If a listed file is not impacted, leave it unchanged. **Schema or API behavior changes must not ship without touching `docs/database-schema.md` and/or `docs/system-architecture.md` as appropriate.**
+
+## 3) Project summary
+
+- Moderation-first festival catalog: public reads `festivals` (verified/published scope); candidates live in `pending_festivals`.
+- Approve inserts into `festivals`; reject updates pending only.
+- Supabase Postgres + RLS is source of truth.
+- Notifications: plan/reminder/follow → `user_notifications` → push via `device_tokens`.
+
+## 4) Coding conventions
+
+- Small, incremental diffs; reuse `app/api`, `app/admin/api`, `lib/*` patterns.
+- Explicit TypeScript; server-only secrets on server routes.
+- Preserve API compatibility unless a breaking change is requested.
+
+## 5) Database (strict)
+
+- No schema changes from application code; no assumption that migrations are applied in prod.
+- Deliver changes as `scripts/sql/YYYYMMDD_description.sql` with indexes, constraints, and RLS when relevant.
+- No destructive drops without explicit user approval.

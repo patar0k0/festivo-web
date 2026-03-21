@@ -62,6 +62,7 @@ Moderation table for ingested candidates before publication.
 | longitude | numeric | moderation coordinates |
 | start_date | date | required for approve/publish |
 | end_date | date | optional end date |
+| occurrence_dates | jsonb | optional sorted unique ISO date strings `["2025-06-11","2025-06-18"]` for non-consecutive days; null/empty → use `start_date`/`end_date` range only (see `public.festivals_intersecting_range`) |
 | organizer_name | text | source organizer hint |
 | source_url | text | source reference and dedupe key |
 | source_type | text | ingest source type carried into publish mapping |
@@ -107,8 +108,9 @@ Published festival catalog used by public discovery/detail pages and admin publi
 | city | text | denormalized city slug/text used in filters and fallback display |
 | region | text | region filter/display field |
 | address | text | venue address |
-| start_date | date | listing and calendar window logic |
-| end_date | date | optional range end |
+| start_date | date | listing and calendar window logic; with discrete days, typically min day (merged in app) |
+| end_date | date | optional range end; with discrete days, typically max day (merged in app) |
+| occurrence_dates | jsonb | optional non-consecutive calendar days (ISO date strings in a JSON array); null/empty → continuous range via `start_date`/`end_date` only |
 | category | text | category filter |
 | image_url | text | persisted hero image on approve path |
 | hero_image | text | also read by public UI/image resolver if present |
@@ -127,8 +129,19 @@ Published festival catalog used by public discovery/detail pages and admin publi
 
 Behavior tied to these columns:
 - approve inserts new rows with `status=verified`, `is_verified=true`, `source_type` mapped from ingest source
+- public date filtering and calendar placement use `occurrence_dates` when present; otherwise legacy overlap on `start_date`/`end_date` (PostgREST RPC `public.festivals_intersecting_range(p_from, p_to)` — see `scripts/sql/20260323_festival_occurrence_dates.sql`)
 - archive/restore toggles `status` between `archived` and `verified`
 - public queries include verified/published/is_verified rows but exclude archived
+
+## public.festivals_intersecting_range
+
+SQL function (not a table): `festivals_intersecting_range(p_from date, p_to date) → setof (festival_id uuid)`.
+
+- Returns published/verified (non-archived) festivals that overlap the inclusive window.
+- Overlap is either any discrete day in `occurrence_dates` within the window, or classic range overlap when `occurrence_dates` is null/empty.
+- Granted to `anon` and `authenticated` for use from the web app Supabase client.
+
+Migration: `scripts/sql/20260323_festival_occurrence_dates.sql`.
 
 ## Notes on authoritative vs advisory data
 - Authoritative publish inputs are moderated core columns on `pending_festivals`.

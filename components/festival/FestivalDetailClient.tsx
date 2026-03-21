@@ -25,6 +25,8 @@ type Props = {
   citySlug: string | null;
   calendarMonth: string | null;
   relatedFestivals: Festival[];
+  /** Линк към админ формата за редакция; показва се само за логнати админи. */
+  adminEditHref?: string | null;
 };
 
 type GroupedDay = {
@@ -138,6 +140,7 @@ export default function FestivalDetailClient({
   citySlug,
   calendarMonth,
   relatedFestivals,
+  adminEditHref,
 }: Props) {
   const groupedDays = useMemo(() => getGroupedDays(days, scheduleItems), [days, scheduleItems]);
   const sortedScheduleItems = useMemo(() => sortScheduleItems(scheduleItems), [scheduleItems]);
@@ -232,6 +235,14 @@ export default function FestivalDetailClient({
     <div className="space-y-10 md:space-y-12">
       <section className="overflow-hidden rounded-[24px] border border-black/[0.08] bg-white shadow-[0_2px_0_rgba(12,14,20,0.06),0_12px_32px_rgba(12,14,20,0.07)]">
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
+          {adminEditHref ? (
+            <Link
+              href={adminEditHref}
+              className="absolute right-3 top-3 z-20 rounded-xl border border-white/45 bg-black/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-white shadow-[0_4px_14px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-white/70 hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/80"
+            >
+              Редакция
+            </Link>
+          ) : null}
           {heroImage && !heroImageFailed ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element -- Hero image URL can be external/unknown at runtime and needs direct fallback handling via onError. */}

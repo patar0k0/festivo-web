@@ -3,6 +3,7 @@ import { format, parseISO } from "date-fns";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import FestivalDetailClient from "@/components/festival/FestivalDetailClient";
+import { getAdminSession } from "@/lib/admin/isAdmin";
 import { getCityFestivals, getFestivalBySlug, getFestivalDetail } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { slugify } from "@/lib/utils";
@@ -50,16 +51,21 @@ export default async function Page({
     : null;
   const calendarMonth = data.festival.start_date ? format(parseISO(data.festival.start_date), "yyyy-MM") : null;
 
-  const relatedResponse = cityFilterValue
-    ? await getCityFestivals(
-        cityFilterValue,
-        { city: [cityFilterValue], free: data.festival.is_free ?? true },
-        1,
-        6,
-      )
-    : null;
+  const [relatedResponse, adminSession] = await Promise.all([
+    cityFilterValue
+      ? getCityFestivals(
+          cityFilterValue,
+          { city: [cityFilterValue], free: data.festival.is_free ?? true },
+          1,
+          6,
+        )
+      : Promise.resolve(null),
+    getAdminSession(),
+  ]);
 
   const relatedFestivals = (relatedResponse?.data ?? []).filter((item) => item.slug !== data.festival.slug);
+
+  const adminEditHref = adminSession?.isAdmin ? `/admin/festivals/${String(data.festival.id)}` : null;
 
   return (
     <div className="landing-bg text-[#0c0e14]">
@@ -75,6 +81,7 @@ export default async function Page({
             citySlug={citySlug}
             calendarMonth={calendarMonth}
             relatedFestivals={relatedFestivals}
+            adminEditHref={adminEditHref}
           />
         </Container>
       </Section>

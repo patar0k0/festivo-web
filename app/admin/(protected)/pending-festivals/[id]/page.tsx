@@ -73,5 +73,37 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
 
   const qualityDiagnostics = assessPendingFestivalQuality(pendingFestival);
 
-  return <PendingFestivalEditForm pendingFestival={pendingFestival} qualityDiagnostics={qualityDiagnostics} />;
+  let lastIngestJobMeta: {
+    status: string;
+    fb_browser_context: "authenticated" | "anonymous" | null;
+    finished_at: string | null;
+  } | null = null;
+
+  const sourceUrlForIngest = typeof pendingFestival.source_url === "string" ? pendingFestival.source_url.trim() : "";
+  if (sourceUrlForIngest) {
+    const { data: ingestJob, error: ingestJobError } = await ctx.supabase
+      .from("ingest_jobs")
+      .select("status,fb_browser_context,finished_at")
+      .eq("source_url", sourceUrlForIngest)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!ingestJobError && ingestJob && typeof ingestJob.status === "string") {
+      const fb = ingestJob.fb_browser_context;
+      lastIngestJobMeta = {
+        status: ingestJob.status,
+        fb_browser_context: fb === "authenticated" || fb === "anonymous" ? fb : null,
+        finished_at: typeof ingestJob.finished_at === "string" ? ingestJob.finished_at : null,
+      };
+    }
+  }
+
+  return (
+    <PendingFestivalEditForm
+      pendingFestival={pendingFestival}
+      qualityDiagnostics={qualityDiagnostics}
+      lastIngestJobMeta={lastIngestJobMeta}
+    />
+  );
 }

@@ -306,12 +306,33 @@ function prettyJson(value: unknown) {
   }
 }
 
+export type LastIngestJobMeta = {
+  status: string;
+  fb_browser_context: "authenticated" | "anonymous" | null;
+  finished_at: string | null;
+};
+
+function formatLastIngestLine(meta: LastIngestJobMeta | null): string | null {
+  if (!meta) return null;
+  const fb =
+    meta.fb_browser_context === "authenticated"
+      ? "С FB сесия"
+      : meta.fb_browser_context === "anonymous"
+        ? "Анонимен браузър"
+        : "FB режим: неизвестен (преди запис в опашката)";
+  const st = meta.status;
+  const fin = meta.finished_at ? new Date(meta.finished_at).toLocaleString("bg-BG") : null;
+  return [fb, `статус: ${st}`, fin ? `приключи: ${fin}` : null].filter(Boolean).join(" · ");
+}
+
 export default function PendingFestivalEditForm({
   pendingFestival,
   qualityDiagnostics,
+  lastIngestJobMeta = null,
 }: {
   pendingFestival: PendingFestivalRecord;
   qualityDiagnostics: PendingFestivalQuality;
+  lastIngestJobMeta?: LastIngestJobMeta | null;
 }) {
   const router = useRouter();
   const tagsCurrent = normalizeTagsGuess(pendingFestival.tags);
@@ -385,6 +406,8 @@ export default function PendingFestivalEditForm({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [safeApplySummary, setSafeApplySummary] = useState<{ appliedFields: string[]; skippedUnchangedOrMissing: string[] } | null>(null);
+  const lastIngestSummary = formatLastIngestLine(lastIngestJobMeta);
+
   const [heroPreviewError, setHeroPreviewError] = useState(false);
   const [appliedAiFields, setAppliedAiFields] = useState<Record<SuggestionField, boolean>>({
     category: false,
@@ -866,6 +889,15 @@ export default function PendingFestivalEditForm({
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source URL</span>
                 <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                {lastIngestSummary ? (
+                  <p className="mt-2 text-xs text-black/60" title="От съответния ред в Ingest queue (същият source_url)">
+                    Последен ingest: {lastIngestSummary}
+                  </p>
+                ) : form.source_url.trim() ? (
+                  <p className="mt-2 text-xs text-black/50">
+                    Няма намерен ingest job с този точен source_url — виж <span className="font-medium">/admin/ingest</span>.
+                  </p>
+                ) : null}
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Website URL</span>

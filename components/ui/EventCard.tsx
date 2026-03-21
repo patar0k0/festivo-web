@@ -150,15 +150,18 @@ export default function EventCard({
           </div>
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent"
+          aria-hidden
+        />
 
-        <div className="absolute left-4 top-4 rounded-lg bg-[#ff4c1f] px-3 py-2 text-center text-white shadow-[0_8px_18px_rgba(255,76,31,0.35)]">
+        <div className="pointer-events-none absolute left-4 top-4 rounded-lg bg-[#ff4c1f] px-3 py-2 text-center text-white shadow-[0_8px_18px_rgba(255,76,31,0.35)]">
           <div className="text-[10px] font-semibold uppercase tracking-wide">{badge.month}</div>
           <div className="text-base font-bold leading-none">{badge.day}</div>
         </div>
 
         {categoryText ? (
-          <div className="absolute right-4 top-4 rounded-full border border-black/5 bg-white/92 px-3 py-1 text-xs font-semibold text-black/70 backdrop-blur">
+          <div className="pointer-events-none absolute right-4 top-4 rounded-full border border-black/5 bg-white/92 px-3 py-1 text-xs font-semibold text-black/70 backdrop-blur">
             {categoryText}
           </div>
         ) : null}

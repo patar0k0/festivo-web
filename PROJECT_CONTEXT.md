@@ -74,7 +74,7 @@ Failure behavior is fail-closed by default (`allowOriginalOnFailure=false`): if 
 
 ## Public vs admin visibility
 
-- Routes under `/admin` render without the public site header/footer (`ConditionalSiteChrome`); admin chrome is `AdminShell` (BG labels, active nav, single „Изход“, link „Към сайта“).
+- Routes under `/admin` render without the public site header/footer (`ConditionalSiteChrome` + `usePathname`); `SiteHeader`/`SiteFooter` are passed as props from the server `LayoutShell` so `next/headers` is not pulled into the client bundle (Vercel build).
 - Public queries include verified/published rows and exclude archived (`status != archived`).
 - Pending festivals are admin-only moderation records.
 - Published admin management supports archive/restore/delete on `festivals`, and links into organizer profile enrichment in admin organizers pages.

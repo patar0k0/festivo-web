@@ -1,13 +1,20 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import SiteFooter from "@/components/SiteFooter";
-import SiteHeader from "@/components/SiteHeader";
+
+type Props = {
+  children: React.ReactNode;
+  /** Рендерира се на сървъра — не импортирай SiteHeader в този файл. */
+  header: React.ReactNode;
+  /** Рендерира се на сървъра */
+  footer: React.ReactNode;
+};
 
 /**
  * Админ зоната (/admin/*) без публичен хедър/футър — един изход и по-малко шум.
+ * Хедърът се подава от сървърен родител, за да не влиза next/headers в client bundle.
  */
-export default function ConditionalSiteChrome({ children }: { children: React.ReactNode }) {
+export default function ConditionalSiteChrome({ children, header, footer }: Props) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith("/admin") ?? false;
 
@@ -17,9 +24,9 @@ export default function ConditionalSiteChrome({ children }: { children: React.Re
 
   return (
     <>
-      <SiteHeader />
+      {header}
       <main>{children}</main>
-      <SiteFooter />
+      {footer}
     </>
   );
 }

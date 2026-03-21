@@ -27,7 +27,7 @@ function getDateBadge(date?: string | null) {
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return { month: "TBA", day: "--" };
   return {
-    month: format(parsed, "MMM", { locale: bg }).toLocaleUpperCase("bg-BG"),
+    month: format(parsed, "MMMM", { locale: bg }).toLocaleUpperCase("bg-BG"),
     day: format(parsed, "dd"),
   };
 }
@@ -37,10 +37,10 @@ function formatDateRange(start?: string | null, end?: string | null) {
   const startDate = new Date(start);
   if (Number.isNaN(startDate.getTime())) return "Дата предстои";
   if (!end || end === start) {
-    return format(startDate, "d MMM yyyy", { locale: bg });
+    return format(startDate, "d MMMM yyyy", { locale: bg });
   }
   const endDate = new Date(end);
-  return `${format(startDate, "d MMM", { locale: bg })} - ${format(endDate, "d MMM yyyy", { locale: bg })}`;
+  return `${format(startDate, "d MMMM", { locale: bg })} - ${format(endDate, "d MMMM yyyy", { locale: bg })}`;
 }
 
 function getSignalTag(isFree?: boolean | null, startDate?: string | null) {
@@ -155,9 +155,9 @@ export default function EventCard({
           aria-hidden
         />
 
-        <div className="pointer-events-none absolute left-4 top-4 rounded-lg bg-[#ff4c1f] px-3 py-2 text-center text-white shadow-[0_8px_18px_rgba(255,76,31,0.35)]">
-          <div className="text-[10px] font-semibold uppercase tracking-wide">{badge.month}</div>
-          <div className="text-base font-bold leading-none">{badge.day}</div>
+        <div className="pointer-events-none absolute left-4 top-4 max-w-[6.25rem] rounded-lg bg-[#ff4c1f] px-2 py-2 text-center text-white shadow-[0_8px_18px_rgba(255,76,31,0.35)]">
+          <div className="text-[9px] font-semibold uppercase leading-tight tracking-wide">{badge.month}</div>
+          <div className="mt-0.5 text-base font-bold leading-none">{badge.day}</div>
         </div>
 
         {categoryText ? (

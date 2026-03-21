@@ -10,6 +10,7 @@ erDiagram
     bigint id PK
     text slug UK
     text name_bg
+    boolean is_village
   }
 
   ingest_jobs {
@@ -18,6 +19,7 @@ erDiagram
     text source_type
     text status
     text error
+    text fb_browser_context
     timestamptz created_at
     timestamptz started_at
     timestamptz finished_at

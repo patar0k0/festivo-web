@@ -16,6 +16,11 @@ Public users browse verified/published festivals, while ingestion inputs first l
 ## Core System Modules
 - Public festival discovery (`festivals` queries scoped to visible statuses); public festival detail loads all `festival_organizers` rows via a dedicated query and resolves organizer names (service role client when `SUPABASE_SERVICE_ROLE_KEY` is set, otherwise anon — requires RLS `select` on `organizers` for active rows, see `scripts/sql/20260321_organizers_public_select_active.sql`).
 - **Festival dates:** `festivals` and `pending_festivals` may store non-consecutive days in `occurrence_dates` (jsonb array of ISO dates). Empty/null means “continuous range” via `start_date`/`end_date` only. App code merges min/max into start/end when discrete days are set (`lib/festival/occurrenceDates.ts`); listing/ICS/calendar use `lib/festival/listingDates.ts` and `lib/queries.ts` (RPC `festivals_intersecting_range` for filters). Admin: occurrence editor on published and pending festival forms. SQL: `scripts/sql/20260323_festival_occurrence_dates.sql`.
+- **Settlement labels:** `cities.is_village` drives „с.“ vs град в публичния UI; логика в `lib/settlements/formatDisplayName.ts` и `festivalCityLabel` (SQL: `scripts/sql/20260321_cities_is_village.sql`).
+- **Admin hero от URL:** `lib/admin/rehostHeroImageFromUrl.ts` — валидиране и качване в Storage; API `PATCH .../admin/api/pending-festivals/[id]/hero-image` и `PATCH .../admin/api/festivals/[id]/hero-image`. Worker и админ пишат метаданни в `pending_festivals.hero_image_*` колоните (виж `scripts/sql/20260322_add_pending_festivals_hero_ingest_columns.sql`).
+- **Ingest диагностика:** `ingest_jobs.fb_browser_context` се попълва от festivo-workers; админ pending страницата показва последния job статус/контекст до реда.
+- **Публична детайлна страница:** медия галерия чрез `components/festival/FestivalGallery.tsx` в `FestivalDetailClient`.
+- **Дати в админ форми:** компонент `DdMmYyyyDateInput` + `lib/dates/euDateFormat.ts` за въвеждане/показване в EU подредба.
 - Admin moderation (`pending_festivals` edit/approve/reject, including organizer resolve/create on approve)
 - Admin organizer quality controls (duplicate detection + manual merge workflow)
 - Admin ingest queue (`ingest_jobs` enqueue/retry/delete + job-to-record linking)
@@ -64,14 +69,16 @@ These guesses are non-authoritative:
 - merge is additive-only (fills null fields, does not overwrite already extracted values)
 
 ## Hero image rehosting role
-Worker helper `workers/ingest_fb_event.js` performs hero image handling for ingestion patches:
+Worker `workers/ingest_fb_event.js` (operational deployment: festivo-workers) performs hero image handling for ingestion patches:
 - extracts candidate image from Facebook cover first, OG image second
 - detects Facebook-hosted image URLs
-- downloads with validation (timeout, redirect limit, max bytes, image content-type)
+- downloads with validation (timeout, redirect limit, max bytes, image content-type); may send user-agent / session-related headers where configured
 - uploads validated images to Supabase Storage bucket (`festival-hero-images` by default)
-- writes resulting public URL to `pending_festivals.hero_image`
+- writes resulting public URL to `pending_festivals.hero_image` and fills `hero_image_source`, `hero_image_original_url`, `hero_image_score`, `hero_image_fallback_reason` when the schema columns exist
 
-Failure behavior is fail-closed by default (`allowOriginalOnFailure=false`): if rehosting/validation fails for detected Facebook URLs, hero image is set to `null` rather than preserving original URL.
+The Next.js admin app can rehost from an arbitrary HTTPS image URL using the same validation/upload path (`lib/admin/rehostHeroImageFromUrl.ts`) via the hero-image API routes above.
+
+Failure behavior is fail-closed by default (`allowOriginalOnFailure=false`): if rehosting/validation fails for detected Facebook URLs, hero image is set to `null` rather than preserving original URL; reasons may be recorded in `hero_image_fallback_reason`.
 
 ## Public vs admin visibility
 

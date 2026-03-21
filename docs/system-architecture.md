@@ -25,12 +25,14 @@ This repo includes worker helper logic in `workers/ingest_fb_event.js` for:
 
 2. **Ingestion worker processing**
    - Worker marks job lifecycle in `ingest_jobs` (`pending/processing/done/failed`).
-   - Worker creates or updates `pending_festivals` (actual worker orchestration is not implemented in Next.js routes here).
+   - Worker may persist `ingest_jobs.fb_browser_context` (authenticated Playwright FB state vs anonymous) for admin diagnostics.
+   - Worker creates or updates `pending_festivals` (actual worker orchestration is not implemented in Next.js routes here). Recent worker versions also map extra event fields (e.g. external website, ticket URL, price range) and hero metadata columns when present in the DB.
 
 3. **Admin moderation of pending record**
    - `/admin/pending-festivals`: lists only `status=pending`.
-   - `/admin/pending-festivals/[id]`: full record editing.
+   - `/admin/pending-festivals/[id]`: full record editing; may show last linked `ingest_jobs` status, finish time, and `fb_browser_context`. Optional “filled fields” summary uses `lib/admin/pendingFestivalQuality.ts`.
    - Save route (`PATCH /admin/api/pending-festivals/[id]`) updates pending core fields.
+   - Hero image import from URL: `PATCH /admin/api/pending-festivals/[id]/hero-image` (server-side rehost via `lib/admin/rehostHeroImageFromUrl.ts`).
 
 4. **Decision**
    - Approve (`POST /admin/api/pending-festivals/[id]/approve`):
@@ -104,12 +106,18 @@ Ingestion helper behavior for candidate hero image:
 Failure policy for detected Facebook URLs is fail-closed in current defaults:
 - `allowOriginalOnFailure=false`
 - if validation or upload fails, stored hero image becomes `null`
+- HTML error bodies (e.g. Facebook login walls) and similar failures are surfaced with explicit error text in admin import flows
+
+Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/hero-image` for moderator-initiated rehost from a URL.
+
+`pending_festivals` may store hero provenance columns (`hero_image_source`, `hero_image_original_url`, `hero_image_score`, `hero_image_fallback_reason`) populated by the worker or admin import (`scripts/sql/20260322_add_pending_festivals_hero_ingest_columns.sql`).
 
 ## Public vs admin data visibility
 - Public discovery/detail queries read from `festivals` only.
 - Public scope includes rows matching `status in (published, verified)` or `is_verified=true`, and excludes `status=archived`.
 - **Festival date filtering:** when `occurrence_dates` (jsonb) holds discrete ISO days, listing/calendar/filter logic treats those days as the event schedule; otherwise overlap uses `start_date`/`end_date`. The database exposes `public.festivals_intersecting_range(from, to)` for window queries (see `scripts/sql/20260323_festival_occurrence_dates.sql`). Admin pending/published edit forms can maintain `occurrence_dates`; approve copies it into `festivals`.
 - Pending moderation records are admin-only.
+- Public festival detail uses `FestivalGallery` when processed media items exist (replaces older inline-only gallery wiring in `FestivalDetailClient`).
 - Admin published-festival actions:
   - archive (`status=archived`)
   - restore (`status=verified`)

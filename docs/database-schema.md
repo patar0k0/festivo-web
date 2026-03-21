@@ -11,6 +11,7 @@ Canonical city dictionary used for moderation resolution and public routing/filt
 | id | bigint | canonical city key used by `festivals.city_id` and `pending_festivals.city_id` |
 | slug | text | canonical slug used in route/filter matching and denormalized festival city text |
 | name_bg | text | display name used in admin and public UI |
+| is_village | boolean | when true, public UI prefixes settlement with „с.“ (village); default false for cities (`scripts/sql/20260321_cities_is_village.sql`) |
 
 Used by:
 - city resolution helpers (`id` / `slug` / `name_bg` lookup)
@@ -31,6 +32,7 @@ Admin-managed ingestion queue.
 | created_at | timestamptz | queue ordering and admin display |
 | started_at | timestamptz | worker start timestamp |
 | finished_at | timestamptz | worker completion timestamp |
+| fb_browser_context | text | set by festivo-workers: how the job ran the browser (e.g. authenticated FB storage state vs anonymous); surfaced on admin ingest/pending views (`scripts/sql/20260322_add_ingest_jobs_fb_browser_context.sql`) |
 
 Observed constraints/indexes from migrations:
 - unique index on `source_url`
@@ -71,6 +73,10 @@ Moderation table for ingested candidates before publication.
 | price_range | text | optional pricing label |
 | is_free | boolean | free/paid flag |
 | hero_image | text | moderated hero image URL (often worker-rehosted) |
+| hero_image_source | text | ingest trace: which candidate supplied the hero (worker) |
+| hero_image_original_url | text | original URL before rehost (worker/admin import) |
+| hero_image_score | numeric | optional ingest ranking/score for chosen hero |
+| hero_image_fallback_reason | text | when rehost fails, machine-readable reason (e.g. HTML body, 403); see migration `scripts/sql/20260322_add_pending_festivals_hero_ingest_columns.sql` |
 | tags | text[] | moderation tags passed into publish |
 | status | text | moderation state: `pending`, `approved`, `rejected` |
 | created_at | timestamptz | moderation queue ordering |

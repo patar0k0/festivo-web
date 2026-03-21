@@ -5,6 +5,22 @@ import FallbackImage from "@/components/ui/FallbackImage";
 import PlanInlineControls from "@/components/plan/PlanInlineControls";
 import { Card, CardContent } from "@/components/ui/Card";
 
+/** Кратко име на месец за оранжева значка (3–4 знака). */
+const BADGE_MONTH_BG: Record<number, string> = {
+  0: "ЯНУ",
+  1: "ФЕВ",
+  2: "МАРТ",
+  3: "АПР",
+  4: "МАЙ",
+  5: "ЮНИ",
+  6: "ЮЛИ",
+  7: "АВГ",
+  8: "СЕПТ",
+  9: "ОКТ",
+  10: "НОЕ",
+  11: "ДЕК",
+};
+
 type EventCardProps = {
   title: string;
   city?: string | null;
@@ -26,8 +42,10 @@ function getDateBadge(date?: string | null) {
   if (!date) return { month: "TBA", day: "--" };
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return { month: "TBA", day: "--" };
+  const idx = parsed.getMonth();
+  const month = BADGE_MONTH_BG[idx] ?? "—";
   return {
-    month: format(parsed, "MMMM", { locale: bg }).toLocaleUpperCase("bg-BG"),
+    month: month.toLocaleUpperCase("bg-BG"),
     day: format(parsed, "dd"),
   };
 }
@@ -155,9 +173,9 @@ export default function EventCard({
           aria-hidden
         />
 
-        <div className="pointer-events-none absolute left-4 top-4 max-w-[6.25rem] rounded-lg bg-[#ff4c1f] px-2 py-2 text-center text-white shadow-[0_8px_18px_rgba(255,76,31,0.35)]">
-          <div className="text-[9px] font-semibold uppercase leading-tight tracking-wide">{badge.month}</div>
-          <div className="mt-0.5 text-base font-bold leading-none">{badge.day}</div>
+        <div className="pointer-events-none absolute left-4 top-4 rounded-lg bg-[#ff4c1f] px-3 py-2 text-center text-white shadow-[0_8px_18px_rgba(255,76,31,0.35)]">
+          <div className="text-[10px] font-semibold uppercase tracking-wide">{badge.month}</div>
+          <div className="text-base font-bold leading-none">{badge.day}</div>
         </div>
 
         {categoryText ? (

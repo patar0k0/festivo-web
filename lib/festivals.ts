@@ -1,5 +1,11 @@
 import { Filters, Festival, PaginatedResult } from "@/lib/types";
-import { getCityFestivals, getFestivals, getFestivalBySlug, getCityLinks } from "@/lib/queries";
+import {
+  getCityFestivals,
+  getFestivals,
+  getFestivalBySlug,
+  getCityLinks,
+  getHomeCitySelectOptions,
+} from "@/lib/queries";
 
 type City = {
   name: string;
@@ -21,6 +27,12 @@ export async function getFestivalDetailBySlug(slug: string): Promise<Festival | 
 
 export async function listCities(): Promise<City[]> {
   return getCityLinks();
+}
+
+export async function listHomeCitySelectOptions(): Promise<
+  Array<{ name: string; slug: string | null; filterValue: string }>
+> {
+  return getHomeCitySelectOptions();
 }
 
 export async function getCityBySlug(slug: string): Promise<City | null> {

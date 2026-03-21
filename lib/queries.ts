@@ -433,6 +433,62 @@ export async function getCityLinks(): Promise<Array<{ name: string; slug: string
     }));
 }
 
+type CityJoinRow = { slug: string | null; name_bg: string | null };
+
+function normalizeFestivalCityJoin(
+  raw: CityJoinRow | CityJoinRow[] | null | undefined,
+): CityJoinRow | null {
+  if (!raw) return null;
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
+}
+
+/** Градове, които реално се срещат в публикувани фестивали (полето `city` е стойността за филтъра). */
+export async function getHomeCitySelectOptions(): Promise<
+  Array<{ name: string; slug: string | null; filterValue: string }>
+> {
+  const supabase = supabaseServer();
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("festivals")
+    .select("city, cities:cities!left(slug,name_bg)")
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+    .neq("status", "archived")
+    .not("city", "is", null)
+    .returns<
+      Array<{
+        city: string | null;
+        cities: CityJoinRow | CityJoinRow[] | null;
+      }>
+    >();
+
+  if (error || !data?.length) {
+    return [];
+  }
+
+  const map = new Map<string, { name: string; slug: string | null }>();
+
+  for (const row of data) {
+    const key = row.city?.trim();
+    if (!key) continue;
+
+    const prev = map.get(key) ?? {
+      name: fixMojibakeBG(key),
+      slug: null as string | null,
+    };
+    const joined = normalizeFestivalCityJoin(row.cities);
+    const slug = joined?.slug ?? prev.slug;
+    const name = joined?.name_bg ? fixMojibakeBG(joined.name_bg) : prev.name;
+    map.set(key, { name, slug });
+  }
+
+  return Array.from(map.entries())
+    .map(([filterValue, { name, slug }]) => ({ filterValue, name, slug }))
+    .sort((a, b) => a.name.localeCompare(b.name, "bg"));
+}
+
 export async function getFestivalSlugs(): Promise<string[]> {
   const supabase = supabaseServer();
   if (!supabase) {

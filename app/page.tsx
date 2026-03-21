@@ -1,10 +1,10 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { endOfMonth, format, nextSaturday, nextSunday, startOfMonth } from "date-fns";
 import ComingSoonPublic from "@/components/home/ComingSoonPublic";
 import RealHomePage from "@/components/home/RealHomePage";
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
-import { listCities, listFestivals } from "@/lib/festivals";
+import { listFestivals, listHomeCitySelectOptions } from "@/lib/festivals";
 import "./landing.css";
 
 const PREVIEW_COOKIE_NAME = "festivo_preview";
@@ -51,7 +51,7 @@ export default async function HomePage() {
         totalPages: 1,
       })
     ),
-    listCities().catch(() => []),
+    listHomeCitySelectOptions().catch(() => []),
   ]);
 
   const quickChipHrefs = {
@@ -68,7 +68,7 @@ export default async function HomePage() {
       <RealHomePage
         nearestFestivals={nearestResult.data}
         weekendFestivals={weekendResult.data}
-        topCities={citiesResult.slice(0, 8)}
+        homeCityOptions={citiesResult}
         quickChipHrefs={quickChipHrefs}
       />
     </div>

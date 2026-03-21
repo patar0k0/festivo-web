@@ -11,7 +11,8 @@ import QuickChipsClient from "./QuickChipsClient";
 
 type CityItem = {
   name: string;
-  slug: string;
+  slug: string | null;
+  filterValue: string;
 };
 
 type QuickChipHrefs = {
@@ -24,7 +25,8 @@ type QuickChipHrefs = {
 type RealHomePageProps = {
   nearestFestivals: Festival[];
   weekendFestivals: Festival[];
-  topCities: CityItem[];
+  /** Градове от фестивалите в базата (име + стойност за филтър). */
+  homeCityOptions: CityItem[];
   quickChipHrefs: QuickChipHrefs;
 };
 
@@ -82,9 +84,10 @@ function EventsSection({
 export default function RealHomePage({
   nearestFestivals,
   weekendFestivals,
-  topCities,
+  homeCityOptions,
   quickChipHrefs,
 }: RealHomePageProps) {
+  const footerCities = homeCityOptions.slice(0, 8);
   const chips = [
     { label: "Само безплатни", href: quickChipHrefs.free },
     { label: "Този уикенд", href: quickChipHrefs.weekend },
@@ -121,11 +124,11 @@ export default function RealHomePage({
                 >
                   Открий около мен
                 </Link>
-                {topCities.length ? (
+                {homeCityOptions.length ? (
                   <CitySelectClient
-                    cities={topCities.map((city) => ({
+                    cities={homeCityOptions.map((city) => ({
                       name: city.name,
-                      slug: city.slug,
+                      filterValue: city.filterValue,
                     }))}
                   />
                 ) : (
@@ -155,11 +158,15 @@ export default function RealHomePage({
                 Градове
               </h2>
               <div className="mt-4 flex flex-wrap gap-2">
-                {topCities.length ? (
-                  topCities.map((city) => (
+                {footerCities.length ? (
+                  footerCities.map((city) => (
                     <Link
-                      key={city.slug}
-                      href={cityHref(city.slug)}
+                      key={city.filterValue}
+                      href={
+                        city.slug
+                          ? cityHref(city.slug)
+                          : `/festivals?city=${encodeURIComponent(city.filterValue)}`
+                      }
                       className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.13em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                     >
                       {city.name}

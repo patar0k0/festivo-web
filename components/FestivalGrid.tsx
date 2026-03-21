@@ -17,7 +17,7 @@ function formatDateRange(start?: string | null, end?: string | null) {
 function formatBadgeDate(start?: string | null) {
   if (!start) return "TBA";
   const date = parseISO(start);
-  return format(date, "MMM d");
+  return format(date, "d MMM");
 }
 
 export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {

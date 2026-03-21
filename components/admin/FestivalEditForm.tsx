@@ -6,6 +6,7 @@ import { transliteratedSlug } from "@/lib/text/slug";
 import type { OrganizerProfile } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
+import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 
 type FestivalRecord = {
   id: string;
@@ -578,11 +579,19 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           </label>
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">start_date</span>
-            <input type="date" value={form.start_date} onChange={(e) => updateField("start_date", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <DdMmYyyyDateInput
+              value={form.start_date ?? ""}
+              onChange={(iso) => updateField("start_date", iso)}
+              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+            />
           </label>
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">end_date</span>
-            <input type="date" value={form.end_date} onChange={(e) => updateField("end_date", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <DdMmYyyyDateInput
+              value={form.end_date ?? ""}
+              onChange={(iso) => updateField("end_date", iso)}
+              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+            />
           </label>
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizers</span>

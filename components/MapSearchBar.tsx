@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 
 type ApplyParams = {
   city?: string;
@@ -82,20 +83,18 @@ export default function MapSearchBar({
       </div>
       <div className="min-w-[9rem]">
         <label className="text-xs uppercase tracking-[0.2em] text-muted">От</label>
-        <input
-          type="date"
+        <DdMmYyyyDateInput
           className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/85 px-4 py-3 text-sm text-[#0c0e14] focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
           value={from}
-          onChange={(event) => setFrom(event.target.value)}
+          onChange={setFrom}
         />
       </div>
       <div className="min-w-[9rem]">
         <label className="text-xs uppercase tracking-[0.2em] text-muted">До</label>
-        <input
-          type="date"
+        <DdMmYyyyDateInput
           className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/85 px-4 py-3 text-sm text-[#0c0e14] focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
           value={to}
-          onChange={(event) => setTo(event.target.value)}
+          onChange={setTo}
         />
       </div>
       <div className="min-w-[10rem]">

@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 
 const categoryOptions = ["folk", "jazz", "rock", "wine", "food", "kids", "heritage", "art"];
 const categoryLabels: Record<string, string> = {
@@ -105,20 +106,18 @@ export default function MapFiltersSidebar({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs uppercase tracking-[0.2em] text-muted">От</label>
-            <input
-              type="date"
+            <DdMmYyyyDateInput
               className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
               value={from}
-              onChange={(event) => setFrom(event.target.value)}
+              onChange={setFrom}
             />
           </div>
           <div>
             <label className="text-xs uppercase tracking-[0.2em] text-muted">До</label>
-            <input
-              type="date"
+            <DdMmYyyyDateInput
               className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
               value={to}
-              onChange={(event) => setTo(event.target.value)}
+              onChange={setTo}
             />
           </div>
         </div>

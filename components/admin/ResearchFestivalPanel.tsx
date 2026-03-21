@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ResearchBestGuess, ResearchDateCandidate, ResearchFestivalResult, ResearchFieldCandidate } from "@/lib/admin/research/types";
+import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
+import { parseFlexibleDateToIso } from "@/lib/dates/euDateFormat";
 import type { AiResearchConfidence, PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 
 type EditableFinalValues = ResearchBestGuess;
@@ -38,8 +40,8 @@ type AiEditableStringField =
 
 const AI_EDITABLE_TEXT_FIELDS: Array<{ key: Exclude<AiEditableStringField, "description">; label: string; placeholder?: string; type?: "text" | "date" | "url" }> = [
   { key: "title", label: "Title" },
-  { key: "start_date", label: "Start date", placeholder: "DD.MM.YYYY г.", type: "text" },
-  { key: "end_date", label: "End date", placeholder: "DD.MM.YYYY г.", type: "text" },
+  { key: "start_date", label: "Start date", placeholder: "dd/mm/yyyy", type: "text" },
+  { key: "end_date", label: "End date", placeholder: "dd/mm/yyyy", type: "text" },
   { key: "city", label: "City" },
   { key: "organizer_name", label: "Organizer" },
   { key: "category", label: "Category" },
@@ -57,48 +59,16 @@ function sanitizeInputValue(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
-const BULGARIAN_DATE_REGEX = /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s*г\.)?$/i;
-
-function isValidDateParts(year: number, month: number, day: number): boolean {
-  const utcDate = new Date(Date.UTC(year, month - 1, day));
-  return utcDate.getUTCFullYear() === year && utcDate.getUTCMonth() === month - 1 && utcDate.getUTCDate() === day;
-}
-
-function toBulgarianDateDisplayFromIso(isoDate: string): string {
-  const [, year, month, day] = isoDate.match(ISO_DATE_REGEX) ?? [];
-  return `${day}.${month}.${year} г.`;
-}
-
 function normalizeDisplayDateToIso(value: string | null): string | null {
   if (!value) return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
 
-  const isoMatch = trimmed.match(ISO_DATE_REGEX);
-  if (isoMatch) {
-    const year = Number(isoMatch[1]);
-    const month = Number(isoMatch[2]);
-    const day = Number(isoMatch[3]);
-    return isValidDateParts(year, month, day) ? `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}` : trimmed;
-  }
+  const parsed = parseFlexibleDateToIso(trimmed);
+  if (parsed === "") return null;
+  if (parsed !== null) return parsed;
 
-  const bulgarianMatch = trimmed.match(BULGARIAN_DATE_REGEX);
-  if (!bulgarianMatch) return trimmed;
-
-  const day = Number(bulgarianMatch[1]);
-  const month = Number(bulgarianMatch[2]);
-  const year = Number(bulgarianMatch[3]);
-  if (!isValidDateParts(year, month, day)) return trimmed;
-
-  return `${year.toString().padStart(4, "0")}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
-}
-
-function formatDateForBulgarianDisplay(value: string | null): string | null {
-  const normalized = normalizeDisplayDateToIso(value);
-  if (!normalized) return null;
-  if (ISO_DATE_REGEX.test(normalized)) return toBulgarianDateDisplayFromIso(normalized);
-  return normalized;
+  return trimmed;
 }
 
 function confidenceBadgeStyle(confidence: AiResearchConfidence): string {
@@ -210,11 +180,7 @@ export default function ResearchFestivalPanel() {
       }
 
       setAiResult(payload.result);
-      setAiDraft({
-        ...payload.result,
-        start_date: formatDateForBulgarianDisplay(payload.result.start_date),
-        end_date: formatDateForBulgarianDisplay(payload.result.end_date),
-      });
+      setAiDraft({ ...payload.result });
       setResult(null);
       setAiSuccess("AI research completed. Review and edit values before creating a pending draft.");
     } catch (err) {
@@ -360,13 +326,22 @@ export default function ResearchFestivalPanel() {
                 {AI_EDITABLE_TEXT_FIELDS.map((field) => (
                   <div key={field.key} className={field.key === "address" ? "md:col-span-2" : ""}>
                     <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">{field.label}</label>
-                    <input
-                      type={field.type ?? "text"}
-                      value={aiDraft[field.key] ?? ""}
-                      onChange={(event) => setAiDraftField(field.key, event.target.value)}
-                      placeholder={field.placeholder}
-                      className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
-                    />
+                    {field.key === "start_date" || field.key === "end_date" ? (
+                      <DdMmYyyyDateInput
+                        value={aiDraft[field.key] ?? ""}
+                        onChange={(iso) => setAiDraftField(field.key, iso)}
+                        placeholder={field.placeholder}
+                        className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+                      />
+                    ) : (
+                      <input
+                        type={field.type ?? "text"}
+                        value={aiDraft[field.key] ?? ""}
+                        onChange={(event) => setAiDraftField(field.key, event.target.value)}
+                        placeholder={field.placeholder}
+                        className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+                      />
+                    )}
                     {field.key === "hero_image" ? (
                       <p className="mt-1 text-xs text-black/50">
                         If you paste an image URL, it is downloaded and stored in Supabase when you create the draft; the external link is not kept.
@@ -476,11 +451,19 @@ export default function ResearchFestivalPanel() {
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Start date</label>
-              <input value={finalValues.start_date ?? ""} onChange={(e) => setFromCandidate("start_date", e.target.value || null)} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm" placeholder="YYYY-MM-DD" />
+              <DdMmYyyyDateInput
+                value={finalValues.start_date ?? ""}
+                onChange={(iso) => setFromCandidate("start_date", iso || null)}
+                className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+              />
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">End date</label>
-              <input value={finalValues.end_date ?? ""} onChange={(e) => setFromCandidate("end_date", e.target.value || null)} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm" placeholder="YYYY-MM-DD" />
+              <DdMmYyyyDateInput
+                value={finalValues.end_date ?? ""}
+                onChange={(iso) => setFromCandidate("end_date", iso || null)}
+                className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+              />
             </div>
           </div>
 

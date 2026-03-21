@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
+import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { extractNormalizationSuggestions, type SuggestionField } from "@/lib/festival/normalizationSuggestions";
 import { listFilledPendingRecordFields, type PendingFestivalQuality } from "@/lib/admin/pendingFestivalQuality";
 
@@ -874,11 +875,19 @@ export default function PendingFestivalEditForm({
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Start date</span>
-                <input type="date" value={form.start_date} onChange={(e) => updateField("start_date", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <DdMmYyyyDateInput
+                  value={form.start_date ?? ""}
+                  onChange={(iso) => updateField("start_date", iso)}
+                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">End date</span>
-                <input type="date" value={form.end_date} onChange={(e) => updateField("end_date", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <DdMmYyyyDateInput
+                  value={form.end_date ?? ""}
+                  onChange={(iso) => updateField("end_date", iso)}
+                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                />
               </label>
               <label className="md:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Venue name</span>

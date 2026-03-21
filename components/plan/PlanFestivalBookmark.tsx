@@ -91,6 +91,16 @@ export default function PlanFestivalBookmark({ festivalId, programmeHref, compac
           {loading ? "…" : saved ? "Запазено" : "Запази"}
         </button>
 
+        {programmeHref ? (
+          <Link
+            href={programmeHref}
+            onClick={stopEvent}
+            className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+          >
+            Програма
+          </Link>
+        ) : null}
+
         <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
           Напомняне
           <select
@@ -109,15 +119,6 @@ export default function PlanFestivalBookmark({ festivalId, programmeHref, compac
           </select>
         </label>
       </div>
-
-      {programmeHref ? (
-        <p className="text-xs text-black/50">
-          <Link href={programmeHref} onClick={stopEvent} className="font-semibold text-[#0c0e14] underline-offset-2 hover:underline">
-            Часове от програмата
-          </Link>
-          <span className="text-black/40"> — добавяш ги от страницата на фестивала.</span>
-        </p>
-      ) : null}
 
       {error ? <p className="text-xs text-red-700">{error}</p> : null}
 

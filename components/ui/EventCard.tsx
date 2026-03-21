@@ -3,6 +3,7 @@ import { bg } from "date-fns/locale";
 import Link from "next/link";
 import FallbackImage from "@/components/ui/FallbackImage";
 import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
+import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
 import { Card, CardContent } from "@/components/ui/Card";
 
 /** Кратко име на месец за оранжева значка (3–4 знака). */
@@ -230,7 +231,7 @@ export default function EventCard({
           {showPlanControls && festivalId != null ? (
             <PlanFestivalBookmark
               festivalId={String(festivalId)}
-              programmeHref={detailsHref ?? undefined}
+              programmeHref={detailsHref ? festivalProgrammeHref(detailsHref) : undefined}
             />
           ) : null}
         </div>

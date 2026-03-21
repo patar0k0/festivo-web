@@ -5,6 +5,7 @@ import Link from "next/link";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
+import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 
@@ -118,7 +119,7 @@ export default function MapView({
             <div className="mt-2">
               <PlanFestivalBookmark
                 festivalId={String(selectedFestival.id)}
-                programmeHref={`/festivals/${selectedFestival.slug}`}
+                programmeHref={festivalProgrammeHref(`/festivals/${selectedFestival.slug}`)}
               />
             </div>
           </div>

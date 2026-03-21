@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
+import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
 import type { PlanEntry, ReminderType } from "@/lib/plan/server";
 
 type PlanPageClientProps = {
@@ -132,6 +133,12 @@ export default function PlanPageClient({ entries, festivals }: PlanPageClientPro
                     <Link href={`/festivals/${festival.slug}`} className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]">
                       Детайли
                     </Link>
+                    <Link
+                      href={festivalProgrammeHref(`/festivals/${festival.slug}`)}
+                      className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]"
+                    >
+                      Програма
+                    </Link>
                   </div>
                 </div>
               );
@@ -171,6 +178,12 @@ export default function PlanPageClient({ entries, festivals }: PlanPageClientPro
                 </label>
                 <Link href={`/festivals/${first.festivalSlug}`} className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]">
                   Детайли
+                </Link>
+                <Link
+                  href={festivalProgrammeHref(`/festivals/${first.festivalSlug}`)}
+                  className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]"
+                >
+                  Програма
                 </Link>
               </div>
             </div>

@@ -15,6 +15,7 @@ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import type { ReminderType } from "@/lib/plan/server";
 import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from "@/lib/types";
 import { formatFestivalDateLineLongBg, primaryFestivalDate } from "@/lib/festival/listingDates";
+import { FESTIVAL_PROGRAM_SECTION_ID } from "@/lib/festival/programmeAnchor";
 
 type Props = {
   festival: Festival;
@@ -272,6 +273,12 @@ export default function FestivalDetailClient({
                 {cityOrLocationText ? <span className="rounded-full bg-black/35 px-3 py-1">{cityOrLocationText}</span> : null}
                 {categoryText ? <span className="rounded-full bg-black/35 px-3 py-1">{categoryText}</span> : null}
                 {showFreeBadge ? <span className="rounded-full bg-black/35 px-3 py-1">Безплатен вход</span> : null}
+                <a
+                  href={`#${FESTIVAL_PROGRAM_SECTION_ID}`}
+                  className="rounded-full bg-black/35 px-3 py-1 text-white/95 transition hover:bg-black/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                >
+                  Програма
+                </a>
               </div>
             </div>
           </div>
@@ -303,13 +310,16 @@ export default function FestivalDetailClient({
             <FestivalGallery items={galleryItems} festivalTitle={festival.title || "Фестивал"} />
           ) : null}
 
-          {hasProgramContent ? (
-            <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-              <h2 className="text-xl font-semibold text-[#0c0e14]">Програма</h2>
-              <p className="mt-2 text-sm text-black/55">
-                Добави конкретни часове в личния си план; запазеният фестивал (встрани) е за цялото събитие и напомнянията.
-              </p>
+          <section
+            id={FESTIVAL_PROGRAM_SECTION_ID}
+            className="scroll-mt-24 rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]"
+          >
+            <h2 className="text-xl font-semibold text-[#0c0e14]">Програма</h2>
+            {hasProgramContent ? (
               <>
+                <p className="mt-2 text-sm text-black/55">
+                  Добави конкретни часове в личния си план; запазеният фестивал (встрани) е за цялото събитие и напомнянията.
+                </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {groupedDays.map((day) => (
                     <button
@@ -368,8 +378,29 @@ export default function FestivalDetailClient({
                   )}
                 </div>
               </>
-            </section>
-          ) : null}
+            ) : (
+              <div className="mt-3 text-sm text-black/55">
+                <p>
+                  {groupedDays.length > 0
+                    ? "Дните са въведени, но часовете от програмата предстоят да бъдат публикувани."
+                    : "Все още няма публикуван график за този фестивал."}
+                </p>
+                {festival.website_url ? (
+                  <p className="mt-2">
+                    <a
+                      href={festival.website_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-[#0c0e14] underline-offset-2 hover:underline"
+                    >
+                      Официален сайт
+                    </a>
+                    <span className="text-black/45"> — може да има актуална програма.</span>
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </section>
 
           {relatedFestivals.length ? (
             <section className="space-y-4">

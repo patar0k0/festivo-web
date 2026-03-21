@@ -5,6 +5,8 @@ import { FormEvent, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
+import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
+import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { extractNormalizationSuggestions, type SuggestionField } from "@/lib/festival/normalizationSuggestions";
 import { listFilledPendingRecordFields, type PendingFestivalQuality } from "@/lib/admin/pendingFestivalQuality";
 
@@ -26,6 +28,7 @@ export type PendingFestivalRecord = {
   longitude: number | null;
   start_date: string | null;
   end_date: string | null;
+  occurrence_dates?: unknown;
   organizer_name: string | null;
   source_url: string | null;
   is_free: boolean | null;
@@ -411,6 +414,7 @@ export default function PendingFestivalEditForm({
 
   const filledFieldSummaries = useMemo(() => listFilledPendingRecordFields(pendingFestival), [pendingFestival]);
 
+  const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(pendingFestival.occurrence_dates) ?? []);
   const [heroPreviewError, setHeroPreviewError] = useState(false);
   const [appliedAiFields, setAppliedAiFields] = useState<Record<SuggestionField, boolean>>({
     category: false,
@@ -568,6 +572,13 @@ export default function PendingFestivalEditForm({
       const cityInput = form.city_id.trim();
       console.info(`[pending-save][client] pending_id=${pendingFestival.id} city input="${cityInput}"`);
 
+      const nonEmptyOccurrence = occurrenceDays.filter((d) => d.trim().length > 0);
+      const mergedDates = mergeOccurrenceDatesWithRange({
+        occurrence_days: nonEmptyOccurrence,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+      });
+
       const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}`, {
         method: "PATCH",
         credentials: "include",
@@ -585,8 +596,9 @@ export default function PendingFestivalEditForm({
           address: form.address.trim() || null,
           latitude: form.latitude.trim() ? Number(form.latitude) : null,
           longitude: form.longitude.trim() ? Number(form.longitude) : null,
-          start_date: form.start_date || null,
-          end_date: form.end_date || null,
+          start_date: mergedDates.start_date,
+          end_date: mergedDates.end_date,
+          occurrence_dates: mergedDates.occurrence_dates,
           organizer_name: form.organizer_name.trim() || null,
           source_url: form.source_url.trim() || null,
           website_url: form.website_url.trim() || null,
@@ -889,6 +901,16 @@ export default function PendingFestivalEditForm({
                   className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
                 />
               </label>
+              <div className="md:col-span-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Отделни дни (по избор)</span>
+                <div className="mt-2">
+                  <OccurrenceDaysEditor
+                    value={occurrenceDays}
+                    onChange={setOccurrenceDays}
+                    disabled={saving || Boolean(runningAction)}
+                  />
+                </div>
+              </div>
               <label className="md:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Venue name</span>
                 <input value={form.venue_name} onChange={(e) => updateField("venue_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />

@@ -14,6 +14,7 @@ import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import type { ReminderType } from "@/lib/plan/server";
 import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from "@/lib/types";
+import { formatFestivalDateLineLongBg, primaryFestivalDate } from "@/lib/festival/listingDates";
 
 type Props = {
   festival: Festival;
@@ -59,30 +60,6 @@ function formatTimeRange(start?: string | null, end?: string | null): string {
   const to = end ? end.slice(0, 5) : "";
   if (from && to) return `${from} - ${to}`;
   return from || "Час предстои";
-}
-
-function formatFestivalDate(value?: string | null): string | null {
-  if (!value) return null;
-
-  try {
-    return format(parseISO(value), "d MMMM yyyy", { locale: bg });
-  } catch {
-    return value;
-  }
-}
-
-function formatFestivalDateRange(start?: string | null, end?: string | null): string | null {
-  const formattedStart = formatFestivalDate(start);
-  if (!formattedStart) return null;
-
-  if (!end || end === start) {
-    return formattedStart;
-  }
-
-  const formattedEnd = formatFestivalDate(end);
-  if (!formattedEnd) return formattedStart;
-
-  return `${formattedStart} – ${formattedEnd}`;
 }
 
 function categoryLabel(category?: string | null): string | null {
@@ -193,7 +170,7 @@ export default function FestivalDetailClient({
     return out;
   }, [festival.id, heroImage, heroImageFailed, imageMedia]);
   const categoryText = categoryLabel(festival.category);
-  const formattedDateRange = formatFestivalDateRange(festival.start_date, festival.end_date);
+  const formattedDateRange = formatFestivalDateLineLongBg(festival);
   const descriptionText = festival.description?.trim() ?? "";
   const tags = (festival.tags ?? []).filter((tag): tag is string => Boolean(tag?.trim()));
   const visibleTags = tags.slice(0, 7);
@@ -408,8 +385,9 @@ export default function FestivalDetailClient({
                       city={festivalCityLabel(item)}
                       category={item.category}
                       imageUrl={item.image_url}
-                      startDate={item.start_date}
+                      startDate={primaryFestivalDate(item)}
                       endDate={item.end_date}
+                      dateLine={formatFestivalDateLineLongBg(item)}
                       isFree={item.is_free}
                     />
                   </Link>

@@ -1,4 +1,4 @@
-import { addDays, endOfMonth, format, parseISO, startOfMonth } from "date-fns";
+import { endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -6,12 +6,15 @@ import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, Or
 import { withDefaultFilters } from "@/lib/filters";
 import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
+import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 
 export const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city_id,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(name_bg,slug,is_village)";
+  "id,title,slug,city_id,city,region,start_date,end_date,occurrence_dates,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(name_bg,slug,is_village)";
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,city_id,city,region,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+  "id,title,slug,description,start_date,end_date,occurrence_dates,city_id,city,region,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+
+const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
 
 
 type FestivalOrganizerLinkRow = {
@@ -131,7 +134,36 @@ type FilterOptions = {
   applyDefaults?: boolean;
 };
 
-function applyFilters<T extends FilterQuery<T>>(query: T, filters: Filters, options?: FilterOptions): T {
+type DateFilterResolution = { kind: "rpc"; ids: string[] } | { kind: "legacy" };
+
+async function resolveFestivalDateFilterIds(
+  supabase: NonNullable<ReturnType<typeof supabaseServer>>,
+  filters: Filters,
+  options?: FilterOptions,
+): Promise<DateFilterResolution> {
+  const applied = options?.applyDefaults === false ? filters : withDefaultFilters(filters);
+  if (!applied.from && !applied.to) {
+    return { kind: "legacy" };
+  }
+  const from = applied.from ?? "1970-01-01";
+  const to = applied.to ?? "2099-12-31";
+  const { data, error } = await supabase.rpc("festivals_intersecting_range", { p_from: from, p_to: to });
+  if (error) {
+    console.warn("[queries] festivals_intersecting_range RPC failed, using legacy date filter", error.message);
+    return { kind: "legacy" };
+  }
+  const ids = (data ?? [])
+    .map((row: { festival_id?: string }) => (typeof row?.festival_id === "string" ? row.festival_id : ""))
+    .filter(Boolean);
+  return { kind: "rpc", ids };
+}
+
+function applyFilters<T extends FilterQuery<T>>(
+  query: T,
+  filters: Filters,
+  options?: FilterOptions,
+  dateResolution: DateFilterResolution = { kind: "legacy" },
+): T {
   const applied = options?.applyDefaults === false ? filters : withDefaultFilters(filters);
 
   let typedQuery = query;
@@ -157,14 +189,18 @@ function applyFilters<T extends FilterQuery<T>>(query: T, filters: Filters, opti
     typedQuery = typedQuery.in("category", applied.cat);
   }
 
-  if (applied.from && applied.to) {
+  if (dateResolution.kind === "rpc") {
+    if (dateResolution.ids.length === 0) {
+      typedQuery = typedQuery.eq("id", NO_MATCH_FESTIVAL_ID);
+    } else {
+      typedQuery = typedQuery.in("id", dateResolution.ids);
+    }
+  } else if (applied.from && applied.to) {
     typedQuery = typedQuery.lte("start_date", applied.to);
-    // end_date NULL -> treat as start_date for range checks
     typedQuery = typedQuery.or(
-      `end_date.gte.${applied.from},and(end_date.is.null,start_date.gte.${applied.from})`
+      `end_date.gte.${applied.from},and(end_date.is.null,start_date.gte.${applied.from})`,
     );
   } else if (applied.from) {
-    // end_date NULL -> treat as start_date for range checks
     typedQuery = typedQuery.or(`start_date.gte.${applied.from},end_date.gte.${applied.from}`);
   } else if (applied.to) {
     typedQuery = typedQuery.lte("start_date", applied.to);
@@ -188,8 +224,11 @@ export function fixFestivalText(festival: Festival): Festival {
     : undefined;
   const city_name_display = formatSettlementDisplayName(rawDisplayName, settlementKind);
 
+  const occurrenceNorm = normalizeOccurrenceDatesInput((festival as Festival & { occurrence_dates?: unknown }).occurrence_dates);
+
   return {
     ...festival,
+    occurrence_dates: occurrenceNorm,
     title: fixMojibakeBG(festival.title),
     description: festival.description ? fixMojibakeBG(festival.description) : festival.description,
     city: festival.city ? fixMojibakeBG(festival.city) : festival.city,
@@ -233,8 +272,9 @@ export async function getFestivals(
     };
   }
 
+  const dateResolution = await resolveFestivalDateFilterIds(supabase, filters, options);
   let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN, { count: "exact" });
-  query = applyFilters(query, filters, options);
+  query = applyFilters(query, filters, options, dateResolution);
   const { data, count, error } = await query.range(from, to).returns<Festival[]>();
 
   if (error) {
@@ -344,7 +384,7 @@ export async function getCityFestivals(city: string, filters: Filters, page = 1,
   return getFestivals({ ...filters, city: [city] }, page, pageSize);
 }
 
-export async function getCalendarMonth(month: string, filters: Filters) {
+export async function getCalendarMonth(month: string, filters: Filters, options?: FilterOptions) {
   const supabase = supabaseServer();
   const monthStart = startOfMonth(parseISO(`${month}-01`));
   const monthEnd = endOfMonth(monthStart);
@@ -357,12 +397,14 @@ export async function getCalendarMonth(month: string, filters: Filters) {
     };
   }
 
-  let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN);
-  query = applyFilters(query, {
+  const monthFilters = {
     ...filters,
     from: format(monthStart, "yyyy-MM-dd"),
     to: format(monthEnd, "yyyy-MM-dd"),
-  });
+  };
+  const dateResolution = await resolveFestivalDateFilterIds(supabase, monthFilters, options);
+  let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN);
+  query = applyFilters(query, monthFilters, options, dateResolution);
 
   const { data, error } = await query.returns<Festival[]>();
 
@@ -372,15 +414,12 @@ export async function getCalendarMonth(month: string, filters: Filters) {
 
   const days: Record<string, Festival[]> = {};
   (data ?? []).forEach((festival) => {
-    if (!festival.start_date) return;
-    const start = parseISO(festival.start_date);
-    const end = festival.end_date ? parseISO(festival.end_date) : start;
-    let cursor = start;
-    while (cursor <= end) {
-      const key = format(cursor, "yyyy-MM-dd");
+    const keys = festivalDayKeysInMonth(festival, monthStart, monthEnd);
+    if (!keys.length) return;
+    const fixed = fixFestivalText(festival);
+    for (const key of keys) {
       if (!days[key]) days[key] = [];
-      days[key].push(fixFestivalText(festival));
-      cursor = addDays(cursor, 1);
+      days[key].push(fixed);
     }
   });
 

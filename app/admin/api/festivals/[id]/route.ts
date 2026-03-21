@@ -6,6 +6,7 @@ import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/ad
 import { festivalPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 import { normalizeOrganizerIds, syncFestivalOrganizers } from "@/lib/festivalOrganizers";
+import { mergeOccurrenceDatesWithRange } from "@/lib/festival/occurrenceDates";
 
 
 type SaveResponse = {
@@ -225,6 +226,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     console.info(
       `[admin-festival-edit] festival_id=${id} city_id=${cityIdForLog ?? "null"} city_name_bg="${selectedCity?.name_bg ?? ""}" city_slug="${citySlug}" displayed_city="${cityDisplay}"`
     );
+
+    if ("occurrence_dates" in body) {
+      const merged = mergeOccurrenceDatesWithRange({
+        occurrence_days: body.occurrence_dates,
+        start_date: typeof body.start_date === "string" ? body.start_date : (typeof patch.start_date === "string" ? patch.start_date : null),
+        end_date: typeof body.end_date === "string" ? body.end_date : (typeof patch.end_date === "string" ? patch.end_date : null),
+      });
+      patch.occurrence_dates = merged.occurrence_dates;
+      patch.start_date = merged.start_date;
+      patch.end_date = merged.end_date;
+    }
 
     const { error } = await ctx.supabase.from("festivals").update(patch).eq("id", id);
 

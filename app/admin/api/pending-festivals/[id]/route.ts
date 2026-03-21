@@ -4,6 +4,7 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { pendingPatchFromCanonicalPartial } from "@/lib/festival/mappers";
+import { mergeOccurrenceDatesWithRange } from "@/lib/festival/occurrenceDates";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 
 const EXTRA_EDITABLE_FIELDS = [
@@ -143,6 +144,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (!("city" in body)) {
       console.info(`[pending-save] pending_id=${id} resolved_city_id=${patch.city_id ?? null}`);
+    }
+
+    if ("occurrence_dates" in body) {
+      const merged = mergeOccurrenceDatesWithRange({
+        occurrence_days: body.occurrence_dates,
+        start_date: typeof body.start_date === "string" ? body.start_date : (typeof patch.start_date === "string" ? patch.start_date : null),
+        end_date: typeof body.end_date === "string" ? body.end_date : (typeof patch.end_date === "string" ? patch.end_date : null),
+      });
+      patch.occurrence_dates = merged.occurrence_dates;
+      patch.start_date = merged.start_date;
+      patch.end_date = merged.end_date;
     }
 
     for (const key of EXTRA_EDITABLE_FIELDS) {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { format, nextSaturday } from "date-fns";
+import { addDays, format, nextSaturday, parseISO } from "date-fns";
 import { festivalCategories } from "@/components/CategoryChips";
 import FestivalsTagChipsClient from "@/components/FestivalsTagChipsClient";
 import ScrollRestoration from "@/components/ScrollRestoration";
@@ -18,7 +18,7 @@ import "../landing.css";
 export const revalidate = 3600;
 
 const FESTIVAL_SELECT =
-  "id,title,slug,city_id,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(slug,name_bg,is_village)";
+  "id,title,slug,city_id,city,region,start_date,end_date,occurrence_dates,category,hero_image,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(slug,name_bg,is_village)";
 const PAGE_SIZE = 12;
 const HAS_TAGS_COLUMN = true;
 
@@ -163,7 +163,24 @@ export default async function FestivalsPage({
     }
 
     if (parsedDate) {
-      query = query.gte("start_date", parsedDate.start).lt("start_date", parsedDate.end);
+      const rangeEndInclusive =
+        parsedDate.mode === "day"
+          ? parsedDate.start
+          : format(addDays(parseISO(parsedDate.end), -1), "yyyy-MM-dd");
+      const { data: rangeIds, error: rangeRpcError } = await supabase.rpc("festivals_intersecting_range", {
+        p_from: parsedDate.start,
+        p_to: rangeEndInclusive,
+      });
+      if (!rangeRpcError && Array.isArray(rangeIds) && rangeIds.length > 0) {
+        const ids = rangeIds
+          .map((row: { festival_id?: string }) => (typeof row?.festival_id === "string" ? row.festival_id : ""))
+          .filter(Boolean);
+        query = query.in("id", ids);
+      } else if (!rangeRpcError && Array.isArray(rangeIds) && rangeIds.length === 0) {
+        query = query.eq("id", "00000000-0000-0000-0000-000000000001");
+      } else {
+        query = query.gte("start_date", parsedDate.start).lt("start_date", parsedDate.end);
+      }
     }
 
     if (tag) {
@@ -173,7 +190,21 @@ export default async function FestivalsPage({
     if (!city && !parsedDate && !tag) {
       const now = new Date();
       const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-      query = query.gte("start_date", toUtcDateString(todayUtc));
+      const todayStr = toUtcDateString(todayUtc);
+      const { data: upcomingIds, error: upcomingRpcError } = await supabase.rpc("festivals_intersecting_range", {
+        p_from: todayStr,
+        p_to: "2099-12-31",
+      });
+      if (!upcomingRpcError && Array.isArray(upcomingIds) && upcomingIds.length > 0) {
+        const ids = upcomingIds
+          .map((row: { festival_id?: string }) => (typeof row?.festival_id === "string" ? row.festival_id : ""))
+          .filter(Boolean);
+        query = query.in("id", ids);
+      } else if (!upcomingRpcError && Array.isArray(upcomingIds) && upcomingIds.length === 0) {
+        query = query.eq("id", "00000000-0000-0000-0000-000000000001");
+      } else {
+        query = query.gte("start_date", todayStr);
+      }
     }
 
     const { data, count, error } = await query.range(from, to).returns<FestivalWithCity[]>();

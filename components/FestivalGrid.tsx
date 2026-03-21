@@ -2,21 +2,14 @@ import Link from "next/link";
 import FallbackImage from "@/components/ui/FallbackImage";
 import { format, parseISO } from "date-fns";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { formatFestivalDateLineShort, primaryFestivalDate } from "@/lib/festival/listingDates";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 
-function formatDateRange(start?: string | null, end?: string | null) {
-  if (!start) return "Dates TBA";
-  const startDate = parseISO(start);
-  if (!end || end === start) {
-    return format(startDate, "d MMM yyyy");
-  }
-  return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
-}
-
-function formatBadgeDate(start?: string | null) {
-  if (!start) return "TBA";
-  const date = parseISO(start);
+function formatBadgeDate(festival: Festival) {
+  const primary = primaryFestivalDate(festival);
+  if (!primary) return "TBA";
+  const date = parseISO(primary);
   return format(date, "d MMM");
 }
 
@@ -39,7 +32,7 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
                 />
               ) : null}
               <div className="absolute left-3 top-3 rounded-full border border-[color:var(--border2)] bg-white/90 px-3 py-1 text-xs backdrop-blur">
-                {formatBadgeDate(festival.start_date)}
+                {formatBadgeDate(festival)}
               </div>
               <button
                 type="button"
@@ -50,7 +43,7 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
             <div className="space-y-3 p-5">
               <div className="text-[17px] font-semibold tracking-[-0.2px]">{festival.title}</div>
               <div className="text-sm text-[color:var(--muted)]">
-                {festivalCityLabel(festival, "Bulgaria")} • {formatDateRange(festival.start_date, festival.end_date)}
+                {festivalCityLabel(festival, "Bulgaria")} • {formatFestivalDateLineShort(festival)}
               </div>
               <div className="flex flex-wrap gap-2">
                 {festival.is_free ? (

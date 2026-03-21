@@ -33,6 +33,7 @@ type PendingFestivalRow = {
   longitude: number | null;
   start_date: string | null;
   end_date: string | null;
+  occurrence_dates: unknown;
   organizer_name: string | null;
   source_url: string | null;
   source_type: string | null;
@@ -347,6 +348,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const festivalPatch = festivalPatchFromCanonical(canonicalApproved);
     const insertPayload = {
       ...festivalPatch,
+      occurrence_dates: pending.occurrence_dates ?? null,
       slug: finalSlug,
       city: cityText || null,
       city_id: cityId,

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
+import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 
@@ -7,28 +8,6 @@ type DayEventsListProps = {
   day: string;
   festivals: Festival[];
 };
-
-function formatEventDate(startDate?: string | null, endDate?: string | null) {
-  if (!startDate) {
-    return "Дата предстои";
-  }
-
-  const start = parseISO(startDate);
-  if (Number.isNaN(start.getTime())) {
-    return "Дата предстои";
-  }
-
-  if (!endDate || endDate === startDate) {
-    return format(start, "d MMM yyyy");
-  }
-
-  const end = parseISO(endDate);
-  if (Number.isNaN(end.getTime())) {
-    return format(start, "d MMM yyyy");
-  }
-
-  return `${format(start, "d MMM")} - ${format(end, "d MMM yyyy")}`;
-}
 
 export default function DayEventsList({ day, festivals }: DayEventsListProps) {
   const parsedDay = parseISO(day);
@@ -57,7 +36,7 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
             >
               <p className="text-base font-semibold text-[#0c0e14]">{festival.title}</p>
               <p className="mt-1 text-sm text-black/60">
-                {festivalCityLabel(festival)} • {formatEventDate(festival.start_date, festival.end_date)}
+                {festivalCityLabel(festival)} • {formatFestivalDateLineShort(festival)}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {festival.category ? (

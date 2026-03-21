@@ -14,6 +14,8 @@ export type Festival = {
   organizer_id?: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  /** Sorted ISO yyyy-MM-dd when the festival runs on separate non-consecutive days; omit for a simple start–end range. */
+  occurrence_dates?: string[] | null;
   is_free?: boolean | null;
   category?: string | null;
   hero_image?: string | null;

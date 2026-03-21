@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
 
 type AdminFestivalRow = {
   id: string;
@@ -10,6 +11,7 @@ type AdminFestivalRow = {
   city: string | null;
   start_date: string | null;
   end_date: string | null;
+  occurrence_dates?: unknown;
   category: string | null;
   is_free: boolean | null;
   status: "draft" | "verified" | "rejected" | "archived" | null;
@@ -159,7 +161,7 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
                   </td>
                   <td className="px-3 py-3 font-medium text-[#0c0e14]">{row.title}</td>
                   <td className="px-3 py-3 text-black/65">{row.city ?? "-"}</td>
-                  <td className="px-3 py-3 text-black/65">{row.start_date ?? "-"} / {row.end_date ?? "-"}</td>
+                  <td className="px-3 py-3 text-black/65">{formatFestivalDateLineShort(row)}</td>
                   <td className="px-3 py-3 text-black/65">{row.category ?? "-"}</td>
                   <td className="px-3 py-3 text-black/65">{row.is_free ? "Yes" : "No"}</td>
                   <td className="px-3 py-3">

@@ -7,6 +7,8 @@ import type { OrganizerProfile } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
+import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
+import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 
 type FestivalRecord = {
   id: string;
@@ -193,6 +195,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
   const [saving, setSaving] = useState(false);
   const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
+  const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(festival.occurrence_dates) ?? []);
   const router = useRouter();
 
   const descriptionPreview = useMemo(() => form.description.trim(), [form.description]);
@@ -395,6 +398,13 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
     setSaving(true);
 
     try {
+      const nonEmptyOccurrence = occurrenceDays.filter((d) => d.trim().length > 0);
+      const mergedDates = mergeOccurrenceDatesWithRange({
+        occurrence_days: nonEmptyOccurrence,
+        start_date: form.start_date || null,
+        end_date: form.end_date || null,
+      });
+
       const cityInput = form.city.trim();
       const trimmedCityId = form.city_id.trim();
       const cityId = trimmedCityId ? Number(trimmedCityId) : null;
@@ -419,8 +429,9 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           address: form.address || null,
           latitude: form.latitude ? Number(form.latitude) : null,
           longitude: form.longitude ? Number(form.longitude) : null,
-          start_date: form.start_date || null,
-          end_date: form.end_date || null,
+          start_date: mergedDates.start_date,
+          end_date: mergedDates.end_date,
+          occurrence_dates: mergedDates.occurrence_dates,
           organizer_name: form.organizer_name || null,
           organizer_id: form.organizer_id || null,
           organizer_ids: form.organizer_ids,
@@ -454,6 +465,10 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
       if (typeof payload?.hero_image === "string" && payload.hero_image.length > 0) {
         updateField("hero_image", payload.hero_image);
       }
+
+      updateField("start_date", mergedDates.start_date ?? "");
+      updateField("end_date", mergedDates.end_date ?? "");
+      setOccurrenceDays(normalizeOccurrenceDatesInput(mergedDates.occurrence_dates) ?? []);
 
       setMessage("Промените са записани успешно.");
       router.refresh();
@@ -593,6 +608,12 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
             />
           </label>
+          <div className="md:col-span-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Отделни дни (по избор)</span>
+            <div className="mt-2">
+              <OccurrenceDaysEditor value={occurrenceDays} onChange={setOccurrenceDays} disabled={saving || Boolean(actionPending)} />
+            </div>
+          </div>
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizers</span>
             <div className="mt-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-3">

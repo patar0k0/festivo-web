@@ -1,22 +1,13 @@
 import FallbackImage from "@/components/ui/FallbackImage";
 import Link from "next/link";
-import { format, parseISO } from "date-fns";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 import { AppleCard, AppleCardBody, AppleCardHeader } from "@/components/apple/AppleCard";
 import ApplePill from "@/components/apple/ApplePill";
 import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
-
-function formatDateRange(start?: string | null, end?: string | null) {
-  if (!start) return "Dates TBA";
-  const startDate = parseISO(start);
-  if (!end || end === start) {
-    return format(startDate, "d MMM yyyy");
-  }
-  return `${format(startDate, "d MMM")} - ${format(parseISO(end), "d MMM yyyy")}`;
-}
 
 export default function FestivalCard({ festival }: { festival: Festival }) {
   const heroImage = getFestivalHeroImage(festival);
@@ -38,7 +29,7 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
         ) : null}
         <AppleCardBody className="space-y-3">
           <Text variant="muted" size="sm">
-            {festivalCityLabel(festival, "Bulgaria")} · {formatDateRange(festival.start_date, festival.end_date)}
+            {festivalCityLabel(festival, "Bulgaria")} · {formatFestivalDateLineShort(festival)}
           </Text>
           <Heading as="h3" size="h3" className="text-lg">
             {festival.title}

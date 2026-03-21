@@ -28,6 +28,8 @@ type EventCardProps = {
   imageUrl?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  /** When set, replaces the default start/end date line (e.g. multiple discrete days). */
+  dateLine?: string | null;
   isFree?: boolean | null;
   description?: string | null;
   showDetailsButton?: boolean;
@@ -98,6 +100,7 @@ export default function EventCard({
   imageUrl,
   startDate,
   endDate,
+  dateLine,
   isFree,
   description,
   detailsHref,
@@ -107,7 +110,7 @@ export default function EventCard({
   scheduleItemId,
 }: EventCardProps) {
   const badge = getDateBadge(startDate);
-  const dateText = formatDateRange(startDate, endDate);
+  const dateText = dateLine?.trim() ? dateLine : formatDateRange(startDate, endDate);
   const locationText = city || "Град: —";
   const snippet = description?.trim();
   const categoryText = categoryLabel(category);

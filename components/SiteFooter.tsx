@@ -3,6 +3,8 @@ import Container from "@/components/ui/Container";
 import Text from "@/components/ui/Text";
 
 export default function SiteFooter() {
+  const comingSoon = process.env.FESTIVO_PUBLIC_MODE === "coming-soon";
+
   return (
     <footer className="border-t border-ink/10 bg-white">
       <Container className="py-10">
@@ -11,7 +13,7 @@ export default function SiteFooter() {
             Festivo · Безплатни фестивали в България.
           </Text>
           <Text variant="muted" size="sm" className="text-xs">
-            Open in app to save to plan.
+            {comingSoon ? "Мобилното приложение идва скоро." : "Open in app to save to plan."}
           </Text>
         </div>
         <BuildStamp />

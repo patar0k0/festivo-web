@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ComingSoonPublic from "@/components/home/ComingSoonPublic";
 
 export const revalidate = 86400;
 
@@ -31,15 +32,9 @@ export default function ComingSoonPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-6 text-center">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink sm:text-3xl">Очаквайте скоро</h1>
-        <span className="sr-only">
-          Festivo стартира скоро – платформа за откриване на безплатни фестивали в България.
-        </span>
-      </div>
-
+    <>
+      <ComingSoonPublic />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-    </div>
+    </>
   );
 }

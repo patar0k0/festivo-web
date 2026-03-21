@@ -10,6 +10,7 @@ import FallbackImage from "@/components/ui/FallbackImage";
 import Select from "@/components/ui/Select";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
+import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import type { ReminderType } from "@/lib/plan/server";
 import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from "@/lib/types";
@@ -181,7 +182,7 @@ export default function FestivalDetailClient({
   const showPriceRange = Boolean(priceRange) && !showFreeBadge;
   const showDescriptionSection = Boolean(descriptionText) || tags.length > 0 || showPriceRange || showFreeBadge;
   const locationName = festival.location_name?.trim() ?? "";
-  const cityName = festival.city_name_display?.trim() || festival.city?.trim() || "";
+  const cityName = festivalCityLabel(festival, "");
   const cityOrLocationText = cityName || locationName;
   const venueName = festival.venue_name?.trim() ?? "";
   const showVenueName = Boolean(venueName) && venueName.toLocaleLowerCase() !== locationName.toLocaleLowerCase();
@@ -376,7 +377,7 @@ export default function FestivalDetailClient({
           {relatedFestivals.length ? (
             <section className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xl font-semibold text-[#0c0e14]">Още фестивали в {festival.city}</h2>
+                <h2 className="text-xl font-semibold text-[#0c0e14]">Още фестивали в {cityName || "региона"}</h2>
                 <div className="flex flex-wrap gap-3 text-sm font-semibold text-[#0c0e14]">
                   {citySlug ? <Link href={cityHref(citySlug)}>Страница на града</Link> : null}
                   {calendarMonth ? <Link href={`/calendar/${calendarMonth}`}>Календар за месеца</Link> : null}
@@ -387,7 +388,7 @@ export default function FestivalDetailClient({
                   <Link key={item.slug} href={`/festivals/${item.slug}`} className="block">
                     <EventCard
                       title={item.title}
-                      city={item.city}
+                      city={festivalCityLabel(item)}
                       category={item.category}
                       imageUrl={item.image_url}
                       startDate={item.start_date}

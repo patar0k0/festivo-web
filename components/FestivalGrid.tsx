@@ -2,6 +2,7 @@ import Link from "next/link";
 import FallbackImage from "@/components/ui/FallbackImage";
 import { format, parseISO } from "date-fns";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 
 function formatDateRange(start?: string | null, end?: string | null) {
@@ -49,7 +50,7 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
             <div className="space-y-3 p-5">
               <div className="text-[17px] font-semibold tracking-[-0.2px]">{festival.title}</div>
               <div className="text-sm text-[color:var(--muted)]">
-                {festival.city ?? "Bulgaria"} • {formatDateRange(festival.start_date, festival.end_date)}
+                {festivalCityLabel(festival, "Bulgaria")} • {formatDateRange(festival.start_date, festival.end_date)}
               </div>
               <div className="flex flex-wrap gap-2">
                 {festival.is_free ? (

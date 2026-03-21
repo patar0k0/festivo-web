@@ -1,4 +1,4 @@
-﻿export type Festival = {
+export type Festival = {
   id: string | number;
   slug: string;
   title: string;
@@ -32,6 +32,7 @@
   cities?: {
     name_bg?: string | null;
     slug?: string | null;
+    is_village?: boolean | null;
   } | null;
   organizer?: {
     id?: string | null;
@@ -110,6 +111,7 @@ export type OrganizerProfile = {
   cities?: {
     name_bg?: string | null;
     slug?: string | null;
+    is_village?: boolean | null;
   } | null;
   city_name_display?: string | null;
   claimed_events_count?: number | null;

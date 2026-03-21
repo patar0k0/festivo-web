@@ -3,6 +3,8 @@ import { unstable_noStore as noStore } from "next/cache";
 import PlanPageClient from "@/components/plan/PlanPageClient";
 import { getOptionalUser } from "@/lib/authUser";
 import { getPlanEntriesByUser, getPlanStateByUser } from "@/lib/plan/server";
+import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
+import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import "../landing.css";
 
@@ -51,17 +53,23 @@ export default async function PlanPage() {
   if (festivalIds.length) {
     const { data: festivalRows } = await supabase
       .from("festivals")
-      .select("id,slug,title,city,start_date,end_date")
+      .select("id,slug,title,city,start_date,end_date,cities:cities!left(name_bg,is_village)")
       .in("id", festivalIds);
 
-    festivals = (festivalRows ?? []).map((festival) => ({
-      id: String(festival.id),
-      slug: festival.slug,
-      title: festival.title,
-      city: festival.city,
-      start_date: festival.start_date,
-      end_date: festival.end_date,
-    }));
+    festivals = (festivalRows ?? []).map((row) => {
+      const rawJoin = row.cities as { name_bg?: string | null; is_village?: boolean | null } | null | undefined;
+      const joined = Array.isArray(rawJoin) ? rawJoin[0] : rawJoin;
+      return {
+        id: String(row.id),
+        slug: row.slug,
+        title: row.title,
+        city:
+          formatSettlementDisplayName(joined?.name_bg ?? row.city, joined?.is_village ?? undefined) ??
+          (row.city ? fixMojibakeBG(row.city) : null),
+        start_date: row.start_date,
+        end_date: row.end_date,
+      };
+    });
   }
 
   return (

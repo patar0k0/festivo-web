@@ -1,11 +1,13 @@
-﻿import { Festival } from "@/lib/types";
+import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { Festival } from "@/lib/types";
 
 export function getBaseUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "https://festivo.bg";
 }
 
 export function festivalMeta(festival: Festival) {
-  const title = `${festival.title} in ${festival.city ?? "Bulgaria"}`;
+  const place = festivalCityLabel(festival, "България");
+  const title = `${festival.title} · ${place}`;
   const description = festival.description
     ? festival.description.slice(0, 160)
     : "Discover festival dates, program highlights, and city details.";
@@ -35,6 +37,7 @@ export function calendarMeta(month: string) {
 }
 
 export function buildFestivalJsonLd(festival: Festival) {
+  const locality = festivalCityLabel(festival, "България");
   return {
     "@context": "https://schema.org",
     "@type": "Event",
@@ -47,10 +50,10 @@ export function buildFestivalJsonLd(festival: Festival) {
     url: `${getBaseUrl()}/festivals/${festival.slug}`,
     location: {
       "@type": "Place",
-      name: festival.city ?? "Bulgaria",
+      name: locality,
       address: {
         "@type": "PostalAddress",
-        addressLocality: festival.city ?? undefined,
+        addressLocality: locality || undefined,
         addressRegion: festival.region ?? undefined,
         streetAddress: festival.address ?? undefined,
         addressCountry: "BG",

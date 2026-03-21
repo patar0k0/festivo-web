@@ -5,14 +5,17 @@ export type Database = {
         Row: {
           slug: string
           name_bg: string
+          is_village: boolean
         }
         Insert: {
           slug: string
           name_bg: string
+          is_village?: boolean
         }
         Update: {
           slug?: string
           name_bg?: string
+          is_village?: boolean
         }
       }
       festivals: {

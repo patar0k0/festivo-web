@@ -1,5 +1,6 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { format, parseISO } from "date-fns";
+import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 
 type DayEventsListProps = {
@@ -56,7 +57,7 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
             >
               <p className="text-base font-semibold text-[#0c0e14]">{festival.title}</p>
               <p className="mt-1 text-sm text-black/60">
-                {festival.city ?? "България"} • {formatEventDate(festival.start_date, festival.end_date)}
+                {festivalCityLabel(festival)} • {formatEventDate(festival.start_date, festival.end_date)}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {festival.category ? (

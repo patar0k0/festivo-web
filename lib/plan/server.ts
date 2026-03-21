@@ -1,4 +1,5 @@
 import { type SupabaseClient, type User } from "@supabase/supabase-js";
+import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -52,12 +53,20 @@ type ScheduleItemRow = {
   sort_order: number | null;
 };
 
+type CityJoinRow = { name_bg?: string | null; is_village?: boolean | null };
+
 type FestivalRow = {
   id: string | number;
   slug: string;
   title: string;
   city: string | null;
+  cities?: CityJoinRow | CityJoinRow[] | null;
 };
+
+function normalizePlanCityJoin(raw: CityJoinRow | CityJoinRow[] | null | undefined): CityJoinRow | null {
+  if (!raw) return null;
+  return Array.isArray(raw) ? raw[0] ?? null : raw;
+}
 
 async function getAuthedClientOrThrow(): Promise<{ supabase: SupabaseClient; user: User }> {
   const supabase = await createSupabaseServerClient();
@@ -201,7 +210,7 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
 
   const { data: festivalRows } = await db
     .from("festivals")
-    .select("id,slug,title,city")
+    .select("id,slug,title,city,cities:cities!left(name_bg,is_village)")
     .in("id", festivalIds)
     .returns<FestivalRow[]>();
 
@@ -215,12 +224,16 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
     const festival = festivalById.get(String(day.festival_id));
     if (!festival) return;
 
+    const joined = normalizePlanCityJoin(festival.cities);
+    const cityLabel =
+      formatSettlementDisplayName(joined?.name_bg ?? festival.city, joined?.is_village ?? undefined) ??
+      (festival.city ? fixMojibakeBG(festival.city) : null);
     entries.push({
       scheduleItemId: String(schedule.id),
       festivalId: String(festival.id),
       festivalSlug: festival.slug,
       festivalTitle: fixMojibakeBG(festival.title),
-      city: festival.city ? fixMojibakeBG(festival.city) : festival.city,
+      city: cityLabel,
       dayDate: day.date,
       startTime: schedule.start_time,
       endTime: schedule.end_time,

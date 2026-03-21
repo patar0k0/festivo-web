@@ -1,6 +1,7 @@
 import FallbackImage from "@/components/ui/FallbackImage";
 import { format, parseISO } from "date-fns";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 import OpenInAppButton from "@/components/OpenInAppButton";
 import QRCodeBlock from "@/components/QRCodeBlock";
@@ -33,7 +34,7 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
       <div className="relative z-10 grid gap-8 p-8 text-white md:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
           <p className="text-xs uppercase tracking-[0.3em] text-white/70">
-            {festival.city ?? "Bulgaria"} · {formatDateRange(festival.start_date, festival.end_date)}
+            {festivalCityLabel(festival, "Bulgaria")} · {formatDateRange(festival.start_date, festival.end_date)}
           </p>
           <h1 className="text-3xl font-semibold md:text-5xl">{festival.title}</h1>
           {festival.is_free && <span className="badge bg-white/90 text-ink">Free</span>}
@@ -41,7 +42,7 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
             <OpenInAppButton deepLink={deepLink} />
             <a
               href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                [festival.address, festival.city].filter(Boolean).join(", ")
+                [festival.address, festivalCityLabel(festival, "")].filter(Boolean).join(", ")
               )}`}
               className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
               target="_blank"

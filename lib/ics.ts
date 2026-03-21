@@ -1,4 +1,5 @@
-﻿import { addDays, format, parseISO } from "date-fns";
+import { addDays, format, parseISO } from "date-fns";
+import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 import { getBaseUrl } from "@/lib/seo";
 
@@ -22,7 +23,7 @@ export function buildFestivalIcs(festival: Festival) {
     `DTSTART;VALUE=DATE:${format(start, "yyyyMMdd")}`,
     `DTEND;VALUE=DATE:${format(endExclusive, "yyyyMMdd")}`,
     `SUMMARY:${escapeText(festival.title)}`,
-    `LOCATION:${escapeText([festival.address, festival.city].filter(Boolean).join(", "))}`,
+    `LOCATION:${escapeText([festival.address, festivalCityLabel(festival, "")].filter(Boolean).join(", "))}`,
     `URL:${getBaseUrl()}/festivals/${festival.slug}`,
     "END:VEVENT",
     "END:VCALENDAR",

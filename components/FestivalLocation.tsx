@@ -1,8 +1,9 @@
-﻿import { Festival } from "@/lib/types";
+import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { Festival } from "@/lib/types";
 
 export default function FestivalLocation({ festival }: { festival: Festival }) {
-  if (!festival.city && !festival.address) return null;
-  const address = [festival.address, festival.city, festival.region].filter(Boolean).join(", ");
+  if (!festival.city && !festival.address && !festival.city_name_display) return null;
+  const address = [festival.address, festivalCityLabel(festival, ""), festival.region].filter(Boolean).join(", ");
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 
   return (

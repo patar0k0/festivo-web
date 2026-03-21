@@ -4,13 +4,14 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, OrganizerProfile, PaginatedResult } from "@/lib/types";
 import { withDefaultFilters } from "@/lib/filters";
+import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 
 export const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
+  "id,title,slug,city_id,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(name_bg,slug,is_village)";
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,city_id,city,region,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug),organizer:organizers!left(id,name,slug),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+  "id,title,slug,description,start_date,end_date,city_id,city,region,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
 
 
 type FestivalOrganizerLinkRow = {
@@ -180,7 +181,13 @@ function applyFilters<T extends FilterQuery<T>>(query: T, filters: Filters, opti
   return typedQuery;
 }
 
-function fixFestivalText(festival: Festival): Festival {
+export function fixFestivalText(festival: Festival): Festival {
+  const rawDisplayName = festival.cities?.name_bg ?? festival.city;
+  const city_name_display = formatSettlementDisplayName(
+    rawDisplayName,
+    festival.cities?.is_village ?? undefined,
+  );
+
   return {
     ...festival,
     title: fixMojibakeBG(festival.title),
@@ -190,7 +197,7 @@ function fixFestivalText(festival: Festival): Festival {
     address: festival.address ? fixMojibakeBG(festival.address) : festival.address,
     location_name: festival.location_name ? fixMojibakeBG(festival.location_name) : festival.location_name,
     venue_name: festival.location_name ? fixMojibakeBG(festival.location_name) : festival.location_name,
-    city_name_display: festival.cities?.name_bg ?? festival.city ?? null,
+    city_name_display,
     latitude: festival.lat ?? null,
     longitude: festival.lng ?? null,
     hero_image: festival.hero_image ?? festival.image_url ?? null,
@@ -417,23 +424,25 @@ export async function getCityLinks(): Promise<Array<{ name: string; slug: string
 
   const { data, error } = await supabase
     .from("cities")
-    .select("name_bg,slug")
+    .select("name_bg,slug,is_village")
     .order("name_bg", { ascending: true })
-    .returns<Array<{ name_bg: string | null; slug: string | null }>>();
+    .returns<Array<{ name_bg: string | null; slug: string | null; is_village: boolean | null }>>();
 
   if (error) {
     return [];
   }
 
   return (data ?? [])
-    .filter((row): row is { name_bg: string; slug: string } => Boolean(row.name_bg && row.slug))
+    .filter((row): row is { name_bg: string; slug: string; is_village: boolean | null } =>
+      Boolean(row.name_bg && row.slug),
+    )
     .map((row) => ({
-      name: fixMojibakeBG(row.name_bg),
+      name: formatSettlementDisplayName(row.name_bg, row.is_village ?? false) ?? fixMojibakeBG(row.name_bg),
       slug: row.slug,
     }));
 }
 
-type CityJoinRow = { slug: string | null; name_bg: string | null };
+type CityJoinRow = { slug: string | null; name_bg: string | null; is_village: boolean | null };
 
 function normalizeFestivalCityJoin(
   raw: CityJoinRow | CityJoinRow[] | null | undefined,
@@ -453,7 +462,7 @@ export async function getHomeCitySelectOptions(): Promise<
 
   const { data, error } = await supabase
     .from("festivals")
-    .select("city, cities:cities!left(slug,name_bg)")
+    .select("city, cities:cities!left(slug,name_bg,is_village)")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
     .not("city", "is", null)
@@ -480,7 +489,9 @@ export async function getHomeCitySelectOptions(): Promise<
     };
     const joined = normalizeFestivalCityJoin(row.cities);
     const slug = joined?.slug ?? prev.slug;
-    const name = joined?.name_bg ? fixMojibakeBG(joined.name_bg) : prev.name;
+    const name = joined?.name_bg
+      ? formatSettlementDisplayName(joined.name_bg, joined.is_village ?? false) ?? fixMojibakeBG(joined.name_bg)
+      : prev.name;
     map.set(key, { name, slug });
   }
 
@@ -517,7 +528,7 @@ export async function getOrganizerWithFestivals(
 
   const { data: organizer, error: organizerError } = await supabase
     .from("organizers")
-    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id,cities:cities!left(name_bg,slug)")
+    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id,cities:cities!left(name_bg,slug,is_village)")
     .eq("slug", slug)
     .eq("is_active", true)
     .maybeSingle<OrganizerProfile>();
@@ -544,7 +555,10 @@ export async function getOrganizerWithFestivals(
     ...organizer,
     name: fixMojibakeBG(organizer.name),
     description: organizer.description ? fixMojibakeBG(organizer.description) : organizer.description,
-    city_name_display: organizer.cities?.name_bg ? fixMojibakeBG(organizer.cities.name_bg) : null,
+    city_name_display: formatSettlementDisplayName(
+      organizer.cities?.name_bg ?? null,
+      organizer.cities?.is_village ?? undefined,
+    ),
   };
 
   const { data: links, error: linksError } = await supabase

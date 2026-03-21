@@ -9,6 +9,7 @@ import { cityHref } from "@/lib/cities";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
+import { festivalCityLabel, formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 import { getBaseUrl } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import "../../landing.css";
@@ -29,6 +30,7 @@ const categoryLabels: Record<string, string> = {
 type CityRecord = {
   slug: string;
   name_bg: string;
+  is_village: boolean | null;
 };
 
 function mapCategoryLabel(category: string) {
@@ -42,7 +44,7 @@ function hasNonAscii(value: string) {
 async function resolveCityByParam(slugParam: string): Promise<{ city: CityRecord | null; rawTrimmed: string }> {
   const rawTrimmed = decodeURIComponent(slugParam).trim();
   const supabase = await createSupabaseServerClient();
-  let query = supabase.from("cities").select("slug,name_bg");
+  let query = supabase.from("cities").select("slug,name_bg,is_village");
 
   if (hasNonAscii(rawTrimmed)) {
     const rawSpaced = rawTrimmed.replace(/-/g, " ");
@@ -66,7 +68,10 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const { city, rawTrimmed } = await resolveCityByParam(slug);
-  const cityName = city?.name_bg ?? rawTrimmed;
+  const cityName =
+    city != null
+      ? formatSettlementDisplayName(city.name_bg, city.is_village ?? false) ?? city.name_bg
+      : rawTrimmed;
   const canonicalSlug = city?.slug ?? rawTrimmed;
   const title = `Фестивали в ${cityName} | Festivo`;
   const description = `Открий предстоящи фестивали и събития в ${cityName}. Запази в план и получавай напомняния.`;
@@ -98,7 +103,7 @@ export default async function CityLandingPage({
     permanentRedirect(cityHref(city.slug));
   }
 
-  const cityName = city.name_bg;
+  const cityName = formatSettlementDisplayName(city.name_bg, city.is_village ?? false) ?? city.name_bg;
   const citySlug = city.slug;
 
   const parsedFilters = parseFilters(resolvedSearchParams);
@@ -208,7 +213,7 @@ export default async function CityLandingPage({
                       <EventCard
                         key={festival.slug}
                         title={festival.title}
-                        city={festival.city}
+                        city={festivalCityLabel(festival)}
                         category={festival.category}
                         imageUrl={getFestivalHeroImage(festival)}
                         startDate={festival.start_date}

@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import EventCard from "@/components/ui/EventCard";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 
 type MapResultsListProps = {
@@ -54,7 +55,7 @@ export default function MapResultsList({
           >
             <EventCard
               title={festival.title}
-              city={festival.city}
+              city={festivalCityLabel(festival)}
               category={festival.category}
               imageUrl={getFestivalHeroImage(festival)}
               startDate={festival.start_date}

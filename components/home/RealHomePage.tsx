@@ -4,6 +4,7 @@ import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
 import { cityHref } from "@/lib/cities";
+import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { Festival } from "@/lib/types";
 import CitySelectClient from "./CitySelectClient";
@@ -63,7 +64,7 @@ function EventsSection({
             <EventCard
               key={festival.slug}
               title={festival.title}
-              city={festival.city}
+              city={festivalCityLabel(festival)}
               category={festival.category}
               imageUrl={getFestivalHeroImage(festival)}
               startDate={festival.start_date}

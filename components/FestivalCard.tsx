@@ -2,6 +2,7 @@ import FallbackImage from "@/components/ui/FallbackImage";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 import { AppleCard, AppleCardBody, AppleCardHeader } from "@/components/apple/AppleCard";
 import ApplePill from "@/components/apple/ApplePill";
@@ -37,7 +38,7 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
         ) : null}
         <AppleCardBody className="space-y-3">
           <Text variant="muted" size="sm">
-            {festival.city ?? "Bulgaria"} · {formatDateRange(festival.start_date, festival.end_date)}
+            {festivalCityLabel(festival, "Bulgaria")} · {formatDateRange(festival.start_date, festival.end_date)}
           </Text>
           <Heading as="h3" size="h3" className="text-lg">
             {festival.title}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
+import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import FallbackImage from "@/components/ui/FallbackImage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Festival, OrganizerProfile } from "@/lib/types";
@@ -192,7 +193,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                     <EventCard
                       key={festival.id}
                       title={festival.title}
-                      city={festival.city}
+                      city={festivalCityLabel(festival)}
                       category={festival.category}
                       imageUrl={festival.hero_image ?? festival.image_url}
                       startDate={festival.start_date}

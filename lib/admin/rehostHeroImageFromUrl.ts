@@ -51,6 +51,38 @@ function extensionFromMimeType(mimeType: string): string | null {
   return null;
 }
 
+/** When servers send application/octet-stream or omit Content-Type, infer from magic bytes. */
+function sniffImageMimeFromBuffer(buf: Buffer): string | null {
+  if (buf.length < 12) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "image/png";
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return "image/gif";
+  if (
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf[8] === 0x57 &&
+    buf[9] === 0x45 &&
+    buf[10] === 0x42 &&
+    buf[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+function responseBodyLooksLikeHtml(buf: Buffer): boolean {
+  const sample = buf.subarray(0, Math.min(512, buf.length)).toString("utf8").trimStart().toLowerCase();
+  return (
+    sample.startsWith("<!doctype") ||
+    sample.startsWith("<html") ||
+    sample.startsWith("<head") ||
+    sample.startsWith("<!--") ||
+    sample.startsWith("<script")
+  );
+}
+
 function isBlockedIp(ip: string): boolean {
   const lower = ip.toLowerCase();
   if (lower === "127.0.0.1" || lower === "0.0.0.0" || lower === "::1") return true;
@@ -139,10 +171,7 @@ async function fetchRemoteImage(urlStr: string): Promise<{ buffer: Buffer; conte
       throw new Error(`Could not download image (HTTP ${response.status}).`);
     }
 
-    const contentType = response.headers.get("content-type") || "";
-    if (!contentType.toLowerCase().startsWith("image/")) {
-      throw new Error("URL did not return an image (wrong content type).");
-    }
+    const headerContentType = response.headers.get("content-type") || "";
 
     const contentLength = Number(response.headers.get("content-length") || 0);
     if (contentLength > MAX_HERO_IMAGE_BYTES) {
@@ -160,7 +189,24 @@ async function fetchRemoteImage(urlStr: string): Promise<{ buffer: Buffer; conte
       throw new Error(`Image is too large (max ${Math.floor(MAX_HERO_IMAGE_BYTES / (1024 * 1024))}MB).`);
     }
 
-    return { buffer, contentType };
+    const headerLooksImage = headerContentType.toLowerCase().trim().startsWith("image/");
+    let effectiveContentType = headerContentType;
+
+    if (!headerLooksImage) {
+      const sniffed = sniffImageMimeFromBuffer(buffer);
+      if (sniffed) {
+        effectiveContentType = sniffed;
+      } else if (responseBodyLooksLikeHtml(buffer)) {
+        throw new Error(
+          "The URL returned HTML instead of an image. Facebook and similar CDNs often do this for server-side requests (login wall or bot block). Try uploading the file manually, or rely on ingest rehosting with a browser session.",
+        );
+      } else {
+        const ct = headerContentType.trim() || "missing";
+        throw new Error(`URL did not return a recognizable image (Content-Type: ${ct}).`);
+      }
+    }
+
+    return { buffer, contentType: effectiveContentType };
   }
 
   throw new Error("Too many redirects while downloading the image.");

@@ -1048,8 +1048,9 @@ export default function PendingFestivalEditForm({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 text-sm">
-            <h2 className="text-lg font-bold">Secondary moderation metadata</h2>
+          <details className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 text-sm">
+            <summary className="cursor-pointer text-lg font-bold">Secondary moderation metadata (collapsed)</summary>
+            <p className="mt-1 text-xs text-black/60">ID, източници, verification, одит. Само за преглед.</p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">ID</span>
@@ -1096,7 +1097,7 @@ export default function PendingFestivalEditForm({
                 <input value={form.reviewed_by} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
             </div>
-          </div>
+          </details>
 
           <details className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
             <summary className="cursor-pointer text-lg font-bold">Debug / AI / ingestion (collapsed)</summary>

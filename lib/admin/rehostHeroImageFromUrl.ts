@@ -52,6 +52,7 @@ function buildHeroImportHeaders(requestUrl: string): Record<string, string> {
     "sec-fetch-site": "cross-site",
   };
 
+  // Optional: Facebook CDN may still return HTML without a logged-in session; set on the server only.
   const fbCookie = process.env.FESTIVO_ADMIN_FB_IMAGE_COOKIE?.trim();
   if (fbCookie) {
     headers.cookie = fbCookie;
@@ -246,20 +247,8 @@ async function fetchRemoteImage(urlStr: string): Promise<{ buffer: Buffer; conte
       if (sniffed) {
         effectiveContentType = sniffed;
       } else if (responseBodyLooksLikeHtml(buffer)) {
-        const host = (() => {
-          try {
-            return new URL(currentUrl).hostname;
-          } catch {
-            return "";
-          }
-        })();
-        const fb = host && isFacebookCdnHost(host);
-        const cookieHint =
-          fb && !process.env.FESTIVO_ADMIN_FB_IMAGE_COOKIE?.trim()
-            ? " Alternatively set FESTIVO_ADMIN_FB_IMAGE_COOKIE on the server (Facebook session cookie) if Referer alone is not enough."
-            : "";
         throw new Error(
-          `The URL returned HTML instead of an image (Facebook/CDN block or login wall). Try manual file upload, ingest rehost with browser session, or a direct image URL.${cookieHint}`,
+          "This link answered with a web page, not an image file (typical for Facebook when our server fetches it). Open the Original URL in your browser while logged in, save the image, then use Upload — or re-run ingest so the worker can rehost it with a browser.",
         );
       } else {
         const ct = headerContentType.trim() || "missing";

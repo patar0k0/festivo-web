@@ -11,20 +11,25 @@ export default function AdminShell({ children, email }: { children: React.ReactN
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Festivo админ</p>
               <p className="text-sm text-black/60">{email ?? "admin"}</p>
             </div>
-            <Link
-              href="/"
-              className="shrink-0 rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-black/70 hover:bg-[#f7f6f3]"
-            >
-              Към сайта
-            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href="/"
+                className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-black/70 hover:bg-[#f7f6f3]"
+              >
+                Към сайта
+              </Link>
+              <form action="/api/auth/logout" method="post">
+                <button
+                  type="submit"
+                  className="rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-black/70 hover:bg-[#f7f6f3]"
+                >
+                  Изход
+                </button>
+              </form>
+            </div>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <AdminTopNav />
-            <form action="/api/auth/logout" method="post" className="flex sm:justify-end">
-              <button type="submit" className="w-full rounded-xl bg-[#0c0e14] px-3 py-2 text-white hover:bg-[#1d202b] sm:w-auto">
-                Изход
-              </button>
-            </form>
           </div>
         </div>
       </div>

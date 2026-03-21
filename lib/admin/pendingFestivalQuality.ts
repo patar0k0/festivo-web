@@ -163,3 +163,167 @@ export function assessPendingFestivalQuality(row: PendingQualityInput): PendingF
     hero_image_missing: !heroImage,
   };
 }
+
+export type FilledFieldSummary = {
+  key: string;
+  label: string;
+  preview: string;
+};
+
+const PREVIEW_MAX = 200;
+
+function truncatePreview(value: string, max = PREVIEW_MAX): string {
+  const t = value.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+type PendingRecordForFillSummary = {
+  title?: unknown;
+  slug?: unknown;
+  description?: unknown;
+  start_date?: unknown;
+  end_date?: unknown;
+  city_id?: unknown;
+  city?: { name_bg?: unknown; slug?: unknown } | null;
+  city_guess?: unknown;
+  location_name?: unknown;
+  address?: unknown;
+  region?: unknown;
+  latitude?: unknown;
+  longitude?: unknown;
+  organizer_name?: unknown;
+  source_url?: unknown;
+  website_url?: unknown;
+  ticket_url?: unknown;
+  price_range?: unknown;
+  hero_image?: unknown;
+  hero_image_source?: unknown;
+  hero_image_original_url?: unknown;
+  hero_image_score?: unknown;
+  category?: unknown;
+  tags?: unknown;
+  title_clean?: unknown;
+  description_clean?: unknown;
+  description_short?: unknown;
+  date_guess?: unknown;
+  location_guess?: unknown;
+  is_free?: unknown;
+  source_type?: unknown;
+};
+
+/**
+ * Lists non-empty fields on the pending row for quick “what ingest / pipeline filled” visibility.
+ * Omits empty values; long text is truncated in previews.
+ */
+export function listFilledPendingRecordFields(row: PendingRecordForFillSummary): FilledFieldSummary[] {
+  const out: FilledFieldSummary[] = [];
+  const push = (key: string, label: string, raw: unknown) => {
+    if (raw === null || raw === undefined) return;
+    if (typeof raw === "string") {
+      const t = raw.trim();
+      if (!t) return;
+      out.push({ key, label, preview: truncatePreview(t) });
+      return;
+    }
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+      out.push({ key, label, preview: String(raw) });
+      return;
+    }
+    if (typeof raw === "boolean") {
+      out.push({ key, label, preview: raw ? "да" : "не" });
+    }
+  };
+
+  const title = normalizeText(row.title);
+  if (title) out.push({ key: "title", label: "Заглавие", preview: truncatePreview(title) });
+
+  const slug = normalizeText(row.slug);
+  if (slug) out.push({ key: "slug", label: "Slug", preview: slug });
+
+  const description = normalizeText(row.description);
+  if (description) out.push({ key: "description", label: "Описание", preview: truncatePreview(description) });
+
+  const startDate = normalizeDateValue(row.start_date);
+  if (startDate) out.push({ key: "start_date", label: "Начална дата", preview: startDate });
+
+  const endDate = normalizeDateValue(row.end_date);
+  if (endDate) out.push({ key: "end_date", label: "Крайна дата", preview: endDate });
+
+  const cityId = typeof row.city_id === "number" ? row.city_id : null;
+  const cityName = normalizeText(row.city?.name_bg) ?? normalizeText(row.city?.slug);
+  if (cityId != null && cityName) {
+    out.push({ key: "city_resolved", label: "Град (каноничен)", preview: `${cityName} (id ${cityId})` });
+  } else if (cityId != null) {
+    out.push({ key: "city_id", label: "Град (id)", preview: String(cityId) });
+  }
+
+  const cityGuess = normalizeText(row.city_guess);
+  if (cityGuess) out.push({ key: "city_guess", label: "Предположение за град", preview: cityGuess });
+
+  const locationName = normalizeText(row.location_name);
+  if (locationName) out.push({ key: "location_name", label: "Място / venue", preview: truncatePreview(locationName) });
+
+  const locationGuess = normalizeText(row.location_guess);
+  if (locationGuess) out.push({ key: "location_guess", label: "Предположение за място", preview: truncatePreview(locationGuess) });
+
+  const address = normalizeText(row.address);
+  if (address) out.push({ key: "address", label: "Адрес", preview: truncatePreview(address) });
+
+  const region = normalizeText(row.region);
+  if (region) out.push({ key: "region", label: "Регион", preview: region });
+
+  const lat = row.latitude;
+  const lng = row.longitude;
+  if (typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)) {
+    out.push({ key: "coords", label: "Координати", preview: `${lat}, ${lng}` });
+  }
+
+  const organizerName = normalizeText(row.organizer_name);
+  if (organizerName) out.push({ key: "organizer_name", label: "Организатор", preview: truncatePreview(organizerName) });
+
+  const sourceUrl = normalizeText(row.source_url);
+  if (sourceUrl) out.push({ key: "source_url", label: "Източник (URL)", preview: sourceUrl });
+
+  const sourceType = normalizeText(row.source_type);
+  if (sourceType) out.push({ key: "source_type", label: "Тип източник", preview: sourceType });
+
+  push("website_url", "Уебсайт", row.website_url);
+  push("ticket_url", "Билети (URL)", row.ticket_url);
+  push("price_range", "Ценови диапазон", row.price_range);
+
+  const hero = normalizeText(row.hero_image);
+  if (hero) out.push({ key: "hero_image", label: "Hero изображение (URL)", preview: truncatePreview(hero, 120) });
+
+  push("hero_image_source", "Hero източник", row.hero_image_source);
+  const heroOrig = normalizeText(row.hero_image_original_url);
+  if (heroOrig) out.push({ key: "hero_image_original_url", label: "Hero оригинален URL", preview: truncatePreview(heroOrig, 120) });
+
+  if (row.hero_image_score !== null && row.hero_image_score !== undefined && String(row.hero_image_score).trim() !== "") {
+    out.push({ key: "hero_image_score", label: "Hero score", preview: String(row.hero_image_score) });
+  }
+
+  const category = normalizeText(row.category);
+  if (category) out.push({ key: "category", label: "Категория", preview: category });
+
+  const tags = normalizeTags(row.tags);
+  if (tags.length) out.push({ key: "tags", label: "Тагове", preview: tags.join(", ") });
+
+  const titleClean = normalizeText(row.title_clean);
+  if (titleClean) out.push({ key: "title_clean", label: "Заглавие (нормализирано / AI)", preview: truncatePreview(titleClean) });
+
+  const descriptionClean = normalizeText(row.description_clean);
+  if (descriptionClean) out.push({ key: "description_clean", label: "Описание (нормализирано / AI)", preview: truncatePreview(descriptionClean) });
+
+  const descriptionShort = normalizeText(row.description_short);
+  if (descriptionShort) out.push({ key: "description_short", label: "Кратко описание", preview: truncatePreview(descriptionShort) });
+
+  const dateGuess = normalizeDateValue(row.date_guess);
+  if (dateGuess) out.push({ key: "date_guess", label: "Предположение за дата", preview: dateGuess });
+
+  if (row.is_free === true || row.is_free === false) {
+    out.push({ key: "is_free", label: "Безплатно", preview: row.is_free ? "да" : "не" });
+  }
+
+  return out;
+}

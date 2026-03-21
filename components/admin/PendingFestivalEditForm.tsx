@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
 import { extractNormalizationSuggestions, type SuggestionField } from "@/lib/festival/normalizationSuggestions";
-import type { PendingFestivalQuality } from "@/lib/admin/pendingFestivalQuality";
+import { listFilledPendingRecordFields, type PendingFestivalQuality } from "@/lib/admin/pendingFestivalQuality";
 
 export type PendingFestivalRecord = {
   id: string;
@@ -407,6 +407,8 @@ export default function PendingFestivalEditForm({
   const [error, setError] = useState("");
   const [safeApplySummary, setSafeApplySummary] = useState<{ appliedFields: string[]; skippedUnchangedOrMissing: string[] } | null>(null);
   const lastIngestSummary = formatLastIngestLine(lastIngestJobMeta);
+
+  const filledFieldSummaries = useMemo(() => listFilledPendingRecordFields(pendingFestival), [pendingFestival]);
 
   const [heroPreviewError, setHeroPreviewError] = useState(false);
   const [appliedAiFields, setAppliedAiFields] = useState<Record<SuggestionField, boolean>>({
@@ -1183,6 +1185,25 @@ export default function PendingFestivalEditForm({
               </p>
             )}
           </details>
+
+          <div className="rounded-2xl border border-[#18a05e]/25 bg-[#f4fbf7] p-5 text-sm">
+            <h2 className="text-lg font-bold">Попълнени полета</h2>
+            <p className="mt-1 text-xs text-black/60">
+              Какво има в записа към момента на зареждане на страницата (ingest worker + AI нормализация). Празните полета не се изреждат тук — за тях виж „Missing fields“ по-долу.
+            </p>
+            {filledFieldSummaries.length > 0 ? (
+              <ul className="mt-3 max-h-[min(420px,50vh)] list-none space-y-2 overflow-y-auto pr-1">
+                {filledFieldSummaries.map((f) => (
+                  <li key={f.key} className="rounded-xl border border-black/[0.08] bg-white px-3 py-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/50">{f.label}</span>
+                    <p className="mt-1 break-all font-mono text-[11px] leading-snug text-black/75">{f.preview}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-xs text-black/55">Няма ненулеви полета в записа.</p>
+            )}
+          </div>
 
           <div className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
             <h2 className="text-lg font-bold">Pending quality diagnostics</h2>

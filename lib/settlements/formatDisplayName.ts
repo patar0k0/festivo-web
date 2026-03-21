@@ -7,8 +7,9 @@ export function stripBulgarianSettlementPrefix(name: string): string {
 }
 
 /**
- * Име за показ: села с префикс „с. “, градове без префикс.
- * Ако вече започва с „с.“ / „село“, не дублираме.
+ * Име за показ: села — „с. “, градове — „гр. “.
+ * При `isVillage === undefined` без промяна (напр. само свободен текст `city` без ред в `cities`).
+ * Не дублираме вече налични представки.
  */
 export function formatSettlementDisplayName(
   rawName: string | null | undefined,
@@ -26,6 +27,14 @@ export function formatSettlementDisplayName(
     }
     const base = stripBulgarianSettlementPrefix(trimmed);
     return base ? `с. ${base}` : trimmed;
+  }
+
+  if (isVillage === false) {
+    if (/^(?:гр\.?\s+|град\s+)/i.test(trimmed)) {
+      return trimmed;
+    }
+    const base = stripBulgarianSettlementPrefix(trimmed);
+    return base ? `гр. ${base}` : trimmed;
   }
 
   return trimmed;

@@ -183,10 +183,10 @@ function applyFilters<T extends FilterQuery<T>>(query: T, filters: Filters, opti
 
 export function fixFestivalText(festival: Festival): Festival {
   const rawDisplayName = festival.cities?.name_bg ?? festival.city;
-  const city_name_display = formatSettlementDisplayName(
-    rawDisplayName,
-    festival.cities?.is_village ?? undefined,
-  );
+  const settlementKind = festival.cities
+    ? (festival.cities.is_village ?? false)
+    : undefined;
+  const city_name_display = formatSettlementDisplayName(rawDisplayName, settlementKind);
 
   return {
     ...festival,
@@ -557,7 +557,7 @@ export async function getOrganizerWithFestivals(
     description: organizer.description ? fixMojibakeBG(organizer.description) : organizer.description,
     city_name_display: formatSettlementDisplayName(
       organizer.cities?.name_bg ?? null,
-      organizer.cities?.is_village ?? undefined,
+      organizer.cities ? (organizer.cities.is_village ?? false) : undefined,
     ),
   };
 

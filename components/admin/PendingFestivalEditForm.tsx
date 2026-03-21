@@ -378,6 +378,7 @@ export default function PendingFestivalEditForm({
   const [saving, setSaving] = useState(false);
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
   const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
+  const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
   const [removingHeroImage, setRemovingHeroImage] = useState(false);
   const [heroImageSourceState, setHeroImageSourceState] = useState<string | null>(normalizeOptionalText(pendingFestival.hero_image_source));
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -644,7 +645,7 @@ export default function PendingFestivalEditForm({
   };
 
   const uploadHeroImage = async () => {
-    if (saving || runningAction || uploadingHeroImage || removingHeroImage) return;
+    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
 
     const selectedFile = fileInputRef.current?.files?.[0] ?? null;
     if (!selectedFile) {
@@ -693,8 +694,51 @@ export default function PendingFestivalEditForm({
     }
   };
 
+  const importHeroImageFromUrl = async () => {
+    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+
+    const url = form.hero_image.trim();
+    if (!url) {
+      setError("Paste an image URL in the Hero image field first.");
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      setError("Hero image URL must start with http:// or https://.");
+      return;
+    }
+
+    setImportingHeroFromUrl(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/hero-image`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_url: url }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as HeroImageUploadResponse | null;
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? "Failed to import hero image from URL.");
+      }
+
+      const importedHeroImage = typeof payload.hero_image === "string" ? payload.hero_image : "";
+      updateField("hero_image", importedHeroImage);
+      setHeroImageSourceState(typeof payload.hero_image_source === "string" ? payload.hero_image_source : "url_import");
+      setMessage("Hero image downloaded and saved to storage (external URL was not stored).");
+      router.refresh();
+    } catch (importUrlError) {
+      setError(importUrlError instanceof Error ? importUrlError.message : "Unexpected hero image import error.");
+    } finally {
+      setImportingHeroFromUrl(false);
+    }
+  };
+
   const removeHeroImage = async () => {
-    if (saving || runningAction || uploadingHeroImage || removingHeroImage) return;
+    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     if (!form.hero_image.trim()) {
       setError("There is no hero image to remove.");
       return;
@@ -846,20 +890,31 @@ export default function PendingFestivalEditForm({
                     <button
                       type="button"
                       onClick={uploadHeroImage}
-                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || removingHeroImage}
+                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
                       className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
                     >
                       {uploadingHeroImage ? "Uploading..." : heroImageUrl ? "Replace image" : "Upload image"}
                     </button>
                     <button
                       type="button"
+                      onClick={importHeroImageFromUrl}
+                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage || !heroImageUrl}
+                      className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+                    >
+                      {importingHeroFromUrl ? "Importing..." : "Import from URL"}
+                    </button>
+                    <button
+                      type="button"
                       onClick={removeHeroImage}
-                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || removingHeroImage || !heroImageUrl}
+                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage || !heroImageUrl}
                       className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
                     >
                       {removingHeroImage ? "Removing..." : "Remove image"}
                     </button>
                   </div>
+                  <p className="mt-2 text-xs text-black/55">
+                    Import from URL downloads the file on the server and uploads it to Supabase; only the storage public URL is stored, not the external link.
+                  </p>
                 </div>
                 <div className="mt-3 rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-xs text-black/65">
                   <p>

@@ -367,6 +367,11 @@ export default function ResearchFestivalPanel() {
                       placeholder={field.placeholder}
                       className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
                     />
+                    {field.key === "hero_image" ? (
+                      <p className="mt-1 text-xs text-black/50">
+                        If you paste an image URL, it is downloaded and stored in Supabase when you create the draft; the external link is not kept.
+                      </p>
+                    ) : null}
                   </div>
                 ))}
               </div>

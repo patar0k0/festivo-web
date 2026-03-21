@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { rehostHeroImageIfRemote, uniqueResearchHeroObjectPath } from "@/lib/admin/rehostHeroImageFromUrl";
 import { mapConfidenceToVerificationScore } from "@/lib/admin/research/scoring";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeResearchResult, validateDateFieldsOrErrors, validateDateRangeOrError } from "@/lib/admin/research/normalize";
 import type { ResearchBestGuess, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
 import type { PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
@@ -41,6 +43,31 @@ function sanitizeSourceUrls(input: unknown): string[] {
   return input
     .map((entry) => sanitizeNullableString(entry))
     .filter((entry): entry is string => Boolean(entry));
+}
+
+async function resolveHeroImageFieldForInsert(heroRaw: string | null): Promise<{ patch: Record<string, unknown> } | { error: string }> {
+  if (!heroRaw) {
+    return { patch: { hero_image: null } };
+  }
+
+  try {
+    const supabase = createSupabaseAdmin();
+    const outcome = await rehostHeroImageIfRemote(supabase, heroRaw, (ext) => uniqueResearchHeroObjectPath(ext));
+    if (!outcome.ok) {
+      return { error: outcome.error };
+    }
+
+    const patch: Record<string, unknown> = { hero_image: outcome.publicUrl };
+    if (outcome.originalUrl) {
+      patch.hero_image_original_url = outcome.originalUrl;
+      patch.hero_image_source = "url_import";
+    }
+
+    return { patch };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Hero image import failed.";
+    return { error: message };
+  }
 }
 
 const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -152,6 +179,11 @@ export async function POST(request: Request) {
     const sourceUrls = sanitizeSourceUrls(ai.source_urls);
     const sourcePrimaryUrl = sourceUrls[0] ?? null;
 
+    const heroResolved = await resolveHeroImageFieldForInsert(sanitizeNullableString(ai.hero_image));
+    if ("error" in heroResolved) {
+      return NextResponse.json({ error: `Hero image: ${heroResolved.error}` }, { status: 422 });
+    }
+
     const insertPayload: Record<string, unknown> = {
       title: sanitizeNullableString(ai.title) ?? "Untitled festival",
       description: sanitizeNullableString(ai.description),
@@ -165,7 +197,7 @@ export async function POST(request: Request) {
       facebook_url: sanitizeNullableString(ai.facebook_url),
       instagram_url: sanitizeNullableString(ai.instagram_url),
       ticket_url: sanitizeNullableString(ai.ticket_url),
-      hero_image: sanitizeNullableString(ai.hero_image),
+      ...heroResolved.patch,
       is_free: typeof ai.is_free === "boolean" ? ai.is_free : null,
       source_url: sourcePrimaryUrl,
       source_primary_url: sourcePrimaryUrl,
@@ -217,13 +249,18 @@ export async function POST(request: Request) {
 
   const finalValues = normalized.best_guess;
 
+  const heroResolvedLegacy = await resolveHeroImageFieldForInsert(sanitizeNullableString(finalValues.hero_image));
+  if ("error" in heroResolvedLegacy) {
+    return NextResponse.json({ error: `Hero image: ${heroResolvedLegacy.error}` }, { status: 422 });
+  }
+
   const sharedInsertPayload: Record<string, unknown> = {
     title: finalValues.title ?? normalized.query,
     description: finalValues.description,
     city_guess: finalValues.city,
     location_guess: finalValues.location,
     organizer_name: finalValues.organizer,
-    hero_image: finalValues.hero_image,
+    ...heroResolvedLegacy.patch,
     tags_guess: finalValues.tags,
     start_date: finalValues.start_date,
     end_date: finalValues.end_date,

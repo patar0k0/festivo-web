@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { isAlreadyOurSupabaseHeroPublicUrl, rehostHeroImageIfRemote } from "@/lib/admin/rehostHeroImageFromUrl";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { pendingPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
@@ -68,6 +70,51 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const canonical = parsed.data;
     const patch: Record<string, unknown> = pendingPatchFromCanonicalPartial(canonical);
+
+    if ("hero_image" in canonical) {
+      const heroVal = patch.hero_image;
+      if (typeof heroVal === "string" && heroVal.trim()) {
+        const inc = heroVal.trim();
+        if (/^https?:\/\//i.test(inc) && !isAlreadyOurSupabaseHeroPublicUrl(inc)) {
+          const { data: currentHero } = await ctx.supabase
+            .from("pending_festivals")
+            .select("hero_image, hero_image_original_url")
+            .eq("id", id)
+            .maybeSingle();
+
+          const originalMatch =
+            Boolean(currentHero?.hero_image_original_url?.trim() === inc) &&
+            typeof currentHero?.hero_image === "string" &&
+            currentHero.hero_image.length > 0;
+
+          if (originalMatch) {
+            patch.hero_image = currentHero.hero_image;
+            patch.hero_image_source = "url_import";
+            patch.hero_image_original_url = inc;
+          } else {
+            try {
+              const supabaseAdmin = createSupabaseAdmin();
+              const timestamp = Date.now();
+              const outcome = await rehostHeroImageIfRemote(supabaseAdmin, inc, (ext) => `festival-hero/manual/${id}-${timestamp}.${ext}`);
+              if (!outcome.ok) {
+                return NextResponse.json({ error: `Hero image: ${outcome.error}` }, { status: 422 });
+              }
+              patch.hero_image = outcome.publicUrl;
+              if (outcome.originalUrl) {
+                patch.hero_image_source = "url_import";
+                patch.hero_image_original_url = outcome.originalUrl;
+              } else {
+                patch.hero_image_source = "manual_upload";
+                patch.hero_image_original_url = null;
+              }
+            } catch (heroImportError) {
+              const message = heroImportError instanceof Error ? heroImportError.message : "Hero image import failed.";
+              return NextResponse.json({ error: message }, { status: 500 });
+            }
+          }
+        }
+      }
+    }
 
     if ("is_free" in body && typeof body.is_free === "boolean") {
       patch.is_free = body.is_free;

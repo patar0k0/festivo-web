@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rehostHeroImageIfRemote } from "@/lib/admin/rehostHeroImageFromUrl";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -29,6 +30,50 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   try {
     const { id } = await params;
+    const incomingContentType = request.headers.get("content-type") || "";
+
+    if (incomingContentType.includes("application/json")) {
+      const body = (await request.json().catch(() => null)) as { source_url?: unknown } | null;
+      const sourceUrl = typeof body?.source_url === "string" ? body.source_url : "";
+      if (!sourceUrl.trim()) {
+        return NextResponse.json({ error: "source_url is required." }, { status: 400 });
+      }
+
+      const supabaseAdmin = createSupabaseAdmin();
+      const timestamp = Date.now();
+      const outcome = await rehostHeroImageIfRemote(supabaseAdmin, sourceUrl, (ext) => `festival-hero/manual/${id}-${timestamp}.${ext}`);
+
+      if (!outcome.ok) {
+        return NextResponse.json({ error: outcome.error }, { status: 422 });
+      }
+
+      const updateRow: Record<string, unknown> = {
+        hero_image: outcome.publicUrl,
+        hero_image_source: outcome.originalUrl ? "url_import" : "manual_upload",
+        hero_image_original_url: outcome.originalUrl ?? null,
+      };
+
+      const { data: updatedFromUrl, error: updateFromUrlError } = await ctx.supabase
+        .from("pending_festivals")
+        .update(updateRow)
+        .eq("id", id)
+        .select("id, hero_image, hero_image_source")
+        .maybeSingle();
+
+      if (updateFromUrlError) {
+        return NextResponse.json({ error: `Failed to update pending festival hero image: ${updateFromUrlError.message}` }, { status: 500 });
+      }
+
+      if (!updatedFromUrl) {
+        return NextResponse.json({ error: "Pending festival not found." }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        hero_image: updatedFromUrl.hero_image,
+        hero_image_source: updatedFromUrl.hero_image_source,
+      });
+    }
 
     const formData = await request.formData();
     const file = formData.get("file");
@@ -82,6 +127,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .update({
         hero_image: publicUrl,
         hero_image_source: "manual_upload",
+        hero_image_original_url: null,
       })
       .eq("id", id)
       .select("id, hero_image, hero_image_source")
@@ -120,6 +166,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
       .update({
         hero_image: null,
         hero_image_source: null,
+        hero_image_original_url: null,
       })
       .eq("id", id)
       .select("id")

@@ -180,7 +180,7 @@ export default function EventCard({
         </div>
 
         {categoryText ? (
-          <div className="pointer-events-none absolute right-4 top-4 rounded-full border border-black/5 bg-white/92 px-3 py-1 text-xs font-semibold text-black/70 backdrop-blur">
+          <div className="pointer-events-none absolute right-4 top-4 rounded-full bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-black shadow-[0_2px_10px_rgba(0,0,0,0.30)]">
             {categoryText}
           </div>
         ) : null}

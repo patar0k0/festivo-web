@@ -79,109 +79,118 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
     current && openIndex !== null && typeof document !== "undefined"
       ? createPortal(
           <div
-            className="fixed inset-0 z-[2000] flex flex-col overflow-y-auto overscroll-contain bg-black/95 p-3 sm:p-5"
+            className="fixed inset-0 z-[2000] bg-black/95 text-white"
             role="dialog"
             aria-modal="true"
             aria-labelledby={lightboxTitleId}
             aria-describedby={lightboxHintId}
-            onClick={close}
-            style={{
-              paddingTop: "calc(0.75rem + env(safe-area-inset-top, 0px))",
-              paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))",
-              WebkitOverflowScrolling: "touch",
-            }}
           >
-            <button
-              type="button"
-              onClick={close}
-              className="absolute right-3 top-3 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-black/50 text-base font-bold text-white shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:bg-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:right-5 sm:top-5"
-              aria-label="Затвори галерията"
-            >
-              X
-            </button>
-
             <div
-              className="flex shrink-0 items-center justify-between gap-3 text-white"
-              onClick={(e) => e.stopPropagation()}
+              className="flex h-full flex-col overflow-y-auto overscroll-contain"
+              style={{
+                paddingTop: "env(safe-area-inset-top, 0px)",
+                paddingBottom: "env(safe-area-inset-bottom, 0px)",
+                WebkitOverflowScrolling: "touch",
+              }}
             >
-              <div className="min-w-0">
-                <p id={lightboxTitleId} className="min-w-0 truncate pr-14 text-sm font-semibold">
-                  {festivalTitle}
-                  {len > 1 ? (
-                    <span className="ml-2 font-normal text-white/65">
-                      {openIndex + 1} / {len}
+              <div className="sticky top-0 z-40 border-b border-white/10 bg-black/88 backdrop-blur-xl">
+                <div className="flex items-center gap-3 px-3 py-3 sm:px-5 sm:py-4">
+                  <button
+                    type="button"
+                    onClick={close}
+                    className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-white/15 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-[#0c0e14] shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition hover:bg-white/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                    aria-label="Затвори галерията"
+                  >
+                    <span aria-hidden="true" className="text-base leading-none">
+                      ←
                     </span>
+                    Затвори
+                  </button>
+
+                  <div className="min-w-0 flex-1">
+                    <p id={lightboxTitleId} className="truncate text-sm font-semibold sm:text-base">
+                      {festivalTitle}
+                    </p>
+                    <p id={lightboxHintId} className="mt-1 text-xs text-white/65 sm:text-sm">
+                      {len > 1
+                        ? `Снимка ${openIndex + 1} от ${len}.`
+                        : "Преглед на снимката в цял екран."}
+                    </p>
+                  </div>
+
+                  {len > 1 ? (
+                    <div className="hidden shrink-0 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white/80 sm:block">
+                      {openIndex + 1} / {len}
+                    </div>
                   ) : null}
-                </p>
-                <p id={lightboxHintId} className="mt-1 text-xs text-white/65">
-                  Докосни снимката, X или тъмния фон, за да затвориш.
-                </p>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={close}
-                className="hidden shrink-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:inline-flex"
-              >
-                Затвори
-              </button>
-            </div>
 
-            <div
-              className="relative mt-3 flex min-h-0 flex-1 items-center justify-center"
-              onClick={close}
-            >
-              {len > 1 ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    goPrev();
-                  }}
-                  className="absolute left-0 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-2xl text-white backdrop-blur-sm transition hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:left-1"
-                  aria-label="Предишна снимка"
-                >
-                  ‹
-                </button>
-              ) : null}
-
-              {/* eslint-disable-next-line @next/next/no-img-element -- пълноразмерен преглед, външни URL */}
-              <img
-                src={current.url}
-                alt={current.caption?.trim() ? current.caption : `${festivalTitle} — снимка ${openIndex + 1}`}
-                className="max-h-[min(78vh,100%)] max-w-full cursor-zoom-out object-contain shadow-2xl"
-                onClick={close}
-              />
-
-              {len > 1 ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    goNext();
-                  }}
-                  className="absolute right-0 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-2xl text-white backdrop-blur-sm transition hover:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:right-1"
-                  aria-label="Следваща снимка"
-                >
-                  ›
-                </button>
-              ) : null}
-            </div>
-
-            {current.caption?.trim() ? (
-              <p
-                className="shrink-0 pt-3 text-center text-sm leading-relaxed text-white/90"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {current.caption}
-              </p>
-            ) : null}
-
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 sm:hidden">
-              <div className="rounded-[22px] bg-gradient-to-t from-black via-black/90 to-transparent p-1 pt-6">
+              <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 py-4 sm:px-5 sm:py-6">
                 <button
                   type="button"
                   onClick={close}
-                  className="pointer-events-auto flex w-full items-center justify-center rounded-2xl border border-white/15 bg-white px-4 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-[#0c0e14] shadow-[0_12px_32px_rgba(0,0,0,0.35)] transition hover:bg-white/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                  className="absolute inset-0"
+                  aria-label="Затвори галерията"
+                />
+
+                {len > 1 ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goPrev();
+                    }}
+                    className="absolute left-3 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/55 text-2xl text-white shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-sm transition hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:left-5"
+                    aria-label="Предишна снимка"
+                  >
+                    ‹
+                  </button>
+                ) : null}
+
+                <div
+                  className="relative z-10 flex max-h-full max-w-full items-center justify-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- пълноразмерен преглед, външни URL */}
+                  <img
+                    src={current.url}
+                    alt={current.caption?.trim() ? current.caption : `${festivalTitle} — снимка ${openIndex + 1}`}
+                    className="max-h-[calc(100dvh-14rem)] max-w-full rounded-xl object-contain shadow-2xl sm:max-h-[calc(100dvh-11rem)]"
+                  />
+                </div>
+
+                {len > 1 ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goNext();
+                    }}
+                    className="absolute right-3 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/15 bg-black/55 text-2xl text-white shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-sm transition hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:right-5"
+                    aria-label="Следваща снимка"
+                  >
+                    ›
+                  </button>
+                ) : null}
+              </div>
+
+              {current.caption?.trim() ? (
+                <div className="px-4 pb-4 sm:px-5">
+                  <p
+                    className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm leading-relaxed text-white/90 backdrop-blur-sm"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {current.caption}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="sticky bottom-0 z-40 border-t border-white/10 bg-black/92 p-3 backdrop-blur-xl sm:hidden">
+                <button
+                  type="button"
+                  onClick={close}
+                  className="flex w-full items-center justify-center rounded-2xl border border-white/15 bg-white px-4 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-[#0c0e14] shadow-[0_12px_32px_rgba(0,0,0,0.35)] transition hover:bg-white/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                 >
                   Затвори галерията
                 </button>

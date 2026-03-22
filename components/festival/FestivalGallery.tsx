@@ -18,6 +18,7 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const headingId = useId();
   const lightboxTitleId = useId();
+  const lightboxHintId = useId();
 
   const close = useCallback(() => setOpenIndex(null), []);
   const len = items.length;
@@ -93,28 +94,47 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
 
       {current && openIndex !== null ? (
         <div
-          className="fixed inset-0 z-[200] flex flex-col bg-black/93 p-3 sm:p-5"
+          className="fixed inset-0 z-[200] flex flex-col bg-black/95 p-3 sm:p-5"
           role="dialog"
           aria-modal="true"
           aria-labelledby={lightboxTitleId}
+          aria-describedby={lightboxHintId}
           onClick={close}
+          style={{
+            paddingTop: "calc(0.75rem + env(safe-area-inset-top, 0px))",
+            paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
+          }}
         >
+          <button
+            type="button"
+            onClick={close}
+            className="absolute right-3 top-3 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-black/50 text-base font-bold text-white shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:bg-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:right-5 sm:top-5"
+            aria-label="Затвори галерията"
+          >
+            X
+          </button>
+
           <div
             className="flex shrink-0 items-center justify-between gap-3 text-white"
             onClick={(e) => e.stopPropagation()}
           >
-            <p id={lightboxTitleId} className="min-w-0 truncate text-sm font-semibold">
-              {festivalTitle}
-              {len > 1 ? (
-                <span className="ml-2 font-normal text-white/65">
-                  {openIndex + 1} / {len}
-                </span>
-              ) : null}
-            </p>
+            <div className="min-w-0">
+              <p id={lightboxTitleId} className="min-w-0 truncate pr-14 text-sm font-semibold">
+                {festivalTitle}
+                {len > 1 ? (
+                  <span className="ml-2 font-normal text-white/65">
+                    {openIndex + 1} / {len}
+                  </span>
+                ) : null}
+              </p>
+              <p id={lightboxHintId} className="mt-1 text-xs text-white/65">
+                Докосни снимката, X или тъмния фон, за да затвориш.
+              </p>
+            </div>
             <button
               type="button"
               onClick={close}
-              className="shrink-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+              className="hidden shrink-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 sm:inline-flex"
             >
               Затвори
             </button>
@@ -142,8 +162,8 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
             <img
               src={current.url}
               alt={current.caption?.trim() ? current.caption : `${festivalTitle} — снимка ${openIndex + 1}`}
-              className="max-h-[min(78vh,100%)] max-w-full object-contain shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
+              className="max-h-[min(78vh,100%)] max-w-full cursor-zoom-out object-contain shadow-2xl"
+              onClick={close}
             />
 
             {len > 1 ? (

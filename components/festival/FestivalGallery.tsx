@@ -34,17 +34,41 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
 
   useEffect(() => {
     if (openIndex === null) return;
+
+    const scrollY = window.scrollY;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
       if (e.key === "ArrowLeft") goPrev();
       if (e.key === "ArrowRight") goNext();
     };
+
     document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevBodyPosition = document.body.style.position;
+    const prevBodyTop = document.body.style.top;
+    const prevBodyLeft = document.body.style.left;
+    const prevBodyRight = document.body.style.right;
+    const prevBodyWidth = document.body.style.width;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.width = "100%";
+
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+      document.body.style.position = prevBodyPosition;
+      document.body.style.top = prevBodyTop;
+      document.body.style.left = prevBodyLeft;
+      document.body.style.right = prevBodyRight;
+      document.body.style.width = prevBodyWidth;
+      window.scrollTo(0, scrollY);
     };
   }, [openIndex, close, goPrev, goNext]);
 
@@ -55,7 +79,7 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
     current && openIndex !== null && typeof document !== "undefined"
       ? createPortal(
           <div
-            className="fixed inset-0 z-[2000] flex flex-col bg-black/95 p-3 sm:p-5"
+            className="fixed inset-0 z-[2000] flex flex-col overflow-y-auto overscroll-contain bg-black/95 p-3 sm:p-5"
             role="dialog"
             aria-modal="true"
             aria-labelledby={lightboxTitleId}
@@ -63,7 +87,8 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
             onClick={close}
             style={{
               paddingTop: "calc(0.75rem + env(safe-area-inset-top, 0px))",
-              paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
+              paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))",
+              WebkitOverflowScrolling: "touch",
             }}
           >
             <button
@@ -150,6 +175,18 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
                 {current.caption}
               </p>
             ) : null}
+
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 p-3 sm:hidden">
+              <div className="rounded-[22px] bg-gradient-to-t from-black via-black/90 to-transparent p-1 pt-6">
+                <button
+                  type="button"
+                  onClick={close}
+                  className="pointer-events-auto flex w-full items-center justify-center rounded-2xl border border-white/15 bg-white px-4 py-4 text-sm font-semibold uppercase tracking-[0.12em] text-[#0c0e14] shadow-[0_12px_32px_rgba(0,0,0,0.35)] transition hover:bg-white/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                >
+                  Затвори галерията
+                </button>
+              </div>
+            </div>
           </div>,
           document.body,
         )

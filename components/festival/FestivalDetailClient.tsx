@@ -264,18 +264,18 @@ export default function FestivalDetailClient({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/45 to-black/10" />
           <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6 md:p-8">
-            <div className="max-w-3xl space-y-3 rounded-2xl bg-black/25 p-3 backdrop-blur-[1.5px] sm:p-4 md:max-w-4xl">
-              <h1 className="max-w-[22ch] text-3xl font-black leading-[1.05] tracking-tight sm:text-4xl sm:leading-[1.02]">
+            <div className="max-w-3xl space-y-2.5 rounded-2xl bg-black/25 p-3 backdrop-blur-[1.5px] sm:p-4 md:max-w-4xl">
+              <h1 className="max-w-[22ch] text-xl font-black leading-[1.1] tracking-tight sm:text-2xl sm:leading-[1.05]">
                 {festival.title}
               </h1>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85 sm:text-xs">
-                {formattedDateRange ? <span className="rounded-full bg-black/35 px-3 py-1">{formattedDateRange}</span> : null}
-                {cityOrLocationText ? <span className="rounded-full bg-black/35 px-3 py-1">{cityOrLocationText}</span> : null}
-                {categoryText ? <span className="rounded-full bg-black/35 px-3 py-1">{categoryText}</span> : null}
-                {showFreeBadge ? <span className="rounded-full bg-black/35 px-3 py-1">Безплатен вход</span> : null}
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/85 sm:text-[11px]">
+                {formattedDateRange ? <span className="rounded-full bg-black/35 px-2.5 py-0.5">{formattedDateRange}</span> : null}
+                {cityOrLocationText ? <span className="rounded-full bg-black/35 px-2.5 py-0.5">{cityOrLocationText}</span> : null}
+                {categoryText ? <span className="rounded-full bg-black/35 px-2.5 py-0.5">{categoryText}</span> : null}
+                {showFreeBadge ? <span className="rounded-full bg-black/35 px-2.5 py-0.5">Безплатен вход</span> : null}
                 <a
                   href={`#${FESTIVAL_PROGRAM_SECTION_ID}`}
-                  className="rounded-full bg-black/35 px-3 py-1 text-white/95 transition hover:bg-black/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                  className="rounded-full bg-black/35 px-2.5 py-0.5 text-white/95 transition hover:bg-black/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                 >
                   Програма
                 </a>

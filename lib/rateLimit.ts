@@ -1,5 +1,5 @@
 import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
+import { Redis } from "@upstash/redis/cloudflare";
 import type { NextRequest } from "next/server";
 
 type RateLimitBucket = {
@@ -15,36 +15,39 @@ type RateLimitResult = {
 
 const DEFAULT_WINDOW_SECONDS = 60;
 
-let ratelimitSingleton: Ratelimit | null | undefined;
+let upstashEnv: { url: string; token: string } | null | undefined;
+const ratelimitByBucket = new Map<string, Ratelimit>();
 
-function getRatelimit(): Ratelimit | null {
-  if (ratelimitSingleton !== undefined) {
-    return ratelimitSingleton;
-  }
-
+function getUpstashEnv(): { url: string; token: string } | null {
+  if (upstashEnv !== undefined) return upstashEnv;
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) {
-    ratelimitSingleton = null;
-    return ratelimitSingleton;
+    upstashEnv = null;
+    return null;
   }
 
-  ratelimitSingleton = new Ratelimit({
-    redis: new Redis({ url, token }),
-    limiter: Ratelimit.multi([
-      Ratelimit.fixedWindow(5, "60 s"),
-      Ratelimit.fixedWindow(10, "60 s"),
-      Ratelimit.fixedWindow(30, "60 s"),
-      Ratelimit.fixedWindow(60, "60 s"),
-      Ratelimit.fixedWindow(120, "60 s"),
-      Ratelimit.fixedWindow(20, "10 s"),
-      Ratelimit.fixedWindow(40, "30 s"),
-    ]),
+  upstashEnv = { url, token };
+  return upstashEnv;
+}
+
+function getRatelimit(bucket: RateLimitBucket): Ratelimit | null {
+  const env = getUpstashEnv();
+  if (!env) return null;
+
+  const key = `${bucket.id}:${bucket.requests}:${bucket.window}`;
+  const existing = ratelimitByBucket.get(key);
+  if (existing) return existing;
+
+  const instance = new Ratelimit({
+    redis: new Redis({ url: env.url, token: env.token }),
+    limiter: Ratelimit.fixedWindow(bucket.requests, bucket.window),
     analytics: true,
     prefix: "festivo:rl",
   });
 
-  return ratelimitSingleton;
+  ratelimitByBucket.set(key, instance);
+  return instance;
 }
 
 function getClientIp(request: NextRequest): string {
@@ -85,10 +88,6 @@ function getBucket(pathname: string): RateLimitBucket {
   return { id: "api-post", requests: 20, window: "10 s" };
 }
 
-function getMatcher(bucket: RateLimitBucket): string {
-  return `${bucket.requests};60 s`;
-}
-
 export function canBypassJobsRateLimit(request: NextRequest): boolean {
   const pathname = request.nextUrl.pathname;
   if (!pathname.startsWith("/api/jobs/")) {
@@ -105,17 +104,16 @@ export function canBypassJobsRateLimit(request: NextRequest): boolean {
 }
 
 export async function checkRateLimit(request: NextRequest): Promise<RateLimitResult> {
-  const ratelimit = getRatelimit();
+  const pathname = request.nextUrl.pathname;
+  const bucket = getBucket(pathname);
+  const ratelimit = getRatelimit(bucket);
   if (!ratelimit) {
     return { limited: false, resetSeconds: DEFAULT_WINDOW_SECONDS };
   }
 
-  const pathname = request.nextUrl.pathname;
-  const bucket = getBucket(pathname);
   const ip = getClientIp(request);
   const key = `${bucket.id}:${ip}`;
-  const matcher = getMatcher(bucket);
-  const result = await ratelimit.limit(key, { rate: matcher });
+  const result = await ratelimit.limit(key);
 
   const resetSeconds = result.reset
     ? Math.max(1, Math.ceil((result.reset - Date.now()) / 1000))

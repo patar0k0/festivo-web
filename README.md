@@ -44,6 +44,7 @@ Environment variables (no secrets in repo):
 - `PERPLEXITY_API_KEY` (server-only, for admin AI research)
 - `UPSTASH_REDIS_REST_URL` (optional, enables API POST rate limiting)
 - `UPSTASH_REDIS_REST_TOKEN` (optional, enables API POST rate limiting)
+- `CSRF_ALLOWED_HOSTS` (optional, comma-separated extra hostnames for `POST /api/*` Origin/Referer checks; Vercel sets `VERCEL_URL` automatically for preview deploys)
 
 ## How to test
 

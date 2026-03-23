@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { canBypassJobsRateLimit, checkRateLimit } from "@/lib/rateLimit";
+import { verifyApiPostOrigin } from "@/lib/postOriginGuard";
 import { getSupabaseEnv } from "@/lib/supabaseServer";
 
 export async function middleware(request: NextRequest) {
@@ -24,6 +25,11 @@ export async function middleware(request: NextRequest) {
       } catch {
         // Fail-open: never 500 the site if rate limiting throws unexpectedly.
       }
+    }
+
+    const originBlock = verifyApiPostOrigin(request);
+    if (originBlock) {
+      return originBlock;
     }
   }
 

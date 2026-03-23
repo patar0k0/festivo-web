@@ -42,6 +42,8 @@ Environment variables (no secrets in repo):
 - `NEXT_PUBLIC_SITE_URL=https://festivo.bg`
 - `FESTIVO_PUBLIC_MODE=coming-soon` (or `live`)
 - `PERPLEXITY_API_KEY` (server-only, for admin AI research)
+- `UPSTASH_REDIS_REST_URL` (optional, enables API POST rate limiting)
+- `UPSTASH_REDIS_REST_TOKEN` (optional, enables API POST rate limiting)
 
 ## How to test
 

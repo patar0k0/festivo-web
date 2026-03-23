@@ -1,9 +1,27 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { canBypassJobsRateLimit, checkRateLimit } from "@/lib/rateLimit";
 import { getSupabaseEnv } from "@/lib/supabaseServer";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (request.method === "POST" && pathname.startsWith("/api/")) {
+    if (!canBypassJobsRateLimit(request)) {
+      const rate = await checkRateLimit(request);
+      if (rate.limited) {
+        return NextResponse.json(
+          { error: "Too many requests. Please try again later." },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": String(rate.resetSeconds),
+            },
+          }
+        );
+      }
+    }
+  }
 
   if (pathname.startsWith("/cities/")) {
     const rawSlug = pathname.slice("/cities/".length).replace(/\/+$/, "");

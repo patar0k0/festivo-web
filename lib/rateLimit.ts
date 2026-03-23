@@ -113,14 +113,20 @@ export async function checkRateLimit(request: NextRequest): Promise<RateLimitRes
 
   const ip = getClientIp(request);
   const key = `${bucket.id}:${ip}`;
-  const result = await ratelimit.limit(key);
 
-  const resetSeconds = result.reset
-    ? Math.max(1, Math.ceil((result.reset - Date.now()) / 1000))
-    : DEFAULT_WINDOW_SECONDS;
+  try {
+    const result = await ratelimit.limit(key);
 
-  return {
-    limited: !result.success,
-    resetSeconds,
-  };
+    const resetSeconds = result.reset
+      ? Math.max(1, Math.ceil((result.reset - Date.now()) / 1000))
+      : DEFAULT_WINDOW_SECONDS;
+
+    return {
+      limited: !result.success,
+      resetSeconds,
+    };
+  } catch {
+    // Fail-open: Upstash/network/auth errors must not take down the site.
+    return { limited: false, resetSeconds: DEFAULT_WINDOW_SECONDS };
+  }
 }

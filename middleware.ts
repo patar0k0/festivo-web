@@ -8,17 +8,21 @@ export async function middleware(request: NextRequest) {
 
   if (request.method === "POST" && pathname.startsWith("/api/")) {
     if (!canBypassJobsRateLimit(request)) {
-      const rate = await checkRateLimit(request);
-      if (rate.limited) {
-        return NextResponse.json(
-          { error: "Too many requests. Please try again later." },
-          {
-            status: 429,
-            headers: {
-              "Retry-After": String(rate.resetSeconds),
-            },
-          }
-        );
+      try {
+        const rate = await checkRateLimit(request);
+        if (rate.limited) {
+          return NextResponse.json(
+            { error: "Too many requests. Please try again later." },
+            {
+              status: 429,
+              headers: {
+                "Retry-After": String(rate.resetSeconds),
+              },
+            }
+          );
+        }
+      } catch {
+        // Fail-open: never 500 the site if rate limiting throws unexpectedly.
       }
     }
   }

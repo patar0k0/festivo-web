@@ -42,8 +42,8 @@ function Toggle({
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-7 w-12 items-center rounded-full transition ${
-        checked ? "bg-[#0c0e14]" : "bg-black/15"
+      className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition ${
+        checked ? "bg-pine shadow-sm" : "bg-neutral-200"
       } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
     >
       <span
@@ -135,35 +135,61 @@ export default function NotificationSettingsCard() {
   }
 
   return (
-    <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-      <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-black/55">Известия</h2>
-      <p className="mt-2 text-sm text-black/55">Управлявай push известията за профила си.</p>
+    <section className="py-6 md:py-7">
+      <h2 className="text-base font-semibold text-[#0c0e14]">Push известия</h2>
+      <p className="mt-1 text-sm text-black/55">
+        Включи или изключи известията по тип. Промените се запазват веднага.
+      </p>
 
       {errorText ? (
-        <p className="mt-3 rounded-xl bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
-          {errorText}
-        </p>
+        <div
+          className="mt-4 flex gap-2 rounded-lg border border-red-200 bg-red-50/90 px-3 py-2.5 text-sm text-red-900"
+          role="alert"
+        >
+          <span className="mt-0.5 shrink-0 font-semibold" aria-hidden>
+            !
+          </span>
+          <span>{errorText}</span>
+        </div>
       ) : null}
       {statusText ? (
-        <p className="mt-3 rounded-xl bg-[#0c0e14]/6 px-3 py-2 text-sm text-[#0c0e14]" role="status">
-          {statusText}
-        </p>
+        <div
+          className="mt-4 flex gap-2 rounded-lg border border-emerald-200/80 bg-emerald-50/80 px-3 py-2.5 text-sm text-emerald-950"
+          role="status"
+        >
+          <span className="mt-0.5 shrink-0 text-emerald-700" aria-hidden>
+            ✓
+          </span>
+          <span>{statusText}</span>
+        </div>
       ) : null}
 
-      <div className="mt-4 space-y-2">
-        {rows.map((row) => (
-          <div
-            key={row.key}
-            className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.08] bg-white px-3 py-2.5"
-          >
-            <p className="text-sm text-[#0c0e14]">{row.label}</p>
-            <Toggle
-              checked={row.value}
-              disabled={isLoading || (isSaving !== null && isSaving !== row.key)}
-              onChange={(nextValue) => void updateSetting(row.key, nextValue)}
-            />
-          </div>
-        ))}
+      <div className="mt-5 overflow-hidden rounded-xl border border-black/[0.08] bg-neutral-50/40">
+        {isLoading ? (
+          <ul className="divide-y divide-black/[0.06]">
+            {rows.map((row) => (
+              <li key={row.key} className="flex items-center justify-between gap-4 px-4 py-3.5 md:px-4">
+                <div className="h-4 w-[min(100%,14rem)] animate-pulse rounded bg-black/[0.08]" />
+                <div className="h-7 w-12 shrink-0 animate-pulse rounded-full bg-black/[0.08]" />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <ul className="divide-y divide-black/[0.06]">
+            {rows.map((row) => (
+              <li key={row.key}>
+                <div className="flex items-center justify-between gap-4 bg-white px-4 py-3.5 transition hover:bg-neutral-50/80 md:px-4">
+                  <p className="min-w-0 flex-1 text-[15px] font-medium leading-snug text-[#0c0e14]">{row.label}</p>
+                  <Toggle
+                    checked={row.value}
+                    disabled={isLoading || (isSaving !== null && isSaving !== row.key)}
+                    onChange={(nextValue) => void updateSetting(row.key, nextValue)}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </section>
   );

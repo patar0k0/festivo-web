@@ -158,7 +158,7 @@ export default async function FestivalsPage({
       .order("start_date", { ascending: true });
 
     if (city) {
-      query = query.eq("cities.slug", city);
+      query = query.eq("city", city);
     }
 
     if (parsedDate) {

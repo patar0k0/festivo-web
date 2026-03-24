@@ -26,6 +26,25 @@ const SETTING_LABELS: Record<keyof NotificationSettings, string> = {
   notify_weekend_digest: "Уикенд обзор (digest)",
 };
 
+function messageForFailedSave(status: number, serverMessage?: string): string {
+  if (status === 401) {
+    return "Сесията не е валидна. Влез отново и опитай пак.";
+  }
+  if (status === 403) {
+    return "Заявката е отхвърлена от сървъра (защита от фалшиви форми). Презареди страницата от официалния адрес на сайта.";
+  }
+  if (status === 429) {
+    return "Твърде много опити за кратко време. Изчакай малко и опитай отново.";
+  }
+  if (status === 400 && serverMessage) {
+    return serverMessage;
+  }
+  if (status >= 500) {
+    return "Сървърна грешка при запазване. Опитай по-късно.";
+  }
+  return "Неуспешно запазване. Опитай отново.";
+}
+
 function Toggle({
   checked,
   disabled,
@@ -118,7 +137,19 @@ export default function NotificationSettingsCard() {
       });
 
       if (!response.ok) {
-        throw new Error("save_failed");
+        let serverError: string | undefined;
+        try {
+          const errJson = (await response.json()) as { error?: string };
+          serverError = errJson.error;
+        } catch {
+          /* not JSON */
+        }
+        if (process.env.NODE_ENV === "development") {
+          console.error("[notification-settings] POST failed", response.status, serverError);
+        }
+        setSettings((current) => ({ ...current, [key]: prev }));
+        setErrorText(messageForFailedSave(response.status, serverError));
+        return;
       }
 
       const payload = (await response.json()) as { settings?: Partial<NotificationSettings> };
@@ -128,7 +159,7 @@ export default function NotificationSettingsCard() {
       setStatusText("Настройката е запазена.");
     } catch {
       setSettings((current) => ({ ...current, [key]: prev }));
-      setErrorText("Неуспешно запазване. Опитай отново.");
+      setErrorText("Мрежова грешка или прекъсната връзка. Провери интернета и опитай отново.");
     } finally {
       setIsSaving(null);
     }
@@ -142,15 +173,12 @@ export default function NotificationSettingsCard() {
       </p>
 
       {errorText ? (
-        <div
-          className="mt-4 flex gap-2 rounded-lg border border-red-200 bg-red-50/90 px-3 py-2.5 text-sm text-red-900"
+        <p
+          className="mt-4 rounded-lg border border-red-200 bg-red-50/90 px-3 py-2.5 text-sm leading-relaxed text-red-900"
           role="alert"
         >
-          <span className="mt-0.5 shrink-0 font-semibold" aria-hidden>
-            !
-          </span>
-          <span>{errorText}</span>
-        </div>
+          {errorText}
+        </p>
       ) : null}
       {statusText ? (
         <div

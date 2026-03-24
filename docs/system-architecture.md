@@ -151,7 +151,7 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
 ## Public vs admin data visibility
 - Public discovery/detail queries read from `festivals` only.
 - Public scope includes rows matching `status in (published, verified)` or `is_verified=true`, and excludes `status=archived`.
-- Authenticated user UX keeps planning and account concerns separate: `/plan` is for saved festivals/schedule/reminders, while `/profile` is the account hub (identity, shortcuts, notification/security actions).
+- Authenticated user UX keeps planning and account concerns separate: `/plan` is for saved festivals/schedule/reminders, while `/profile` is the account hub (identity, shortcuts, direct notification toggles via `/api/notification-settings`, and security actions).
 - **Festival date filtering:** when `occurrence_dates` (jsonb) holds discrete ISO days, listing/calendar/filter logic treats those days as the event schedule; otherwise overlap uses `start_date`/`end_date`. The database exposes `public.festivals_intersecting_range(from, to)` for window queries (see `scripts/sql/20260323_festival_occurrence_dates.sql`). Admin pending/published edit forms can maintain `occurrence_dates`; approve copies it into `festivals`.
 - Pending moderation records are admin-only.
 - Public festival detail uses `FestivalGallery` when processed media items exist (replaces older inline-only gallery wiring in `FestivalDetailClient`).

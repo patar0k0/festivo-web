@@ -2,6 +2,7 @@ import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { getOptionalUser } from "@/lib/authUser";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import NotificationSettingsCard from "./NotificationSettingsCard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -103,12 +104,6 @@ export default async function ProfilePage() {
           <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-black/55">Известия и сигурност</h2>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
-              href="/plan"
-              className="inline-flex rounded-xl border border-black/[0.14] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:bg-black/[0.04]"
-            >
-              Настройки за известия
-            </Link>
-            <Link
               href="/reset-password"
               className="inline-flex rounded-xl border border-black/[0.14] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:bg-black/[0.04]"
             >
@@ -124,6 +119,8 @@ export default async function ProfilePage() {
             </form>
           </div>
         </section>
+
+        <NotificationSettingsCard />
       </div>
     </div>
   );

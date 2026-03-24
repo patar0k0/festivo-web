@@ -219,9 +219,7 @@ function applyFilters<T extends FilterQuery<T>>(
 
 export function fixFestivalText(festival: Festival): Festival {
   const rawDisplayName = festival.cities?.name_bg ?? festival.city;
-  const settlementKind = festival.cities
-    ? (festival.cities.is_village ?? false)
-    : undefined;
+  const settlementKind = festival.cities?.is_village;
   const city_name_display = formatSettlementDisplayName(rawDisplayName, settlementKind);
 
   const occurrenceNorm = normalizeOccurrenceDatesInput((festival as Festival & { occurrence_dates?: unknown }).occurrence_dates);
@@ -476,7 +474,7 @@ export async function getCityLinks(): Promise<Array<{ name: string; slug: string
       Boolean(row.name_bg && row.slug),
     )
     .map((row) => ({
-      name: formatSettlementDisplayName(row.name_bg, row.is_village ?? false) ?? fixMojibakeBG(row.name_bg),
+      name: formatSettlementDisplayName(row.name_bg, row.is_village) ?? fixMojibakeBG(row.name_bg),
       slug: row.slug,
     }));
 }
@@ -529,7 +527,7 @@ export async function getHomeCitySelectOptions(): Promise<
     const joined = normalizeFestivalCityJoin(row.cities);
     const slug = joined?.slug ?? prev.slug;
     const name = joined?.name_bg
-      ? formatSettlementDisplayName(joined.name_bg, joined.is_village ?? false) ?? fixMojibakeBG(joined.name_bg)
+      ? formatSettlementDisplayName(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg)
       : prev.name;
     map.set(key, { name, slug });
   }
@@ -596,7 +594,7 @@ export async function getOrganizerWithFestivals(
     description: organizer.description ? fixMojibakeBG(organizer.description) : organizer.description,
     city_name_display: formatSettlementDisplayName(
       organizer.cities?.name_bg ?? null,
-      organizer.cities ? (organizer.cities.is_village ?? false) : undefined,
+      organizer.cities?.is_village,
     ),
   };
 

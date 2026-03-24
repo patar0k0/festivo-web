@@ -237,6 +237,18 @@ export function SignupForm({ next }: SignupFormProps) {
         {isSubmitting ? "Създаване..." : "Създай профил"}
       </button>
 
+      <p className="text-center text-xs leading-relaxed text-black/50">
+        С регистрацията приемаш{" "}
+        <a href="#" className="underline decoration-black/25 underline-offset-2 hover:text-black/75">
+          Общите условия
+        </a>{" "}
+        и{" "}
+        <a href="#" className="underline decoration-black/25 underline-offset-2 hover:text-black/75">
+          Политиката за поверителност
+        </a>
+        .
+      </p>
+
       <p className="text-center text-sm text-black/60">
         Имаш профил?{" "}
         <Link href="/login" className="font-semibold text-black/80 underline decoration-black/20 underline-offset-2">

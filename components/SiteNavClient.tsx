@@ -132,6 +132,13 @@ export default function SiteNavClient({
                       onClick={closeMenu}
                       className="block text-base font-semibold text-black/75 transition hover:text-[#0c0e14]"
                     >
+                      Моят план
+                    </Link>
+                    <Link
+                      href="/profile"
+                      onClick={closeMenu}
+                      className="block text-base font-semibold text-black/75 transition hover:text-[#0c0e14]"
+                    >
                       Профил
                     </Link>
                     {userEmail ? (
@@ -177,12 +184,20 @@ export default function SiteNavClient({
         <Link href="/map" className="transition hover:text-[#0c0e14]">
           Карта
         </Link>
-        <Link
-          href={isAuthenticated ? "/plan" : "/login"}
-          className="transition hover:text-[#0c0e14]"
-        >
-          {isAuthenticated ? "Профил" : "Вход"}
-        </Link>
+        {isAuthenticated ? (
+          <>
+            <Link href="/plan" className="transition hover:text-[#0c0e14]">
+              Моят план
+            </Link>
+            <Link href="/profile" className="transition hover:text-[#0c0e14]">
+              Профил
+            </Link>
+          </>
+        ) : (
+          <Link href="/login" className="transition hover:text-[#0c0e14]">
+            Вход
+          </Link>
+        )}
         {isAuthenticated ? (
           <form action="/api/auth/logout" method="post">
             <button type="submit" className="transition hover:text-[#0c0e14]">

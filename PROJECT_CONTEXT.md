@@ -28,6 +28,7 @@ Public users browse verified/published festivals, while ingestion inputs first l
 - Admin ingest queue (`ingest_jobs` enqueue/retry/delete + job-to-record linking)
 - Admin discovery dashboard (`discovery_sources` monitoring + source activation toggles + recent `discovery_runs` visibility)
 - Planning + reminders + notifications
+- Account/profile hub (`/profile`) separated from planning (`/plan`)
 - Ingestion helper pipeline for Facebook event extraction and hero image rehosting
 
 ## Moderation-first publish model

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -8,6 +8,41 @@ import { loginErrorMessage } from "./authErrors";
 type LoginFormProps = {
   next: string;
 };
+
+function EyeOpenIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+      <path
+        d="M2.3 12s3.6-6.3 9.7-6.3 9.7 6.3 9.7 6.3-3.6 6.3-9.7 6.3S2.3 12 2.3 12z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function EyeClosedIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+      <path
+        d="M3 3l18 18"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M9.6 5.9A10.6 10.6 0 0112 5.7c6.1 0 9.7 6.3 9.7 6.3a16.5 16.5 0 01-3.1 3.9M6.2 8.2A16.7 16.7 0 002.3 12s3.6 6.3 9.7 6.3c1.3 0 2.5-.2 3.5-.6"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
 
 export function LoginForm({ next }: LoginFormProps) {
   const router = useRouter();
@@ -132,9 +167,9 @@ export function LoginForm({ next }: LoginFormProps) {
   const oauthBusy = oauthProvider !== null;
 
   return (
-    <form onSubmit={onSubmit} className="mt-5 space-y-4" noValidate>
+    <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
       <label className="block" htmlFor={emailId}>
-        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Имейл</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/50">Имейл</span>
         <input
           id={emailId}
           type="email"
@@ -144,33 +179,36 @@ export function LoginForm({ next }: LoginFormProps) {
           required
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-sm outline-none ring-[#0c0e14]/20 transition-shadow focus:ring-2"
+          className="mt-2 h-12 w-full rounded-2xl border border-black/[0.1] bg-white/95 px-4 text-sm outline-none ring-[#0c0e14]/15 transition-all focus:border-black/20 focus:ring-4"
         />
       </label>
       <div className="block">
-        <div className="flex items-baseline justify-between gap-2">
-          <label htmlFor={passwordId} className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <label htmlFor={passwordId} className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/50">
             Парола
           </label>
+        </div>
+        <div className="relative">
+          <input
+            id={passwordId}
+            type={showPassword ? "text" : "password"}
+            name="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="h-12 w-full rounded-2xl border border-black/[0.1] bg-white/95 px-4 pr-12 text-sm outline-none ring-[#0c0e14]/15 transition-all focus:border-black/20 focus:ring-4"
+          />
           <button
             type="button"
-            className="text-xs font-medium text-black/45 underline decoration-black/20 underline-offset-2 hover:text-black/70"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-black/45 transition hover:bg-black/[0.05] hover:text-black/80"
             onClick={() => setShowPassword((v) => !v)}
             aria-pressed={showPassword}
+            aria-label={showPassword ? "Скрий паролата" : "Покажи паролата"}
           >
-            {showPassword ? "Скрий" : "Покажи"}
+            {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
           </button>
         </div>
-        <input
-          id={passwordId}
-          type={showPassword ? "text" : "password"}
-          name="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-sm outline-none ring-[#0c0e14]/20 transition-shadow focus:ring-2"
-        />
       </div>
 
       <div className="flex justify-end">
@@ -185,12 +223,12 @@ export function LoginForm({ next }: LoginFormProps) {
       </div>
 
       {bannerError ? (
-        <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
+        <p className="rounded-xl bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
           {bannerError}
         </p>
       ) : null}
       {resetNotice ? (
-        <p className="rounded-lg bg-[#0c0e14]/6 px-3 py-2 text-sm text-[#0c0e14]" role="status">
+        <p className="rounded-xl bg-[#0c0e14]/6 px-3 py-2 text-sm text-[#0c0e14]" role="status">
           {resetNotice}
         </p>
       ) : null}
@@ -198,12 +236,12 @@ export function LoginForm({ next }: LoginFormProps) {
       <button
         type="submit"
         disabled={isSubmitting || oauthBusy || isResetSubmitting}
-        className="w-full rounded-xl bg-[#0c0e14] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white disabled:cursor-not-allowed disabled:opacity-70"
+        className="h-12 w-full rounded-2xl bg-[#0c0e14] px-4 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isSubmitting ? "Влизане..." : "Вход с парола"}
       </button>
 
-      <div className="relative py-1 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-black/40 before:absolute before:left-0 before:top-1/2 before:h-px before:w-[38%] before:bg-black/[0.08] after:absolute after:right-0 after:top-1/2 after:h-px after:w-[38%] after:bg-black/[0.08]">
+      <div className="relative py-1 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-black/40 before:absolute before:left-0 before:top-1/2 before:h-px before:w-[40%] before:bg-black/[0.08] after:absolute after:right-0 after:top-1/2 after:h-px after:w-[40%] after:bg-black/[0.08]">
         или
       </div>
 
@@ -211,7 +249,7 @@ export function LoginForm({ next }: LoginFormProps) {
         type="button"
         disabled={oauthBusy || isSubmitting || isResetSubmitting}
         onClick={() => void signInWithOAuth("google")}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] disabled:cursor-not-allowed disabled:opacity-70"
+        className="h-12 w-full rounded-2xl border border-black/[0.12] bg-white px-4 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-70"
       >
         {oauthProvider === "google" ? "Пренасочване..." : "Продължи с Google"}
       </button>
@@ -219,7 +257,7 @@ export function LoginForm({ next }: LoginFormProps) {
         type="button"
         disabled={oauthBusy || isSubmitting || isResetSubmitting}
         onClick={() => void signInWithOAuth("apple")}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] disabled:cursor-not-allowed disabled:opacity-70"
+        className="h-12 w-full rounded-2xl border border-black/[0.12] bg-white px-4 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-70"
       >
         {oauthProvider === "apple" ? "Пренасочване..." : "Продължи с Apple"}
       </button>

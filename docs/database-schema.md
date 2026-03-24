@@ -211,3 +211,21 @@ Behavior tied to this table:
 - Admin list/detail pages support post-approval organizer enrichment workflows.
 - Admin duplicate review uses conservative match keys (normalized name / slug / facebook_url) and requires manual merge execution.
 - Manual merge sets source organizer inactive and linked via `merged_into`, while festival/pending organizer foreign keys are reassigned to canonical organizer id.
+
+## User-owned tables and RLS (audit)
+
+Per-user data used by the web app and jobs. **Background jobs** use the **service role** client and bypass RLS.
+
+| Table | RLS | Authenticated policies (summary) | Notes |
+|-------|-----|----------------------------------|--------|
+| `user_plan_festivals` | on | select/insert/delete own (`user_id = auth.uid()`) | `scripts/sql/20260303_user_plan_festivals.sql` |
+| `user_plan_items` | on | select/insert/delete own | `scripts/sql/20260324_user_data_rls_device_tokens_plan.sql` |
+| `user_plan_reminders` | on | select/insert/update/delete own (upsert needs update) | same migration |
+| `user_followed_cities` | on | select/insert/delete own | `scripts/sql/20260305_notification_preferences_and_follows.sql` |
+| `user_followed_categories` | on | select/insert/delete own | same |
+| `user_followed_organizers` | on | select/insert/delete own | same |
+| `user_notification_settings` | on | select/insert/update own | same |
+| `user_notifications` | on | select own; **insert** only **service_role** | `scripts/sql/20260304_user_notifications.sql` — rows created by reminder/discovery jobs |
+| `device_tokens` | on | select/insert/update/delete own | `scripts/sql/20260324_user_data_rls_device_tokens_plan.sql` |
+
+`user_roles` is used for admin checks from the app; RLS/policies are expected to restrict reads/writes to admins (not duplicated in this doc—verify in Supabase if unsure).

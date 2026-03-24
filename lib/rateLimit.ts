@@ -103,7 +103,17 @@ export function canBypassJobsRateLimit(request: NextRequest): boolean {
   return Boolean(expectedSecret && providedSecret && expectedSecret === providedSecret);
 }
 
-export async function checkRateLimit(request: NextRequest): Promise<RateLimitResult> {
+function rateLimitIdentityKey(request: NextRequest, userId: string | null): string {
+  if (userId) {
+    return `u:${userId}`;
+  }
+  return `ip:${getClientIp(request)}`;
+}
+
+export async function checkRateLimit(
+  request: NextRequest,
+  userId: string | null = null,
+): Promise<RateLimitResult> {
   const pathname = request.nextUrl.pathname;
   const bucket = getBucket(pathname);
   const ratelimit = getRatelimit(bucket);
@@ -111,8 +121,8 @@ export async function checkRateLimit(request: NextRequest): Promise<RateLimitRes
     return { limited: false, resetSeconds: DEFAULT_WINDOW_SECONDS };
   }
 
-  const ip = getClientIp(request);
-  const key = `${bucket.id}:${ip}`;
+  const identity = rateLimitIdentityKey(request, userId);
+  const key = `${bucket.id}:${identity}`;
 
   try {
     const result = await ratelimit.limit(key);

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getSessionUserIdReadOnly } from "@/lib/middlewareSession";
 import { canBypassJobsRateLimit, checkRateLimit } from "@/lib/rateLimit";
 import { verifyApiPostOrigin } from "@/lib/postOriginGuard";
 import { getSupabaseEnv } from "@/lib/supabaseServer";
@@ -10,7 +11,8 @@ export async function middleware(request: NextRequest) {
   if (request.method === "POST" && pathname.startsWith("/api/")) {
     if (!canBypassJobsRateLimit(request)) {
       try {
-        const rate = await checkRateLimit(request);
+        const userId = await getSessionUserIdReadOnly(request);
+        const rate = await checkRateLimit(request, userId);
         if (rate.limited) {
           return NextResponse.json(
             { error: "Too many requests. Please try again later." },

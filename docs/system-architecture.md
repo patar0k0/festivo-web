@@ -23,7 +23,7 @@ This repo includes worker helper logic in `workers/ingest_fb_event.js` for:
 
 ### Rate limiting (Upstash)
 
-- **Implementation:** `lib/rateLimit.ts` uses `@upstash/ratelimit` with `@upstash/redis/cloudflare` (Edge-compatible). Keys are **per client IP** (from `x-forwarded-for` / `x-real-ip`) and **per bucket**.
+- **Implementation:** `lib/rateLimit.ts` uses `@upstash/ratelimit` with `@upstash/redis/cloudflare` (Edge-compatible). Redis keys are **per bucket** and **per identity**: if the request has a logged-in session (`getSession()` in `lib/middlewareSession.ts`, read-only—no cookie write), the key uses **`auth.users` id**; otherwise **client IP** (from `x-forwarded-for` / `x-real-ip`).
 - **Activation:** requires both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. If either is missing, limits are skipped (no error).
 - **Fail-open:** if Upstash throws (network, auth, etc.), the request is **not** blocked—site must not return `500` because of rate limiting.
 - **Jobs bypass** (applies to `/api/jobs/*` only): Vercel Cron header `x-vercel-cron`, or `x-job-secret` matching `JOBS_SECRET`. Same bypass is used for the origin check below.

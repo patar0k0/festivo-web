@@ -1,4 +1,4 @@
-﻿# Festivo Project Context
+# Festivo Project Context
 
 ## Overview
 Festivo is a moderation-first festival catalog.
@@ -9,7 +9,7 @@ Public users browse verified/published festivals, while ingestion inputs first l
 **Frontend:** Next.js 14 (App Router)
 **Backend:** Next.js API routes + worker-side ingestion helpers
 **Database:** Supabase Postgres
-**Auth:** Supabase Auth (login + password recovery via `/reset-password`) 
+**Auth:** Supabase Auth (signup/login + password recovery via `/reset-password`)
 **Mobile:** Flutter
 **Deployment:** Vercel
 

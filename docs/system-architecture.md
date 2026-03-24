@@ -51,7 +51,7 @@ Limited responses: **429** with `Retry-After` (seconds).
 
 Env var summary for production also lives in `README.md` (`UPSTASH_*`, `CSRF_ALLOWED_HOSTS`, `JOBS_SECRET`).
 
-Auth UX includes password recovery: `/login` sends Supabase reset emails and `/reset-password` applies `auth.updateUser({ password })` for valid recovery sessions.
+Auth UX includes signup/login and password recovery: `/signup` creates email+password users (`auth.signUp`), `/login` sends Supabase reset emails, and `/reset-password` applies `auth.updateUser({ password })` for valid recovery sessions.
 
 ## Moderation-first content flow
 

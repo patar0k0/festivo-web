@@ -303,6 +303,13 @@ export function LoginForm({ next }: LoginFormProps) {
           Dev: allowlist в Supabase за redirect - <span className="break-all font-mono">{devRedirectHint}</span>
         </p>
       ) : null}
+
+      <p className="pt-1 text-center text-sm text-black/60">
+        Нямаш профил?{" "}
+        <a href="/signup" className="font-semibold text-black/80 underline decoration-black/20 underline-offset-2">
+          Регистрация
+        </a>
+      </p>
     </form>
   );
 }

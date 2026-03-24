@@ -70,7 +70,7 @@ export async function generateMetadata({
   const { city, rawTrimmed } = await resolveCityByParam(slug);
   const cityName =
     city != null
-      ? formatSettlementDisplayName(city.name_bg, city.is_village ?? false) ?? city.name_bg
+      ? formatSettlementDisplayName(city.name_bg, city.is_village) ?? city.name_bg
       : rawTrimmed;
   const canonicalSlug = city?.slug ?? rawTrimmed;
   const title = `Фестивали в ${cityName} | Festivo`;
@@ -103,7 +103,7 @@ export default async function CityLandingPage({
     permanentRedirect(cityHref(city.slug));
   }
 
-  const cityName = formatSettlementDisplayName(city.name_bg, city.is_village ?? false) ?? city.name_bg;
+  const cityName = formatSettlementDisplayName(city.name_bg, city.is_village) ?? city.name_bg;
   const citySlug = city.slug;
 
   const parsedFilters = parseFilters(resolvedSearchParams);

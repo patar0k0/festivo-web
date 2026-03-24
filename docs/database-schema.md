@@ -11,7 +11,7 @@ Canonical city dictionary used for moderation resolution and public routing/filt
 | id | bigint | canonical city key used by `festivals.city_id` and `pending_festivals.city_id` |
 | slug | text | canonical slug used in route/filter matching and denormalized festival city text |
 | name_bg | text | display name used in admin and public UI |
-| is_village | boolean | when true, public UI prefixes settlement with „с.“ (village); default false for cities (`scripts/sql/20260321_cities_is_village.sql`) |
+| is_village | boolean \| null | when `true`, public UI prefixes settlement with „с.“ (village); when `false`, with „гр.“; when `null`/unknown, UI does not infer a prefix (avoids labelling villages as cities) (`scripts/sql/20260321_cities_is_village.sql`) |
 
 Used by:
 - city resolution helpers (`id` / `slug` / `name_bg` lookup)

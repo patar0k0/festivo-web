@@ -1,4 +1,4 @@
-# Festivo Project Context
+﻿# Festivo Project Context
 
 ## Overview
 Festivo is a moderation-first festival catalog.
@@ -9,20 +9,20 @@ Public users browse verified/published festivals, while ingestion inputs first l
 **Frontend:** Next.js 14 (App Router)
 **Backend:** Next.js API routes + worker-side ingestion helpers
 **Database:** Supabase Postgres
-**Auth:** Supabase Auth
+**Auth:** Supabase Auth (login + password recovery via `/reset-password`) 
 **Mobile:** Flutter
 **Deployment:** Vercel
 
 **API edge hardening:** `middleware.ts` applies Upstash rate limits and an Origin/Referer allowlist to `POST /api/*` (details, buckets, env vars: `docs/system-architecture.md`, section *Edge middleware: API POST hardening*).
 
 ## Core System Modules
-- Public festival discovery (`festivals` queries scoped to visible statuses); public festival detail loads all `festival_organizers` rows via a dedicated query and resolves organizer names (service role client when `SUPABASE_SERVICE_ROLE_KEY` is set, otherwise anon — requires RLS `select` on `organizers` for active rows, see `scripts/sql/20260321_organizers_public_select_active.sql`).
-- **Festival dates:** `festivals` and `pending_festivals` may store non-consecutive days in `occurrence_dates` (jsonb array of ISO dates). Empty/null means “continuous range” via `start_date`/`end_date` only. App code merges min/max into start/end when discrete days are set (`lib/festival/occurrenceDates.ts`); listing/ICS/calendar use `lib/festival/listingDates.ts` and `lib/queries.ts` (RPC `festivals_intersecting_range` for filters). Admin: occurrence editor on published and pending festival forms. SQL: `scripts/sql/20260323_festival_occurrence_dates.sql`.
-- **Settlement labels:** `cities.is_village` drives „с.“ vs град в публичния UI; логика в `lib/settlements/formatDisplayName.ts` и `festivalCityLabel` (SQL: `scripts/sql/20260321_cities_is_village.sql`).
-- **Admin hero от URL:** `lib/admin/rehostHeroImageFromUrl.ts` — валидиране и качване в Storage; API `PATCH .../admin/api/pending-festivals/[id]/hero-image` и `PATCH .../admin/api/festivals/[id]/hero-image`. Worker и админ пишат метаданни в `pending_festivals.hero_image_*` колоните (виж `scripts/sql/20260322_add_pending_festivals_hero_ingest_columns.sql`).
-- **Ingest диагностика:** `ingest_jobs.fb_browser_context` се попълва от festivo-workers; админ pending страницата показва последния job статус/контекст до реда.
-- **Публична детайлна страница:** медия галерия чрез `components/festival/FestivalGallery.tsx` в `FestivalDetailClient`.
-- **Дати в админ форми:** компонент `DdMmYyyyDateInput` + `lib/dates/euDateFormat.ts` за въвеждане/показване в EU подредба.
+- Public festival discovery (`festivals` queries scoped to visible statuses); public festival detail loads all `festival_organizers` rows via a dedicated query and resolves organizer names (service role client when `SUPABASE_SERVICE_ROLE_KEY` is set, otherwise anon вЂ” requires RLS `select` on `organizers` for active rows, see `scripts/sql/20260321_organizers_public_select_active.sql`).
+- **Festival dates:** `festivals` and `pending_festivals` may store non-consecutive days in `occurrence_dates` (jsonb array of ISO dates). Empty/null means вЂњcontinuous rangeвЂќ via `start_date`/`end_date` only. App code merges min/max into start/end when discrete days are set (`lib/festival/occurrenceDates.ts`); listing/ICS/calendar use `lib/festival/listingDates.ts` and `lib/queries.ts` (RPC `festivals_intersecting_range` for filters). Admin: occurrence editor on published and pending festival forms. SQL: `scripts/sql/20260323_festival_occurrence_dates.sql`.
+- **Settlement labels:** `cities.is_village` drives вЂћСЃ.вЂњ vs РіСЂР°Рґ РІ РїСѓР±Р»РёС‡РЅРёСЏ UI; Р»РѕРіРёРєР° РІ `lib/settlements/formatDisplayName.ts` Рё `festivalCityLabel` (SQL: `scripts/sql/20260321_cities_is_village.sql`).
+- **Admin hero РѕС‚ URL:** `lib/admin/rehostHeroImageFromUrl.ts` вЂ” РІР°Р»РёРґРёСЂР°РЅРµ Рё РєР°С‡РІР°РЅРµ РІ Storage; API `PATCH .../admin/api/pending-festivals/[id]/hero-image` Рё `PATCH .../admin/api/festivals/[id]/hero-image`. Worker Рё Р°РґРјРёРЅ РїРёС€Р°С‚ РјРµС‚Р°РґР°РЅРЅРё РІ `pending_festivals.hero_image_*` РєРѕР»РѕРЅРёС‚Рµ (РІРёР¶ `scripts/sql/20260322_add_pending_festivals_hero_ingest_columns.sql`).
+- **Ingest РґРёР°РіРЅРѕСЃС‚РёРєР°:** `ingest_jobs.fb_browser_context` СЃРµ РїРѕРїСЉР»РІР° РѕС‚ festivo-workers; Р°РґРјРёРЅ pending СЃС‚СЂР°РЅРёС†Р°С‚Р° РїРѕРєР°Р·РІР° РїРѕСЃР»РµРґРЅРёСЏ job СЃС‚Р°С‚СѓСЃ/РєРѕРЅС‚РµРєСЃС‚ РґРѕ СЂРµРґР°.
+- **РџСѓР±Р»РёС‡РЅР° РґРµС‚Р°Р№Р»РЅР° СЃС‚СЂР°РЅРёС†Р°:** РјРµРґРёСЏ РіР°Р»РµСЂРёСЏ С‡СЂРµР· `components/festival/FestivalGallery.tsx` РІ `FestivalDetailClient`.
+- **Р”Р°С‚Рё РІ Р°РґРјРёРЅ С„РѕСЂРјРё:** РєРѕРјРїРѕРЅРµРЅС‚ `DdMmYyyyDateInput` + `lib/dates/euDateFormat.ts` Р·Р° РІСЉРІРµР¶РґР°РЅРµ/РїРѕРєР°Р·РІР°РЅРµ РІ EU РїРѕРґСЂРµРґР±Р°.
 - Admin moderation (`pending_festivals` edit/approve/reject, including organizer resolve/create on approve)
 - Admin organizer quality controls (duplicate detection + manual merge workflow)
 - Admin ingest queue (`ingest_jobs` enqueue/retry/delete + job-to-record linking)
@@ -60,7 +60,7 @@ Approval safeguards implemented in API route:
 AI/normalization fields exist on `pending_festivals` and are consumed by the admin edit form as **advisory guesses** (for example `title_clean`, `description_clean`, `city_guess`, `tags_guess`, coordinate/date guesses).
 
 These guesses are non-authoritative:
-- they can be copied into editable core fields via “Use” actions
+- they can be copied into editable core fields via вЂњUseвЂќ actions
 - core pending fields remain authoritative for save/approve
 - only core moderated values are written into `festivals` during approval
 
@@ -102,7 +102,7 @@ Failure behavior is fail-closed by default (`allowOriginalOnFailure=false`): if 
 - `user_plan_items`
 - `user_plan_reminders`
 
-**Моят план (UX):** На листинг картите само „Запази“/„Запазено“ (без линк „Програма“ и без напомняне в картата). На картата (`MapView`) и детайла остават програма + напомняне където е подходящо. „Запази“ записва целия фестивал (`user_plan_festivals`); отделни часове — от детайлна страница „Програма“ (`user_plan_items`). Напомнянията са към фестивала. Секция „Програма“ на детайл: anchor `#festival-program` (`lib/festival/programmeAnchor.ts`).
+**РњРѕСЏС‚ РїР»Р°РЅ (UX):** РќР° Р»РёСЃС‚РёРЅРі РєР°СЂС‚РёС‚Рµ СЃР°РјРѕ вЂћР—Р°РїР°Р·РёвЂњ/вЂћР—Р°РїР°Р·РµРЅРѕвЂњ (Р±РµР· Р»РёРЅРє вЂћРџСЂРѕРіСЂР°РјР°вЂњ Рё Р±РµР· РЅР°РїРѕРјРЅСЏРЅРµ РІ РєР°СЂС‚Р°С‚Р°). РќР° РєР°СЂС‚Р°С‚Р° (`MapView`) Рё РґРµС‚Р°Р№Р»Р° РѕСЃС‚Р°РІР°С‚ РїСЂРѕРіСЂР°РјР° + РЅР°РїРѕРјРЅСЏРЅРµ РєСЉРґРµС‚Рѕ Рµ РїРѕРґС…РѕРґСЏС‰Рѕ. вЂћР—Р°РїР°Р·РёвЂњ Р·Р°РїРёСЃРІР° С†РµР»РёСЏ С„РµСЃС‚РёРІР°Р» (`user_plan_festivals`); РѕС‚РґРµР»РЅРё С‡Р°СЃРѕРІРµ вЂ” РѕС‚ РґРµС‚Р°Р№Р»РЅР° СЃС‚СЂР°РЅРёС†Р° вЂћРџСЂРѕРіСЂР°РјР°вЂњ (`user_plan_items`). РќР°РїРѕРјРЅСЏРЅРёСЏС‚Р° СЃР° РєСЉРј С„РµСЃС‚РёРІР°Р»Р°. РЎРµРєС†РёСЏ вЂћРџСЂРѕРіСЂР°РјР°вЂњ РЅР° РґРµС‚Р°Р№Р»: anchor `#festival-program` (`lib/festival/programmeAnchor.ts`).
 - `user_notifications`
 - `device_tokens`
 

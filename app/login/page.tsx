@@ -3,15 +3,24 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LoginForm } from "./LoginForm";
 
+const URL_ERROR_MESSAGES: Record<string, string> = {
+  oauth: "Входът с Google/Apple не бе завършен. Опитай отново.",
+};
+
+function messageForUrlError(code: string): string {
+  return URL_ERROR_MESSAGES[code] ?? "Възникна грешка при вход. Опитай отново.";
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const error = typeof params.error === "string" ? params.error : "";
+  const errorCode = typeof params.error === "string" ? params.error : "";
+  const errorMessage = errorCode ? messageForUrlError(errorCode) : "";
   const next = typeof params.next === "string" ? params.next : null;
-  const safeNext = next && next.startsWith("/") ? next : null;
+  const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
   const target = safeNext ?? "/";
 
   const user = await getOptionalUser();
@@ -27,18 +36,33 @@ export default async function LoginPage({
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Festivo</p>
         <h1 className="mt-2 text-2xl font-black tracking-tight">Вход</h1>
         <p className="mt-2 text-sm text-black/65">Влез, за да ползваш Моят план и напомняния.</p>
+        <p className="mt-3 text-sm">
+          <Link href="/" className="font-medium text-black/55 underline decoration-black/15 underline-offset-2 hover:text-[#0c0e14]">
+            ← Назад към сайта
+          </Link>
+        </p>
 
-        {error ? <p className="mt-4 rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
+        {errorMessage ? (
+          <p className="mt-4 rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
 
         {user ? (
           <div className="mt-5 space-y-3">
-            <p className="rounded-lg bg-[#0c0e14]/5 px-3 py-2 text-sm text-[#0c0e14]">Already signed in.</p>
-            <div className="flex gap-2">
-              <Link href="/admin" className="rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white">
-                Go to admin
+            <p className="rounded-lg bg-[#0c0e14]/5 px-3 py-2 text-sm text-[#0c0e14]">Имаш активна сесия.</p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/admin"
+                className="rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white"
+              >
+                Към админ
               </Link>
-              <Link href="/" className="rounded-xl border border-black/[0.12] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14]">
-                Go home
+              <Link
+                href="/"
+                className="rounded-xl border border-black/[0.12] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14]"
+              >
+                Начало
               </Link>
             </div>
           </div>

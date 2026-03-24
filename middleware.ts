@@ -100,6 +100,7 @@ export async function middleware(request: NextRequest) {
   const isAllowlisted =
     pathname.startsWith("/admin") ||
     pathname.startsWith("/login") ||
+    pathname.startsWith("/reset-password") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/preview") ||

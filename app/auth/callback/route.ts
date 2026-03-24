@@ -3,8 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/supabaseServer";
 
 function getSafeNext(rawNext: string | null) {
-  if (!rawNext || !rawNext.startsWith("/")) {
-    return "/admin";
+  if (!rawNext || !rawNext.startsWith("/") || rawNext.startsWith("//")) {
+    return "/";
   }
   return rawNext;
 }

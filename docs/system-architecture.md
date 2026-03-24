@@ -23,9 +23,9 @@ This repo includes worker helper logic in `workers/ingest_fb_event.js` for:
 
 ### Rate limiting (Upstash)
 
-- **Implementation:** `lib/rateLimit.ts` uses `@upstash/ratelimit` with `@upstash/redis/cloudflare` (Edge-compatible). Redis keys are **per bucket** and **per identity**: if the request has a logged-in session (`getSession()` in `lib/middlewareSession.ts`, read-only—no cookie write), the key uses **`auth.users` id**; otherwise **client IP** (from `x-forwarded-for` / `x-real-ip`).
+- **Implementation:** `lib/rateLimit.ts` uses `@upstash/ratelimit` with `@upstash/redis/cloudflare` (Edge-compatible). Redis keys are **per bucket** and **per identity**: if the request has a logged-in session (`getSession()` in `lib/middlewareSession.ts`, read-only-no cookie write), the key uses **`auth.users` id**; otherwise **client IP** (from `x-forwarded-for` / `x-real-ip`).
 - **Activation:** requires both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. If either is missing, limits are skipped (no error).
-- **Fail-open:** if Upstash throws (network, auth, etc.), the request is **not** blocked—site must not return `500` because of rate limiting.
+- **Fail-open:** if Upstash throws (network, auth, etc.), the request is **not** blocked-site must not return `500` because of rate limiting.
 - **Jobs bypass** (applies to `/api/jobs/*` only): Vercel Cron header `x-vercel-cron`, or `x-job-secret` matching `JOBS_SECRET`. Same bypass is used for the origin check below.
 
 **Buckets (fixed windows):**
@@ -42,14 +42,16 @@ Limited responses: **429** with `Retry-After` (seconds).
 
 ### Origin / Referer guard (CSRF-ish)
 
-- **Implementation:** `lib/postOriginGuard.ts` — `verifyApiPostOrigin(request)`.
-- **Behavior:** if `Origin` or `Referer` is present, the URL’s **host** must be in an allowlist built from `NEXT_PUBLIC_SITE_URL`, `VERCEL_URL`, optional comma-separated `CSRF_ALLOWED_HOSTS`, dev localhost hosts, and mutual inclusion of `festivo.bg` / `www.festivo.bg`.
+- **Implementation:** `lib/postOriginGuard.ts` - `verifyApiPostOrigin(request)`.
+- **Behavior:** if `Origin` or `Referer` is present, the URL's **host** must be in an allowlist built from `NEXT_PUBLIC_SITE_URL`, `VERCEL_URL`, optional comma-separated `CSRF_ALLOWED_HOSTS`, dev localhost hosts, and mutual inclusion of `festivo.bg` / `www.festivo.bg`.
 - **No `Origin` and no `Referer`:** allowed (e.g. `curl`, some server clients).
-- **Empty allowlist:** fail-open (do not block)—typically only when neither site URL nor Vercel URL is set.
+- **Empty allowlist:** fail-open (do not block) - typically only when neither site URL nor Vercel URL is set.
 - **Jobs:** same bypass as rate limit for trusted job callers.
 - Rejection: **403** with a small JSON body.
 
 Env var summary for production also lives in `README.md` (`UPSTASH_*`, `CSRF_ALLOWED_HOSTS`, `JOBS_SECRET`).
+
+Auth UX includes password recovery: `/login` sends Supabase reset emails and `/reset-password` applies `auth.updateUser({ password })` for valid recovery sessions.
 
 ## Moderation-first content flow
 
@@ -64,7 +66,7 @@ Env var summary for production also lives in `README.md` (`UPSTASH_*`, `CSRF_ALL
 
 3. **Admin moderation of pending record**
    - `/admin/pending-festivals`: lists only `status=pending`.
-   - `/admin/pending-festivals/[id]`: full record editing; may show last linked `ingest_jobs` status, finish time, and `fb_browser_context`. Optional “filled fields” summary uses `lib/admin/pendingFestivalQuality.ts`.
+   - `/admin/pending-festivals/[id]`: full record editing; may show last linked `ingest_jobs` status, finish time, and `fb_browser_context`. Optional вЂњfilled fieldsвЂќ summary uses `lib/admin/pendingFestivalQuality.ts`.
    - Save route (`PATCH /admin/api/pending-festivals/[id]`) updates pending core fields.
    - Hero image import from URL: `PATCH /admin/api/pending-festivals/[id]/hero-image` (server-side rehost via `lib/admin/rehostHeroImageFromUrl.ts`).
 
@@ -104,7 +106,7 @@ Retry behavior is explicit and limited:
 Current behavior in admin edit UI:
 - AI values are shown as hints and comparison statuses
 - admin can apply guessed values into editable core fields
-- “Use all safe values” only fills missing fields
+- вЂњUse all safe valuesвЂќ only fills missing fields
 - core moderated fields remain authoritative for save/approve
 
 Admin festival research (`/admin/api/research-festival`) uses a simplified backend flow:
@@ -118,16 +120,16 @@ If LLM extraction fails/unavailable, the API returns a low-confidence minimal re
 
 `/api/admin/research-ai` (Perplexity-backed extraction) uses a strict structured first pass plus additive follow-up passes:
 - enrichment runs when first-pass has enough still-null factual fields (low threshold for admin UX)
-- follow-up passes inherit `source_urls` from the prior pass so Perplexity responses that omit URLs do not trigger “facts without sources” wipes
+- follow-up passes inherit `source_urls` from the prior pass so Perplexity responses that omit URLs do not trigger вЂњfacts without sourcesвЂќ wipes
 - optional third pass runs when merged result still has many missing fields
 - merge is additive-only (fills nulls, preserves already extracted non-null values)
 - single-day convenience: if `end_date` is null but `start_date` is set, `end_date` mirrors `start_date`
-- light `is_free` hint from description text (e.g. “безплатен”) when the model omitted the boolean
+- light `is_free` hint from description text (e.g. вЂњР±РµР·РїР»Р°С‚РµРЅвЂќ) when the model omitted the boolean
 - on enrichment failure, system returns first-pass result (no hard failure)
 
 ## Hero image pipeline safeguards
 Ingestion helper behavior for candidate hero image:
-- source preference: `fbEvent.cover.source` → OG image → existing pending hero image
+- source preference: `fbEvent.cover.source` в†’ OG image в†’ existing pending hero image
 - Facebook-hosted URL detection by hostname patterns
 - validation before rehost:
   - request timeout
@@ -169,3 +171,4 @@ Reminder/discovery jobs and push delivery remain as implemented in `/api/jobs/*`
 - Organizer list and public organizer profile lookups use active organizers by default (`is_active=true`).
 - Approved festivals persist organizer links in `festival_organizers`, keep `festivals.organizer_id` as compatibility, and keep `organizer_name` as display fallback only.
 - Organizer profile enrichment supports admin AI research via `/api/admin/research-organizer` (Perplexity structured extraction); UI is embedded in organizer edit form and applies extracted values only after moderator action.
+

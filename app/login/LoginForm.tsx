@@ -1,8 +1,9 @@
 ﻿"use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
+import { loginErrorMessage } from "./authErrors";
 
 type LoginFormProps = {
   next: string;
@@ -10,22 +11,30 @@ type LoginFormProps = {
 
 export function LoginForm({ next }: LoginFormProps) {
   const router = useRouter();
+  const emailId = useId();
+  const passwordId = useId();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [bannerError, setBannerError] = useState("");
+  const [resetNotice, setResetNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [redirectHint, setRedirectHint] = useState("/auth/callback");
+  const [isResetSubmitting, setIsResetSubmitting] = useState(false);
+  const [oauthProvider, setOauthProvider] = useState<"google" | "apple" | null>(null);
+  const [devRedirectHint, setDevRedirectHint] = useState("");
 
   useEffect(() => {
-    setRedirectHint(`${window.location.origin}/auth/callback`);
+    if (process.env.NODE_ENV !== "production") {
+      setDevRedirectHint(`${window.location.origin}/auth/callback`);
+    }
   }, []);
 
   async function signInWithOAuth(provider: "google" | "apple") {
+    setBannerError("");
+    setResetNotice("");
+    setOauthProvider(provider);
+
     try {
-      console.log("ENV CHECK", {
-        url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-        anon: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "SET" : "MISSING",
-      });
       const supabase = createSupabaseBrowser();
       const origin =
         typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL;
@@ -35,41 +44,68 @@ export function LoginForm({ next }: LoginFormProps) {
         callbackUrl.searchParams.set("next", safeNext);
       }
       const redirectTo = callbackUrl.toString();
-      console.log("OAuth redirectTo", redirectTo);
-      console.log("GOOGLE CLICK", { redirectTo });
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
-        options: {
-          redirectTo,
-        },
+        options: { redirectTo },
       });
-      console.log("OAuth signInWithOAuth result", { data, error: oauthError });
-      console.log("OAuth result", { provider, url: data?.url, error: oauthError });
 
       if (oauthError) {
-        console.error("OAuth error:", oauthError);
-        alert(`OAuth error: ${oauthError.message}`);
+        setBannerError(loginErrorMessage(oauthError.message, "Входът с външен акаунт не бе успешен. Опитай отново."));
         return;
       }
 
-      // OAuth redirect must happen immediately; Fast Refresh in `next dev` can interrupt navigation.
       if (data?.url) {
         window.location.replace(data.url);
         return;
       }
 
-      alert("OAuth error: missing redirect URL from Supabase.");
+      setBannerError("Липсва адрес за пренасочване от сървъра. Провери настройките в Supabase.");
     } catch (e) {
-      console.error("OAuth unexpected error:", e);
-      alert(`OAuth unexpected error: ${String(e)}`);
+      setBannerError(
+        e instanceof Error ? loginErrorMessage(e.message, "Неочаквана грешка. Опитай отново.") : "Неочаквана грешка. Опитай отново.",
+      );
+    } finally {
+      setOauthProvider(null);
+    }
+  }
+
+  async function sendPasswordReset() {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
+      setBannerError("Въведи имейл, за да получиш линк за нова парола.");
+      return;
+    }
+
+    setBannerError("");
+    setResetNotice("");
+    setIsResetSubmitting(true);
+
+    try {
+      const supabase = createSupabaseBrowser();
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL;
+      const redirectTo = new URL("/reset-password", origin).toString();
+
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, { redirectTo });
+      if (error) {
+        setBannerError(loginErrorMessage(error.message, "Не успяхме да изпратим имейл. Опитай отново след малко."));
+        return;
+      }
+
+      setResetNotice("Изпратихме линк за нова парола. Провери имейла си.");
+    } catch {
+      setBannerError("Мрежова грешка. Опитай отново.");
+    } finally {
+      setIsResetSubmitting(false);
     }
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
-    setError("");
+    setBannerError("");
+    setResetNotice("");
 
     try {
       const supabase = createSupabaseBrowser();
@@ -79,68 +115,119 @@ export function LoginForm({ next }: LoginFormProps) {
       });
 
       if (signInError) {
-        setError("Invalid login credentials.");
+        setBannerError(loginErrorMessage(signInError.message, "Входът не бе успешен. Провери данните."));
         return;
       }
 
-      const target = next && next.startsWith("/") ? next : "/";
+      const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
       router.push(target);
       router.refresh();
     } catch {
-      setError("Network error. Try again.");
+      setBannerError("Мрежова грешка. Опитай отново.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  const oauthBusy = oauthProvider !== null;
+
   return (
-    <form onSubmit={onSubmit} className="mt-5 space-y-4">
-      <label className="block">
-        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Email</span>
+    <form onSubmit={onSubmit} className="mt-5 space-y-4" noValidate>
+      <label className="block" htmlFor={emailId}>
+        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Имейл</span>
         <input
+          id={emailId}
           type="email"
           name="email"
+          autoComplete="email"
+          inputMode="email"
           required
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-sm"
+          className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-sm outline-none ring-[#0c0e14]/20 transition-shadow focus:ring-2"
         />
       </label>
-      <label className="block">
-        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Password</span>
+      <div className="block">
+        <div className="flex items-baseline justify-between gap-2">
+          <label htmlFor={passwordId} className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">
+            Парола
+          </label>
+          <button
+            type="button"
+            className="text-xs font-medium text-black/45 underline decoration-black/20 underline-offset-2 hover:text-black/70"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-pressed={showPassword}
+          >
+            {showPassword ? "Скрий" : "Покажи"}
+          </button>
+        </div>
         <input
-          type="password"
+          id={passwordId}
+          type={showPassword ? "text" : "password"}
           name="password"
+          autoComplete="current-password"
           required
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-sm"
+          className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-sm outline-none ring-[#0c0e14]/20 transition-shadow focus:ring-2"
         />
-      </label>
-      {error ? <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => void sendPasswordReset()}
+          disabled={isResetSubmitting || isSubmitting || oauthBusy}
+          className="text-xs font-medium text-black/50 underline decoration-black/20 underline-offset-2 hover:text-black/80 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isResetSubmitting ? "Изпращане..." : "Забравена парола?"}
+        </button>
+      </div>
+
+      {bannerError ? (
+        <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
+          {bannerError}
+        </p>
+      ) : null}
+      {resetNotice ? (
+        <p className="rounded-lg bg-[#0c0e14]/6 px-3 py-2 text-sm text-[#0c0e14]" role="status">
+          {resetNotice}
+        </p>
+      ) : null}
+
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || oauthBusy || isResetSubmitting}
         className="w-full rounded-xl bg-[#0c0e14] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isSubmitting ? "Signing in..." : "Sign in"}
+        {isSubmitting ? "Влизане..." : "Вход с парола"}
       </button>
+
+      <div className="relative py-1 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-black/40 before:absolute before:left-0 before:top-1/2 before:h-px before:w-[38%] before:bg-black/[0.08] after:absolute after:right-0 after:top-1/2 after:h-px after:w-[38%] after:bg-black/[0.08]">
+        или
+      </div>
+
       <button
         type="button"
+        disabled={oauthBusy || isSubmitting || isResetSubmitting}
         onClick={() => void signInWithOAuth("google")}
-        className="w-full rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14]"
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] disabled:cursor-not-allowed disabled:opacity-70"
       >
-        Continue with Google
+        {oauthProvider === "google" ? "Пренасочване..." : "Продължи с Google"}
       </button>
       <button
         type="button"
+        disabled={oauthBusy || isSubmitting || isResetSubmitting}
         onClick={() => void signInWithOAuth("apple")}
-        className="w-full rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14]"
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] disabled:cursor-not-allowed disabled:opacity-70"
       >
-        Continue with Apple
+        {oauthProvider === "apple" ? "Пренасочване..." : "Продължи с Apple"}
       </button>
-      {process.env.NODE_ENV !== "production" ? (
-        <p className="text-xs text-black/55">OAuth redirect URL (allow-list in Supabase): {redirectHint}</p>
+
+      {devRedirectHint ? (
+        <p className="text-center text-[11px] leading-relaxed text-black/45">
+          Dev: allowlist в Supabase за redirect - <span className="break-all font-mono">{devRedirectHint}</span>
+        </p>
       ) : null}
     </form>
   );

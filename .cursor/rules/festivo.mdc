@@ -28,10 +28,13 @@ After completing a task, **update docs in-repo without asking**, when anything r
 |-------------|--------|
 | New/altered tables, columns, functions, RPCs, grants, RLS | `docs/database-schema.md` + new/edited `scripts/sql/*.sql` reference; `docs/er-diagram.md` if entity shapes change |
 | Product flows, moderation, public vs admin | `PROJECT_CONTEXT.md`, `docs/system-architecture.md` |
+| Security, edge `middleware`, rate limits, Origin/Referer or similar API hardening | `docs/system-architecture.md` (and `README.md` if new env vars or ops steps) |
 | Cross-cutting AI/migration conventions | `AI_CONTEXT.md` (only if conventions change) |
 | Notifications / jobs | `docs/notification-system.md` |
 
 If a listed file is not impacted, leave it unchanged. **Schema or API behavior changes must not ship without touching `docs/database-schema.md` and/or `docs/system-architecture.md` as appropriate.**
+
+**Cross-cutting “important” behavior** (auth/session edges, abuse controls, caching, feature flags that affect prod safety): document in `docs/system-architecture.md` in the same task as the code change, and add or extend a `README.md` env/ops bullet when operators must set variables.
 
 ## 3) Project summary
 

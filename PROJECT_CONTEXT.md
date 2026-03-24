@@ -13,6 +13,8 @@ Public users browse verified/published festivals, while ingestion inputs first l
 **Mobile:** Flutter
 **Deployment:** Vercel
 
+**API edge hardening:** `middleware.ts` applies Upstash rate limits and an Origin/Referer allowlist to `POST /api/*` (details, buckets, env vars: `docs/system-architecture.md`, section *Edge middleware: API POST hardening*).
+
 ## Core System Modules
 - Public festival discovery (`festivals` queries scoped to visible statuses); public festival detail loads all `festival_organizers` rows via a dedicated query and resolves organizer names (service role client when `SUPABASE_SERVICE_ROLE_KEY` is set, otherwise anon — requires RLS `select` on `organizers` for active rows, see `scripts/sql/20260321_organizers_public_select_active.sql`).
 - **Festival dates:** `festivals` and `pending_festivals` may store non-consecutive days in `occurrence_dates` (jsonb array of ISO dates). Empty/null means “continuous range” via `start_date`/`end_date` only. App code merges min/max into start/end when discrete days are set (`lib/festival/occurrenceDates.ts`); listing/ICS/calendar use `lib/festival/listingDates.ts` and `lib/queries.ts` (RPC `festivals_intersecting_range` for filters). Admin: occurrence editor on published and pending festival forms. SQL: `scripts/sql/20260323_festival_occurrence_dates.sql`.

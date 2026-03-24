@@ -104,6 +104,7 @@ architecture
 API routes
 notification pipelines
 background jobs
+security or anti-abuse (middleware, rate limits, Origin/CORS policy, session/cookie edges)
 
 AI must update documentation:
 
@@ -111,6 +112,8 @@ docs/database-schema.md
 docs/system-architecture.md
 docs/notification-system.md
 docs/er-diagram.md
+
+For security / edge middleware / rate limiting / similar API hardening: always extend `docs/system-architecture.md` in the same change; add or update `README.md` environment-variable bullets when new secrets or toggles are required for production.
 
 --------------------------------------------------
 
@@ -135,6 +138,8 @@ docs/er-diagram.md
 If architecture changes occur also update:
 
 docs/system-architecture.md
+
+If the change is cross-cutting safety (middleware, rate limits, CSRF-ish checks, auth cookie behavior at the edge), treat it as an architecture change: document behavior and env vars in `docs/system-architecture.md` (and `README.md` when operators need new variables).
 
 If notification pipelines change also update:
 

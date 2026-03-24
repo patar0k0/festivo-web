@@ -69,6 +69,8 @@ If any item is missing or conflicts appear, stop and ask for clarification befor
 ## Documentation sync rule
 If a change affects **schema, API, jobs, or architecture**, update related docs in the **same PR**. Code and docs must land together.
 
+**Security and edge behavior** (middleware, rate limiting, Origin/Referer checks, session refresh at the edge): document in `docs/system-architecture.md` and list any new production env vars in `README.md` in the same change.
+
 ## Before you change anything (checklist)
 - [ ] I read all required context files listed above.
 - [ ] I identified which source-of-truth docs are impacted.

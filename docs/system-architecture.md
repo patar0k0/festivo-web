@@ -17,6 +17,40 @@ This repo includes worker helper logic in `workers/ingest_fb_event.js` for:
 - date/location normalization
 - hero-image rehosting to Supabase Storage
 
+## Edge middleware: API POST hardening (festivo-web)
+
+`middleware.ts` runs on the Edge runtime and applies **only to `POST` requests** whose path starts with `/api/`.
+
+### Rate limiting (Upstash)
+
+- **Implementation:** `lib/rateLimit.ts` uses `@upstash/ratelimit` with `@upstash/redis/cloudflare` (Edge-compatible). Keys are **per client IP** (from `x-forwarded-for` / `x-real-ip`) and **per bucket**.
+- **Activation:** requires both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. If either is missing, limits are skipped (no error).
+- **Fail-open:** if Upstash throws (network, auth, etc.), the request is **not** blocked—site must not return `500` because of rate limiting.
+- **Jobs bypass** (applies to `/api/jobs/*` only): Vercel Cron header `x-vercel-cron`, or `x-job-secret` matching `JOBS_SECRET`. Same bypass is used for the origin check below.
+
+**Buckets (fixed windows):**
+
+| Prefix / path | Limit |
+|---------------|-------|
+| `/api/auth/*`, `/api/admin/auth/*` | 5 / 60s |
+| `/api/admin/research-ai` | 10 / 60s |
+| `/api/jobs/*` | 10 / 60s (unless bypassed) |
+| `/api/plan/*`, `/api/follow/*`, `POST /api/device-token`, `POST /api/notification-settings` | 30 / 60s |
+| other `POST /api/*` | 20 / 10s |
+
+Limited responses: **429** with `Retry-After` (seconds).
+
+### Origin / Referer guard (CSRF-ish)
+
+- **Implementation:** `lib/postOriginGuard.ts` — `verifyApiPostOrigin(request)`.
+- **Behavior:** if `Origin` or `Referer` is present, the URL’s **host** must be in an allowlist built from `NEXT_PUBLIC_SITE_URL`, `VERCEL_URL`, optional comma-separated `CSRF_ALLOWED_HOSTS`, dev localhost hosts, and mutual inclusion of `festivo.bg` / `www.festivo.bg`.
+- **No `Origin` and no `Referer`:** allowed (e.g. `curl`, some server clients).
+- **Empty allowlist:** fail-open (do not block)—typically only when neither site URL nor Vercel URL is set.
+- **Jobs:** same bypass as rate limit for trusted job callers.
+- Rejection: **403** with a small JSON body.
+
+Env var summary for production also lives in `README.md` (`UPSTASH_*`, `CSRF_ALLOWED_HOSTS`, `JOBS_SECRET`).
+
 ## Moderation-first content flow
 
 1. **Queue source URL**

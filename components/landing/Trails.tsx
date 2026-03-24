@@ -74,10 +74,10 @@ export default function Trails({ trails, onAdd }: Props) {
                   + В план
                 </button>
                 <Link
-                  href="/festival/demo"
+                  href="/festivals"
                   className="inline-flex h-[34px] items-center gap-1 rounded-[10px] bg-[#ff4c1f] px-3 text-[12px] font-extrabold text-white transition hover:bg-[#e04010] hover:-translate-y-px"
                 >
-                  Отвори
+                  Към фестивали
                 </Link>
               </div>
             </div>

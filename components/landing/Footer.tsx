@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-center justify-between gap-4 px-[18px]">
         {/* Brand */}
         <div className="flex flex-col gap-1.5">
-          <Link href="#" className="flex items-center gap-2.5 font-black tracking-tight text-[#0c0e14] no-underline">
+          <Link href="/" className="flex items-center gap-2.5 font-black tracking-tight text-[#0c0e14] no-underline">
             <span
               className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px] bg-[#0c0e14] text-[13px] text-white"
               aria-hidden="true"

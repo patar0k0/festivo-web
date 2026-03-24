@@ -8,7 +8,7 @@ export default function Header() {
     <header className="sticky top-0 z-30 border-b border-black/[0.08] bg-[#f5f4f0]/85 backdrop-blur-xl">
       <div className={containerClass}>
         {/* Logo */}
-        <Link href="#" className="flex items-center gap-2.5 font-black tracking-tight text-[#0c0e14] no-underline">
+        <Link href="/" className="flex items-center gap-2.5 font-black tracking-tight text-[#0c0e14] no-underline">
           <span
             className="flex h-[32px] w-[32px] items-center justify-center rounded-[10px] bg-[#0c0e14] text-white text-[14px]"
             aria-hidden="true"
@@ -48,10 +48,10 @@ export default function Header() {
             Добави фестивал
           </button>
           <Link
-            href="/festival/demo"
+            href="/festivals"
             className="inline-flex h-[38px] items-center gap-1.5 rounded-[14px] bg-[#0c0e14] px-4 text-sm font-extrabold text-white transition hover:bg-[#1e2030] hover:-translate-y-px"
           >
-            Пример детайл →
+            Към фестивали →
           </Link>
         </div>
       </div>

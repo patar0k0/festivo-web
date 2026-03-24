@@ -41,6 +41,9 @@ function normalizePayload(payload: PartialNotificationSettings): PartialNotifica
   return normalized;
 }
 
+const NOTIFICATION_SETTINGS_COLUMNS =
+  "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest" as const;
+
 async function requireUser() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -64,9 +67,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("user_notification_settings")
-    .select(
-      "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest",
-    )
+    .select(NOTIFICATION_SETTINGS_COLUMNS)
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -100,29 +101,64 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No valid settings provided" }, { status: 400 });
   }
 
-  const { error } = await supabase.from("user_notification_settings").upsert(
-    {
-      user_id: user.id,
-      ...updates,
-    },
-    { onConflict: "user_id" },
-  );
+  // Prefer update-then-insert over upsert: INSERT...ON CONFLICT DO UPDATE under RLS
+  // can fail in some Postgres setups while plain update/insert succeed.
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const { data: saved, error: fetchError } = await supabase
+  const { data: updatedRow, error: updateError } = await supabase
     .from("user_notification_settings")
-    .select(
-      "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest",
-    )
+    .update(updates)
     .eq("user_id", user.id)
-    .single();
+    .select(NOTIFICATION_SETTINGS_COLUMNS)
+    .maybeSingle();
 
-  if (fetchError) {
-    return NextResponse.json({ error: fetchError.message }, { status: 500 });
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ settings: saved });
+  if (updatedRow) {
+    return NextResponse.json({
+      settings: { ...DEFAULT_SETTINGS, ...updatedRow },
+    });
+  }
+
+  const insertPayload = { user_id: user.id, ...updates };
+  const { data: insertedRow, error: insertError } = await supabase
+    .from("user_notification_settings")
+    .insert(insertPayload)
+    .select(NOTIFICATION_SETTINGS_COLUMNS)
+    .maybeSingle();
+
+  if (!insertError && insertedRow) {
+    return NextResponse.json({
+      settings: { ...DEFAULT_SETTINGS, ...insertedRow },
+    });
+  }
+
+  const isUniqueViolation =
+    insertError?.code === "23505" ||
+    (typeof insertError?.message === "string" && insertError.message.toLowerCase().includes("duplicate"));
+
+  if (isUniqueViolation) {
+    const { data: retryRow, error: retryError } = await supabase
+      .from("user_notification_settings")
+      .update(updates)
+      .eq("user_id", user.id)
+      .select(NOTIFICATION_SETTINGS_COLUMNS)
+      .single();
+
+    if (!retryError && retryRow) {
+      return NextResponse.json({
+        settings: { ...DEFAULT_SETTINGS, ...retryRow },
+      });
+    }
+    return NextResponse.json(
+      { error: retryError?.message ?? insertError?.message ?? "Conflict saving settings" },
+      { status: 500 },
+    );
+  }
+
+  return NextResponse.json(
+    { error: insertError?.message ?? "Failed to save notification settings" },
+    { status: 500 },
+  );
 }

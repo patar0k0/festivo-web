@@ -7,6 +7,7 @@ import { festivalPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 import { normalizeOrganizerIds, syncFestivalOrganizers } from "@/lib/festivalOrganizers";
 import { mergeOccurrenceDatesWithRange } from "@/lib/festival/occurrenceDates";
+import { scheduleFestivalUpdateNotifications } from "@/lib/notifications/triggers";
 
 
 type SaveResponse = {
@@ -69,6 +70,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   try {
     const { id } = await params;
+
+    const { data: beforeFestival } = await ctx.supabase
+      .from("festivals")
+      .select("start_date,end_date,city,city_id,region,address,title,occurrence_dates")
+      .eq("id", id)
+      .maybeSingle();
+
     const body = (await request.json()) as Record<string, unknown>;
     const parsed = canonicalPatchFromUnknown(body);
     if (!parsed.ok) {
@@ -243,6 +251,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    const { data: afterFestival } = await ctx.supabase
+      .from("festivals")
+      .select("start_date,end_date,city,city_id,region,address,title,occurrence_dates")
+      .eq("id", id)
+      .maybeSingle();
+
+    void scheduleFestivalUpdateNotifications(
+      id,
+      (beforeFestival ?? null) as Record<string, unknown> | null,
+      (afterFestival ?? null) as Record<string, unknown> | null,
+    ).catch((err) => console.warn("[notifications] scheduleFestivalUpdateNotifications", err));
 
     if (organizerIdsFromBody !== null) {
       try {

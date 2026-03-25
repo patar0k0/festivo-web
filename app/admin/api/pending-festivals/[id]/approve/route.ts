@@ -7,6 +7,7 @@ import { canonicalFromUnknown } from "@/lib/festival/validators";
 import { resolveOrCreateOrganizerId } from "@/lib/admin/organizers";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { syncFestivalOrganizers } from "@/lib/festivalOrganizers";
+import { scheduleNewFestivalFollowCityJobs } from "@/lib/notifications/triggers";
 
 type CityRow = {
   id: number;
@@ -422,6 +423,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     console.info(`[pending-approve] pending_id=${id} pending status updated=approved`);
+
+    void scheduleNewFestivalFollowCityJobs(insertedFestival.id).catch((err) =>
+      console.warn("[notifications] scheduleNewFestivalFollowCityJobs", err),
+    );
 
     return NextResponse.json({
       ok: true,

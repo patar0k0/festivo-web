@@ -120,6 +120,6 @@ Database schema: **Supabase** is authoritative; follow queries, types, and `scri
 - New organizers can be researched and created from `/admin/organizers/research` (linked next to duplicate detection on the organizers list); flow calls the same research API then `POST /admin/api/organizers` and redirects to edit.
 
 ## Notification System
-Reminder and discovery notifications write to `user_notifications`, then push delivery reads unsent rows and dispatches via `device_tokens`.
+Напомняния и откриване: по-старият поток пише в `user_notifications` и се изпраща през `/api/jobs/push` към `device_tokens`. От 2026-03: MVP опашка `notification_jobs` + `notification_logs`, изпълнение през `/api/notifications/run`; тригери от план, админ редакция и одобряване на pending (виж `docs/notification-system.md`).
 
 Details: `docs/notification-system.md`.

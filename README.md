@@ -47,6 +47,9 @@ Environment variables (no secrets in repo):
 - `CSRF_ALLOWED_HOSTS` (optional, comma-separated extra hostnames for `POST /api/*` Origin/Referer checks; Vercel sets `VERCEL_URL` automatically for preview deploys)
 - `BOOKING_ACCOMMODATION_ENABLED=1` (optional, registers the Booking.com provider stub in `lib/accommodation`; returns no offers until the API is wired)
 - `ACCOMMODATION_MOCK_PROVIDER=1` / `ACCOMMODATION_MOCK_SAMPLE=1` (optional, dev-only mock accommodation; do not use for fake production inventory)
+- `SUPABASE_SERVICE_ROLE_KEY` (server-only; jobs и admin bypass към базата)
+- `JOBS_SECRET` (споделен секрет за cron/worker повиквания към `/api/jobs/*` и `/api/notifications/*`, header `x-job-secret`)
+- `FCM_SERVER_KEY` (legacy FCM server key за push през `/api/jobs/push` и `/api/notifications/run`)
 
 ## How to test
 

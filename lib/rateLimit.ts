@@ -72,7 +72,7 @@ function getBucket(pathname: string): RateLimitBucket {
     return { id: "auth", requests: 5, window: "60 s" };
   }
 
-  if (pathname.startsWith("/api/jobs/")) {
+  if (pathname.startsWith("/api/jobs/") || pathname.startsWith("/api/notifications/")) {
     return { id: "jobs", requests: 10, window: "60 s" };
   }
 
@@ -90,7 +90,7 @@ function getBucket(pathname: string): RateLimitBucket {
 
 export function canBypassJobsRateLimit(request: NextRequest): boolean {
   const pathname = request.nextUrl.pathname;
-  if (!pathname.startsWith("/api/jobs/")) {
+  if (!pathname.startsWith("/api/jobs/") && !pathname.startsWith("/api/notifications/")) {
     return false;
   }
 

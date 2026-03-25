@@ -26,7 +26,7 @@ This repo includes worker helper logic in `workers/ingest_fb_event.js` for:
 - **Implementation:** `lib/rateLimit.ts` uses `@upstash/ratelimit` with `@upstash/redis/cloudflare` (Edge-compatible). Redis keys are **per bucket** and **per identity**: if the request has a logged-in session (`getSession()` in `lib/middlewareSession.ts`, read-only-no cookie write), the key uses **`auth.users` id**; otherwise **client IP** (from `x-forwarded-for` / `x-real-ip`).
 - **Activation:** requires both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. If either is missing, limits are skipped (no error).
 - **Fail-open:** if Upstash throws (network, auth, etc.), the request is **not** blocked-site must not return `500` because of rate limiting.
-- **Jobs bypass** (applies to `/api/jobs/*` only): Vercel Cron header `x-vercel-cron`, or `x-job-secret` matching `JOBS_SECRET`. Same bypass is used for the origin check below.
+- **Jobs bypass** (applies to `/api/jobs/*` and `/api/notifications/*`): Vercel Cron header `x-vercel-cron`, or `x-job-secret` matching `JOBS_SECRET`. Same bypass is used for the origin check below.
 
 **Buckets (fixed windows):**
 
@@ -34,7 +34,7 @@ This repo includes worker helper logic in `workers/ingest_fb_event.js` for:
 |---------------|-------|
 | `/api/auth/*`, `/api/admin/auth/*` | 5 / 60s |
 | `/api/admin/research-ai` | 10 / 60s |
-| `/api/jobs/*` | 10 / 60s (unless bypassed) |
+| `/api/jobs/*`, `/api/notifications/*` | 10 / 60s (unless bypassed) |
 | `/api/plan/*`, `/api/follow/*`, `POST /api/device-token`, `POST /api/notification-settings` | 30 / 60s |
 | other `POST /api/*` | 20 / 10s |
 
@@ -163,7 +163,8 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
   - delete (hard delete)
 
 ## Notification pipelines (current)
-Reminder/discovery jobs and push delivery remain as implemented in `/api/jobs/*` and documented in `docs/notification-system.md`; this ingest/moderation sync does not change those flows.
+- **Legacy / inbox + FCM:** `/api/jobs/reminders` (планови напомняния от `user_plan_reminders`), `/api/jobs/new-festival-notifications` (категория/организатор/град), `/api/jobs/push` (изпращане към `device_tokens` от `user_notifications`).
+- **MVP job queue (2026-03):** `notification_jobs` + `notification_logs` — планиране и дедупликация; изпълнение през `GET /api/notifications/run` (cron + `JOBS_SECRET`). Уикенд откриване: `GET /api/notifications/weekend-trigger/fri_18` и `.../sat_09` (UTC в `vercel.json`). Тригери: запис в план (`POST /api/plan/festivals`), админ редакция на фестивал (`PATCH /admin/api/festivals/[id]`), одобряване на pending (`POST .../approve`). Детайли: `docs/notification-system.md`.
 
 
 ## Admin organizers management

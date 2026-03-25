@@ -359,14 +359,134 @@ export type Database = {
         Row: {
           user_id: string
           token: string
+          platform?: string | null
+          invalidated_at?: string | null
         }
         Insert: {
           user_id: string
           token: string
+          platform?: string | null
+          invalidated_at?: string | null
         }
         Update: {
           user_id?: string
           token?: string
+          platform?: string | null
+          invalidated_at?: string | null
+        }
+      }
+      user_notification_settings: {
+        Row: {
+          user_id: string
+          notify_plan_reminders: boolean
+          notify_new_festivals_city: boolean
+          notify_new_festivals_category: boolean
+          notify_followed_organizers: boolean
+          notify_weekend_digest: boolean
+          push_enabled: boolean
+          only_saved: boolean
+          quiet_hours_start: string | null
+          quiet_hours_end: string | null
+          region_slugs: string[]
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          notify_plan_reminders?: boolean
+          notify_new_festivals_city?: boolean
+          notify_new_festivals_category?: boolean
+          notify_followed_organizers?: boolean
+          notify_weekend_digest?: boolean
+          push_enabled?: boolean
+          only_saved?: boolean
+          quiet_hours_start?: string | null
+          quiet_hours_end?: string | null
+          region_slugs?: string[]
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          notify_plan_reminders?: boolean
+          notify_new_festivals_city?: boolean
+          notify_new_festivals_category?: boolean
+          notify_followed_organizers?: boolean
+          notify_weekend_digest?: boolean
+          push_enabled?: boolean
+          only_saved?: boolean
+          quiet_hours_start?: string | null
+          quiet_hours_end?: string | null
+          region_slugs?: string[]
+          created_at?: string
+        }
+      }
+      notification_jobs: {
+        Row: {
+          id: string
+          user_id: string
+          festival_id: string | null
+          job_type: string
+          scheduled_for: string
+          dedupe_key: string
+          payload_json: Record<string, unknown>
+          status: string
+          attempts: number
+          last_error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          festival_id?: string | null
+          job_type: string
+          scheduled_for: string
+          dedupe_key: string
+          payload_json?: Record<string, unknown>
+          status?: string
+          attempts?: number
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          festival_id?: string | null
+          job_type?: string
+          scheduled_for?: string
+          dedupe_key?: string
+          payload_json?: Record<string, unknown>
+          status?: string
+          attempts?: number
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      notification_logs: {
+        Row: {
+          id: string
+          job_id: string
+          user_id: string
+          status: string
+          response: Record<string, unknown> | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          job_id: string
+          user_id: string
+          status: string
+          response?: Record<string, unknown> | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          job_id?: string
+          user_id?: string
+          status?: string
+          response?: Record<string, unknown> | null
+          created_at?: string
         }
       }
       cron_locks: {

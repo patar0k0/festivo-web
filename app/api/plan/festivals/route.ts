@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cancelPendingReminderJobs, scheduleSavedFestivalReminders } from "@/lib/notifications/triggers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Payload = {
@@ -52,6 +53,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
+    void cancelPendingReminderJobs(user.id, festivalId).catch((err) =>
+      console.warn("[notifications] cancelPendingReminderJobs", err),
+    );
+
     const { data: verifyRow, error: verifyError } = await getExistingRow();
     if (verifyError) {
       return NextResponse.json({ error: verifyError.message }, { status: 500 });
@@ -68,6 +73,10 @@ export async function POST(request: Request) {
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
+
+  void scheduleSavedFestivalReminders(user.id, festivalId).catch((err) =>
+    console.warn("[notifications] scheduleSavedFestivalReminders", err),
+  );
 
   const { data: verifyRow, error: verifyError } = await getExistingRow();
   if (verifyError) {

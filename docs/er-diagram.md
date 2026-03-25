@@ -121,6 +121,27 @@ erDiagram
   device_tokens {
     uuid user_id FK
     text token
+    text platform
+    timestamptz invalidated_at
+  }
+
+  notification_jobs {
+    uuid id PK
+    uuid user_id FK
+    uuid festival_id FK
+    text job_type
+    timestamptz scheduled_for
+    text dedupe_key UK
+    jsonb payload_json
+    text status
+  }
+
+  notification_logs {
+    uuid id PK
+    uuid job_id FK
+    uuid user_id FK
+    text status
+    jsonb response
   }
 
   cron_locks {
@@ -134,6 +155,9 @@ erDiagram
   auth_users ||--o{ user_plan_reminders : sets
   auth_users ||--o{ user_notifications : receives
   auth_users ||--o{ device_tokens : owns
+  auth_users ||--o{ notification_jobs : scheduled
+  auth_users ||--o{ notification_logs : delivery_audit
+  notification_jobs ||--o{ notification_logs : has
 
   cities ||--o{ pending_festivals : moderation_city_fk
   cities ||--o{ festivals : canonical_city_fk

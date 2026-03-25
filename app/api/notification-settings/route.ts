@@ -7,6 +7,11 @@ type NotificationSettings = {
   notify_new_festivals_category: boolean;
   notify_followed_organizers: boolean;
   notify_weekend_digest: boolean;
+  push_enabled: boolean;
+  only_saved: boolean;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  region_slugs: string[];
 };
 
 type PartialNotificationSettings = Partial<NotificationSettings>;
@@ -17,6 +22,11 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   notify_new_festivals_category: false,
   notify_followed_organizers: true,
   notify_weekend_digest: false,
+  push_enabled: true,
+  only_saved: false,
+  quiet_hours_start: null,
+  quiet_hours_end: null,
+  region_slugs: [],
 };
 
 function normalizePayload(payload: PartialNotificationSettings): PartialNotificationSettings {
@@ -37,12 +47,27 @@ function normalizePayload(payload: PartialNotificationSettings): PartialNotifica
   if (typeof payload.notify_weekend_digest === "boolean") {
     normalized.notify_weekend_digest = payload.notify_weekend_digest;
   }
+  if (typeof payload.push_enabled === "boolean") {
+    normalized.push_enabled = payload.push_enabled;
+  }
+  if (typeof payload.only_saved === "boolean") {
+    normalized.only_saved = payload.only_saved;
+  }
+  if (payload.quiet_hours_start === null || typeof payload.quiet_hours_start === "string") {
+    normalized.quiet_hours_start = payload.quiet_hours_start;
+  }
+  if (payload.quiet_hours_end === null || typeof payload.quiet_hours_end === "string") {
+    normalized.quiet_hours_end = payload.quiet_hours_end;
+  }
+  if (Array.isArray(payload.region_slugs)) {
+    normalized.region_slugs = payload.region_slugs.filter((x): x is string => typeof x === "string");
+  }
 
   return normalized;
 }
 
 const NOTIFICATION_SETTINGS_COLUMNS =
-  "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest" as const;
+  "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest,push_enabled,only_saved,quiet_hours_start,quiet_hours_end,region_slugs" as const;
 
 async function requireUser() {
   const supabase = await createSupabaseServerClient();

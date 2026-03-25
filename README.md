@@ -45,6 +45,8 @@ Environment variables (no secrets in repo):
 - `UPSTASH_REDIS_REST_URL` (optional, enables API POST rate limiting)
 - `UPSTASH_REDIS_REST_TOKEN` (optional, enables API POST rate limiting)
 - `CSRF_ALLOWED_HOSTS` (optional, comma-separated extra hostnames for `POST /api/*` Origin/Referer checks; Vercel sets `VERCEL_URL` automatically for preview deploys)
+- `BOOKING_ACCOMMODATION_ENABLED=1` (optional, registers the Booking.com provider stub in `lib/accommodation`; returns no offers until the API is wired)
+- `ACCOMMODATION_MOCK_PROVIDER=1` / `ACCOMMODATION_MOCK_SAMPLE=1` (optional, dev-only mock accommodation; do not use for fake production inventory)
 
 ## How to test
 

@@ -1,4 +1,5 @@
 import type { Festival } from "@/lib/types";
+import { bookingAccommodationProvider } from "@/lib/accommodation/providers/booking";
 import { mockAccommodationProvider } from "@/lib/accommodation/providers/mock";
 import type { AccommodationProvider } from "@/lib/accommodation/provider";
 import type { AccommodationFetchContext, AccommodationOffer } from "@/lib/accommodation/types";
@@ -6,6 +7,9 @@ import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 
 function resolveProviders(): AccommodationProvider[] {
   const list: AccommodationProvider[] = [];
+  if (process.env.BOOKING_ACCOMMODATION_ENABLED === "1") {
+    list.push(bookingAccommodationProvider);
+  }
   if (process.env.ACCOMMODATION_MOCK_PROVIDER === "1") {
     list.push(mockAccommodationProvider);
   }

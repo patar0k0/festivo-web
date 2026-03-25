@@ -30,15 +30,15 @@ export default function FestivalAppCta({ slug }: Props) {
       aria-labelledby="festival-app-cta-heading"
     >
       <h2 id="festival-app-cta-heading" className="text-base font-semibold text-[#0c0e14]">
-        Пълно изживяване в приложението
+        По-удобно в приложението
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-black/60">
-        Напомняния, личен план с програма и карта с навигация — на едно място в мобилното приложение Festivo.
+        Ползвай Festivo за напомняния, личен план и бърза навигация до фестивала.
       </p>
       <button
         type="button"
         onClick={openApp}
-        className="mt-4 w-full rounded-xl border border-black/[0.1] bg-[#0c0e14] px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/35"
+        className="mt-4 w-full rounded-xl border border-black/[0.14] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] shadow-[0_1px_0_rgba(12,14,20,0.04)] transition hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
       >
         Отвори в приложението
       </button>

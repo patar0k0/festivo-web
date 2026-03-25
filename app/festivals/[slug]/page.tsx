@@ -4,6 +4,7 @@ import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import FestivalDetailClient from "@/components/festival/FestivalDetailClient";
 import { getAdminSession } from "@/lib/admin/isAdmin";
+import { fetchAccommodationOffersForFestival } from "@/lib/accommodation/fetchAccommodationOffers";
 import { getCityFestivals, getFestivalBySlug, getFestivalDetail } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { slugify } from "@/lib/utils";
@@ -51,7 +52,7 @@ export default async function Page({
     : null;
   const calendarMonth = data.festival.start_date ? format(parseISO(data.festival.start_date), "yyyy-MM") : null;
 
-  const [relatedResponse, adminSession] = await Promise.all([
+  const [relatedResponse, adminSession, accommodationOffers] = await Promise.all([
     cityFilterValue
       ? getCityFestivals(
           cityFilterValue,
@@ -61,6 +62,7 @@ export default async function Page({
         )
       : Promise.resolve(null),
     getAdminSession(),
+    fetchAccommodationOffersForFestival(data.festival),
   ]);
 
   const relatedFestivals = (relatedResponse?.data ?? []).filter((item) => item.slug !== data.festival.slug);
@@ -81,6 +83,7 @@ export default async function Page({
             citySlug={citySlug}
             calendarMonth={calendarMonth}
             relatedFestivals={relatedFestivals}
+            accommodationOffers={accommodationOffers}
             adminEditHref={adminEditHref}
           />
         </Container>

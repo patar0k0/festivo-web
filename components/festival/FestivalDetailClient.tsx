@@ -10,12 +10,19 @@ import Select from "@/components/ui/Select";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
 import FestivalGallery from "@/components/festival/FestivalGallery";
+import FestivalDetailActionBar from "@/components/festival/FestivalDetailActionBar";
+import FestivalAppCta from "@/components/festival/FestivalAppCta";
+import FestivalAccommodationSection from "@/components/festival/FestivalAccommodationSection";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
 import type { ReminderType } from "@/lib/plan/server";
+import type { AccommodationOffer } from "@/lib/accommodation/types";
 import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from "@/lib/types";
 import { formatFestivalDateLineLongBg, primaryFestivalDate } from "@/lib/festival/listingDates";
 import { FESTIVAL_PROGRAM_SECTION_ID } from "@/lib/festival/programmeAnchor";
+
+const REMINDER_BLOCK_ID = "festival-reminder-block";
 
 type Props = {
   festival: Festival;
@@ -27,6 +34,7 @@ type Props = {
   citySlug: string | null;
   calendarMonth: string | null;
   relatedFestivals: Festival[];
+  accommodationOffers: AccommodationOffer[];
   /** Линк към админ формата за редакция; показва се само за логнати админи. */
   adminEditHref?: string | null;
 };
@@ -59,8 +67,16 @@ function sortScheduleItems(items: FestivalScheduleItem[]): FestivalScheduleItem[
 function formatTimeRange(start?: string | null, end?: string | null): string {
   const from = start ? start.slice(0, 5) : "";
   const to = end ? end.slice(0, 5) : "";
-  if (from && to) return `${from} - ${to}`;
-  return from || "Час предстои";
+  if (from && to) return `${from} – ${to}`;
+  return from || "";
+}
+
+function earliestScheduleTime(items: FestivalScheduleItem[]): string | null {
+  const withTime = items.filter((i) => i.start_time?.trim());
+  if (!withTime.length) return null;
+  const sorted = sortScheduleItems(withTime);
+  const t = sorted[0]?.start_time?.trim();
+  return t ? t.slice(0, 5) : null;
 }
 
 function categoryLabel(category?: string | null): string | null {
@@ -118,21 +134,21 @@ export default function FestivalDetailClient({
   citySlug,
   calendarMonth,
   relatedFestivals,
+  accommodationOffers,
   adminEditHref,
 }: Props) {
   const groupedDays = useMemo(() => getGroupedDays(days, scheduleItems), [days, scheduleItems]);
   const sortedScheduleItems = useMemo(() => sortScheduleItems(scheduleItems), [scheduleItems]);
   const [activeDayId, setActiveDayId] = useState(groupedDays[0]?.id ?? "");
-  const [isPlanButtonLoading, setIsPlanButtonLoading] = useState(false);
-  const [festivalPlanError, setFestivalPlanError] = useState<string | null>(null);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const {
     isAuthenticated,
     festivalIds,
+    festivalPlanError,
     isScheduleItemInPlan,
     toggleScheduleItem,
-    setFestivalInPlan,
-    reminderTypeByFestivalId,
     setFestivalReminder,
+    reminderTypeByFestivalId,
   } = usePlanState();
 
   const displayedDay = groupedDays.find((day) => day.id === activeDayId) ?? groupedDays[0] ?? null;
@@ -170,6 +186,7 @@ export default function FestivalDetailClient({
     }
     return out;
   }, [festival.id, heroImage, heroImageFailed, imageMedia]);
+
   const categoryText = categoryLabel(festival.category);
   const formattedDateRange = formatFestivalDateLineLongBg(festival);
   const descriptionText = festival.description?.trim() ?? "";
@@ -186,7 +203,16 @@ export default function FestivalDetailClient({
   const venueName = festival.venue_name?.trim() ?? "";
   const showVenueName = Boolean(venueName) && venueName.toLocaleLowerCase() !== locationName.toLocaleLowerCase();
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
-  const hasGalleryContent = galleryItems.length > 0;
+  const showGallerySection = galleryItems.length >= 2;
+  const urgencyLabel = getFestivalUrgencyLabelBg(festival);
+  const icsHref = `/festival/${festival.slug}/ics`;
+  const timeLine = earliestScheduleTime(scheduleItems);
+  const locationFact =
+    [locationName, venueName].filter(Boolean).join(" · ") ||
+    festival.address?.trim() ||
+    cityOrLocationText ||
+    "";
+
   const linkedOrganizers = (festival.organizers ?? [])
     .map((row) => ({
       name: row.name?.trim() ?? "",
@@ -209,6 +235,8 @@ export default function FestivalDetailClient({
   const showMapSection = Boolean(mapEmbedSrc && mapHref && (locationName || cityName || festival.address?.trim()));
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
 
+  const descriptionNeedsToggle = descriptionText.length > 480;
+
   useEffect(() => {
     setHeroImageFailed(false);
   }, [heroImage]);
@@ -216,7 +244,7 @@ export default function FestivalDetailClient({
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
     console.debug(
-      `[festival-detail] slug=${festival.slug} hero_image="${festival.hero_image ?? ""}" media_count=${imageMedia.length} resolved_hero="${heroImage ?? ""}"`
+      `[festival-detail] slug=${festival.slug} hero_image="${festival.hero_image ?? ""}" media_count=${imageMedia.length} resolved_hero="${heroImage ?? ""}"`,
     );
   }, [festival.slug, festival.hero_image, imageMedia.length, heroImage]);
 
@@ -228,7 +256,7 @@ export default function FestivalDetailClient({
   };
 
   return (
-    <div className="space-y-10 md:space-y-12">
+    <div className="space-y-6 md:space-y-8">
       <section className="overflow-hidden rounded-[24px] border border-black/[0.08] bg-white shadow-[0_2px_0_rgba(12,14,20,0.06),0_12px_32px_rgba(12,14,20,0.07)]">
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
           {adminEditHref ? (
@@ -264,10 +292,17 @@ export default function FestivalDetailClient({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/45 to-black/10" />
           <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6 md:p-8">
-            <div className="max-w-3xl space-y-2.5 rounded-2xl bg-black/25 p-3 backdrop-blur-[1.5px] sm:p-4 md:max-w-4xl">
-              <h1 className="max-w-[22ch] text-xl font-black leading-[1.1] tracking-tight sm:text-2xl sm:leading-[1.05]">
-                {festival.title}
-              </h1>
+            <div className="max-w-3xl space-y-3 rounded-2xl bg-black/25 p-3 backdrop-blur-[1.5px] sm:p-4 md:max-w-4xl">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="max-w-[22ch] text-xl font-black leading-[1.1] tracking-tight sm:text-2xl sm:leading-[1.05]">
+                  {festival.title}
+                </h1>
+                {urgencyLabel ? (
+                  <span className="rounded-full bg-[#ff4c1f]/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white shadow-sm sm:text-[11px]">
+                    {urgencyLabel}
+                  </span>
+                ) : null}
+              </div>
               <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/85 sm:text-[11px]">
                 {formattedDateRange ? <span className="rounded-full bg-black/35 px-2.5 py-0.5">{formattedDateRange}</span> : null}
                 {cityOrLocationText ? <span className="rounded-full bg-black/35 px-2.5 py-0.5">{cityOrLocationText}</span> : null}
@@ -283,6 +318,43 @@ export default function FestivalDetailClient({
             </div>
           </div>
         </div>
+
+        <div className="border-t border-black/[0.06] bg-white px-4 py-4 sm:px-6">
+          <FestivalDetailActionBar
+            festivalId={String(festival.id)}
+            mapHref={mapHref}
+            icsHref={icsHref}
+            reminderAnchorId={REMINDER_BLOCK_ID}
+          />
+        </div>
+      </section>
+
+      <section
+        className="rounded-2xl border border-black/[0.08] bg-white/90 p-4 shadow-[0_2px_0_rgba(12,14,20,0.04),0_8px_20px_rgba(12,14,20,0.06)] sm:p-5"
+        aria-label="Кратка информация"
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="rounded-xl bg-black/[0.03] px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Град</p>
+            <p className="mt-1 text-sm font-semibold text-[#0c0e14]">{cityName || "—"}</p>
+          </div>
+          <div className="rounded-xl bg-black/[0.03] px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Дата</p>
+            <p className="mt-1 text-sm font-semibold text-[#0c0e14]">{formattedDateRange || "—"}</p>
+          </div>
+          <div className="rounded-xl bg-black/[0.03] px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Час</p>
+            <p className="mt-1 text-sm font-semibold text-[#0c0e14]">{timeLine ? `от ${timeLine}` : "—"}</p>
+          </div>
+          <div className="rounded-xl bg-black/[0.03] px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Цена</p>
+            <p className="mt-1 text-sm font-semibold text-[#0c0e14]">{showFreeBadge ? "Безплатно" : showPriceRange ? priceRange : "—"}</p>
+          </div>
+          <div className="rounded-xl bg-black/[0.03] px-3 py-2.5 sm:col-span-2 lg:col-span-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Локация</p>
+            <p className="mt-1 text-sm font-semibold leading-snug text-[#0c0e14]">{locationFact || "—"}</p>
+          </div>
+        </div>
       </section>
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -291,23 +363,47 @@ export default function FestivalDetailClient({
             <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
               <h2 className="text-xl font-semibold text-[#0c0e14]">Описание</h2>
               {descriptionText ? (
-                <p className="mt-3 whitespace-pre-line text-sm leading-7 text-black/65">{descriptionText}</p>
+                <div className="mt-3">
+                  <div
+                    className={
+                      !descriptionExpanded && descriptionNeedsToggle
+                        ? "relative max-h-[min(16rem,60vh)] overflow-hidden"
+                        : undefined
+                    }
+                  >
+                    <p className="whitespace-pre-line text-sm leading-7 text-black/65">{descriptionText}</p>
+                    {!descriptionExpanded && descriptionNeedsToggle ? (
+                      <div
+                        className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-white via-white/95 to-transparent"
+                        aria-hidden
+                      />
+                    ) : null}
+                  </div>
+                  {descriptionNeedsToggle ? (
+                    <button
+                      type="button"
+                      onClick={() => setDescriptionExpanded((v) => !v)}
+                      className="mt-3 text-sm font-semibold text-[#0c0e14] underline decoration-black/25 underline-offset-2 hover:decoration-black/50"
+                      aria-expanded={descriptionExpanded}
+                    >
+                      {descriptionExpanded ? "Покажи по-малко" : "Виж повече"}
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
               {(showFreeBadge || showPriceRange || tags.length > 0) ? (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   {showFreeBadge ? <Badge variant="primary">Безплатен вход</Badge> : null}
                   {showPriceRange ? <Badge variant="neutral">{priceRange}</Badge> : null}
                   {visibleTags.map((tag) => (
-                    <Badge key={tag} variant="neutral">#{tag}</Badge>
+                    <Badge key={tag} variant="neutral">
+                      #{tag}
+                    </Badge>
                   ))}
                   {hiddenTagsCount > 0 ? <Badge variant="neutral">+{hiddenTagsCount}</Badge> : null}
                 </div>
               ) : null}
             </section>
-          ) : null}
-
-          {hasGalleryContent ? (
-            <FestivalGallery items={galleryItems} festivalTitle={festival.title || "Фестивал"} />
           ) : null}
 
           <section
@@ -318,7 +414,7 @@ export default function FestivalDetailClient({
             {hasProgramContent ? (
               <>
                 <p className="mt-2 text-sm text-black/55">
-                  Добави конкретни часове в личния си план; запазеният фестивал (встрани) е за цялото събитие и напомнянията.
+                  Добави отделни часове в моя план; целият фестивал се добавя от бутона „Добави в моя план“ (за списъка и напомнянията към събитието).
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {groupedDays.map((day) => (
@@ -350,7 +446,7 @@ export default function FestivalDetailClient({
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="space-y-1">
                               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
-                                {formatTimeRange(item.start_time, item.end_time)}
+                                {formatTimeRange(item.start_time, item.end_time) || "Час предстои"}
                                 {item.stage ? ` • ${item.stage}` : ""}
                               </p>
                               <h3 className="text-base font-semibold text-[#0c0e14]">{item.title}</h3>
@@ -379,14 +475,10 @@ export default function FestivalDetailClient({
                 </div>
               </>
             ) : (
-              <div className="mt-3 text-sm text-black/55">
-                <p>
-                  {groupedDays.length > 0
-                    ? "Дните са въведени, но часовете от програмата предстоят да бъдат публикувани."
-                    : "Все още няма публикуван график за този фестивал."}
-                </p>
+              <div className="mt-4 rounded-xl border border-dashed border-black/[0.12] bg-black/[0.02] px-4 py-6 text-center">
+                <p className="text-sm font-medium text-black/70">Няма публикувана програма за този фестивал.</p>
                 {festival.website_url ? (
-                  <p className="mt-2">
+                  <p className="mt-3 text-sm text-black/55">
                     <a
                       href={festival.website_url}
                       target="_blank"
@@ -401,6 +493,12 @@ export default function FestivalDetailClient({
               </div>
             )}
           </section>
+
+          {showGallerySection ? (
+            <FestivalGallery items={galleryItems} festivalTitle={festival.title || "Фестивал"} />
+          ) : null}
+
+          <FestivalAccommodationSection offers={accommodationOffers} />
 
           {relatedFestivals.length ? (
             <section className="space-y-4">
@@ -432,6 +530,90 @@ export default function FestivalDetailClient({
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-[90px]">
+          <div className="rounded-2xl border border-black/[0.08] bg-white/95 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+            <FestivalDetailActionBar
+              festivalId={String(festival.id)}
+              mapHref={mapHref}
+              icsHref={icsHref}
+              reminderAnchorId={REMINDER_BLOCK_ID}
+            />
+          </div>
+
+          <section
+            id={REMINDER_BLOCK_ID}
+            className="rounded-2xl border border-black/[0.08] bg-[#fbfaf7] p-5 shadow-[0_1px_0_rgba(12,14,20,0.04),0_6px_14px_rgba(12,14,20,0.05)]"
+          >
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-semibold text-black/85">План и напомняне</h2>
+              <p className="text-xs leading-relaxed text-black/50">
+                Часовете от програмата са отделно; фестивалът в плана е за цялото събитие и напомнянията към него.
+              </p>
+            </div>
+
+            {selectedItems.length ? (
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={clearPlan}
+                  className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45 transition hover:text-black/70"
+                >
+                  Изчисти часовете
+                </button>
+              </div>
+            ) : null}
+
+            <div className="mt-4 space-y-2">
+              {selectedItems.length ? (
+                selectedItems.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-black/[0.08] bg-white/95 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/45">
+                      {formatTimeRange(item.start_time, item.end_time) || "Час предстои"}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-[#0c0e14]">{item.title}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f3ec] px-4 py-5 text-sm text-black/50">
+                  От секцията „Програма“ добави отделни часове в моя план.
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4">
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-black/45" htmlFor="festival-reminder-select">
+                Напомняне
+              </label>
+              <Select
+                id="festival-reminder-select"
+                value={reminder}
+                onChange={(event) => {
+                  void setFestivalReminder(String(festival.id), event.target.value as ReminderType);
+                }}
+                disabled={!isAuthenticated}
+                className="border-black/[0.12] bg-white/95 focus:ring-[#ff4c1f]/20"
+              >
+                <option value="none">Без напомняне</option>
+                <option value="24h">24 часа по-рано</option>
+                <option value="same_day_09">В деня на събитието в 09:00</option>
+              </Select>
+              {!isAuthenticated ? (
+                <p className="mt-2 text-xs text-black/55">
+                  Влез, за да ползваш план и напомняния.{" "}
+                  <Link href="/login" className="underline">
+                    Вход
+                  </Link>
+                </p>
+              ) : null}
+            </div>
+
+            {festivalInPlan ? (
+              <p className="mt-3 text-xs font-medium text-emerald-800/90">Фестивалът е в моя план.</p>
+            ) : null}
+            {festivalPlanError ? <p className="mt-2 text-xs text-red-700">{festivalPlanError}</p> : null}
+          </section>
+
+          <FestivalAppCta slug={festival.slug} />
+
           {showInfoSection ? (
             <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
               <h2 className="text-lg font-semibold text-[#0c0e14]">Информация</h2>
@@ -496,10 +678,13 @@ export default function FestivalDetailClient({
 
           {showMapSection ? (
             <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-              <h2 className="text-lg font-semibold text-[#0c0e14]">Карта и навигация</h2>
+              <h2 className="text-lg font-semibold text-[#0c0e14]">Карта</h2>
               {cityOrLocationText ? (
                 citySlug ? (
-                  <Link href={cityHref(citySlug)} className="mt-2 inline-block text-sm font-medium text-black/75 underline decoration-black/30 underline-offset-2 hover:text-black">
+                  <Link
+                    href={cityHref(citySlug)}
+                    className="mt-2 inline-block text-sm font-medium text-black/75 underline decoration-black/30 underline-offset-2 hover:text-black"
+                  >
                     {cityOrLocationText}
                   </Link>
                 ) : (
@@ -516,16 +701,16 @@ export default function FestivalDetailClient({
                   className="h-56 w-full border-0"
                 />
               </div>
-              <div className="mt-4">
+              {mapHref ? (
                 <a
-                  href={mapHref ?? undefined}
+                  href={mapHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-xl bg-[#0c0e14] px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  className="mt-3 inline-flex text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] underline decoration-black/25 underline-offset-2 hover:decoration-black/50"
                 >
-                  Навигация
+                  Отвори в Google Maps
                 </a>
-              </div>
+              ) : null}
             </section>
           ) : null}
 
@@ -560,115 +745,6 @@ export default function FestivalDetailClient({
               </div>
             </section>
           ) : null}
-
-            <section className="rounded-2xl border border-black/[0.08] bg-[#fbfaf7] p-5 shadow-[0_1px_0_rgba(12,14,20,0.04),0_6px_14px_rgba(12,14,20,0.05)]">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-black/80">Запазен фестивал</h2>
-              <p className="mt-1 text-xs text-black/50">
-                Отделно от часовете в програмата — за списъка „Запазени“ и напомняния към събитието.
-              </p>
-              {selectedItems.length ? (
-                <button
-                  type="button"
-                  onClick={clearPlan}
-                  className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45 transition hover:text-black/70"
-                >
-                  Изчисти
-                </button>
-              ) : null}
-            </div>
-
-            <div className="mt-4">
-              {isAuthenticated ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setIsPlanButtonLoading(true);
-                    try {
-                      setFestivalPlanError(null);
-                      const response = await fetch("/api/plan/festivals", {
-                        method: "POST",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ festivalId: String(festival.id) }),
-                      });
-
-                      if (response.status === 401) {
-                        setFestivalPlanError("Нужен е вход в профила.");
-                        return;
-                      }
-
-                      const payload = (await response.json()) as { inPlan?: boolean; error?: string };
-
-                      if (!response.ok) {
-                        setFestivalPlanError(payload.error ?? "Възникна грешка при запазване на плана.");
-                        return;
-                      }
-
-                      setFestivalInPlan(String(festival.id), Boolean(payload.inPlan));
-                    } finally {
-                      setIsPlanButtonLoading(false);
-                    }
-                  }}
-                  disabled={isPlanButtonLoading}
-                  className={`w-full rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-                    festivalInPlan
-                      ? "border-[#1e2230] bg-[#1e2230] text-white hover:bg-[#2a3040]"
-                      : "border-black/[0.12] bg-white/95 text-black/80 hover:border-black/20 hover:bg-black/[0.03]"
-                  } disabled:cursor-not-allowed disabled:opacity-50`}
-                >
-                  {festivalInPlan ? "Премахни от запазените" : "Запази фестивала"}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  className="w-full cursor-not-allowed rounded-xl border border-black/[0.12] bg-white/95 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-black/45 opacity-70"
-                >
-                  Запази фестивала
-                </button>
-              )}
-            </div>
-            {festivalPlanError ? <p className="mt-2 text-xs text-red-700">{festivalPlanError}</p> : null}
-
-            <div className="mt-4 space-y-2">
-              {selectedItems.length ? (
-                selectedItems.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-black/[0.08] bg-white/95 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/45">
-                      {formatTimeRange(item.start_time, item.end_time)}
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-[#0c0e14]">{item.title}</p>
-                  </div>
-                ))
-              ) : (
-                <div className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f3ec] px-4 py-5 text-sm text-black/50">
-                  От секцията „Програма“ добави отделни часове в плана си.
-                </div>
-              )}
-            </div>
-
-            <div className="mt-4">
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Напомняне</label>
-              <Select
-                value={reminder}
-                onChange={(event) => {
-                  void setFestivalReminder(String(festival.id), event.target.value as ReminderType);
-                }}
-                disabled={!isAuthenticated}
-                className="border-black/[0.12] bg-white/95 focus:ring-[#ff4c1f]/20"
-              >
-                <option value="none">Без напомняне</option>
-                <option value="24h">24 часа по-рано</option>
-                <option value="same_day_09">В деня на събитието в 09:00</option>
-              </Select>
-              {!isAuthenticated ? (
-                <p className="mt-2 text-xs text-black/55">
-                  Влез, за да запазваш фестивали и напомняния. <Link href="/login" className="underline">Вход</Link>
-                </p>
-              ) : null}
-            </div>
-          </section>
         </aside>
       </div>
     </div>

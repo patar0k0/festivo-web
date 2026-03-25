@@ -8,6 +8,7 @@ export type Festival = {
   city_name_display?: string | null;
   region?: string | null;
   location_name?: string | null;
+  /** Optional venue label when present in API responses / selects. */
   venue_name?: string | null;
   address?: string | null;
   organizer_name?: string | null;

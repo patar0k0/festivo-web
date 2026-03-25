@@ -7,9 +7,15 @@ export type NotificationPayloadV1 = {
   deep_link: string;
   title: string;
   body: string;
+  /** FCM / client metadata */
+  source?: "push";
+  notification_type?: string;
+  priority?: "high" | "normal";
 };
 
 export type NotificationJobType = "reminder" | "update" | "weekend" | "new_city";
+
+export type NotificationPriority = "high" | "normal";
 
 export type ReminderSubkind = "24h" | "2h";
 
@@ -21,7 +27,8 @@ export type NotificationJobRow = {
   scheduled_for: string;
   payload_json: NotificationPayloadV1 & Record<string, unknown>;
   status: string;
-  attempts: number;
+  retry_count: number;
+  priority: NotificationPriority;
   last_error: string | null;
   created_at: string;
   updated_at: string;

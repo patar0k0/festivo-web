@@ -14,6 +14,22 @@ type FcmLegacyResponse = {
 
 const MAX_RETRIES = 3;
 
+function fcmDataPayload(data: NotificationPayloadV1): Record<string, string> {
+  const priority = data.priority ?? "normal";
+  const notificationType = data.notification_type ?? data.type;
+  return {
+    type: String(data.type),
+    festival_id: String(data.festival_id),
+    slug: String(data.slug),
+    deep_link: String(data.deep_link),
+    title: String(data.title),
+    body: String(data.body),
+    source: data.source ?? "push",
+    notification_type: String(notificationType),
+    priority: String(priority),
+  };
+}
+
 export async function sendFcmToTokens(
   tokens: string[],
   title: string,
@@ -34,14 +50,7 @@ export async function sendFcmToTokens(
     body: JSON.stringify({
       registration_ids: tokens,
       notification: { title, body },
-      data: {
-        type: data.type,
-        festival_id: data.festival_id,
-        slug: data.slug,
-        deep_link: data.deep_link,
-        title: data.title,
-        body: data.body,
-      },
+      data: fcmDataPayload(data),
     }),
   });
 
@@ -54,6 +63,9 @@ export async function sendFcmToTokens(
   const success = raw.success ?? 0;
   return { ok: success > 0, raw, results: raw.results };
 }
+
+const PERMANENT_TOKEN_ERROR =
+  /NotRegistered|InvalidRegistration|MismatchSenderId|InvalidPackageName|Unregistered|NotFound|InvalidApnsCredentials/i;
 
 export async function invalidateDeadTokens(
   supabase: SupabaseClient,
@@ -69,7 +81,7 @@ export async function invalidateDeadTokens(
   for (let i = 0; i < tokens.length; i += 1) {
     const err = results[i]?.error;
     if (!err) continue;
-    if (/NotRegistered|InvalidRegistration|MismatchSenderId/i.test(err)) {
+    if (PERMANENT_TOKEN_ERROR.test(err)) {
       dead.add(tokens[i]);
     }
   }

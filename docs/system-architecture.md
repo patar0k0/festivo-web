@@ -164,7 +164,7 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
 
 ## Notification pipelines (current)
 - **Legacy / inbox + FCM:** `/api/jobs/reminders` (планови напомняния от `user_plan_reminders`), `/api/jobs/new-festival-notifications` (категория/организатор/град), `/api/jobs/push` (изпращане към `device_tokens` от `user_notifications`).
-- **MVP job queue (2026-03):** `notification_jobs` + `notification_logs` — планиране и дедупликация; изпълнение през `GET /api/notifications/run` (cron + `JOBS_SECRET`). Уикенд откриване: `GET /api/notifications/weekend-trigger/fri_18` и `.../sat_09` (UTC в `vercel.json`). Тригери: запис в план (`POST /api/plan/festivals`), админ редакция на фестивал (`PATCH /admin/api/festivals/[id]`), одобряване на pending (`POST .../approve`). Детайли: `docs/notification-system.md`.
+- **MVP job queue (2026-03):** `notification_jobs` + `notification_logs` — планиране, `dedupe_key`, time-window дедупликация по тип, rate limit от `notification_logs` (24 ч), приоритет high/normal, изпълнение през `GET /api/notifications/run` (cron + `JOBS_SECRET`, batch ~75, сортиране по приоритет). Уикенд откриване: `GET /api/notifications/weekend-trigger/fri_18` и `.../sat_09` (UTC в `vercel.json`). Тригери: запис в план (`POST /api/plan/festivals`), админ редакция на фестивал (`PATCH /admin/api/festivals/[id]`), одобряване на pending (`POST .../approve`). Детайли: `docs/notification-system.md`.
 
 
 ## Admin organizers management

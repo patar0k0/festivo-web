@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { hasRecentWindowDuplicate } from "./dedupe";
 import {
   buildNewInCityPayload,
   buildReminderPayload,
@@ -9,7 +10,9 @@ import {
   makeDedupeKey,
   type InsertJob,
 } from "./scheduler";
+import { getUsersNotificationRates24hBatch, shouldSkipScheduleForRateLimit } from "./rateLimit";
 import { formatSofiaDate, isSameSofiaCalendarDay } from "./time";
+
 type FestivalRow = {
   id: string;
   title: string | null;
@@ -21,9 +24,23 @@ type FestivalRow = {
   status: string | null;
 };
 
-const MEANINGFUL_KEYS = ["start_date", "end_date", "city", "city_id", "region", "address", "title", "occurrence_dates"] as const;
+function normStr(v: unknown): string {
+  if (v == null) return "";
+  return String(v).trim();
+}
 
-export function hasMeaningfulFestivalChange(
+/** ISO date-only prefix for comparison */
+function dateKey(v: unknown): string {
+  if (v == null) return "";
+  const s = String(v).trim();
+  return s.length >= 10 ? s.slice(0, 10) : s;
+}
+
+/**
+ * True only for meaningful public-facing changes (dates, location, cancel).
+ * Ignores description, images, tags, minor metadata.
+ */
+export function shouldNotifyUpdate(
   before: Record<string, unknown> | null,
   after: Record<string, unknown> | null,
 ): boolean {
@@ -31,13 +48,71 @@ export function hasMeaningfulFestivalChange(
     return false;
   }
 
-  for (const k of MEANINGFUL_KEYS) {
-    if (JSON.stringify(before[k]) !== JSON.stringify(after[k])) {
-      return true;
-    }
+  if (dateKey(before.start_date) !== dateKey(after.start_date)) {
+    return true;
+  }
+
+  if (endDateChangedSignificantly(before.end_date, after.end_date)) {
+    return true;
+  }
+
+  if (normStr(before.city) !== normStr(after.city)) {
+    return true;
+  }
+
+  if (normStr(before.address) !== normStr(after.address)) {
+    return true;
+  }
+
+  const stB = normStr(before.status);
+  const stA = normStr(after.status);
+  if (stA === "archived" && stB !== "archived") {
+    return true;
+  }
+  if (stA === "archived" || stB === "archived") {
+    return stA !== stB;
   }
 
   return false;
+}
+
+function endDateChangedSignificantly(before: unknown, after: unknown): boolean {
+  const b = before == null ? null : before;
+  const a = after == null ? null : after;
+  if (b === null && a === null) {
+    return false;
+  }
+  if (b === null || a === null) {
+    return true;
+  }
+  const sa = dateKey(b);
+  const sb = dateKey(a);
+  if (!sa && !sb) {
+    return false;
+  }
+  if (!sa || !sb) {
+    return true;
+  }
+  if (sa === sb) {
+    return false;
+  }
+
+  const da = new Date(`${sa}T12:00:00`);
+  const db = new Date(`${sb}T12:00:00`);
+  if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) {
+    return true;
+  }
+
+  const diffDays = Math.abs(da.getTime() - db.getTime()) / (24 * 60 * 60 * 1000);
+  return diffDays >= 1;
+}
+
+/** @deprecated Use shouldNotifyUpdate */
+export function hasMeaningfulFestivalChange(
+  before: Record<string, unknown> | null,
+  after: Record<string, unknown> | null,
+): boolean {
+  return shouldNotifyUpdate(before, after);
 }
 
 export async function cancelPendingReminderJobs(userId: string, festivalId: string): Promise<void> {
@@ -104,36 +179,13 @@ export async function scheduleSavedFestivalReminders(
   return { ok: true };
 }
 
-async function hasRecentUpdateSent(
-  supabase: ReturnType<typeof createSupabaseAdmin>,
-  userId: string,
-  festivalId: string,
-  withinMs: number,
-): Promise<boolean> {
-  const since = new Date(Date.now() - withinMs).toISOString();
-  const { count, error } = await supabase
-    .from("notification_jobs")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("festival_id", festivalId)
-    .eq("job_type", "update")
-    .eq("status", "sent")
-    .gte("created_at", since);
-
-  if (error) {
-    return false;
-  }
-
-  return (count ?? 0) > 0;
-}
-
 /** Админ промяна на фестивал: уведомява само потребители със запис в плана. */
 export async function scheduleFestivalUpdateNotifications(
   festivalId: string,
   beforeRow: Record<string, unknown> | null,
   afterRow: Record<string, unknown> | null,
 ): Promise<{ ok: boolean; scheduled?: number; error?: string }> {
-  if (!beforeRow || !afterRow || !hasMeaningfulFestivalChange(beforeRow, afterRow)) {
+  if (!beforeRow || !afterRow || !shouldNotifyUpdate(beforeRow, afterRow)) {
     return { ok: true, scheduled: 0 };
   }
 
@@ -164,10 +216,16 @@ export async function scheduleFestivalUpdateNotifications(
 
   const summary = "Променени са дата, място или друга важна информация.";
   const scheduledFor = new Date(Date.now() + 90_000).toISOString();
+  const ratesMap = await getUsersNotificationRates24hBatch(supabase, userIds);
   const rows: InsertJob[] = [];
 
   for (const userId of userIds) {
-    if (await hasRecentUpdateSent(supabase, userId, festivalId, 3600_000)) {
+    const rates = ratesMap.get(userId) ?? { totalSent: 0, promoSent: 0 };
+    if (shouldSkipScheduleForRateLimit("update", rates)) {
+      continue;
+    }
+
+    if (await hasRecentWindowDuplicate(supabase, { user_id: userId, festival_id: festivalId, job_type: "update" })) {
       continue;
     }
 
@@ -196,7 +254,7 @@ export async function scheduleFestivalUpdateNotifications(
     });
   }
 
-  const { inserted, error } = await insertNotificationJobs(supabase, rows);
+  const { inserted, error } = await insertNotificationJobs(supabase, rows, { skipSafetyChecks: true });
   if (error) {
     return { ok: false, error };
   }

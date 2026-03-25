@@ -127,3 +127,27 @@ export function isInQuietHours(
 
   return minutes >= a || minutes < b;
 }
+
+/** Advance in 15-minute steps until outside quiet hours (promo reschedule). */
+export function nextAllowedSendAfterQuietHours(
+  from: Date,
+  quietStart: string | null | undefined,
+  quietEnd: string | null | undefined,
+): Date {
+  if (!quietStart || !quietEnd) {
+    return from;
+  }
+
+  let d = new Date(from.getTime());
+  const stepMs = 15 * 60 * 1000;
+  const maxSteps = 192;
+
+  for (let i = 0; i < maxSteps; i += 1) {
+    if (!isInQuietHours(d, quietStart, quietEnd)) {
+      return d;
+    }
+    d = new Date(d.getTime() + stepMs);
+  }
+
+  return new Date(from.getTime() + stepMs);
+}

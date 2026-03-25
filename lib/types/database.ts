@@ -429,7 +429,8 @@ export type Database = {
           dedupe_key: string
           payload_json: Record<string, unknown>
           status: string
-          attempts: number
+          retry_count: number
+          priority: string
           last_error: string | null
           created_at: string
           updated_at: string
@@ -443,7 +444,8 @@ export type Database = {
           dedupe_key: string
           payload_json?: Record<string, unknown>
           status?: string
-          attempts?: number
+          retry_count?: number
+          priority?: string
           last_error?: string | null
           created_at?: string
           updated_at?: string
@@ -457,7 +459,8 @@ export type Database = {
           dedupe_key?: string
           payload_json?: Record<string, unknown>
           status?: string
-          attempts?: number
+          retry_count?: number
+          priority?: string
           last_error?: string | null
           created_at?: string
           updated_at?: string
@@ -470,6 +473,9 @@ export type Database = {
           user_id: string
           status: string
           response: Record<string, unknown> | null
+          duration_ms: number | null
+          priority: string | null
+          notification_type: string | null
           created_at: string
         }
         Insert: {
@@ -478,6 +484,9 @@ export type Database = {
           user_id: string
           status: string
           response?: Record<string, unknown> | null
+          duration_ms?: number | null
+          priority?: string | null
+          notification_type?: string | null
           created_at?: string
         }
         Update: {
@@ -486,6 +495,9 @@ export type Database = {
           user_id?: string
           status?: string
           response?: Record<string, unknown> | null
+          duration_ms?: number | null
+          priority?: string | null
+          notification_type?: string | null
           created_at?: string
         }
       }

@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await processDueNotificationJobs(supabase, 50);
+    const result = await processDueNotificationJobs(supabase, 75);
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";

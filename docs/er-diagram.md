@@ -134,6 +134,8 @@ erDiagram
     text dedupe_key UK
     jsonb payload_json
     text status
+    text priority
+    int retry_count
   }
 
   notification_logs {
@@ -142,6 +144,9 @@ erDiagram
     uuid user_id FK
     text status
     jsonb response
+    int duration_ms
+    text priority
+    text notification_type
   }
 
   cron_locks {

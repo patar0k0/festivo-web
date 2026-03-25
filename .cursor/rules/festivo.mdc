@@ -13,10 +13,9 @@ Read in this order when the task touches product behavior, data, or APIs:
 2. `AI_CONTEXT.md`
 3. `AI_DEVELOPER_RULES.md`
 4. `AI_SYSTEM_ARCHITECT.md`
-5. `docs/database-schema.md`
-6. `docs/system-architecture.md`
-7. `docs/notification-system.md`
-8. `docs/er-diagram.md`
+5. `docs/system-architecture.md`
+6. `docs/notification-system.md`
+7. `docs/er-diagram.md`
 
 Skip only for purely mechanical edits (typos, formatting) that cannot affect schema or architecture.
 

@@ -5,12 +5,17 @@ AI_CONTEXT.md
 AI_DEVELOPER_RULES.md
 AI_SYSTEM_ARCHITECT.md
 
-Use the documentation in docs/ as the source of truth:
+Use the documentation in docs/ as the source of truth (product/architecture):
 
-docs/database-schema.md
 docs/system-architecture.md
 docs/notification-system.md
 docs/er-diagram.md
+
+Database schema authority:
+• Supabase (live Postgres) is the single source of truth for tables, columns, RPCs, and RLS.
+• Follow existing Supabase client usage, queries, and TypeScript types in this repo.
+• Do not treat docs/database-schema.md as authoritative; it may be outdated and is not required reading.
+• SQL migrations belong in scripts/sql/ (see below); do not invent schema from static docs.
 
 Development rules:
 
@@ -46,10 +51,12 @@ If a change affects:
 Update the corresponding documentation files:
 
 PROJECT_CONTEXT.md
-docs/database-schema.md
 docs/system-architecture.md
 docs/notification-system.md
 docs/er-diagram.md
+
+(Schema detail: ship migrations under scripts/sql/ and update architecture/ER docs as needed;
+docs/database-schema.md is optional and not part of the mandatory doc set.)
 
 Safety rules:
 

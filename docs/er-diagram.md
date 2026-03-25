@@ -158,4 +158,4 @@ erDiagram
 
 Notes:
 - `ingest_jobs -> pending_festivals` and `pending_festivals -> festivals` are workflow links via `source_url`/approval logic, not strict FK constraints.
-- Pending AI guess columns are omitted from the diagram to keep relationships readable; they are documented in `docs/database-schema.md`.
+- Pending AI guess columns are omitted from the diagram to keep relationships readable; column-level detail lives in Supabase, `scripts/sql/` migrations, and application types/queries—not in a static schema markdown snapshot.

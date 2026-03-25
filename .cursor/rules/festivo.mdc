@@ -19,19 +19,21 @@ Read in this order when the task touches product behavior, data, or APIs:
 
 Skip only for purely mechanical edits (typos, formatting) that cannot affect schema or architecture.
 
+**Database schema authority:** Supabase (live Postgres) plus existing client usage, types, and `scripts/sql/` migrations. Do not treat `docs/database-schema.md` as mandatory reading or as source of truth; it may lag production.
+
 ## 2) Documentation sync (same task as the code change)
 
 After completing a task, **update docs in-repo without asking**, when anything relevant changed:
 
 | Change type | Update |
 |-------------|--------|
-| New/altered tables, columns, functions, RPCs, grants, RLS | `docs/database-schema.md` + new/edited `scripts/sql/*.sql` reference; `docs/er-diagram.md` if entity shapes change |
+| New/altered tables, columns, functions, RPCs, grants, RLS | New/edited `scripts/sql/*.sql`; `docs/er-diagram.md` if entity shapes change; `docs/system-architecture.md` if flows change. `docs/database-schema.md` optional only |
 | Product flows, moderation, public vs admin | `PROJECT_CONTEXT.md`, `docs/system-architecture.md` |
 | Security, edge `middleware`, rate limits, Origin/Referer or similar API hardening | `docs/system-architecture.md` (and `README.md` if new env vars or ops steps) |
 | Cross-cutting AI/migration conventions | `AI_CONTEXT.md` (only if conventions change) |
 | Notifications / jobs | `docs/notification-system.md` |
 
-If a listed file is not impacted, leave it unchanged. **Schema or API behavior changes must not ship without touching `docs/database-schema.md` and/or `docs/system-architecture.md` as appropriate.**
+If a listed file is not impacted, leave it unchanged. **Schema changes must ship with the SQL migration and relevant architecture/ER updates; `docs/database-schema.md` is not required.** API/product behavior changes must update `docs/system-architecture.md` (and related docs) as appropriate.
 
 **Cross-cutting “important” behavior** (auth/session edges, abuse controls, caching, feature flags that affect prod safety): document in `docs/system-architecture.md` in the same task as the code change, and add or extend a `README.md` env/ops bullet when operators must set variables.
 

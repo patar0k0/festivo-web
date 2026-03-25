@@ -107,7 +107,7 @@ Failure behavior is fail-closed by default (`allowOriginalOnFailure=false`): if 
 - `user_notifications`
 - `device_tokens`
 
-Full schema docs: `docs/database-schema.md`.
+Database schema: **Supabase** is authoritative; follow queries, types, and `scripts/sql/` in this repo. The file `docs/database-schema.md` is not guaranteed current and is not required reading for agents.
 
 ## Organizer duplicate management
 - Organizer duplicates are reviewed manually in admin at `/admin/organizers/duplicates`.

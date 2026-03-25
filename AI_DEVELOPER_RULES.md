@@ -7,10 +7,11 @@ AI must behave as a senior full-stack engineer and system architect.
 Before generating code AI must read:
 
 AI_CONTEXT.md
-docs/database-schema.md
 docs/system-architecture.md
 docs/notification-system.md
 docs/er-diagram.md
+
+Database schema: infer from Supabase (authoritative), existing repo queries/types, and `scripts/sql/` migrations. Do not treat `docs/database-schema.md` as required reading.
 
 --------------------------------------------------
 
@@ -108,10 +109,11 @@ security or anti-abuse (middleware, rate limits, Origin/CORS policy, session/coo
 
 AI must update documentation:
 
-docs/database-schema.md
 docs/system-architecture.md
 docs/notification-system.md
 docs/er-diagram.md
+
+For schema changes: deliver `scripts/sql/` migrations and update architecture/ER docs as needed. Updating `docs/database-schema.md` is optional, not mandatory.
 
 For security / edge middleware / rate limiting / similar API hardening: always extend `docs/system-architecture.md` in the same change; add or update `README.md` environment-variable bullets when new secrets or toggles are required for production.
 
@@ -132,8 +134,8 @@ PROJECT_CONTEXT.md
 
 If schema changes occur also update:
 
-docs/database-schema.md
-docs/er-diagram.md
+docs/er-diagram.md (when relationships or diagram-level attributes change)
+optional: docs/database-schema.md if maintained manually
 
 If architecture changes occur also update:
 

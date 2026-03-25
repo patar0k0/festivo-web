@@ -7,12 +7,13 @@ Non-negotiable architecture and scaling guardrails for Festivo. Follow this file
 Read in this order:
 1. `AI_CONTEXT.md`
 2. `AI_DEVELOPER_RULES.md`
-3. `docs/database-schema.md`
-4. `docs/system-architecture.md`
-5. `docs/notification-system.md`
-6. `docs/er-diagram.md`
+3. `docs/system-architecture.md`
+4. `docs/notification-system.md`
+5. `docs/er-diagram.md`
 
-If any item is missing or conflicts appear, stop and ask for clarification before implementation.
+**Schema:** Supabase and this repo’s queries/types/migrations are authoritative. Do not require or depend on `docs/database-schema.md`.
+
+If any required item is missing or **product/architecture** docs conflict with **code or live Supabase behavior**, trust code and Supabase; stop and ask only when the task itself is ambiguous.
 
 ## Core architecture principles
 1. **Supabase is the single source of truth** for persistent app state.
@@ -67,7 +68,7 @@ If any item is missing or conflicts appear, stop and ask for clarification befor
 - Use pagination for admin lists and other unbounded datasets.
 
 ## Documentation sync rule
-If a change affects **schema, API, jobs, or architecture**, update related docs in the **same PR**. Code and docs must land together.
+If a change affects **schema, API, jobs, or architecture**, update related docs in the **same PR**. Code and docs must land together. Schema DDL/RLS belongs in `scripts/sql/`; `docs/database-schema.md` is optional and not part of the mandatory sync set.
 
 **Security and edge behavior** (middleware, rate limiting, Origin/Referer checks, session refresh at the edge): document in `docs/system-architecture.md` and list any new production env vars in `README.md` in the same change.
 

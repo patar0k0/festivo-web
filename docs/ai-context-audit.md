@@ -11,7 +11,6 @@ Reviewed inputs:
 - `AI_CONTEXT.md`
 - `AI_DEVELOPER_RULES.md`
 - `AI_SYSTEM_ARCHITECT.md`
-- `docs/database-schema.md`
 - `docs/system-architecture.md`
 - `docs/notification-system.md`
 - `docs/er-diagram.md`
@@ -57,6 +56,9 @@ Reviewed inputs:
 - AI context loading instructions are now synchronized with `PROMPT_HEADER.txt`.
 - ER model is now aligned with runtime usage for `cities` and moderation entities.
 - No schema migration was required for this audit (documentation-only updates).
+
+## Schema documentation note (2026-03)
+- Agents and prompts no longer require `docs/database-schema.md`; Supabase and in-repo SQL/types are authoritative.
 
 ## Suggested ongoing maintenance
 - Keep this audit lightweight and refresh whenever:

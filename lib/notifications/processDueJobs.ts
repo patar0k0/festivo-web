@@ -148,7 +148,8 @@ export async function processDueNotificationJobs(
     }
 
     const t0 = Date.now();
-    const sendResult = await sendFcmToTokens(tokenList, payload.title, payload.body, payload, fcmKey);
+    const payloadForSend = { ...payload, notification_id: job.id };
+    const sendResult = await sendFcmToTokens(tokenList, payloadForSend.title, payloadForSend.body, payloadForSend, fcmKey);
     const durationMs = Date.now() - t0;
     await invalidateDeadTokens(supabase, job.user_id, tokenList, sendResult.results);
 

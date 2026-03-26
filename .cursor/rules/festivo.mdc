@@ -19,6 +19,9 @@ Read in this order when the task touches product behavior, data, or APIs:
 
 Skip only for purely mechanical edits (typos, formatting) that cannot affect schema or architecture.
 
+## Database context
+Use the Supabase MCP tools to inspect the database schema directly instead of reading docs/database-schema.md
+
 **Database schema authority:** Supabase (live Postgres) plus existing client usage, types, and `scripts/sql/` migrations. Do not treat `docs/database-schema.md` as mandatory reading or as source of truth; it may lag production.
 
 ## 2) Documentation sync (same task as the code change)

@@ -7,6 +7,11 @@ export type NotificationPayloadV1 = {
   deep_link: string;
   title: string;
   body: string;
+  /**
+   * Opaque identifier for the specific push payload delivered to the user.
+   * Used by clients to correlate follow-up analytics events.
+   */
+  notification_id?: string;
   /** FCM / client metadata */
   source?: "push";
   notification_type?: string;

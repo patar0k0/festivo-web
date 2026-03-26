@@ -125,6 +125,18 @@ erDiagram
     timestamptz invalidated_at
   }
 
+  analytics_events {
+    uuid id PK
+    uuid user_id FK
+    text event
+    text notification_id
+    uuid festival_id FK
+    text slug
+    text source
+    jsonb metadata_json
+    timestamptz created_at
+  }
+
   notification_jobs {
     uuid id PK
     uuid user_id FK
@@ -160,6 +172,7 @@ erDiagram
   auth_users ||--o{ user_plan_reminders : sets
   auth_users ||--o{ user_notifications : receives
   auth_users ||--o{ device_tokens : owns
+  auth_users ||--o{ analytics_events : creates
   auth_users ||--o{ notification_jobs : scheduled
   auth_users ||--o{ notification_logs : delivery_audit
   notification_jobs ||--o{ notification_logs : has
@@ -176,6 +189,7 @@ erDiagram
   festivals ||--o{ user_plan_festivals : planned
   festivals ||--o{ user_plan_reminders : reminder_for
   festivals ||--o{ user_notifications : notification_for
+  festivals ||--o{ analytics_events : relates
 
   festival_schedule_items ||--o{ user_plan_items : planned_item
 

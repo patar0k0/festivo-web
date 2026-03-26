@@ -17,7 +17,7 @@ const MAX_RETRIES = 3;
 function fcmDataPayload(data: NotificationPayloadV1): Record<string, string> {
   const priority = data.priority ?? "normal";
   const notificationType = data.notification_type ?? data.type;
-  return {
+  const out: Record<string, string> = {
     type: String(data.type),
     festival_id: String(data.festival_id),
     slug: String(data.slug),
@@ -28,6 +28,12 @@ function fcmDataPayload(data: NotificationPayloadV1): Record<string, string> {
     notification_type: String(notificationType),
     priority: String(priority),
   };
+
+  if (data.notification_id) {
+    out.notification_id = String(data.notification_id);
+  }
+
+  return out;
 }
 
 export async function sendFcmToTokens(

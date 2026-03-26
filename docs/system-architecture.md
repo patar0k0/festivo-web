@@ -174,7 +174,7 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
 
 ## Outbound click tracking
 - `GET /out` accepts `url` (http/https only), optional `festival_id` (UUID), `type` (destination label, e.g. `website`, `ticket`, `maps`, `booking`), and `source` (e.g. `festival_detail`). It records a row in `outbound_clicks` via the service role (same pattern as `analytics_events`), attaches `user_id` when a Supabase session exists, then responds with `302` to the validated target URL. Invalid or non-http(s) URLs return `400` (no redirect).
-- Admins can list the latest 100 rows (optional filters by destination type and last 7/30 days) at `/admin/outbound`.
+- Admins can review outbound traffic at `/admin/outbound`: default period is last 7 days (optional all time or 30 days), optional filter by destination type; the page shows count summaries (total + booking/maps/website/ticket), a top-festivals table (per-type breakdown, top 20), and the latest 100 raw rows with festival titles (joined from `festivals`).
 
 
 ## Admin organizers management

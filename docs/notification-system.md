@@ -52,14 +52,17 @@
 - Допълнително: time-window дедупликация по тип (виж таблицата по-горе).
 - `user_notifications`: upsert по `(user_id, festival_id, type)` след успешен push; типове за reminder: `saved_festival_reminder_24h` / `saved_festival_reminder_2h`.
 
-## Cron (Vercel)
+## Scheduling model (production-safe)
 
-- `GET /api/notifications/run` — на всеки 5 минути; обработва pending с `scheduled_for <= now` (lock `cron_locks.notifications_run`).
-- Уикенд: `fri_18` = петък 16:00 UTC (~18:00 София зима), `sat_09` = събота 07:00 UTC (~09:00 София зима); при лятно часово време коригирайте в `vercel.json` при нужда.
+- High-frequency execution (`GET /api/notifications/run` every ~5 minutes) is expected from an **external scheduler** (Railway/worker/cron service), not from Vercel Cron.
+- Vercel can keep only low-frequency schedules (for example daily reminders and optional weekend slots) to stay compatible with Hobby limits.
+- Weekend slots remain callable by URL (`/api/notifications/weekend-trigger/fri_18`, `/api/notifications/weekend-trigger/sat_09`) and are safe for external scheduler triggering.
+- Job routes use `cron_locks` to prevent parallel execution: `notifications_run`, `reminders_job`, `notifications_weekend_{slot}`.
 
 ## Автентикация на jobs
 
-Същото като `/api/jobs/*`: `x-vercel-cron` или `x-job-secret: JOBS_SECRET`.
+- `x-job-secret: JOBS_SECRET` (primary for external schedulers)
+- `x-vercel-cron` (still accepted for optional Vercel low-frequency calls)
 
 ## Таблици
 

@@ -5,10 +5,6 @@
       "schedule": "0 7 * * *"
     },
     {
-      "path": "/api/notifications/run",
-      "schedule": "*/5 * * * *"
-    },
-    {
       "path": "/api/notifications/weekend-trigger/fri_18",
       "schedule": "0 16 * * 5"
     },

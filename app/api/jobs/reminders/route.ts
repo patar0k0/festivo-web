@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { isAuthorizedJobRequest } from "@/lib/jobs/auth";
+import { acquireCronLock, releaseCronLock } from "@/lib/jobs/locks";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type ReminderType = "24h" | "same_day_09";
@@ -99,11 +101,7 @@ function getScheduledFor(startDateValue: string, reminderType: ReminderType): Da
 }
 
 export async function GET(request: Request) {
-  const expectedSecret = process.env.JOBS_SECRET;
-  const providedSecret = request.headers.get("x-job-secret");
-  const isCron = request.headers.get("x-vercel-cron");
-
-  if (!isCron && (!expectedSecret || providedSecret !== expectedSecret)) {
+  if (!isAuthorizedJobRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -118,25 +116,16 @@ export async function GET(request: Request) {
   }
 
   const supabase = createSupabaseAdmin();
-
-  const lockCutoff = new Date(now.getTime() - 10 * 60 * 1000).toISOString();
-  const { error: staleLockError } = await supabase.from("cron_locks").delete().lt("locked_at", lockCutoff);
-  if (staleLockError) {
-    return NextResponse.json({ error: staleLockError.message }, { status: 500 });
-  }
-
-  const { data: lockRows, error: lockError } = await supabase
-    .from("cron_locks")
-    .upsert({ name: "reminders_job", locked_at: now.toISOString() }, { onConflict: "name", ignoreDuplicates: true })
-    .select("name");
-
-  if (lockError) {
-    return NextResponse.json({ error: lockError.message }, { status: 500 });
-  }
-
-  if (!lockRows?.length) {
+  const lockName = "reminders_job";
+  const lock = await acquireCronLock(supabase, lockName, now, 10);
+  if (!lock.ok && lock.reason === "lock_active") {
     return NextResponse.json({ skipped: true, reason: "lock_active" });
   }
+  if (!lock.ok) {
+    return NextResponse.json({ error: lock.message }, { status: 500 });
+  }
+
+  console.info("[jobs][reminders] started", { lookaheadMinutes, reminderTestMinutes, isReminderTestMode });
 
   try {
     const { data, error } = await supabase
@@ -201,8 +190,13 @@ export async function GET(request: Request) {
     const created = insertedRows?.length ?? 0;
     const skipped = dueRows.length - created;
 
+    console.info("[jobs][reminders] finished", { created, skipped, due: dueRows.length });
     return NextResponse.json({ created, skipped });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    console.error("[jobs][reminders] error", { message });
+    return NextResponse.json({ error: message }, { status: 500 });
   } finally {
-    await supabase.from("cron_locks").delete().eq("name", "reminders_job");
+    await releaseCronLock(supabase, lockName);
   }
 }

@@ -8,6 +8,7 @@ import { fetchAccommodationOffersForFestival } from "@/lib/accommodation/fetchAc
 import { getCityFestivals, getFestivalBySlug, getFestivalDetail } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { slugify } from "@/lib/utils";
+import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
 import "../../landing.css";
 
 export const revalidate = 21600;
@@ -52,7 +53,7 @@ export default async function Page({
     : null;
   const calendarMonth = data.festival.start_date ? format(parseISO(data.festival.start_date), "yyyy-MM") : null;
 
-  const [relatedResponse, adminSession, accommodationOffers] = await Promise.all([
+  const [relatedResponse, adminSession, accommodationOffers, bookingClicks30d] = await Promise.all([
     cityFilterValue
       ? getCityFestivals(
           cityFilterValue,
@@ -63,11 +64,13 @@ export default async function Page({
       : Promise.resolve(null),
     getAdminSession(),
     fetchAccommodationOffersForFestival(data.festival),
+    countBookingOutboundClicksLast30Days(String(data.festival.id)),
   ]);
 
   const relatedFestivals = (relatedResponse?.data ?? []).filter((item) => item.slug !== data.festival.slug);
 
   const adminEditHref = adminSession?.isAdmin ? `/admin/festivals/${String(data.festival.id)}` : null;
+  const showTravelPopularLabel = bookingClicks30d >= 2;
 
   return (
     <div className="landing-bg text-[#0c0e14]">
@@ -85,6 +88,7 @@ export default async function Page({
             relatedFestivals={relatedFestivals}
             accommodationOffers={accommodationOffers}
             adminEditHref={adminEditHref}
+            showTravelPopularLabel={showTravelPopularLabel}
           />
         </Container>
       </Section>

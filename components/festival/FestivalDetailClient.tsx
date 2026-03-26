@@ -39,6 +39,8 @@ type Props = {
   accommodationOffers: AccommodationOffer[];
   /** Линк към админ формата за редакция; показва се само за логнати админи. */
   adminEditHref?: string | null;
+  /** Booking outbound interest (last 30d); server-derived from outbound_clicks. */
+  showTravelPopularLabel?: boolean;
 };
 
 type GroupedDay = {
@@ -138,6 +140,7 @@ export default function FestivalDetailClient({
   relatedFestivals,
   accommodationOffers,
   adminEditHref,
+  showTravelPopularLabel = false,
 }: Props) {
   const groupedDays = useMemo(() => getGroupedDays(days, scheduleItems), [days, scheduleItems]);
   const sortedScheduleItems = useMemo(() => sortScheduleItems(scheduleItems), [scheduleItems]);
@@ -815,6 +818,12 @@ export default function FestivalDetailClient({
                 </a>
               ) : null}
             </section>
+          ) : null}
+
+          {showTravelPopularLabel && (showNearbyBookingCard || accommodationOffers.length > 0) ? (
+            <p className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-xs font-semibold text-amber-950/90">
+              🔥 Популярен за пътуване
+            </p>
           ) : null}
 
           {showNearbyBookingCard && festival.start_date ? (

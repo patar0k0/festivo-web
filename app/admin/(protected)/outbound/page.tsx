@@ -96,6 +96,14 @@ function bumpBucket(b: FestivalBuckets, destinationType: string) {
   else if (t === "ticket") b.ticket += 1;
 }
 
+/** booking_ratio = booking / total_clicks; high if ratio ≥ 0.5, else intent if booking ≥ 2. */
+function bookingIntentLabel(totalClicks: number, bookingClicks: number): string {
+  const ratio = totalClicks > 0 ? bookingClicks / totalClicks : 0;
+  if (ratio >= 0.5) return "🔥 Висок";
+  if (bookingClicks >= 2) return "👍 Има";
+  return "-";
+}
+
 export default async function AdminOutboundPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const admin = await getAdminContext();
   if (!admin) {
@@ -178,11 +186,15 @@ export default async function AdminOutboundPage({ searchParams }: { searchParams
     }
   }
 
-  const topRows = topFestivalIds.map((id) => ({
-    id,
-    title: titleById.get(id)?.trim() || "Unknown festival",
-    ...byFestival.get(id)!,
-  }));
+  const topRows = topFestivalIds.map((id) => {
+    const b = byFestival.get(id)!;
+    return {
+      id,
+      title: titleById.get(id)?.trim() || "Unknown festival",
+      ...b,
+      intent: bookingIntentLabel(b.total, b.booking),
+    };
+  });
 
   let detailQuery = supabase
     .from("outbound_clicks")
@@ -296,18 +308,24 @@ export default async function AdminOutboundPage({ searchParams }: { searchParams
                 <th className="px-4 py-3">Maps</th>
                 <th className="px-4 py-3">Website</th>
                 <th className="px-4 py-3">Ticket</th>
+                <th className="px-4 py-3">Intent</th>
               </tr>
             </thead>
             <tbody>
               {topRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-black/55">
+                  <td colSpan={7} className="px-4 py-6 text-center text-black/55">
                     Няма кликове с избран фестивал за периода.
                   </td>
                 </tr>
               ) : (
                 topRows.map((r) => (
-                  <tr key={r.id} className="border-b border-black/[0.06] last:border-0">
+                  <tr
+                    key={r.id}
+                    className={`border-b border-black/[0.06] last:border-0 ${
+                      r.intent === "🔥 Висок" ? "bg-amber-50/80" : ""
+                    }`}
+                  >
                     <td className="px-4 py-2.5">
                       <Link href={`/admin/festivals/${r.id}`} className="font-medium text-[#0c0e14] hover:underline">
                         {r.title}
@@ -318,6 +336,7 @@ export default async function AdminOutboundPage({ searchParams }: { searchParams
                     <td className="px-4 py-2.5 tabular-nums text-black/70">{r.maps}</td>
                     <td className="px-4 py-2.5 tabular-nums text-black/70">{r.website}</td>
                     <td className="px-4 py-2.5 tabular-nums text-black/70">{r.ticket}</td>
+                    <td className="px-4 py-2.5 text-black/80">{r.intent}</td>
                   </tr>
                 ))
               )}

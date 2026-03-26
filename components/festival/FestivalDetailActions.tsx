@@ -34,6 +34,16 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId }:
     scrollToReminder();
   }, [festivalId, isAuthenticated, reminder, requireAuthForPlan, scrollToReminder, setFestivalReminder]);
 
+  const primaryReminderLabel =
+    reminder === "none"
+      ? "🔔 Напомни ми за началото"
+      : reminder === "24h"
+        ? "🔔 Ще ти напомним 1 ден по-рано"
+        : "🔔 Ще ти напомним в деня в 09:00";
+
+  const heroReminderHelper =
+    reminder === "none" ? "Ще ти напомним за началото на събитието" : "Напомнянето е включено";
+
   const primaryClass =
     "inline-flex min-h-[56px] w-full flex-[1.2] items-center justify-center gap-2 rounded-xl bg-[#ff4c1f] px-4 py-3 text-center text-[15px] font-semibold text-white shadow-[0_2px_0_rgba(0,0,0,0.08)] transition hover:bg-[#e6441a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/40 sm:min-w-[12rem]";
   const secondaryClass =
@@ -43,13 +53,13 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId }:
     <div className="space-y-2">
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start">
         <button type="button" onClick={() => void onReminderPrimary()} className={primaryClass}>
-          {reminder === "none" ? "Напомни ми" : "Напомняне настроено"}
+          {primaryReminderLabel}
         </button>
         <a href={icsHref} className={secondaryClass}>
           Добави в календара
         </a>
       </div>
-      <p className="text-xs text-black/55">Ще ти напомним за началото на събитието</p>
+      <p className="text-xs text-black/55">{heroReminderHelper}</p>
     </div>
   );
 }
@@ -89,11 +99,11 @@ export function FestivalRailActionBar({ festivalId, mapHref }: RailProps) {
   return (
     <div className="space-y-2">
       <button type="button" onClick={() => void onPlan()} disabled={planBusy} className={btnClass}>
-        {festivalInPlan ? "Премахни от моя план" : "Добави в моя план"}
+        {festivalInPlan ? "✔ В плана ти" : "Добави в моя план"}
       </button>
       {mapHref ? (
         <a href={mapHref} target="_blank" rel="noreferrer" className={navClass}>
-          Навигация
+          Отвори в Google Maps
         </a>
       ) : null}
     </div>

@@ -30,10 +30,10 @@ export default function FestivalAppCta({ slug }: Props) {
       aria-labelledby="festival-app-cta-heading"
     >
       <h2 id="festival-app-cta-heading" className="text-base font-semibold text-[#0c0e14]">
-        По-удобно в приложението
+        📲 По-удобно в приложението
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-black/60">
-        Ползвай Festivo за напомняния, личен план и бърза навигация до фестивала.
+        Напомняния, карта и личен план на едно място.
       </p>
       <button
         type="button"

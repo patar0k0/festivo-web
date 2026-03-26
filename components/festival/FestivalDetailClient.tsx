@@ -251,9 +251,9 @@ export default function FestivalDetailClient({
   const showMapSection = Boolean(mapEmbedSrc && mapHref && (locationName || cityName || festival.address?.trim()));
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
   const reminderOptions: Array<{ value: ReminderType; label: string; helper: string }> = [
-    { value: "24h", label: "1 ден по-рано", helper: "Най-предпочитано" },
-    { value: "same_day_09", label: "В деня в 09:00", helper: "Кратко сутрешно напомняне" },
-    { value: "none", label: "Без напомняне", helper: "Можеш да го включиш по-късно" },
+    { value: "24h", label: "1 ден по-рано", helper: "Най-често избирано" },
+    { value: "same_day_09", label: "В деня в 09:00", helper: "Сутрин, преди да тръгнеш" },
+    { value: "none", label: "Без напомняне", helper: "Можеш да го включиш по всяко време" },
   ];
 
   const descriptionNeedsToggle = descriptionText.length > 480;
@@ -284,11 +284,20 @@ export default function FestivalDetailClient({
     }
   };
 
-  const reminderLabel = (value: ReminderType): string => {
-    if (value === "24h") return "1 ден по-рано";
-    if (value === "same_day_09") return "в деня в 09:00";
-    return "без напомняне";
+  const reminderSuccessMessage = (value: ReminderType): string => {
+    if (value === "none") return "Напомнянето е изключено.";
+    if (value === "24h") return "Ще ти напомним 1 ден по-рано.";
+    return "Ще ти напомним в деня в 09:00.";
   };
+
+  const urgencyHeroLabel =
+    urgencyLabel === "Днес"
+      ? "📅 Днес"
+      : urgencyLabel === "Този уикенд"
+        ? "🔥 Този уикенд"
+        : urgencyLabel?.startsWith("Започва след")
+          ? `⏳ ${urgencyLabel}`
+          : urgencyLabel;
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -332,9 +341,9 @@ export default function FestivalDetailClient({
                 <h1 className="max-w-[22ch] text-xl font-black leading-[1.1] tracking-tight sm:text-2xl sm:leading-[1.05]">
                   {festival.title}
                 </h1>
-                {urgencyLabel ? (
+                {urgencyHeroLabel ? (
                   <span className="rounded-full border border-white/20 bg-black/32 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/95 shadow-sm backdrop-blur-[1px] sm:text-[11px]">
-                    {urgencyLabel}
+                    {urgencyHeroLabel}
                   </span>
                 ) : null}
               </div>
@@ -399,7 +408,9 @@ export default function FestivalDetailClient({
                     </button>
                   ) : null}
                 </div>
-              ) : null}
+              ) : (
+                <p className="mt-4 text-sm text-black/60">Няма описание за този фестивал.</p>
+              )}
               {(tags.length > 0 || (showFreeBadge && !priceInQuickFactsStrip) || (showPriceRange && !showFreeBadge && !priceInQuickFactsStrip)) ? (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   {showFreeBadge && !priceInQuickFactsStrip ? <Badge variant="primary">Безплатен вход</Badge> : null}
@@ -567,7 +578,7 @@ export default function FestivalDetailClient({
                           requireAuthForPlan();
                           setReminderFeedback({
                             kind: "error",
-                            text: "Влез, за да запазваш напомняния.",
+                            text: "Влез, за да получаваш напомняния.",
                           });
                           return;
                         }
@@ -579,17 +590,14 @@ export default function FestivalDetailClient({
                           if (!result.ok) {
                             setReminderFeedback({
                               kind: "error",
-                              text: result.error ?? "Не успяхме да запазим напомнянето. Опитай отново.",
+                              text: result.error ?? "Не успяхме да запазим. Опитай пак.",
                             });
                             setReminderPending(false);
                             return;
                           }
                           setReminderFeedback({
                             kind: "success",
-                            text:
-                              option.value === "none"
-                                ? "Напомнянето е изключено."
-                                : `Напомнянето е запазено: ${reminderLabel(option.value)}.`,
+                            text: reminderSuccessMessage(option.value),
                           });
                           if (reminderFeedbackTimerRef.current) {
                             window.clearTimeout(reminderFeedbackTimerRef.current);
@@ -641,7 +649,7 @@ export default function FestivalDetailClient({
               ) : null}
               {!isAuthenticated ? (
                 <p className="mt-2 text-xs text-black/55">
-                  Влез, за да ползваш план и напомняния.{" "}
+                  Влез, за да ползваш план и да получаваш напомняния.{" "}
                   <Link href="/login" className="underline">
                     Вход
                   </Link>
@@ -655,7 +663,7 @@ export default function FestivalDetailClient({
 
             {festivalInPlan ? (
               <p className="mt-2 rounded-lg bg-emerald-50/70 px-2 py-1 text-xs font-semibold text-emerald-900/85">
-                Вече е добавен в моя план.
+                В плана ти е.
               </p>
             ) : null}
             {festivalPlanError ? <p className="mt-1 text-xs font-semibold text-red-800">{festivalPlanError}</p> : null}

@@ -10,7 +10,7 @@ export default function FestivalAccommodationSection({ offers }: Props) {
 
   return (
     <section
-      className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]"
+      className="rounded-2xl border border-black/[0.07] bg-white/90 p-5 shadow-[0_1px_0_rgba(12,14,20,0.04)]"
       aria-labelledby="festival-accommodation-heading"
     >
       <h2 id="festival-accommodation-heading" className="text-xl font-semibold text-[#0c0e14]">
@@ -24,7 +24,7 @@ export default function FestivalAccommodationSection({ offers }: Props) {
               href={offer.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex gap-3 rounded-xl border border-black/[0.08] bg-white p-3 transition hover:border-black/15 hover:shadow-[0_4px_14px_rgba(12,14,20,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
+              className="flex gap-3 rounded-xl border border-black/[0.08] bg-white p-3 transition hover:border-black/15 hover:shadow-[0_2px_10px_rgba(12,14,20,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
             >
               <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-lg bg-black/[0.04]">
                 {offer.image_url ? (

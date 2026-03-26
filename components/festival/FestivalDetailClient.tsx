@@ -13,6 +13,7 @@ import { FestivalHeroActionBar, FestivalRailActionBar } from "@/components/festi
 import FestivalQuickFactsStrip from "@/components/festival/FestivalQuickFactsStrip";
 import FestivalAppCta from "@/components/festival/FestivalAppCta";
 import FestivalAccommodationSection from "@/components/festival/FestivalAccommodationSection";
+import FestivalNearbyBookingCard from "@/components/festival/FestivalNearbyBookingCard";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
@@ -250,6 +251,8 @@ export default function FestivalDetailClient({
   );
   const showMapSection = Boolean(mapEmbedSrc && mapHref && (locationName || cityName || festival.address?.trim()));
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
+  const nearbyBookingPlace = cityOrLocationText.trim();
+  const showNearbyBookingCard = Boolean(nearbyBookingPlace && festival.start_date?.trim());
   const reminderOptions: Array<{ value: ReminderType; label: string; helper: string }> = [
     { value: "24h", label: "1 ден по-рано", helper: "Най-често избирано" },
     { value: "same_day_09", label: "В деня в 09:00", helper: "Сутрин, преди да тръгнеш" },
@@ -801,6 +804,14 @@ export default function FestivalDetailClient({
                 </a>
               ) : null}
             </section>
+          ) : null}
+
+          {showNearbyBookingCard && festival.start_date ? (
+            <FestivalNearbyBookingCard
+              place={nearbyBookingPlace}
+              startDate={festival.start_date}
+              endDate={festival.end_date}
+            />
           ) : null}
 
           {hasCtaButtons ? (

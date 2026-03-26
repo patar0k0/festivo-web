@@ -10,8 +10,34 @@ type OutboundDetailRow = {
   festival_id: string | null;
   destination_type: string;
   source: string;
-  festivals: { id: string; title: string | null } | null;
+  festivals: Array<{ id: string; title: string | null }> | null;
 };
+
+function normalizeOutboundDetailRows(detailData: unknown): OutboundDetailRow[] {
+  if (!Array.isArray(detailData)) return [];
+  return detailData.map((row) => {
+    const r = row as Record<string, unknown>;
+    const raw = r.festivals;
+    let festivals: OutboundDetailRow["festivals"] = null;
+    if (Array.isArray(raw)) {
+      festivals = raw.map((f) => {
+        const o = f as { id?: unknown; title?: unknown };
+        return {
+          id: String(o.id ?? ""),
+          title: o.title === null || o.title === undefined ? null : String(o.title),
+        };
+      });
+    }
+    return {
+      id: String(r.id ?? ""),
+      created_at: String(r.created_at ?? ""),
+      festival_id: r.festival_id == null ? null : String(r.festival_id),
+      destination_type: String(r.destination_type ?? ""),
+      source: String(r.source ?? ""),
+      festivals,
+    };
+  });
+}
 
 type AggRow = {
   festival_id: string | null;
@@ -169,7 +195,7 @@ export default async function AdminOutboundPage({ searchParams }: { searchParams
   detailQuery = detailQuery.order("created_at", { ascending: false }).limit(100);
 
   const { data: detailData, error: detailError } = await detailQuery;
-  const rows = (detailData ?? []) as OutboundDetailRow[];
+  const rows = normalizeOutboundDetailRows(detailData);
 
   const listError = detailError ?? countError;
 
@@ -323,7 +349,7 @@ export default async function AdminOutboundPage({ searchParams }: { searchParams
               </tr>
             ) : (
               rows.map((row) => {
-                const title = row.festivals?.title?.trim();
+                const title = row.festivals?.[0]?.title?.trim();
                 const showUnknown = !row.festival_id;
                 const showMissingTitle = Boolean(row.festival_id) && !title;
                 return (

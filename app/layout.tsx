@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/react";
 import { Fraunces, Manrope } from "next/font/google";
 import LayoutShell from "@/components/LayoutShell";
 import ClientProviders from "@/components/providers/ClientProviders";
@@ -37,6 +38,7 @@ export default function RootLayout({
         <ClientProviders>
           <LayoutShell>{children}</LayoutShell>
         </ClientProviders>
+        <Analytics />
       </body>
     </html>
   );

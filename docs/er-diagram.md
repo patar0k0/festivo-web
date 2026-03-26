@@ -137,6 +137,16 @@ erDiagram
     timestamptz created_at
   }
 
+  outbound_clicks {
+    uuid id PK
+    uuid festival_id FK
+    uuid user_id FK
+    text destination_type
+    text target_url
+    text source
+    timestamptz created_at
+  }
+
   notification_jobs {
     uuid id PK
     uuid user_id FK
@@ -173,6 +183,7 @@ erDiagram
   auth_users ||--o{ user_notifications : receives
   auth_users ||--o{ device_tokens : owns
   auth_users ||--o{ analytics_events : creates
+  auth_users ||--o{ outbound_clicks : creates
   auth_users ||--o{ notification_jobs : scheduled
   auth_users ||--o{ notification_logs : delivery_audit
   notification_jobs ||--o{ notification_logs : has
@@ -190,6 +201,7 @@ erDiagram
   festivals ||--o{ user_plan_reminders : reminder_for
   festivals ||--o{ user_notifications : notification_for
   festivals ||--o{ analytics_events : relates
+  festivals ||--o{ outbound_clicks : relates
 
   festival_schedule_items ||--o{ user_plan_items : planned_item
 

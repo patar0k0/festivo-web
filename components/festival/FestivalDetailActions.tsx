@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import type { ReminderType } from "@/lib/plan/server";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
+import { outboundClickHref } from "@/lib/outbound/outboundLink";
 
 type HeroProps = {
   festivalId: string;
@@ -102,7 +103,17 @@ export function FestivalRailActionBar({ festivalId, mapHref }: RailProps) {
         {festivalInPlan ? "✔ В плана ти" : "Добави в моя план"}
       </button>
       {mapHref ? (
-        <a href={mapHref} target="_blank" rel="noreferrer" className={navClass}>
+        <a
+          href={outboundClickHref({
+            targetUrl: mapHref,
+            festivalId,
+            type: "maps",
+            source: "festival_detail",
+          })}
+          target="_blank"
+          rel="noreferrer"
+          className={navClass}
+        >
           Отвори в Google Maps
         </a>
       ) : null}

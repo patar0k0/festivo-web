@@ -99,6 +99,7 @@ export async function middleware(request: NextRequest) {
   const hasPreviewAccess = Boolean(request.cookies.get("festivo_preview")?.value);
   const isAllowlisted =
     pathname.startsWith("/admin") ||
+    pathname.startsWith("/out") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/reset-password") ||

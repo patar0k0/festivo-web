@@ -172,6 +172,10 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
 - Event writes are anonymous-safe; when a user session exists, `user_id` is attached server-side.
 - Clients should include `notification_id` from the FCM payload to correlate follow-up actions after a push.
 
+## Outbound click tracking
+- `GET /out` accepts `url` (http/https only), optional `festival_id` (UUID), `type` (destination label, e.g. `website`, `ticket`, `maps`, `booking`), and `source` (e.g. `festival_detail`). It records a row in `outbound_clicks` via the service role (same pattern as `analytics_events`), attaches `user_id` when a Supabase session exists, then responds with `302` to the validated target URL. Invalid or non-http(s) URLs return `400` (no redirect).
+- Admins can list the latest 100 rows (optional filters by destination type and last 7/30 days) at `/admin/outbound`.
+
 
 ## Admin organizers management
 - Admin has dedicated organizer management screens at `/admin/organizers`, `/admin/organizers/[id]`, and duplicate review at `/admin/organizers/duplicates`.

@@ -1,4 +1,5 @@
 import { addDays, format, isValid, parseISO } from "date-fns";
+import { outboundClickHref } from "@/lib/outbound/outboundLink";
 
 function buildBookingSearchUrl(place: string, startDateIso: string, endDateIso?: string | null): string | null {
   const trimmed = place.trim();
@@ -22,11 +23,19 @@ type Props = {
   place: string;
   startDate: string;
   endDate?: string | null;
+  festivalId: string;
 };
 
-export default function FestivalNearbyBookingCard({ place, startDate, endDate }: Props) {
+export default function FestivalNearbyBookingCard({ place, startDate, endDate, festivalId }: Props) {
   const href = buildBookingSearchUrl(place, startDate, endDate);
   if (!href) return null;
+
+  const trackedHref = outboundClickHref({
+    targetUrl: href,
+    festivalId,
+    type: "booking",
+    source: "festival_detail",
+  });
 
   return (
     <section
@@ -38,7 +47,7 @@ export default function FestivalNearbyBookingCard({ place, startDate, endDate }:
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-black/55">Виж наличности за тези дати около фестивала.</p>
       <a
-        href={href}
+        href={trackedHref}
         target="_blank"
         rel="noopener noreferrer"
         className="mt-4 flex w-full items-center justify-center rounded-xl border border-black/[0.1] bg-white px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"

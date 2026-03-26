@@ -1,11 +1,13 @@
 import FallbackImage from "@/components/ui/FallbackImage";
 import type { AccommodationOffer } from "@/lib/accommodation/types";
+import { outboundClickHref } from "@/lib/outbound/outboundLink";
 
 type Props = {
   offers: AccommodationOffer[];
+  festivalId?: string;
 };
 
-export default function FestivalAccommodationSection({ offers }: Props) {
+export default function FestivalAccommodationSection({ offers, festivalId }: Props) {
   if (!offers.length) return null;
 
   return (
@@ -21,7 +23,16 @@ export default function FestivalAccommodationSection({ offers }: Props) {
         {offers.map((offer, index) => (
           <li key={`${offer.url}-${index}`}>
             <a
-              href={offer.url}
+              href={
+                festivalId
+                  ? outboundClickHref({
+                      targetUrl: offer.url,
+                      festivalId,
+                      type: "accommodation",
+                      source: "festival_detail",
+                    })
+                  : offer.url
+              }
               target="_blank"
               rel="noopener noreferrer"
               className="flex gap-3 rounded-xl border border-black/[0.08] bg-white p-3 transition hover:border-black/15 hover:shadow-[0_2px_10px_rgba(12,14,20,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"

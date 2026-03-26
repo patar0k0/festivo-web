@@ -22,6 +22,7 @@ import type { AccommodationOffer } from "@/lib/accommodation/types";
 import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from "@/lib/types";
 import { formatFestivalDateLineLongBg, primaryFestivalDate } from "@/lib/festival/listingDates";
 import { FESTIVAL_PROGRAM_SECTION_ID } from "@/lib/festival/programmeAnchor";
+import { outboundClickHref } from "@/lib/outbound/outboundLink";
 
 const REMINDER_BLOCK_ID = "festival-reminder-block";
 
@@ -503,7 +504,12 @@ export default function FestivalDetailClient({
                 {festival.website_url ? (
                   <p className="mt-3 text-sm text-black/55">
                     <a
-                      href={festival.website_url}
+                      href={outboundClickHref({
+                        targetUrl: festival.website_url,
+                        festivalId: String(festival.id),
+                        type: "website",
+                        source: "festival_detail",
+                      })}
                       target="_blank"
                       rel="noreferrer"
                       className="font-semibold text-[#0c0e14] underline-offset-2 hover:underline"
@@ -795,7 +801,12 @@ export default function FestivalDetailClient({
               </div>
               {mapHref ? (
                 <a
-                  href={mapHref}
+                  href={outboundClickHref({
+                    targetUrl: mapHref,
+                    festivalId: String(festival.id),
+                    type: "maps",
+                    source: "festival_detail",
+                  })}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-3 inline-flex text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] underline decoration-black/25 underline-offset-2 hover:decoration-black/50"
@@ -811,6 +822,7 @@ export default function FestivalDetailClient({
               place={nearbyBookingPlace}
               startDate={festival.start_date}
               endDate={festival.end_date}
+              festivalId={String(festival.id)}
             />
           ) : null}
 
@@ -820,7 +832,12 @@ export default function FestivalDetailClient({
               <div className="mt-4 flex flex-col gap-2">
                 {festival.website_url ? (
                   <a
-                    href={festival.website_url}
+                    href={outboundClickHref({
+                      targetUrl: festival.website_url,
+                      festivalId: String(festival.id),
+                      type: "website",
+                      source: "festival_detail",
+                    })}
                     target="_blank"
                     rel="noreferrer"
                     className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
@@ -830,7 +847,12 @@ export default function FestivalDetailClient({
                 ) : null}
                 {festival.ticket_url ? (
                   <a
-                    href={festival.ticket_url}
+                    href={outboundClickHref({
+                      targetUrl: festival.ticket_url,
+                      festivalId: String(festival.id),
+                      type: "ticket",
+                      source: "festival_detail",
+                    })}
                     target="_blank"
                     rel="noreferrer"
                     className={`rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
@@ -845,7 +867,7 @@ export default function FestivalDetailClient({
               </div>
             </section>
           ) : null}
-            <FestivalAccommodationSection offers={accommodationOffers} />
+            <FestivalAccommodationSection offers={accommodationOffers} festivalId={String(festival.id)} />
           </div>
           </div>
         </aside>

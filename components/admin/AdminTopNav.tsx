@@ -11,6 +11,7 @@ const NAV: { href: string; label: string; match: "exact" | "prefix" }[] = [
   { href: "/admin/ingest", label: "Внасяне", match: "prefix" },
   { href: "/admin/discovery", label: "Открития", match: "prefix" },
   { href: "/admin/research", label: "Проучване", match: "prefix" },
+  { href: "/admin/outbound", label: "Кликове", match: "prefix" },
 ];
 
 function navActive(pathname: string | null, href: string, match: "exact" | "prefix") {

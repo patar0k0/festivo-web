@@ -71,3 +71,9 @@
 ## Legacy reminder pipeline
 
 `user_plan_reminders` → `/api/jobs/reminders` → `user_notifications` → `/api/jobs/push` — непокътнат; паралелно с MVP reminder jobs от плана.
+
+## Reminder preference sync (public detail)
+
+- `POST /api/plan/reminders` пази `user_plan_reminders` (`none`, `24h`, `same_day_09`) и синхронизира pending `notification_jobs` (`job_type=reminder`) за същия потребител/фестивал.
+- При `none`: pending reminder jobs се отменят (`status=cancelled`).
+- При `24h`/`same_day_09`: съществуващите pending reminder jobs първо се отменят, после се насрочват наново чрез текущия scheduler поток.

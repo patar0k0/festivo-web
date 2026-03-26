@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ReminderType } from "@/lib/plan/server";
+import { syncReminderJobsForPreference } from "@/lib/notifications/triggers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Payload = {
@@ -38,6 +39,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const syncResult = await syncReminderJobsForPreference(user.id, festivalId, "none");
+    if (!syncResult.ok) {
+      return NextResponse.json({ error: syncResult.error ?? "Failed to sync reminder jobs" }, { status: 500 });
+    }
+
     return NextResponse.json({ ok: true, reminderType: "none" });
   }
 
@@ -54,6 +60,11 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const syncResult = await syncReminderJobsForPreference(user.id, festivalId, reminderType);
+  if (!syncResult.ok) {
+    return NextResponse.json({ error: syncResult.error ?? "Failed to sync reminder jobs" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, reminderType });

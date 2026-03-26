@@ -12,6 +12,7 @@ import {
 } from "./scheduler";
 import { getUsersNotificationRates24hBatch, shouldSkipScheduleForRateLimit } from "./rateLimit";
 import { formatSofiaDate, isSameSofiaCalendarDay } from "./time";
+import type { ReminderType } from "@/lib/plan/server";
 
 type FestivalRow = {
   id: string;
@@ -177,6 +178,23 @@ export async function scheduleSavedFestivalReminders(
   }
 
   return { ok: true };
+}
+
+/**
+ * Align pending reminder jobs with the explicit reminder preference from user_plan_reminders.
+ * - none: cancel pending reminder jobs
+ * - 24h/same_day_09: cancel old pending jobs and schedule fresh reminder jobs
+ */
+export async function syncReminderJobsForPreference(
+  userId: string,
+  festivalId: string,
+  reminderType: ReminderType,
+): Promise<{ ok: boolean; error?: string }> {
+  await cancelPendingReminderJobs(userId, festivalId);
+  if (reminderType === "none") {
+    return { ok: true };
+  }
+  return scheduleSavedFestivalReminders(userId, festivalId);
 }
 
 /** Админ промяна на фестивал: уведомява само потребители със запис в плана. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { bg } from "date-fns/locale";
@@ -141,8 +141,12 @@ export default function FestivalDetailClient({
   const sortedScheduleItems = useMemo(() => sortScheduleItems(scheduleItems), [scheduleItems]);
   const [activeDayId, setActiveDayId] = useState(groupedDays[0]?.id ?? "");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [reminderPending, setReminderPending] = useState(false);
+  const [reminderFeedback, setReminderFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const reminderFeedbackTimerRef = useRef<number | null>(null);
   const {
     isAuthenticated,
+    requireAuthForPlan,
     festivalIds,
     festivalPlanError,
     isScheduleItemInPlan,
@@ -259,6 +263,14 @@ export default function FestivalDetailClient({
   }, [heroImage]);
 
   useEffect(() => {
+    return () => {
+      if (reminderFeedbackTimerRef.current) {
+        window.clearTimeout(reminderFeedbackTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
     console.debug(
       `[festival-detail] slug=${festival.slug} hero_image="${festival.hero_image ?? ""}" media_count=${imageMedia.length} resolved_hero="${heroImage ?? ""}"`,
@@ -270,6 +282,12 @@ export default function FestivalDetailClient({
     for (const itemId of ids) {
       await toggleScheduleItem(itemId);
     }
+  };
+
+  const reminderLabel = (value: ReminderType): string => {
+    if (value === "24h") return "1 ден по-рано";
+    if (value === "same_day_09") return "в деня в 09:00";
+    return "без напомняне";
   };
 
   return (
@@ -546,10 +564,44 @@ export default function FestivalDetailClient({
                       key={option.value}
                       type="button"
                       onClick={() => {
-                        if (!isAuthenticated) return;
-                        void setFestivalReminder(String(festival.id), option.value);
+                        if (!isAuthenticated) {
+                          requireAuthForPlan();
+                          setReminderFeedback({
+                            kind: "error",
+                            text: "Влез, за да запазваш напомняния.",
+                          });
+                          return;
+                        }
+                        if (reminderPending || reminder === option.value) return;
+                        setReminderPending(true);
+                        setReminderFeedback(null);
+                        void (async () => {
+                          const result = await setFestivalReminder(String(festival.id), option.value);
+                          if (!result.ok) {
+                            setReminderFeedback({
+                              kind: "error",
+                              text: result.error ?? "Не успяхме да запазим напомнянето. Опитай отново.",
+                            });
+                            setReminderPending(false);
+                            return;
+                          }
+                          setReminderFeedback({
+                            kind: "success",
+                            text:
+                              option.value === "none"
+                                ? "Напомнянето е изключено."
+                                : `Напомнянето е запазено: ${reminderLabel(option.value)}.`,
+                          });
+                          if (reminderFeedbackTimerRef.current) {
+                            window.clearTimeout(reminderFeedbackTimerRef.current);
+                          }
+                          reminderFeedbackTimerRef.current = window.setTimeout(() => {
+                            setReminderFeedback(null);
+                          }, 2800);
+                          setReminderPending(false);
+                        })();
                       }}
-                      disabled={!isAuthenticated}
+                      disabled={!isAuthenticated || reminderPending}
                       className={`w-full rounded-xl border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 disabled:cursor-not-allowed disabled:opacity-55 ${
                         active
                           ? "border-[#0c0e14]/80 bg-[#0c0e14] text-white"
@@ -558,11 +610,21 @@ export default function FestivalDetailClient({
                       aria-pressed={active}
                     >
                       <span className="block text-sm font-semibold">{option.label}</span>
-                      <span className={`mt-0.5 block text-xs ${active ? "text-white/80" : "text-black/50"}`}>{option.helper}</span>
+                      <span className={`mt-0.5 block text-xs ${active ? "text-white/80" : "text-black/50"}`}>
+                        {reminderPending && active ? "Запазваме..." : option.helper}
+                      </span>
                     </button>
                   );
                 })}
               </div>
+              {reminderFeedback ? (
+                <p
+                  className={`mt-2 text-xs font-medium ${reminderFeedback.kind === "success" ? "text-emerald-700" : "text-red-700"}`}
+                  role={reminderFeedback.kind === "error" ? "alert" : "status"}
+                >
+                  {reminderFeedback.text}
+                </p>
+              ) : null}
               {!isAuthenticated ? (
                 <p className="mt-2 text-xs text-black/55">
                   Влез, за да ползваш план и напомняния.{" "}

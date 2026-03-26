@@ -24,7 +24,10 @@ type PlanContextValue = {
   toggleFestivalPlan: (festivalId?: string | null) => Promise<void>;
   reminderTypeByFestivalId: Record<string, ReminderType>;
   isFestivalReminded: (festivalId?: string | null) => boolean;
-  setFestivalReminder: (festivalId: string, reminderType: ReminderType) => Promise<void>;
+  setFestivalReminder: (
+    festivalId: string,
+    reminderType: ReminderType,
+  ) => Promise<{ ok: boolean; error?: string; requiresAuth?: boolean }>;
   refreshPlanState: () => Promise<void>;
 };
 
@@ -206,7 +209,7 @@ export function PlanStateProvider({
   const setFestivalReminder = useCallback(async (festivalId: string, reminderType: ReminderType) => {
     if (!authenticated) {
       setAuthRequired(true);
-      return;
+      return { ok: false, requiresAuth: true, error: "Влез, за да запазваш напомняния." };
     }
 
     const normalizedFestivalId = String(festivalId);
@@ -230,13 +233,25 @@ export function PlanStateProvider({
       setAuthRequired(true);
       setAuthenticated(false);
       setReminders(previous);
-      return;
+      return { ok: false, requiresAuth: true, error: "Сесията изтече. Влез отново." };
     }
 
     if (!response.ok) {
       setReminders(previous);
       await refreshPlanState();
+      let errorMessage = "Не успяхме да запазим напомнянето. Опитай отново.";
+      try {
+        const payload = (await response.json()) as { error?: string };
+        if (payload.error?.trim()) errorMessage = payload.error;
+      } catch {
+        // ignore parse errors
+      }
+      return { ok: false, error: errorMessage };
     }
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[plan] reminder saved", { festivalId: normalizedFestivalId, reminderType });
+    }
+    return { ok: true };
   }, [authenticated, refreshPlanState, reminders]);
 
   const requireAuthForPlan = useCallback(() => {

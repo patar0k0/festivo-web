@@ -39,14 +39,24 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId }:
   const secondaryClass =
     "inline-flex min-h-[48px] w-full flex-1 items-center justify-center gap-2 rounded-xl border border-black/[0.12] bg-white px-4 py-3 text-center text-sm font-semibold text-[#0c0e14] transition hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 sm:min-w-[12rem]";
 
+  const reminderHint =
+    reminder === "24h"
+      ? "Напомняме 1 ден по-рано"
+      : reminder === "same_day_09"
+        ? "Напомняме в деня в 09:00"
+        : "Избери време за напомняне";
+
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
-      <button type="button" onClick={() => void onReminderPrimary()} className={primaryClass}>
-        Напомни ми
-      </button>
-      <a href={icsHref} className={secondaryClass}>
-        Добави в календара
-      </a>
+    <div className="space-y-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
+        <button type="button" onClick={() => void onReminderPrimary()} className={primaryClass}>
+          {reminder === "none" ? "Напомни ми" : "Напомняне настроено"}
+        </button>
+        <a href={icsHref} className={secondaryClass}>
+          Добави в календара
+        </a>
+      </div>
+      <p className="text-xs text-black/50">{reminderHint}</p>
     </div>
   );
 }

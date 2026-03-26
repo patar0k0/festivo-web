@@ -6,7 +6,6 @@ import { format, parseISO } from "date-fns";
 import { bg } from "date-fns/locale";
 import Badge from "@/components/ui/Badge";
 import EventCard from "@/components/ui/EventCard";
-import Select from "@/components/ui/Select";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
 import FestivalGallery from "@/components/festival/FestivalGallery";
@@ -247,6 +246,11 @@ export default function FestivalDetailClient({
   );
   const showMapSection = Boolean(mapEmbedSrc && mapHref && (locationName || cityName || festival.address?.trim()));
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
+  const reminderOptions: Array<{ value: ReminderType; label: string; helper: string }> = [
+    { value: "24h", label: "1 ден по-рано", helper: "Най-предпочитано" },
+    { value: "same_day_09", label: "В деня в 09:00", helper: "Кратко сутрешно напомняне" },
+    { value: "none", label: "Без напомняне", helper: "Можеш да го включиш по-късно" },
+  ];
 
   const descriptionNeedsToggle = descriptionText.length > 480;
 
@@ -292,7 +296,7 @@ export default function FestivalDetailClient({
                   setHeroImageFailed(true);
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/0" />
             </>
           ) : heroImage ? (
             <div className="absolute inset-0 bg-gradient-to-br from-[#ece8df] via-[#f3efe7] to-[#e3ddd2]" />
@@ -303,9 +307,9 @@ export default function FestivalDetailClient({
               </div>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/45 to-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/52 to-black/15" />
           <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6 md:p-8">
-            <div className="max-w-3xl space-y-3 rounded-2xl bg-black/25 p-3 backdrop-blur-[1.5px] sm:p-4 md:max-w-4xl">
+            <div className="max-w-3xl space-y-3 rounded-2xl bg-black/35 p-3.5 backdrop-blur-[2px] sm:p-4 md:max-w-4xl">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="max-w-[22ch] text-xl font-black leading-[1.1] tracking-tight sm:text-2xl sm:leading-[1.05]">
                   {festival.title}
@@ -316,11 +320,12 @@ export default function FestivalDetailClient({
                   </span>
                 ) : null}
               </div>
-              <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/85 sm:text-[11px]">
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/90 sm:text-[11px]">
                 {formattedDateRange ? <span className="rounded-full bg-black/35 px-2.5 py-0.5">{formattedDateRange}</span> : null}
                 {cityOrLocationText ? <span className="rounded-full bg-black/35 px-2.5 py-0.5">{cityOrLocationText}</span> : null}
                 {categoryText ? <span className="rounded-full bg-black/35 px-2.5 py-0.5">{categoryText}</span> : null}
-                {showFreeBadge ? <span className="rounded-full bg-black/35 px-2.5 py-0.5">Безплатен вход</span> : null}
+                {showFreeBadge ? <span className="rounded-full bg-[#0f8a4d]/70 px-2.5 py-0.5 text-white">Безплатен вход</span> : null}
+                {showPriceRange ? <span className="rounded-full bg-black/45 px-2.5 py-0.5">{priceRange}</span> : null}
                 <a
                   href={`#${FESTIVAL_PROGRAM_SECTION_ID}`}
                   className="rounded-full bg-black/35 px-2.5 py-0.5 text-white/95 transition hover:bg-black/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
@@ -346,10 +351,10 @@ export default function FestivalDetailClient({
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-8">
           {showDescriptionSection ? (
-            <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
+            <section className="rounded-2xl border border-black/[0.08] bg-white/80 px-5 pb-5 pt-6 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
               <h2 className="text-xl font-semibold text-[#0c0e14]">Описание</h2>
               {descriptionText ? (
-                <div className="mt-3">
+                <div className="mt-4">
                   <div
                     className={
                       !descriptionExpanded && descriptionNeedsToggle
@@ -357,7 +362,7 @@ export default function FestivalDetailClient({
                         : undefined
                     }
                   >
-                    <p className="whitespace-pre-line text-sm leading-7 text-black/65">{descriptionText}</p>
+                    <p className="max-w-[74ch] whitespace-pre-line text-[15px] leading-7 text-black/70">{descriptionText}</p>
                     {!descriptionExpanded && descriptionNeedsToggle ? (
                       <div
                         className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-white via-white/95 to-transparent"
@@ -369,7 +374,7 @@ export default function FestivalDetailClient({
                     <button
                       type="button"
                       onClick={() => setDescriptionExpanded((v) => !v)}
-                      className="mt-3 text-sm font-semibold text-[#0c0e14] underline decoration-black/25 underline-offset-2 hover:decoration-black/50"
+                      className="mt-3 rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-sm font-semibold text-[#0c0e14] transition hover:bg-black/[0.03]"
                       aria-expanded={descriptionExpanded}
                     >
                       {descriptionExpanded ? "Покажи по-малко" : "Виж повече"}
@@ -521,9 +526,9 @@ export default function FestivalDetailClient({
             className="rounded-2xl border border-black/[0.08] bg-[#fbfaf7] p-5 shadow-[0_1px_0_rgba(12,14,20,0.04),0_6px_14px_rgba(12,14,20,0.05)]"
           >
             <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold text-black/85">План и напомняне</h2>
-              <p className="text-xs leading-relaxed text-black/50">
-                „Добави в моя план“ пази фестивала в списъка ти за по-късно. Напомняването за началото на събитието избираш от менюто по-долу — то не зависи от отделните часове в програмата.
+              <h2 className="text-lg font-semibold text-black/90">Напомняне и план</h2>
+              <p className="text-xs leading-relaxed text-black/55">
+                Настрой напомняне за началото на фестивала, после го добави в личния си план. Двете действия са отделни.
               </p>
             </div>
 
@@ -532,22 +537,32 @@ export default function FestivalDetailClient({
             </div>
 
             <div className="mt-5 border-t border-black/[0.08] pt-5">
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-black/45" htmlFor="festival-reminder-select">
-                Кога да напомним
-              </label>
-              <Select
-                id="festival-reminder-select"
-                value={reminder}
-                onChange={(event) => {
-                  void setFestivalReminder(String(festival.id), event.target.value as ReminderType);
-                }}
-                disabled={!isAuthenticated}
-                className="border-black/[0.12] bg-white/95 focus:ring-[#ff4c1f]/20"
-              >
-                <option value="none">Без напомняне</option>
-                <option value="24h">24 часа по-рано</option>
-                <option value="same_day_09">В деня на събитието в 09:00</option>
-              </Select>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Кога да напомним</p>
+              <div className="space-y-2">
+                {reminderOptions.map((option) => {
+                  const active = reminder === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        if (!isAuthenticated) return;
+                        void setFestivalReminder(String(festival.id), option.value);
+                      }}
+                      disabled={!isAuthenticated}
+                      className={`w-full rounded-xl border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 disabled:cursor-not-allowed disabled:opacity-55 ${
+                        active
+                          ? "border-[#0c0e14]/80 bg-[#0c0e14] text-white"
+                          : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]"
+                      }`}
+                      aria-pressed={active}
+                    >
+                      <span className="block text-sm font-semibold">{option.label}</span>
+                      <span className={`mt-0.5 block text-xs ${active ? "text-white/80" : "text-black/50"}`}>{option.helper}</span>
+                    </button>
+                  );
+                })}
+              </div>
               {!isAuthenticated ? (
                 <p className="mt-2 text-xs text-black/55">
                   Влез, за да ползваш план и напомняния.{" "}
@@ -562,9 +577,7 @@ export default function FestivalDetailClient({
               )}
             </div>
 
-            {festivalInPlan ? (
-              <p className="mt-3 text-xs font-medium text-emerald-800/90">Фестивалът е в моя план.</p>
-            ) : null}
+            {festivalInPlan ? <p className="mt-3 text-xs font-medium text-emerald-800/90">Вече е добавен в моя план.</p> : null}
             {festivalPlanError ? <p className="mt-2 text-xs text-red-700">{festivalPlanError}</p> : null}
 
             <div className="mt-5 border-t border-black/[0.08] pt-5">

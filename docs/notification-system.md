@@ -64,6 +64,7 @@
 ## Таблици
 
 - `device_tokens` — `platform`, `invalidated_at` при невалиден FCM токен (NotRegistered, InvalidRegistration, MismatchSenderId, InvalidPackageName и подобни).
+- Mobile push token registration: `POST /api/push/register` (writes to `device_tokens` under authenticated user).
 - `user_notification_settings` — `push_enabled`, `only_saved`, `quiet_hours_*`, `region_slugs` (за уикенд регион).
 - `notification_jobs`, `notification_logs` — `scripts/sql/20260326_notification_jobs_mvp.sql` + `scripts/sql/20260326_notification_jobs_hardening.sql`.
 

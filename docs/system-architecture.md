@@ -35,7 +35,7 @@ This repo includes worker helper logic in `workers/ingest_fb_event.js` for:
 | `/api/auth/*`, `/api/admin/auth/*` | 5 / 60s |
 | `/api/admin/research-ai` | 10 / 60s |
 | `/api/jobs/*`, `/api/notifications/*` | 10 / 60s (unless bypassed) |
-| `/api/plan/*`, `/api/follow/*`, `POST /api/device-token`, `POST /api/notification-settings` | 30 / 60s |
+| `/api/plan/*`, `/api/follow/*`, `POST /api/device-token`, `POST /api/push/register`, `POST /api/notification-settings` | 30 / 60s |
 | other `POST /api/*` | 20 / 10s |
 
 Limited responses: **429** with `Retry-After` (seconds).

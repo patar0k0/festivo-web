@@ -9,11 +9,17 @@ type FocusCoords = {
   zoom?: number;
 };
 
+type UserCoords = {
+  lat: number;
+  lng: number;
+};
+
 type MapViewClientProps = {
   festivals: Festival[];
   selectedFestivalId: string | number | null;
   onSelectFestival: (festival: Festival) => void;
   focusCoords: FocusCoords | null;
+  userCoords: UserCoords | null;
   resetViewToken: number;
 };
 

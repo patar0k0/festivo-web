@@ -15,11 +15,17 @@ type FocusCoords = {
   zoom?: number;
 };
 
+type UserCoords = {
+  lat: number;
+  lng: number;
+};
+
 type MapViewProps = {
   festivals: Festival[];
   selectedFestivalId: string | number | null;
   onSelectFestival: (festival: Festival) => void;
   focusCoords: FocusCoords | null;
+  userCoords: UserCoords | null;
   resetViewToken: number;
 };
 
@@ -33,11 +39,19 @@ const icon = new L.Icon({
   iconAnchor: [12, 41],
 });
 
+const userIcon = L.divIcon({
+  html: '<span style="display:block;width:14px;height:14px;border-radius:9999px;background:#2d7dff;border:2px solid #ffffff;box-shadow:0 0 0 2px rgba(45,125,255,0.35);"></span>',
+  className: "festivo-user-location-marker",
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
 export default function MapView({
   festivals,
   selectedFestivalId,
   onSelectFestival,
   focusCoords,
+  userCoords,
   resetViewToken,
 }: MapViewProps) {
   const [hasMoved, setHasMoved] = useState(false);
@@ -95,6 +109,13 @@ export default function MapView({
             </Popup>
           </Marker>
         ))}
+        {userCoords ? (
+          <Marker position={[userCoords.lat, userCoords.lng]} icon={userIcon}>
+            <Popup>
+              <p className="text-sm font-semibold">Ти си тук</p>
+            </Popup>
+          </Marker>
+        ) : null}
       </MapContainer>
       {hasMoved ? (
         <button

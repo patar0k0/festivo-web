@@ -29,6 +29,11 @@ type FocusCoords = {
   zoom?: number;
 };
 
+type UserCoords = {
+  lat: number;
+  lng: number;
+};
+
 const COPY = {
   title: "Карта на фестивалите",
   subtitle: "Виж какво има около теб и филтрирай по град, дата и категория.",
@@ -42,7 +47,8 @@ const COPY = {
   resetView: "Reset view",
   resetFilters: "Reset filters",
   clear: "Изчисти",
-  geoDenied: "Разреши локация, за да центрираме картата.",
+  locationActive: "📍 Показваме ти събития около теб",
+  geoDenied: "Не можем да вземем локацията ти. Показваме ти популярни събития.",
 };
 
 const FILTER_PARAM_KEYS = ["city", "region", "from", "to", "cat", "free", "sort", "month", "q", "search", "radius", "page"];
@@ -59,12 +65,41 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
 
   const [selectedFestivalId, setSelectedFestivalId] = useState<string | number | null>(null);
   const [focusCoords, setFocusCoords] = useState<FocusCoords | null>(null);
+  const [userCoords, setUserCoords] = useState<UserCoords | null>(null);
   const [resetViewToken, setResetViewToken] = useState(0);
   const [geoMessage, setGeoMessage] = useState<string | null>(null);
 
+  const festivalsSortedByDistance = useMemo(() => {
+    if (!userCoords) return festivals;
+
+    const distanceKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+      const toRadians = (value: number) => (value * Math.PI) / 180;
+      const earthRadiusKm = 6371;
+      const dLat = toRadians(lat2 - lat1);
+      const dLng = toRadians(lng2 - lng1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      return earthRadiusKm * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    };
+
+    return [...festivals].sort((a, b) => {
+      const aHasCoords = a.lat != null && a.lng != null;
+      const bHasCoords = b.lat != null && b.lng != null;
+
+      if (!aHasCoords && !bHasCoords) return 0;
+      if (!aHasCoords) return 1;
+      if (!bHasCoords) return -1;
+
+      const distanceA = distanceKm(userCoords.lat, userCoords.lng, a.lat as number, a.lng as number);
+      const distanceB = distanceKm(userCoords.lat, userCoords.lng, b.lat as number, b.lng as number);
+      return distanceA - distanceB;
+    });
+  }, [festivals, userCoords]);
+
   const mapPoints = useMemo(
-    () => festivals.filter((festival) => festival.lat != null && festival.lng != null),
-    [festivals]
+    () => festivalsSortedByDistance.filter((festival) => festival.lat != null && festival.lng != null),
+    [festivalsSortedByDistance]
   );
 
   const today = new Date();
@@ -171,6 +206,7 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
       (position) => {
         setGeoMessage(null);
         const coords = { lat: position.coords.latitude, lng: position.coords.longitude, zoom: 11 };
+        setUserCoords({ lat: coords.lat, lng: coords.lng });
         setFocusCoords(coords);
 
         if (searchParams.has("radius")) {
@@ -180,7 +216,10 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
           });
         }
       },
-      () => setGeoMessage(COPY.geoDenied),
+      () => {
+        setUserCoords(null);
+        setGeoMessage(COPY.geoDenied);
+      },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
@@ -320,7 +359,7 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
                   </div>
                   <div className="max-h-[calc(100vh-25rem)] overflow-y-auto rounded-2xl border border-black/[0.08] bg-white/80 p-3 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur">
                     <MapResultsList
-                      festivals={festivals}
+                      festivals={festivalsSortedByDistance}
                       selectedFestivalId={selectedFestivalId}
                       onSelectFestival={onSelectFestival}
                     />
@@ -352,12 +391,16 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white/80 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur xl:sticky xl:top-[84px]">
+                  {userCoords ? (
+                    <div className="border-b border-black/[0.08] px-4 py-2.5 text-xs font-medium text-black/65">{COPY.locationActive}</div>
+                  ) : null}
                   <div className="h-[58vh] min-h-[360px] md:h-[62vh] xl:h-[calc(100vh-10.5rem)]">
                     <MapViewClient
                       festivals={mapPoints}
                       selectedFestivalId={selectedFestivalId}
                       onSelectFestival={onSelectFestival}
                       focusCoords={focusCoords}
+                      userCoords={userCoords}
                       resetViewToken={resetViewToken}
                     />
                   </div>
@@ -370,7 +413,7 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
                     </summary>
                     <div className="mt-3 max-h-[50vh] overflow-y-auto">
                       <MapResultsList
-                        festivals={festivals}
+                        festivals={festivalsSortedByDistance}
                         selectedFestivalId={selectedFestivalId}
                         onSelectFestival={onSelectFestival}
                       />
@@ -383,7 +426,7 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
             <div className="lg:hidden">
               <MapMobileResultsSheet count={festivals.length}>
                 <MapResultsList
-                  festivals={festivals}
+                  festivals={festivalsSortedByDistance}
                   selectedFestivalId={selectedFestivalId}
                   onSelectFestival={onSelectFestival}
                 />

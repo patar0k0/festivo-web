@@ -47,11 +47,17 @@ const COPY = {
   resetView: "Reset view",
   resetFilters: "Reset filters",
   clear: "Изчисти",
-  locationActive: "📍 Показваме ти събития около теб",
+  locationActive: "Показваме събития около теб",
   geoDenied: "Не можем да вземем локацията ти. Показваме ти популярни събития.",
 };
 
 const FILTER_PARAM_KEYS = ["city", "region", "from", "to", "cat", "free", "sort", "month", "q", "search", "radius", "page"];
+
+function parseUrlCoord(value: string | null) {
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 function paramsWithPageReset(params: URLSearchParams) {
   params.delete("page");
@@ -63,9 +69,18 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const initialUserCoords = useMemo(() => {
+    const lat = parseUrlCoord(searchParams.get("userLat"));
+    const lng = parseUrlCoord(searchParams.get("userLng"));
+    if (lat == null || lng == null) return null;
+    return { lat, lng };
+  }, [searchParams]);
+
   const [selectedFestivalId, setSelectedFestivalId] = useState<string | number | null>(null);
-  const [focusCoords, setFocusCoords] = useState<FocusCoords | null>(null);
-  const [userCoords, setUserCoords] = useState<UserCoords | null>(null);
+  const [focusCoords, setFocusCoords] = useState<FocusCoords | null>(
+    initialUserCoords ? { ...initialUserCoords, zoom: 11 } : null
+  );
+  const [userCoords, setUserCoords] = useState<UserCoords | null>(initialUserCoords);
   const [resetViewToken, setResetViewToken] = useState(0);
   const [geoMessage, setGeoMessage] = useState<string | null>(null);
 

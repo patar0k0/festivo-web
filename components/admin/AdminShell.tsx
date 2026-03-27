@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AdminTopNav from "@/components/admin/AdminTopNav";
+import BuildStamp from "@/app/_components/BuildStamp";
 
 export default function AdminShell({ children, email }: { children: React.ReactNode; email?: string | null }) {
   return (
@@ -10,6 +11,7 @@ export default function AdminShell({ children, email }: { children: React.ReactN
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Festivo админ</p>
               <p className="text-sm text-black/60">{email ?? "admin"}</p>
+              <BuildStamp compact />
             </div>
             <Link
               href="/"

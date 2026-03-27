@@ -29,6 +29,7 @@ type RealHomePageProps = {
   weekendFestivals: Festival[];
   /** Градове от фестивалите в базата (име + стойност за филтър). */
   homeCityOptions: CityItem[];
+  selectedCityName?: string | null;
   quickChipHrefs: QuickChipHrefs;
 };
 
@@ -92,6 +93,7 @@ export default function RealHomePage({
   nearestFestivals,
   weekendFestivals,
   homeCityOptions,
+  selectedCityName,
   quickChipHrefs,
 }: RealHomePageProps) {
   const footerCities = homeCityOptions.slice(0, 8);
@@ -132,6 +134,7 @@ export default function RealHomePage({
                   <CitySelectClient
                     cities={homeCityOptions.map((city) => ({
                       name: city.name,
+                      slug: city.slug,
                       filterValue: city.filterValue,
                     }))}
                   />
@@ -153,6 +156,12 @@ export default function RealHomePage({
 
               <QuickChipsClient chips={chips} />
             </section>
+
+            {selectedCityName ? (
+              <section className="rounded-2xl border border-[#ff4c1f]/25 bg-[#fff4ef] px-5 py-3 text-sm font-semibold text-[#7b2d1a] md:px-6">
+                Показваме фестивали в {selectedCityName}
+              </section>
+            ) : null}
 
             <EventsSection id="nearest-festivals" title="Предстоящи" festivals={nearestFestivals} />
             <EventsSection title="Този уикенд" festivals={weekendFestivals} />

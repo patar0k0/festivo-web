@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 type CitySelectClientProps = {
-  cities: Array<{ name: string; filterValue: string }>;
+  cities: Array<{ name: string; slug: string | null; filterValue: string }>;
 };
 
 type MenuPosition = {
@@ -93,8 +93,9 @@ export default function CitySelectClient({ cities }: CitySelectClientProps) {
     };
   }, [open]);
 
-  const onSelect = (filterValue: string) => {
-    router.push(`/festivals?city=${encodeURIComponent(filterValue)}`);
+  const onSelect = (city: { slug: string | null; filterValue: string }) => {
+    const cityParam = city.slug ?? city.filterValue;
+    router.push(`/?city=${encodeURIComponent(cityParam)}#nearest-festivals`);
     setOpen(false);
   };
 
@@ -118,7 +119,7 @@ export default function CitySelectClient({ cities }: CitySelectClientProps) {
             key={city.filterValue}
             type="button"
             role="menuitem"
-            onClick={() => onSelect(city.filterValue)}
+            onClick={() => onSelect(city)}
             className="block w-full rounded-xl px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:bg-[#f7f6f3]"
           >
             {city.name}

@@ -34,14 +34,16 @@ type RealHomePageProps = {
 const CATEGORY_KEYS = ["folk", "jazz", "food", "art"] as const;
 
 function EventsSection({
+  id,
   title,
   festivals,
 }: {
+  id?: string;
   title: string;
   festivals: Festival[];
 }) {
   return (
-    <section className="space-y-4">
+    <section id={id} className="scroll-mt-24 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-2xl font-black tracking-tight text-[#0c0e14]">
           {title}
@@ -103,7 +105,7 @@ export default function RealHomePage({
   ];
 
   return (
-    <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
+    <div className="landing-bg overflow-x-hidden pb-24 text-[#0c0e14] md:pb-0">
       <Section className="overflow-x-clip bg-transparent pb-10 pt-24 md:pb-12 md:pt-28">
         <Container>
           <div className="space-y-7 lg:space-y-10">
@@ -125,7 +127,7 @@ export default function RealHomePage({
 
               <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-center">
                 <Link
-                  href="/map"
+                  href="#nearest-festivals"
                   className="rounded-2xl border border-[#ff4c1f]/30 bg-[#ff4c1f] px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#f24318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
                   Открий около мен
@@ -156,7 +158,7 @@ export default function RealHomePage({
               <QuickChipsClient chips={chips} />
             </section>
 
-            <EventsSection title="Най-близки" festivals={nearestFestivals} />
+            <EventsSection id="nearest-festivals" title="Най-близки" festivals={nearestFestivals} />
             <EventsSection title="Този уикенд" festivals={weekendFestivals} />
 
             <section className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur md:p-6">
@@ -188,6 +190,14 @@ export default function RealHomePage({
           </div>
         </Container>
       </Section>
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.08] bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(12,14,20,0.12)] backdrop-blur md:hidden">
+        <Link
+          href="#nearest-festivals"
+          className="block w-full rounded-2xl border border-[#ff4c1f]/30 bg-[#ff4c1f] px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#f24318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+        >
+          Открий около мен
+        </Link>
+      </div>
     </div>
   );
 }

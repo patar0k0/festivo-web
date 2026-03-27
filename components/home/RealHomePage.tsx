@@ -56,7 +56,10 @@ function EventsSection({
 
       {festivals.length === 0 ? (
         <div className="rounded-2xl border border-black/[0.08] bg-white/80 px-6 py-10 text-center text-sm text-black/60">
-          Няма налични фестивали за тази секция.
+          <p>Няма фестивали за тази секция.</p>
+          <Link href="/festivals" className="mt-2 inline-block font-semibold text-[#0c0e14] underline underline-offset-4">
+            Виж следващите събития →
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:gap-6">
@@ -110,11 +113,13 @@ export default function RealHomePage({
                   Festivo Preview
                 </p>
                 <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">
-                  Намери следващия си фестивал
+                  Открий безплатни фестивали в България
                 </h1>
                 <p className="mt-2 text-sm text-black/65 md:text-[15px]">
-                  Бързо избери локация и дата, за да видиш най-актуалните
-                  събития.
+                  Бързо намери събития по град, дата и интерес.
+                </p>
+                <p className="mt-2 text-xs text-black/45 md:text-sm">
+                  Събития от организатори и проверени публични източници
                 </p>
               </div>
 

@@ -75,6 +75,23 @@ function getSignalTag(isFree?: boolean | null, startDate?: string | null) {
   return null;
 }
 
+function getUrgencyTag(startDate?: string | null) {
+  if (!startDate) return null;
+  const parsed = new Date(startDate);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const start = new Date(parsed);
+  start.setHours(0, 0, 0, 0);
+
+  const diffInDays = Math.round((start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffInDays === 0) return "Днес";
+  if (diffInDays === 1) return "Утре";
+  return null;
+}
+
 function categoryLabel(category?: string | null): string | null {
   if (!category) return null;
 
@@ -113,6 +130,7 @@ export default function EventCard({
   const snippet = description?.trim();
   const categoryText = categoryLabel(category);
   const signalTag = getSignalTag(isFree, startDate);
+  const urgencyTag = getUrgencyTag(startDate);
 
   return (
     <Card className="group flex h-full flex-col overflow-hidden border border-black/[0.09] bg-white/90 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_28px_rgba(12,14,20,0.07)] transition-all duration-200 hover:-translate-y-1 hover:border-black/[0.16] hover:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)] focus-within:-translate-y-1 focus-within:border-black/[0.16] focus-within:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)]">
@@ -209,11 +227,18 @@ export default function EventCard({
           </h3>
         </div>
 
-        {signalTag ? (
+        {urgencyTag || signalTag ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-black/[0.08] bg-black/[0.03] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-black/65">
-              {signalTag}
-            </span>
+            {urgencyTag ? (
+              <span className="rounded-full border border-black/[0.08] bg-black/[0.03] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-black/65">
+                {urgencyTag}
+              </span>
+            ) : null}
+            {signalTag ? (
+              <span className="rounded-full border border-black/[0.08] bg-black/[0.03] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-black/65">
+                {signalTag}
+              </span>
+            ) : null}
           </div>
         ) : null}
 

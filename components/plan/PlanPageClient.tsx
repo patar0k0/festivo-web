@@ -181,7 +181,9 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
       const start = parseDateOnly(festival.start_date);
       const end = parseDateOnly(festival.end_date ?? festival.start_date);
       if (!start && !end) return false;
-      return (end ?? start) >= today;
+      const compareDate = end ?? start;
+      if (!compareDate) return false;
+      return compareDate >= today;
     });
   }, [festivalEntries]);
 

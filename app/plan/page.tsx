@@ -46,12 +46,14 @@ export default async function PlanPage() {
     city: string | null;
     start_date: string | null;
     end_date: string | null;
+    hero_image: string | null;
+    image_url: string | null;
   }> = [];
 
   if (festivalIds.length) {
     const { data: festivalRows } = await supabase
       .from("festivals")
-      .select("id,slug,title,city,start_date,end_date,cities:cities!left(name_bg,is_village)")
+      .select("id,slug,title,city,start_date,end_date,hero_image,image_url,cities:cities!left(name_bg,is_village)")
       .in("id", festivalIds);
 
     festivals = (festivalRows ?? []).map((row) => {
@@ -66,6 +68,8 @@ export default async function PlanPage() {
           (row.city ? fixMojibakeBG(row.city) : null),
         start_date: row.start_date,
         end_date: row.end_date,
+        hero_image: row.hero_image ?? null,
+        image_url: row.image_url ?? null,
       };
     });
   }

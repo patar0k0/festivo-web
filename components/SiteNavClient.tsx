@@ -6,11 +6,13 @@ import { useState } from "react";
 
 type SiteNavClientProps = {
   isAuthenticated: boolean;
+  isAdmin: boolean;
   userEmail: string | null;
 };
 
 export default function SiteNavClient({
   isAuthenticated,
+  isAdmin,
   userEmail,
 }: SiteNavClientProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -141,6 +143,15 @@ export default function SiteNavClient({
                     >
                       Профил
                     </Link>
+                    {isAdmin ? (
+                      <Link
+                        href="/admin"
+                        onClick={closeMenu}
+                        className="block text-base font-semibold text-black/75 transition hover:text-[#0c0e14]"
+                      >
+                        Админ панел
+                      </Link>
+                    ) : null}
                     {userEmail ? (
                       <p className="mt-1 break-all text-sm font-medium text-black/45">
                         {userEmail}
@@ -192,6 +203,11 @@ export default function SiteNavClient({
             <Link href="/profile" className="transition hover:text-[#0c0e14]">
               Профил
             </Link>
+            {isAdmin ? (
+              <Link href="/admin" className="transition hover:text-[#0c0e14]">
+                Админ
+              </Link>
+            ) : null}
           </>
         ) : (
           <Link href="/login" className="transition hover:text-[#0c0e14]">

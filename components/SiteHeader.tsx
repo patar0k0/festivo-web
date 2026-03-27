@@ -8,8 +8,19 @@ export default async function SiteHeader() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const isAuthenticated = Boolean(user?.id);
   const userEmail = user?.email ?? null;
-  const isAuthenticated = Boolean(userEmail);
+  let isAdmin = false;
+
+  if (user?.id) {
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    isAdmin = Boolean(roleRow);
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#f5f4f0]/90 backdrop-blur-xl">
@@ -17,7 +28,7 @@ export default async function SiteHeader() {
         <Link href="/" className="text-lg font-semibold tracking-tight text-[#0c0e14]">
           <span className="font-[var(--font-display)] text-2xl">Festivo</span>
         </Link>
-        <SiteNavClient isAuthenticated={isAuthenticated} userEmail={userEmail} />
+        <SiteNavClient isAuthenticated={isAuthenticated} isAdmin={isAdmin} userEmail={userEmail} />
       </Container>
     </header>
   );

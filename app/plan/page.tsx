@@ -11,6 +11,13 @@ import "../landing.css";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+function parseDateSafe(value: string | null) {
+  if (!value) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
 export default async function PlanPage() {
   noStore();
   const user = await getOptionalUser();
@@ -29,16 +36,7 @@ export default async function PlanPage() {
     );
   }
 
-  let isAdmin = false;
   const supabase = await createSupabaseServerClient();
-  const { data: roleRow } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", user.id)
-    .eq("role", "admin")
-    .maybeSingle();
-  isAdmin = Boolean(roleRow);
-
   const [entries, planState] = await Promise.all([getPlanEntriesByUser(), getPlanStateByUser()]);
   const festivalIds = Array.from(new Set(planState.festivalIds.map(String)));
   let festivals: Array<{
@@ -72,26 +70,34 @@ export default async function PlanPage() {
     });
   }
 
+  const activeReminderCount = Object.values(planState.reminders).filter((reminder) => reminder !== "none").length;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const nextUpcomingFestival =
+    festivals
+      .map((festival) => ({ ...festival, parsedStartDate: parseDateSafe(festival.start_date) }))
+      .filter((festival) => festival.parsedStartDate && festival.parsedStartDate >= today)
+      .sort((a, b) => a.parsedStartDate!.getTime() - b.parsedStartDate!.getTime())[0] ?? null;
+
   return (
     <div className="landing-bg min-h-screen px-4 py-8 text-[#0c0e14] md:px-6 md:py-10">
-      <div className="mx-auto w-full max-w-[1100px] space-y-5">
-        <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-          <h1 className="text-3xl font-black tracking-tight">Моят план</h1>
-          <p className="mt-2 text-sm text-black/65">
-            <span className="font-semibold text-black/75">Запазени фестивали</span> — цели събития и напомняния.{" "}
-            <span className="font-semibold text-black/75">Програма</span> — конкретни часове, които си избрал от графика.
-          </p>
-          {isAdmin ? (
-            <Link
-              href="/admin"
-              className="mt-4 inline-flex rounded-xl border border-black/[0.14] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:bg-black/[0.04]"
-            >
-              Админ панел
-            </Link>
-          ) : null}
-        </div>
-
-        <PlanPageClient entries={entries} festivals={festivals} />
+      <div className="mx-auto w-full max-w-[1100px]">
+        <PlanPageClient
+          entries={entries}
+          festivals={festivals}
+          summary={{
+            savedFestivalCount: festivalIds.length,
+            activeReminderCount,
+            nextUpcomingFestival: nextUpcomingFestival
+              ? {
+                  title: nextUpcomingFestival.title,
+                  startDate: nextUpcomingFestival.start_date,
+                  endDate: nextUpcomingFestival.end_date,
+                }
+              : null,
+          }}
+        />
       </div>
     </div>
   );

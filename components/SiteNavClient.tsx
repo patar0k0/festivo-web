@@ -203,11 +203,6 @@ export default function SiteNavClient({
             <Link href="/profile" className="transition hover:text-[#0c0e14]">
               Профил
             </Link>
-            {isAdmin ? (
-              <Link href="/admin" className="transition hover:text-[#0c0e14]">
-                Админ
-              </Link>
-            ) : null}
           </>
         ) : (
           <Link href="/login" className="transition hover:text-[#0c0e14]">

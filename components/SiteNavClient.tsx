@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { useRef } from "react";
 import { useState } from "react";
 
 type SiteNavClientProps = {
@@ -16,8 +17,11 @@ export default function SiteNavClient({
   userEmail,
 }: SiteNavClientProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const closeMenu = () => setIsOpen(false);
+  const closeProfileMenu = () => setIsProfileMenuOpen(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -27,6 +31,7 @@ export default function SiteNavClient({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         closeMenu();
+        closeProfileMenu();
       }
     };
 
@@ -43,6 +48,17 @@ export default function SiteNavClient({
       document.documentElement.style.overflow = "";
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isProfileMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        closeProfileMenu();
+      }
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [isProfileMenuOpen]);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") {
@@ -130,18 +146,18 @@ export default function SiteNavClient({
                 {isAuthenticated ? (
                   <div className="space-y-5">
                     <Link
-                      href="/plan"
-                      onClick={closeMenu}
-                      className="block text-base font-semibold text-black/75 transition hover:text-[#0c0e14]"
-                    >
-                      Моят план
-                    </Link>
-                    <Link
                       href="/profile"
                       onClick={closeMenu}
                       className="block text-base font-semibold text-black/75 transition hover:text-[#0c0e14]"
                     >
                       Профил
+                    </Link>
+                    <Link
+                      href="/plan"
+                      onClick={closeMenu}
+                      className="block text-base font-semibold text-black/75 transition hover:text-[#0c0e14]"
+                    >
+                      Моят план
                     </Link>
                     {isAdmin ? (
                       <Link
@@ -196,25 +212,49 @@ export default function SiteNavClient({
           Карта
         </Link>
         {isAuthenticated ? (
-          <>
-            <Link href="/plan" className="transition hover:text-[#0c0e14]">
-              Моят план
-            </Link>
-            <Link href="/profile" className="transition hover:text-[#0c0e14]">
-              Профил
-            </Link>
-          </>
+          <Link href="/plan" className="transition hover:text-[#0c0e14]">
+            Моят план
+          </Link>
         ) : (
           <Link href="/login" className="transition hover:text-[#0c0e14]">
             Вход
           </Link>
         )}
         {isAuthenticated ? (
-          <form action="/api/auth/logout" method="post">
-            <button type="submit" className="transition hover:text-[#0c0e14]">
-              Изход
+          <div ref={profileMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+              aria-expanded={isProfileMenuOpen}
+              aria-haspopup="menu"
+              className="inline-flex items-center gap-2 rounded-full border border-black/[0.12] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-black/70 transition hover:border-black/[0.18] hover:text-[#0c0e14]"
+            >
+              Профил
             </button>
-          </form>
+            {isProfileMenuOpen ? (
+              <div className="absolute right-0 top-[calc(100%+0.55rem)] z-40 min-w-[13rem] rounded-2xl border border-black/[0.09] bg-white p-1.5 shadow-[0_16px_36px_rgba(12,14,20,0.14)]">
+                <div className="space-y-0.5 text-[11px] font-semibold uppercase tracking-[0.13em] text-black/75">
+                  <Link href="/profile" onClick={closeProfileMenu} className="block rounded-xl px-3 py-2 transition hover:bg-black/[0.04] hover:text-[#0c0e14]">
+                    Профил
+                  </Link>
+                  <Link href="/plan" onClick={closeProfileMenu} className="block rounded-xl px-3 py-2 transition hover:bg-black/[0.04] hover:text-[#0c0e14]">
+                    Моят план
+                  </Link>
+                  {isAdmin ? (
+                    <Link href="/admin" onClick={closeProfileMenu} className="block rounded-xl px-3 py-2 transition hover:bg-black/[0.04] hover:text-[#0c0e14]">
+                      Админ панел
+                    </Link>
+                  ) : null}
+                  <form action="/api/auth/logout" method="post">
+                    <button type="submit" className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-black/[0.04] hover:text-[#0c0e14]">
+                      Изход
+                    </button>
+                  </form>
+                </div>
+                {userEmail ? <p className="mt-1 break-all px-3 pb-1 text-[10px] font-medium normal-case tracking-normal text-black/45">{userEmail}</p> : null}
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </nav>
     </>

@@ -15,6 +15,8 @@ type PlanPageClientProps = {
     city: string | null;
     start_date: string | null;
     end_date: string | null;
+    hero_image: string | null;
+    image_url: string | null;
   }>;
   summary: {
     savedFestivalCount: number;
@@ -50,24 +52,68 @@ function formatDateRange(startDate: string | null, endDate: string | null) {
 }
 
 function parseDateOnly(value: string | null) {
-  if (!value) return null;
-  const parsed = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  return value;
+}
+
+function getSofiaTodayDateString() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Sofia",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) return null;
+  return `${year}-${month}-${day}`;
+}
+
+function dateOnlyToUtcMs(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return Date.UTC(year, month - 1, day);
+}
+
+function getFestivalCardImage(festival: { hero_image: string | null; image_url: string | null }) {
+  return festival.hero_image || festival.image_url || null;
+}
+
+function FestivalCardThumbnail({
+  imageUrl,
+  title,
+}: {
+  imageUrl: string | null;
+  title: string;
+}) {
+  if (imageUrl) {
+    return (
+      <div className="h-20 w-full overflow-hidden rounded-2xl border border-black/[0.08] bg-black/[0.03] sm:h-24 sm:w-36 sm:shrink-0">
+        <img src={imageUrl} alt={title} className="h-full w-full object-cover" loading="lazy" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-20 w-full items-center justify-center rounded-2xl border border-black/[0.08] bg-gradient-to-br from-[#f7f6f2] via-white to-[#eeece6] sm:h-24 sm:w-36 sm:shrink-0">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/35">Festivo</span>
+    </div>
+  );
 }
 
 function getFestivalStatusBadge(startDate: string | null) {
   const start = parseDateOnly(startDate);
   if (!start) return null;
 
-  const now = new Date();
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const diffDays = Math.floor((start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const today = getSofiaTodayDateString();
+  if (!today) return null;
+  const diffDays = Math.floor((dateOnlyToUtcMs(start) - dateOnlyToUtcMs(today)) / (1000 * 60 * 60 * 24));
 
   if (diffDays === 0) return "Днес";
   if (diffDays > 0 && diffDays <= 7) return "Тази седмица";
-  if (diffDays > 7 && diffDays <= 30) return "Скоро";
+  if (diffDays > 7) return "Скоро";
   return null;
 }
 
@@ -129,13 +175,13 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
     [festivals, isFestivalInPlan]
   );
   const hasUpcomingFestivals = useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    const today = getSofiaTodayDateString();
+    if (!today) return false;
     return festivalEntries.some((festival) => {
       const start = parseDateOnly(festival.start_date);
       const end = parseDateOnly(festival.end_date ?? festival.start_date);
       if (!start && !end) return false;
-      return (end ?? start!) >= now;
+      return (end ?? start) >= today;
     });
   }, [festivalEntries]);
 
@@ -166,18 +212,18 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
           </div>
         </section>
 
-        <div className="rounded-2xl border border-black/[0.08] bg-white/90 px-6 py-12 text-center shadow-[0_2px_0_rgba(12,14,20,0.05),0_14px_28px_rgba(12,14,20,0.09)] md:px-8">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-black/[0.08] bg-[#f6f5f2] text-2xl" aria-hidden>
-            ✨
+        <div className="rounded-3xl border border-black/[0.08] bg-gradient-to-b from-white via-white to-[#f7f6f2] px-6 py-14 text-center shadow-[0_2px_0_rgba(12,14,20,0.05),0_22px_40px_rgba(12,14,20,0.08)] md:px-10 md:py-16">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-black/[0.08] bg-white shadow-[0_8px_20px_rgba(12,14,20,0.08)]" aria-hidden>
+            <span className="text-2xl">✦</span>
           </div>
-          <p className="mt-4 text-lg font-semibold text-[#0c0e14]">Още няма запазени фестивали</p>
-          <p className="mt-2 text-sm leading-relaxed text-black/55">
-            Когато запазиш фестивал, тук ще виждаш бърз преглед, напомняния и преки действия към програмата.
+          <p className="mt-5 text-2xl font-semibold tracking-tight text-[#0c0e14]">Все още нямаш запазени фестивали</p>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-black/55 md:text-[15px]">
+            Разгледай фестивалите и запази тези, които искаш да посетиш.
           </p>
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
             <Link
               href="/festivals"
-              className="inline-flex rounded-xl bg-[#0c0e14] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white"
+              className="inline-flex rounded-xl bg-[#0c0e14] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white shadow-[0_10px_24px_rgba(12,14,20,0.24)]"
             >
               Разгледай фестивали
             </Link>
@@ -185,7 +231,7 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
               href="/map"
               className="inline-flex rounded-xl border border-black/[0.14] bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#0c0e14] transition hover:bg-black/[0.03]"
             >
-              Към картата
+              Отвори карта
             </Link>
           </div>
         </div>
@@ -236,15 +282,18 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
                           {festival.city ?? "България"}
                         </span>
                         {statusBadge ? (
-                          <span className="inline-flex items-center rounded-full bg-black/5 px-3 py-1 text-[11px] font-medium text-black/70">{statusBadge}</span>
+                          <span className="inline-flex items-center rounded-full border border-black/[0.09] bg-black/[0.03] px-3 py-1 text-[11px] font-medium text-black/70">{statusBadge}</span>
                         ) : null}
                       </div>
                       <div className="text-sm font-medium text-black/60">{formatDateRange(festival.start_date, festival.end_date)}</div>
                     </div>
-                    <div className="space-y-1.5">
-                      <h3 className="text-xl font-semibold tracking-tight text-black">{festival.title}</h3>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-black/60">
-                        <span>{reminder === "none" ? "Без активно напомняне" : reminder === "24h" ? "Напомняне 24 часа преди началото" : "Напомняне в деня на събитието"}</span>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                      <FestivalCardThumbnail imageUrl={getFestivalCardImage(festival)} title={festival.title} />
+                      <div className="space-y-1.5">
+                        <h3 className="text-xl font-semibold tracking-tight text-black">{festival.title}</h3>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-black/60">
+                          <span>{reminder === "none" ? "Без активно напомняне" : reminder === "24h" ? "Напомняне 24 часа преди началото" : "Напомняне в деня на събитието"}</span>
+                        </div>
                       </div>
                     </div>
                     <div className="flex flex-col gap-3 border-t border-black/[0.08] pt-4 sm:flex-row sm:items-center sm:justify-between">

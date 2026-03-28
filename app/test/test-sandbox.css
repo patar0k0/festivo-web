@@ -1,0 +1,57 @@
+/* /test UI sandbox only — scoped to [data-home-sandbox] */
+
+[data-home-sandbox].test-sandbox-shell.landing-bg {
+  --sandbox-hero-text: #f1f5f9;
+  --sandbox-hero-muted: rgba(241, 245, 249, 0.72);
+  --sandbox-hero-faint: rgba(241, 245, 249, 0.48);
+  background:
+    radial-gradient(ellipse 140% 80% at 0% -20%, rgba(139, 92, 246, 0.45), transparent 55%),
+    radial-gradient(ellipse 100% 60% at 100% 0%, rgba(244, 63, 94, 0.22), transparent 50%),
+    radial-gradient(ellipse 80% 50% at 50% 110%, rgba(56, 189, 248, 0.12), transparent 55%),
+    linear-gradient(165deg, #07070a 0%, #0f0d14 40%, #0a0a0f 100%);
+  color: var(--sandbox-hero-text);
+}
+
+[data-home-sandbox].test-sandbox-shell.landing-bg::before {
+  opacity: 0.035;
+}
+
+/* City select trigger — same markup as prod, sandbox-only look */
+[data-home-sandbox] button[aria-haspopup="menu"][aria-controls="city-menu"] {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #f8fafc;
+  backdrop-filter: blur(12px);
+}
+
+[data-home-sandbox] button[aria-haspopup="menu"][aria-controls="city-menu"]:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+/* Quick filter chips row (child links) */
+[data-home-sandbox] .sandbox-chip-wrap > div > a {
+  border-radius: 9999px;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #e2e8f0 !important;
+  letter-spacing: 0.06em;
+  backdrop-filter: blur(10px);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+[data-home-sandbox] .sandbox-chip-wrap > div > a:hover {
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Active chip (Tailwind uses bg-[#0c0e14]/12 on selected) */
+[data-home-sandbox] .sandbox-chip-wrap > div > a[class*="e14]/12"] {
+  border-color: rgba(167, 139, 250, 0.5) !important;
+  background: rgba(139, 92, 246, 0.28) !important;
+  color: #f5f3ff !important;
+}

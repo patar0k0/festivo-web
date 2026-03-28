@@ -21,8 +21,14 @@ function NewFestivalSubmissionInner() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [locationName, setLocationName] = useState("");
+  const [address, setAddress] = useState("");
+  const [category, setCategory] = useState("festival");
+  const [tagsInput, setTagsInput] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const [facebookUrl, setFacebookUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
   const [ticketUrl, setTicketUrl] = useState("");
+  const [heroImageUrl, setHeroImageUrl] = useState("");
   const [isFree, setIsFree] = useState(true);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -59,6 +65,10 @@ function NewFestivalSubmissionInner() {
     setError("");
     setBusy(true);
     try {
+      const tags = tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
       const res = await fetch("/api/organizer/pending-festivals", {
         method: "POST",
         credentials: "include",
@@ -69,10 +79,16 @@ function NewFestivalSubmissionInner() {
           description,
           city,
           start_date: startDate,
-          end_date: endDate || null,
+          end_date: endDate.trim() ? endDate : null,
           location_name: locationName || null,
+          address: address || null,
+          category: category.trim() || "festival",
+          tags,
           website_url: websiteUrl || null,
+          facebook_url: facebookUrl || null,
+          instagram_url: instagramUrl || null,
           ticket_url: ticketUrl || null,
+          hero_image: heroImageUrl || null,
           is_free: isFree,
         }),
       });
@@ -80,7 +96,7 @@ function NewFestivalSubmissionInner() {
       if (!res.ok) {
         throw new Error(payload?.error ?? "Грешка при подаване.");
       }
-      router.push("/organizer/submissions");
+      router.push("/organizer/submissions?submitted=1");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Неуспех.");
@@ -96,8 +112,8 @@ function NewFestivalSubmissionInner() {
           <Link href="/organizer/dashboard" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45 hover:text-[#0c0e14]">
             ← Табло
           </Link>
-          <h1 className="mt-4 font-[var(--font-display)] text-2xl font-bold">Ново фестивално подаване</h1>
-          <p className="mt-2 text-sm text-black/60">Данните отиват в опашката за модерация. Публикуването е след одобрение.</p>
+          <h1 className="mt-4 font-[var(--font-display)] text-2xl font-bold">Нов фестивал</h1>
+          <p className="mt-2 text-sm text-black/60">Подаването влиза в опашката за модерация. След одобрение фестивалът се публикува в каталога.</p>
           <div className="mt-6">
             <OrganizerPortalNav />
           </div>
@@ -154,10 +170,36 @@ function NewFestivalSubmissionInner() {
             />
           </label>
           <label className="block text-sm font-medium text-[#0c0e14]">
+            Категория
+            <input
+              value={category}
+              onChange={(ev) => setCategory(ev.target.value)}
+              placeholder="festival"
+              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block text-sm font-medium text-[#0c0e14]">
+            Тагове
+            <input
+              value={tagsInput}
+              onChange={(ev) => setTagsInput(ev.target.value)}
+              placeholder="отделени със запетая"
+              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block text-sm font-medium text-[#0c0e14]">
             Място / локация
             <input
               value={locationName}
               onChange={(ev) => setLocationName(ev.target.value)}
+              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block text-sm font-medium text-[#0c0e14]">
+            Адрес
+            <input
+              value={address}
+              onChange={(ev) => setAddress(ev.target.value)}
               className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
             />
           </label>
@@ -183,10 +225,40 @@ function NewFestivalSubmissionInner() {
             </label>
           </div>
           <label className="block text-sm font-medium text-[#0c0e14]">
+            Плакат / снимка (URL)
+            <input
+              value={heroImageUrl}
+              onChange={(ev) => setHeroImageUrl(ev.target.value)}
+              type="url"
+              placeholder="https://"
+              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block text-sm font-medium text-[#0c0e14]">
             Уебсайт
             <input
               value={websiteUrl}
               onChange={(ev) => setWebsiteUrl(ev.target.value)}
+              type="url"
+              placeholder="https://"
+              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block text-sm font-medium text-[#0c0e14]">
+            Facebook
+            <input
+              value={facebookUrl}
+              onChange={(ev) => setFacebookUrl(ev.target.value)}
+              type="url"
+              placeholder="https://"
+              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block text-sm font-medium text-[#0c0e14]">
+            Instagram
+            <input
+              value={instagramUrl}
+              onChange={(ev) => setInstagramUrl(ev.target.value)}
               type="url"
               placeholder="https://"
               className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"

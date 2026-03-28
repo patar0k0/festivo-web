@@ -88,7 +88,7 @@ export default async function OrganizerDashboardPage() {
               href="/organizer/festivals/new"
               className="inline-flex rounded-lg bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white"
             >
-              Ново подаване
+              Нов фестивал
             </Link>
           </div>
           {!submissions?.length ? (

@@ -11,12 +11,24 @@ type Body = {
   start_date?: string;
   end_date?: string | null;
   location_name?: string | null;
+  address?: string | null;
   website_url?: string | null;
+  facebook_url?: string | null;
+  instagram_url?: string | null;
   ticket_url?: string | null;
   price_range?: string | null;
   is_free?: boolean;
-  tags?: string[];
+  category?: string | null;
+  tags?: string[] | string;
+  hero_image?: string | null;
 };
+
+function optionalTrimmedUrl(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") return null;
+  const t = value.trim();
+  return t || null;
+}
 
 function buildSlugSeed(title: string, pendingId: string) {
   const fromTitle = slugify(title)
@@ -73,18 +85,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Градът не можа да бъде разпознат." }, { status: 400 });
   }
 
-  const endDate = typeof body.end_date === "string" && body.end_date.trim() ? body.end_date.trim() : startDate;
+  const endDate = typeof body.end_date === "string" && body.end_date.trim() ? body.end_date.trim() : null;
   const description = typeof body.description === "string" ? body.description.trim() : "";
-  const tags = Array.isArray(body.tags) ? body.tags.map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean) : [];
+  const tags =
+    Array.isArray(body.tags)
+      ? body.tags.map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
+      : typeof body.tags === "string"
+        ? body.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : [];
+  const categoryRaw = typeof body.category === "string" ? body.category.trim() : "";
+  const category = categoryRaw || "festival";
 
   const pendingPayload = {
     title,
     slug: null as string | null,
     description: description || "",
-    category: "festival",
+    category,
     city_id: cityResolution.city.id,
+    city_name_display: cityRaw || null,
     location_name: typeof body.location_name === "string" ? body.location_name.trim() || null : null,
-    address: null as string | null,
+    address: typeof body.address === "string" ? body.address.trim() || null : null,
     latitude: null as number | null,
     longitude: null as number | null,
     start_date: startDate,
@@ -100,11 +123,13 @@ export async function POST(request: Request) {
     verification_status: null as string | null,
     verification_score: null as number | null,
     extraction_version: null as string | null,
-    website_url: typeof body.website_url === "string" ? body.website_url.trim() || null : null,
-    ticket_url: typeof body.ticket_url === "string" ? body.ticket_url.trim() || null : null,
+    website_url: optionalTrimmedUrl(body.website_url),
+    facebook_url: optionalTrimmedUrl(body.facebook_url),
+    instagram_url: optionalTrimmedUrl(body.instagram_url),
+    ticket_url: optionalTrimmedUrl(body.ticket_url),
     price_range: typeof body.price_range === "string" ? body.price_range.trim() || null : null,
     is_free: typeof body.is_free === "boolean" ? body.is_free : true,
-    hero_image: null as string | null,
+    hero_image: optionalTrimmedUrl(body.hero_image),
     tags,
     status: "pending" as const,
     submitted_by_user_id: session.user.id,

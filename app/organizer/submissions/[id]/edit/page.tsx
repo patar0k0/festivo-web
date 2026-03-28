@@ -36,7 +36,7 @@ export default async function OrganizerEditSubmissionPage({ params }: { params: 
   const { data: row, error } = await admin
     .from("pending_festivals")
     .select(
-      "id,title,description,city_id,city_name_display,location_name,start_date,end_date,website_url,ticket_url,price_range,is_free,city:cities(name_bg,slug)",
+      "id,title,description,category,tags,city_id,city_name_display,location_name,address,start_date,end_date,website_url,facebook_url,instagram_url,ticket_url,hero_image,price_range,is_free,city:cities(name_bg,slug)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -51,6 +51,8 @@ export default async function OrganizerEditSubmissionPage({ params }: { params: 
     cityRel?.name_bg ||
     cityRel?.slug ||
     (row.city_id != null ? String(row.city_id) : "");
+
+  const tagsArr = Array.isArray(row.tags) ? row.tags.filter((t): t is string => typeof t === "string") : [];
 
   return (
     <div className="landing-bg min-h-screen px-4 py-8 text-[#0c0e14] md:px-6 md:py-12">
@@ -73,10 +75,16 @@ export default async function OrganizerEditSubmissionPage({ params }: { params: 
             description: row.description ?? null,
             city_label,
             location_name: row.location_name ?? null,
+            address: row.address ?? null,
+            category: row.category ?? null,
+            tags: tagsArr,
             start_date: row.start_date ?? null,
             end_date: row.end_date ?? null,
             website_url: row.website_url ?? null,
+            facebook_url: row.facebook_url ?? null,
+            instagram_url: row.instagram_url ?? null,
             ticket_url: row.ticket_url ?? null,
+            hero_image: row.hero_image ?? null,
             price_range: row.price_range ?? null,
             is_free: row.is_free ?? true,
           }}

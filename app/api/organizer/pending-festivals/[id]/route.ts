@@ -57,10 +57,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     "end_date",
     "occurrence_dates",
     "website_url",
+    "facebook_url",
+    "instagram_url",
     "ticket_url",
     "price_range",
     "is_free",
     "slug",
+    "hero_image",
   ] as const;
 
   for (const key of allowKeys) {
@@ -80,6 +83,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if ("is_free" in body && typeof body.is_free === "boolean") {
     patch.is_free = body.is_free;
   }
+
+  function optionalTrimmedUrlField(key: "facebook_url" | "instagram_url") {
+    if (!(key in body)) return;
+    const v = body[key];
+    if (v === null) {
+      patch[key] = null;
+      return;
+    }
+    if (typeof v === "string") {
+      const t = v.trim();
+      patch[key] = t || null;
+    }
+  }
+  optionalTrimmedUrlField("facebook_url");
+  optionalTrimmedUrlField("instagram_url");
 
   const cityForInput =
     typeof body.city_name_display === "string"

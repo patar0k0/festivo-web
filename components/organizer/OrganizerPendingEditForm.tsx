@@ -10,10 +10,16 @@ export type OrganizerPendingEditInitial = {
   description: string | null;
   city_label: string;
   location_name: string | null;
+  address: string | null;
+  category: string | null;
+  tags: string[];
   start_date: string | null;
   end_date: string | null;
   website_url: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
   ticket_url: string | null;
+  hero_image: string | null;
   price_range: string | null;
   is_free: boolean;
 };
@@ -24,10 +30,16 @@ export default function OrganizerPendingEditForm({ initial }: { initial: Organiz
   const [description, setDescription] = useState(initial.description ?? "");
   const [city, setCity] = useState(initial.city_label);
   const [locationName, setLocationName] = useState(initial.location_name ?? "");
+  const [address, setAddress] = useState(initial.address ?? "");
+  const [category, setCategory] = useState((initial.category ?? "festival").trim() || "festival");
+  const [tagsInput, setTagsInput] = useState((initial.tags ?? []).join(", "));
   const [startDate, setStartDate] = useState(initial.start_date ?? "");
   const [endDate, setEndDate] = useState(initial.end_date ?? "");
   const [websiteUrl, setWebsiteUrl] = useState(initial.website_url ?? "");
+  const [facebookUrl, setFacebookUrl] = useState(initial.facebook_url ?? "");
+  const [instagramUrl, setInstagramUrl] = useState(initial.instagram_url ?? "");
   const [ticketUrl, setTicketUrl] = useState(initial.ticket_url ?? "");
+  const [heroImageUrl, setHeroImageUrl] = useState(initial.hero_image ?? "");
   const [priceRange, setPriceRange] = useState(initial.price_range ?? "");
   const [isFree, setIsFree] = useState(initial.is_free);
   const [busy, setBusy] = useState(false);
@@ -38,6 +50,10 @@ export default function OrganizerPendingEditForm({ initial }: { initial: Organiz
     setError("");
     setBusy(true);
     try {
+      const tags = tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
       const res = await fetch(`/api/organizer/pending-festivals/${initial.id}`, {
         method: "PATCH",
         credentials: "include",
@@ -47,10 +63,16 @@ export default function OrganizerPendingEditForm({ initial }: { initial: Organiz
           description,
           city,
           location_name: locationName || null,
+          address: address || null,
+          category: category.trim() || null,
+          tags,
           start_date: startDate,
-          end_date: endDate || null,
+          end_date: endDate.trim() ? endDate : null,
           website_url: websiteUrl || null,
+          facebook_url: facebookUrl || null,
+          instagram_url: instagramUrl || null,
           ticket_url: ticketUrl || null,
+          hero_image: heroImageUrl || null,
           price_range: priceRange || null,
           is_free: isFree,
         }),
@@ -99,10 +121,35 @@ export default function OrganizerPendingEditForm({ initial }: { initial: Organiz
         />
       </label>
       <label className="block text-sm font-medium text-[#0c0e14]">
+        Категория
+        <input
+          value={category}
+          onChange={(ev) => setCategory(ev.target.value)}
+          className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="block text-sm font-medium text-[#0c0e14]">
+        Тагове
+        <input
+          value={tagsInput}
+          onChange={(ev) => setTagsInput(ev.target.value)}
+          placeholder="отделени със запетая"
+          className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="block text-sm font-medium text-[#0c0e14]">
         Място / локация
         <input
           value={locationName}
           onChange={(ev) => setLocationName(ev.target.value)}
+          className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="block text-sm font-medium text-[#0c0e14]">
+        Адрес
+        <input
+          value={address}
+          onChange={(ev) => setAddress(ev.target.value)}
           className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
         />
       </label>
@@ -128,10 +175,37 @@ export default function OrganizerPendingEditForm({ initial }: { initial: Organiz
         </label>
       </div>
       <label className="block text-sm font-medium text-[#0c0e14]">
+        Плакат / снимка (URL)
+        <input
+          value={heroImageUrl}
+          onChange={(ev) => setHeroImageUrl(ev.target.value)}
+          type="url"
+          className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="block text-sm font-medium text-[#0c0e14]">
         Уебсайт
         <input
           value={websiteUrl}
           onChange={(ev) => setWebsiteUrl(ev.target.value)}
+          type="url"
+          className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="block text-sm font-medium text-[#0c0e14]">
+        Facebook
+        <input
+          value={facebookUrl}
+          onChange={(ev) => setFacebookUrl(ev.target.value)}
+          type="url"
+          className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+        />
+      </label>
+      <label className="block text-sm font-medium text-[#0c0e14]">
+        Instagram
+        <input
+          value={instagramUrl}
+          onChange={(ev) => setInstagramUrl(ev.target.value)}
           type="url"
           className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
         />

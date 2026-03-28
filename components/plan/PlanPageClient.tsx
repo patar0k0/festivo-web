@@ -77,6 +77,56 @@ function dateOnlyToUtcMs(value: string) {
   return Date.UTC(year, month - 1, day);
 }
 
+/** Calendar YYYY-MM-DD in Europe/Sofia for a Date, or null. */
+function dateToSofiaDateOnly(value: Date): string | null {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Sofia",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) return null;
+  return `${year}-${month}-${day}`;
+}
+
+/** Normalize string | Date to YYYY-MM-DD (Sofia calendar for Date values). */
+function startDateToDateOnly(startDate: string | Date): string | null {
+  if (typeof startDate === "string") {
+    const direct = parseDateOnly(startDate);
+    if (direct) return direct;
+    const parsed = new Date(startDate);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return dateToSofiaDateOnly(parsed);
+  }
+  return dateToSofiaDateOnly(startDate);
+}
+
+function getFestivalStatus(startDate: string | Date): "today" | "week" | "soon" | null {
+  const start = startDateToDateOnly(startDate);
+  if (!start) return null;
+
+  const today = getSofiaTodayDateString();
+  if (!today) return null;
+
+  const diffDays = Math.floor((dateOnlyToUtcMs(start) - dateOnlyToUtcMs(today)) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return null;
+  if (diffDays === 0) return "today";
+  if (diffDays <= 7) return "week";
+  return "soon";
+}
+
+const FESTIVAL_STATUS_LABEL: Record<Exclude<ReturnType<typeof getFestivalStatus>, null>, string> = {
+  today: "Днес",
+  week: "Тази седмица",
+  soon: "Скоро",
+};
+
 function getFestivalCardImage(festival: { hero_image: string | null; image_url: string | null }) {
   return festival.hero_image || festival.image_url || null;
 }
@@ -90,31 +140,13 @@ function FestivalCardThumbnail({
 }) {
   if (imageUrl) {
     return (
-      <div className="h-20 w-full overflow-hidden rounded-2xl border border-black/[0.08] bg-black/[0.03] sm:h-24 sm:w-36 sm:shrink-0">
+      <div className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-black/5 sm:h-24 sm:w-24">
         <img src={imageUrl} alt={title} className="h-full w-full object-cover" loading="lazy" />
       </div>
     );
   }
 
-  return (
-    <div className="flex h-20 w-full items-center justify-center rounded-2xl border border-black/[0.08] bg-gradient-to-br from-[#f7f6f2] via-white to-[#eeece6] sm:h-24 sm:w-36 sm:shrink-0">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-black/35">Festivo</span>
-    </div>
-  );
-}
-
-function getFestivalStatusBadge(startDate: string | null) {
-  const start = parseDateOnly(startDate);
-  if (!start) return null;
-
-  const today = getSofiaTodayDateString();
-  if (!today) return null;
-  const diffDays = Math.floor((dateOnlyToUtcMs(start) - dateOnlyToUtcMs(today)) / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Днес";
-  if (diffDays > 0 && diffDays <= 7) return "Тази седмица";
-  if (diffDays > 7) return "Скоро";
-  return null;
+  return <div className="h-24 w-full shrink-0 rounded-xl bg-black/[0.04] sm:h-24 sm:w-24" aria-hidden />;
 }
 
 function ReminderPills({
@@ -131,7 +163,7 @@ function ReminderPills({
   ];
 
   return (
-    <div className="inline-flex items-center rounded-full border border-black/[0.08] bg-[#f6f5f2] p-1">
+    <div className="inline-flex items-center gap-0.5">
       {options.map((option) => {
         const active = value === option.value;
         return (
@@ -140,7 +172,7 @@ function ReminderPills({
             type="button"
             onClick={() => onChange(option.value)}
             className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-              active ? "bg-[#0c0e14] text-white shadow-sm" : "text-black/60 hover:bg-white hover:text-black/85"
+              active ? "bg-black text-white" : "text-black/60 hover:text-black"
             }`}
           >
             {option.label}
@@ -187,10 +219,6 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
     });
   }, [festivalEntries]);
 
-  const nextFestivalLabel = summary.nextUpcomingFestival
-    ? `${summary.nextUpcomingFestival.title} - ${formatDateRange(summary.nextUpcomingFestival.startDate, summary.nextUpcomingFestival.endDate)}`
-    : "Няма предстоящо събитие";
-
   if (!upcomingEntries.length && !festivalEntries.length) {
     return (
       <div className="space-y-5">
@@ -209,7 +237,16 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
             </div>
             <div className={`rounded-xl border p-4 ${summary.nextUpcomingFestival ? "border-black/[0.08] bg-[#f7f6f2]" : "border-black/[0.06] bg-black/[0.02]"}`}>
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-black/40">Следващ фестивал</p>
-              <p className={`mt-1 text-sm font-semibold leading-snug ${summary.nextUpcomingFestival ? "text-[#0c0e14]" : "text-black/45"}`}>{nextFestivalLabel}</p>
+              {summary.nextUpcomingFestival ? (
+                <>
+                  <p className="mt-1 text-base font-bold leading-snug text-[#0c0e14]">{summary.nextUpcomingFestival.title}</p>
+                  <p className="mt-0.5 text-sm font-medium text-black/60">
+                    {formatDateRange(summary.nextUpcomingFestival.startDate, summary.nextUpcomingFestival.endDate)}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-sm font-medium leading-snug text-black/45">Няма предстоящо събитие</p>
+              )}
             </div>
           </div>
         </section>
@@ -258,7 +295,16 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
           </div>
           <div className={`rounded-xl border p-4 ${summary.nextUpcomingFestival ? "border-black/[0.08] bg-[#f7f6f2]" : "border-black/[0.06] bg-black/[0.02]"}`}>
             <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-black/40">Следващ фестивал</p>
-            <p className={`mt-1 text-sm font-semibold leading-snug ${summary.nextUpcomingFestival ? "text-[#0c0e14]" : "text-black/45"}`}>{nextFestivalLabel}</p>
+            {summary.nextUpcomingFestival ? (
+              <>
+                <p className="mt-1 text-base font-bold leading-snug text-[#0c0e14]">{summary.nextUpcomingFestival.title}</p>
+                <p className="mt-0.5 text-sm font-medium text-black/60">
+                  {formatDateRange(summary.nextUpcomingFestival.startDate, summary.nextUpcomingFestival.endDate)}
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-sm font-medium leading-snug text-black/45">Няма предстоящо събитие</p>
+            )}
           </div>
         </div>
       </section>

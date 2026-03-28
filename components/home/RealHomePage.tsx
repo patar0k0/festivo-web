@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { festivalCategoryLabels } from "@/components/CategoryChips";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
@@ -21,7 +20,7 @@ type QuickChipHrefs = {
   free: string;
   weekend: string;
   month: string;
-  categories: string[];
+  categoryChips: { label: string; href: string }[];
 };
 
 type RealHomePageProps = {
@@ -32,8 +31,6 @@ type RealHomePageProps = {
   selectedCityName?: string | null;
   quickChipHrefs: QuickChipHrefs;
 };
-
-const CATEGORY_KEYS = ["folk", "jazz", "food", "art"] as const;
 
 function EventsSection({
   id,
@@ -101,10 +98,7 @@ export default function RealHomePage({
     { label: "Само безплатни", href: quickChipHrefs.free },
     { label: "Този уикенд", href: quickChipHrefs.weekend },
     { label: "Този месец", href: quickChipHrefs.month },
-    ...quickChipHrefs.categories.map((href, index) => {
-      const key = CATEGORY_KEYS[index];
-      return { label: festivalCategoryLabels[key] ?? key, href };
-    }),
+    ...quickChipHrefs.categoryChips,
   ];
 
   return (

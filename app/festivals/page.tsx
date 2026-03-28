@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { addDays, format, nextSaturday, parseISO } from "date-fns";
-import { festivalCategories } from "@/components/CategoryChips";
+import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories";
 import FestivalsTagChipsClient from "@/components/FestivalsTagChipsClient";
 import ScrollRestoration from "@/components/ScrollRestoration";
 import Container from "@/components/ui/Container";
@@ -148,6 +148,8 @@ export default async function FestivalsPage({
   let totalPages = 1;
   let queryError: string | null = null;
 
+  const categoryChips = await listPublicFestivalCategorySlugs().catch(() => [] as string[]);
+
   try {
     const supabase = await createSupabaseServerClient();
     let query = supabase
@@ -220,6 +222,7 @@ export default async function FestivalsPage({
   }
 
   const activeFiltersCount = Number(Boolean(city)) + Number(Boolean(parsedDate)) + Number(Boolean(tag));
+  const popularCategoryChips = categoryChips.slice(0, 8);
   const clearHref = "/festivals";
 
   const today = new Date();
@@ -229,7 +232,6 @@ export default async function FestivalsPage({
   const freeLink = buildFestivalsHref({ city, date, tag });
   const weekendLink = buildFestivalsHref({ city, date: weekendDate, tag });
   const monthLink = buildFestivalsHref({ city, date: monthDate, tag });
-  const popularCategoryChips = Array.from(new Set(festivalCategories)).slice(0, 5);
   const visiblePages = Array.from({ length: totalPages }).slice(0, 5);
 
   return (

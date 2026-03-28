@@ -1,6 +1,7 @@
 import MapPageClient from "@/components/MapPageClient";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
+import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories";
 import { getBaseUrl, listMeta } from "@/lib/seo";
 import "../landing.css";
 
@@ -24,13 +25,17 @@ export default async function MapPage({
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   const filters = withDefaultFilters(parseFilters(searchParams));
-  const data = await listFestivals(filters, 1, 30);
+  const [data, categoryOptions] = await Promise.all([
+    listFestivals(filters, 1, 30),
+    listPublicFestivalCategorySlugs(),
+  ]);
 
   return (
     <MapPageClient
       filters={filters}
       festivals={data.data}
       total={data.total}
+      categoryOptions={categoryOptions}
     />
   );
 }

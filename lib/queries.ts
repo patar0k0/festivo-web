@@ -181,10 +181,6 @@ function applyFilters<T extends FilterQuery<T>>(
     typedQuery = typedQuery.in("city", applied.city);
   }
 
-  if (applied.region?.length) {
-    typedQuery = typedQuery.in("region", applied.region);
-  }
-
   if (applied.cat?.length) {
     typedQuery = typedQuery.in("category", applied.cat);
   }

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { festivalCategoryLabels } from "@/components/CategoryChips";
+import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 
 type Chip = {
   key: string;
@@ -82,7 +82,6 @@ export default function ActiveFiltersChips() {
   const chips = useMemo<Chip[]>(() => {
     const items: Chip[] = [];
     const cityValues = splitCsv(searchParams.get("city"));
-    const regionValues = splitCsv(searchParams.get("region"));
     const categoryValues = splitCsv(searchParams.get("cat"));
     const from = searchParams.get("from");
     const to = searchParams.get("to");
@@ -99,18 +98,10 @@ export default function ActiveFiltersChips() {
       });
     });
 
-    regionValues.forEach((region) => {
-      items.push({
-        key: `region:${region}`,
-        label: `Р С›Р В±Р В»Р В°РЎРѓРЎвЂљ: ${region}`,
-        onRemove: () => removeFromCsv("region", region),
-      });
-    });
-
     categoryValues.forEach((category) => {
       items.push({
         key: `cat:${category}`,
-        label: `Р С™Р В°РЎвЂљР ВµР С–Р С•РЎР‚Р С‘РЎРЏ: ${festivalCategoryLabels[category] ?? category}`,
+        label: `Категория: ${labelForPublicCategory(category)}`,
         onRemove: () => removeFromCsv("cat", category),
       });
     });

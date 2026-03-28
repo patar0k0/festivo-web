@@ -7,8 +7,6 @@ import { endOfMonth, format, nextSaturday, nextSunday, startOfMonth } from "date
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import ViewToggle from "@/components/ViewToggle";
-import { festivalCategories, festivalCategoryLabels } from "@/components/CategoryChips";
-import MapSearchBar from "@/components/MapSearchBar";
 import MapFiltersSidebar from "@/components/MapFiltersSidebar";
 import MapFiltersSheet from "@/components/MapFiltersSheet";
 import MapViewClient from "@/components/MapViewClient";
@@ -21,6 +19,7 @@ type MapPageClientProps = {
   filters: Filters;
   festivals: Festival[];
   total: number;
+  categoryOptions: string[];
 };
 
 type FocusCoords = {
@@ -44,14 +43,13 @@ const COPY = {
   mapCount: "На картата",
   totalCount: "Общо",
   nearMe: "До мен",
-  resetView: "Reset view",
-  resetFilters: "Reset filters",
-  clear: "Изчисти",
+  resetView: "Нулирай изгледа",
+  clearFilters: "Изчисти филтрите",
   locationActive: "Показваме събития около теб",
   geoDenied: "Не можем да вземем локацията ти. Показваме ти популярни събития.",
 };
 
-const FILTER_PARAM_KEYS = ["city", "region", "from", "to", "cat", "free", "sort", "month", "q", "search", "radius", "page"];
+const FILTER_PARAM_KEYS = ["city", "from", "to", "cat", "free", "sort", "month", "q", "search", "radius", "page"];
 
 function parseUrlCoord(value: string | null) {
   if (!value) return null;
@@ -64,7 +62,7 @@ function paramsWithPageReset(params: URLSearchParams) {
   return params;
 }
 
-export default function MapPageClient({ filters, festivals, total }: MapPageClientProps) {
+export default function MapPageClient({ filters, festivals, total, categoryOptions }: MapPageClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -134,7 +132,6 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
   const freeActive = freeParam === null ? true : freeParam === "1" || freeParam === "true";
 
   const baseClearHref = `/map${serializeFilters(withDefaultFilters({}))}`;
-  const popularCategoryChips = Array.from(new Set(festivalCategories)).slice(0, 5);
 
   const pushParams = (mutate: (params: URLSearchParams) => void) => {
     const current = new URLSearchParams(searchParams.toString());
@@ -190,27 +187,6 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
     });
   };
 
-  const toggleCategory = (category: string) => {
-    const current = (searchParams.get("cat") ?? "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean);
-    const active = current.includes(category);
-
-    pushParams((params) => {
-      if (active) {
-        const nextValues = current.filter((item) => item !== category);
-        if (nextValues.length) {
-          params.set("cat", nextValues.join(","));
-        } else {
-          params.delete("cat");
-        }
-      } else {
-        params.set("cat", category);
-      }
-    });
-  };
-
   const onNearMe = () => {
     if (!navigator.geolocation) {
       setGeoMessage(COPY.geoDenied);
@@ -242,6 +218,7 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
   const onResetFilters = () => {
     pushParams((params) => {
       FILTER_PARAM_KEYS.forEach((key) => params.delete(key));
+      params.set("free", "1");
     });
   };
 
@@ -278,7 +255,11 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="hidden lg:block xl:hidden">
-                    <MapFiltersSheet initialFilters={filters} />
+                    <MapFiltersSheet
+                      initialFilters={filters}
+                      categoryOptions={categoryOptions}
+                      onNearMe={onNearMe}
+                    />
                   </div>
                   <ViewToggle active="/map" filters={filters} />
                 </div>
@@ -318,60 +299,21 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
                 >
                   {COPY.month}
                 </button>
-                {popularCategoryChips.map((category) => {
-                  const active = filters.cat?.includes(category);
-                  return (
-                    <button
-                      key={category}
-                      type="button"
-                      onClick={() => toggleCategory(category)}
-                      className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-                        active
-                          ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                          : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
-                      }`}
-                    >
-                      {festivalCategoryLabels[category] ?? category}
-                    </button>
-                  );
-                })}
               </div>
-            </div>
-
-            <div className="space-y-4 xl:hidden">
-              <MapSearchBar initialFilters={filters} />
             </div>
 
             <div className="grid items-start gap-6 xl:grid-cols-[23rem_minmax(0,1fr)]">
               <div className="hidden xl:block">
                 <div className="sticky top-[84px] space-y-4">
-                  <MapFiltersSidebar initialFilters={filters} className="max-w-none" />
-                  <div className="rounded-2xl border border-black/[0.08] bg-white/80 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={onNearMe}
-                        className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                      >
-                        {COPY.nearMe}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onResetView}
-                        className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                      >
-                        {COPY.resetView}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onResetFilters}
-                        className="rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                      >
-                        {COPY.resetFilters}
-                      </button>
-                    </div>
-                    {geoMessage ? <p className="mt-3 text-xs text-[#b13a1a]">{geoMessage}</p> : null}
-                  </div>
+                  <MapFiltersSidebar
+                    initialFilters={filters}
+                    categoryOptions={categoryOptions}
+                    onNearMe={onNearMe}
+                    className="max-w-none"
+                  />
+                  {geoMessage ? (
+                    <p className="rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-xs text-[#b13a1a]">{geoMessage}</p>
+                  ) : null}
                   <div className="max-h-[calc(100vh-25rem)] overflow-y-auto rounded-2xl border border-black/[0.08] bg-white/80 p-3 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur">
                     <MapResultsList
                       festivals={festivalsSortedByDistance}
@@ -446,14 +388,22 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
                   onSelectFestival={onSelectFestival}
                 />
               </MapMobileResultsSheet>
+              {geoMessage ? (
+                <p className="mb-2 px-1 text-xs text-[#b13a1a]">{geoMessage}</p>
+              ) : null}
               <div className="fixed bottom-5 right-4 z-30 flex flex-col gap-2">
-                <MapFiltersSheet initialFilters={filters} floating />
+                <MapFiltersSheet
+                  initialFilters={filters}
+                  categoryOptions={categoryOptions}
+                  onNearMe={onNearMe}
+                  floating
+                />
                 <button
                   type="button"
                   onClick={onResetFilters}
                   className="rounded-full bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_18px_rgba(12,14,20,0.08)] transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  {COPY.clear}
+                  {COPY.clearFilters}
                 </button>
               </div>
             </div>
@@ -466,7 +416,7 @@ export default function MapPageClient({ filters, festivals, total }: MapPageClie
                   scroll={false}
                   className="mt-4 inline-flex rounded-xl bg-[#0c0e14] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                 >
-                  {COPY.clear}
+                  {COPY.clearFilters}
                 </Link>
               </div>
             ) : null}

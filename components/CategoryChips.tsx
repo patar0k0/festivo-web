@@ -2,23 +2,18 @@ import Link from "next/link";
 import { Filters } from "@/lib/types";
 import { serializeFilters } from "@/lib/filters";
 import { cn } from "@/lib/utils";
+import { FESTIVAL_CATEGORY_LABELS } from "@/lib/festivals/publicCategories";
 
-export const festivalCategories = ["folk", "jazz", "rock", "wine", "food", "kids", "heritage", "art"];
-export const festivalCategoryLabels: Record<string, string> = {
-  folk: "Фолклор",
-  jazz: "Джаз",
-  rock: "Рок",
-  wine: "Вино",
-  food: "Храна",
-  kids: "Семейни",
-  heritage: "Традиции",
-  art: "Изкуство",
-};
+/** @deprecated Prefer `FESTIVAL_CATEGORY_LABELS` from `@/lib/festivals/publicCategories`. */
+export const festivalCategoryLabels = FESTIVAL_CATEGORY_LABELS;
 
-export default function CategoryChips({ filters }: { filters: Filters }) {
+/** Static slugs for admin / legacy; public UI should use `listPublicFestivalCategorySlugs`. */
+export const festivalCategories = Object.keys(FESTIVAL_CATEGORY_LABELS);
+
+export default function CategoryChips({ filters, categories }: { filters: Filters; categories: string[] }) {
   return (
     <div className="flex flex-wrap gap-2">
-      {festivalCategories.map((category) => {
+      {categories.map((category) => {
         const active = filters.cat?.includes(category);
         const link = serializeFilters({ ...filters, cat: [category] });
         return (
@@ -31,7 +26,7 @@ export default function CategoryChips({ filters }: { filters: Filters }) {
               active ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#0c0e14]" : ""
             )}
           >
-            {festivalCategoryLabels[category] ?? category}
+            {festivalCategoryLabels[category.toLowerCase()] ?? category}
           </Link>
         );
       })}

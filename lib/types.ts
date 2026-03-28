@@ -80,7 +80,6 @@ export type FestivalScheduleItem = {
 
 export type Filters = {
   city?: string[];
-  region?: string[];
   from?: string;
   to?: string;
   cat?: string[];

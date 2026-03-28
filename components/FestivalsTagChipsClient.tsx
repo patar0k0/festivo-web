@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { festivalCategoryLabels } from "@/components/CategoryChips";
+import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 
 type FestivalsTagChipsClientProps = {
   categories: string[];
@@ -44,7 +44,7 @@ export default function FestivalsTagChipsClient({ categories }: FestivalsTagChip
                 : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
             }`}
           >
-            {festivalCategoryLabels[category] ?? category}
+            {labelForPublicCategory(category)}
           </Link>
         );
       })}

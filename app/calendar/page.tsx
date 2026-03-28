@@ -1,9 +1,10 @@
-﻿import { eachDayOfInterval, format, isValid, parseISO, startOfMonth } from "date-fns";
+import { eachDayOfInterval, format, isValid, parseISO, startOfMonth } from "date-fns";
 import CalendarControls from "@/components/calendar/CalendarControls";
 import CalendarViewClient from "@/components/calendar/CalendarViewClient";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
+import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories";
 import { getCalendarMonth } from "@/lib/queries";
 import { calendarMeta, getBaseUrl } from "@/lib/seo";
 import "../landing.css";
@@ -56,7 +57,10 @@ export default async function CalendarPage({
 }) {
   const month = resolveMonth(searchParams);
   const filters = withDefaultFilters(parseFilters(searchParams));
-  const calendarData = await getCalendarMonth(month, filters);
+  const [calendarData, categoryOptions] = await Promise.all([
+    getCalendarMonth(month, filters),
+    listPublicFestivalCategorySlugs(),
+  ]);
 
   const monthStart = startOfMonth(parseISO(`${month}-01`));
   const monthDays = eachDayOfInterval({ start: monthStart, end: calendarData.monthEnd });
@@ -77,7 +81,7 @@ export default async function CalendarPage({
               </div>
 
               <div className="mt-6">
-                <CalendarControls month={month} initialFilters={filters} />
+                <CalendarControls month={month} initialFilters={filters} categoryOptions={categoryOptions} />
               </div>
             </div>
 

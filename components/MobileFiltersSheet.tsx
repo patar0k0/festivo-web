@@ -4,7 +4,13 @@ import { useState } from "react";
 import FiltersSidebar from "@/components/FiltersSidebar";
 import { Filters } from "@/lib/types";
 
-export default function MobileFiltersSheet({ initialFilters }: { initialFilters: Filters }) {
+export default function MobileFiltersSheet({
+  initialFilters,
+  categoryOptions = [],
+}: {
+  initialFilters: Filters;
+  categoryOptions?: string[];
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -35,7 +41,11 @@ export default function MobileFiltersSheet({ initialFilters }: { initialFilters:
               </button>
             </div>
             <div className="mt-6">
-              <FiltersSidebar initialFilters={initialFilters} className="max-w-none" />
+              <FiltersSidebar
+                initialFilters={initialFilters}
+                categoryOptions={categoryOptions}
+                className="max-w-none"
+              />
             </div>
           </div>
         </div>

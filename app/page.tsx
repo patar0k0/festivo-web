@@ -5,6 +5,7 @@ import ComingSoonPublic from "@/components/home/ComingSoonPublic";
 import RealHomePage from "@/components/home/RealHomePage";
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listHomeCitySelectOptions } from "@/lib/festivals";
+import { labelForPublicCategory, listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories";
 import { FESTIVAL_SELECT_MIN, fixFestivalText } from "@/lib/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";
@@ -98,10 +99,11 @@ export default async function HomePage({
   const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(new Date()), "yyyy-MM-dd");
 
-  const [nearestFestivals, weekendFestivals, citiesResult] = await Promise.all([
+  const [nearestFestivals, weekendFestivals, citiesResult, categorySlugs] = await Promise.all([
     fetchHomeFestivals({ from: today, citySlug: city, limit: 6 }),
     fetchHomeFestivals({ from: weekendStart, to: weekendEnd, citySlug: city, limit: 6 }),
     listHomeCitySelectOptions().catch(() => []),
+    listPublicFestivalCategorySlugs().catch(() => [] as string[]),
   ]);
   const selectedCityName = city
     ? (citiesResult.find((item) => item.slug === city)?.name ?? null)
@@ -111,9 +113,10 @@ export default async function HomePage({
     free: `/festivals${serializeFilters(withDefaultFilters({ free: true }))}`,
     weekend: `/festivals${serializeFilters(withDefaultFilters({ from: weekendStart, to: weekendEnd }))}`,
     month: `/festivals${serializeFilters(withDefaultFilters({ from: monthStart, to: monthEnd }))}`,
-    categories: ["folk", "jazz", "food", "art"].map(
-      (category) => `/festivals${serializeFilters(withDefaultFilters({ cat: [category] }))}`
-    ),
+    categoryChips: categorySlugs.slice(0, 5).map((slug) => ({
+      label: labelForPublicCategory(slug),
+      href: `/festivals?tag=${encodeURIComponent(slug)}`,
+    })),
   };
 
   return (

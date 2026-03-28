@@ -6,29 +6,19 @@ import { Filters } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { serializeFilters } from "@/lib/filters";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
-
-const categoryOptions = ["folk", "jazz", "rock", "wine", "food", "kids", "heritage", "art"];
-const categoryLabels: Record<string, string> = {
-  folk: "Фолклор",
-  jazz: "Джаз",
-  rock: "Рок",
-  wine: "Вино",
-  food: "Храна",
-  kids: "Семейни",
-  heritage: "Традиции",
-  art: "Изкуство",
-};
+import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 
 export default function FiltersSidebar({
   initialFilters,
+  categoryOptions,
   className,
 }: {
   initialFilters: Filters;
+  categoryOptions: string[];
   className?: string;
 }) {
   const router = useRouter();
   const [city, setCity] = useState(initialFilters.city?.join(",") ?? "");
-  const [region, setRegion] = useState(initialFilters.region?.join(",") ?? "");
   const [from, setFrom] = useState(initialFilters.from ?? "");
   const [to, setTo] = useState(initialFilters.to ?? "");
   const [cat, setCat] = useState(initialFilters.cat?.[0] ?? "");
@@ -38,7 +28,6 @@ export default function FiltersSidebar({
   const query = useMemo(() => {
     const filters: Filters = {
       city: city ? city.split(",").map((item) => item.trim()).filter(Boolean) : undefined,
-      region: region ? region.split(",").map((item) => item.trim()).filter(Boolean) : undefined,
       from: from || undefined,
       to: to || undefined,
       cat: cat ? [cat] : undefined,
@@ -46,7 +35,7 @@ export default function FiltersSidebar({
       sort: sort as Filters["sort"],
     };
     return serializeFilters(filters);
-  }, [city, region, from, to, cat, free, sort]);
+  }, [city, from, to, cat, free, sort]);
 
   return (
     <aside
@@ -63,15 +52,6 @@ export default function FiltersSidebar({
             placeholder="София, Пловдив"
             value={city}
             onChange={(event) => setCity(event.target.value)}
-          />
-        </div>
-        <div>
-          <label className="text-xs uppercase tracking-[0.2em] text-muted">Област</label>
-          <input
-            className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
-            placeholder="Родопи"
-            value={region}
-            onChange={(event) => setRegion(event.target.value)}
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -102,7 +82,7 @@ export default function FiltersSidebar({
             <option value="">Всички</option>
             {categoryOptions.map((option) => (
               <option key={option} value={option}>
-                {categoryLabels[option] ?? option}
+                {labelForPublicCategory(option)}
               </option>
             ))}
           </select>

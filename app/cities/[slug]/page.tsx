@@ -10,32 +10,18 @@ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
 import { festivalCityLabel, formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
+import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { getBaseUrl } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import "../../landing.css";
 
 export const revalidate = 21600;
 
-const categoryLabels: Record<string, string> = {
-  music: "Музика",
-  folk: "Фолклор",
-  arts: "Изкуство",
-  food: "Храна",
-  cultural: "Култура",
-  sports: "Спорт",
-  film: "Кино",
-  theater: "Театър",
-};
-
 type CityRecord = {
   slug: string;
   name_bg: string;
   is_village: boolean | null;
 };
-
-function mapCategoryLabel(category: string) {
-  return categoryLabels[category] ?? category;
-}
 
 function hasNonAscii(value: string) {
   return /[^\x00-\x7F]/.test(value);
@@ -188,7 +174,7 @@ export default async function CityLandingPage({
                       href={`${cityHref(citySlug)}${categoryLink}`}
                       className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
                     >
-                      {mapCategoryLabel(category)}
+                      {labelForPublicCategory(category)}
                     </Link>
                   );
                 })}
@@ -251,7 +237,7 @@ export default async function CityLandingPage({
                         key={category}
                         className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14]"
                       >
-                        {mapCategoryLabel(category)} · {count}
+                        {labelForPublicCategory(category)} · {count}
                       </span>
                     ))}
                   </div>

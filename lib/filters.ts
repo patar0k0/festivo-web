@@ -1,16 +1,14 @@
-﻿import { Filters } from "@/lib/types";
+import { Filters } from "@/lib/types";
 import { ensureArray } from "@/lib/utils";
 
 export function parseFilters(searchParams: Record<string, string | string[] | undefined>): Filters {
   const city = ensureArray(searchParams.city);
-  const region = ensureArray(searchParams.region);
   const cat = ensureArray(searchParams.cat);
   const freeParam = searchParams.free;
   const free = freeParam === undefined ? undefined : freeParam === "1" || freeParam === "true";
 
   return {
     city,
-    region,
     from: typeof searchParams.from === "string" ? searchParams.from : undefined,
     to: typeof searchParams.to === "string" ? searchParams.to : undefined,
     cat,
@@ -30,7 +28,6 @@ export function withDefaultFilters(filters: Filters): Filters {
 export function serializeFilters(filters: Filters) {
   const params = new URLSearchParams();
   if (filters.city?.length) params.set("city", filters.city.join(","));
-  if (filters.region?.length) params.set("region", filters.region.join(","));
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
   if (filters.cat?.length) params.set("cat", filters.cat.join(","));

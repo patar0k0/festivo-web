@@ -3,13 +3,14 @@
 import { FormEvent, useState } from "react";
 import { endOfMonth, format, nextSaturday, nextSunday, startOfMonth } from "date-fns";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { festivalCategories, festivalCategoryLabels } from "@/components/CategoryChips";
+import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { Filters } from "@/lib/types";
 
 type CalendarControlsProps = {
   month: string;
   initialFilters: Filters;
+  categoryOptions: string[];
 };
 
 function setOrDelete(params: URLSearchParams, key: string, value?: string) {
@@ -20,7 +21,7 @@ function setOrDelete(params: URLSearchParams, key: string, value?: string) {
   }
 }
 
-export default function CalendarControls({ month, initialFilters }: CalendarControlsProps) {
+export default function CalendarControls({ month, initialFilters, categoryOptions }: CalendarControlsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -39,7 +40,6 @@ export default function CalendarControls({ month, initialFilters }: CalendarCont
 
   const currentFrom = searchParams.get("from") ?? "";
   const currentTo = searchParams.get("to") ?? "";
-  const currentCat = searchParams.get("cat") ?? "";
   const freeParam = searchParams.get("free");
   const freeActive = freeParam === null ? true : freeParam === "1" || freeParam === "true";
 
@@ -108,18 +108,6 @@ export default function CalendarControls({ month, initialFilters }: CalendarCont
     });
   };
 
-  const toggleCategory = (value: string) => {
-    pushParams((params) => {
-      if (currentCat === value) {
-        params.delete("cat");
-      } else {
-        params.set("cat", value);
-      }
-    });
-  };
-
-  const popularCategories = Array.from(new Set(festivalCategories)).slice(0, 5);
-
   return (
     <div className="space-y-4">
       <form onSubmit={onApply} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_10rem_10rem_auto_auto]">
@@ -141,9 +129,9 @@ export default function CalendarControls({ month, initialFilters }: CalendarCont
             className="mt-2 rounded-xl border border-black/[0.1] bg-white/90 px-4 py-2.5 text-sm text-[#0c0e14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
           >
             <option value="">Всички</option>
-            {festivalCategories.map((option) => (
+            {categoryOptions.map((option) => (
               <option key={option} value={option}>
-                {festivalCategoryLabels[option] ?? option}
+                {labelForPublicCategory(option)}
               </option>
             ))}
           </select>
@@ -222,24 +210,6 @@ export default function CalendarControls({ month, initialFilters }: CalendarCont
           >
             Този месец
           </button>
-
-          {popularCategories.map((categoryOption) => {
-            const active = currentCat === categoryOption;
-            return (
-              <button
-                key={categoryOption}
-                type="button"
-                onClick={() => toggleCategory(categoryOption)}
-                className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-                  active
-                    ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                    : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
-                }`}
-              >
-                {festivalCategoryLabels[categoryOption] ?? categoryOption}
-              </button>
-            );
-          })}
         </div>
       </div>
     </div>

@@ -4,18 +4,8 @@ import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
-
-const categoryOptions = ["folk", "jazz", "rock", "wine", "food", "kids", "heritage", "art"];
-const categoryLabels: Record<string, string> = {
-  folk: "Фолклор",
-  jazz: "Джаз",
-  rock: "Рок",
-  wine: "Вино",
-  food: "Храна",
-  kids: "Семейни",
-  heritage: "Традиции",
-  art: "Изкуство",
-};
+import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
+import { Filters } from "@/lib/types";
 
 function updateParam(params: URLSearchParams, key: string, value?: string) {
   if (value) {
@@ -25,19 +15,17 @@ function updateParam(params: URLSearchParams, key: string, value?: string) {
   }
 }
 
+const FILTER_KEYS = ["city", "from", "to", "cat", "free", "sort", "month", "page"];
+
 export default function MapFiltersSidebar({
   initialFilters,
+  categoryOptions,
+  onNearMe,
   className,
 }: {
-  initialFilters: {
-    city?: string[];
-    region?: string[];
-    from?: string;
-    to?: string;
-    cat?: string[];
-    free?: boolean;
-    sort?: "soonest" | "curated" | "nearest";
-  };
+  initialFilters: Filters;
+  categoryOptions: string[];
+  onNearMe?: () => void;
   className?: string;
 }) {
   const router = useRouter();
@@ -45,26 +33,15 @@ export default function MapFiltersSidebar({
   const searchParams = useSearchParams();
 
   const [city, setCity] = useState(initialFilters.city?.join(",") ?? "");
-  const [region, setRegion] = useState(initialFilters.region?.join(",") ?? "");
   const [from, setFrom] = useState(initialFilters.from ?? "");
   const [to, setTo] = useState(initialFilters.to ?? "");
   const [cat, setCat] = useState(initialFilters.cat?.[0] ?? "");
   const [free, setFree] = useState(initialFilters.free ?? true);
   const [sort, setSort] = useState(initialFilters.sort ?? "soonest");
 
-  const apply = () => {
+  const pushComparable = (next: URLSearchParams) => {
     const current = new URLSearchParams(searchParams.toString());
-    const next = new URLSearchParams(searchParams.toString());
-
-    updateParam(next, "city", city || undefined);
-    updateParam(next, "region", region || undefined);
-    updateParam(next, "from", from || undefined);
-    updateParam(next, "to", to || undefined);
-    updateParam(next, "cat", cat || undefined);
-    updateParam(next, "free", free ? "1" : "0");
-    updateParam(next, "sort", sort || undefined);
     next.delete("page");
-
     current.delete("page");
     const currentComparable = current.toString();
     const nextComparable = next.toString();
@@ -75,6 +52,24 @@ export default function MapFiltersSidebar({
     }
 
     router.push(nextComparable ? `${pathname}?${nextComparable}` : pathname, { scroll: false });
+  };
+
+  const apply = () => {
+    const next = new URLSearchParams(searchParams.toString());
+    updateParam(next, "city", city || undefined);
+    updateParam(next, "from", from || undefined);
+    updateParam(next, "to", to || undefined);
+    updateParam(next, "cat", cat || undefined);
+    updateParam(next, "free", free ? "1" : "0");
+    updateParam(next, "sort", sort || undefined);
+    pushComparable(next);
+  };
+
+  const clearFilters = () => {
+    const next = new URLSearchParams(searchParams.toString());
+    FILTER_KEYS.forEach((key) => next.delete(key));
+    next.set("free", "1");
+    pushComparable(next);
   };
 
   return (
@@ -92,15 +87,6 @@ export default function MapFiltersSidebar({
             placeholder="София, Пловдив"
             value={city}
             onChange={(event) => setCity(event.target.value)}
-          />
-        </div>
-        <div>
-          <label className="text-xs uppercase tracking-[0.2em] text-muted">Област</label>
-          <input
-            className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
-            placeholder="Родопи"
-            value={region}
-            onChange={(event) => setRegion(event.target.value)}
           />
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -131,7 +117,7 @@ export default function MapFiltersSidebar({
             <option value="">Всички</option>
             {categoryOptions.map((option) => (
               <option key={option} value={option}>
-                {categoryLabels[option] ?? option}
+                {labelForPublicCategory(option)}
               </option>
             ))}
           </select>
@@ -164,6 +150,22 @@ export default function MapFiltersSidebar({
         >
           Приложи филтри
         </button>
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
+        >
+          Изчисти филтрите
+        </button>
+        {onNearMe ? (
+          <button
+            type="button"
+            onClick={onNearMe}
+            className="w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
+          >
+            До мен
+          </button>
+        ) : null}
       </div>
     </aside>
   );

@@ -6,6 +6,8 @@ import { Filters } from "@/lib/types";
 
 type MapFiltersSheetProps = {
   initialFilters: Filters;
+  categoryOptions: string[];
+  onNearMe?: () => void;
   floating?: boolean;
 };
 
@@ -14,7 +16,12 @@ const COPY = {
   close: "\u0417\u0430\u0442\u0432\u043e\u0440\u0438",
 };
 
-export default function MapFiltersSheet({ initialFilters, floating = false }: MapFiltersSheetProps) {
+export default function MapFiltersSheet({
+  initialFilters,
+  categoryOptions,
+  onNearMe,
+  floating = false,
+}: MapFiltersSheetProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -47,7 +54,12 @@ export default function MapFiltersSheet({ initialFilters, floating = false }: Ma
               </button>
             </div>
             <div className="mt-6">
-              <MapFiltersSidebar initialFilters={initialFilters} className="max-w-none" />
+              <MapFiltersSidebar
+                initialFilters={initialFilters}
+                categoryOptions={categoryOptions}
+                onNearMe={onNearMe}
+                className="max-w-none"
+              />
             </div>
           </div>
         </div>

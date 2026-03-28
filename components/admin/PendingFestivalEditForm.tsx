@@ -29,6 +29,9 @@ export type PendingFestivalRecord = {
   end_date: string | null;
   occurrence_dates?: unknown;
   organizer_name: string | null;
+  submission_source?: string | null;
+  submitted_by_user_id?: string | null;
+  organizer_id?: string | null;
   source_url: string | null;
   is_free: boolean | null;
   hero_image: string | null;
@@ -833,6 +836,15 @@ export default function PendingFestivalEditForm({
         <h1 className="text-3xl font-black tracking-tight">Pending Festival Review</h1>
         <p className="mt-1 text-sm text-black/65">ID: {pendingFestival.id}</p>
       </div>
+
+      {pendingFestival.submission_source === "organizer_portal" ? (
+        <div className="rounded-2xl border border-[#0c0e14]/15 bg-[#f7f6f3] p-4 text-sm text-[#0c0e14]">
+          <p className="font-semibold">Подаване от организаторски портал</p>
+          {typeof pendingFestival.submitted_by_user_id === "string" && pendingFestival.submitted_by_user_id ? (
+            <p className="mt-1 font-mono text-xs text-black/55">Потребител (auth id): {pendingFestival.submitted_by_user_id}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <section className="grid gap-5 xl:grid-cols-2">
         <div className="space-y-5">

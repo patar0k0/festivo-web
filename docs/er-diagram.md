@@ -30,6 +30,9 @@ erDiagram
     text title
     text slug
     bigint city_id FK
+    uuid organizer_id FK
+    uuid submitted_by_user_id FK
+    text submission_source
     text source_url
     date start_date
     date end_date
@@ -87,6 +90,17 @@ erDiagram
     uuid id PK
     boolean is_active
     uuid merged_into FK
+  }
+
+  organizer_members {
+    uuid id PK
+    uuid organizer_id FK
+    uuid user_id FK
+    text role
+    text status
+    timestamptz created_at
+    timestamptz approved_at
+    uuid approved_by FK
   }
 
   user_roles {
@@ -189,6 +203,7 @@ erDiagram
   notification_jobs ||--o{ notification_logs : has
 
   cities ||--o{ pending_festivals : moderation_city_fk
+  organizers ||--o{ pending_festivals : portal_submitter_org
   cities ||--o{ festivals : canonical_city_fk
 
   festivals ||--o{ festival_days : has
@@ -196,6 +211,8 @@ erDiagram
   festivals ||--o{ festival_media : has
   festivals ||--o{ festival_organizers : has
   organizers ||--o{ festival_organizers : linked_to
+  organizers ||--o{ organizer_members : has_member
+  auth_users ||--o{ organizer_members : manages
 
   festivals ||--o{ user_plan_festivals : planned
   festivals ||--o{ user_plan_reminders : reminder_for

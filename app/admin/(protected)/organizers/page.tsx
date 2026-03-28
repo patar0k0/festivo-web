@@ -46,6 +46,9 @@ export default async function AdminOrganizersPage() {
           <Link href="/admin/organizers/research" className="inline-flex items-center rounded-lg border border-black/[0.12] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] hover:bg-black/[0.04]">
             Research organizer
           </Link>
+          <Link href="/admin/organizer-claims" className="inline-flex items-center rounded-lg border border-black/[0.12] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] hover:bg-black/[0.04]">
+            Заявки от портал
+          </Link>
         </div>
       </div>
 

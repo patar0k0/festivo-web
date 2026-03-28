@@ -1,0 +1,90 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import OrganizerPendingEditForm from "@/components/organizer/OrganizerPendingEditForm";
+import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
+import {
+  assertCanEditOrganizerPending,
+  getPortalAdminClient,
+  getPortalSessionUser,
+  loadPortalPendingFestival,
+} from "@/lib/organizer/portal";
+import "../../../../landing.css";
+
+export const dynamic = "force-dynamic";
+
+export default async function OrganizerEditSubmissionPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await getPortalSessionUser();
+  if (!session?.user?.id) {
+    redirect(`/login?next=/organizer/submissions/${id}/edit`);
+  }
+
+  let admin;
+  try {
+    admin = getPortalAdminClient();
+  } catch {
+    return <div className="p-8 text-sm text-black/60">Услугата е временно недостъпна.</div>;
+  }
+
+  const meta = await loadPortalPendingFestival(admin, id);
+  if (!meta) {
+    notFound();
+  }
+
+  const gate = await assertCanEditOrganizerPending(admin, session.user.id, meta);
+  if (!gate.ok) {
+    redirect("/organizer/submissions");
+  }
+
+  const { data: row, error } = await admin
+    .from("pending_festivals")
+    .select(
+      "id,title,description,city_id,city_name_display,location_name,start_date,end_date,website_url,ticket_url,price_range,is_free,city:cities(name_bg,slug)",
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !row) {
+    notFound();
+  }
+
+  const cityRel = row.city as { name_bg?: string | null; slug?: string | null } | null;
+  const city_label =
+    (typeof row.city_name_display === "string" && row.city_name_display.trim()) ||
+    cityRel?.name_bg ||
+    cityRel?.slug ||
+    (row.city_id != null ? String(row.city_id) : "");
+
+  return (
+    <div className="landing-bg min-h-screen px-4 py-8 text-[#0c0e14] md:px-6 md:py-12">
+      <div className="mx-auto max-w-lg space-y-6">
+        <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
+          <Link href="/organizer/submissions" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45 hover:text-[#0c0e14]">
+            ← Подавания
+          </Link>
+          <h1 className="mt-4 font-[var(--font-display)] text-2xl font-bold">Редакция на подаване</h1>
+          <p className="mt-2 text-sm text-black/60">Промените отиват отново в опашката за модерация.</p>
+          <div className="mt-6">
+            <OrganizerPortalNav />
+          </div>
+        </div>
+
+        <OrganizerPendingEditForm
+          initial={{
+            id: row.id,
+            title: row.title ?? "",
+            description: row.description ?? null,
+            city_label,
+            location_name: row.location_name ?? null,
+            start_date: row.start_date ?? null,
+            end_date: row.end_date ?? null,
+            website_url: row.website_url ?? null,
+            ticket_url: row.ticket_url ?? null,
+            price_range: row.price_range ?? null,
+            is_free: row.is_free ?? true,
+          }}
+        />
+      </div>
+    </div>
+  );
+}

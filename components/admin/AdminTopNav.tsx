@@ -7,6 +7,7 @@ const NAV: { href: string; label: string; match: "exact" | "prefix" }[] = [
   { href: "/admin", label: "Табло", match: "exact" },
   { href: "/admin/festivals", label: "Фестивали", match: "prefix" },
   { href: "/admin/organizers", label: "Организатори", match: "prefix" },
+  { href: "/admin/organizer-claims", label: "Заявки орг.", match: "prefix" },
   { href: "/admin/pending-festivals", label: "Чакащи", match: "prefix" },
   { href: "/admin/ingest", label: "Внасяне", match: "prefix" },
   { href: "/admin/discovery", label: "Открития", match: "prefix" },

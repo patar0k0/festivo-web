@@ -34,6 +34,7 @@ type PendingFestivalRow = {
   start_date: string | null;
   end_date: string | null;
   occurrence_dates: unknown;
+  organizer_id: string | null;
   organizer_name: string | null;
   source_url: string | null;
   source_type: string | null;
@@ -53,7 +54,7 @@ type PendingFestivalRow = {
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,organizer_name,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
+  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,occurrence_dates,organizer_id,organizer_name,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
 
 const REQUIRED_PENDING_CANONICAL_FIELDS: (keyof PendingFestivalRow)[] = [
   "title",
@@ -302,7 +303,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     let organizerId: string | null = null;
     let organizerDisplayName: string | null = canonicalApproved.organizer_name ?? null;
 
-    if (canonicalApproved.organizer_name) {
+    if (pending.organizer_id) {
+      const { data: linkedOrg, error: linkedOrgError } = await adminCtx.supabase
+        .from("organizers")
+        .select("id,name")
+        .eq("id", pending.organizer_id)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (linkedOrgError) {
+        return fail(id, "organizer_lookup_failed", 500, `Organizer lookup failed: ${linkedOrgError.message}`);
+      }
+
+      if (linkedOrg?.id) {
+        organizerId = linkedOrg.id;
+        organizerDisplayName = linkedOrg.name ?? organizerDisplayName;
+        console.info(`[pending-approve] pending_id=${id} organizer from pending.organizer_id=${organizerId}`);
+      }
+    }
+
+    if (!organizerId && canonicalApproved.organizer_name) {
       const serviceSupabase = createSupabaseAdmin();
       const organizerResolution = await resolveOrCreateOrganizerId(serviceSupabase, canonicalApproved.organizer_name);
       organizerId = organizerResolution.organizerId;

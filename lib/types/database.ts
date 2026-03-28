@@ -226,6 +226,38 @@ export type Database = {
           created_at?: string | null
         }
       }
+      organizer_members: {
+        Row: {
+          id: string
+          organizer_id: string
+          user_id: string
+          role: string
+          status: string
+          created_at: string
+          approved_at: string | null
+          approved_by: string | null
+        }
+        Insert: {
+          id?: string
+          organizer_id: string
+          user_id: string
+          role: string
+          status: string
+          created_at?: string
+          approved_at?: string | null
+          approved_by?: string | null
+        }
+        Update: {
+          id?: string
+          organizer_id?: string
+          user_id?: string
+          role?: string
+          status?: string
+          created_at?: string
+          approved_at?: string | null
+          approved_by?: string | null
+        }
+      }
       profiles: {
         Row: {
           user_id: string

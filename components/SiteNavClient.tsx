@@ -140,6 +140,13 @@ export default function SiteNavClient({
                 >
                   Карта
                 </Link>
+                <Link
+                  href="/organizer"
+                  onClick={closeMenu}
+                  className="transition hover:text-[#0c0e14]"
+                >
+                  За организатори
+                </Link>
               </nav>
 
               <div className="mt-auto border-t border-black/[0.08] pt-4">
@@ -211,6 +218,9 @@ export default function SiteNavClient({
         <Link href="/map" className="transition hover:text-[#0c0e14]">
           Карта
         </Link>
+        <Link href="/organizer" className="transition hover:text-[#0c0e14]">
+          За организатори
+        </Link>
         {isAuthenticated ? (
           <Link href="/plan" className="transition hover:text-[#0c0e14]">
             Моят план
@@ -239,6 +249,9 @@ export default function SiteNavClient({
                   </Link>
                   <Link href="/plan" onClick={closeProfileMenu} className="block rounded-xl px-3 py-2 transition hover:bg-black/[0.04] hover:text-[#0c0e14]">
                     Моят план
+                  </Link>
+                  <Link href="/organizer" onClick={closeProfileMenu} className="block rounded-xl px-3 py-2 transition hover:bg-black/[0.04] hover:text-[#0c0e14]">
+                    За организатори
                   </Link>
                   {isAdmin ? (
                     <Link href="/admin" onClick={closeProfileMenu} className="block rounded-xl px-3 py-2 transition hover:bg-black/[0.04] hover:text-[#0c0e14]">

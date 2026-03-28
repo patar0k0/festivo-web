@@ -119,6 +119,12 @@ Database schema: **Supabase** is authoritative; follow queries, types, and `scri
 - Organizer edit includes AI enrichment (`/api/admin/research-organizer`) for profile fields (`description`, `logo_url`, official/social URLs, contact data) with admin review before save.
 - New organizers can be researched and created from `/admin/organizers/research` (linked next to duplicate detection on the organizers list); flow calls the same research API then `POST /admin/api/organizers` and redirects to edit.
 
+## Organizer portal (user-managed organizers, MVP)
+- Public `organizers` rows remain the canonical profile; registered users link via `organizer_members` (`owner`/`admin`/`editor`, `pending`/`active`/`revoked`). Editorial organizers without auth users are unchanged.
+- Logged-in users: `/organizer` (entry), `/organizer/dashboard`, `/organizer/profile/new` (creates organizer + active owner via API), `/organizer/claim` (pending membership; admin approves at `/admin/organizer-claims`), `/organizer/festivals/new` and `/organizer/submissions` (edit pending while `status=pending`). Bulgarian UI; separate from `/admin`.
+- Festival submissions from the portal insert into `pending_festivals` with `submission_source=organizer_portal`, `submitted_by_user_id`, and `organizer_id`; publishing still only via existing admin approve flow. Approve prefers `pending_festivals.organizer_id` when set so the festival links to the claimed profile without duplicating organizers by name.
+- SQL: `scripts/sql/20260328_organizer_members_portal.sql`.
+
 ## Notification System
 Напомняния и откриване: по-старият поток пише в `user_notifications` и се изпраща през `/api/jobs/push` към `device_tokens`. От 2026-03: MVP опашка `notification_jobs` + `notification_logs`, изпълнение през `/api/notifications/run`; тригери от план, админ редакция и одобряване на pending. High-frequency scheduling е external-first (worker/cron service), Vercel се ползва само за low-frequency cron когато е нужно. Job endpoint-ите приемат `x-job-secret: JOBS_SECRET` и използват `cron_locks` за anti-overlap. Ограничения: приоритет high/normal, time-window дедупликация, rate limit по логове 24 ч, тихи часове (reminder без препланиране), retry/backoff — виж `docs/notification-system.md`.
 

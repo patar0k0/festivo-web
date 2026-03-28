@@ -19,6 +19,7 @@ export type PendingFestivalRow = {
   start_date: string | null;
   end_date: string | null;
   source_url: string | null;
+  submission_source: string | null;
   created_at: string;
   quality_score: number;
   quality_bucket: PendingQualityBucket;
@@ -59,7 +60,7 @@ export default async function AdminPendingFestivalsPage({
 
   const { data, error } = await ctx.supabase
     .from("pending_festivals")
-    .select("id,title,description,city_id,city_guess,location_name,location_guess,organizer_name,hero_image,category,tags,date_guess,start_date,end_date,source_url,created_at")
+    .select("id,title,description,city_id,city_guess,location_name,location_guess,organizer_name,hero_image,category,tags,date_guess,start_date,end_date,source_url,submission_source,created_at")
     .eq("status", "pending")
     .order("created_at", { ascending: false })
     .limit(200);
@@ -86,6 +87,7 @@ export default async function AdminPendingFestivalsPage({
       start_date: row.start_date ?? null,
       end_date: row.end_date ?? null,
       source_url: row.source_url ?? null,
+      submission_source: row.submission_source ?? null,
       created_at: row.created_at,
       quality_score: quality.quality_score,
       quality_bucket: quality.quality_bucket,

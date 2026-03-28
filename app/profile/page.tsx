@@ -101,6 +101,12 @@ export default async function ProfilePage() {
                 >
                   Фестивали
                 </Link>
+                <Link
+                  href="/organizer"
+                  className="inline-flex items-center justify-center rounded-lg border border-black/[0.12] bg-white px-4 py-2.5 text-sm font-medium text-[#0c0e14] transition hover:bg-neutral-50"
+                >
+                  За организатори
+                </Link>
                 {isAdmin ? (
                   <Link
                     href="/admin"

@@ -12,6 +12,7 @@ type PendingFestivalRow = {
   start_date: string | null;
   end_date: string | null;
   source_url: string | null;
+  submission_source: string | null;
   created_at: string;
   quality_score: number;
   quality_bucket: PendingQualityBucket;
@@ -156,6 +157,7 @@ export default function PendingFestivalsTable({
               <th className="px-3 py-3">Start date</th>
               <th className="px-3 py-3">End date</th>
               <th className="px-3 py-3">Source URL</th>
+              <th className="px-3 py-3">Източник</th>
               <th className="px-3 py-3">Created</th>
               <th className="px-3 py-3">Actions</th>
             </tr>
@@ -188,6 +190,17 @@ export default function PendingFestivalsTable({
                       </a>
                     ) : (
                       "-"
+                    )}
+                  </td>
+                  <td className="px-3 py-3 text-black/65">
+                    {row.submission_source === "organizer_portal" ? (
+                      <span className="inline-flex rounded-full border border-[#0c0e14]/20 bg-[#f5f4f0] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[#0c0e14]">
+                        Орг. портал
+                      </span>
+                    ) : row.submission_source ? (
+                      row.submission_source
+                    ) : (
+                      "—"
                     )}
                   </td>
                   <td className="px-3 py-3 text-black/65">{new Date(row.created_at).toLocaleString("bg-BG")}</td>

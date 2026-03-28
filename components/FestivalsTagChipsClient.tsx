@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
+import { labelForPublicCategory } from "@/lib/festivals/publicCategoryShared";
 
 type FestivalsTagChipsClientProps = {
   categories: string[];

@@ -4,7 +4,7 @@ import CalendarViewClient from "@/components/calendar/CalendarViewClient";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
-import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories";
+import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategoriesServer";
 import { getCalendarMonth } from "@/lib/queries";
 import { calendarMeta, getBaseUrl } from "@/lib/seo";
 import "../landing.css";

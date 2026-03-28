@@ -1,8 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import FallbackImage from "@/components/ui/FallbackImage";
+import { useEffect, useMemo, useState } from "react";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
 import type { PlanEntry, ReminderType } from "@/lib/plan/server";
@@ -132,17 +132,55 @@ function getFestivalCardImage(festival: { hero_image: string | null; image_url: 
   return festival.hero_image || festival.image_url || null;
 }
 
-function FestivalCardThumbnail({ imageUrl, title }: { imageUrl: string | null; title: string }) {
+/** Tiny neutral JPEG for `placeholder="blur"` on remote URLs (no build-time blurDataURL). */
+const PLAN_CARD_BLUR_DATA_URL =
+  "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAIAAoDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAZEQACAwEAAAAAAAAAAAAAAAAAAQQREjH/2gAMAwEAAhEDEQA/ANbKf/9k=";
+
+function normalizePlanImageSrc(src?: string | null): string | null {
+  if (!src) return null;
+  const trimmed = src.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("/")) return trimmed;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  return null;
+}
+
+function FestivalCardThumbnail({
+  imageUrl,
+  title,
+  priority,
+}: {
+  imageUrl: string | null;
+  title: string;
+  priority?: boolean;
+}) {
+  const normalized = useMemo(() => normalizePlanImageSrc(imageUrl), [imageUrl]);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    setLoadError(false);
+  }, [normalized]);
+
   return (
     <div className="relative h-24 w-full shrink-0 overflow-hidden rounded-xl bg-black/5 sm:h-24 sm:w-24">
-      <FallbackImage
-        src={imageUrl}
-        alt={title}
-        fill
-        className="object-cover"
-        sizes="(max-width: 639px) 100vw, 96px"
-        fallbackSrc="/hero.svg"
-      />
+      {normalized && !loadError ? (
+        <Image
+          src={normalized}
+          alt={title}
+          fill
+          className="object-cover"
+          sizes="(max-width: 639px) 100vw, 96px"
+          placeholder="blur"
+          blurDataURL={PLAN_CARD_BLUR_DATA_URL}
+          priority={Boolean(priority)}
+          onError={() => setLoadError(true)}
+        />
+      ) : (
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-black/[0.06] via-black/[0.05] to-black/[0.1]"
+          aria-hidden
+        />
+      )}
     </div>
   );
 }
@@ -323,7 +361,7 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
           <h2 className="text-xl font-bold tracking-tight text-black">{hasUpcomingFestivals ? "Предстоящи" : "Запазени фестивали"}</h2>
           <p className="mt-1 text-sm text-black/55">Следиш цялото събитие; напомнянията са към фестивала.</p>
           <div className="mt-4 space-y-3">
-            {festivalEntries.map((festival) => {
+            {festivalEntries.map((festival, festivalIndex) => {
               const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
               const isRemoving = removingFestivalIds.has(festival.id);
               const statusKey = festival.start_date ? getFestivalStatus(festival.start_date) : null;
@@ -349,7 +387,11 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
                       <div className="text-sm font-medium text-black/60">{formatDateRange(festival.start_date, festival.end_date)}</div>
                     </div>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                      <FestivalCardThumbnail imageUrl={cardImage} title={festival.title} />
+                      <FestivalCardThumbnail
+                        imageUrl={cardImage}
+                        title={festival.title}
+                        priority={festivalIndex === 0}
+                      />
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <h3 className="text-xl font-semibold tracking-tight text-black">{festival.title}</h3>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-black/60">

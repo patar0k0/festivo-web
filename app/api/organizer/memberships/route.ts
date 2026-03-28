@@ -16,7 +16,7 @@ export async function GET() {
 
   const orgIds = await fetchActiveMembershipOrganizerIds(admin, session.user.id);
   if (!orgIds.length) {
-    return NextResponse.json({ organizers: [] });
+    return NextResponse.json({ error: "Нямате активно членство като организатор." }, { status: 403 });
   }
 
   const { data, error } = await admin.from("organizers").select("id,name,slug").in("id", orgIds).eq("is_active", true).order("name");

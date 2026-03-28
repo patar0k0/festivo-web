@@ -4,35 +4,32 @@ import OrganizerPendingEditForm from "@/components/organizer/OrganizerPendingEdi
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
 import {
   assertCanEditOrganizerPending,
-  getPortalAdminClient,
-  getPortalSessionUser,
   loadPortalPendingFestival,
+  requireActiveOrganizerPortalSession,
 } from "@/lib/organizer/portal";
-import "../../../../landing.css";
+import "@/app/landing.css";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrganizerEditSubmissionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await getPortalSessionUser();
-  if (!session?.user?.id) {
-    redirect(`/login?next=/organizer/submissions/${id}/edit`);
+  const access = await requireActiveOrganizerPortalSession(`/organizer/submissions/${id}/edit`);
+  if (access.kind === "redirect") {
+    redirect(access.to);
   }
-
-  let admin;
-  try {
-    admin = getPortalAdminClient();
-  } catch {
+  if (access.kind === "unavailable") {
     return <div className="p-8 text-sm text-black/60">Услугата е временно недостъпна.</div>;
   }
+
+  const { admin, userId } = access;
 
   const meta = await loadPortalPendingFestival(admin, id);
   if (!meta) {
     notFound();
   }
 
-  const gate = await assertCanEditOrganizerPending(admin, session.user.id, meta);
-  if (!gate.ok) {
+  const editGate = await assertCanEditOrganizerPending(admin, userId, meta);
+  if (!editGate.ok) {
     redirect("/organizer/submissions");
   }
 

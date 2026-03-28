@@ -42,8 +42,8 @@ export default function OrganizerClaimPage() {
     <div className="landing-bg min-h-screen px-4 py-8 text-[#0c0e14] md:px-6 md:py-12">
       <div className="mx-auto max-w-lg space-y-6">
         <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
-          <Link href="/organizer/dashboard" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45 hover:text-[#0c0e14]">
-            ← Табло
+          <Link href="/organizer" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45 hover:text-[#0c0e14]">
+            ← Начало
           </Link>
           <h1 className="mt-4 font-[var(--font-display)] text-2xl font-bold">Заявка за съществуващ профил</h1>
           <p className="mt-2 text-sm text-black/60">
@@ -51,7 +51,7 @@ export default function OrganizerClaimPage() {
             одобрение от администратор ставате собственик на профила.
           </p>
           <div className="mt-6">
-            <OrganizerPortalNav />
+            <OrganizerPortalNav variant="onboarding" />
           </div>
         </div>
 

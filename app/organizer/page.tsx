@@ -1,12 +1,30 @@
 import Link from "next/link";
-import { getPortalSessionUser } from "@/lib/organizer/portal";
-import "../landing.css";
+import {
+  fetchOrganizerPortalMembershipSummary,
+  getPortalAdminClient,
+  getPortalSessionUser,
+} from "@/lib/organizer/portal";
+import "@/app/landing.css";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrganizerEntryPage() {
   const session = await getPortalSessionUser();
   const loggedIn = Boolean(session?.user?.id);
+
+  let summary: Awaited<ReturnType<typeof fetchOrganizerPortalMembershipSummary>> | null = null;
+  if (loggedIn && session?.user?.id) {
+    try {
+      const admin = getPortalAdminClient();
+      summary = await fetchOrganizerPortalMembershipSummary(admin, session.user.id);
+    } catch {
+      summary = null;
+    }
+  }
+
+  const hasActive = (summary?.activeOrganizerIds.length ?? 0) > 0;
+  const hasPendingOnly = Boolean(summary?.hasPendingMembership) && !hasActive;
+  const loggedInNoData = loggedIn && summary === null;
 
   return (
     <div className="landing-bg min-h-screen px-4 py-10 text-[#0c0e14] md:px-6 md:py-14">
@@ -22,8 +40,36 @@ export default async function OrganizerEntryPage() {
           <li>Подаванията влизат в опашката за одобрение — без директно публикуване.</li>
           <li>Заявки за вече съществуващ профил се одобряват от администратор.</li>
         </ul>
+
+        {loggedIn && hasPendingOnly ? (
+          <p className="mt-6 rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950/90">
+            Имате изчакваща заявка за членство. След одобрение от екипа на Festivo ще получите достъп до таблото за организатори.
+          </p>
+        ) : null}
+
+        {loggedInNoData ? (
+          <p className="mt-6 rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-black/60">
+            Не успяхме да заредим състоянието на членството. Опитайте отново по-късно.
+          </p>
+        ) : null}
+
         <div className="mt-8 flex flex-wrap gap-3">
-          {loggedIn ? (
+          {!loggedIn ? (
+            <>
+              <Link
+                href="/login?next=/organizer"
+                className="inline-flex rounded-xl bg-[#0c0e14] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-black"
+              >
+                Вход
+              </Link>
+              <Link
+                href="/signup?next=/organizer"
+                className="inline-flex rounded-xl border border-black/[0.14] bg-white px-5 py-2.5 text-sm font-semibold text-[#0c0e14] transition hover:bg-neutral-50"
+              >
+                Регистрация
+              </Link>
+            </>
+          ) : hasActive ? (
             <>
               <Link
                 href="/organizer/dashboard"
@@ -37,20 +83,26 @@ export default async function OrganizerEntryPage() {
               >
                 Нов организаторски профил
               </Link>
+              <Link
+                href="/organizer/claim"
+                className="inline-flex rounded-xl border border-black/[0.14] bg-white px-5 py-2.5 text-sm font-semibold text-[#0c0e14] transition hover:bg-neutral-50"
+              >
+                Заявка за съществуващ профил
+              </Link>
             </>
           ) : (
             <>
               <Link
-                href="/login?next=/organizer/dashboard"
+                href="/organizer/profile/new"
                 className="inline-flex rounded-xl bg-[#0c0e14] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-black"
               >
-                Вход
+                Нов организаторски профил
               </Link>
               <Link
-                href="/signup"
+                href="/organizer/claim"
                 className="inline-flex rounded-xl border border-black/[0.14] bg-white px-5 py-2.5 text-sm font-semibold text-[#0c0e14] transition hover:bg-neutral-50"
               >
-                Регистрация
+                Заявка за съществуващ профил
               </Link>
             </>
           )}

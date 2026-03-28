@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
+const PORTAL_MEMBER_ROLES = ["owner", "admin", "editor"] as const;
+
 export type OrganizerMemberRow = {
   id: string;
   organizer_id: string;
@@ -33,7 +35,7 @@ export async function fetchActiveMembershipOrganizerIds(admin: SupabaseClient, u
     .select("organizer_id")
     .eq("user_id", userId)
     .eq("status", "active")
-    .in("role", ["owner", "admin", "editor"]);
+    .in("role", [...PORTAL_MEMBER_ROLES]);
 
   if (error) {
     throw new Error(error.message);
@@ -54,7 +56,7 @@ export async function hasActiveOrganizerMembership(
     .eq("user_id", userId)
     .eq("organizer_id", organizerId)
     .eq("status", "active")
-    .in("role", ["owner", "admin", "editor"])
+    .in("role", [...PORTAL_MEMBER_ROLES])
     .maybeSingle();
 
   if (error) {
@@ -101,4 +103,63 @@ export async function assertCanEditOrganizerPending(admin: SupabaseClient, userI
   }
 
   return { ok: true as const };
+}
+
+export type OrganizerPortalMembershipSummary = {
+  activeOrganizerIds: string[];
+  hasPendingMembership: boolean;
+};
+
+export async function fetchOrganizerPortalMembershipSummary(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<OrganizerPortalMembershipSummary> {
+  const { data, error } = await admin
+    .from("organizer_members")
+    .select("organizer_id,status")
+    .eq("user_id", userId)
+    .in("role", [...PORTAL_MEMBER_ROLES]);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rows = data ?? [];
+  const activeOrganizerIds = [
+    ...new Set(
+      rows
+        .filter((r) => r.status === "active")
+        .map((r) => r.organizer_id as string)
+        .filter(Boolean),
+    ),
+  ];
+  const hasPendingMembership = rows.some((r) => r.status === "pending");
+
+  return { activeOrganizerIds, hasPendingMembership };
+}
+
+export type ActiveOrganizerPortalGate =
+  | { kind: "redirect"; to: string }
+  | { kind: "unavailable" }
+  | { kind: "ok"; admin: SupabaseClient; userId: string; orgIds: string[] };
+
+export async function requireActiveOrganizerPortalSession(loginNextPath: string): Promise<ActiveOrganizerPortalGate> {
+  const session = await getPortalSessionUser();
+  if (!session?.user?.id) {
+    return { kind: "redirect", to: `/login?next=${encodeURIComponent(loginNextPath)}` };
+  }
+
+  let admin: SupabaseClient;
+  try {
+    admin = getPortalAdminClient();
+  } catch {
+    return { kind: "unavailable" };
+  }
+
+  const orgIds = await fetchActiveMembershipOrganizerIds(admin, session.user.id);
+  if (orgIds.length === 0) {
+    return { kind: "redirect", to: "/organizer" };
+  }
+
+  return { kind: "ok", admin, userId: session.user.id, orgIds };
 }

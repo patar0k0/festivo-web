@@ -1,25 +1,21 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
-import { fetchActiveMembershipOrganizerIds, getPortalAdminClient, getPortalSessionUser } from "@/lib/organizer/portal";
+import { requireActiveOrganizerPortalSession } from "@/lib/organizer/portal";
 import "@/app/landing.css";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrganizerSubmissionsPage() {
-  const session = await getPortalSessionUser();
-  if (!session?.user?.id) {
-    redirect("/login?next=/organizer/submissions");
+  const gate = await requireActiveOrganizerPortalSession("/organizer/submissions");
+  if (gate.kind === "redirect") {
+    redirect(gate.to);
   }
-
-  let admin;
-  try {
-    admin = getPortalAdminClient();
-  } catch {
+  if (gate.kind === "unavailable") {
     return <div className="p-8 text-sm text-black/60">Услугата е временно недостъпна.</div>;
   }
 
-  const orgIds = await fetchActiveMembershipOrganizerIds(admin, session.user.id);
+  const { admin, orgIds } = gate;
   const { data: submissions } =
     orgIds.length > 0
       ? await admin

@@ -1,21 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
-import { fetchActiveMembershipOrganizerIds, getPortalAdminClient, getPortalSessionUser } from "@/lib/organizer/portal";
+import { requireActiveOrganizerPortalSession } from "@/lib/organizer/portal";
 import "@/app/landing.css";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrganizerDashboardPage() {
-  const session = await getPortalSessionUser();
-  if (!session?.user?.id) {
-    redirect("/login?next=/organizer/dashboard");
+  const gate = await requireActiveOrganizerPortalSession("/organizer/dashboard");
+  if (gate.kind === "redirect") {
+    redirect(gate.to);
   }
-
-  let admin;
-  try {
-    admin = getPortalAdminClient();
-  } catch {
+  if (gate.kind === "unavailable") {
     return (
       <div className="landing-bg min-h-screen px-4 py-10 text-[#0c0e14]">
         <div className="mx-auto max-w-3xl rounded-2xl border border-black/[0.08] bg-white/90 p-6 text-sm text-black/65">
@@ -25,7 +21,7 @@ export default async function OrganizerDashboardPage() {
     );
   }
 
-  const orgIds = await fetchActiveMembershipOrganizerIds(admin, session.user.id);
+  const { admin, orgIds } = gate;
 
   const { data: orgRows } =
     orgIds.length > 0

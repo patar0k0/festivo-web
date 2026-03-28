@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const links: { href: string; label: string }[] = [
+const portalLinks: { href: string; label: string }[] = [
   { href: "/organizer/dashboard", label: "Табло" },
   { href: "/organizer/profile/new", label: "Нов профил" },
   { href: "/organizer/claim", label: "Заявка за профил" },
@@ -8,7 +8,17 @@ const links: { href: string; label: string }[] = [
   { href: "/organizer/submissions", label: "Моите подавания" },
 ];
 
-export default function OrganizerPortalNav() {
+const onboardingLinks: { href: string; label: string }[] = [
+  { href: "/organizer", label: "Начало" },
+  { href: "/organizer/profile/new", label: "Нов профил" },
+  { href: "/organizer/claim", label: "Заявка за профил" },
+];
+
+export type OrganizerPortalNavVariant = "portal" | "onboarding";
+
+export default function OrganizerPortalNav({ variant = "portal" }: { variant?: OrganizerPortalNavVariant }) {
+  const links = variant === "onboarding" ? onboardingLinks : portalLinks;
+
   return (
     <nav className="flex flex-wrap gap-2 border-b border-black/[0.08] pb-4 text-xs font-semibold uppercase tracking-[0.12em] text-black/55">
       {links.map((item) => (

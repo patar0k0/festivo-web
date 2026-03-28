@@ -8,17 +8,19 @@ type Props = {
   header: React.ReactNode;
   /** Рендерира се на сървъра */
   footer: React.ReactNode;
+  /** Без публичен хедър/футър (coming soon, превю на целия сайт с cookie и т.н.). */
+  minimalChrome?: boolean;
 };
 
 /**
  * Админ зоната (/admin/*) без публичен хедър/футър — един изход и по-малко шум.
  * Хедърът се подава от сървърен родител, за да не влиза next/headers в client bundle.
  */
-export default function ConditionalSiteChrome({ children, header, footer }: Props) {
+export default function ConditionalSiteChrome({ children, header, footer, minimalChrome }: Props) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith("/admin") ?? false;
 
-  if (isAdminRoute) {
+  if (minimalChrome || isAdminRoute) {
     return <main className="min-h-screen">{children}</main>;
   }
 

@@ -19,7 +19,7 @@ This repo includes worker helper logic in `workers/ingest_fb_event.js` for:
 
 ## Edge middleware: API POST hardening (festivo-web)
 
-`middleware.ts` runs on the Edge runtime and applies **only to `POST` requests** whose path starts with `/api/`.
+`middleware.ts` runs on the Edge runtime on matched app routes. For **`POST` requests** whose path starts with `/api/`, it applies the following.
 
 ### Rate limiting (Upstash)
 
@@ -50,6 +50,10 @@ Limited responses: **429** with `Retry-After` (seconds).
 - Rejection: **403** with a small JSON body.
 
 Env var summary for production also lives in `README.md` (`UPSTASH_*`, `CSRF_ALLOWED_HOSTS`, `JOBS_SECRET`).
+
+### Pathname for layout (internal)
+
+`middleware.ts` forwards `request.nextUrl.pathname` on `NextResponse.next()` as request header `x-festivo-pathname` (overwrites any client-supplied value). The root shell uses it server-side with `FESTIVO_PUBLIC_MODE` and the `festivo_preview` cookie so **coming-soon** and **`/coming-soon`** render without the public header/footer (no catalog navigation on those surfaces).
 
 Auth UX includes signup/login and password recovery: `/signup` creates email+password users (`auth.signUp`), `/login` sends Supabase reset emails, and `/reset-password` applies `auth.updateUser({ password })` for valid recovery sessions.
 

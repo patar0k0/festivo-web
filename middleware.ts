@@ -5,6 +5,13 @@ import { canBypassJobsRateLimit, checkRateLimit } from "@/lib/rateLimit";
 import { verifyApiPostOrigin } from "@/lib/postOriginGuard";
 import { getSupabaseEnv } from "@/lib/supabaseServer";
 
+/** For server components (e.g. layout) to choose minimal chrome without client env. */
+function withPathnameHeaders(request: NextRequest): Headers {
+  const h = new Headers(request.headers);
+  h.set("x-festivo-pathname", request.nextUrl.pathname);
+  return h;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -37,13 +44,15 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith("/cities/")) {
     const rawSlug = pathname.slice("/cities/".length).replace(/\/+$/, "");
-    if (!rawSlug) return NextResponse.next();
+    if (!rawSlug) {
+      return NextResponse.next({ request: { headers: withPathnameHeaders(request) } });
+    }
 
     let decoded: string;
     try {
       decoded = decodeURIComponent(rawSlug);
     } catch {
-      return NextResponse.next();
+      return NextResponse.next({ request: { headers: withPathnameHeaders(request) } });
     }
 
     const decodedTrim = decoded.trim();
@@ -114,7 +123,7 @@ export async function middleware(request: NextRequest) {
 
   const response = NextResponse.next({
     request: {
-      headers: request.headers,
+      headers: withPathnameHeaders(request),
     },
   });
 

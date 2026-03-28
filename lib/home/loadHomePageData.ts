@@ -20,7 +20,7 @@ export type HomeQuickChipHrefs = {
   categoryChips: { label: string; href: string }[];
 };
 
-/** Props shared by `RealHomePage` and `RealHomePageSandbox` (same data, optional UI fork). */
+/** Props for the public home page (`RealHomePage`). */
 export type HomePageViewProps = {
   nearestFestivals: Festival[];
   weekendFestivals: Festival[];
@@ -85,7 +85,6 @@ async function fetchHomeFestivals(params: {
 
 /**
  * Same queries and derived hrefs as the public home page (`app/page.tsx`).
- * Used by `/` and `/test` so experiments reuse production data loading.
  */
 export async function loadHomePageData(citySlug: string | undefined): Promise<HomePageViewProps> {
   const today = format(new Date(), "yyyy-MM-dd");

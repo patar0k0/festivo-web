@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 type CitySelectClientProps = {
   cities: Array<{ name: string; slug: string | null; filterValue: string }>;
-  /** Base path for `?city=` navigation (default `/`). Use `/test` on the home UI sandbox. */
+  /** Base path for `?city=` navigation (default `/`). */
   homePath?: string;
 };
 

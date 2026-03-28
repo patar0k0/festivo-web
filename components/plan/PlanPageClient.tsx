@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import FallbackImage from "@/components/ui/FallbackImage";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
 import type { PlanEntry, ReminderType } from "@/lib/plan/server";
@@ -131,10 +132,17 @@ function getFestivalCardImage(festival: { hero_image: string | null; image_url: 
   return festival.hero_image || festival.image_url || null;
 }
 
-function FestivalCardThumbnail({ imageUrl, title }: { imageUrl: string; title: string }) {
+function FestivalCardThumbnail({ imageUrl, title }: { imageUrl: string | null; title: string }) {
   return (
-    <div className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-black/5 sm:h-24 sm:w-24">
-      <img src={imageUrl} alt={title} className="h-full w-full object-cover" loading="lazy" />
+    <div className="relative h-24 w-full shrink-0 overflow-hidden rounded-xl bg-black/5 sm:h-24 sm:w-24">
+      <FallbackImage
+        src={imageUrl}
+        alt={title}
+        fill
+        className="object-cover"
+        sizes="(max-width: 639px) 100vw, 96px"
+        fallbackSrc="/hero.svg"
+      />
     </div>
   );
 }
@@ -341,7 +349,7 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
                       <div className="text-sm font-medium text-black/60">{formatDateRange(festival.start_date, festival.end_date)}</div>
                     </div>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                      {cardImage ? <FestivalCardThumbnail imageUrl={cardImage} title={festival.title} /> : null}
+                      <FestivalCardThumbnail imageUrl={cardImage} title={festival.title} />
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <h3 className="text-xl font-semibold tracking-tight text-black">{festival.title}</h3>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-black/60">

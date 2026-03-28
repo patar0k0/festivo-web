@@ -35,10 +35,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: gate.error }, { status: 403 });
   }
 
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!body || typeof body !== "object") {
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
     return NextResponse.json({ error: "Невалидно тяло на заявката." }, { status: 400 });
   }
+
+  if (
+    rawBody === null ||
+    typeof rawBody !== "object" ||
+    Array.isArray(rawBody)
+  ) {
+    return NextResponse.json({ error: "Невалидно тяло на заявката." }, { status: 400 });
+  }
+
+  const body: Record<string, unknown> = rawBody as Record<string, unknown>;
 
   const safeBody: Record<string, unknown> = {};
   const allowKeys = [
@@ -84,9 +96,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     patch.is_free = body.is_free;
   }
 
-  function optionalTrimmedUrlField(key: "facebook_url" | "instagram_url") {
-    if (!(key in body)) return;
-    const v = body[key];
+  function optionalTrimmedUrlField(obj: Record<string, unknown>, key: "facebook_url" | "instagram_url") {
+    if (!(key in obj)) return;
+    const v = obj[key];
     if (v === null) {
       patch[key] = null;
       return;
@@ -96,8 +108,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       patch[key] = t || null;
     }
   }
-  optionalTrimmedUrlField("facebook_url");
-  optionalTrimmedUrlField("instagram_url");
+  optionalTrimmedUrlField(body, "facebook_url");
+  optionalTrimmedUrlField(body, "instagram_url");
 
   const cityForInput =
     typeof body.city_name_display === "string"

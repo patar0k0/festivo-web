@@ -121,7 +121,7 @@ function getFestivalStatus(startDate: string | Date): "today" | "week" | "soon" 
   return "soon";
 }
 
-const FESTIVAL_STATUS_LABEL: Record<Exclude<ReturnType<typeof getFestivalStatus>, null>, string> = {
+const FESTIVAL_STATUS_LABEL: Record<"today" | "week" | "soon", string> = {
   today: "Днес",
   week: "Тази седмица",
   soon: "Скоро",
@@ -131,22 +131,12 @@ function getFestivalCardImage(festival: { hero_image: string | null; image_url: 
   return festival.hero_image || festival.image_url || null;
 }
 
-function FestivalCardThumbnail({
-  imageUrl,
-  title,
-}: {
-  imageUrl: string | null;
-  title: string;
-}) {
-  if (imageUrl) {
-    return (
-      <div className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-black/5 sm:h-24 sm:w-24">
-        <img src={imageUrl} alt={title} className="h-full w-full object-cover" loading="lazy" />
-      </div>
-    );
-  }
-
-  return <div className="h-24 w-full shrink-0 rounded-xl bg-black/[0.04] sm:h-24 sm:w-24" aria-hidden />;
+function FestivalCardThumbnail({ imageUrl, title }: { imageUrl: string; title: string }) {
+  return (
+    <div className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-black/5 sm:h-24 sm:w-24">
+      <img src={imageUrl} alt={title} className="h-full w-full object-cover" loading="lazy" />
+    </div>
+  );
 }
 
 function ReminderPills({
@@ -317,11 +307,13 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
             {festivalEntries.map((festival) => {
               const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
               const isRemoving = removingFestivalIds.has(festival.id);
-              const statusBadge = getFestivalStatusBadge(festival.start_date);
+              const statusKey = festival.start_date ? getFestivalStatus(festival.start_date) : null;
+              const statusLabel = statusKey ? FESTIVAL_STATUS_LABEL[statusKey] : null;
+              const cardImage = getFestivalCardImage(festival);
               return (
                 <article
                   key={festival.id}
-                  className="rounded-3xl border border-black/10 bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)] sm:p-6"
+                  className="rounded-3xl border border-black/10 bg-white p-5 shadow-[0_8px_24px_rgba(0,0,0,0.05)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] sm:p-6"
                 >
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -329,15 +321,17 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
                         <span className="inline-flex items-center rounded-full border border-black/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-black/60">
                           {festival.city ?? "България"}
                         </span>
-                        {statusBadge ? (
-                          <span className="inline-flex items-center rounded-full border border-black/[0.09] bg-black/[0.03] px-3 py-1 text-[11px] font-medium text-black/70">{statusBadge}</span>
+                        {statusLabel ? (
+                          <span className="inline-flex items-center rounded-full bg-black/5 px-3 py-1 text-[11px] font-medium text-black/70">
+                            {statusLabel}
+                          </span>
                         ) : null}
                       </div>
                       <div className="text-sm font-medium text-black/60">{formatDateRange(festival.start_date, festival.end_date)}</div>
                     </div>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                      <FestivalCardThumbnail imageUrl={getFestivalCardImage(festival)} title={festival.title} />
-                      <div className="space-y-1.5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                      {cardImage ? <FestivalCardThumbnail imageUrl={cardImage} title={festival.title} /> : null}
+                      <div className="min-w-0 flex-1 space-y-1.5">
                         <h3 className="text-xl font-semibold tracking-tight text-black">{festival.title}</h3>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-black/60">
                           <span>{reminder === "none" ? "Без активно напомняне" : reminder === "24h" ? "Напомняне 24 часа преди началото" : "Напомняне в деня на събитието"}</span>
@@ -354,14 +348,14 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
                         </Link>
                         <Link
                           href={festivalProgrammeHref(`/festivals/${festival.slug}`)}
-                          className="inline-flex rounded-full border border-black/[0.12] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14]"
+                          className="inline-flex rounded-full border border-black/[0.14] bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:border-black/25 hover:bg-black/[0.02]"
                         >
                           Програма
                         </Link>
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium uppercase tracking-[0.16em] text-black/45">Напомняне</span>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:justify-end">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs font-medium text-black/50">Напомняне:</span>
                           <ReminderPills
                             value={reminder}
                             onChange={(next) => {
@@ -393,7 +387,7 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
                             }
                           }}
                           disabled={isRemoving}
-                          className="text-sm font-medium text-red-600/75 transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-45"
+                          className="text-sm font-medium text-red-600/60 transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-45"
                         >
                           Премахни
                         </button>

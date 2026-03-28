@@ -153,7 +153,7 @@ function ReminderPills({
   ];
 
   return (
-    <div className="inline-flex items-center gap-0.5">
+    <div className="inline-flex items-center gap-0.5 rounded-full bg-black/[0.04] p-1">
       {options.map((option) => {
         const active = value === option.value;
         return (
@@ -212,24 +212,28 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
   if (!upcomingEntries.length && !festivalEntries.length) {
     return (
       <div className="space-y-5">
-        <section className="rounded-2xl border border-black/[0.08] bg-white/90 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_14px_28px_rgba(12,14,20,0.09)] md:p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-black/45">Личен дашборд</p>
-          <h1 className="mt-1 text-3xl font-black tracking-tight text-[#0c0e14]">Моят план</h1>
+        <section className="rounded-2xl border border-border-subtle bg-surface p-5 shadow-card md:p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">Личен дашборд</p>
+          <h1 className="mt-1 text-3xl font-black tracking-tight text-black">Моят план</h1>
           <p className="mt-2 text-sm leading-relaxed text-black/60">Събирай любими фестивали, следи напомнянията и управлявай програмата си на едно място.</p>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-black/[0.08] bg-[#f7f6f2] p-4">
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-black/40">Запазени фестивали</p>
-              <p className="mt-1 text-4xl font-black leading-none text-[#0c0e14]">{summary.savedFestivalCount}</p>
+            <div className="rounded-xl border border-border-subtle bg-surface p-4 shadow-card transition-all duration-200 hover:-translate-y-[2px] hover:shadow-cardHover">
+              <p className="text-xs uppercase tracking-wide text-black/40">Запазени фестивали</p>
+              <p className="mt-1 text-2xl font-semibold text-black">{summary.savedFestivalCount}</p>
             </div>
-            <div className="rounded-xl border border-black/[0.08] bg-[#f7f6f2] p-4">
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-black/40">Активни напомняния</p>
-              <p className="mt-1 text-4xl font-black leading-none text-[#0c0e14]">{summary.activeReminderCount}</p>
+            <div className="rounded-xl border border-border-subtle bg-surface p-4 shadow-card transition-all duration-200 hover:-translate-y-[2px] hover:shadow-cardHover">
+              <p className="text-xs uppercase tracking-wide text-black/40">Активни напомняния</p>
+              <p className="mt-1 text-2xl font-semibold text-black">{summary.activeReminderCount}</p>
             </div>
-            <div className={`rounded-xl border p-4 ${summary.nextUpcomingFestival ? "border-black/[0.08] bg-[#f7f6f2]" : "border-black/[0.06] bg-black/[0.02]"}`}>
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-black/40">Следващ фестивал</p>
+            <div
+              className={`rounded-xl border p-4 shadow-card transition-all duration-200 hover:-translate-y-[2px] hover:shadow-cardHover ${
+                summary.nextUpcomingFestival ? "border-border-subtle bg-surface" : "border-border-subtle bg-black/[0.02]"
+              }`}
+            >
+              <p className="text-xs uppercase tracking-wide text-black/40">Следващ фестивал</p>
               {summary.nextUpcomingFestival ? (
                 <>
-                  <p className="mt-1 text-base font-bold leading-snug text-[#0c0e14]">{summary.nextUpcomingFestival.title}</p>
+                  <p className="mt-1 text-base font-bold leading-snug text-black">{summary.nextUpcomingFestival.title}</p>
                   <p className="mt-0.5 text-sm font-medium text-black/60">
                     {formatDateRange(summary.nextUpcomingFestival.startDate, summary.nextUpcomingFestival.endDate)}
                   </p>
@@ -241,24 +245,27 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
           </div>
         </section>
 
-        <div className="rounded-3xl border border-black/[0.08] bg-gradient-to-b from-white via-white to-[#f7f6f2] px-6 py-14 text-center shadow-[0_2px_0_rgba(12,14,20,0.05),0_22px_40px_rgba(12,14,20,0.08)] md:px-10 md:py-16">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-black/[0.08] bg-white shadow-[0_8px_20px_rgba(12,14,20,0.08)]" aria-hidden>
+        <div className="rounded-3xl border border-border-subtle bg-surface px-6 py-14 text-center shadow-card transition-all duration-200 hover:-translate-y-[2px] hover:shadow-cardHover md:px-10 md:py-16">
+          <div
+            className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-border-subtle bg-surface shadow-card"
+            aria-hidden
+          >
             <span className="text-2xl">✦</span>
           </div>
-          <p className="mt-5 text-2xl font-semibold tracking-tight text-[#0c0e14]">Все още нямаш запазени фестивали</p>
+          <p className="mt-5 text-2xl font-semibold tracking-tight text-black">Все още нямаш запазени фестивали</p>
           <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-black/55 md:text-[15px]">
             Разгледай фестивалите и запази тези, които искаш да посетиш.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
             <Link
               href="/festivals"
-              className="inline-flex rounded-xl bg-[#0c0e14] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white shadow-[0_10px_24px_rgba(12,14,20,0.24)]"
+              className="inline-flex rounded-full bg-black px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white"
             >
               Разгледай фестивали
             </Link>
             <Link
               href="/map"
-              className="inline-flex rounded-xl border border-black/[0.14] bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#0c0e14] transition hover:bg-black/[0.03]"
+              className="inline-flex rounded-full border border-border-subtle px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-black transition hover:bg-black/[0.04]"
             >
               Отвори карта
             </Link>
@@ -270,24 +277,28 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
 
   return (
     <div className="space-y-5">
-      <section className="rounded-2xl border border-black/[0.08] bg-white/90 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_14px_28px_rgba(12,14,20,0.09)] md:p-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-black/45">Личен дашборд</p>
-        <h1 className="mt-1 text-3xl font-black tracking-tight text-[#0c0e14]">Моят план</h1>
+      <section className="rounded-2xl border border-border-subtle bg-surface p-5 shadow-card md:p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">Личен дашборд</p>
+        <h1 className="mt-1 text-3xl font-black tracking-tight text-black">Моят план</h1>
         <p className="mt-2 text-sm leading-relaxed text-black/60">Всички запазени фестивали, активни напомняния и избрани моменти от програмата ти.</p>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-black/[0.08] bg-[#f7f6f2] p-4">
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-black/40">Запазени фестивали</p>
-            <p className="mt-1 text-4xl font-black leading-none text-[#0c0e14]">{summary.savedFestivalCount}</p>
+          <div className="rounded-xl border border-border-subtle bg-surface p-4 shadow-card transition-all duration-200 hover:-translate-y-[2px] hover:shadow-cardHover">
+            <p className="text-xs uppercase tracking-wide text-black/40">Запазени фестивали</p>
+            <p className="mt-1 text-2xl font-semibold text-black">{summary.savedFestivalCount}</p>
           </div>
-          <div className="rounded-xl border border-black/[0.08] bg-[#f7f6f2] p-4">
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-black/40">Активни напомняния</p>
-            <p className="mt-1 text-4xl font-black leading-none text-[#0c0e14]">{summary.activeReminderCount}</p>
+          <div className="rounded-xl border border-border-subtle bg-surface p-4 shadow-card transition-all duration-200 hover:-translate-y-[2px] hover:shadow-cardHover">
+            <p className="text-xs uppercase tracking-wide text-black/40">Активни напомняния</p>
+            <p className="mt-1 text-2xl font-semibold text-black">{summary.activeReminderCount}</p>
           </div>
-          <div className={`rounded-xl border p-4 ${summary.nextUpcomingFestival ? "border-black/[0.08] bg-[#f7f6f2]" : "border-black/[0.06] bg-black/[0.02]"}`}>
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-black/40">Следващ фестивал</p>
+          <div
+            className={`rounded-xl border p-4 shadow-card transition-all duration-200 hover:-translate-y-[2px] hover:shadow-cardHover ${
+              summary.nextUpcomingFestival ? "border-border-subtle bg-surface" : "border-border-subtle bg-black/[0.02]"
+            }`}
+          >
+            <p className="text-xs uppercase tracking-wide text-black/40">Следващ фестивал</p>
             {summary.nextUpcomingFestival ? (
               <>
-                <p className="mt-1 text-base font-bold leading-snug text-[#0c0e14]">{summary.nextUpcomingFestival.title}</p>
+                <p className="mt-1 text-base font-bold leading-snug text-black">{summary.nextUpcomingFestival.title}</p>
                 <p className="mt-0.5 text-sm font-medium text-black/60">
                   {formatDateRange(summary.nextUpcomingFestival.startDate, summary.nextUpcomingFestival.endDate)}
                 </p>
@@ -300,8 +311,8 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
       </section>
 
       {festivalEntries.length ? (
-        <section className="rounded-2xl border border-black/[0.08] bg-white/90 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_14px_28px_rgba(12,14,20,0.09)] md:p-6">
-          <h2 className="text-xl font-bold tracking-tight text-[#0c0e14]">{hasUpcomingFestivals ? "Предстоящи" : "Запазени фестивали"}</h2>
+        <section className="rounded-2xl border border-border-subtle bg-surface p-5 shadow-card md:p-6">
+          <h2 className="text-xl font-bold tracking-tight text-black">{hasUpcomingFestivals ? "Предстоящи" : "Запазени фестивали"}</h2>
           <p className="mt-1 text-sm text-black/55">Следиш цялото събитие; напомнянията са към фестивала.</p>
           <div className="mt-4 space-y-3">
             {festivalEntries.map((festival) => {
@@ -313,16 +324,16 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
               return (
                 <article
                   key={festival.id}
-                  className="rounded-3xl border border-black/10 bg-white p-5 shadow-[0_8px_24px_rgba(0,0,0,0.05)] transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] sm:p-6"
+                  className="rounded-3xl border border-border-subtle bg-surface p-5 shadow-card transition-all duration-200 hover:-translate-y-[2px] hover:shadow-cardHover sm:p-6"
                 >
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center rounded-full border border-black/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-black/60">
+                        <span className="inline-flex items-center rounded-full border border-border-subtle px-3 py-1 text-xs text-black/60">
                           {festival.city ?? "България"}
                         </span>
                         {statusLabel ? (
-                          <span className="inline-flex items-center rounded-full bg-black/5 px-3 py-1 text-[11px] font-medium text-black/70">
+                          <span className="inline-flex items-center rounded-full bg-accent-soft px-3 py-1 text-xs font-medium text-accent">
                             {statusLabel}
                           </span>
                         ) : null}
@@ -338,17 +349,17 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-3 border-t border-black/[0.08] pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-3 border-t border-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex flex-wrap items-center gap-2">
                         <Link
                           href={`/festivals/${festival.slug}`}
-                          className="inline-flex rounded-full bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white"
+                          className="inline-flex rounded-full bg-black px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white"
                         >
                           Детайли
                         </Link>
                         <Link
                           href={festivalProgrammeHref(`/festivals/${festival.slug}`)}
-                          className="inline-flex rounded-full border border-black/[0.14] bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:border-black/25 hover:bg-black/[0.02]"
+                          className="inline-flex rounded-full border border-border-subtle bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-black transition hover:bg-black/[0.04]"
                         >
                           Програма
                         </Link>
@@ -387,7 +398,7 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
                             }
                           }}
                           disabled={isRemoving}
-                          className="text-sm font-medium text-red-600/60 transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-45"
+                          className="text-sm font-medium text-red-600/70 transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-45"
                         >
                           Премахни
                         </button>
@@ -407,12 +418,12 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
         return (
           <section
             key={festivalId}
-            className="rounded-2xl border border-black/[0.08] bg-white/90 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_14px_28px_rgba(12,14,20,0.09)] md:p-6"
+            className="rounded-2xl border border-border-subtle bg-surface p-5 shadow-card md:p-6"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/45">Програма</p>
-                <h2 className="text-xl font-bold tracking-tight text-[#0c0e14]">{first.festivalTitle}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/40">Програма</p>
+                <h2 className="text-xl font-bold tracking-tight text-black">{first.festivalTitle}</h2>
                 <p className="text-sm text-black/60">{first.city ?? "България"}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -422,12 +433,15 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
                     void setFestivalReminder(festivalId, next);
                   }}
                 />
-                <Link href={`/festivals/${first.festivalSlug}`} className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]">
+                <Link
+                  href={`/festivals/${first.festivalSlug}`}
+                  className="inline-flex rounded-full bg-black px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white"
+                >
                   Детайли
                 </Link>
                 <Link
                   href={festivalProgrammeHref(`/festivals/${first.festivalSlug}`)}
-                  className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]"
+                  className="inline-flex rounded-full border border-border-subtle px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-black transition hover:bg-black/[0.04]"
                 >
                   Програма
                 </Link>
@@ -436,12 +450,15 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
 
             <div className="mt-4 space-y-2">
               {items.map((item) => (
-                <div key={item.scheduleItemId} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/[0.08] bg-white px-3 py-2">
+                <div
+                  key={item.scheduleItemId}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface px-3 py-2 shadow-card transition-all duration-200 hover:-translate-y-[2px] hover:shadow-cardHover"
+                >
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/45">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/40">
                       {item.dayDate ?? "Дата"} • {formatTimeRange(item.startTime, item.endTime)}
                     </p>
-                    <p className="text-sm font-semibold text-[#0c0e14]">{item.title}</p>
+                    <p className="text-sm font-semibold text-black">{item.title}</p>
                     {item.stage ? <p className="text-xs text-black/55">{item.stage}</p> : null}
                   </div>
                   <button
@@ -449,7 +466,7 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
                     onClick={() => {
                       void toggleScheduleItem(item.scheduleItemId);
                     }}
-                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]"
+                    className="text-xs font-semibold uppercase tracking-[0.12em] text-red-600/70 transition hover:text-red-600"
                   >
                     Премахни от програмата
                   </button>

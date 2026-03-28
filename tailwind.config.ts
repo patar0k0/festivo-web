@@ -1,4 +1,4 @@
-﻿import type { Config } from "tailwindcss";
+import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
@@ -26,12 +26,29 @@ const config: Config = {
         sand: "#f5f2ed",
         clay: "#d9c9b8",
         pine: "#1e3a34",
-        accent: "#c46b4a",
+        bg: "#f5f3ef",
+        surface: "#ffffff",
+        text: {
+          primary: "#111111",
+          secondary: "rgba(0,0,0,0.6)",
+          muted: "rgba(0,0,0,0.4)",
+        },
+        accent: {
+          DEFAULT: "#2f6f5e",
+          soft: "#e6f0ed",
+        },
+        danger: {
+          DEFAULT: "#dc2626",
+        },
+        border: {
+          subtle: "rgba(0,0,0,0.08)",
+        },
       },
       boxShadow: {
         soft: "0 10px 30px rgba(0,0,0,.08)",
         soft2: "0 6px 18px rgba(0,0,0,.06)",
-        card: "0 12px 40px rgba(15, 23, 42, 0.12)",
+        card: "0 10px 30px rgba(0,0,0,0.06)",
+        cardHover: "0 16px 40px rgba(0,0,0,0.08)",
       },
       borderRadius: {
         xl: "1.25rem",

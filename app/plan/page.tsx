@@ -6,7 +6,6 @@ import { getPlanEntriesByUser, getPlanStateByUser } from "@/lib/plan/server";
 import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import "../landing.css";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,11 +23,14 @@ export default async function PlanPage() {
 
   if (!user) {
     return (
-      <div className="landing-bg min-h-screen px-4 py-10 text-[#0c0e14]">
-        <div className="mx-auto w-full max-w-3xl rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-center shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+      <div className="min-h-screen bg-bg px-4 py-10 text-black">
+        <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border-subtle bg-surface p-6 text-center shadow-card">
           <h1 className="text-3xl font-black tracking-tight">Моят план</h1>
           <p className="mt-3 text-sm text-black/65">Влез, за да управляваш избраните събития и напомняния.</p>
-          <Link href="/login" className="mt-4 inline-flex rounded-xl bg-[#0c0e14] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white">
+          <Link
+            href="/login"
+            className="mt-4 inline-flex rounded-full bg-black px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white"
+          >
             Вход
           </Link>
         </div>
@@ -85,7 +87,7 @@ export default async function PlanPage() {
       .sort((a, b) => a.parsedStartDate!.getTime() - b.parsedStartDate!.getTime())[0] ?? null;
 
   return (
-    <div className="landing-bg min-h-screen px-4 py-8 text-[#0c0e14] md:px-6 md:py-10">
+    <div className="min-h-screen bg-bg px-4 py-8 text-black md:px-6 md:py-10">
       <div className="mx-auto w-full max-w-[1100px]">
         <PlanPageClient
           entries={entries}

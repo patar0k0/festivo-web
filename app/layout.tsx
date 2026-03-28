@@ -34,7 +34,9 @@ export default function RootLayout({
       <head>
         <meta charSet="utf-8" />
       </head>
-      <body className={`${manrope.variable} ${fraunces.variable} text-neutral-900 antialiased`}>
+      <body
+        className={`${manrope.variable} ${fraunces.variable} min-h-screen bg-bg text-black antialiased`}
+      >
         <ClientProviders>
           <LayoutShell>{children}</LayoutShell>
         </ClientProviders>

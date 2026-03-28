@@ -73,6 +73,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Този профил вече има активен собственик. Свържете се с екипа на Festivo." }, { status: 409 });
   }
 
+  const { data: existingMine, error: mineErr } = await admin
+    .from("organizer_members")
+    .select("id,status,role")
+    .eq("organizer_id", organizerId)
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  if (mineErr) {
+    return NextResponse.json({ error: mineErr.message }, { status: 500 });
+  }
+
+  if (existingMine) {
+    if (existingMine.status === "active") {
+      return NextResponse.json({ error: "Вече сте член на този профил." }, { status: 409 });
+    }
+    if (existingMine.status === "pending") {
+      return NextResponse.json({ error: "Вече има изчакваща заявка за този профил." }, { status: 409 });
+    }
+    if (existingMine.status === "revoked") {
+      const { error: upErr } = await admin
+        .from("organizer_members")
+        .update({
+          status: "pending",
+          role: "owner",
+          approved_at: null,
+          approved_by: null,
+        })
+        .eq("id", existingMine.id)
+        .eq("status", "revoked");
+
+      if (upErr) {
+        return NextResponse.json({ error: upErr.message }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true }, { status: 201 });
+    }
+  }
+
   const { error: insErr } = await admin.from("organizer_members").insert({
     organizer_id: organizerId,
     user_id: session.user.id,

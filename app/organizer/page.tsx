@@ -24,6 +24,8 @@ export default async function OrganizerEntryPage() {
 
   const hasActive = (summary?.activeOrganizerIds.length ?? 0) > 0;
   const hasPendingOnly = Boolean(summary?.hasPendingMembership) && !hasActive;
+  const hasRevokedOnly =
+    Boolean(summary?.hasRevokedMembership) && !hasActive && !Boolean(summary?.hasPendingMembership);
   const loggedInNoData = loggedIn && summary === null;
 
   return (
@@ -44,6 +46,12 @@ export default async function OrganizerEntryPage() {
         {loggedIn && hasPendingOnly ? (
           <p className="mt-6 rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950/90">
             Имате изчакваща заявка за членство. След одобрение от екипа на Festivo ще получите достъп до таблото за организатори.
+          </p>
+        ) : null}
+
+        {loggedIn && hasRevokedOnly ? (
+          <p className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50/90 px-4 py-3 text-sm text-neutral-800">
+            Членството ви като организатор е прекратено. За достъп отново се свържете с екипа на Festivo или подайте нова заявка за профил, ако е приложимо.
           </p>
         ) : null}
 

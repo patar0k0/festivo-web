@@ -108,6 +108,7 @@ export async function assertCanEditOrganizerPending(admin: SupabaseClient, userI
 export type OrganizerPortalMembershipSummary = {
   activeOrganizerIds: string[];
   hasPendingMembership: boolean;
+  hasRevokedMembership: boolean;
 };
 
 export async function fetchOrganizerPortalMembershipSummary(
@@ -134,8 +135,9 @@ export async function fetchOrganizerPortalMembershipSummary(
     ),
   ];
   const hasPendingMembership = rows.some((r) => r.status === "pending");
+  const hasRevokedMembership = rows.some((r) => r.status === "revoked");
 
-  return { activeOrganizerIds, hasPendingMembership };
+  return { activeOrganizerIds, hasPendingMembership, hasRevokedMembership };
 }
 
 export type ActiveOrganizerPortalGate =

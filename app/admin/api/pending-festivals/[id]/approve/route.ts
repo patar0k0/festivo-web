@@ -297,6 +297,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
       rawSourceType = ingestJob?.source_type ?? null;
     }
+    if (!rawSourceType && pending.source_type) {
+      rawSourceType = pending.source_type;
+    }
 
     const mappedSourceType = mapFestivalSourceType(rawSourceType);
 

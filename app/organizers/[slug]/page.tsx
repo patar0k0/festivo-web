@@ -13,7 +13,7 @@ import "../../landing.css";
 export const revalidate = 21600;
 
 const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city,region,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
+  "id,title,slug,city,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
 
 async function getOrganizerWithFestivals(slug: string): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
   const supabase = await createSupabaseServerClient();

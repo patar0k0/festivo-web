@@ -9,10 +9,10 @@ import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 
 export const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city_id,city,region,start_date,end_date,occurrence_dates,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(name_bg,slug,is_village)";
+  "id,title,slug,city_id,city,start_date,end_date,occurrence_dates,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(name_bg,slug,is_village)";
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,occurrence_dates,city_id,city,region,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+  "id,title,slug,description,start_date,end_date,occurrence_dates,city_id,city,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
 
 const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -226,7 +226,6 @@ export function fixFestivalText(festival: Festival): Festival {
     title: fixMojibakeBG(festival.title),
     description: festival.description ? fixMojibakeBG(festival.description) : festival.description,
     city: festival.city ? fixMojibakeBG(festival.city) : festival.city,
-    region: festival.region ? fixMojibakeBG(festival.region) : festival.region,
     address: festival.address ? fixMojibakeBG(festival.address) : festival.address,
     location_name: festival.location_name ? fixMojibakeBG(festival.location_name) : festival.location_name,
     venue_name: festival.location_name ? fixMojibakeBG(festival.location_name) : festival.location_name,

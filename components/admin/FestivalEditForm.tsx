@@ -19,7 +19,6 @@ type FestivalRecord = {
   city_id: number | null;
   city_name?: string | null;
   city_slug?: string | null;
-  region: string | null;
   location_name: string | null;
   address: string | null;
   start_date: string | null;
@@ -151,7 +150,6 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
     city: initialCityDisplay,
     city_id: festival.city_id?.toString() ?? "",
     location_name: festival.location_name ?? "",
-    region: festival.region ?? "",
     address: festival.address ?? "",
     start_date: asDateInput(festival.start_date),
     end_date: asDateInput(festival.end_date),
@@ -425,7 +423,6 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           city_name_display: cityInput || null,
           location_name: form.location_name || null,
           venue_name: form.location_name || null,
-          region: form.region || null,
           address: form.address || null,
           latitude: form.latitude ? Number(form.latitude) : null,
           longitude: form.longitude ? Number(form.longitude) : null,
@@ -575,10 +572,6 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">location_name / venue_name</span>
             <input value={form.location_name} onChange={(e) => updateField("location_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-          </label>
-          <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">region</span>
-            <input value={form.region} onChange={(e) => updateField("region", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label className="md:col-span-2">
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">address</span>

@@ -250,8 +250,7 @@ export default function FestivalDetailClient({
       locationName ||
       showVenueName ||
       festival.address?.trim() ||
-      showOrganizer ||
-      festival.region?.trim(),
+      showOrganizer,
   );
   const showMapSection = Boolean(mapEmbedSrc && mapHref && (locationName || cityName || festival.address?.trim()));
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
@@ -765,12 +764,6 @@ export default function FestivalDetailClient({
                         </span>
                       ))}
                     </dd>
-                  </div>
-                ) : null}
-                {festival.region ? (
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Регион</dt>
-                    <dd className="mt-1 text-black/70">{festival.region}</dd>
                   </div>
                 ) : null}
               </dl>

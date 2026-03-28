@@ -54,7 +54,6 @@ export function buildFestivalJsonLd(festival: Festival) {
       address: {
         "@type": "PostalAddress",
         addressLocality: locality || undefined,
-        addressRegion: festival.region ?? undefined,
         streetAddress: festival.address ?? undefined,
         addressCountry: "BG",
       },

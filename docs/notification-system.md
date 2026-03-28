@@ -11,7 +11,7 @@
 |-----|-----------|--------|---------|
 | `reminder` | high | Потребител добавя фестивал в плана (`user_plan_festivals` чрез `POST /api/plan/festivals`) | 24ч и 2ч преди начало (локално Europe/Sofia, начало от `start_date`); само бъдещи; при махане от плана — отменяне на pending reminder jobs. Без time-window dedupe (точно разписание). |
 | `update` | high | Админ `PATCH /admin/api/festivals/[id]` с **смислена** промяна | Само потребители със запис в `user_plan_festivals`. Уведомление само при: промяна на `start_date`, значима промяна на `end_date` (≥1 ден), `city`, `address`, или архивиране (`status`). Игнор: описание, снимки, тагове, `occurrence_dates` и др. Pending ъпдейт се заменя при нова редакция извън dedupe прозореца. |
-| `weekend` | normal | Cron: `/api/notifications/weekend-trigger/fri_18` или `.../sat_09` | Фестивали с `start_date` в следващите до 3 дни; потребител с `notify_weekend_digest`, без `only_saved`, с поне един последван град или мач по `region_slugs` ↔ `festivals.region`; минимум 2 фестивала; макс. 1 на потребител на слот (dedupe_key). |
+| `weekend` | normal | Cron: `/api/notifications/weekend-trigger/fri_18` или `.../sat_09` | Фестивали с `start_date` в следващите до 3 дни; потребител с `notify_weekend_digest`, без `only_saved`, с поне един последван град (`user_followed_cities` ↔ slug на фестивала); минимум 2 фестивала; макс. 1 на потребител на слот (dedupe_key). |
 | `new_city` | normal | След успешно одобряване на pending (`POST .../approve`) | Само последователи на града (`user_followed_cities`); качество: заглавие, slug, `start_date`; макс. 1 `new_festival` на потребител за календарен ден (София). |
 
 ### Time-window дедупликация (освен `dedupe_key`)
@@ -68,7 +68,7 @@
 
 - `device_tokens` — `platform`, `invalidated_at` при невалиден FCM токен (NotRegistered, InvalidRegistration, MismatchSenderId, InvalidPackageName и подобни).
 - Mobile push token registration: `POST /api/push/register` (writes to `device_tokens` under authenticated user).
-- `user_notification_settings` — `push_enabled`, `only_saved`, `quiet_hours_*`, `region_slugs` (за уикенд регион).
+- `user_notification_settings` — `push_enabled`, `only_saved`, `quiet_hours_*`.
 - `notification_jobs`, `notification_logs` — `scripts/sql/20260326_notification_jobs_mvp.sql` + `scripts/sql/20260326_notification_jobs_hardening.sql`.
 
 ## Legacy reminder pipeline

@@ -26,7 +26,6 @@ export type Database = {
           description: string
           city: string
           city_id: number | null
-          region: string
           address: string | null
           start_date: string
           end_date: string | null
@@ -53,7 +52,6 @@ export type Database = {
           description: string
           city: string
           city_id?: number | null
-          region: string
           address?: string | null
           start_date: string
           end_date?: string | null
@@ -80,7 +78,6 @@ export type Database = {
           description?: string
           city?: string
           city_id?: number | null
-          region?: string
           address?: string | null
           start_date?: string
           end_date?: string | null
@@ -387,7 +384,6 @@ export type Database = {
           only_saved: boolean
           quiet_hours_start: string | null
           quiet_hours_end: string | null
-          region_slugs: string[]
           created_at: string
         }
         Insert: {
@@ -401,7 +397,6 @@ export type Database = {
           only_saved?: boolean
           quiet_hours_start?: string | null
           quiet_hours_end?: string | null
-          region_slugs?: string[]
           created_at?: string
         }
         Update: {
@@ -415,7 +410,6 @@ export type Database = {
           only_saved?: boolean
           quiet_hours_start?: string | null
           quiet_hours_end?: string | null
-          region_slugs?: string[]
           created_at?: string
         }
       }

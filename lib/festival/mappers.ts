@@ -9,7 +9,6 @@ type PendingFestivalRowLike = {
   tags?: unknown;
   city_id?: number | null;
   city?: string | null;
-  region?: string | null;
   location_name?: string | null;
   address?: string | null;
   latitude?: number | null;
@@ -80,7 +79,6 @@ export function canonicalFromPending(row: PendingFestivalRowLike): CanonicalFest
     tags: normalizeTags(row.tags),
     city_id: row.city_id ?? null,
     city_name_display: cityDisplayFallback(row),
-    region: normalizeText(row.region),
     venue_name: normalizeText(row.location_name),
     address: normalizeText(row.address),
     latitude: row.latitude ?? null,
@@ -107,7 +105,6 @@ export function canonicalFromFestival(row: FestivalRowLike): CanonicalFestivalPa
     tags: normalizeTags(row.tags),
     city_id: row.city_id ?? null,
     city_name_display: cityDisplayFallback(row),
-    region: normalizeText(row.region),
     venue_name: normalizeText(row.location_name),
     address: normalizeText(row.address),
     latitude: row.lat ?? null,
@@ -131,7 +128,6 @@ export function pendingPatchFromCanonical(fields: CanonicalFestivalPayload): Rec
     slug: fields.slug,
     description: fields.description,
     category: fields.category,
-    region: fields.region,
     location_name: fields.venue_name,
     address: fields.address,
     latitude: fields.latitude,
@@ -156,7 +152,6 @@ export function festivalPatchFromCanonical(fields: CanonicalFestivalPayload): Re
     slug: fields.slug,
     description: fields.description,
     category: fields.category,
-    region: fields.region,
     location_name: fields.venue_name,
     address: fields.address,
     start_date: fields.start_date,
@@ -183,7 +178,6 @@ export function pendingPatchFromCanonicalPartial(fields: CanonicalFestivalPatchP
   if ("slug" in fields) patch.slug = fields.slug;
   if ("description" in fields) patch.description = fields.description;
   if ("category" in fields) patch.category = fields.category;
-  if ("region" in fields) patch.region = fields.region;
   if ("venue_name" in fields) patch.location_name = fields.venue_name;
   if ("address" in fields) patch.address = fields.address;
   if ("latitude" in fields) patch.latitude = fields.latitude;
@@ -210,7 +204,6 @@ export function festivalPatchFromCanonicalPartial(fields: CanonicalFestivalPatch
   if ("slug" in fields) patch.slug = fields.slug;
   if ("description" in fields) patch.description = fields.description;
   if ("category" in fields) patch.category = fields.category;
-  if ("region" in fields) patch.region = fields.region;
   if ("venue_name" in fields) patch.location_name = fields.venue_name;
   if ("address" in fields) patch.address = fields.address;
   if ("start_date" in fields) patch.start_date = fields.start_date;

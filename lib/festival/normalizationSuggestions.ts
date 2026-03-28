@@ -2,7 +2,6 @@ export type SuggestionField =
   | "category"
   | "tags"
   | "venue_name"
-  | "region"
   | "city_id"
   | "start_date"
   | "end_date"
@@ -26,7 +25,6 @@ const FIELD_ALIASES: Record<SuggestionField, string[]> = {
   category: ["category"],
   tags: ["tags"],
   venue_name: ["venue_name", "location_name", "venue"],
-  region: ["region"],
   city_id: ["city_id", "city", "city_name_display"],
   start_date: ["start_date"],
   end_date: ["end_date"],

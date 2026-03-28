@@ -27,7 +27,6 @@ type PendingFestivalRow = {
   description: string | null;
   category: string | null;
   city_id: number | null;
-  region: string | null;
   location_name: string | null;
   address: string | null;
   latitude: number | null;
@@ -54,7 +53,7 @@ type PendingFestivalRow = {
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,category,city_id,region,location_name,address,latitude,longitude,start_date,end_date,organizer_name,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
+  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,organizer_name,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
 
 const REQUIRED_PENDING_CANONICAL_FIELDS: (keyof PendingFestivalRow)[] = [
   "title",
@@ -63,7 +62,6 @@ const REQUIRED_PENDING_CANONICAL_FIELDS: (keyof PendingFestivalRow)[] = [
   "category",
   "tags",
   "city_id",
-  "region",
   "location_name",
   "address",
   "latitude",
@@ -336,7 +334,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         verification_score: pending.verification_score,
         extraction_version: pending.extraction_version,
         category: pending.category,
-        region: pending.region,
         website_url: pending.website_url,
         ticket_url: pending.ticket_url,
         price_range: pending.price_range,

@@ -17,7 +17,7 @@ import "../landing.css";
 export const revalidate = 3600;
 
 const FESTIVAL_SELECT =
-  "id,title,slug,city_id,city,region,start_date,end_date,occurrence_dates,category,hero_image,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(slug,name_bg,is_village)";
+  "id,title,slug,city_id,city,start_date,end_date,occurrence_dates,category,hero_image,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(slug,name_bg,is_village)";
 const PAGE_SIZE = 12;
 const HAS_TAGS_COLUMN = true;
 

@@ -21,7 +21,6 @@ type FestivalRow = {
   start_date: string | null;
   city: string | null;
   city_id: number | null;
-  region: string | null;
   status: string | null;
 };
 
@@ -321,7 +320,7 @@ export async function scheduleNewFestivalFollowCityJobs(
   const supabase = createSupabaseAdmin();
   const { data: festival, error: fErr } = await supabase
     .from("festivals")
-    .select("id,title,slug,city,city_id,region,start_date,status,category_slug,organizer_id")
+    .select("id,title,slug,city,city_id,start_date,status,category_slug,organizer_id")
     .eq("id", festivalId)
     .maybeSingle();
 
@@ -420,7 +419,7 @@ export async function scheduleNewFestivalFollowCityJobs(
 
 export type WeekendRunSlot = "fri_18" | "sat_09";
 
-/** Уикенд откриване: поне 2 фестивала в прозорец 2–3 дни, мач по град. */
+/** Уикенд откриване: поне 2 фестивала в прозорец 2–3 дни, мач по следван град. */
 export async function scheduleWeekendNearbyJobs(
   runSlot: WeekendRunSlot,
 ): Promise<{ ok: boolean; inserted?: number; error?: string }> {
@@ -432,7 +431,7 @@ export async function scheduleWeekendNearbyJobs(
 
   const { data: festRows, error: festErr } = await supabase
     .from("festivals")
-    .select("id,title,slug,city,city_id,region,start_date,end_date,status")
+    .select("id,title,slug,city,city_id,start_date,end_date,status")
     .neq("status", "archived")
     .gte("start_date", fromIso)
     .lte("start_date", toIso);
@@ -461,7 +460,7 @@ export async function scheduleWeekendNearbyJobs(
 
   const { data: digestUsers, error: duErr } = await supabase
     .from("user_notification_settings")
-    .select("user_id,notify_weekend_digest,only_saved,push_enabled,region_slugs")
+    .select("user_id,notify_weekend_digest,only_saved,push_enabled")
     .eq("notify_weekend_digest", true)
     .eq("only_saved", false);
 
@@ -471,7 +470,7 @@ export async function scheduleWeekendNearbyJobs(
 
   const candidates = (digestUsers ?? []).filter(
     (r: { push_enabled?: boolean }) => r.push_enabled !== false,
-  ) as { user_id: string; region_slugs: string[] | null }[];
+  ) as { user_id: string }[];
 
   if (!candidates.length) {
     return { ok: true, inserted: 0 };
@@ -498,9 +497,8 @@ export async function scheduleWeekendNearbyJobs(
   for (const u of candidates) {
     const userId = u.user_id;
     const follows = followsByUser.get(userId);
-    const regions = new Set((u.region_slugs ?? []).map((x) => x.trim().toLowerCase()).filter(Boolean));
 
-    if (!follows?.size && !regions.size) {
+    if (!follows?.size) {
       continue;
     }
 
@@ -512,12 +510,7 @@ export async function scheduleWeekendNearbyJobs(
         slug = citySlugById.get(fest.city_id) ?? null;
       }
 
-      if (slug && follows?.has(slug)) {
-        matched.push(fest);
-        continue;
-      }
-
-      if (fest.region && regions.has(fest.region.trim().toLowerCase())) {
+      if (slug && follows.has(slug)) {
         matched.push(fest);
       }
     }

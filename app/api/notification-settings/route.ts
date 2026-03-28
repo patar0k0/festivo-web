@@ -11,7 +11,6 @@ type NotificationSettings = {
   only_saved: boolean;
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
-  region_slugs: string[];
 };
 
 type PartialNotificationSettings = Partial<NotificationSettings>;
@@ -26,7 +25,6 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   only_saved: false,
   quiet_hours_start: null,
   quiet_hours_end: null,
-  region_slugs: [],
 };
 
 function normalizePayload(payload: PartialNotificationSettings): PartialNotificationSettings {
@@ -59,15 +57,12 @@ function normalizePayload(payload: PartialNotificationSettings): PartialNotifica
   if (payload.quiet_hours_end === null || typeof payload.quiet_hours_end === "string") {
     normalized.quiet_hours_end = payload.quiet_hours_end;
   }
-  if (Array.isArray(payload.region_slugs)) {
-    normalized.region_slugs = payload.region_slugs.filter((x): x is string => typeof x === "string");
-  }
 
   return normalized;
 }
 
 const NOTIFICATION_SETTINGS_COLUMNS =
-  "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest,push_enabled,only_saved,quiet_hours_start,quiet_hours_end,region_slugs" as const;
+  "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest,push_enabled,only_saved,quiet_hours_start,quiet_hours_end" as const;
 
 async function requireUser() {
   const supabase = await createSupabaseServerClient();

@@ -6,7 +6,6 @@ export const CANONICAL_FESTIVAL_FIELDS = [
   "tags",
   "city_id",
   "city_name_display",
-  "region",
   "venue_name",
   "address",
   "latitude",
@@ -33,7 +32,6 @@ export type CanonicalFestivalPayload = {
   tags: string[];
   city_id: number | null;
   city_name_display: string | null;
-  region: string | null;
   venue_name: string | null;
   address: string | null;
   latitude: number | null;
@@ -58,7 +56,6 @@ export type CanonicalFestivalPatchPayload = {
   tags?: string[] | null;
   city_id?: number | null;
   city_name_display?: string | null;
-  region?: string | null;
   venue_name?: string | null;
   address?: string | null;
   latitude?: number | null;

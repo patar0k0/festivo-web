@@ -189,7 +189,6 @@ type PendingRecordForFillSummary = {
   city_guess?: unknown;
   location_name?: unknown;
   address?: unknown;
-  region?: unknown;
   latitude?: unknown;
   longitude?: unknown;
   organizer_name?: unknown;
@@ -269,9 +268,6 @@ export function listFilledPendingRecordFields(row: PendingRecordForFillSummary):
 
   const address = normalizeText(row.address);
   if (address) out.push({ key: "address", label: "Адрес", preview: truncatePreview(address) });
-
-  const region = normalizeText(row.region);
-  if (region) out.push({ key: "region", label: "Регион", preview: region });
 
   const lat = row.latitude;
   const lng = row.longitude;

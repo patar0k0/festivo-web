@@ -57,7 +57,6 @@ Moderation table for ingested candidates before publication.
 | description | text | editable/publishable description |
 | city_id | bigint | canonical city reference for moderation/publish |
 | category | text | moderated category used by approve/canonical mapping |
-| region | text | moderated region used by approve/canonical mapping |
 | location_name | text | venue/location label |
 | address | text | venue address |
 | latitude | numeric | moderation coordinates |
@@ -112,7 +111,6 @@ Published festival catalog used by public discovery/detail pages and admin publi
 | description | text | detail content |
 | city_id | bigint | canonical city FK reference |
 | city | text | denormalized city slug/text used in filters and fallback display |
-| region | text | region filter/display field |
 | address | text | venue address |
 | start_date | date | listing and calendar window logic; with discrete days, typically min day (merged in app) |
 | end_date | date | optional range end; with discrete days, typically max day (merged in app) |

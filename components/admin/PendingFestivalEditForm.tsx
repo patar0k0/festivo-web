@@ -22,7 +22,6 @@ export type PendingFestivalRecord = {
   ticket_url?: string | null;
   price_range?: string | null;
   category?: string | null;
-  region?: string | null;
   source_type?: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -218,7 +217,6 @@ function fieldLabel(field: SuggestionField) {
     category: "Category",
     tags: "Tags",
     venue_name: "Venue name",
-    region: "Region",
     city_id: "City",
     start_date: "Start date",
     end_date: "End date",
@@ -356,7 +354,6 @@ export default function PendingFestivalEditForm({
     city_id: cityDisplayValue,
     city_guess: asInputValue(pendingFestival.city_guess),
     city_name_display: asInputValue(pendingFestival.city_name_display),
-    region: (typeof pendingFestival.region === "string" ? pendingFestival.region : "") ?? "",
     location_name: pendingFestival.location_name ?? "",
     location_guess: asInputValue(pendingFestival.location_guess),
     venue_name: pendingFestival.location_name ?? "",
@@ -420,7 +417,6 @@ export default function PendingFestivalEditForm({
     category: false,
     tags: false,
     venue_name: false,
-    region: false,
     city_id: false,
     start_date: false,
     end_date: false,
@@ -465,7 +461,7 @@ export default function PendingFestivalEditForm({
     : hasHeroImageDiagnostics
       ? "Hero image selected"
       : "Hero image present, diagnostics unavailable";
-  const safeFields: SuggestionField[] = ["category", "tags", "venue_name", "region"];
+  const safeFields: SuggestionField[] = ["category", "tags", "venue_name"];
 
   const guessedPairs = [
     { label: "Date guess", value: qualityDiagnostics.guessed_values.date ?? null },
@@ -590,7 +586,6 @@ export default function PendingFestivalEditForm({
           category: form.category.trim() || null,
           city_name_display: cityInput || null,
           city: cityInput || null,
-          region: form.region.trim() || null,
           location_name: form.location_name.trim() || null,
           venue_name: form.venue_name.trim() || null,
           address: form.address.trim() || null,
@@ -914,10 +909,6 @@ export default function PendingFestivalEditForm({
               <label className="md:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Venue name</span>
                 <input value={form.venue_name} onChange={(e) => updateField("venue_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-              </label>
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Region</span>
-                <input value={form.region} onChange={(e) => updateField("region", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label className="md:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Address</span>

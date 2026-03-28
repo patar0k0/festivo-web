@@ -98,7 +98,6 @@ export function canonicalFromUnknown(raw: unknown): ValidationResult {
     tags: normalizeTags(sourceValue(body, "tags")),
     city_id: normalizeCityId(sourceValue(body, "city_id")),
     city_name_display: normalizeText(sourceValue(body, "city_name_display", ["city"])),
-    region: normalizeText(sourceValue(body, "region")),
     venue_name: normalizeText(sourceValue(body, "venue_name", ["location_name"])),
     address: normalizeText(sourceValue(body, "address")),
     latitude,
@@ -142,7 +141,6 @@ export function canonicalPatchFromUnknown(raw: unknown): PatchValidationResult {
   if (hasSourceValue(body, "city_name_display", ["city"])) {
     canonical.city_name_display = normalizeText(sourceValue(body, "city_name_display", ["city"]));
   }
-  if (hasSourceValue(body, "region")) canonical.region = normalizeText(sourceValue(body, "region"));
   if (hasSourceValue(body, "venue_name", ["location_name"])) {
     canonical.venue_name = normalizeText(sourceValue(body, "venue_name", ["location_name"]));
   }

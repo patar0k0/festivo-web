@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { addDays, format, nextSaturday, parseISO } from "date-fns";
-import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategoriesServer";
+import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories.server";
 import FestivalsTagChipsClient from "@/components/FestivalsTagChipsClient";
 import ScrollRestoration from "@/components/ScrollRestoration";
 import Container from "@/components/ui/Container";

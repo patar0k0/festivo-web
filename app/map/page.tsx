@@ -1,7 +1,7 @@
 import MapPageClient from "@/components/MapPageClient";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
-import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategoriesServer";
+import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories.server";
 import { getBaseUrl, listMeta } from "@/lib/seo";
 import "../landing.css";
 

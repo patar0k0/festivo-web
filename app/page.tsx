@@ -6,7 +6,7 @@ import RealHomePage from "@/components/home/RealHomePage";
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listHomeCitySelectOptions } from "@/lib/festivals";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
-import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategoriesServer";
+import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories.server";
 import { FESTIVAL_SELECT_MIN, fixFestivalText } from "@/lib/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";

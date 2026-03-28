@@ -11,6 +11,10 @@ import CitySelectClient from "./CitySelectClient";
 import NearMeCtaClient from "./NearMeCtaClient";
 import QuickChipsClient from "./QuickChipsClient";
 
+/**
+ * Визуален песочник за `/test`: същите данни като `RealHomePage` (`loadHomePageData`),
+ * но отделен компонент за експерименти без промяна на продукционния UI.
+ */
 function EventsSection({
   id,
   title,
@@ -65,7 +69,7 @@ function EventsSection({
   );
 }
 
-export default function RealHomePage({
+export default function RealHomePageSandbox({
   nearestFestivals,
   weekendFestivals,
   homeCityOptions,
@@ -81,10 +85,23 @@ export default function RealHomePage({
   ];
 
   return (
-    <div className="landing-bg overflow-x-hidden pb-24 text-[#0c0e14] md:pb-0">
+    <div className="landing-bg overflow-x-hidden pb-24 text-[#0c0e14] md:pb-0" data-home-sandbox>
       <Section className="overflow-x-clip bg-transparent pb-10 pt-24 md:pb-12 md:pt-28">
         <Container>
           <div className="space-y-7 lg:space-y-10">
+            <p
+              className="rounded-xl border border-amber-200/90 bg-amber-50/95 px-4 py-3 text-center text-xs text-amber-950 shadow-sm"
+              role="status"
+            >
+              UI песочник (/test) — редактирай{" "}
+              <code className="rounded bg-white/90 px-1.5 py-0.5 font-mono text-[11px] text-amber-900">
+                components/home/RealHomePageSandbox.tsx
+              </code>
+              . Данните идват от същия код като началната страница (
+              <code className="rounded bg-white/90 px-1.5 py-0.5 font-mono text-[11px]">loadHomePageData</code>
+              ).
+            </p>
+
             <section className="rounded-[28px] border border-black/[0.08] bg-white/75 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">
               <div className="max-w-3xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">
@@ -105,6 +122,7 @@ export default function RealHomePage({
                 <NearMeCtaClient className="w-full rounded-2xl border border-[#ff4c1f]/30 bg-[#ff4c1f] px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#f24318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25" />
                 {homeCityOptions.length ? (
                   <CitySelectClient
+                    homePath="/test"
                     cities={homeCityOptions.map((city) => ({
                       name: city.name,
                       slug: city.slug,

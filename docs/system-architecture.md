@@ -55,6 +55,8 @@ Env var summary for production also lives in `README.md` (`UPSTASH_*`, `CSRF_ALL
 
 `middleware.ts` forwards `request.nextUrl.pathname` on `NextResponse.next()` as request header `x-festivo-pathname` (overwrites any client-supplied value). The root shell uses it server-side with `FESTIVO_PUBLIC_MODE` and the `festivo_preview` cookie so **coming-soon** and **`/coming-soon`** render without the public header/footer (no catalog navigation on those surfaces).
 
+**Home UI sandbox (`/test`):** `app/test/page.tsx` renders `RealHomePageSandbox` with the same server data as `/` via `lib/home/loadHomePageData.ts` (`loadHomePageData`). Edit the sandbox component for visual experiments without changing production `RealHomePage`. Metadata sets `robots: noindex`. In coming-soon mode, `/test` is allowlisted in `middleware.ts` so the sandbox stays reachable without the `festivo_preview` cookie (unlike other catalog routes). City picker on the sandbox navigates with `homePath="/test"` so `?city=` stays on `/test`.
+
 Auth UX includes signup/login and password recovery: `/signup` creates email+password users (`auth.signUp`), `/login` sends Supabase reset emails, and `/reset-password` applies `auth.updateUser({ password })` for valid recovery sessions.
 
 ## Moderation-first content flow

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 
 type CitySelectClientProps = {
   cities: Array<{ name: string; slug: string | null; filterValue: string }>;
+  /** Base path for `?city=` navigation (default `/`). Use `/test` on the home UI sandbox. */
+  homePath?: string;
 };
 
 type MenuPosition = {
@@ -26,7 +28,7 @@ function computeMenuPosition(button: HTMLButtonElement): MenuPosition {
   };
 }
 
-export default function CitySelectClient({ cities }: CitySelectClientProps) {
+export default function CitySelectClient({ cities, homePath = "/" }: CitySelectClientProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
@@ -95,7 +97,8 @@ export default function CitySelectClient({ cities }: CitySelectClientProps) {
 
   const onSelect = (city: { slug: string | null; filterValue: string }) => {
     const cityParam = city.slug ?? city.filterValue;
-    router.push(`/?city=${encodeURIComponent(cityParam)}#nearest-festivals`);
+    const base = homePath.endsWith("/") && homePath !== "/" ? homePath.slice(0, -1) : homePath;
+    router.push(`${base}?city=${encodeURIComponent(cityParam)}#nearest-festivals`);
     setOpen(false);
   };
 

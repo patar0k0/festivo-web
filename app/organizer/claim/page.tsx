@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
-import "../../../landing.css";
+import "@/app/landing.css";
 
 export default function OrganizerClaimPage() {
   const router = useRouter();

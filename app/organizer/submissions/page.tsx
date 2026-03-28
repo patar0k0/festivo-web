@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
 import { fetchActiveMembershipOrganizerIds, getPortalAdminClient, getPortalSessionUser } from "@/lib/organizer/portal";
-import "../landing.css";
+import "@/app/landing.css";
 
 export const dynamic = "force-dynamic";
 

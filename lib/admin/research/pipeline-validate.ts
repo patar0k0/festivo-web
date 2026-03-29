@@ -1,4 +1,5 @@
 import type { ResearchFestivalResult } from "@/lib/admin/research/types";
+import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 
 const TITLE_MIN = 2;
 const TITLE_MAX = 220;
@@ -49,6 +50,13 @@ export function validatePipelineResult(result: ResearchFestivalResult): { warnin
     bg.end_date = null;
     rejected = true;
   }
+
+  const timePair = normalizeFestivalTimePair(
+    parseHmInputToDbTime((bg as { start_time?: unknown }).start_time),
+    parseHmInputToDbTime((bg as { end_time?: unknown }).end_time),
+  );
+  (bg as { start_time?: string | null }).start_time = timePair.start_time;
+  (bg as { end_time?: string | null }).end_time = timePair.end_time;
 
   if (!bg.title && !bg.start_date && !bg.city) {
     warnings.push("Result sparse after validation (no title, dates, or city)");

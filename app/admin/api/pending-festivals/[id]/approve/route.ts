@@ -36,6 +36,8 @@ type PendingFestivalRow = {
   longitude: number | null;
   start_date: string | null;
   end_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
   occurrence_dates: unknown;
   organizer_id: string | null;
   organizer_name: string | null;
@@ -58,7 +60,7 @@ type PendingFestivalRow = {
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
+  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
 
 async function resolveOrganizerIdsForPublish(
   adminSupabase: SupabaseClient,

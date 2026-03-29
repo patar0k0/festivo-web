@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { slugify } from "@/lib/utils";
 import { getPortalAdminClient, getPortalSessionUser, hasActiveOrganizerMembership } from "@/lib/organizer/portal";
+import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 
 type Body = {
   organizer_id?: string;
@@ -10,6 +11,8 @@ type Body = {
   city?: string;
   start_date?: string;
   end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   location_name?: string | null;
   address?: string | null;
   website_url?: string | null;
@@ -86,6 +89,7 @@ export async function POST(request: Request) {
   }
 
   const endDate = typeof body.end_date === "string" && body.end_date.trim() ? body.end_date.trim() : null;
+  const timePair = normalizeFestivalTimePair(parseHmInputToDbTime(body.start_time), parseHmInputToDbTime(body.end_time));
   const description = typeof body.description === "string" ? body.description.trim() : "";
   const tags =
     Array.isArray(body.tags)
@@ -112,6 +116,8 @@ export async function POST(request: Request) {
     longitude: null as number | null,
     start_date: startDate,
     end_date: endDate,
+    start_time: timePair.start_time,
+    end_time: timePair.end_time,
     occurrence_dates: null,
     organizer_id: orgRow.id,
     organizer_name: orgRow.name,

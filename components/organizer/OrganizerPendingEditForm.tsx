@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 import { resolveOrganizerPendingEditorOpenAction } from "@/lib/festival/editorOpenAction";
+import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 
 export type OrganizerPendingEditInitial = {
   id: string;
@@ -17,6 +18,8 @@ export type OrganizerPendingEditInitial = {
   tags: string[];
   start_date: string | null;
   end_date: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   website_url: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
@@ -39,6 +42,8 @@ export default function OrganizerPendingEditForm({ initial }: { initial: Organiz
   const [tagsInput, setTagsInput] = useState((initial.tags ?? []).join(", "));
   const [startDate, setStartDate] = useState(initial.start_date ?? "");
   const [endDate, setEndDate] = useState(initial.end_date ?? "");
+  const [startTime, setStartTime] = useState(dbTimeToHmInput(initial.start_time ?? null));
+  const [endTime, setEndTime] = useState(dbTimeToHmInput(initial.end_time ?? null));
   const [websiteUrl, setWebsiteUrl] = useState(initial.website_url ?? "");
   const [facebookUrl, setFacebookUrl] = useState(initial.facebook_url ?? "");
   const [instagramUrl, setInstagramUrl] = useState(initial.instagram_url ?? "");
@@ -96,6 +101,8 @@ export default function OrganizerPendingEditForm({ initial }: { initial: Organiz
           tags,
           start_date: startDate,
           end_date: endDate.trim() ? endDate : null,
+          start_time: startTime.trim() || null,
+          end_time: endTime.trim() || null,
           website_url: websiteUrl || null,
           facebook_url: facebookUrl || null,
           instagram_url: instagramUrl || null,
@@ -198,6 +205,26 @@ export default function OrganizerPendingEditForm({ initial }: { initial: Organiz
             type="date"
             value={endDate}
             onChange={(ev) => setEndDate(ev.target.value)}
+            className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="block text-sm font-medium text-[#0c0e14]">
+          Начало (час)
+          <input
+            type="time"
+            step={60}
+            value={startTime}
+            onChange={(ev) => setStartTime(ev.target.value)}
+            className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="block text-sm font-medium text-[#0c0e14]">
+          Край (час)
+          <input
+            type="time"
+            step={60}
+            value={endTime}
+            onChange={(ev) => setEndTime(ev.target.value)}
             className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
           />
         </label>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAuthorizedJobRequest } from "@/lib/jobs/auth";
 import { acquireCronLock, releaseCronLock } from "@/lib/jobs/locks";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { getDateAtHourInTimeZone, getFestivalStartInstant, TZ } from "@/lib/notifications/time";
 
 type ReminderType = "24h" | "same_day_09";
 
@@ -13,90 +14,27 @@ type ReminderRow = {
     id: string;
     title: string | null;
     start_date: string | null;
+    start_time: string | null;
   } | null;
 };
 
 const DEFAULT_LOOKAHEAD_MINUTES = 10;
 const LOCAL_REMINDER_HOUR = 9;
-const TZ = "Europe/Sofia";
 
-function getTimeZoneOffsetMinutes(date: Date, timeZone: string): number | null {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    timeZoneName: "shortOffset",
-    hour: "2-digit",
-  });
-  const offsetPart = formatter.formatToParts(date).find((part) => part.type === "timeZoneName")?.value;
-  if (!offsetPart) {
-    return null;
-  }
-
-  if (offsetPart === "GMT") {
-    return 0;
-  }
-
-  const match = offsetPart.match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
-  if (!match) {
-    return null;
-  }
-
-  const [, sign, hours, minutes = "0"] = match;
-  const totalMinutes = Number(hours) * 60 + Number(minutes);
-  return sign === "+" ? totalMinutes : -totalMinutes;
-}
-
-function getDatePartsInTimeZone(date: Date, timeZone: string): { year: number; month: number; day: number } {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const parts = formatter.formatToParts(date);
-  const year = Number(parts.find((part) => part.type === "year")?.value);
-  const month = Number(parts.find((part) => part.type === "month")?.value);
-  const day = Number(parts.find((part) => part.type === "day")?.value);
-
-  return { year, month, day };
-}
-
-function getDateAtHourInTimeZone(date: Date, timeZone: string, hour: number): Date | null {
-  const { year, month, day } = getDatePartsInTimeZone(date, timeZone);
-  const utcGuess = Date.UTC(year, month - 1, day, hour, 0, 0, 0);
-
-  const firstOffsetMinutes = getTimeZoneOffsetMinutes(new Date(utcGuess), timeZone);
-  if (firstOffsetMinutes === null) {
-    return null;
-  }
-
-  const firstPass = utcGuess - firstOffsetMinutes * 60 * 1000;
-  const secondOffsetMinutes = getTimeZoneOffsetMinutes(new Date(firstPass), timeZone);
-  if (secondOffsetMinutes === null) {
-    return null;
-  }
-
-  return new Date(utcGuess - secondOffsetMinutes * 60 * 1000);
-}
-
-function getScheduledFor(startDateValue: string, reminderType: ReminderType): Date | null {
-  const start = new Date(startDateValue);
-  if (Number.isNaN(start.getTime())) {
-    return null;
-  }
-
-  const sameDayAtNine = getDateAtHourInTimeZone(start, TZ, LOCAL_REMINDER_HOUR);
-  if (!sameDayAtNine || Number.isNaN(sameDayAtNine.getTime())) {
+function getScheduledFor(startDateValue: string, startTime: string | null, reminderType: ReminderType): Date | null {
+  const eventStart = getFestivalStartInstant(startDateValue, startTime);
+  if (!eventStart) {
     return null;
   }
 
   if (reminderType === "24h") {
-    if (startDateValue.includes("T")) {
-      return new Date(start.getTime() - 24 * 60 * 60 * 1000);
-    }
-
-    return new Date(sameDayAtNine.getTime() - 24 * 60 * 60 * 1000);
+    return new Date(eventStart.getTime() - 24 * 60 * 60 * 1000);
   }
 
+  const sameDayAtNine = getDateAtHourInTimeZone(eventStart, TZ, LOCAL_REMINDER_HOUR);
+  if (!sameDayAtNine || Number.isNaN(sameDayAtNine.getTime())) {
+    return null;
+  }
   return sameDayAtNine;
 }
 
@@ -130,7 +68,7 @@ export async function GET(request: Request) {
   try {
     const { data, error } = await supabase
       .from("user_plan_reminders")
-      .select("user_id,festival_id,reminder_type,festivals(id,title,start_date)")
+      .select("user_id,festival_id,reminder_type,festivals(id,title,start_date,start_time)")
       .in("reminder_type", ["24h", "same_day_09"]);
 
     if (error) {
@@ -147,7 +85,7 @@ export async function GET(request: Request) {
 
         const scheduledFor = isReminderTestMode
           ? new Date(now.getTime() + reminderTestMinutes * 60 * 1000)
-          : getScheduledFor(festival.start_date, row.reminder_type);
+          : getScheduledFor(festival.start_date, festival.start_time ?? null, row.reminder_type);
         if (!scheduledFor || Number.isNaN(scheduledFor.getTime())) {
           return null;
         }

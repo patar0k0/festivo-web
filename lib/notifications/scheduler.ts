@@ -208,8 +208,12 @@ export async function insertNotificationJobs(
 }
 
 /** Reminder times: 24h and 2h before festival start; skips past. */
-export function computeSavedFestivalReminderTimes(startDate: string | null, now: Date): { subkind: ReminderSubkind; scheduled_for: Date }[] {
-  const start = getFestivalStartInstant(startDate);
+export function computeSavedFestivalReminderTimes(
+  startDate: string | null,
+  now: Date,
+  startTime?: string | null,
+): { subkind: ReminderSubkind; scheduled_for: Date }[] {
+  const start = getFestivalStartInstant(startDate, startTime ?? null);
   if (!start) {
     return [];
   }

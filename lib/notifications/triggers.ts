@@ -52,6 +52,14 @@ export function shouldNotifyUpdate(
     return true;
   }
 
+  if (normStr(before.start_time) !== normStr(after.start_time)) {
+    return true;
+  }
+
+  if (normStr(before.end_time) !== normStr(after.end_time)) {
+    return true;
+  }
+
   if (endDateChangedSignificantly(before.end_date, after.end_date)) {
     return true;
   }
@@ -135,7 +143,7 @@ export async function scheduleSavedFestivalReminders(
   const supabase = createSupabaseAdmin();
   const { data: festival, error: fErr } = await supabase
     .from("festivals")
-    .select("id,title,slug,start_date,status")
+    .select("id,title,slug,start_date,start_time,status")
     .eq("id", festivalId)
     .maybeSingle();
 
@@ -148,7 +156,7 @@ export async function scheduleSavedFestivalReminders(
   }
 
   const now = new Date();
-  const times = computeSavedFestivalReminderTimes(festival.start_date, now);
+  const times = computeSavedFestivalReminderTimes(festival.start_date, now, (festival as { start_time?: string | null }).start_time ?? null);
   if (!times.length) {
     return { ok: true };
   }

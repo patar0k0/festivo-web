@@ -87,6 +87,8 @@ function mergeExtractions(
     title: str(pickFirst("title")),
     start_date: str(pickFirst("start_date")),
     end_date: str(pickFirst("end_date")),
+    start_time: str(pickFirst("start_time")),
+    end_time: str(pickFirst("end_time")),
     city: str(pickFirst("city")),
     location_name: str(pickFirst("location_name")),
     address: str(pickFirst("address")),
@@ -124,7 +126,7 @@ function mergeExtractions(
     })(),
   };
 
-  const conflictKeys: (keyof GeminiRawExtraction)[] = ["title", "city", "start_date", "end_date"];
+  const conflictKeys: (keyof GeminiRawExtraction)[] = ["title", "city", "start_date", "end_date", "start_time", "end_time"];
   let conflictCount = 0;
   for (const k of conflictKeys) {
     const set = new Set<string>();
@@ -144,6 +146,8 @@ function mergeExtractions(
     ["title", "title"],
     ["start_date", "start_date"],
     ["end_date", "end_date"],
+    ["start_time", "start_time"],
+    ["end_time", "end_time"],
     ["city", "city"],
     ["location_name", "location"],
     ["organizer_name", "organizer"],
@@ -290,6 +294,8 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
         title: null,
         start_date: null,
         end_date: null,
+        start_time: null,
+        end_time: null,
         city: null,
         location: null,
         organizers: [],
@@ -347,6 +353,8 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
         title: str(top.title) ?? null,
         start_date: null,
         end_date: null,
+        start_time: null,
+        end_time: null,
         city: null,
         location: null,
         organizers: [],
@@ -393,6 +401,8 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
       title: str(merged.title),
       start_date: str(merged.start_date),
       end_date: str(merged.end_date) ?? str(merged.start_date),
+      start_time: str(merged.start_time),
+      end_time: str(merged.end_time),
       city: str(merged.city),
       location: str(merged.location_name),
       organizers: Array.isArray(merged.organizer_names)
@@ -427,6 +437,8 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
     title: str(merged.title),
     start_date: str(merged.start_date),
     end_date: str(merged.end_date) ?? str(merged.start_date),
+    start_time: str(merged.start_time),
+    end_time: str(merged.end_time),
     city: str(merged.city),
     location: str(merged.location_name),
     description: str(merged.description),

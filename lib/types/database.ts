@@ -29,6 +29,8 @@ export type Database = {
           address: string | null
           start_date: string
           end_date: string | null
+          start_time: string | null
+          end_time: string | null
           category: string
           category_slug: string
           image_url: string
@@ -55,6 +57,8 @@ export type Database = {
           address?: string | null
           start_date: string
           end_date?: string | null
+          start_time?: string | null
+          end_time?: string | null
           category: string
           category_slug: string
           image_url: string
@@ -81,6 +85,8 @@ export type Database = {
           address?: string | null
           start_date?: string
           end_date?: string | null
+          start_time?: string | null
+          end_time?: string | null
           category?: string
           category_slug?: string
           image_url?: string

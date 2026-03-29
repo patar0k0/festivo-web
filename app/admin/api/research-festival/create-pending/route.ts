@@ -4,6 +4,7 @@ import { rehostHeroImageIfRemote, uniqueResearchHeroObjectPath } from "@/lib/adm
 import { mapConfidenceToVerificationScore } from "@/lib/admin/research/scoring";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeResearchResult, validateDateFieldsOrErrors, validateDateRangeOrError } from "@/lib/admin/research/normalize";
+import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 import type { ResearchBestGuess, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
 import type { PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 
@@ -220,6 +221,10 @@ export async function POST(request: Request) {
     }
 
     const orgEntriesAi = buildOrganizerEntriesFromAi(ai);
+    const aiTimes = normalizeFestivalTimePair(
+      parseHmInputToDbTime((ai as { start_time?: unknown }).start_time),
+      parseHmInputToDbTime((ai as { end_time?: unknown }).end_time),
+    );
 
     const insertPayload: Record<string, unknown> = {
       title: sanitizeNullableString(ai.title) ?? "Untitled festival",
@@ -227,6 +232,8 @@ export async function POST(request: Request) {
       category: sanitizeNullableString(ai.category),
       start_date: normalizeDateForDb(ai.start_date),
       end_date: normalizeDateForDb(ai.end_date),
+      start_time: aiTimes.start_time,
+      end_time: aiTimes.end_time,
       location_name: sanitizeNullableString(ai.location_name),
       address: sanitizeNullableString(ai.address),
       organizer_entries: orgEntriesAi,
@@ -311,6 +318,8 @@ export async function POST(request: Request) {
     tags_guess: finalValues.tags,
     start_date: finalValues.start_date,
     end_date: finalValues.end_date,
+    start_time: finalValues.start_time ?? null,
+    end_time: finalValues.end_time ?? null,
     is_free: finalValues.is_free,
     source_url: sourceUrl,
     website_url: websiteFromForm ?? sourceUrl,

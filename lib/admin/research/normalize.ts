@@ -1,5 +1,6 @@
 import type { ResearchConfidenceLevel, ResearchDateCandidate, ResearchFestivalResult, ResearchFieldCandidate, ResearchSource } from "@/lib/admin/research/types";
 import type { SourceAuthorityTier } from "@/lib/admin/research/source-ranking";
+import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -169,6 +170,8 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     title: raw.title ?? null,
     start_date: raw.start_date ?? null,
     end_date: raw.end_date ?? null,
+    start_time: raw.start_time ?? null,
+    end_time: raw.end_time ?? null,
     city: raw.city ?? null,
     location: raw.location ?? null,
     description: raw.description ?? null,
@@ -185,10 +188,17 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
   const organizers = listFromGuess.length > 0 ? listFromGuess : listFromTop.length > 0 ? listFromTop : legacySingle ? [legacySingle] : [];
   const organizer = organizers[0] ?? legacySingle ?? null;
 
+  const timePair = normalizeFestivalTimePair(
+    parseHmInputToDbTime((rawBestGuess as { start_time?: unknown }).start_time),
+    parseHmInputToDbTime((rawBestGuess as { end_time?: unknown }).end_time),
+  );
+
   const bestGuess = {
     title: normalizeText(rawBestGuess.title),
     start_date: normalizeDate(rawBestGuess.start_date),
     end_date: normalizeDate(rawBestGuess.end_date),
+    start_time: timePair.start_time,
+    end_time: timePair.end_time,
     city: normalizeText(rawBestGuess.city),
     location: normalizeText(rawBestGuess.location),
     description: normalizeText(rawBestGuess.description),
@@ -273,6 +283,8 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     title: bestGuess.title,
     start_date: bestGuess.start_date,
     end_date: bestGuess.end_date,
+    start_time: bestGuess.start_time,
+    end_time: bestGuess.end_time,
     city: bestGuess.city,
     location: bestGuess.location,
     description: bestGuess.description,

@@ -37,6 +37,8 @@ erDiagram
     text source_url
     date start_date
     date end_date
+    time start_time
+    time end_time
     jsonb occurrence_dates
     text hero_image
     text[] tags
@@ -54,6 +56,8 @@ erDiagram
     text city
     date start_date
     date end_date
+    time start_time
+    time end_time
     jsonb occurrence_dates
     text source_url
     text source_type

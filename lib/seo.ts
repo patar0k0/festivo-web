@@ -1,5 +1,6 @@
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
+import { getFestivalStartInstant } from "@/lib/notifications/time";
 
 export function getBaseUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "https://festivo.bg";
@@ -38,12 +39,16 @@ export function calendarMeta(month: string) {
 
 export function buildFestivalJsonLd(festival: Festival) {
   const locality = festivalCityLabel(festival, "България");
+  const startInst = getFestivalStartInstant(festival.start_date ?? null, festival.start_time ?? null);
+  const endDay = festival.end_date ?? festival.start_date;
+  const endInst =
+    festival.end_time && endDay ? getFestivalStartInstant(endDay, festival.end_time) : null;
   return {
     "@context": "https://schema.org",
     "@type": "Event",
     name: festival.title,
-    startDate: festival.start_date,
-    endDate: festival.end_date ?? festival.start_date,
+    startDate: startInst ? startInst.toISOString() : festival.start_date,
+    endDate: endInst ? endInst.toISOString() : (festival.end_date ?? festival.start_date),
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     eventStatus: "https://schema.org/EventScheduled",
     image: festival.image_url,

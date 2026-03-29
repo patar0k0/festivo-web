@@ -13,6 +13,8 @@ const EMPTY_FINAL_VALUES: EditableFinalValues = {
   title: null,
   start_date: null,
   end_date: null,
+  start_time: null,
+  end_time: null,
   city: null,
   location: null,
   description: null,

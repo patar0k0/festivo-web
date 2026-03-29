@@ -168,6 +168,8 @@ export async function extractFestivalWithOpenAi(
       city: typeof bestGuess.city === "string" ? bestGuess.city : null,
       start_date: typeof bestGuess.start_date === "string" ? bestGuess.start_date : null,
       end_date: typeof bestGuess.end_date === "string" ? bestGuess.end_date : null,
+      start_time: null,
+      end_time: null,
       location: typeof bestGuess.location === "string" ? bestGuess.location : null,
       organizers: Array.isArray(bestGuess.organizers)
         ? bestGuess.organizers.filter((x): x is string => typeof x === "string" && x.trim().length > 0)

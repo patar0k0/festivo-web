@@ -67,6 +67,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     "longitude",
     "start_date",
     "end_date",
+    "start_time",
+    "end_time",
     "occurrence_dates",
     "website_url",
     "facebook_url",

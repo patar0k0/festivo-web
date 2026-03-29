@@ -20,6 +20,8 @@ function NewFestivalSubmissionInner() {
   const [city, setCity] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [locationName, setLocationName] = useState("");
   const [address, setAddress] = useState("");
   const [category, setCategory] = useState("festival");
@@ -80,6 +82,8 @@ function NewFestivalSubmissionInner() {
           city,
           start_date: startDate,
           end_date: endDate.trim() ? endDate : null,
+          start_time: startTime.trim() || null,
+          end_time: endTime.trim() || null,
           location_name: locationName || null,
           address: address || null,
           category: category.trim() || "festival",
@@ -220,6 +224,26 @@ function NewFestivalSubmissionInner() {
                 type="date"
                 value={endDate}
                 onChange={(ev) => setEndDate(ev.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block text-sm font-medium text-[#0c0e14]">
+              Начало (час)
+              <input
+                type="time"
+                step={60}
+                value={startTime}
+                onChange={(ev) => setStartTime(ev.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block text-sm font-medium text-[#0c0e14]">
+              Край (час)
+              <input
+                type="time"
+                step={60}
+                value={endTime}
+                onChange={(ev) => setEndTime(ev.target.value)}
                 className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
               />
             </label>

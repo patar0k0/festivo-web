@@ -85,6 +85,8 @@ function buildMinimalFallback(query: string, sources: ResearchSource[], warnings
       description: null,
       hero_image: null,
       tags: [],
+      start_time: null,
+      end_time: null,
     },
     candidates: { titles: [], dates: [], cities: [], locations: [], organizers: [] },
     sources,
@@ -151,6 +153,8 @@ export async function runWebResearch(query: string): Promise<ResearchFestivalRes
       best_guess: {
         ...llm.best_guess,
         end_date: llm.best_guess.end_date ?? llm.best_guess.start_date,
+        start_time: llm.best_guess.start_time ?? null,
+        end_time: llm.best_guess.end_time ?? null,
       },
       candidates: llm.candidates,
       sources: docs.map(({ source, doc }) => ({ ...source, language: doc.language })),

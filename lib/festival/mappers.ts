@@ -16,6 +16,8 @@ type PendingFestivalRowLike = {
   longitude?: number | null;
   start_date?: string | null;
   end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   organizer_name?: string | null;
   organizer_id?: string | null;
   organizer_entries?: unknown;
@@ -98,6 +100,8 @@ export function canonicalFromPending(row: PendingFestivalRowLike): CanonicalFest
     longitude: row.longitude ?? null,
     start_date: row.start_date ?? null,
     end_date: row.end_date ?? null,
+    start_time: row.start_time ?? null,
+    end_time: row.end_time ?? null,
     organizer_name: organizerDisplay,
     organizer_entries: organizerEntriesPayload,
     hero_image: normalizeText(row.hero_image),
@@ -125,6 +129,8 @@ export function canonicalFromFestival(row: FestivalRowLike): CanonicalFestivalPa
     longitude: row.lng ?? null,
     start_date: row.start_date ?? null,
     end_date: row.end_date ?? null,
+    start_time: row.start_time ?? null,
+    end_time: row.end_time ?? null,
     organizer_name: normalizeText(row.organizer_name),
     hero_image: normalizeText(row.hero_image) ?? normalizeText(row.image_url),
     website_url: normalizeText(row.website_url),
@@ -148,6 +154,8 @@ export function pendingPatchFromCanonical(fields: CanonicalFestivalPayload): Rec
     longitude: fields.longitude,
     start_date: fields.start_date,
     end_date: fields.end_date,
+    start_time: fields.start_time,
+    end_time: fields.end_time,
     organizer_name: fields.organizer_name,
     source_url: fields.source_url,
     source_type: fields.source_type,
@@ -170,6 +178,8 @@ export function festivalPatchFromCanonical(fields: CanonicalFestivalPayload): Re
     address: fields.address,
     start_date: fields.start_date,
     end_date: fields.end_date,
+    start_time: fields.start_time,
+    end_time: fields.end_time,
     organizer_name: fields.organizer_name,
     hero_image: fields.hero_image,
     image_url: fields.hero_image,
@@ -198,6 +208,8 @@ export function pendingPatchFromCanonicalPartial(fields: CanonicalFestivalPatchP
   if ("longitude" in fields) patch.longitude = fields.longitude;
   if ("start_date" in fields) patch.start_date = fields.start_date;
   if ("end_date" in fields) patch.end_date = fields.end_date;
+  if ("start_time" in fields) patch.start_time = fields.start_time;
+  if ("end_time" in fields) patch.end_time = fields.end_time;
   if ("organizer_name" in fields) patch.organizer_name = fields.organizer_name;
   if ("organizer_entries" in fields) {
     const list = fields.organizer_entries;
@@ -231,6 +243,8 @@ export function festivalPatchFromCanonicalPartial(fields: CanonicalFestivalPatch
   if ("address" in fields) patch.address = fields.address;
   if ("start_date" in fields) patch.start_date = fields.start_date;
   if ("end_date" in fields) patch.end_date = fields.end_date;
+  if ("start_time" in fields) patch.start_time = fields.start_time;
+  if ("end_time" in fields) patch.end_time = fields.end_time;
   if ("organizer_name" in fields) patch.organizer_name = fields.organizer_name;
   if ("hero_image" in fields) {
     patch.hero_image = fields.hero_image;

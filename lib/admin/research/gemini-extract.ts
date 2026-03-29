@@ -4,6 +4,9 @@ export type GeminiRawExtraction = {
   title: string | null;
   start_date: string | null;
   end_date: string | null;
+  /** HH:mm local start clock if explicitly stated; otherwise null */
+  start_time: string | null;
+  end_time: string | null;
   city: string | null;
   location_name: string | null;
   address: string | null;
@@ -27,6 +30,8 @@ const EXTRACTION_SCHEMA = {
     title: { type: "string", nullable: true },
     start_date: { type: "string", nullable: true },
     end_date: { type: "string", nullable: true },
+    start_time: { type: "string", nullable: true },
+    end_time: { type: "string", nullable: true },
     city: { type: "string", nullable: true },
     location_name: { type: "string", nullable: true },
     address: { type: "string", nullable: true },
@@ -46,6 +51,8 @@ const EXTRACTION_SCHEMA = {
     "title",
     "start_date",
     "end_date",
+    "start_time",
+    "end_time",
     "city",
     "location_name",
     "address",
@@ -68,6 +75,7 @@ const SYSTEM = `Ти извличаш структурирани данни за
 - Използвай САМО информация, явно подкрепена от текста. Не измисляй факти.
 - Непознато или непотвърдено → null (или празен масив за tags).
 - Дати само във формат YYYY-MM-DD ако са ясни от текста; иначе null.
+- Часове само като HH:mm (24h) ако са изрично в текста; иначе null. Не измисляй часове.
 - Кратко описание на български (до 4 изречения) само ако се поддържа от текста.
 - Ако има няколко отделни организатора, попълни organizer_names с всеки поотделно; organizer_name може да е първият или null.
 - URL полета: само ако се появяват като връзки или ясно в текста; иначе null.

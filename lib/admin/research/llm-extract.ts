@@ -1,5 +1,6 @@
 import type { SourceAuthorityTier } from "@/lib/admin/research/source-ranking";
 import type { ResearchDateCandidate, ResearchEvidence, ResearchFieldCandidate, ResearchLanguageSignal } from "@/lib/admin/research/types";
+import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 
 export type LlmSourcePayload = {
   source_url: string;
@@ -21,6 +22,8 @@ export type LlmExtractResult = {
     title: string | null;
     start_date: string | null;
     end_date: string | null;
+    start_time: string | null;
+    end_time: string | null;
     city: string | null;
     location: string | null;
     organizers: string[];
@@ -129,6 +132,8 @@ function buildPrompt(input: LlmExtractInput): { system: string; user: string } {
           title: "string|null",
           start_date: "YYYY-MM-DD|null",
           end_date: "YYYY-MM-DD|null",
+          start_time: "HH:mm|null",
+          end_time: "HH:mm|null",
           city: "string|null",
           location: "string|null",
           organizer: "string|null",
@@ -203,11 +208,18 @@ export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<Llm
         ? [singleOrg]
         : [];
 
+  const timePair = normalizeFestivalTimePair(
+    parseHmInputToDbTime(parsed.best_guess?.start_time),
+    parseHmInputToDbTime(parsed.best_guess?.end_time),
+  );
+
   return {
     best_guess: {
       title: normalizeText(parsed.best_guess?.title),
       start_date: normalizeDate(parsed.best_guess?.start_date),
       end_date: normalizeDate(parsed.best_guess?.end_date),
+      start_time: timePair.start_time,
+      end_time: timePair.end_time,
       city: normalizeText(parsed.best_guess?.city),
       location: normalizeText(parsed.best_guess?.location),
       organizers,

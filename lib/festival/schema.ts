@@ -12,6 +12,8 @@ export const CANONICAL_FESTIVAL_FIELDS = [
   "longitude",
   "start_date",
   "end_date",
+  "start_time",
+  "end_time",
   "organizer_name",
   "hero_image",
   "website_url",
@@ -43,6 +45,9 @@ export type CanonicalFestivalPayload = {
   longitude: number | null;
   start_date: string | null;
   end_date: string | null;
+  /** Postgres time HH:MM:SS or null */
+  start_time: string | null;
+  end_time: string | null;
   organizer_name: string | null;
   /** When set, takes precedence over legacy single organizer_name for moderation/publish. */
   organizer_entries?: PendingOrganizerEntryPayload[] | null;
@@ -69,6 +74,8 @@ export type CanonicalFestivalPatchPayload = {
   longitude?: number | null;
   start_date?: string | null;
   end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   organizer_name?: string | null;
   organizer_entries?: PendingOrganizerEntryPayload[] | null;
   hero_image?: string | null;

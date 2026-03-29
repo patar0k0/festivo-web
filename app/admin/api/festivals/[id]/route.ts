@@ -73,7 +73,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { data: beforeFestival } = await ctx.supabase
       .from("festivals")
-      .select("start_date,end_date,city,city_id,address,title,occurrence_dates,status")
+      .select("start_date,end_date,start_time,end_time,city,city_id,address,title,occurrence_dates,status")
       .eq("id", id)
       .maybeSingle();
 
@@ -254,7 +254,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { data: afterFestival } = await ctx.supabase
       .from("festivals")
-      .select("start_date,end_date,city,city_id,address,title,occurrence_dates,status")
+      .select("start_date,end_date,start_time,end_time,city,city_id,address,title,occurrence_dates,status")
       .eq("id", id)
       .maybeSingle();
 

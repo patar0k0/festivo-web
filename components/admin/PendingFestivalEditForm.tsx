@@ -14,6 +14,7 @@ import { extractNormalizationSuggestions, type SuggestionField } from "@/lib/fes
 import { listFilledPendingRecordFields, type PendingFestivalQuality } from "@/lib/admin/pendingFestivalQuality";
 import { resolvePendingDraftEditorOpenAction } from "@/lib/festival/editorOpenAction";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
+import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 
 export type PendingFestivalRecord = {
   id: string;
@@ -32,6 +33,8 @@ export type PendingFestivalRecord = {
   longitude: number | null;
   start_date: string | null;
   end_date: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   occurrence_dates?: unknown;
   organizer_name: string | null;
   organizer_entries?: unknown;
@@ -405,6 +408,8 @@ export default function PendingFestivalEditForm({
     lng_guess: asInputValue(pendingFestival.lng_guess),
     start_date: asDateInput(pendingFestival.start_date),
     end_date: asDateInput(pendingFestival.end_date),
+    start_time: dbTimeToHmInput(typeof pendingFestival.start_time === "string" ? pendingFestival.start_time : null),
+    end_time: dbTimeToHmInput(typeof pendingFestival.end_time === "string" ? pendingFestival.end_time : null),
     date_guess: asInputValue(pendingFestival.date_guess),
     organizer_name: pendingFestival.organizer_name ?? "",
     source_url: pendingFestival.source_url ?? "",
@@ -703,6 +708,8 @@ export default function PendingFestivalEditForm({
           longitude: form.longitude.trim() ? Number(form.longitude) : null,
           start_date: mergedDates.start_date,
           end_date: mergedDates.end_date,
+          start_time: form.start_time.trim() || null,
+          end_time: form.end_time.trim() || null,
           occurrence_dates: mergedDates.occurrence_dates,
           organizer_name: organizerEntries[0]?.name.trim() || form.organizer_name.trim() || null,
           organizer_entries: organizerEntries
@@ -1018,6 +1025,26 @@ export default function PendingFestivalEditForm({
                 <DdMmYyyyDateInput
                   value={form.end_date ?? ""}
                   onChange={(iso) => updateField("end_date", iso)}
+                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Начало (час, HH:mm)</span>
+                <input
+                  type="time"
+                  step={60}
+                  value={form.start_time}
+                  onChange={(e) => updateField("start_time", e.target.value)}
+                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Край (час, по избор)</span>
+                <input
+                  type="time"
+                  step={60}
+                  value={form.end_time}
+                  onChange={(e) => updateField("end_time", e.target.value)}
                   className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
                 />
               </label>

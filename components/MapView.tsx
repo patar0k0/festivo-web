@@ -6,6 +6,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "re
 import L from "leaflet";
 import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
 import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
+import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 
@@ -102,6 +103,7 @@ export default function MapView({
               <div className="space-y-1">
                 <p className="text-sm font-semibold">{festival.title}</p>
                 <p className="text-xs text-muted">{festivalCityLabel(festival)}</p>
+                <p className="text-xs text-muted">{formatFestivalDateLineShort(festival)}</p>
                 <Link href={`/festivals/${festival.slug}`} className="text-xs font-semibold text-ink">
                   Виж
                 </Link>
@@ -131,6 +133,7 @@ export default function MapView({
           <div className="pointer-events-auto rounded-xl border border-black/[0.08] bg-white/95 p-3 shadow-[0_2px_0_rgba(12,14,20,0.06),0_14px_30px_rgba(12,14,20,0.16)] backdrop-blur">
             <p className="text-sm font-semibold text-[#0c0e14]">{selectedFestival.title}</p>
             <p className="mt-0.5 text-xs text-black/60">{festivalCityLabel(selectedFestival)}</p>
+            <p className="text-xs text-black/55">{formatFestivalDateLineShort(selectedFestival)}</p>
             <Link
               href={`/festivals/${selectedFestival.slug}`}
               className="mt-2 inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"

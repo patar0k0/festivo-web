@@ -9,6 +9,7 @@ import TagsInput from "@/components/admin/TagsInput";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
 import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
+import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorOpenAction";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 
@@ -25,6 +26,8 @@ type FestivalRecord = {
   address: string | null;
   start_date: string | null;
   end_date: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   image_url: string | null;
   hero_image?: string | null;
   website_url: string | null;
@@ -155,6 +158,8 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
     address: festival.address ?? "",
     start_date: asDateInput(festival.start_date),
     end_date: asDateInput(festival.end_date),
+    start_time: dbTimeToHmInput(typeof festival.start_time === "string" ? festival.start_time : null),
+    end_time: dbTimeToHmInput(typeof festival.end_time === "string" ? festival.end_time : null),
     hero_image: festival.hero_image ?? festival.image_url ?? "",
     website_url: festival.website_url ?? "",
     ticket_url: festival.ticket_url ?? "",
@@ -441,6 +446,8 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           longitude: form.longitude ? Number(form.longitude) : null,
           start_date: mergedDates.start_date,
           end_date: mergedDates.end_date,
+          start_time: form.start_time.trim() || null,
+          end_time: form.end_time.trim() || null,
           occurrence_dates: mergedDates.occurrence_dates,
           organizer_name: form.organizer_name || null,
           organizer_id: form.organizer_id || null,
@@ -611,6 +618,26 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <DdMmYyyyDateInput
               value={form.end_date ?? ""}
               onChange={(iso) => updateField("end_date", iso)}
+              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+            />
+          </label>
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">start_time (HH:mm)</span>
+            <input
+              type="time"
+              step={60}
+              value={form.start_time}
+              onChange={(e) => updateField("start_time", e.target.value)}
+              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+            />
+          </label>
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">end_time (HH:mm)</span>
+            <input
+              type="time"
+              step={60}
+              value={form.end_time}
+              onChange={(e) => updateField("end_time", e.target.value)}
               className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
             />
           </label>

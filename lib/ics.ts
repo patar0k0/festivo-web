@@ -3,6 +3,11 @@ import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 import { getBaseUrl } from "@/lib/seo";
 import { normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
+import { getFestivalStartInstant } from "@/lib/notifications/time";
+
+function utcIcsTimestamp(d: Date): string {
+  return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
 
 export function buildFestivalIcs(festival: Festival) {
   const dtstamp = new Date()
@@ -17,6 +22,38 @@ export function buildFestivalIcs(festival: Festival) {
       : festival.start_date
         ? [festival.start_date]
         : [format(new Date(), "yyyy-MM-dd")];
+
+  const useTimedSingleDay =
+    Boolean(festival.start_time) && days.length === 1 && Boolean(festival.start_date);
+
+  if (useTimedSingleDay) {
+    const startInst = getFestivalStartInstant(festival.start_date!, festival.start_time ?? null);
+    if (startInst) {
+      const endDay = festival.end_date ?? festival.start_date!;
+      const endInst = festival.end_time
+        ? getFestivalStartInstant(endDay, festival.end_time)
+        : new Date(startInst.getTime() + 2 * 60 * 60 * 1000);
+      const end = endInst ?? new Date(startInst.getTime() + 2 * 60 * 60 * 1000);
+      return [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Festivo//Festival Calendar//EN",
+        "CALSCALE:GREGORIAN",
+        [
+          "BEGIN:VEVENT",
+          `UID:festivo-${festival.slug}-timed`,
+          `DTSTAMP:${dtstamp}`,
+          `DTSTART:${utcIcsTimestamp(startInst)}`,
+          `DTEND:${utcIcsTimestamp(end)}`,
+          `SUMMARY:${escapeText(festival.title)}`,
+          `LOCATION:${escapeText([festival.address, festivalCityLabel(festival, "")].filter(Boolean).join(", "))}`,
+          `URL:${getBaseUrl()}/festivals/${festival.slug}`,
+          "END:VEVENT",
+        ].join("\r\n"),
+        "END:VCALENDAR",
+      ].join("\r\n");
+    }
+  }
 
   const events = days.map((dayIso) => {
     const start = parseISO(dayIso);

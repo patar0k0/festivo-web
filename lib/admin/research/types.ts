@@ -52,6 +52,9 @@ export type ResearchBestGuess = {
   title: string | null;
   start_date: string | null;
   end_date: string | null;
+  /** HH:MM:SS or null after normalization */
+  start_time: string | null;
+  end_time: string | null;
   city: string | null;
   /** Venue / place name (maps from extraction location_name). */
   location: string | null;
@@ -110,6 +113,8 @@ export type ResearchFestivalResult = {
   title?: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   city?: string | null;
   location?: string | null;
   description?: string | null;

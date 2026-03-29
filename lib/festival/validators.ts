@@ -4,6 +4,7 @@ import {
   type CanonicalFestivalPayload,
 } from "@/lib/festival/schema";
 import { parseOrganizerEntriesJson } from "@/lib/admin/pendingOrganizerEntries";
+import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 
 export type ValidationResult =
   | { ok: true; data: CanonicalFestivalPayload }
@@ -91,6 +92,11 @@ export function canonicalFromUnknown(raw: unknown): ValidationResult {
     return { ok: false, error: "Invalid longitude" };
   }
 
+  const timePair = normalizeFestivalTimePair(
+    parseHmInputToDbTime(sourceValue(body, "start_time")),
+    parseHmInputToDbTime(sourceValue(body, "end_time")),
+  );
+
   const canonical: CanonicalFestivalPayload = {
     title,
     slug: normalizeText(sourceValue(body, "slug")),
@@ -105,6 +111,8 @@ export function canonicalFromUnknown(raw: unknown): ValidationResult {
     longitude,
     start_date: normalizeText(sourceValue(body, "start_date")),
     end_date: normalizeText(sourceValue(body, "end_date")),
+    start_time: timePair.start_time,
+    end_time: timePair.end_time,
     organizer_name: normalizeText(sourceValue(body, "organizer_name")),
     hero_image: normalizeText(sourceValue(body, "hero_image", ["image_url"])),
     website_url: normalizeText(sourceValue(body, "website_url")),
@@ -165,6 +173,17 @@ export function canonicalPatchFromUnknown(raw: unknown): PatchValidationResult {
 
   if (hasSourceValue(body, "start_date")) canonical.start_date = normalizeText(sourceValue(body, "start_date"));
   if (hasSourceValue(body, "end_date")) canonical.end_date = normalizeText(sourceValue(body, "end_date"));
+  if (hasSourceValue(body, "start_time")) {
+    canonical.start_time = parseHmInputToDbTime(sourceValue(body, "start_time"));
+  }
+  if (hasSourceValue(body, "end_time")) {
+    canonical.end_time = parseHmInputToDbTime(sourceValue(body, "end_time"));
+  }
+  if (hasSourceValue(body, "start_time") && hasSourceValue(body, "end_time")) {
+    const pair = normalizeFestivalTimePair(canonical.start_time ?? null, canonical.end_time ?? null);
+    canonical.start_time = pair.start_time;
+    canonical.end_time = pair.end_time;
+  }
   if (hasSourceValue(body, "organizer_name")) canonical.organizer_name = normalizeText(sourceValue(body, "organizer_name"));
   if (hasSourceValue(body, "hero_image", ["image_url"])) {
     canonical.hero_image = normalizeText(sourceValue(body, "hero_image", ["image_url"]));

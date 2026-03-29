@@ -14,6 +14,9 @@ export type Festival = {
   organizer_id?: string | null;
   start_date?: string | null;
   end_date?: string | null;
+  /** Local wall time from DB (`time`), typically `HH:MM:SS` string from Supabase. */
+  start_time?: string | null;
+  end_time?: string | null;
   /** Sorted ISO yyyy-MM-dd when the festival runs on separate non-consecutive days; omit for a simple start–end range. */
   occurrence_dates?: string[] | null;
   is_free?: boolean | null;

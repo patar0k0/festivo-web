@@ -274,7 +274,9 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
   const searchQueries = buildGeminiPipelineQueries(query);
   const hitMap = new Map<string, SearchHit>();
 
+  const minSourcesBeforeStop = 5;
   for (const sq of searchQueries) {
+    if (hitMap.size >= minSourcesBeforeStop) break;
     try {
       const hits = await geminiGroundedSearchHits(sq);
       for (const h of hits) {

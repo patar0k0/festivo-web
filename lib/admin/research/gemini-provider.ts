@@ -1,9 +1,14 @@
 /**
- * Server-only Gemini REST client (generateContent). Grounding uses the google_search tool.
- * Env: GEMINI_API_KEY (or GOOGLE_AI_API_KEY). Optional: GEMINI_RESEARCH_MODEL (default gemini-2.0-flash).
+ * Server-only Gemini via @google/generative-ai. Web discovery uses Google Search grounding.
+ * Env: GEMINI_API_KEY (or GOOGLE_AI_API_KEY). Optional: GEMINI_RESEARCH_MODEL (default gemini-1.5-flash).
+ * Gemini 1.5 models use googleSearchRetrieval; 2.x+ use google_search per Google API docs.
  */
 
-const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-2.0-flash";
+import "server-only";
+
+import { GoogleGenerativeAI, type Tool } from "@google/generative-ai";
+
+const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-1.5-flash";
 const DEFAULT_TIMEOUT_MS = Math.min(Math.max(Number.parseInt(process.env.GEMINI_RESEARCH_TIMEOUT_MS ?? "120000", 10) || 120_000, 15_000), 180_000);
 
 export type GeminiGroundingChunk = {
@@ -15,8 +20,9 @@ export type GeminiGroundingChunk = {
 export type GeminiGenerateResponse = {
   candidates?: Array<{
     content?: { parts?: Array<{ text?: string }> };
+    citationMetadata?: { citationSources?: Array<{ uri?: string; title?: string }> };
     groundingMetadata?: GeminiGroundingMetadata;
-    /** Some clients / JSON variants use snake_case (Python-style names). */
+    /** Some JSON variants use snake_case. */
     grounding_metadata?: GeminiGroundingMetadata;
   }>;
   error?: { message?: string; code?: number };
@@ -30,12 +36,15 @@ type GeminiGroundingMetadata = {
   groundingSupports?: Array<{
     groundingChunkIndices?: number[];
     grounding_chunk_indices?: number[];
-    segment?: { text?: string };
+    /** @google/generative-ai typings typo; API may return correct spelling. */
+    groundingChunckIndices?: number[];
+    segment?: { text?: string } | string;
   }>;
   grounding_supports?: Array<{
     groundingChunkIndices?: number[];
     grounding_chunk_indices?: number[];
-    segment?: { text?: string };
+    groundingChunckIndices?: number[];
+    segment?: { text?: string } | string;
   }>;
 };
 
@@ -48,34 +57,25 @@ export function isGeminiConfigured(): boolean {
   return Boolean(getApiKey());
 }
 
-async function postGenerateContent(body: Record<string, unknown>): Promise<GeminiGenerateResponse> {
+function getGenAI(): GoogleGenerativeAI {
   const key = getApiKey();
   if (!key) {
     throw new Error("GEMINI_API_KEY is not configured");
   }
+  return new GoogleGenerativeAI(key);
+}
 
-  const model = DEFAULT_MODEL;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
-  });
-
-  const json = (await response.json().catch(() => ({}))) as GeminiGenerateResponse & { error?: { message?: string } };
-
-  if (!response.ok) {
-    const msg = json.error?.message ?? `Gemini HTTP ${response.status}`;
-    throw new Error(msg);
+/**
+ * REST uses `google_search`; Gemini 1.5 expects googleSearchRetrieval. See:
+ * https://ai.google.dev/gemini-api/docs/google-search
+ */
+function pickSearchGroundingTools(modelId: string): Tool[] {
+  const id = modelId.toLowerCase();
+  const is15 = /(^|\/)(gemini-)?1\.5|gemini-1\.5|1\.5-flash|1\.5-pro/.test(id);
+  if (is15) {
+    return [{ googleSearchRetrieval: {} }];
   }
-
-  if (json.error?.message) {
-    throw new Error(json.error.message);
-  }
-
-  return json;
+  return [{ google_search: {} } as unknown as Tool];
 }
 
 /**
@@ -94,6 +94,28 @@ function logGeminiSearchDebug(label: string, payload: unknown): void {
   }
 }
 
+function responseForDebugLog(response: { candidates?: unknown[]; usageMetadata?: unknown; promptFeedback?: unknown }): unknown {
+  const c0 = response.candidates?.[0] as Record<string, unknown> | undefined;
+  const parts = (c0?.content as { parts?: unknown } | undefined)?.parts;
+  const textPreview =
+    Array.isArray(parts) && parts.length > 0
+      ? String((parts[0] as { text?: string })?.text ?? "").slice(0, 600)
+      : "";
+  return {
+    usageMetadata: response.usageMetadata,
+    promptFeedback: response.promptFeedback,
+    candidate0: c0
+      ? {
+          finishReason: c0.finishReason,
+          finishMessage: c0.finishMessage,
+          groundingMetadata: c0.groundingMetadata ?? c0.grounding_metadata,
+          citationMetadata: c0.citationMetadata ?? c0.citation_metadata,
+          textPreview,
+        }
+      : null,
+  };
+}
+
 type GeminiCandidate = NonNullable<GeminiGenerateResponse["candidates"]>[number];
 
 function pickGroundingMetadata(candidate: GeminiCandidate | undefined): GeminiGroundingMetadata | undefined {
@@ -109,9 +131,22 @@ function normalizeChunks(gm: GeminiGroundingMetadata | undefined): GeminiGroundi
 
 function normalizeSupports(
   gm: GeminiGroundingMetadata | undefined,
-): Array<{ groundingChunkIndices?: number[]; grounding_chunk_indices?: number[] }> {
+): Array<{
+  groundingChunkIndices?: number[];
+  grounding_chunk_indices?: number[];
+  groundingChunckIndices?: number[];
+  segment?: { text?: string } | string;
+}> {
   if (!gm) return [];
   return gm.groundingSupports ?? gm.grounding_supports ?? [];
+}
+
+function supportChunkIndices(sup: {
+  groundingChunkIndices?: number[];
+  grounding_chunk_indices?: number[];
+  groundingChunckIndices?: number[];
+}): number[] {
+  return sup.groundingChunkIndices ?? sup.grounding_chunk_indices ?? sup.groundingChunckIndices ?? [];
 }
 
 function isHttpUrl(s: string): boolean {
@@ -157,7 +192,7 @@ function extractUrlsFromModelText(text: string): string[] {
 }
 
 /**
- * Collect search hits from generateContent response: groundingChunks, supports indices, then URLs in model text.
+ * Collect search hits: grounding chunks, supports, citation metadata, then URLs in model text.
  */
 function extractSearchHitsFromGeminiResponse(json: GeminiGenerateResponse): Array<{ url: string; title: string; snippet: string }> {
   const out: Array<{ url: string; title: string; snippet: string }> = [];
@@ -168,6 +203,15 @@ function extractSearchHitsFromGeminiResponse(json: GeminiGenerateResponse): Arra
     const gm = pickGroundingMetadata(cand);
     const chunks = normalizeChunks(gm);
 
+    const citationSources = cand.citationMetadata?.citationSources ?? [];
+    for (const src of citationSources) {
+      const uri = src.uri?.trim();
+      if (!uri || !isHttpUrl(uri) || seen.has(uri)) continue;
+      seen.add(uri);
+      const title = (src.title ?? "").trim() || uri;
+      out.push({ url: uri, title, snippet: title });
+    }
+
     for (const ch of chunks) {
       const hit = hitFromChunk(ch);
       if (!hit || seen.has(hit.url)) continue;
@@ -177,7 +221,7 @@ function extractSearchHitsFromGeminiResponse(json: GeminiGenerateResponse): Arra
 
     const supports = normalizeSupports(gm);
     for (const sup of supports) {
-      const idxs = sup.groundingChunkIndices ?? sup.grounding_chunk_indices ?? [];
+      const idxs = supportChunkIndices(sup);
       for (const i of idxs) {
         const ch = chunks[i];
         if (!ch) continue;
@@ -209,9 +253,12 @@ function extractSearchHitsFromGeminiResponse(json: GeminiGenerateResponse): Arra
   return out;
 }
 
+function toGeminiGenerateResponse(result: { response: GeminiGenerateResponse }): GeminiGenerateResponse {
+  return result.response as GeminiGenerateResponse;
+}
+
 /**
- * Grounded web discovery: collects grounding chunk URLs/titles from Gemini + Google Search.
- * Prompt asks for a minimal Bulgarian-context answer so the model runs search.
+ * Grounded web discovery: Google Search tool + groundingMetadata URLs/titles.
  */
 export async function geminiGroundedSearchHits(searchQuery: string): Promise<Array<{ url: string; title: string; snippet: string }>> {
   const prompt = [
@@ -220,26 +267,42 @@ export async function geminiGroundedSearchHits(searchQuery: string): Promise<Arr
     "Намери релевантни уеб страници (официални сайтове, общини, туризъм, медии, Facebook събития).",
     `Заявка за търсене: ${searchQuery}`,
     "Отговори накратко (1–3 изречения) на български; в текста споменавай домейни/източници, които намираш чрез търсенето.",
+    "В края на отговора включи 3–8 директни HTTPS връзки (по един на ред), които си намерил чрез търсенето.",
   ].join("\n");
 
-  const body: Record<string, unknown> = {
-    systemInstruction: {
-      parts: [
-        {
-          text: "Винаги използвай наличното Google Search заявяване, за да намериш реални страници. Цитирай намерените източници.",
-        },
-      ],
-    },
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    tools: [{ google_search: {} }],
-    generationConfig: {
-      temperature: 0.3,
-      maxOutputTokens: 2048,
-    },
-  };
+  const genAI = getGenAI();
+  const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
+  const tools = pickSearchGroundingTools(DEFAULT_MODEL);
 
-  const json = await postGenerateContent(body);
-  logGeminiSearchDebug("raw response", json);
+  const result = await model.generateContent(
+    {
+      systemInstruction:
+        "Винаги използвай наличното Google Search заявяване, за да намериш реални страници. Цитирай намерените източници. Давай реални URL адреси от резултатите.",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      tools,
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 2048,
+      },
+    },
+    { timeout: DEFAULT_TIMEOUT_MS },
+  );
+
+  const json = toGeminiGenerateResponse(result);
+  logGeminiSearchDebug("raw response (SDK)", responseForDebugLog(result.response as never));
+
+  const c0 = json.candidates?.[0];
+  const gm = pickGroundingMetadata(c0);
+  const chunkCount = normalizeChunks(gm).length;
+  const queries = gm?.webSearchQueries ?? gm?.web_search_queries ?? [];
+
+  logGeminiSearchDebug("grounding metadata presence", {
+    hasCandidate: Boolean(c0),
+    hasGroundingMetadata: Boolean(gm),
+    groundingChunkCount: chunkCount,
+    webSearchQueriesCount: Array.isArray(queries) ? queries.length : 0,
+    webSearchQueries: queries,
+  });
 
   const out = extractSearchHitsFromGeminiResponse(json);
   logGeminiSearchDebug("extracted hits", { count: out.length, urls: out.map((h) => h.url) });
@@ -268,13 +331,19 @@ export async function geminiExtractJson<T>(options: GeminiJsonExtractOptions): P
     generationConfig.responseSchema = options.responseSchema;
   }
 
-  const body = {
-    systemInstruction: { parts: [{ text: options.systemInstruction }] },
-    contents: [{ role: "user", parts: [{ text: options.userText }] }],
-    generationConfig,
-  };
+  const genAI = getGenAI();
+  const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
 
-  const json = await postGenerateContent(body);
+  const result = await model.generateContent(
+    {
+      systemInstruction: options.systemInstruction,
+      contents: [{ role: "user", parts: [{ text: options.userText }] }],
+      generationConfig: generationConfig as never,
+    },
+    { timeout: DEFAULT_TIMEOUT_MS },
+  );
+
+  const json = toGeminiGenerateResponse(result);
   const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
   if (!text.trim()) {
     throw new Error("Gemini returned empty JSON");

@@ -74,15 +74,23 @@ export function buildGeminiPipelineQueries(query: string): string[] {
   pushUnique(queries, `${base} фестивал`);
   pushUnique(queries, `${base} събор`);
   pushUnique(queries, `${base} културно събитие`);
+  pushUnique(queries, `${base} festival`);
+  pushUnique(queries, `${base} Bulgaria event`);
   pushUnique(queries, `${stripped} фестивал България`);
   pushUnique(queries, `${stripped} festival Bulgaria`);
+  pushUnique(queries, `${stripped} туризъм фестивал`);
+  pushUnique(queries, `${stripped} новини фестивал`);
+  pushUnique(queries, `${stripped} билети програма`);
   pushUnique(queries, `${stripped} официален сайт`);
   pushUnique(queries, `${stripped} програма дати`);
   pushUnique(queries, `${stripped} Facebook събитие`);
+  pushUnique(queries, `${stripped} municipality festival`);
+  pushUnique(queries, `${stripped} cultural event Bulgaria`);
 
   if (city) {
     pushUnique(queries, `${stripped} ${city} фестивал`);
     pushUnique(queries, `${city} ${stripped} събор`);
+    pushUnique(queries, `${stripped} ${city} festival`);
   }
 
   for (const y of yearExtras) {

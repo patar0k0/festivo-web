@@ -133,6 +133,41 @@ function normalizeHeroUrl(value?: string | null): string | null {
   return trimmed.length ? trimmed : null;
 }
 
+type DisplayOrganizerRow = { name: string; slug: string };
+
+function splitCommaSeparatedOrganizerFallback(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function buildDisplayOrganizers(festival: Festival): DisplayOrganizerRow[] {
+  const linked = (festival.organizers ?? [])
+    .map((row) => ({
+      name: row.name?.trim() ?? "",
+      slug: row.slug?.trim() ?? "",
+    }))
+    .filter((row) => Boolean(row.name));
+
+  if (linked.length > 0) {
+    return linked;
+  }
+
+  const rawName = festival.organizer_name?.trim() || festival.organizer?.name?.trim() || "";
+  if (!rawName) return [];
+
+  const slug = festival.organizer?.slug?.trim() ?? "";
+  const parts = splitCommaSeparatedOrganizerFallback(rawName);
+  if (parts.length === 0) return [];
+
+  if (parts.length === 1) {
+    return [{ name: parts[0]!, slug }];
+  }
+
+  return parts.map((name) => ({ name, slug: "" }));
+}
+
 export default function FestivalDetailClient({
   festival,
   media,
@@ -237,16 +272,7 @@ export default function FestivalDetailClient({
     return segments;
   }, [cityName, compactLocationBeyondCity, formattedDateRange, timeLine, showFreeBadge, showPriceRange, priceRange]);
 
-  const linkedOrganizers = (festival.organizers ?? [])
-    .map((row) => ({
-      name: row.name?.trim() ?? "",
-      slug: row.slug?.trim() ?? "",
-    }))
-    .filter((row) => Boolean(row.name));
-  const organizerName = festival.organizer_name?.trim() || festival.organizer?.name?.trim() || "";
-  const organizerSlug = festival.organizer?.slug?.trim() || "";
-  const fallbackOrganizers = organizerName ? [{ name: organizerName, slug: organizerSlug }] : [];
-  const displayOrganizers = linkedOrganizers.length ? linkedOrganizers : fallbackOrganizers;
+  const displayOrganizers = buildDisplayOrganizers(festival);
   const showOrganizer = displayOrganizers.length > 0;
   const showInfoSection = Boolean(formattedDateRange || locationSummary || showOrganizer);
   const showMapSection = Boolean(mapEmbedSrc && mapHref && (cityName || locationSummary));
@@ -735,22 +761,23 @@ export default function FestivalDetailClient({
                     <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
                       {displayOrganizers.length > 1 ? "Организатори" : "Организатор"}
                     </dt>
-                    <dd className="mt-1 flex flex-wrap items-center gap-1 text-black/70">
-                      {displayOrganizers.map((row, index) => (
-                        <span key={`${row.slug || row.name}-${index}`}>
-                          {row.slug ? (
-                            <Link
-                              href={`/organizers/${row.slug}`}
-                              className="underline decoration-black/30 underline-offset-2 transition hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                            >
-                              {row.name}
-                            </Link>
-                          ) : (
-                            row.name
-                          )}
-                          {index < displayOrganizers.length - 1 ? ", " : ""}
-                        </span>
-                      ))}
+                    <dd className="mt-1 text-black/70">
+                      <ul className="list-none space-y-1 pl-0">
+                        {displayOrganizers.map((row, index) => (
+                          <li key={`${row.slug || row.name}-${index}`}>
+                            {row.slug ? (
+                              <Link
+                                href={`/organizers/${row.slug}`}
+                                className="underline decoration-black/30 underline-offset-2 transition hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                              >
+                                {row.name}
+                              </Link>
+                            ) : (
+                              row.name
+                            )}
+                          </li>
+                        ))}
+                      </ul>
                     </dd>
                   </div>
                 ) : null}

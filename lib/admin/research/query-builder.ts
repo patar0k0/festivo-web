@@ -58,7 +58,7 @@ export function buildResearchQueries(query: string): string[] {
   return queries.slice(0, 6);
 }
 
-/** Multi-query variants for Gemini grounded search (фестивал / събор / year). */
+/** Multi-query variants for Gemini grounded search (фестивал / събор / year / locale). */
 export function buildGeminiPipelineQueries(query: string): string[] {
   const base = normalizeSpaces(query);
   if (!base) return [];
@@ -67,16 +67,30 @@ export function buildGeminiPipelineQueries(query: string): string[] {
   const yearsInQuery = base.match(/\b(20[2-3]\d)\b/g) ?? [];
   const currentY = new Date().getFullYear();
   const yearExtras = yearsInQuery.length ? yearsInQuery : [String(currentY), String(currentY + 1)];
+  const stripped = stripYear(base);
+  const city = inferCityToken(base);
 
   pushUnique(queries, base);
   pushUnique(queries, `${base} фестивал`);
   pushUnique(queries, `${base} събор`);
+  pushUnique(queries, `${base} културно събитие`);
+  pushUnique(queries, `${stripped} фестивал България`);
+  pushUnique(queries, `${stripped} festival Bulgaria`);
+  pushUnique(queries, `${stripped} официален сайт`);
+  pushUnique(queries, `${stripped} програма дати`);
+  pushUnique(queries, `${stripped} Facebook събитие`);
 
-  for (const y of yearExtras) {
-    pushUnique(queries, `${stripYear(base)} ${y}`.trim());
-    pushUnique(queries, `${stripYear(base)} ${y} фестивал`.trim());
-    pushUnique(queries, `${stripYear(base)} ${y} събор`.trim());
+  if (city) {
+    pushUnique(queries, `${stripped} ${city} фестивал`);
+    pushUnique(queries, `${city} ${stripped} събор`);
   }
 
-  return queries.slice(0, 8);
+  for (const y of yearExtras) {
+    pushUnique(queries, `${stripped} ${y}`.trim());
+    pushUnique(queries, `${stripped} ${y} фестивал`.trim());
+    pushUnique(queries, `${stripped} ${y} събор`.trim());
+    pushUnique(queries, `${stripped} ${y} културно събитие`.trim());
+  }
+
+  return queries.slice(0, 14);
 }

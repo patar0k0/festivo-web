@@ -9,6 +9,8 @@ import TagsInput from "@/components/admin/TagsInput";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
 import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
+import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorOpenAction";
+import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 
 type FestivalRecord = {
   id: string;
@@ -197,6 +199,17 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
   const router = useRouter();
 
   const descriptionPreview = useMemo(() => form.description.trim(), [form.description]);
+
+  const editorOpenAction = useMemo(
+    () =>
+      resolvePublishedFestivalEditorOpenAction({
+        slug: form.slug,
+        status: form.status,
+        is_verified: form.is_verified,
+        source_url: form.source_url,
+      }),
+    [form.slug, form.status, form.is_verified, form.source_url],
+  );
 
   const debugEntries = useMemo(() => {
     const keys = Object.keys(festival).filter((key) => {
@@ -797,6 +810,10 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em]">
             Cancel
           </Link>
+          <FestivalEditorOpenSecondary
+            action={editorOpenAction}
+            dimmed={saving || importingHeroFromUrl || Boolean(actionPending)}
+          />
           <button
             type="button"
             onClick={() => runArchiveAction(form.status === "archived" ? "restore" : "archive")}

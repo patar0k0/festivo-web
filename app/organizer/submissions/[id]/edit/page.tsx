@@ -36,7 +36,7 @@ export default async function OrganizerEditSubmissionPage({ params }: { params: 
   const { data: row, error } = await admin
     .from("pending_festivals")
     .select(
-      "id,title,description,category,tags,city_id,city_name_display,location_name,address,start_date,end_date,website_url,facebook_url,instagram_url,ticket_url,hero_image,price_range,is_free,city:cities(name_bg,slug)",
+      "id,title,description,category,tags,city_id,city_name_display,location_name,address,start_date,end_date,slug,source_url,website_url,facebook_url,instagram_url,ticket_url,hero_image,price_range,is_free,city:cities(name_bg,slug)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -80,6 +80,8 @@ export default async function OrganizerEditSubmissionPage({ params }: { params: 
             tags: tagsArr,
             start_date: row.start_date ?? null,
             end_date: row.end_date ?? null,
+            slug: typeof row.slug === "string" ? row.slug : null,
+            source_url: typeof row.source_url === "string" ? row.source_url : null,
             website_url: row.website_url ?? null,
             facebook_url: row.facebook_url ?? null,
             instagram_url: row.instagram_url ?? null,

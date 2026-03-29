@@ -9,6 +9,8 @@ import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
 import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { extractNormalizationSuggestions, type SuggestionField } from "@/lib/festival/normalizationSuggestions";
 import { listFilledPendingRecordFields, type PendingFestivalQuality } from "@/lib/admin/pendingFestivalQuality";
+import { resolvePendingDraftEditorOpenAction } from "@/lib/festival/editorOpenAction";
+import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 
 export type PendingFestivalRecord = {
   id: string;
@@ -413,6 +415,11 @@ export default function PendingFestivalEditForm({
   const lastIngestSummary = formatLastIngestLine(lastIngestJobMeta);
 
   const filledFieldSummaries = useMemo(() => listFilledPendingRecordFields(pendingFestival), [pendingFestival]);
+
+  const editorOpenAction = useMemo(
+    () => resolvePendingDraftEditorOpenAction({ slug: form.slug, source_url: form.source_url }),
+    [form.slug, form.source_url],
+  );
 
   const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(pendingFestival.occurrence_dates) ?? []);
   const [heroPreviewError, setHeroPreviewError] = useState(false);
@@ -1350,6 +1357,16 @@ export default function PendingFestivalEditForm({
           <Link href="/admin/pending-festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em]">
             Back
           </Link>
+          <FestivalEditorOpenSecondary
+            action={editorOpenAction}
+            dimmed={
+              saving ||
+              Boolean(runningAction) ||
+              uploadingHeroImage ||
+              importingHeroFromUrl ||
+              removingHeroImage
+            }
+          />
           <button
             type="button"
             onClick={() => runDecision("reject")}

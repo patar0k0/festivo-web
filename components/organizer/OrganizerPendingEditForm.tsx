@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
+import { resolveOrganizerPendingEditorOpenAction } from "@/lib/festival/editorOpenAction";
 
 export type OrganizerPendingEditInitial = {
   id: string;
@@ -22,6 +24,8 @@ export type OrganizerPendingEditInitial = {
   hero_image: string | null;
   price_range: string | null;
   is_free: boolean;
+  slug?: string | null;
+  source_url?: string | null;
 };
 
 export default function OrganizerPendingEditForm({ initial }: { initial: OrganizerPendingEditInitial }) {
@@ -44,6 +48,30 @@ export default function OrganizerPendingEditForm({ initial }: { initial: Organiz
   const [isFree, setIsFree] = useState(initial.is_free);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const editorOpenAction = useMemo(
+    () =>
+      resolveOrganizerPendingEditorOpenAction({
+        slug: initial.slug,
+        source_url: initial.source_url,
+        website_url: websiteUrl || initial.website_url,
+        facebook_url: facebookUrl || initial.facebook_url,
+        instagram_url: instagramUrl || initial.instagram_url,
+        ticket_url: ticketUrl || initial.ticket_url,
+      }),
+    [
+      initial.slug,
+      initial.source_url,
+      initial.website_url,
+      initial.facebook_url,
+      initial.instagram_url,
+      initial.ticket_url,
+      websiteUrl,
+      facebookUrl,
+      instagramUrl,
+      ticketUrl,
+    ],
+  );
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -231,7 +259,7 @@ export default function OrganizerPendingEditForm({ initial }: { initial: Organiz
         <input type="checkbox" checked={isFree} onChange={(ev) => setIsFree(ev.target.checked)} />
         Безплатно събитие
       </label>
-      <div className="flex flex-wrap gap-3 pt-2">
+      <div className="flex flex-wrap items-center gap-3 pt-2">
         <button
           type="submit"
           disabled={busy}
@@ -242,6 +270,7 @@ export default function OrganizerPendingEditForm({ initial }: { initial: Organiz
         <Link href="/organizer/submissions" className="rounded-xl border border-black/[0.14] px-5 py-2.5 text-sm font-semibold text-[#0c0e14]">
           Отказ
         </Link>
+        <FestivalEditorOpenSecondary action={editorOpenAction} dimmed={busy} />
       </div>
     </form>
   );

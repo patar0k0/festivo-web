@@ -1,6 +1,7 @@
 import FallbackImage from "@/components/ui/FallbackImage";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
+import { formatPublicFestivalLocationSummary } from "@/lib/festival/publicLocationDisplay";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 import OpenInAppButton from "@/components/OpenInAppButton";
@@ -10,6 +11,7 @@ import { festivalDeepLink } from "@/lib/deepLink";
 export default function FestivalHero({ festival }: { festival: Festival }) {
   const deepLink = festivalDeepLink(festival.slug);
   const heroImage = getFestivalHeroImage(festival);
+  const mapsQuery = [formatPublicFestivalLocationSummary(festival), festivalCityLabel(festival, "")].filter(Boolean).join(", ");
   return (
     <section className="relative overflow-hidden rounded-3xl border border-ink/10 bg-ink/80">
       <div className="absolute inset-0">
@@ -32,9 +34,7 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
           <div className="flex flex-wrap items-center gap-4">
             <OpenInAppButton deepLink={deepLink} />
             <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                [festival.address, festivalCityLabel(festival, "")].filter(Boolean).join(", ")
-              )}`}
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
               className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
               target="_blank"
               rel="noreferrer"

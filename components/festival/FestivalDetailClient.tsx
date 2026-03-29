@@ -15,6 +15,10 @@ import FestivalAppCta from "@/components/festival/FestivalAppCta";
 import FestivalAccommodationSection from "@/components/festival/FestivalAccommodationSection";
 import FestivalNearbyBookingCard from "@/components/festival/FestivalNearbyBookingCard";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import {
+  formatPublicFestivalLocationSummary,
+  normalizeFestivalLocationText,
+} from "@/lib/festival/publicLocationDisplay";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
 import type { ReminderType } from "@/lib/plan/server";
@@ -207,32 +211,29 @@ export default function FestivalDetailClient({
   const showPriceRange = Boolean(priceRange) && !showFreeBadge;
   const showDescriptionSection = Boolean(descriptionText) || tags.length > 0 || showPriceRange || showFreeBadge;
   const priceInQuickFactsStrip = showFreeBadge || showPriceRange;
-  const locationName = festival.location_name?.trim() ?? "";
   const cityName = festivalCityLabel(festival, "");
-  const cityOrLocationText = cityName || locationName;
-  const venueName = festival.venue_name?.trim() ?? "";
-  const showVenueName = Boolean(venueName) && venueName.toLocaleLowerCase() !== locationName.toLocaleLowerCase();
+  const locationSummary = formatPublicFestivalLocationSummary(festival);
+  const locationBeyondCity =
+    locationSummary &&
+    (!cityName || normalizeFestivalLocationText(locationSummary) !== normalizeFestivalLocationText(cityName))
+      ? locationSummary
+      : "";
+  const cityOrLocationText = [cityName, locationBeyondCity].filter(Boolean).join(" · ");
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
   const showGallerySection = galleryItems.length >= 2;
   const urgencyLabel = getFestivalUrgencyLabelBg(festival);
   const icsHref = `/festival/${festival.slug}/ics`;
   const timeLine = earliestScheduleTime(scheduleItems);
-  const locationFact =
-    [locationName, venueName].filter(Boolean).join(" · ") ||
-    festival.address?.trim() ||
-    cityOrLocationText ||
-    "";
-
   const quickFactSegments = useMemo(() => {
     const segments: { key: string; label: string; value: string }[] = [];
-    if (cityName) segments.push({ key: "city", label: "Град", value: cityName });
+    const whereValue = [cityName, locationBeyondCity].filter(Boolean).join(" · ");
+    if (whereValue) segments.push({ key: "where", label: "Къде", value: whereValue });
     if (formattedDateRange) segments.push({ key: "date", label: "Дата", value: formattedDateRange });
     if (timeLine) segments.push({ key: "time", label: "Час", value: `от ${timeLine}` });
     if (showFreeBadge) segments.push({ key: "price", label: "Вход", value: "Безплатно" });
     else if (showPriceRange) segments.push({ key: "price", label: "Цена", value: priceRange });
-    if (locationFact) segments.push({ key: "loc", label: "Локация", value: locationFact });
     return segments;
-  }, [cityName, formattedDateRange, timeLine, showFreeBadge, showPriceRange, priceRange, locationFact]);
+  }, [cityName, locationBeyondCity, formattedDateRange, timeLine, showFreeBadge, showPriceRange, priceRange]);
 
   const linkedOrganizers = (festival.organizers ?? [])
     .map((row) => ({
@@ -245,16 +246,11 @@ export default function FestivalDetailClient({
   const fallbackOrganizers = organizerName ? [{ name: organizerName, slug: organizerSlug }] : [];
   const displayOrganizers = linkedOrganizers.length ? linkedOrganizers : fallbackOrganizers;
   const showOrganizer = displayOrganizers.length > 0;
-  const showInfoSection = Boolean(
-    formattedDateRange ||
-      locationName ||
-      showVenueName ||
-      festival.address?.trim() ||
-      showOrganizer,
-  );
-  const showMapSection = Boolean(mapEmbedSrc && mapHref && (locationName || cityName || festival.address?.trim()));
+  const showInfoSection = Boolean(formattedDateRange || locationSummary || showOrganizer);
+  const showMapSection = Boolean(mapEmbedSrc && mapHref && (cityName || locationSummary));
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
   const nearbyBookingPlace = cityOrLocationText.trim();
+  const mapLocationBlurb = locationBeyondCity || null;
   const showNearbyBookingCard = Boolean(nearbyBookingPlace && festival.start_date?.trim());
   const reminderOptions: Array<{ value: ReminderType; label: string; helper: string }> = [
     { value: "24h", label: "1 ден по-рано", helper: "Най-често избирано" },
@@ -724,22 +720,10 @@ export default function FestivalDetailClient({
                     <dd className="mt-1 text-black/70">{formattedDateRange}</dd>
                   </div>
                 ) : null}
-                {locationName ? (
+                {locationSummary ? (
                   <div>
                     <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Локация</dt>
-                    <dd className="mt-1 text-black/70">{locationName}</dd>
-                  </div>
-                ) : null}
-                {showVenueName ? (
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Място</dt>
-                    <dd className="mt-1 text-black/70">{venueName}</dd>
-                  </div>
-                ) : null}
-                {festival.address ? (
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Адрес</dt>
-                    <dd className="mt-1 text-black/70">{festival.address}</dd>
+                    <dd className="mt-1 text-black/70">{locationSummary}</dd>
                   </div>
                 ) : null}
                 {showOrganizer ? (
@@ -773,19 +757,19 @@ export default function FestivalDetailClient({
           {showMapSection ? (
             <section className="rounded-2xl border border-black/[0.07] bg-white/90 p-5 shadow-[0_1px_0_rgba(12,14,20,0.04)]">
               <h2 className="text-lg font-semibold text-[#0c0e14]">Карта</h2>
-              {cityOrLocationText ? (
-                citySlug ? (
+              <div className="mt-2 space-y-1 text-sm text-black/70">
+                {citySlug && cityName ? (
                   <Link
                     href={cityHref(citySlug)}
-                    className="mt-2 inline-block text-sm font-medium text-black/75 underline decoration-black/30 underline-offset-2 hover:text-black"
+                    className="inline-block font-medium text-black/75 underline decoration-black/30 underline-offset-2 hover:text-black"
                   >
-                    {cityOrLocationText}
+                    {cityName}
                   </Link>
-                ) : (
-                  <p className="mt-2 text-sm text-black/70">{cityOrLocationText}</p>
-                )
-              ) : null}
-              {festival.address ? <p className="mt-1 text-sm text-black/60">{festival.address}</p> : null}
+                ) : cityName ? (
+                  <p>{cityName}</p>
+                ) : null}
+                {mapLocationBlurb ? <p className={cityName ? "text-black/60" : "font-medium text-black/75"}>{mapLocationBlurb}</p> : null}
+              </div>
               <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.1]">
                 <iframe
                   title={`Карта: ${festival.title}`}

@@ -15,16 +15,16 @@ export default function FestivalQuickFactsStrip({ segments }: Props) {
       className="rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white to-[#fafaf8] px-4 py-3.5 sm:px-5"
       aria-label="Кратка информация"
     >
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2 text-sm leading-snug text-[#0c0e14]">
+      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1.5 text-[13px] leading-snug text-[#0c0e14]">
         {segments.map((seg, i) => (
-          <span key={seg.key} className="inline-flex min-w-0 flex-wrap items-baseline gap-1.5">
+          <span key={seg.key} className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
             {i > 0 ? (
-              <span className="select-none text-black/20" aria-hidden>
+              <span className="select-none text-black/18" aria-hidden>
                 ·
               </span>
             ) : null}
-            <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.08em] text-black/40">{seg.label}</span>
-            <span className="min-w-0 font-medium text-[#0c0e14]">{seg.value}</span>
+            <span className="shrink-0 text-black/42">{seg.label}</span>
+            <span className="min-w-0 font-semibold text-[#0c0e14]">{seg.value}</span>
           </span>
         ))}
       </div>

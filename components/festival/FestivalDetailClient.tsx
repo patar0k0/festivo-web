@@ -17,6 +17,7 @@ import FestivalNearbyBookingCard from "@/components/festival/FestivalNearbyBooki
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import {
   formatPublicFestivalLocationSummary,
+  getCompactMetaLocationBeyondCity,
   normalizeFestivalLocationText,
 } from "@/lib/festival/publicLocationDisplay";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
@@ -218,7 +219,8 @@ export default function FestivalDetailClient({
     (!cityName || normalizeFestivalLocationText(locationSummary) !== normalizeFestivalLocationText(cityName))
       ? locationSummary
       : "";
-  const cityOrLocationText = [cityName, locationBeyondCity].filter(Boolean).join(" · ");
+  const compactLocationBeyondCity = getCompactMetaLocationBeyondCity(festival, cityName);
+  const cityOrLocationText = [cityName, compactLocationBeyondCity].filter(Boolean).join(" · ");
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
   const showGallerySection = galleryItems.length >= 2;
   const urgencyLabel = getFestivalUrgencyLabelBg(festival);
@@ -226,14 +228,14 @@ export default function FestivalDetailClient({
   const timeLine = earliestScheduleTime(scheduleItems);
   const quickFactSegments = useMemo(() => {
     const segments: { key: string; label: string; value: string }[] = [];
-    const whereValue = [cityName, locationBeyondCity].filter(Boolean).join(" · ");
+    const whereValue = [cityName, compactLocationBeyondCity].filter(Boolean).join(" · ");
     if (whereValue) segments.push({ key: "where", label: "Къде", value: whereValue });
     if (formattedDateRange) segments.push({ key: "date", label: "Дата", value: formattedDateRange });
     if (timeLine) segments.push({ key: "time", label: "Час", value: `от ${timeLine}` });
     if (showFreeBadge) segments.push({ key: "price", label: "Вход", value: "Безплатно" });
     else if (showPriceRange) segments.push({ key: "price", label: "Цена", value: priceRange });
     return segments;
-  }, [cityName, locationBeyondCity, formattedDateRange, timeLine, showFreeBadge, showPriceRange, priceRange]);
+  }, [cityName, compactLocationBeyondCity, formattedDateRange, timeLine, showFreeBadge, showPriceRange, priceRange]);
 
   const linkedOrganizers = (festival.organizers ?? [])
     .map((row) => ({
@@ -305,14 +307,6 @@ export default function FestivalDetailClient({
     <div className="space-y-6 md:space-y-8">
       <section className="overflow-hidden rounded-[24px] border border-black/[0.08] bg-white shadow-[0_2px_0_rgba(12,14,20,0.06),0_12px_32px_rgba(12,14,20,0.07)]">
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
-          {adminEditHref ? (
-            <Link
-              href={adminEditHref}
-              className="absolute right-3 top-3 z-20 rounded-xl border border-white/45 bg-black/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-white shadow-[0_4px_14px_rgba(0,0,0,0.35)] backdrop-blur-sm transition hover:border-white/70 hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/80"
-            >
-              Редакция
-            </Link>
-          ) : null}
           {heroImage && !heroImageFailed ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element -- Hero image URL can be external/unknown at runtime and needs direct fallback handling via onError. */}
@@ -367,6 +361,16 @@ export default function FestivalDetailClient({
         </div>
 
         <div className="border-t border-black/[0.06] bg-white px-4 py-4 sm:px-6">
+          {adminEditHref ? (
+            <div className="mb-3 flex justify-end">
+              <Link
+                href={adminEditHref}
+                className="inline-flex items-center justify-center rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+              >
+                Редакция
+              </Link>
+            </div>
+          ) : null}
           <FestivalHeroActionBar
             festivalId={String(festival.id)}
             icsHref={icsHref}

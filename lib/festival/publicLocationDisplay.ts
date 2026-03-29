@@ -48,3 +48,24 @@ export function formatPublicFestivalLocationSummary(f: PublicFestivalLocationInp
   if (place && addr) return `${place} · ${addr}`;
   return place || addr || "";
 }
+
+/**
+ * Venue/location line for compact hero/quick-fact rows: primary place name without trailing
+ * street address when a place/venue line exists. Falls back to address only when there is no place.
+ */
+export function getCompactMetaLocationBeyondCity(
+  f: PublicFestivalLocationInput,
+  cityDisplayName: string,
+): string {
+  const cityNorm = cityDisplayName ? normalizeFestivalLocationText(cityDisplayName) : "";
+  const beyondCity = (line: string): string => {
+    const t = trimmed(line);
+    if (!t) return "";
+    if (!cityNorm) return t;
+    return normalizeFestivalLocationText(t) !== cityNorm ? t : "";
+  };
+  const place = getPublicFestivalPlaceLine(f);
+  if (place) return beyondCity(place);
+  const addr = getPublicFestivalAddressLine(f, "");
+  return addr ? beyondCity(addr) : "";
+}

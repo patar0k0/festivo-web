@@ -10,6 +10,8 @@ export type PerplexityFestivalResearchResult = {
   location_name: string | null;
   address: string | null;
   organizer_name: string | null;
+  /** When multiple organizers are found, listed separately (optional; falls back to organizer_name). */
+  organizer_names: string[] | null;
   website_url: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
@@ -147,6 +149,7 @@ const PERPLEXITY_JSON_SCHEMA = {
     location_name: { type: ["string", "null"] },
     address: { type: ["string", "null"] },
     organizer_name: { type: ["string", "null"] },
+    organizer_names: { type: ["array", "null"], items: { type: "string" } },
     website_url: { type: ["string", "null"] },
     facebook_url: { type: ["string", "null"] },
     instagram_url: { type: ["string", "null"] },
@@ -451,6 +454,10 @@ function normalizeResult(
     location_name: sanitizeNullableString(data.location_name),
     address: sanitizeNullableString(data.address),
     organizer_name: sanitizeNullableString(data.organizer_name),
+    organizer_names: (() => {
+      const list = sanitizeStringArray(data.organizer_names);
+      return list.length > 0 ? list : null;
+    })(),
     website_url: sanitizeUrl(data.website_url),
     facebook_url: sanitizeUrl(data.facebook_url),
     instagram_url: sanitizeUrl(data.instagram_url),
@@ -520,6 +527,7 @@ function normalizeResult(
     for (const key of FACTUAL_FIELDS) {
       result[key] = null;
     }
+    result.organizer_names = null;
   }
 
   // Light heuristic when model omitted boolean (admin-only hint).
@@ -581,6 +589,7 @@ function buildMessages(query: string, context: ExtractionContext): PerplexityMes
             location_name: null,
             address: null,
             organizer_name: null,
+            organizer_names: null,
             website_url: null,
             facebook_url: null,
             instagram_url: null,
@@ -599,7 +608,7 @@ function buildMessages(query: string, context: ExtractionContext): PerplexityMes
         "- do NOT infer current-year dates/location/organizer from older editions",
         "- if exact-year evidence is missing, keep unsupported fields null",
         "- if website_url is unknown but an event page URL is confirmed in source_urls, set website_url to that event page",
-        "- extract organizer_name/location_name/address whenever explicitly written in any cited source",
+        "- extract organizer_name / organizer_names (multiple distinct organizers) / location_name / address whenever explicitly written in any cited source",
         "- preserve provided social links (facebook_url, instagram_url) when they appear in cited sources",
         "- program/schedule details must be null unless explicitly supported by trusted sources",
         "- confidence must be one of: low, medium, high",
@@ -621,6 +630,7 @@ function buildEnrichmentMessages(query: string, context: ExtractionContext, firs
     end_date: firstPass.end_date,
     city: firstPass.city,
     organizer_name: firstPass.organizer_name,
+    organizer_names: firstPass.organizer_names,
     category: firstPass.category,
     location_name: firstPass.location_name,
     address: firstPass.address,
@@ -665,6 +675,7 @@ function buildEnrichmentMessages(query: string, context: ExtractionContext, firs
             location_name: null,
             address: null,
             organizer_name: null,
+            organizer_names: null,
             website_url: null,
             facebook_url: null,
             instagram_url: null,
@@ -739,6 +750,10 @@ function mergeResults(
 
   for (const field of mergeableFields) {
     assignFromEnrichment(field);
+  }
+
+  if ((!merged.organizer_names || merged.organizer_names.length === 0) && enrichment.organizer_names && enrichment.organizer_names.length > 0) {
+    merged.organizer_names = enrichment.organizer_names;
   }
 
   merged.source_urls = cleanSourceUrls([...base.source_urls, ...enrichment.source_urls]);

@@ -26,6 +26,7 @@ function lowConfidenceFallback(query: string, sources: ResearchSource[], warning
       start_date: null,
       end_date: null,
       location: null,
+      organizers: [],
       organizer: null,
       hero_image: null,
       tags: [],

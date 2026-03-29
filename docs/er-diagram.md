@@ -30,6 +30,7 @@ erDiagram
     text title
     text slug
     bigint city_id FK
+    jsonb organizer_entries
     uuid organizer_id FK
     uuid submitted_by_user_id FK
     text submission_source

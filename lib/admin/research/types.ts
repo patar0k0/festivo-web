@@ -55,6 +55,9 @@ export type ResearchBestGuess = {
   city: string | null;
   /** Venue / place name (maps from extraction location_name). */
   location: string | null;
+  /** Distinct organizer names (preferred over single `organizer`). */
+  organizers: string[];
+  /** First organizer or legacy single field; mirrors `organizers[0]` when set. */
   organizer: string | null;
   description: string | null;
   hero_image: string | null;
@@ -111,6 +114,8 @@ export type ResearchFestivalResult = {
   location?: string | null;
   description?: string | null;
   organizer?: string | null;
+  /** Top-level list (mirrors best_guess.organizers when normalized). */
+  organizers?: string[] | null;
   hero_image?: string | null;
   tags?: string[];
   is_free?: boolean | null;

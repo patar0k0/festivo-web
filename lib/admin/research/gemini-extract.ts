@@ -8,6 +8,8 @@ export type GeminiRawExtraction = {
   location_name: string | null;
   address: string | null;
   organizer_name: string | null;
+  /** When multiple organizers are stated, list each separately (no comma-joined stuffing). */
+  organizer_names: string[] | null;
   description: string | null;
   website_url: string | null;
   facebook_url: string | null;
@@ -29,6 +31,7 @@ const EXTRACTION_SCHEMA = {
     location_name: { type: "string", nullable: true },
     address: { type: "string", nullable: true },
     organizer_name: { type: "string", nullable: true },
+    organizer_names: { type: "array", items: { type: "string" }, nullable: true },
     description: { type: "string", nullable: true },
     website_url: { type: "string", nullable: true },
     facebook_url: { type: "string", nullable: true },
@@ -47,6 +50,7 @@ const EXTRACTION_SCHEMA = {
     "location_name",
     "address",
     "organizer_name",
+    "organizer_names",
     "description",
     "website_url",
     "facebook_url",
@@ -65,6 +69,7 @@ const SYSTEM = `Ти извличаш структурирани данни за
 - Непознато или непотвърдено → null (или празен масив за tags).
 - Дати само във формат YYYY-MM-DD ако са ясни от текста; иначе null.
 - Кратко описание на български (до 4 изречения) само ако се поддържа от текста.
+- Ако има няколко отделни организатора, попълни organizer_names с всеки поотделно; organizer_name може да е първият или null.
 - URL полета: само ако се появяват като връзки или ясно в текста; иначе null.
 - is_free: true само ако текстъе изрично сочи безплатно/вход свободен; иначе null или false ако има такса.`;
 

@@ -1,5 +1,6 @@
 import type { Festival } from "@/lib/types";
 import type { CanonicalFestivalPatchPayload, CanonicalFestivalPayload } from "@/lib/festival/schema";
+import { pendingRowToOrganizerEntries, primaryOrganizerDisplayName } from "@/lib/admin/pendingOrganizerEntries";
 
 type PendingFestivalRowLike = {
   title: string;
@@ -16,6 +17,8 @@ type PendingFestivalRowLike = {
   start_date?: string | null;
   end_date?: string | null;
   organizer_name?: string | null;
+  organizer_id?: string | null;
+  organizer_entries?: unknown;
   hero_image?: string | null;
   website_url?: string | null;
   ticket_url?: string | null;
@@ -71,6 +74,16 @@ function cityDisplayFallback(row: PendingFestivalRowLike | FestivalRowLike): str
 }
 
 export function canonicalFromPending(row: PendingFestivalRowLike): CanonicalFestivalPayload {
+  const orgEntries = pendingRowToOrganizerEntries(row);
+  const organizerEntriesPayload =
+    orgEntries.length > 0
+      ? orgEntries.map((e) => ({
+          organizer_id: e.organizer_id ?? null,
+          name: e.name,
+        }))
+      : null;
+  const organizerDisplay = primaryOrganizerDisplayName(orgEntries) ?? normalizeText(row.organizer_name);
+
   return {
     title: row.title,
     slug: normalizeText(row.slug),
@@ -85,7 +98,8 @@ export function canonicalFromPending(row: PendingFestivalRowLike): CanonicalFest
     longitude: row.longitude ?? null,
     start_date: row.start_date ?? null,
     end_date: row.end_date ?? null,
-    organizer_name: normalizeText(row.organizer_name),
+    organizer_name: organizerDisplay,
+    organizer_entries: organizerEntriesPayload,
     hero_image: normalizeText(row.hero_image),
     website_url: normalizeText(row.website_url),
     ticket_url: normalizeText(row.ticket_url),
@@ -185,6 +199,15 @@ export function pendingPatchFromCanonicalPartial(fields: CanonicalFestivalPatchP
   if ("start_date" in fields) patch.start_date = fields.start_date;
   if ("end_date" in fields) patch.end_date = fields.end_date;
   if ("organizer_name" in fields) patch.organizer_name = fields.organizer_name;
+  if ("organizer_entries" in fields) {
+    const list = fields.organizer_entries;
+    patch.organizer_entries = list;
+    if (Array.isArray(list)) {
+      const first = list[0];
+      patch.organizer_name = first?.name ?? null;
+      patch.organizer_id = first?.organizer_id ?? null;
+    }
+  }
   if ("source_url" in fields) patch.source_url = fields.source_url;
   if ("source_type" in fields) patch.source_type = fields.source_type;
   if ("website_url" in fields) patch.website_url = fields.website_url;

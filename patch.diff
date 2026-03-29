@@ -1,0 +1,1463 @@
+diff --git a/PROJECT_CONTEXT.md b/PROJECT_CONTEXT.md
+index d44ed36..195ca91 100644
+--- a/PROJECT_CONTEXT.md
++++ b/PROJECT_CONTEXT.md
+@@ -24,7 +24,7 @@ Public users browse verified/published festivals, while ingestion inputs first l
+ - **РџСѓР±Р»РёС‡РЅР° РґРµС‚Р°Р№Р»РЅР° СЃС‚СЂР°РЅРёС†Р°:** РјРµРґРёСЏ РіР°Р»РµСЂРёСЏ С‡СЂРµР· `components/festival/FestivalGallery.tsx` РІ `FestivalDetailClient`.
+ - **Public festival detail (web):** primary CTA „Напомни ми“ in the hero; plan/navigation/reminder timing in the sticky rail; compact facts strip (`FestivalQuickFactsStrip`); accommodation via `lib/accommodation/*` (optional `BOOKING_ACCOMMODATION_ENABLED` when a provider is implemented). External CTAs (website, tickets, maps, Booking.com search, partner accommodation) route through `GET /out` and append rows to `outbound_clicks` (service-role insert); admins review aggregates and recent rows at `/admin/outbound` (including a simple booking-intent signal per festival); the festival page may show a “popular for travel” label when booking clicks in the last 30 days meet a low threshold.
+ - **Р”Р°С‚Рё РІ Р°РґРјРёРЅ С„РѕСЂРјРё:** РєРѕРјРїРѕРЅРµРЅС‚ `DdMmYyyyDateInput` + `lib/dates/euDateFormat.ts` Р·Р° РІСЉРІРµР¶РґР°РЅРµ/РїРѕРєР°Р·РІР°РЅРµ РІ EU РїРѕРґСЂРµРґР±Р°.
+-- Admin moderation (`pending_festivals` edit/approve/reject, including organizer resolve/create on approve)
++- Admin moderation (`pending_festivals` edit/approve/reject, including multi-organizer drafts via `organizer_entries` jsonb and full `festival_organizers` sync on approve; legacy single `organizer_name` still supported)
+ - Admin organizer quality controls (duplicate detection + manual merge workflow)
+ - Admin ingest queue (`ingest_jobs` enqueue/retry/delete + job-to-record linking)
+ - Admin discovery dashboard (`discovery_sources` monitoring + source activation toggles + recent `discovery_runs` visibility)
+diff --git a/app/admin/(protected)/pending-festivals/[id]/page.tsx b/app/admin/(protected)/pending-festivals/[id]/page.tsx
+index e548352..d5bc0b6 100644
+--- a/app/admin/(protected)/pending-festivals/[id]/page.tsx
++++ b/app/admin/(protected)/pending-festivals/[id]/page.tsx
+@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
+ import { getAdminContext } from "@/lib/admin/isAdmin";
+ import PendingFestivalEditForm, { type PendingFestivalRecord } from "@/components/admin/PendingFestivalEditForm";
+ import { assessPendingFestivalQuality } from "@/lib/admin/pendingFestivalQuality";
++import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
++import type { OrganizerProfile } from "@/lib/types";
+ 
+ type PendingFestivalCityRelation = {
+   id: number;
+@@ -73,6 +75,21 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
+ 
+   const qualityDiagnostics = assessPendingFestivalQuality(pendingFestival);
+ 
++  let organizers: Pick<OrganizerProfile, "id" | "name" | "slug">[] = [];
++  try {
++    const adminClient = createSupabaseAdmin();
++    const { data: organizersData, error: organizersError } = await adminClient
++      .from("organizers")
++      .select("id,name,slug")
++      .eq("is_active", true)
++      .order("name", { ascending: true, nullsFirst: false });
++    if (!organizersError && organizersData) {
++      organizers = organizersData as Pick<OrganizerProfile, "id" | "name" | "slug">[];
++    }
++  } catch {
++    /* optional catalog */
++  }
++
+   let lastIngestJobMeta: {
+     status: string;
+     fb_browser_context: "authenticated" | "anonymous" | null;
+@@ -104,6 +121,7 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
+       pendingFestival={pendingFestival}
+       qualityDiagnostics={qualityDiagnostics}
+       lastIngestJobMeta={lastIngestJobMeta}
++      organizers={organizers}
+     />
+   );
+ }
+diff --git a/app/admin/api/pending-festivals/[id]/approve/route.ts b/app/admin/api/pending-festivals/[id]/approve/route.ts
+index 443d21b..e64e9ae 100644
+--- a/app/admin/api/pending-festivals/[id]/approve/route.ts
++++ b/app/admin/api/pending-festivals/[id]/approve/route.ts
+@@ -5,7 +5,10 @@ import { slugify } from "@/lib/utils";
+ import { canonicalFromPending, festivalPatchFromCanonical } from "@/lib/festival/mappers";
+ import { canonicalFromUnknown } from "@/lib/festival/validators";
+ import { resolveOrCreateOrganizerId } from "@/lib/admin/organizers";
++import type { PendingOrganizerEntry } from "@/lib/admin/pendingOrganizerEntries";
++import { pendingRowToOrganizerEntries } from "@/lib/admin/pendingOrganizerEntries";
+ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
++import type { SupabaseClient } from "@supabase/supabase-js";
+ import { syncFestivalOrganizers } from "@/lib/festivalOrganizers";
+ import { scheduleNewFestivalFollowCityJobs } from "@/lib/notifications/triggers";
+ 
+@@ -36,6 +39,7 @@ type PendingFestivalRow = {
+   occurrence_dates: unknown;
+   organizer_id: string | null;
+   organizer_name: string | null;
++  organizer_entries: unknown;
+   source_url: string | null;
+   source_type: string | null;
+   source_primary_url: string | null;
+@@ -54,7 +58,54 @@ type PendingFestivalRow = {
+ };
+ 
+ const PENDING_APPROVE_SELECT =
+-  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,occurrence_dates,organizer_id,organizer_name,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
++  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
++
++async function resolveOrganizerIdsForPublish(
++  adminSupabase: SupabaseClient,
++  serviceSupabase: SupabaseClient,
++  entries: PendingOrganizerEntry[],
++): Promise<{ ids: string[]; primaryDisplayName: string | null }> {
++  const orderedIds: string[] = [];
++  const seen = new Set<string>();
++
++  for (const entry of entries) {
++    if (entry.organizer_id) {
++      const { data: orgRow, error: orgErr } = await adminSupabase
++        .from("organizers")
++        .select("id,name")
++        .eq("id", entry.organizer_id)
++        .eq("is_active", true)
++        .maybeSingle();
++
++      if (orgErr) {
++        throw new Error(`Organizer lookup failed: ${orgErr.message}`);
++      }
++
++      if (orgRow?.id && !seen.has(orgRow.id)) {
++        seen.add(orgRow.id);
++        orderedIds.push(orgRow.id);
++      }
++      continue;
++    }
++
++    const rawName = entry.name.trim();
++    if (!rawName || rawName === "—") continue;
++
++    const resolved = await resolveOrCreateOrganizerId(serviceSupabase, rawName);
++    if (resolved.organizerId && !seen.has(resolved.organizerId)) {
++      seen.add(resolved.organizerId);
++      orderedIds.push(resolved.organizerId);
++    }
++  }
++
++  let primaryDisplayName: string | null = null;
++  if (orderedIds.length > 0) {
++    const { data: firstOrg } = await adminSupabase.from("organizers").select("name").eq("id", orderedIds[0]).maybeSingle();
++    primaryDisplayName = firstOrg?.name ?? null;
++  }
++
++  return { ids: orderedIds, primaryDisplayName };
++}
+ 
+ const REQUIRED_PENDING_CANONICAL_FIELDS: (keyof PendingFestivalRow)[] = [
+   "title",
+@@ -305,8 +356,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
+ 
+     let organizerId: string | null = null;
+     let organizerDisplayName: string | null = canonicalApproved.organizer_name ?? null;
++    let publishedOrganizerIds: string[] = [];
+ 
+-    if (pending.organizer_id) {
++    const entries = pendingRowToOrganizerEntries(pending);
++    const serviceSupabase = createSupabaseAdmin();
++
++    if (entries.length > 0) {
++      try {
++        const resolved = await resolveOrganizerIdsForPublish(adminCtx.supabase, serviceSupabase, entries);
++        publishedOrganizerIds = resolved.ids;
++        organizerId = publishedOrganizerIds[0] ?? null;
++        organizerDisplayName = resolved.primaryDisplayName ?? organizerDisplayName;
++        console.info(`[pending-approve] pending_id=${id} organizer_entries resolved count=${publishedOrganizerIds.length}`);
++      } catch (resolveErr) {
++        const msg = resolveErr instanceof Error ? resolveErr.message : String(resolveErr);
++        return fail(id, "organizer_resolve_failed", 500, msg);
++      }
++    }
++
++    if (entries.length === 0 && pending.organizer_id) {
+       const { data: linkedOrg, error: linkedOrgError } = await adminCtx.supabase
+         .from("organizers")
+         .select("id,name")
+@@ -320,16 +388,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
+ 
+       if (linkedOrg?.id) {
+         organizerId = linkedOrg.id;
++        publishedOrganizerIds = [linkedOrg.id];
+         organizerDisplayName = linkedOrg.name ?? organizerDisplayName;
+         console.info(`[pending-approve] pending_id=${id} organizer from pending.organizer_id=${organizerId}`);
+       }
+     }
+ 
+-    if (!organizerId && canonicalApproved.organizer_name) {
+-      const serviceSupabase = createSupabaseAdmin();
++    if (publishedOrganizerIds.length === 0 && canonicalApproved.organizer_name) {
+       const organizerResolution = await resolveOrCreateOrganizerId(serviceSupabase, canonicalApproved.organizer_name);
+       organizerId = organizerResolution.organizerId;
+       organizerDisplayName = organizerResolution.organizerName;
++      if (organizerId) {
++        publishedOrganizerIds = [organizerId];
++      }
+       console.info(
+         `[pending-approve] pending_id=${id} organizer resolution organizer_id=${organizerId ?? "null"} created=${organizerResolution.created ? "true" : "false"}`
+       );
+@@ -410,14 +481,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
+ 
+     console.info(`[pending-approve] pending_id=${id} published festival_id=${insertedFestival.id}`);
+ 
+-    if (organizerId) {
+-      try {
+-        await syncFestivalOrganizers(adminCtx.supabase, insertedFestival.id, [organizerId]);
+-      } catch (syncError) {
+-        await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
+-        const message = syncError instanceof Error ? syncError.message : "festival_organizers sync failed";
+-        return fail(id, "festival_organizers_sync_failed", 500, message);
+-      }
++    try {
++      await syncFestivalOrganizers(adminCtx.supabase, insertedFestival.id, publishedOrganizerIds);
++    } catch (syncError) {
++      await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
++      const message = syncError instanceof Error ? syncError.message : "festival_organizers sync failed";
++      return fail(id, "festival_organizers_sync_failed", 500, message);
+     }
+ 
+     const { data: reviewRow, error: reviewError } = await adminCtx.supabase
+diff --git a/app/admin/api/research-festival/create-pending/route.ts b/app/admin/api/research-festival/create-pending/route.ts
+index 42f8517..5fbe232 100644
+--- a/app/admin/api/research-festival/create-pending/route.ts
++++ b/app/admin/api/research-festival/create-pending/route.ts
+@@ -7,6 +7,40 @@ import { normalizeResearchResult, validateDateFieldsOrErrors, validateDateRangeO
+ import type { ResearchBestGuess, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
+ import type { PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
+ 
++function buildOrganizerEntriesFromAi(ai: PerplexityFestivalResearchResult): Array<{ name: string }> | null {
++  const names: string[] = [];
++  if (Array.isArray(ai.organizer_names)) {
++    for (const n of ai.organizer_names) {
++      if (typeof n === "string" && n.trim()) names.push(n.trim());
++    }
++  }
++  if (names.length === 0) {
++    const one = sanitizeNullableString(ai.organizer_name);
++    if (one) names.push(one);
++  }
++  if (names.length === 0) return null;
++  return names.map((name) => ({ name }));
++}
++
++function buildOrganizerEntriesFromResearch(best: ResearchBestGuess): Array<{ name: string }> | null {
++  const names: string[] = [];
++  if (Array.isArray(best.organizers)) {
++    for (const n of best.organizers) {
++      if (typeof n === "string" && n.trim()) names.push(n.trim());
++    }
++  }
++  if (names.length === 0 && best.organizer?.trim()) {
++    names.push(best.organizer.trim());
++  }
++  if (names.length === 0) return null;
++  return names.map((name) => ({ name }));
++}
++
++function primaryNameFromEntries(entries: Array<{ name: string }> | null, fallback: string | null): string | null {
++  if (entries && entries.length > 0) return entries[0].name;
++  return fallback;
++}
++
+ type CreatePendingRequest = {
+   result?: ResearchFestivalResult;
+   ai_result?: PerplexityFestivalResearchResult;
+@@ -106,6 +140,7 @@ type AdminContext = NonNullable<Awaited<ReturnType<typeof getAdminContext>>>;
+ async function insertPendingWithFallback(ctx: AdminContext, payload: Record<string, unknown>) {
+   const insertPayload: Record<string, unknown> = { ...payload };
+   const removableColumns = new Set([
++    "organizer_entries",
+     "source_type",
+     "website_url",
+     "facebook_url",
+@@ -184,6 +219,8 @@ export async function POST(request: Request) {
+       return NextResponse.json({ error: `Hero image: ${heroResolved.error}` }, { status: 422 });
+     }
+ 
++    const orgEntriesAi = buildOrganizerEntriesFromAi(ai);
++
+     const insertPayload: Record<string, unknown> = {
+       title: sanitizeNullableString(ai.title) ?? "Untitled festival",
+       description: sanitizeNullableString(ai.description),
+@@ -192,7 +229,8 @@ export async function POST(request: Request) {
+       end_date: normalizeDateForDb(ai.end_date),
+       location_name: sanitizeNullableString(ai.location_name),
+       address: sanitizeNullableString(ai.address),
+-      organizer_name: sanitizeNullableString(ai.organizer_name),
++      organizer_entries: orgEntriesAi,
++      organizer_name: primaryNameFromEntries(orgEntriesAi, sanitizeNullableString(ai.organizer_name)),
+       website_url: sanitizeNullableString(ai.website_url),
+       facebook_url: sanitizeNullableString(ai.facebook_url),
+       instagram_url: sanitizeNullableString(ai.instagram_url),
+@@ -228,6 +266,11 @@ export async function POST(request: Request) {
+       ...body.result.best_guess,
+       ...(body.final_values ?? {}),
+       tags: Array.isArray(body.final_values?.tags) ? body.final_values.tags : body.result.best_guess.tags,
++      organizers: Array.isArray(body.final_values?.organizers)
++        ? body.final_values.organizers
++        : Array.isArray(body.result.best_guess.organizers)
++          ? body.result.best_guess.organizers
++          : [],
+     },
+   };
+ 
+@@ -255,12 +298,15 @@ export async function POST(request: Request) {
+   }
+ 
+   const websiteFromForm = sanitizeNullableString(finalValues.website_url);
++  const orgEntriesResearch = buildOrganizerEntriesFromResearch(finalValues);
++
+   const sharedInsertPayload: Record<string, unknown> = {
+     title: finalValues.title ?? normalized.query,
+     description: finalValues.description,
+     city_guess: finalValues.city,
+     location_guess: finalValues.location,
+-    organizer_name: finalValues.organizer,
++    organizer_entries: orgEntriesResearch,
++    organizer_name: primaryNameFromEntries(orgEntriesResearch, finalValues.organizer),
+     ...heroResolvedLegacy.patch,
+     tags_guess: finalValues.tags,
+     start_date: finalValues.start_date,
+diff --git a/app/admin/api/research-festival/route.ts b/app/admin/api/research-festival/route.ts
+index a0b1ec3..93f51b7 100644
+--- a/app/admin/api/research-festival/route.ts
++++ b/app/admin/api/research-festival/route.ts
+@@ -26,6 +26,7 @@ function lowConfidenceFallback(query: string, sources: ResearchSource[], warning
+       start_date: null,
+       end_date: null,
+       location: null,
++      organizers: [],
+       organizer: null,
+       hero_image: null,
+       tags: [],
+diff --git a/components/admin/PendingFestivalEditForm.tsx b/components/admin/PendingFestivalEditForm.tsx
+index 4adac04..915c162 100644
+--- a/components/admin/PendingFestivalEditForm.tsx
++++ b/components/admin/PendingFestivalEditForm.tsx
+@@ -1,8 +1,11 @@
+ "use client";
+ 
+ import Link from "next/link";
+-import { FormEvent, useMemo, useRef, useState } from "react";
++import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+ import { useRouter } from "next/navigation";
++import { transliteratedSlug } from "@/lib/text/slug";
++import type { OrganizerProfile } from "@/lib/types";
++import { pendingRowToOrganizerEntries } from "@/lib/admin/pendingOrganizerEntries";
+ import TagsInput from "@/components/admin/TagsInput";
+ import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
+ import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
+@@ -31,6 +34,7 @@ export type PendingFestivalRecord = {
+   end_date: string | null;
+   occurrence_dates?: unknown;
+   organizer_name: string | null;
++  organizer_entries?: unknown;
+   submission_source?: string | null;
+   submitted_by_user_id?: string | null;
+   organizer_id?: string | null;
+@@ -126,6 +130,17 @@ function normalizeOptionalText(value: unknown) {
+   return typeof value === "string" ? normalizeDisplayValue(value) : null;
+ }
+ 
++type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug">;
++
++function buildInitialOrganizerEntries(p: PendingFestivalRecord): Array<{ organizer_id: string; name: string }> {
++  const rows = pendingRowToOrganizerEntries({
++    organizer_entries: p.organizer_entries,
++    organizer_id: p.organizer_id ?? null,
++    organizer_name: p.organizer_name ?? null,
++  });
++  return rows.map((r) => ({ organizer_id: r.organizer_id ?? "", name: r.name }));
++}
++
+ function normalizeOptionalScore(value: unknown) {
+   if (typeof value === "number" && Number.isFinite(value)) {
+     return value;
+@@ -336,10 +351,12 @@ export default function PendingFestivalEditForm({
+   pendingFestival,
+   qualityDiagnostics,
+   lastIngestJobMeta = null,
++  organizers = [],
+ }: {
+   pendingFestival: PendingFestivalRecord;
+   qualityDiagnostics: PendingFestivalQuality;
+   lastIngestJobMeta?: LastIngestJobMeta | null;
++  organizers?: OrganizerOption[];
+ }) {
+   const router = useRouter();
+   const tagsCurrent = normalizeTagsGuess(pendingFestival.tags);
+@@ -348,6 +365,22 @@ export default function PendingFestivalEditForm({
+     normalizeDisplayValue(pendingFestival.city?.slug) ??
+     "";
+ 
++  const [organizerEntries, setOrganizerEntries] = useState(() => buildInitialOrganizerEntries(pendingFestival));
++  const [organizerOptions, setOrganizerOptions] = useState<OrganizerOption[]>(organizers);
++  const [organizerSearch, setOrganizerSearch] = useState("");
++  const [pendingOrganizerPickId, setPendingOrganizerPickId] = useState("");
++  const [manualOrganizerName, setManualOrganizerName] = useState("");
++  const [creatingOrganizer, setCreatingOrganizer] = useState(false);
++  const [newOrganizerName, setNewOrganizerName] = useState("");
++
++  useEffect(() => {
++    setOrganizerEntries(buildInitialOrganizerEntries(pendingFestival));
++  }, [pendingFestival.id]);
++
++  useEffect(() => {
++    setOrganizerOptions(organizers);
++  }, [organizers]);
++
+   const [form, setForm] = useState({
+     title: pendingFestival.title,
+     slug: pendingFestival.slug ?? "",
+@@ -436,6 +469,73 @@ export default function PendingFestivalEditForm({
+     ticket_url: false,
+   });
+ 
++  const selectedOrganizerIds = useMemo(() => organizerEntries.map((e) => e.organizer_id.trim()).filter(Boolean), [organizerEntries]);
++
++  const availableOrganizerOptions = useMemo(() => {
++    const selected = new Set(selectedOrganizerIds);
++    const q = organizerSearch.trim().toLowerCase();
++    return organizerOptions.filter((item) => {
++      if (selected.has(item.id)) return false;
++      if (!q) return true;
++      return `${item.name} ${item.slug ?? ""}`.toLowerCase().includes(q);
++    });
++  }, [organizerOptions, organizerSearch, selectedOrganizerIds]);
++
++  const orgLabel = organizerEntries.length <= 1 ? "Организатор" : "Организатори";
++
++  const addOrganizerById = (id: string) => {
++    const row = organizerOptions.find((o) => o.id === id);
++    if (!row) return;
++    setOrganizerEntries((prev) => [...prev, { organizer_id: row.id, name: row.name }]);
++    setPendingOrganizerPickId("");
++    setOrganizerSearch("");
++  };
++
++  const removeOrganizerAt = (index: number) => {
++    setOrganizerEntries((prev) => prev.filter((_, i) => i !== index));
++  };
++
++  const updateOrganizerNameAt = (index: number, name: string) => {
++    setOrganizerEntries((prev) => prev.map((e, i) => (i === index ? { ...e, name } : e)));
++  };
++
++  const addManualOrganizer = () => {
++    const t = manualOrganizerName.trim();
++    if (!t) return;
++    setOrganizerEntries((prev) => [...prev, { organizer_id: "", name: t }]);
++    setManualOrganizerName("");
++  };
++
++  const onCreateOrganizerInline = async () => {
++    const name = newOrganizerName.trim();
++    if (!name || creatingOrganizer) return;
++    setCreatingOrganizer(true);
++    setError("");
++    try {
++      const slug = transliteratedSlug(name);
++      const response = await fetch("/admin/api/organizers", {
++        method: "POST",
++        credentials: "include",
++        headers: { "Content-Type": "application/json" },
++        body: JSON.stringify({ name, slug: slug || undefined }),
++      });
++      if (!response.ok) {
++        throw new Error(await readErrorMessage(response, "Неуспешно създаване на организатор."));
++      }
++      const payload = (await response.json().catch(() => null)) as { row?: OrganizerOption } | null;
++      const created = payload?.row;
++      if (created?.id) {
++        setOrganizerOptions((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, "bg")));
++        setOrganizerEntries((prev) => [...prev, { organizer_id: created.id, name: created.name }]);
++        setNewOrganizerName("");
++      }
++    } catch (e) {
++      setError(e instanceof Error ? e.message : "Грешка при създаване на организатор.");
++    } finally {
++      setCreatingOrganizer(false);
++    }
++  };
++
+   const normalizationSuggestions = extractNormalizationSuggestions({
+     deterministic_guess_json: pendingFestival.deterministic_guess_json,
+     ai_guess_json: pendingFestival.ai_guess_json,
+@@ -604,7 +704,13 @@ export default function PendingFestivalEditForm({
+           start_date: mergedDates.start_date,
+           end_date: mergedDates.end_date,
+           occurrence_dates: mergedDates.occurrence_dates,
+-          organizer_name: form.organizer_name.trim() || null,
++          organizer_name: organizerEntries[0]?.name.trim() || form.organizer_name.trim() || null,
++          organizer_entries: organizerEntries
++            .map((e) => ({
++              organizer_id: e.organizer_id.trim() || null,
++              name: e.name.trim(),
++            }))
++            .filter((e) => e.name.length > 0),
+           source_url: form.source_url.trim() || null,
+           website_url: form.website_url.trim() || null,
+           ticket_url: form.ticket_url.trim() || null,
+@@ -949,10 +1055,94 @@ export default function PendingFestivalEditForm({
+           <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5">
+             <h2 className="text-lg font-bold">Organization / media / source</h2>
+             <div className="mt-4 grid gap-3">
+-              <label>
+-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Organizer name</span>
+-                <input value={form.organizer_name} onChange={(e) => updateField("organizer_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+-              </label>
++              <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] p-3">
++                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">{orgLabel}</span>
++                <div className="mt-2 flex flex-wrap gap-2">
++                  {organizerEntries.map((entry, index) => (
++                    <span
++                      key={`${entry.organizer_id}-${index}-${entry.name}`}
++                      className="inline-flex items-center gap-1 rounded-full border border-black/[0.12] bg-white px-2.5 py-1 text-sm text-black/85"
++                    >
++                      <input
++                        value={entry.name}
++                        onChange={(e) => updateOrganizerNameAt(index, e.target.value)}
++                        className="max-w-[220px] border-0 bg-transparent p-0 text-sm outline-none"
++                        aria-label={`Име организатор ${index + 1}`}
++                      />
++                      {entry.organizer_id ? (
++                        <Link href={`/admin/organizers/${entry.organizer_id}`} className="text-[11px] font-semibold text-[#0e7a45]">
++                          профил
++                        </Link>
++                      ) : null}
++                      <button
++                        type="button"
++                        onClick={() => removeOrganizerAt(index)}
++                        className="text-xs text-black/45 hover:text-[#b13a1a]"
++                        aria-label="Премахни"
++                      >
++                        ×
++                      </button>
++                    </span>
++                  ))}
++                </div>
++                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
++                  <input
++                    value={organizerSearch}
++                    onChange={(e) => setOrganizerSearch(e.target.value)}
++                    placeholder="Търсене в каталога…"
++                    className="w-full min-w-[180px] flex-1 rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm sm:max-w-xs"
++                  />
++                  <select
++                    value={pendingOrganizerPickId}
++                    onChange={(e) => setPendingOrganizerPickId(e.target.value)}
++                    className="w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm sm:w-auto"
++                  >
++                    <option value="">Избери организатор…</option>
++                    {availableOrganizerOptions.map((o) => (
++                      <option key={o.id} value={o.id}>
++                        {o.name}
++                      </option>
++                    ))}
++                  </select>
++                  <button
++                    type="button"
++                    onClick={() => pendingOrganizerPickId && addOrganizerById(pendingOrganizerPickId)}
++                    disabled={!pendingOrganizerPickId}
++                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] disabled:opacity-40"
++                  >
++                    Добави избрания
++                  </button>
++                </div>
++                <div className="mt-3 flex flex-wrap items-center gap-2">
++                  <input
++                    value={manualOrganizerName}
++                    onChange={(e) => setManualOrganizerName(e.target.value)}
++                    placeholder="Име без запис в каталога"
++                    className="min-w-[200px] flex-1 rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
++                  />
++                  <button type="button" onClick={addManualOrganizer} className="rounded-lg bg-[#0c0e14] px-3 py-2 text-xs font-semibold text-white">
++                    Добави по име
++                  </button>
++                </div>
++                <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-black/[0.06] pt-3">
++                  <label className="flex min-w-[200px] flex-1 flex-col text-xs font-semibold uppercase tracking-[0.1em] text-black/55">
++                    Нов организатор (каталог)
++                    <input
++                      value={newOrganizerName}
++                      onChange={(e) => setNewOrganizerName(e.target.value)}
++                      className="mt-1 rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm font-normal normal-case"
++                    />
++                  </label>
++                  <button
++                    type="button"
++                    onClick={onCreateOrganizerInline}
++                    disabled={creatingOrganizer || !newOrganizerName.trim()}
++                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold disabled:opacity-40"
++                  >
++                    {creatingOrganizer ? "…" : "Създай и добави"}
++                  </button>
++                </div>
++              </div>
+               <label>
+                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source URL</span>
+                 <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+diff --git a/components/admin/ResearchFestivalPanel.tsx b/components/admin/ResearchFestivalPanel.tsx
+index 54e310f..0b9947d 100644
+--- a/components/admin/ResearchFestivalPanel.tsx
++++ b/components/admin/ResearchFestivalPanel.tsx
+@@ -16,6 +16,7 @@ const EMPTY_FINAL_VALUES: EditableFinalValues = {
+   city: null,
+   location: null,
+   description: null,
++  organizers: [],
+   organizer: null,
+   hero_image: null,
+   tags: [],
+@@ -27,7 +28,6 @@ type AiEditableStringField =
+   | "start_date"
+   | "end_date"
+   | "city"
+-  | "organizer_name"
+   | "category"
+   | "location_name"
+   | "address"
+@@ -43,7 +43,6 @@ const AI_EDITABLE_TEXT_FIELDS: Array<{ key: Exclude<AiEditableStringField, "desc
+   { key: "start_date", label: "Start date", placeholder: "dd/mm/yyyy", type: "text" },
+   { key: "end_date", label: "End date", placeholder: "dd/mm/yyyy", type: "text" },
+   { key: "city", label: "City" },
+-  { key: "organizer_name", label: "Organizer" },
+   { key: "category", label: "Category" },
+   { key: "location_name", label: "Location name" },
+   { key: "address", label: "Address" },
+@@ -180,7 +179,14 @@ export default function ResearchFestivalPanel() {
+       }
+ 
+       setAiResult(payload.result);
+-      setAiDraft({ ...payload.result });
++      const r = payload.result;
++      const names =
++        Array.isArray(r.organizer_names) && r.organizer_names.length > 0
++          ? r.organizer_names.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
++          : r.organizer_name
++            ? [r.organizer_name]
++            : [];
++      setAiDraft({ ...r, organizer_names: names.length > 0 ? names : null });
+       setResult(null);
+       setAiSuccess("AI research completed. Review and edit values before creating a pending draft.");
+     } catch (err) {
+@@ -239,6 +245,17 @@ export default function ResearchFestivalPanel() {
+     }
+   };
+ 
++  const appendOrganizerCandidate = (value: string) => {
++    const v = value.trim();
++    if (!v) return;
++    setFinalValues((prev) => {
++      const list = [...(prev.organizers ?? [])];
++      if (list.some((x) => x.toLowerCase() === v.toLowerCase())) return prev;
++      list.push(v);
++      return { ...prev, organizers: list, organizer: list[0] ?? null };
++    });
++  };
++
+   const renderTextCandidates = (field: keyof EditableFinalValues, candidates: ResearchFieldCandidate[]) => {
+     if (candidates.length === 0) {
+       return <p className="text-xs text-black/50">No alternatives extracted for this field.</p>;
+@@ -250,7 +267,7 @@ export default function ResearchFestivalPanel() {
+           <button
+             key={`${field}-${candidate.value}-${candidate.source_url}-${index}`}
+             type="button"
+-            onClick={() => setFromCandidate(field, candidate.value)}
++            onClick={() => (field === "organizers" ? appendOrganizerCandidate(candidate.value) : setFromCandidate(field, candidate.value))}
+             className="rounded-lg border border-black/[0.1] bg-white px-2 py-1 text-left text-xs hover:bg-black/[0.03]"
+           >
+             <div className="font-medium">{candidate.value}</div>
+@@ -351,6 +368,58 @@ export default function ResearchFestivalPanel() {
+                 ))}
+               </div>
+ 
++              <div>
++                <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">
++                  {(aiDraft.organizer_names?.filter((x) => (x ?? "").trim()).length ?? 0) <= 1 &&
++                  !(aiDraft.organizer_name && !aiDraft.organizer_names?.length)
++                    ? "Организатор"
++                    : "Организатори"}
++                </label>
++                <div className="mt-2 space-y-2">
++                  {(aiDraft.organizer_names?.length
++                    ? aiDraft.organizer_names
++                    : aiDraft.organizer_name
++                      ? [aiDraft.organizer_name]
++                      : [""]
++                  ).map((org, index) => (
++                    <input
++                      key={`ai-org-${index}`}
++                      value={org ?? ""}
++                      onChange={(e) => {
++                        setAiDraft((prev) => {
++                          if (!prev) return prev;
++                          const base = prev.organizer_names?.length
++                            ? [...prev.organizer_names]
++                            : prev.organizer_name
++                              ? [prev.organizer_name]
++                              : [""];
++                          base[index] = e.target.value;
++                          return { ...prev, organizer_names: base, organizer_name: base.find((x) => x?.trim())?.trim() ?? null };
++                        });
++                      }}
++                      className="w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
++                    />
++                  ))}
++                  <button
++                    type="button"
++                    onClick={() =>
++                      setAiDraft((prev) => {
++                        if (!prev) return prev;
++                        const base = prev.organizer_names?.length
++                          ? [...prev.organizer_names]
++                          : prev.organizer_name
++                            ? [prev.organizer_name]
++                            : [];
++                        return { ...prev, organizer_names: [...base, ""] };
++                      })
++                    }
++                    className="text-xs font-semibold text-[#0e7a45]"
++                  >
++                    + Добави организатор
++                  </button>
++                </div>
++              </div>
++
+               <div>
+                 <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">Description</label>
+                 <textarea
+@@ -475,10 +544,36 @@ export default function ResearchFestivalPanel() {
+               <input value={finalValues.location ?? ""} onChange={(e) => setFromCandidate("location", e.target.value || null)} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm" />
+               {renderTextCandidates("location", result.candidates.locations)}
+             </div>
+-            <div>
+-              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Organizer</label>
+-              <input value={finalValues.organizer ?? ""} onChange={(e) => setFromCandidate("organizer", e.target.value || null)} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm" />
+-              {renderTextCandidates("organizer", result.candidates.organizers)}
++            <div className="md:col-span-2">
++              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">
++                {(finalValues.organizers?.filter((o) => o.trim()).length ?? 0) <= 1 ? "Организатор" : "Организатори"}
++              </label>
++              <div className="mt-2 space-y-2">
++                {(finalValues.organizers?.length ? finalValues.organizers : [""]).map((org, index) => (
++                  <input
++                    key={`gemini-org-${index}`}
++                    value={org}
++                    onChange={(e) => {
++                      const base = [...(finalValues.organizers ?? [""])];
++                      base[index] = e.target.value;
++                      setFinalValues((prev) => ({
++                        ...prev,
++                        organizers: base,
++                        organizer: base.find((x) => x.trim())?.trim() ?? null,
++                      }));
++                    }}
++                    className="w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm"
++                  />
++                ))}
++                <button
++                  type="button"
++                  onClick={() => setFinalValues((prev) => ({ ...prev, organizers: [...(prev.organizers ?? []), ""] }))}
++                  className="text-xs font-semibold text-[#0e7a45]"
++                >
++                  + Добави организатор
++                </button>
++              </div>
++              {renderTextCandidates("organizers", result.candidates.organizers)}
+             </div>
+           </div>
+ 
+diff --git a/docs/er-diagram.md b/docs/er-diagram.md
+index 3d304e6..e099af3 100644
+--- a/docs/er-diagram.md
++++ b/docs/er-diagram.md
+@@ -30,6 +30,7 @@ erDiagram
+     text title
+     text slug
+     bigint city_id FK
++    jsonb organizer_entries
+     uuid organizer_id FK
+     uuid submitted_by_user_id FK
+     text submission_source
+diff --git a/docs/system-architecture.md b/docs/system-architecture.md
+index 5a7abf2..d0a7355 100644
+--- a/docs/system-architecture.md
++++ b/docs/system-architecture.md
+@@ -118,13 +118,13 @@ Admin festival research (`POST /admin/api/research-festival`, UI `/admin/researc
+ 2. **Rank:** `lib/admin/research/search-hit-rank.ts` scores sources (Bulgarian domains, official/municipal/tourism/media/Facebook events, list-page penalties) and keeps **top 3–5** URLs.
+ 3. **Extract:** For each ranked URL, the server fetches page text (`fetchSourceDocument`) and runs **Gemini structured JSON** extraction (`lib/admin/research/gemini-extract.ts`) — evidence-only, unknown → null.
+ 4. **Validate:** `lib/admin/research/pipeline-validate.ts` enforces date sanity, title length, and clears inconsistent data with warnings.
+-5. **Output:** Normalized `ResearchFestivalResult` with `best_guess`, `sources`, `evidence`, `confidence`, `warnings` (no raw model text in the API response).
++5. **Output:** Normalized `ResearchFestivalResult` with `best_guess` (including `organizers[]` plus legacy `organizer`), `sources`, `evidence`, `confidence`, `warnings` (no raw model text in the API response).
+ 
+ **Configuration:** `GEMINI_API_KEY` (or `GOOGLE_AI_API_KEY`); optional `GEMINI_RESEARCH_MODEL` (default `gemini-2.0-flash`), `GEMINI_RESEARCH_TIMEOUT_MS`.
+ 
+ If Gemini is not configured, the route returns **503**. If extraction yields no usable fields, the API returns a **low-confidence** minimal result with sources + warnings (preferring null over speculative values).
+ 
+-`/api/admin/research-ai` (Perplexity-backed extraction) uses a strict structured first pass plus additive follow-up passes:
++`/api/admin/research-ai` (Perplexity-backed extraction) may return `organizer_names[]` (optional) in addition to `organizer_name`; create-pending stores ordered `organizer_entries` on the draft. The pipeline uses a strict structured first pass plus additive follow-up passes:
+ - enrichment runs when first-pass has enough still-null factual fields (low threshold for admin UX)
+ - follow-up passes inherit `source_urls` from the prior pass so Perplexity responses that omit URLs do not trigger вЂњfacts without sourcesвЂќ wipes
+ - optional third pass runs when merged result still has many missing fields
+@@ -186,7 +186,7 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
+ 
+ ## Admin organizers management
+ - Admin has dedicated organizer management screens at `/admin/organizers`, `/admin/organizers/[id]`, and duplicate review at `/admin/organizers/duplicates`.
+-- Pending approval resolves `pending_festivals.organizer_name` to `organizers.id` (exact normalized-name match), auto-creating organizer rows when needed, then writes relation rows to `festival_organizers`.
++- Pending approval resolves organizers from `pending_festivals.organizer_entries` (ordered `{ organizer_id?, name }` rows; legacy `organizer_name` / `organizer_id` still supported) to `organizers.id` (exact normalized-name match when only a name is given), auto-creating organizer rows when needed, then writes **all** relation rows to `festival_organizers` in order.
+ - Duplicate candidates are conservative-only (exact normalized name, exact slug, exact `facebook_url` when present).
+ - Manual merge endpoint `/admin/api/organizers/merge` reassigns `festival_organizers.organizer_id` (plus compatibility fields `festivals.organizer_id` and `pending_festivals.organizer_id`), backfills missing target profile fields from source, then marks source organizer inactive (`is_active=false`, `merged_into=target_id`).
+ - Organizer list and public organizer profile lookups use active organizers by default (`is_active=true`).
+@@ -201,6 +201,6 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
+ - **API (session + service role after authorization):** `POST /api/organizer/organizers` (create profile + active owner), `POST /api/organizer/claims` (pending owner claim; blocked when an active owner already exists; same user with `revoked` membership is reset to `pending` owner claim; active or pending row for same user returns 409), `GET /api/organizer/memberships`, `POST /api/organizer/pending-festivals`, `PATCH /api/organizer/pending-festivals/[id]` (only `submission_source=organizer_portal` + active membership + `status=pending`).
+ - **Approve:** when `pending.source_url` is absent, published `festivals.source_type` is derived from `pending.source_type` (e.g. organizer portal rows keep `organizer_portal` after mapping), after any ingest-job match on `source_url`.
+ - **Admin:** `/admin/organizer-claims` lists pending membership requests; `POST /admin/api/organizer-members/[id]/approve` activates membership (conflicts if a second `owner` is approved while another active owner exists). Pending queue list shows an „Орг. портал“ badge when `submission_source=organizer_portal`; detail form shows a banner with submitter user id.
+-- **Approve integration:** `POST /admin/api/pending-festivals/[id]/approve` resolves the published festival’s organizer from `pending_festivals.organizer_id` when present (active organizer row), otherwise falls back to `resolveOrCreateOrganizerId` from `organizer_name`.
++- **Approve integration:** `POST /admin/api/pending-festivals/[id]/approve` builds the published festival’s organizer list from `organizer_entries` when present (each row: optional `organizer_id` or name-only via `resolveOrCreateOrganizerId`), otherwise legacy `organizer_id` / `organizer_name`; syncs **all** IDs to `festival_organizers`.
+ - **Migration:** `scripts/sql/20260328_organizer_members_portal.sql`.
+ 
+diff --git a/lib/admin/pendingOrganizerEntries.ts b/lib/admin/pendingOrganizerEntries.ts
+new file mode 100644
+index 0000000..34b3122
+--- /dev/null
++++ b/lib/admin/pendingOrganizerEntries.ts
+@@ -0,0 +1,76 @@
++export type PendingOrganizerEntry = {
++  organizer_id?: string | null;
++  name: string;
++};
++
++function trimStr(value: unknown): string | null {
++  if (typeof value !== "string") return null;
++  const t = value.trim();
++  return t.length > 0 ? t : null;
++}
++
++function isUuidLike(value: string): boolean {
++  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
++}
++
++/** Parse DB jsonb / API body into normalized entries (non-empty names). */
++export function parseOrganizerEntriesJson(value: unknown): PendingOrganizerEntry[] {
++  if (!Array.isArray(value)) return [];
++  const out: PendingOrganizerEntry[] = [];
++  const seen = new Set<string>();
++  for (const raw of value) {
++    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
++    let name = trimStr((raw as { name?: unknown }).name) ?? "";
++    let oid = trimStr((raw as { organizer_id?: unknown }).organizer_id);
++    if (oid && !isUuidLike(oid)) oid = null;
++    if (!oid && !name) continue;
++    if (!name && oid) name = "—";
++    const key = `${oid ?? ""}::${name.toLocaleLowerCase("bg-BG")}`;
++    if (seen.has(key)) continue;
++    seen.add(key);
++    out.push({ name, organizer_id: oid ?? null });
++  }
++  return out;
++}
++
++type LegacyRow = {
++  organizer_entries?: unknown;
++  organizer_id?: string | null;
++  organizer_name?: string | null;
++};
++
++/** Legacy: comma-separated organizer_name → multiple entries (fallback only). */
++export function splitLegacyOrganizerNames(organizerName: string | null | undefined): string[] {
++  const t = typeof organizerName === "string" ? organizerName.trim() : "";
++  if (!t) return [];
++  return t
++    .split(",")
++    .map((s) => s.trim())
++    .filter(Boolean);
++}
++
++/** Resolve entries from a pending row (DB or API). */
++export function pendingRowToOrganizerEntries(row: LegacyRow): PendingOrganizerEntry[] {
++  const parsed = parseOrganizerEntriesJson(row.organizer_entries);
++  if (parsed.length > 0) return parsed;
++
++  if (row.organizer_id && trimStr(row.organizer_name)) {
++    return [{ organizer_id: row.organizer_id, name: trimStr(row.organizer_name)! }];
++  }
++  if (row.organizer_id) {
++    return [{ organizer_id: row.organizer_id, name: "—" }];
++  }
++  const split = splitLegacyOrganizerNames(row.organizer_name ?? null);
++  if (split.length > 0) {
++    return split.map((name) => ({ name }));
++  }
++  return [];
++}
++
++/** For festivals.organizer_name compatibility column: primary display string. */
++export function primaryOrganizerDisplayName(entries: PendingOrganizerEntry[]): string | null {
++  const first = entries[0];
++  if (!first) return null;
++  const n = first.name.trim();
++  return n && n !== "—" ? n : null;
++}
+diff --git a/lib/admin/research/gemini-extract.ts b/lib/admin/research/gemini-extract.ts
+index 780cf51..0583c72 100644
+--- a/lib/admin/research/gemini-extract.ts
++++ b/lib/admin/research/gemini-extract.ts
+@@ -8,6 +8,8 @@ export type GeminiRawExtraction = {
+   location_name: string | null;
+   address: string | null;
+   organizer_name: string | null;
++  /** When multiple organizers are stated, list each separately (no comma-joined stuffing). */
++  organizer_names: string[] | null;
+   description: string | null;
+   website_url: string | null;
+   facebook_url: string | null;
+@@ -29,6 +31,7 @@ const EXTRACTION_SCHEMA = {
+     location_name: { type: "string", nullable: true },
+     address: { type: "string", nullable: true },
+     organizer_name: { type: "string", nullable: true },
++    organizer_names: { type: "array", items: { type: "string" }, nullable: true },
+     description: { type: "string", nullable: true },
+     website_url: { type: "string", nullable: true },
+     facebook_url: { type: "string", nullable: true },
+@@ -47,6 +50,7 @@ const EXTRACTION_SCHEMA = {
+     "location_name",
+     "address",
+     "organizer_name",
++    "organizer_names",
+     "description",
+     "website_url",
+     "facebook_url",
+@@ -65,6 +69,7 @@ const SYSTEM = `Ти извличаш структурирани данни за
+ - Непознато или непотвърдено → null (или празен масив за tags).
+ - Дати само във формат YYYY-MM-DD ако са ясни от текста; иначе null.
+ - Кратко описание на български (до 4 изречения) само ако се поддържа от текста.
++- Ако има няколко отделни организатора, попълни organizer_names с всеки поотделно; organizer_name може да е първият или null.
+ - URL полета: само ако се появяват като връзки или ясно в текста; иначе null.
+ - is_free: true само ако текстъе изрично сочи безплатно/вход свободен; иначе null или false ако има такса.`;
+ 
+diff --git a/lib/admin/research/llm-extract.ts b/lib/admin/research/llm-extract.ts
+index 7fd4b8a..df73574 100644
+--- a/lib/admin/research/llm-extract.ts
++++ b/lib/admin/research/llm-extract.ts
+@@ -23,6 +23,7 @@ export type LlmExtractResult = {
+     end_date: string | null;
+     city: string | null;
+     location: string | null;
++    organizers: string[];
+     organizer: string | null;
+     description: string | null;
+     hero_image: string | null;
+@@ -193,6 +194,15 @@ export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<Llm
+     evidence?: unknown;
+   };
+ 
++  const singleOrg = normalizeText(parsed.best_guess?.organizer);
++  const orgListRaw = Array.isArray(parsed.best_guess?.organizers) ? parsed.best_guess.organizers : null;
++  const organizers =
++    orgListRaw && orgListRaw.length > 0
++      ? orgListRaw.map((item) => normalizeText(item)).filter((item): item is string => Boolean(item))
++      : singleOrg
++        ? [singleOrg]
++        : [];
++
+   return {
+     best_guess: {
+       title: normalizeText(parsed.best_guess?.title),
+@@ -200,7 +210,8 @@ export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<Llm
+       end_date: normalizeDate(parsed.best_guess?.end_date),
+       city: normalizeText(parsed.best_guess?.city),
+       location: normalizeText(parsed.best_guess?.location),
+-      organizer: normalizeText(parsed.best_guess?.organizer),
++      organizers,
++      organizer: singleOrg,
+       description: normalizeText(parsed.best_guess?.description),
+       hero_image: normalizeText(parsed.best_guess?.hero_image),
+       tags: Array.isArray(parsed.best_guess?.tags) ? parsed.best_guess.tags.map((item) => normalizeText(item)).filter((item): item is string => Boolean(item)) : [],
+diff --git a/lib/admin/research/mock.ts b/lib/admin/research/mock.ts
+index 3f1078d..b7a98f8 100644
+--- a/lib/admin/research/mock.ts
++++ b/lib/admin/research/mock.ts
+@@ -18,6 +18,7 @@ export async function runMockResearch(query: string): Promise<ResearchFestivalRe
+         city: "Перник",
+         location: "Централна градска част на Перник",
+         description: "Сурва е международен фестивал на маскарадните игри в Перник, включващ дефилета, конкурсна програма и съпътстващи културни събития.",
++        organizers: ["Община Перник"],
+         organizer: "Община Перник",
+         hero_image: null,
+         tags: ["маскарадни игри", "традиции", "фолклор", "зима"],
+@@ -66,6 +67,7 @@ export async function runMockResearch(query: string): Promise<ResearchFestivalRe
+       city: null,
+       location: null,
+       description: null,
++      organizers: [],
+       organizer: null,
+       hero_image: null,
+       tags: [],
+diff --git a/lib/admin/research/normalize.ts b/lib/admin/research/normalize.ts
+index cfa9e53..c7e5de9 100644
+--- a/lib/admin/research/normalize.ts
++++ b/lib/admin/research/normalize.ts
+@@ -28,6 +28,23 @@ function isDateProvided(value: unknown): boolean {
+   return typeof value === "string" && value.trim().length > 0;
+ }
+ 
++function normalizeOrganizerNameList(value: unknown, maxCount = 24): string[] {
++  if (!Array.isArray(value)) return [];
++  const deduped = new Set<string>();
++  const out: string[] = [];
++  for (const entry of value) {
++    if (typeof entry !== "string") continue;
++    const trimmed = entry.trim();
++    if (!trimmed) continue;
++    const key = trimmed.toLocaleLowerCase("bg-BG");
++    if (deduped.has(key)) continue;
++    deduped.add(key);
++    out.push(trimmed);
++    if (out.length >= maxCount) break;
++  }
++  return out;
++}
++
+ function normalizeTags(value: unknown, maxCount = 12): string[] {
+   if (!Array.isArray(value)) return [];
+ 
+@@ -155,12 +172,19 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
+     city: raw.city ?? null,
+     location: raw.location ?? null,
+     description: raw.description ?? null,
++    organizers: raw.organizers ?? [],
+     organizer: raw.organizer ?? null,
+     hero_image: raw.hero_image ?? null,
+     tags: raw.tags ?? [],
+     is_free: raw.is_free ?? null,
+   };
+ 
++  const listFromGuess = normalizeOrganizerNameList((rawBestGuess as { organizers?: unknown }).organizers);
++  const listFromTop = normalizeOrganizerNameList(raw.organizers);
++  const legacySingle = normalizeText(rawBestGuess.organizer) ?? normalizeText(raw.organizer);
++  const organizers = listFromGuess.length > 0 ? listFromGuess : listFromTop.length > 0 ? listFromTop : legacySingle ? [legacySingle] : [];
++  const organizer = organizers[0] ?? legacySingle ?? null;
++
+   const bestGuess = {
+     title: normalizeText(rawBestGuess.title),
+     start_date: normalizeDate(rawBestGuess.start_date),
+@@ -168,7 +192,8 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
+     city: normalizeText(rawBestGuess.city),
+     location: normalizeText(rawBestGuess.location),
+     description: normalizeText(rawBestGuess.description),
+-    organizer: normalizeText(rawBestGuess.organizer),
++    organizers,
++    organizer,
+     hero_image: normalizeText(rawBestGuess.hero_image),
+     tags: normalizeTags(rawBestGuess.tags),
+     is_free: typeof rawBestGuess.is_free === "boolean" ? rawBestGuess.is_free : null,
+@@ -251,6 +276,7 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
+     city: bestGuess.city,
+     location: bestGuess.location,
+     description: bestGuess.description,
++    organizers: bestGuess.organizers,
+     organizer: bestGuess.organizer,
+     hero_image: bestGuess.hero_image,
+     tags: bestGuess.tags,
+diff --git a/lib/admin/research/openai-extract.ts b/lib/admin/research/openai-extract.ts
+index 4da9ce2..4fc93b5 100644
+--- a/lib/admin/research/openai-extract.ts
++++ b/lib/admin/research/openai-extract.ts
+@@ -66,7 +66,7 @@ export async function extractFestivalWithOpenAi(
+       best_guess: {
+         type: "object",
+         additionalProperties: false,
+-        required: ["title", "description", "city", "start_date", "end_date", "location", "organizer", "hero_image", "tags", "is_free"],
++        required: ["title", "description", "city", "start_date", "end_date", "location", "organizer", "organizers", "hero_image", "tags", "is_free"],
+         properties: {
+           title: { type: ["string", "null"] },
+           description: { type: ["string", "null"] },
+@@ -75,6 +75,7 @@ export async function extractFestivalWithOpenAi(
+           end_date: { type: ["string", "null"] },
+           location: { type: ["string", "null"] },
+           organizer: { type: ["string", "null"] },
++          organizers: { type: "array", items: { type: "string" } },
+           hero_image: { type: ["string", "null"] },
+           tags: { type: "array", items: { type: "string" } },
+           is_free: { type: ["boolean", "null"] },
+@@ -168,6 +169,11 @@ export async function extractFestivalWithOpenAi(
+       start_date: typeof bestGuess.start_date === "string" ? bestGuess.start_date : null,
+       end_date: typeof bestGuess.end_date === "string" ? bestGuess.end_date : null,
+       location: typeof bestGuess.location === "string" ? bestGuess.location : null,
++      organizers: Array.isArray(bestGuess.organizers)
++        ? bestGuess.organizers.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
++        : typeof bestGuess.organizer === "string" && bestGuess.organizer.trim()
++          ? [bestGuess.organizer.trim()]
++          : [],
+       organizer: typeof bestGuess.organizer === "string" ? bestGuess.organizer : null,
+       hero_image: typeof bestGuess.hero_image === "string" ? bestGuess.hero_image : null,
+       tags: Array.isArray(bestGuess.tags) ? bestGuess.tags.filter((x): x is string => typeof x === "string") : [],
+diff --git a/lib/admin/research/research-pipeline.ts b/lib/admin/research/research-pipeline.ts
+index a30d760..6f8fc24 100644
+--- a/lib/admin/research/research-pipeline.ts
++++ b/lib/admin/research/research-pipeline.ts
+@@ -51,6 +51,23 @@ function mergeExtractions(
+   conflictCount: number;
+ } {
+   const sorted = [...rows].sort((a, b) => a.rank - b.rank);
++
++  const mergedOrganizerNames: string[] = [];
++  const pushOrg = (value: string | null) => {
++    if (!value) return;
++    if (mergedOrganizerNames.some((x) => x.toLocaleLowerCase("bg-BG") === value.toLocaleLowerCase("bg-BG"))) return;
++    mergedOrganizerNames.push(value);
++  };
++  for (const row of sorted) {
++    const ex = row.ex;
++    if (Array.isArray(ex.organizer_names)) {
++      for (const n of ex.organizer_names) {
++        pushOrg(str(n));
++      }
++    }
++    pushOrg(str(ex.organizer_name));
++  }
++
+   const pickFirst = <K extends keyof GeminiRawExtraction>(key: K): GeminiRawExtraction[K] => {
+     for (const row of sorted) {
+       const v = row.ex[key];
+@@ -73,7 +90,8 @@ function mergeExtractions(
+     city: str(pickFirst("city")),
+     location_name: str(pickFirst("location_name")),
+     address: str(pickFirst("address")),
+-    organizer_name: str(pickFirst("organizer_name")),
++    organizer_name: mergedOrganizerNames[0] ?? str(pickFirst("organizer_name")),
++    organizer_names: mergedOrganizerNames.length > 0 ? mergedOrganizerNames : null,
+     description: str(pickFirst("description")),
+     website_url: str(pickFirst("website_url")),
+     facebook_url: str(pickFirst("facebook_url")),
+@@ -175,7 +193,23 @@ function mergeExtractions(
+     if (str(e.title)) addField(candidates.titles, str(e.title)!, row.url, str(e.title)!, tier);
+     if (str(e.city)) addField(candidates.cities, str(e.city)!, row.url, str(e.city)!, tier);
+     if (str(e.location_name)) addField(candidates.locations, str(e.location_name)!, row.url, str(e.location_name)!, tier);
+-    if (str(e.organizer_name)) addField(candidates.organizers, str(e.organizer_name)!, row.url, str(e.organizer_name)!, tier);
++    {
++      const rowOrg: string[] = [];
++      if (Array.isArray(e.organizer_names)) {
++        for (const n of e.organizer_names) {
++          const s = str(n);
++          if (s) rowOrg.push(s);
++        }
++      }
++      if (str(e.organizer_name)) rowOrg.push(str(e.organizer_name)!);
++      const seenRow = new Set<string>();
++      for (const name of rowOrg) {
++        const k = name.toLocaleLowerCase("bg-BG");
++        if (seenRow.has(k)) continue;
++        seenRow.add(k);
++        addField(candidates.organizers, name, row.url, str(e.title)!, tier);
++      }
++    }
+     const sd = str(e.start_date);
+     const ed = str(e.end_date);
+     if (sd || ed) {
+@@ -258,6 +292,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
+         end_date: null,
+         city: null,
+         location: null,
++        organizers: [],
+         organizer: null,
+         description: null,
+         hero_image: null,
+@@ -314,6 +349,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
+         end_date: null,
+         city: null,
+         location: null,
++        organizers: [],
+         organizer: null,
+         description: null,
+         hero_image: null,
+@@ -359,6 +395,11 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
+       end_date: str(merged.end_date) ?? str(merged.start_date),
+       city: str(merged.city),
+       location: str(merged.location_name),
++      organizers: Array.isArray(merged.organizer_names)
++        ? merged.organizer_names.map((n) => str(n)).filter((n): n is string => Boolean(n))
++        : merged.organizer_name
++          ? [str(merged.organizer_name)!]
++          : [],
+       organizer: str(merged.organizer_name),
+       description: str(merged.description),
+       hero_image: str(merged.hero_image),
+@@ -390,6 +431,11 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
+     location: str(merged.location_name),
+     description: str(merged.description),
+     organizer: str(merged.organizer_name),
++    organizers: Array.isArray(merged.organizer_names)
++      ? merged.organizer_names.map((n) => str(n)).filter((n): n is string => Boolean(n))
++      : merged.organizer_name
++        ? [str(merged.organizer_name)!]
++        : [],
+     hero_image: str(merged.hero_image),
+     tags: Array.isArray(merged.tags) ? merged.tags : [],
+     is_free: merged.is_free,
+diff --git a/lib/admin/research/types.ts b/lib/admin/research/types.ts
+index f3b55d8..b7cc519 100644
+--- a/lib/admin/research/types.ts
++++ b/lib/admin/research/types.ts
+@@ -55,6 +55,9 @@ export type ResearchBestGuess = {
+   city: string | null;
+   /** Venue / place name (maps from extraction location_name). */
+   location: string | null;
++  /** Distinct organizer names (preferred over single `organizer`). */
++  organizers: string[];
++  /** First organizer or legacy single field; mirrors `organizers[0]` when set. */
+   organizer: string | null;
+   description: string | null;
+   hero_image: string | null;
+@@ -111,6 +114,8 @@ export type ResearchFestivalResult = {
+   location?: string | null;
+   description?: string | null;
+   organizer?: string | null;
++  /** Top-level list (mirrors best_guess.organizers when normalized). */
++  organizers?: string[] | null;
+   hero_image?: string | null;
+   tags?: string[];
+   is_free?: boolean | null;
+diff --git a/lib/admin/research/web-provider.ts b/lib/admin/research/web-provider.ts
+index 44ed6a9..02df99c 100644
+--- a/lib/admin/research/web-provider.ts
++++ b/lib/admin/research/web-provider.ts
+@@ -80,6 +80,7 @@ function buildMinimalFallback(query: string, sources: ResearchSource[], warnings
+       end_date: null,
+       city,
+       location: null,
++      organizers: [],
+       organizer: null,
+       description: null,
+       hero_image: null,
+diff --git a/lib/festival/mappers.ts b/lib/festival/mappers.ts
+index e2fc7d4..de9385c 100644
+--- a/lib/festival/mappers.ts
++++ b/lib/festival/mappers.ts
+@@ -1,5 +1,6 @@
+ import type { Festival } from "@/lib/types";
+ import type { CanonicalFestivalPatchPayload, CanonicalFestivalPayload } from "@/lib/festival/schema";
++import { pendingRowToOrganizerEntries, primaryOrganizerDisplayName } from "@/lib/admin/pendingOrganizerEntries";
+ 
+ type PendingFestivalRowLike = {
+   title: string;
+@@ -16,6 +17,8 @@ type PendingFestivalRowLike = {
+   start_date?: string | null;
+   end_date?: string | null;
+   organizer_name?: string | null;
++  organizer_id?: string | null;
++  organizer_entries?: unknown;
+   hero_image?: string | null;
+   website_url?: string | null;
+   ticket_url?: string | null;
+@@ -71,6 +74,16 @@ function cityDisplayFallback(row: PendingFestivalRowLike | FestivalRowLike): str
+ }
+ 
+ export function canonicalFromPending(row: PendingFestivalRowLike): CanonicalFestivalPayload {
++  const orgEntries = pendingRowToOrganizerEntries(row);
++  const organizerEntriesPayload =
++    orgEntries.length > 0
++      ? orgEntries.map((e) => ({
++          organizer_id: e.organizer_id ?? null,
++          name: e.name,
++        }))
++      : null;
++  const organizerDisplay = primaryOrganizerDisplayName(orgEntries) ?? normalizeText(row.organizer_name);
++
+   return {
+     title: row.title,
+     slug: normalizeText(row.slug),
+@@ -85,7 +98,8 @@ export function canonicalFromPending(row: PendingFestivalRowLike): CanonicalFest
+     longitude: row.longitude ?? null,
+     start_date: row.start_date ?? null,
+     end_date: row.end_date ?? null,
+-    organizer_name: normalizeText(row.organizer_name),
++    organizer_name: organizerDisplay,
++    organizer_entries: organizerEntriesPayload,
+     hero_image: normalizeText(row.hero_image),
+     website_url: normalizeText(row.website_url),
+     ticket_url: normalizeText(row.ticket_url),
+@@ -185,6 +199,15 @@ export function pendingPatchFromCanonicalPartial(fields: CanonicalFestivalPatchP
+   if ("start_date" in fields) patch.start_date = fields.start_date;
+   if ("end_date" in fields) patch.end_date = fields.end_date;
+   if ("organizer_name" in fields) patch.organizer_name = fields.organizer_name;
++  if ("organizer_entries" in fields) {
++    const list = fields.organizer_entries;
++    patch.organizer_entries = list;
++    if (Array.isArray(list)) {
++      const first = list[0];
++      patch.organizer_name = first?.name ?? null;
++      patch.organizer_id = first?.organizer_id ?? null;
++    }
++  }
+   if ("source_url" in fields) patch.source_url = fields.source_url;
+   if ("source_type" in fields) patch.source_type = fields.source_type;
+   if ("website_url" in fields) patch.website_url = fields.website_url;
+diff --git a/lib/festival/schema.ts b/lib/festival/schema.ts
+index 6525102..6c3d1d6 100644
+--- a/lib/festival/schema.ts
++++ b/lib/festival/schema.ts
+@@ -24,6 +24,11 @@ export const CANONICAL_FESTIVAL_FIELDS = [
+ 
+ export type CanonicalFestivalField = (typeof CANONICAL_FESTIVAL_FIELDS)[number];
+ 
++export type PendingOrganizerEntryPayload = {
++  organizer_id: string | null;
++  name: string;
++};
++
+ export type CanonicalFestivalPayload = {
+   title: string;
+   slug: string | null;
+@@ -39,6 +44,8 @@ export type CanonicalFestivalPayload = {
+   start_date: string | null;
+   end_date: string | null;
+   organizer_name: string | null;
++  /** When set, takes precedence over legacy single organizer_name for moderation/publish. */
++  organizer_entries?: PendingOrganizerEntryPayload[] | null;
+   hero_image: string | null;
+   website_url: string | null;
+   ticket_url: string | null;
+@@ -63,6 +70,7 @@ export type CanonicalFestivalPatchPayload = {
+   start_date?: string | null;
+   end_date?: string | null;
+   organizer_name?: string | null;
++  organizer_entries?: PendingOrganizerEntryPayload[] | null;
+   hero_image?: string | null;
+   website_url?: string | null;
+   ticket_url?: string | null;
+diff --git a/lib/festival/validators.ts b/lib/festival/validators.ts
+index fdaffff..35590fc 100644
+--- a/lib/festival/validators.ts
++++ b/lib/festival/validators.ts
+@@ -3,6 +3,7 @@ import {
+   type CanonicalFestivalPatchPayload,
+   type CanonicalFestivalPayload,
+ } from "@/lib/festival/schema";
++import { parseOrganizerEntriesJson } from "@/lib/admin/pendingOrganizerEntries";
+ 
+ export type ValidationResult =
+   | { ok: true; data: CanonicalFestivalPayload }
+@@ -175,6 +176,18 @@ export function canonicalPatchFromUnknown(raw: unknown): PatchValidationResult {
+   if (hasSourceValue(body, "source_type")) canonical.source_type = normalizeText(sourceValue(body, "source_type"));
+   if (hasSourceValue(body, "status")) canonical.status = normalizeText(sourceValue(body, "status"));
+ 
++  if (hasSourceValue(body, "organizer_entries")) {
++    const raw = sourceValue(body, "organizer_entries");
++    if (raw !== null && !Array.isArray(raw)) {
++      return { ok: false, error: "organizer_entries must be an array or null" };
++    }
++    const parsed = raw === null ? [] : parseOrganizerEntriesJson(raw);
++    canonical.organizer_entries = parsed.map((e) => ({
++      organizer_id: e.organizer_id ?? null,
++      name: e.name,
++    }));
++  }
++
+   return { ok: true, data: canonical };
+ }
+ 
+diff --git a/lib/research/perplexity.ts b/lib/research/perplexity.ts
+index b9de7ed..4a2f892 100644
+--- a/lib/research/perplexity.ts
++++ b/lib/research/perplexity.ts
+@@ -10,6 +10,8 @@ export type PerplexityFestivalResearchResult = {
+   location_name: string | null;
+   address: string | null;
+   organizer_name: string | null;
++  /** When multiple organizers are found, listed separately (optional; falls back to organizer_name). */
++  organizer_names: string[] | null;
+   website_url: string | null;
+   facebook_url: string | null;
+   instagram_url: string | null;
+@@ -147,6 +149,7 @@ const PERPLEXITY_JSON_SCHEMA = {
+     location_name: { type: ["string", "null"] },
+     address: { type: ["string", "null"] },
+     organizer_name: { type: ["string", "null"] },
++    organizer_names: { type: ["array", "null"], items: { type: "string" } },
+     website_url: { type: ["string", "null"] },
+     facebook_url: { type: ["string", "null"] },
+     instagram_url: { type: ["string", "null"] },
+@@ -451,6 +454,10 @@ function normalizeResult(
+     location_name: sanitizeNullableString(data.location_name),
+     address: sanitizeNullableString(data.address),
+     organizer_name: sanitizeNullableString(data.organizer_name),
++    organizer_names: (() => {
++      const list = sanitizeStringArray(data.organizer_names);
++      return list.length > 0 ? list : null;
++    })(),
+     website_url: sanitizeUrl(data.website_url),
+     facebook_url: sanitizeUrl(data.facebook_url),
+     instagram_url: sanitizeUrl(data.instagram_url),
+@@ -520,6 +527,7 @@ function normalizeResult(
+     for (const key of FACTUAL_FIELDS) {
+       result[key] = null;
+     }
++    result.organizer_names = null;
+   }
+ 
+   // Light heuristic when model omitted boolean (admin-only hint).
+@@ -581,6 +589,7 @@ function buildMessages(query: string, context: ExtractionContext): PerplexityMes
+             location_name: null,
+             address: null,
+             organizer_name: null,
++            organizer_names: null,
+             website_url: null,
+             facebook_url: null,
+             instagram_url: null,
+@@ -599,7 +608,7 @@ function buildMessages(query: string, context: ExtractionContext): PerplexityMes
+         "- do NOT infer current-year dates/location/organizer from older editions",
+         "- if exact-year evidence is missing, keep unsupported fields null",
+         "- if website_url is unknown but an event page URL is confirmed in source_urls, set website_url to that event page",
+-        "- extract organizer_name/location_name/address whenever explicitly written in any cited source",
++        "- extract organizer_name / organizer_names (multiple distinct organizers) / location_name / address whenever explicitly written in any cited source",
+         "- preserve provided social links (facebook_url, instagram_url) when they appear in cited sources",
+         "- program/schedule details must be null unless explicitly supported by trusted sources",
+         "- confidence must be one of: low, medium, high",
+@@ -621,6 +630,7 @@ function buildEnrichmentMessages(query: string, context: ExtractionContext, firs
+     end_date: firstPass.end_date,
+     city: firstPass.city,
+     organizer_name: firstPass.organizer_name,
++    organizer_names: firstPass.organizer_names,
+     category: firstPass.category,
+     location_name: firstPass.location_name,
+     address: firstPass.address,
+@@ -665,6 +675,7 @@ function buildEnrichmentMessages(query: string, context: ExtractionContext, firs
+             location_name: null,
+             address: null,
+             organizer_name: null,
++            organizer_names: null,
+             website_url: null,
+             facebook_url: null,
+             instagram_url: null,
+@@ -741,6 +752,10 @@ function mergeResults(
+     assignFromEnrichment(field);
+   }
+ 
++  if ((!merged.organizer_names || merged.organizer_names.length === 0) && enrichment.organizer_names && enrichment.organizer_names.length > 0) {
++    merged.organizer_names = enrichment.organizer_names;
++  }
++
+   merged.source_urls = cleanSourceUrls([...base.source_urls, ...enrichment.source_urls]);
+   merged.confidence = chooseHigherConfidence(base.confidence, enrichment.confidence);
+   merged.missing_fields = buildMissingFields(merged);
+diff --git a/scripts/sql/20260329_pending_festival_organizer_entries.sql b/scripts/sql/20260329_pending_festival_organizer_entries.sql
+new file mode 100644
+index 0000000..337c93a
+--- /dev/null
++++ b/scripts/sql/20260329_pending_festival_organizer_entries.sql
+@@ -0,0 +1,27 @@
++-- Multi-organizer drafts: ordered entries with optional linked organizer_id (catalog) or name-only (research / resolve on approve).
++alter table public.pending_festivals
++  add column if not exists organizer_entries jsonb;
++
++comment on column public.pending_festivals.organizer_entries is
++  'Ordered organizers for moderation: json array of { "organizer_id": uuid|null, "name": string }. Legacy organizer_name / organizer_id still supported.';
++
++update public.pending_festivals
++set organizer_entries = case
++  when organizer_id is not null then
++    jsonb_build_array(
++      jsonb_build_object(
++        'organizer_id',
++        organizer_id::text,
++        'name',
++        case
++          when organizer_name is not null and trim(organizer_name) <> '' then trim(organizer_name)
++          else '—'
++        end
++      )
++    )
++  when organizer_name is not null and trim(organizer_name) <> '' then
++    jsonb_build_array(jsonb_build_object('name', trim(organizer_name)))
++  else organizer_entries
++end
++where organizer_entries is null
++  and (organizer_id is not null or (organizer_name is not null and trim(organizer_name) <> ''));

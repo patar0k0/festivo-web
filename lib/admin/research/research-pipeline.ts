@@ -51,6 +51,23 @@ function mergeExtractions(
   conflictCount: number;
 } {
   const sorted = [...rows].sort((a, b) => a.rank - b.rank);
+
+  const mergedOrganizerNames: string[] = [];
+  const pushOrg = (value: string | null) => {
+    if (!value) return;
+    if (mergedOrganizerNames.some((x) => x.toLocaleLowerCase("bg-BG") === value.toLocaleLowerCase("bg-BG"))) return;
+    mergedOrganizerNames.push(value);
+  };
+  for (const row of sorted) {
+    const ex = row.ex;
+    if (Array.isArray(ex.organizer_names)) {
+      for (const n of ex.organizer_names) {
+        pushOrg(str(n));
+      }
+    }
+    pushOrg(str(ex.organizer_name));
+  }
+
   const pickFirst = <K extends keyof GeminiRawExtraction>(key: K): GeminiRawExtraction[K] => {
     for (const row of sorted) {
       const v = row.ex[key];
@@ -73,7 +90,8 @@ function mergeExtractions(
     city: str(pickFirst("city")),
     location_name: str(pickFirst("location_name")),
     address: str(pickFirst("address")),
-    organizer_name: str(pickFirst("organizer_name")),
+    organizer_name: mergedOrganizerNames[0] ?? str(pickFirst("organizer_name")),
+    organizer_names: mergedOrganizerNames.length > 0 ? mergedOrganizerNames : null,
     description: str(pickFirst("description")),
     website_url: str(pickFirst("website_url")),
     facebook_url: str(pickFirst("facebook_url")),
@@ -175,7 +193,23 @@ function mergeExtractions(
     if (str(e.title)) addField(candidates.titles, str(e.title)!, row.url, str(e.title)!, tier);
     if (str(e.city)) addField(candidates.cities, str(e.city)!, row.url, str(e.city)!, tier);
     if (str(e.location_name)) addField(candidates.locations, str(e.location_name)!, row.url, str(e.location_name)!, tier);
-    if (str(e.organizer_name)) addField(candidates.organizers, str(e.organizer_name)!, row.url, str(e.organizer_name)!, tier);
+    {
+      const rowOrg: string[] = [];
+      if (Array.isArray(e.organizer_names)) {
+        for (const n of e.organizer_names) {
+          const s = str(n);
+          if (s) rowOrg.push(s);
+        }
+      }
+      if (str(e.organizer_name)) rowOrg.push(str(e.organizer_name)!);
+      const seenRow = new Set<string>();
+      for (const name of rowOrg) {
+        const k = name.toLocaleLowerCase("bg-BG");
+        if (seenRow.has(k)) continue;
+        seenRow.add(k);
+        addField(candidates.organizers, name, row.url, str(e.title)!, tier);
+      }
+    }
     const sd = str(e.start_date);
     const ed = str(e.end_date);
     if (sd || ed) {
@@ -258,6 +292,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
         end_date: null,
         city: null,
         location: null,
+        organizers: [],
         organizer: null,
         description: null,
         hero_image: null,
@@ -314,6 +349,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
         end_date: null,
         city: null,
         location: null,
+        organizers: [],
         organizer: null,
         description: null,
         hero_image: null,
@@ -359,6 +395,11 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
       end_date: str(merged.end_date) ?? str(merged.start_date),
       city: str(merged.city),
       location: str(merged.location_name),
+      organizers: Array.isArray(merged.organizer_names)
+        ? merged.organizer_names.map((n) => str(n)).filter((n): n is string => Boolean(n))
+        : merged.organizer_name
+          ? [str(merged.organizer_name)!]
+          : [],
       organizer: str(merged.organizer_name),
       description: str(merged.description),
       hero_image: str(merged.hero_image),
@@ -390,6 +431,11 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
     location: str(merged.location_name),
     description: str(merged.description),
     organizer: str(merged.organizer_name),
+    organizers: Array.isArray(merged.organizer_names)
+      ? merged.organizer_names.map((n) => str(n)).filter((n): n is string => Boolean(n))
+      : merged.organizer_name
+        ? [str(merged.organizer_name)!]
+        : [],
     hero_image: str(merged.hero_image),
     tags: Array.isArray(merged.tags) ? merged.tags : [],
     is_free: merged.is_free,

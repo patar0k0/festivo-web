@@ -24,6 +24,11 @@ export const CANONICAL_FESTIVAL_FIELDS = [
 
 export type CanonicalFestivalField = (typeof CANONICAL_FESTIVAL_FIELDS)[number];
 
+export type PendingOrganizerEntryPayload = {
+  organizer_id: string | null;
+  name: string;
+};
+
 export type CanonicalFestivalPayload = {
   title: string;
   slug: string | null;
@@ -39,6 +44,8 @@ export type CanonicalFestivalPayload = {
   start_date: string | null;
   end_date: string | null;
   organizer_name: string | null;
+  /** When set, takes precedence over legacy single organizer_name for moderation/publish. */
+  organizer_entries?: PendingOrganizerEntryPayload[] | null;
   hero_image: string | null;
   website_url: string | null;
   ticket_url: string | null;
@@ -63,6 +70,7 @@ export type CanonicalFestivalPatchPayload = {
   start_date?: string | null;
   end_date?: string | null;
   organizer_name?: string | null;
+  organizer_entries?: PendingOrganizerEntryPayload[] | null;
   hero_image?: string | null;
   website_url?: string | null;
   ticket_url?: string | null;

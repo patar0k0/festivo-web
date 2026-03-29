@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import PendingFestivalEditForm, { type PendingFestivalRecord } from "@/components/admin/PendingFestivalEditForm";
 import { assessPendingFestivalQuality } from "@/lib/admin/pendingFestivalQuality";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import type { OrganizerProfile } from "@/lib/types";
 
 type PendingFestivalCityRelation = {
   id: number;
@@ -73,6 +75,21 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
 
   const qualityDiagnostics = assessPendingFestivalQuality(pendingFestival);
 
+  let organizers: Pick<OrganizerProfile, "id" | "name" | "slug">[] = [];
+  try {
+    const adminClient = createSupabaseAdmin();
+    const { data: organizersData, error: organizersError } = await adminClient
+      .from("organizers")
+      .select("id,name,slug")
+      .eq("is_active", true)
+      .order("name", { ascending: true, nullsFirst: false });
+    if (!organizersError && organizersData) {
+      organizers = organizersData as Pick<OrganizerProfile, "id" | "name" | "slug">[];
+    }
+  } catch {
+    /* optional catalog */
+  }
+
   let lastIngestJobMeta: {
     status: string;
     fb_browser_context: "authenticated" | "anonymous" | null;
@@ -104,6 +121,7 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
       pendingFestival={pendingFestival}
       qualityDiagnostics={qualityDiagnostics}
       lastIngestJobMeta={lastIngestJobMeta}
+      organizers={organizers}
     />
   );
 }

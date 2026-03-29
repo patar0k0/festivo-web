@@ -3,6 +3,7 @@ import {
   type CanonicalFestivalPatchPayload,
   type CanonicalFestivalPayload,
 } from "@/lib/festival/schema";
+import { parseOrganizerEntriesJson } from "@/lib/admin/pendingOrganizerEntries";
 
 export type ValidationResult =
   | { ok: true; data: CanonicalFestivalPayload }
@@ -174,6 +175,18 @@ export function canonicalPatchFromUnknown(raw: unknown): PatchValidationResult {
   if (hasSourceValue(body, "source_url")) canonical.source_url = normalizeText(sourceValue(body, "source_url"));
   if (hasSourceValue(body, "source_type")) canonical.source_type = normalizeText(sourceValue(body, "source_type"));
   if (hasSourceValue(body, "status")) canonical.status = normalizeText(sourceValue(body, "status"));
+
+  if (hasSourceValue(body, "organizer_entries")) {
+    const raw = sourceValue(body, "organizer_entries");
+    if (raw !== null && !Array.isArray(raw)) {
+      return { ok: false, error: "organizer_entries must be an array or null" };
+    }
+    const parsed = raw === null ? [] : parseOrganizerEntriesJson(raw);
+    canonical.organizer_entries = parsed.map((e) => ({
+      organizer_id: e.organizer_id ?? null,
+      name: e.name,
+    }));
+  }
 
   return { ok: true, data: canonical };
 }

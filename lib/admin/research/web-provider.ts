@@ -80,6 +80,7 @@ function buildMinimalFallback(query: string, sources: ResearchSource[], warnings
       end_date: null,
       city,
       location: null,
+      organizers: [],
       organizer: null,
       description: null,
       hero_image: null,

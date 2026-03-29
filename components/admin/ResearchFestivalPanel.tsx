@@ -16,6 +16,7 @@ const EMPTY_FINAL_VALUES: EditableFinalValues = {
   city: null,
   location: null,
   description: null,
+  organizers: [],
   organizer: null,
   hero_image: null,
   tags: [],
@@ -27,7 +28,6 @@ type AiEditableStringField =
   | "start_date"
   | "end_date"
   | "city"
-  | "organizer_name"
   | "category"
   | "location_name"
   | "address"
@@ -43,7 +43,6 @@ const AI_EDITABLE_TEXT_FIELDS: Array<{ key: Exclude<AiEditableStringField, "desc
   { key: "start_date", label: "Start date", placeholder: "dd/mm/yyyy", type: "text" },
   { key: "end_date", label: "End date", placeholder: "dd/mm/yyyy", type: "text" },
   { key: "city", label: "City" },
-  { key: "organizer_name", label: "Organizer" },
   { key: "category", label: "Category" },
   { key: "location_name", label: "Location name" },
   { key: "address", label: "Address" },
@@ -180,7 +179,14 @@ export default function ResearchFestivalPanel() {
       }
 
       setAiResult(payload.result);
-      setAiDraft({ ...payload.result });
+      const r = payload.result;
+      const names =
+        Array.isArray(r.organizer_names) && r.organizer_names.length > 0
+          ? r.organizer_names.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+          : r.organizer_name
+            ? [r.organizer_name]
+            : [];
+      setAiDraft({ ...r, organizer_names: names.length > 0 ? names : null });
       setResult(null);
       setAiSuccess("AI research completed. Review and edit values before creating a pending draft.");
     } catch (err) {
@@ -239,6 +245,17 @@ export default function ResearchFestivalPanel() {
     }
   };
 
+  const appendOrganizerCandidate = (value: string) => {
+    const v = value.trim();
+    if (!v) return;
+    setFinalValues((prev) => {
+      const list = [...(prev.organizers ?? [])];
+      if (list.some((x) => x.toLowerCase() === v.toLowerCase())) return prev;
+      list.push(v);
+      return { ...prev, organizers: list, organizer: list[0] ?? null };
+    });
+  };
+
   const renderTextCandidates = (field: keyof EditableFinalValues, candidates: ResearchFieldCandidate[]) => {
     if (candidates.length === 0) {
       return <p className="text-xs text-black/50">No alternatives extracted for this field.</p>;
@@ -250,7 +267,7 @@ export default function ResearchFestivalPanel() {
           <button
             key={`${field}-${candidate.value}-${candidate.source_url}-${index}`}
             type="button"
-            onClick={() => setFromCandidate(field, candidate.value)}
+            onClick={() => (field === "organizers" ? appendOrganizerCandidate(candidate.value) : setFromCandidate(field, candidate.value))}
             className="rounded-lg border border-black/[0.1] bg-white px-2 py-1 text-left text-xs hover:bg-black/[0.03]"
           >
             <div className="font-medium">{candidate.value}</div>
@@ -349,6 +366,58 @@ export default function ResearchFestivalPanel() {
                     ) : null}
                   </div>
                 ))}
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">
+                  {(aiDraft.organizer_names?.filter((x) => (x ?? "").trim()).length ?? 0) <= 1 &&
+                  !(aiDraft.organizer_name && !aiDraft.organizer_names?.length)
+                    ? "Организатор"
+                    : "Организатори"}
+                </label>
+                <div className="mt-2 space-y-2">
+                  {(aiDraft.organizer_names?.length
+                    ? aiDraft.organizer_names
+                    : aiDraft.organizer_name
+                      ? [aiDraft.organizer_name]
+                      : [""]
+                  ).map((org, index) => (
+                    <input
+                      key={`ai-org-${index}`}
+                      value={org ?? ""}
+                      onChange={(e) => {
+                        setAiDraft((prev) => {
+                          if (!prev) return prev;
+                          const base = prev.organizer_names?.length
+                            ? [...prev.organizer_names]
+                            : prev.organizer_name
+                              ? [prev.organizer_name]
+                              : [""];
+                          base[index] = e.target.value;
+                          return { ...prev, organizer_names: base, organizer_name: base.find((x) => x?.trim())?.trim() ?? null };
+                        });
+                      }}
+                      className="w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAiDraft((prev) => {
+                        if (!prev) return prev;
+                        const base = prev.organizer_names?.length
+                          ? [...prev.organizer_names]
+                          : prev.organizer_name
+                            ? [prev.organizer_name]
+                            : [];
+                        return { ...prev, organizer_names: [...base, ""] };
+                      })
+                    }
+                    className="text-xs font-semibold text-[#0e7a45]"
+                  >
+                    + Добави организатор
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -475,10 +544,36 @@ export default function ResearchFestivalPanel() {
               <input value={finalValues.location ?? ""} onChange={(e) => setFromCandidate("location", e.target.value || null)} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm" />
               {renderTextCandidates("location", result.candidates.locations)}
             </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Organizer</label>
-              <input value={finalValues.organizer ?? ""} onChange={(e) => setFromCandidate("organizer", e.target.value || null)} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm" />
-              {renderTextCandidates("organizer", result.candidates.organizers)}
+            <div className="md:col-span-2">
+              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">
+                {(finalValues.organizers?.filter((o) => o.trim()).length ?? 0) <= 1 ? "Организатор" : "Организатори"}
+              </label>
+              <div className="mt-2 space-y-2">
+                {(finalValues.organizers?.length ? finalValues.organizers : [""]).map((org, index) => (
+                  <input
+                    key={`gemini-org-${index}`}
+                    value={org}
+                    onChange={(e) => {
+                      const base = [...(finalValues.organizers ?? [""])];
+                      base[index] = e.target.value;
+                      setFinalValues((prev) => ({
+                        ...prev,
+                        organizers: base,
+                        organizer: base.find((x) => x.trim())?.trim() ?? null,
+                      }));
+                    }}
+                    className="w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm"
+                  />
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setFinalValues((prev) => ({ ...prev, organizers: [...(prev.organizers ?? []), ""] }))}
+                  className="text-xs font-semibold text-[#0e7a45]"
+                >
+                  + Добави организатор
+                </button>
+              </div>
+              {renderTextCandidates("organizers", result.candidates.organizers)}
             </div>
           </div>
 

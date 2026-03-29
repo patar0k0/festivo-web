@@ -28,6 +28,23 @@ function isDateProvided(value: unknown): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function normalizeOrganizerNameList(value: unknown, maxCount = 24): string[] {
+  if (!Array.isArray(value)) return [];
+  const deduped = new Set<string>();
+  const out: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") continue;
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLocaleLowerCase("bg-BG");
+    if (deduped.has(key)) continue;
+    deduped.add(key);
+    out.push(trimmed);
+    if (out.length >= maxCount) break;
+  }
+  return out;
+}
+
 function normalizeTags(value: unknown, maxCount = 12): string[] {
   if (!Array.isArray(value)) return [];
 
@@ -155,11 +172,18 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     city: raw.city ?? null,
     location: raw.location ?? null,
     description: raw.description ?? null,
+    organizers: raw.organizers ?? [],
     organizer: raw.organizer ?? null,
     hero_image: raw.hero_image ?? null,
     tags: raw.tags ?? [],
     is_free: raw.is_free ?? null,
   };
+
+  const listFromGuess = normalizeOrganizerNameList((rawBestGuess as { organizers?: unknown }).organizers);
+  const listFromTop = normalizeOrganizerNameList(raw.organizers);
+  const legacySingle = normalizeText(rawBestGuess.organizer) ?? normalizeText(raw.organizer);
+  const organizers = listFromGuess.length > 0 ? listFromGuess : listFromTop.length > 0 ? listFromTop : legacySingle ? [legacySingle] : [];
+  const organizer = organizers[0] ?? legacySingle ?? null;
 
   const bestGuess = {
     title: normalizeText(rawBestGuess.title),
@@ -168,7 +192,8 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     city: normalizeText(rawBestGuess.city),
     location: normalizeText(rawBestGuess.location),
     description: normalizeText(rawBestGuess.description),
-    organizer: normalizeText(rawBestGuess.organizer),
+    organizers,
+    organizer,
     hero_image: normalizeText(rawBestGuess.hero_image),
     tags: normalizeTags(rawBestGuess.tags),
     is_free: typeof rawBestGuess.is_free === "boolean" ? rawBestGuess.is_free : null,
@@ -251,6 +276,7 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     city: bestGuess.city,
     location: bestGuess.location,
     description: bestGuess.description,
+    organizers: bestGuess.organizers,
     organizer: bestGuess.organizer,
     hero_image: bestGuess.hero_image,
     tags: bestGuess.tags,

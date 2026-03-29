@@ -118,13 +118,13 @@ Admin festival research (`POST /admin/api/research-festival`, UI `/admin/researc
 2. **Rank:** `lib/admin/research/search-hit-rank.ts` scores sources (Bulgarian domains, official/municipal/tourism/media/Facebook events, list-page penalties) and keeps **top 3–5** URLs.
 3. **Extract:** For each ranked URL, the server fetches page text (`fetchSourceDocument`) and runs **Gemini structured JSON** extraction (`lib/admin/research/gemini-extract.ts`) — evidence-only, unknown → null.
 4. **Validate:** `lib/admin/research/pipeline-validate.ts` enforces date sanity, title length, and clears inconsistent data with warnings.
-5. **Output:** Normalized `ResearchFestivalResult` with `best_guess`, `sources`, `evidence`, `confidence`, `warnings` (no raw model text in the API response).
+5. **Output:** Normalized `ResearchFestivalResult` with `best_guess` (including `organizers[]` plus legacy `organizer`), `sources`, `evidence`, `confidence`, `warnings` (no raw model text in the API response).
 
 **Configuration:** `GEMINI_API_KEY` (or `GOOGLE_AI_API_KEY`); optional `GEMINI_RESEARCH_MODEL` (default `gemini-2.0-flash`), `GEMINI_RESEARCH_TIMEOUT_MS`.
 
 If Gemini is not configured, the route returns **503**. If extraction yields no usable fields, the API returns a **low-confidence** minimal result with sources + warnings (preferring null over speculative values).
 
-`/api/admin/research-ai` (Perplexity-backed extraction) uses a strict structured first pass plus additive follow-up passes:
+`/api/admin/research-ai` (Perplexity-backed extraction) may return `organizer_names[]` (optional) in addition to `organizer_name`; create-pending stores ordered `organizer_entries` on the draft. The pipeline uses a strict structured first pass plus additive follow-up passes:
 - enrichment runs when first-pass has enough still-null factual fields (low threshold for admin UX)
 - follow-up passes inherit `source_urls` from the prior pass so Perplexity responses that omit URLs do not trigger вЂњfacts without sourcesвЂќ wipes
 - optional third pass runs when merged result still has many missing fields
@@ -186,7 +186,7 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
 
 ## Admin organizers management
 - Admin has dedicated organizer management screens at `/admin/organizers`, `/admin/organizers/[id]`, and duplicate review at `/admin/organizers/duplicates`.
-- Pending approval resolves `pending_festivals.organizer_name` to `organizers.id` (exact normalized-name match), auto-creating organizer rows when needed, then writes relation rows to `festival_organizers`.
+- Pending approval resolves organizers from `pending_festivals.organizer_entries` (ordered `{ organizer_id?, name }` rows; legacy `organizer_name` / `organizer_id` still supported) to `organizers.id` (exact normalized-name match when only a name is given), auto-creating organizer rows when needed, then writes **all** relation rows to `festival_organizers` in order.
 - Duplicate candidates are conservative-only (exact normalized name, exact slug, exact `facebook_url` when present).
 - Manual merge endpoint `/admin/api/organizers/merge` reassigns `festival_organizers.organizer_id` (plus compatibility fields `festivals.organizer_id` and `pending_festivals.organizer_id`), backfills missing target profile fields from source, then marks source organizer inactive (`is_active=false`, `merged_into=target_id`).
 - Organizer list and public organizer profile lookups use active organizers by default (`is_active=true`).
@@ -201,6 +201,6 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
 - **API (session + service role after authorization):** `POST /api/organizer/organizers` (create profile + active owner), `POST /api/organizer/claims` (pending owner claim; blocked when an active owner already exists; same user with `revoked` membership is reset to `pending` owner claim; active or pending row for same user returns 409), `GET /api/organizer/memberships`, `POST /api/organizer/pending-festivals`, `PATCH /api/organizer/pending-festivals/[id]` (only `submission_source=organizer_portal` + active membership + `status=pending`).
 - **Approve:** when `pending.source_url` is absent, published `festivals.source_type` is derived from `pending.source_type` (e.g. organizer portal rows keep `organizer_portal` after mapping), after any ingest-job match on `source_url`.
 - **Admin:** `/admin/organizer-claims` lists pending membership requests; `POST /admin/api/organizer-members/[id]/approve` activates membership (conflicts if a second `owner` is approved while another active owner exists). Pending queue list shows an „Орг. портал“ badge when `submission_source=organizer_portal`; detail form shows a banner with submitter user id.
-- **Approve integration:** `POST /admin/api/pending-festivals/[id]/approve` resolves the published festival’s organizer from `pending_festivals.organizer_id` when present (active organizer row), otherwise falls back to `resolveOrCreateOrganizerId` from `organizer_name`.
+- **Approve integration:** `POST /admin/api/pending-festivals/[id]/approve` builds the published festival’s organizer list from `organizer_entries` when present (each row: optional `organizer_id` or name-only via `resolveOrCreateOrganizerId`), otherwise legacy `organizer_id` / `organizer_name`; syncs **all** IDs to `festival_organizers`.
 - **Migration:** `scripts/sql/20260328_organizer_members_portal.sql`.
 

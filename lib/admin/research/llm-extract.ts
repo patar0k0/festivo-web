@@ -23,6 +23,7 @@ export type LlmExtractResult = {
     end_date: string | null;
     city: string | null;
     location: string | null;
+    organizers: string[];
     organizer: string | null;
     description: string | null;
     hero_image: string | null;
@@ -193,6 +194,15 @@ export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<Llm
     evidence?: unknown;
   };
 
+  const singleOrg = normalizeText(parsed.best_guess?.organizer);
+  const orgListRaw = Array.isArray(parsed.best_guess?.organizers) ? parsed.best_guess.organizers : null;
+  const organizers =
+    orgListRaw && orgListRaw.length > 0
+      ? orgListRaw.map((item) => normalizeText(item)).filter((item): item is string => Boolean(item))
+      : singleOrg
+        ? [singleOrg]
+        : [];
+
   return {
     best_guess: {
       title: normalizeText(parsed.best_guess?.title),
@@ -200,7 +210,8 @@ export async function runLlmFieldExtraction(input: LlmExtractInput): Promise<Llm
       end_date: normalizeDate(parsed.best_guess?.end_date),
       city: normalizeText(parsed.best_guess?.city),
       location: normalizeText(parsed.best_guess?.location),
-      organizer: normalizeText(parsed.best_guess?.organizer),
+      organizers,
+      organizer: singleOrg,
       description: normalizeText(parsed.best_guess?.description),
       hero_image: normalizeText(parsed.best_guess?.hero_image),
       tags: Array.isArray(parsed.best_guess?.tags) ? parsed.best_guess.tags.map((item) => normalizeText(item)).filter((item): item is string => Boolean(item)) : [],

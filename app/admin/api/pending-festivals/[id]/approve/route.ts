@@ -5,7 +5,10 @@ import { slugify } from "@/lib/utils";
 import { canonicalFromPending, festivalPatchFromCanonical } from "@/lib/festival/mappers";
 import { canonicalFromUnknown } from "@/lib/festival/validators";
 import { resolveOrCreateOrganizerId } from "@/lib/admin/organizers";
+import type { PendingOrganizerEntry } from "@/lib/admin/pendingOrganizerEntries";
+import { pendingRowToOrganizerEntries } from "@/lib/admin/pendingOrganizerEntries";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { syncFestivalOrganizers } from "@/lib/festivalOrganizers";
 import { scheduleNewFestivalFollowCityJobs } from "@/lib/notifications/triggers";
 
@@ -36,6 +39,7 @@ type PendingFestivalRow = {
   occurrence_dates: unknown;
   organizer_id: string | null;
   organizer_name: string | null;
+  organizer_entries: unknown;
   source_url: string | null;
   source_type: string | null;
   source_primary_url: string | null;
@@ -54,7 +58,54 @@ type PendingFestivalRow = {
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,occurrence_dates,organizer_id,organizer_name,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
+  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
+
+async function resolveOrganizerIdsForPublish(
+  adminSupabase: SupabaseClient,
+  serviceSupabase: SupabaseClient,
+  entries: PendingOrganizerEntry[],
+): Promise<{ ids: string[]; primaryDisplayName: string | null }> {
+  const orderedIds: string[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of entries) {
+    if (entry.organizer_id) {
+      const { data: orgRow, error: orgErr } = await adminSupabase
+        .from("organizers")
+        .select("id,name")
+        .eq("id", entry.organizer_id)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (orgErr) {
+        throw new Error(`Organizer lookup failed: ${orgErr.message}`);
+      }
+
+      if (orgRow?.id && !seen.has(orgRow.id)) {
+        seen.add(orgRow.id);
+        orderedIds.push(orgRow.id);
+      }
+      continue;
+    }
+
+    const rawName = entry.name.trim();
+    if (!rawName || rawName === "—") continue;
+
+    const resolved = await resolveOrCreateOrganizerId(serviceSupabase, rawName);
+    if (resolved.organizerId && !seen.has(resolved.organizerId)) {
+      seen.add(resolved.organizerId);
+      orderedIds.push(resolved.organizerId);
+    }
+  }
+
+  let primaryDisplayName: string | null = null;
+  if (orderedIds.length > 0) {
+    const { data: firstOrg } = await adminSupabase.from("organizers").select("name").eq("id", orderedIds[0]).maybeSingle();
+    primaryDisplayName = firstOrg?.name ?? null;
+  }
+
+  return { ids: orderedIds, primaryDisplayName };
+}
 
 const REQUIRED_PENDING_CANONICAL_FIELDS: (keyof PendingFestivalRow)[] = [
   "title",
@@ -305,8 +356,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     let organizerId: string | null = null;
     let organizerDisplayName: string | null = canonicalApproved.organizer_name ?? null;
+    let publishedOrganizerIds: string[] = [];
 
-    if (pending.organizer_id) {
+    const entries = pendingRowToOrganizerEntries(pending);
+    const serviceSupabase = createSupabaseAdmin();
+
+    if (entries.length > 0) {
+      try {
+        const resolved = await resolveOrganizerIdsForPublish(adminCtx.supabase, serviceSupabase, entries);
+        publishedOrganizerIds = resolved.ids;
+        organizerId = publishedOrganizerIds[0] ?? null;
+        organizerDisplayName = resolved.primaryDisplayName ?? organizerDisplayName;
+        console.info(`[pending-approve] pending_id=${id} organizer_entries resolved count=${publishedOrganizerIds.length}`);
+      } catch (resolveErr) {
+        const msg = resolveErr instanceof Error ? resolveErr.message : String(resolveErr);
+        return fail(id, "organizer_resolve_failed", 500, msg);
+      }
+    }
+
+    if (entries.length === 0 && pending.organizer_id) {
       const { data: linkedOrg, error: linkedOrgError } = await adminCtx.supabase
         .from("organizers")
         .select("id,name")
@@ -320,16 +388,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
       if (linkedOrg?.id) {
         organizerId = linkedOrg.id;
+        publishedOrganizerIds = [linkedOrg.id];
         organizerDisplayName = linkedOrg.name ?? organizerDisplayName;
         console.info(`[pending-approve] pending_id=${id} organizer from pending.organizer_id=${organizerId}`);
       }
     }
 
-    if (!organizerId && canonicalApproved.organizer_name) {
-      const serviceSupabase = createSupabaseAdmin();
+    if (publishedOrganizerIds.length === 0 && canonicalApproved.organizer_name) {
       const organizerResolution = await resolveOrCreateOrganizerId(serviceSupabase, canonicalApproved.organizer_name);
       organizerId = organizerResolution.organizerId;
       organizerDisplayName = organizerResolution.organizerName;
+      if (organizerId) {
+        publishedOrganizerIds = [organizerId];
+      }
       console.info(
         `[pending-approve] pending_id=${id} organizer resolution organizer_id=${organizerId ?? "null"} created=${organizerResolution.created ? "true" : "false"}`
       );
@@ -410,14 +481,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     console.info(`[pending-approve] pending_id=${id} published festival_id=${insertedFestival.id}`);
 
-    if (organizerId) {
-      try {
-        await syncFestivalOrganizers(adminCtx.supabase, insertedFestival.id, [organizerId]);
-      } catch (syncError) {
-        await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
-        const message = syncError instanceof Error ? syncError.message : "festival_organizers sync failed";
-        return fail(id, "festival_organizers_sync_failed", 500, message);
-      }
+    try {
+      await syncFestivalOrganizers(adminCtx.supabase, insertedFestival.id, publishedOrganizerIds);
+    } catch (syncError) {
+      await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
+      const message = syncError instanceof Error ? syncError.message : "festival_organizers sync failed";
+      return fail(id, "festival_organizers_sync_failed", 500, message);
     }
 
     const { data: reviewRow, error: reviewError } = await adminCtx.supabase

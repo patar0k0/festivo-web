@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { transliteratedSlug } from "@/lib/text/slug";
+import type { OrganizerProfile } from "@/lib/types";
+import { pendingRowToOrganizerEntries } from "@/lib/admin/pendingOrganizerEntries";
 import TagsInput from "@/components/admin/TagsInput";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
@@ -31,6 +34,7 @@ export type PendingFestivalRecord = {
   end_date: string | null;
   occurrence_dates?: unknown;
   organizer_name: string | null;
+  organizer_entries?: unknown;
   submission_source?: string | null;
   submitted_by_user_id?: string | null;
   organizer_id?: string | null;
@@ -124,6 +128,17 @@ function normalizeDisplayValue(value: string | null | undefined) {
 
 function normalizeOptionalText(value: unknown) {
   return typeof value === "string" ? normalizeDisplayValue(value) : null;
+}
+
+type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug">;
+
+function buildInitialOrganizerEntries(p: PendingFestivalRecord): Array<{ organizer_id: string; name: string }> {
+  const rows = pendingRowToOrganizerEntries({
+    organizer_entries: p.organizer_entries,
+    organizer_id: p.organizer_id ?? null,
+    organizer_name: p.organizer_name ?? null,
+  });
+  return rows.map((r) => ({ organizer_id: r.organizer_id ?? "", name: r.name }));
 }
 
 function normalizeOptionalScore(value: unknown) {
@@ -336,10 +351,12 @@ export default function PendingFestivalEditForm({
   pendingFestival,
   qualityDiagnostics,
   lastIngestJobMeta = null,
+  organizers = [],
 }: {
   pendingFestival: PendingFestivalRecord;
   qualityDiagnostics: PendingFestivalQuality;
   lastIngestJobMeta?: LastIngestJobMeta | null;
+  organizers?: OrganizerOption[];
 }) {
   const router = useRouter();
   const tagsCurrent = normalizeTagsGuess(pendingFestival.tags);
@@ -347,6 +364,22 @@ export default function PendingFestivalEditForm({
     normalizeDisplayValue(pendingFestival.city?.name_bg) ??
     normalizeDisplayValue(pendingFestival.city?.slug) ??
     "";
+
+  const [organizerEntries, setOrganizerEntries] = useState(() => buildInitialOrganizerEntries(pendingFestival));
+  const [organizerOptions, setOrganizerOptions] = useState<OrganizerOption[]>(organizers);
+  const [organizerSearch, setOrganizerSearch] = useState("");
+  const [pendingOrganizerPickId, setPendingOrganizerPickId] = useState("");
+  const [manualOrganizerName, setManualOrganizerName] = useState("");
+  const [creatingOrganizer, setCreatingOrganizer] = useState(false);
+  const [newOrganizerName, setNewOrganizerName] = useState("");
+
+  useEffect(() => {
+    setOrganizerEntries(buildInitialOrganizerEntries(pendingFestival));
+  }, [pendingFestival.id]);
+
+  useEffect(() => {
+    setOrganizerOptions(organizers);
+  }, [organizers]);
 
   const [form, setForm] = useState({
     title: pendingFestival.title,
@@ -435,6 +468,73 @@ export default function PendingFestivalEditForm({
     website_url: false,
     ticket_url: false,
   });
+
+  const selectedOrganizerIds = useMemo(() => organizerEntries.map((e) => e.organizer_id.trim()).filter(Boolean), [organizerEntries]);
+
+  const availableOrganizerOptions = useMemo(() => {
+    const selected = new Set(selectedOrganizerIds);
+    const q = organizerSearch.trim().toLowerCase();
+    return organizerOptions.filter((item) => {
+      if (selected.has(item.id)) return false;
+      if (!q) return true;
+      return `${item.name} ${item.slug ?? ""}`.toLowerCase().includes(q);
+    });
+  }, [organizerOptions, organizerSearch, selectedOrganizerIds]);
+
+  const orgLabel = organizerEntries.length <= 1 ? "Организатор" : "Организатори";
+
+  const addOrganizerById = (id: string) => {
+    const row = organizerOptions.find((o) => o.id === id);
+    if (!row) return;
+    setOrganizerEntries((prev) => [...prev, { organizer_id: row.id, name: row.name }]);
+    setPendingOrganizerPickId("");
+    setOrganizerSearch("");
+  };
+
+  const removeOrganizerAt = (index: number) => {
+    setOrganizerEntries((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateOrganizerNameAt = (index: number, name: string) => {
+    setOrganizerEntries((prev) => prev.map((e, i) => (i === index ? { ...e, name } : e)));
+  };
+
+  const addManualOrganizer = () => {
+    const t = manualOrganizerName.trim();
+    if (!t) return;
+    setOrganizerEntries((prev) => [...prev, { organizer_id: "", name: t }]);
+    setManualOrganizerName("");
+  };
+
+  const onCreateOrganizerInline = async () => {
+    const name = newOrganizerName.trim();
+    if (!name || creatingOrganizer) return;
+    setCreatingOrganizer(true);
+    setError("");
+    try {
+      const slug = transliteratedSlug(name);
+      const response = await fetch("/admin/api/organizers", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, slug: slug || undefined }),
+      });
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Неуспешно създаване на организатор."));
+      }
+      const payload = (await response.json().catch(() => null)) as { row?: OrganizerOption } | null;
+      const created = payload?.row;
+      if (created?.id) {
+        setOrganizerOptions((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, "bg")));
+        setOrganizerEntries((prev) => [...prev, { organizer_id: created.id, name: created.name }]);
+        setNewOrganizerName("");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Грешка при създаване на организатор.");
+    } finally {
+      setCreatingOrganizer(false);
+    }
+  };
 
   const normalizationSuggestions = extractNormalizationSuggestions({
     deterministic_guess_json: pendingFestival.deterministic_guess_json,
@@ -604,7 +704,13 @@ export default function PendingFestivalEditForm({
           start_date: mergedDates.start_date,
           end_date: mergedDates.end_date,
           occurrence_dates: mergedDates.occurrence_dates,
-          organizer_name: form.organizer_name.trim() || null,
+          organizer_name: organizerEntries[0]?.name.trim() || form.organizer_name.trim() || null,
+          organizer_entries: organizerEntries
+            .map((e) => ({
+              organizer_id: e.organizer_id.trim() || null,
+              name: e.name.trim(),
+            }))
+            .filter((e) => e.name.length > 0),
           source_url: form.source_url.trim() || null,
           website_url: form.website_url.trim() || null,
           ticket_url: form.ticket_url.trim() || null,
@@ -949,10 +1055,94 @@ export default function PendingFestivalEditForm({
           <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5">
             <h2 className="text-lg font-bold">Organization / media / source</h2>
             <div className="mt-4 grid gap-3">
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Organizer name</span>
-                <input value={form.organizer_name} onChange={(e) => updateField("organizer_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-              </label>
+              <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] p-3">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">{orgLabel}</span>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {organizerEntries.map((entry, index) => (
+                    <span
+                      key={`${entry.organizer_id}-${index}-${entry.name}`}
+                      className="inline-flex items-center gap-1 rounded-full border border-black/[0.12] bg-white px-2.5 py-1 text-sm text-black/85"
+                    >
+                      <input
+                        value={entry.name}
+                        onChange={(e) => updateOrganizerNameAt(index, e.target.value)}
+                        className="max-w-[220px] border-0 bg-transparent p-0 text-sm outline-none"
+                        aria-label={`Име организатор ${index + 1}`}
+                      />
+                      {entry.organizer_id ? (
+                        <Link href={`/admin/organizers/${entry.organizer_id}`} className="text-[11px] font-semibold text-[#0e7a45]">
+                          профил
+                        </Link>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => removeOrganizerAt(index)}
+                        className="text-xs text-black/45 hover:text-[#b13a1a]"
+                        aria-label="Премахни"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                  <input
+                    value={organizerSearch}
+                    onChange={(e) => setOrganizerSearch(e.target.value)}
+                    placeholder="Търсене в каталога…"
+                    className="w-full min-w-[180px] flex-1 rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm sm:max-w-xs"
+                  />
+                  <select
+                    value={pendingOrganizerPickId}
+                    onChange={(e) => setPendingOrganizerPickId(e.target.value)}
+                    className="w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm sm:w-auto"
+                  >
+                    <option value="">Избери организатор…</option>
+                    {availableOrganizerOptions.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => pendingOrganizerPickId && addOrganizerById(pendingOrganizerPickId)}
+                    disabled={!pendingOrganizerPickId}
+                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] disabled:opacity-40"
+                  >
+                    Добави избрания
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    value={manualOrganizerName}
+                    onChange={(e) => setManualOrganizerName(e.target.value)}
+                    placeholder="Име без запис в каталога"
+                    className="min-w-[200px] flex-1 rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+                  />
+                  <button type="button" onClick={addManualOrganizer} className="rounded-lg bg-[#0c0e14] px-3 py-2 text-xs font-semibold text-white">
+                    Добави по име
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-black/[0.06] pt-3">
+                  <label className="flex min-w-[200px] flex-1 flex-col text-xs font-semibold uppercase tracking-[0.1em] text-black/55">
+                    Нов организатор (каталог)
+                    <input
+                      value={newOrganizerName}
+                      onChange={(e) => setNewOrganizerName(e.target.value)}
+                      className="mt-1 rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm font-normal normal-case"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={onCreateOrganizerInline}
+                    disabled={creatingOrganizer || !newOrganizerName.trim()}
+                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold disabled:opacity-40"
+                  >
+                    {creatingOrganizer ? "…" : "Създай и добави"}
+                  </button>
+                </div>
+              </div>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source URL</span>
                 <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />

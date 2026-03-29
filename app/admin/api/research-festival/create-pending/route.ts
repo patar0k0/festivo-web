@@ -7,6 +7,40 @@ import { normalizeResearchResult, validateDateFieldsOrErrors, validateDateRangeO
 import type { ResearchBestGuess, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
 import type { PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 
+function buildOrganizerEntriesFromAi(ai: PerplexityFestivalResearchResult): Array<{ name: string }> | null {
+  const names: string[] = [];
+  if (Array.isArray(ai.organizer_names)) {
+    for (const n of ai.organizer_names) {
+      if (typeof n === "string" && n.trim()) names.push(n.trim());
+    }
+  }
+  if (names.length === 0) {
+    const one = sanitizeNullableString(ai.organizer_name);
+    if (one) names.push(one);
+  }
+  if (names.length === 0) return null;
+  return names.map((name) => ({ name }));
+}
+
+function buildOrganizerEntriesFromResearch(best: ResearchBestGuess): Array<{ name: string }> | null {
+  const names: string[] = [];
+  if (Array.isArray(best.organizers)) {
+    for (const n of best.organizers) {
+      if (typeof n === "string" && n.trim()) names.push(n.trim());
+    }
+  }
+  if (names.length === 0 && best.organizer?.trim()) {
+    names.push(best.organizer.trim());
+  }
+  if (names.length === 0) return null;
+  return names.map((name) => ({ name }));
+}
+
+function primaryNameFromEntries(entries: Array<{ name: string }> | null, fallback: string | null): string | null {
+  if (entries && entries.length > 0) return entries[0].name;
+  return fallback;
+}
+
 type CreatePendingRequest = {
   result?: ResearchFestivalResult;
   ai_result?: PerplexityFestivalResearchResult;
@@ -106,6 +140,7 @@ type AdminContext = NonNullable<Awaited<ReturnType<typeof getAdminContext>>>;
 async function insertPendingWithFallback(ctx: AdminContext, payload: Record<string, unknown>) {
   const insertPayload: Record<string, unknown> = { ...payload };
   const removableColumns = new Set([
+    "organizer_entries",
     "source_type",
     "website_url",
     "facebook_url",
@@ -184,6 +219,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Hero image: ${heroResolved.error}` }, { status: 422 });
     }
 
+    const orgEntriesAi = buildOrganizerEntriesFromAi(ai);
+
     const insertPayload: Record<string, unknown> = {
       title: sanitizeNullableString(ai.title) ?? "Untitled festival",
       description: sanitizeNullableString(ai.description),
@@ -192,7 +229,8 @@ export async function POST(request: Request) {
       end_date: normalizeDateForDb(ai.end_date),
       location_name: sanitizeNullableString(ai.location_name),
       address: sanitizeNullableString(ai.address),
-      organizer_name: sanitizeNullableString(ai.organizer_name),
+      organizer_entries: orgEntriesAi,
+      organizer_name: primaryNameFromEntries(orgEntriesAi, sanitizeNullableString(ai.organizer_name)),
       website_url: sanitizeNullableString(ai.website_url),
       facebook_url: sanitizeNullableString(ai.facebook_url),
       instagram_url: sanitizeNullableString(ai.instagram_url),
@@ -228,6 +266,11 @@ export async function POST(request: Request) {
       ...body.result.best_guess,
       ...(body.final_values ?? {}),
       tags: Array.isArray(body.final_values?.tags) ? body.final_values.tags : body.result.best_guess.tags,
+      organizers: Array.isArray(body.final_values?.organizers)
+        ? body.final_values.organizers
+        : Array.isArray(body.result.best_guess.organizers)
+          ? body.result.best_guess.organizers
+          : [],
     },
   };
 
@@ -255,12 +298,15 @@ export async function POST(request: Request) {
   }
 
   const websiteFromForm = sanitizeNullableString(finalValues.website_url);
+  const orgEntriesResearch = buildOrganizerEntriesFromResearch(finalValues);
+
   const sharedInsertPayload: Record<string, unknown> = {
     title: finalValues.title ?? normalized.query,
     description: finalValues.description,
     city_guess: finalValues.city,
     location_guess: finalValues.location,
-    organizer_name: finalValues.organizer,
+    organizer_entries: orgEntriesResearch,
+    organizer_name: primaryNameFromEntries(orgEntriesResearch, finalValues.organizer),
     ...heroResolvedLegacy.patch,
     tags_guess: finalValues.tags,
     start_date: finalValues.start_date,

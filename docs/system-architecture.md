@@ -202,5 +202,5 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
 - **Approve:** when `pending.source_url` is absent, published `festivals.source_type` is derived from `pending.source_type` (e.g. organizer portal rows keep `organizer_portal` after mapping), after any ingest-job match on `source_url`.
 - **Admin:** `/admin/organizer-claims` lists pending membership requests; `POST /admin/api/organizer-members/[id]/approve` activates membership (conflicts if a second `owner` is approved while another active owner exists). Pending queue list shows an „Орг. портал“ badge when `submission_source=organizer_portal`; detail form shows a banner with submitter user id.
 - **Approve integration:** `POST /admin/api/pending-festivals/[id]/approve` builds the published festival’s organizer list from `organizer_entries` when present (each row: optional `organizer_id` or name-only via `resolveOrCreateOrganizerId`), otherwise legacy `organizer_id` / `organizer_name`; syncs **all** IDs to `festival_organizers`.
-- **Migration:** `scripts/sql/20260328_organizer_members_portal.sql`.
+- **Migration:** `scripts/sql/20260328_organizer_members_portal.sql`; `public.festivals_source_type_check` includes `organizer_portal` so portal approvals can persist that value on `festivals.source_type` (`scripts/sql/20260330_festivals_source_type_organizer_portal.sql`).
 

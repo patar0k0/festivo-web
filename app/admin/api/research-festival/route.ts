@@ -1,52 +1,20 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { fetchSourceDocument } from "@/lib/admin/research/source-extract";
-import { rankSourcesAuthorityFirst } from "@/lib/admin/research/source-ranking";
+import { isGeminiConfigured } from "@/lib/admin/research/gemini-provider";
 import { normalizeResearchResult, validateDateRangeOrError } from "@/lib/admin/research/normalize";
-import { extractFestivalWithOpenAi } from "@/lib/admin/research/openai-extract";
+import { runGeminiResearchPipeline } from "@/lib/admin/research/research-pipeline";
 import type { ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
 
 function isValidationError(message: string): boolean {
   return (
     message.includes("end_date cannot be before start_date") ||
     message.includes("must be a valid date in YYYY-MM-DD format") ||
-    message.includes("query is required")
+    message.includes("query is required") ||
+    message.includes("GEMINI_API_KEY")
   );
 }
 
-async function searchWebSources(query: string): Promise<ResearchSource[]> {
-  const endpoint = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-  const response = await fetch(endpoint, {
-    method: "GET",
-    headers: {
-      "User-Agent": "festivo-research-bot/4.0",
-      Accept: "text/html",
-    },
-    signal: AbortSignal.timeout(12_000),
-  }).catch(() => null);
-
-  if (!response?.ok) return [];
-  const html = await response.text().catch(() => "");
-  if (!html) return [];
-
-  const matches = [...html.matchAll(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gim)];
-  const maybeSources: Array<ResearchSource | null> = matches.map((match) => {
-      const url = match[1]?.trim();
-      if (!url || !url.startsWith("http")) return null;
-      const title = match[2]?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || url;
-      let domain = "";
-      try {
-        domain = new URL(url).hostname.replace(/^www\./, "").toLocaleLowerCase("en-US");
-      } catch {
-        return null;
-      }
-      return { url, title, domain, is_official: false } satisfies ResearchSource;
-    });
-
-  return maybeSources.filter((source): source is ResearchSource => source !== null);
-}
-
-function lowConfidenceFallback(query: string, sources: ResearchSource[], warning: string, diagnostics: Partial<ResearchFestivalResult["metadata"]>): ResearchFestivalResult {
+function lowConfidenceFallback(query: string, sources: ResearchSource[], warning: string): ResearchFestivalResult {
   const topSource = sources[0] ?? null;
   return {
     query,
@@ -87,13 +55,10 @@ function lowConfidenceFallback(query: string, sources: ResearchSource[], warning
     warnings: [warning],
     evidence: [],
     metadata: {
-      provider: "openai_web",
+      provider: "gemini_pipeline",
       mode: "fallback_minimal",
       source_count: sources.length,
-      openai_attempted: diagnostics?.openai_attempted ?? false,
-      openai_json_parsed: diagnostics?.openai_json_parsed ?? false,
       fallback_used: true,
-      model: diagnostics?.model,
     },
     title: topSource?.title ?? null,
     description: null,
@@ -121,73 +86,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "query is required" }, { status: 400 });
   }
 
+  if (!isGeminiConfigured()) {
+    return NextResponse.json({ error: "GEMINI_API_KEY is not configured (or GOOGLE_AI_API_KEY)" }, { status: 503 });
+  }
+
   try {
-    const found = await searchWebSources(query);
-    const ranked = rankSourcesAuthorityFirst(found).slice(0, 3);
+    const normalized = await runGeminiResearchPipeline(query);
+    const dateRangeError = validateDateRangeOrError(normalized);
 
-    const extracted = await Promise.all(
-      ranked.map(async (source) => {
-        const doc = await fetchSourceDocument(source.url);
-        if (!doc?.excerpt) return null;
-        return {
-          source_url: source.url,
-          domain: source.domain,
-          title: source.title,
-          tier: source.tier ?? null,
-          language: source.language ?? doc.language ?? null,
-          excerpt: doc.excerpt,
-        };
-      }),
-    );
-
-    const preparedSources = extracted.filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
-    if (preparedSources.length === 0) {
-      const fallback = lowConfidenceFallback(query, ranked, "No extractable source text was found.", {
-        openai_attempted: false,
-        openai_json_parsed: false,
-      });
-      return NextResponse.json({ ok: true, result: fallback });
+    if (dateRangeError) {
+      const fallback = lowConfidenceFallback(query, normalized.sources, dateRangeError);
+      return NextResponse.json({ ok: true, result: normalizeResearchResult(fallback) });
     }
 
-    try {
-      const { result, diagnostics } = await extractFestivalWithOpenAi({ query, sources: preparedSources });
-      const normalized = normalizeResearchResult(result);
-      const dateRangeError = validateDateRangeOrError(normalized);
-
-      if (dateRangeError) {
-        const fallback = lowConfidenceFallback(query, normalized.sources, dateRangeError, {
-          model: diagnostics.model,
-          openai_attempted: diagnostics.attempted,
-          openai_json_parsed: diagnostics.jsonParsed,
-        });
-        return NextResponse.json({ ok: true, result: fallback });
-      }
-
-      console.info("[research:api] diagnostics", {
-        query,
-        attempted: diagnostics.attempted,
-        model: diagnostics.model,
-        source_count_sent: preparedSources.length,
-        json_parsed: diagnostics.jsonParsed,
-        accepted: diagnostics.accepted,
-      });
-
-      return NextResponse.json({ ok: true, result: normalized });
-    } catch (openAiError) {
-      const message = openAiError instanceof Error ? openAiError.message : "OpenAI extraction failed";
-      console.warn("[research:api] extraction failed", {
-        query,
-        attempted: true,
-        source_count_sent: preparedSources.length,
-        accepted: false,
-      });
-      const fallback = lowConfidenceFallback(query, ranked, `OpenAI extraction failed: ${message}`, {
-        openai_attempted: true,
-        openai_json_parsed: false,
-        model: process.env.WEB_RESEARCH_LLM_MODEL?.trim() || "gpt-4o-mini",
-      });
-      return NextResponse.json({ ok: true, result: fallback });
-    }
+    return NextResponse.json({ ok: true, result: normalized });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected research error";
     return NextResponse.json({ error: message }, { status: isValidationError(message) ? 400 : 500 });

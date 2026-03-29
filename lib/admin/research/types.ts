@@ -53,12 +53,19 @@ export type ResearchBestGuess = {
   start_date: string | null;
   end_date: string | null;
   city: string | null;
+  /** Venue / place name (maps from extraction location_name). */
   location: string | null;
   organizer: string | null;
   description: string | null;
   hero_image: string | null;
   tags: string[];
   is_free?: boolean | null;
+  website_url?: string | null;
+  facebook_url?: string | null;
+  instagram_url?: string | null;
+  ticket_url?: string | null;
+  address?: string | null;
+  category?: string | null;
 };
 
 export type ResearchConfidence = {
@@ -83,8 +90,14 @@ export type ResearchFestivalResult = {
   warnings: string[];
   evidence: ResearchEvidence[];
   metadata?: {
-    provider: "mock" | "web" | "openai_web";
-    mode: "generic_mock" | "special_case_mock" | "real_web" | "openai_structured" | "fallback_minimal";
+    provider: "mock" | "web" | "openai_web" | "gemini_pipeline";
+    mode:
+      | "generic_mock"
+      | "special_case_mock"
+      | "real_web"
+      | "openai_structured"
+      | "fallback_minimal"
+      | "gemini_multi_step";
     source_count: number;
     model?: string;
     openai_attempted?: boolean;

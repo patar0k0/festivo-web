@@ -422,7 +422,7 @@ export default function ResearchFestivalPanel() {
       <div className="h-px bg-black/[0.08]" />
 
       <div className="space-y-2">
-        <label htmlFor="research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Festival query (legacy)</label>
+        <label htmlFor="research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Festival query (Gemini pipeline)</label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input id="research-query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Сурва 2026" className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm" />
           <button type="button" onClick={runResearch} disabled={!canResearch} className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45">
@@ -434,7 +434,7 @@ export default function ResearchFestivalPanel() {
       {error ? <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
       {success ? <p className="rounded-xl border border-[#0e7a45]/20 bg-[#f0fbf4] px-3 py-2 text-sm text-[#0e7a45]">{success}</p> : null}
 
-      {!result ? <p className="text-sm text-black/55">No legacy result yet. Run legacy research to preview extracted festival data.</p> : (
+      {!result ? <p className="text-sm text-black/55">No result yet. Run research to preview extracted festival data.</p> : (
         <div className="space-y-4 rounded-xl border border-black/[0.08] bg-white p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Best guess review</p>
 

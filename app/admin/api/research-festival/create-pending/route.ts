@@ -254,6 +254,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Hero image: ${heroResolvedLegacy.error}` }, { status: 422 });
   }
 
+  const websiteFromForm = sanitizeNullableString(finalValues.website_url);
   const sharedInsertPayload: Record<string, unknown> = {
     title: finalValues.title ?? normalized.query,
     description: finalValues.description,
@@ -266,7 +267,12 @@ export async function POST(request: Request) {
     end_date: finalValues.end_date,
     is_free: finalValues.is_free,
     source_url: sourceUrl,
-    website_url: sourceUrl,
+    website_url: websiteFromForm ?? sourceUrl,
+    facebook_url: sanitizeNullableString(finalValues.facebook_url),
+    instagram_url: sanitizeNullableString(finalValues.instagram_url),
+    ticket_url: sanitizeNullableString(finalValues.ticket_url),
+    address: sanitizeNullableString(finalValues.address),
+    category: sanitizeNullableString(finalValues.category),
     source_primary_url: sourcePrimaryUrl,
     source_count: normalized.sources.length,
     evidence_json: {

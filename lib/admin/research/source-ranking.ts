@@ -28,6 +28,7 @@ function languageSignal(value: string): "bg" | "mixed" | "non_bg" {
 export function getSourceAuthorityTier(source: Pick<ResearchSource, "url" | "domain" | "title">): SourceAuthorityTier {
   const scope = `${source.domain} ${source.url} ${source.title}`.toLocaleLowerCase("bg-BG");
 
+  if (scope.includes("facebook.com/events/")) return "tier2_reputable";
   if (includesAny(scope, TIER_1_HINTS)) return "tier1_official";
   if (includesAny(scope, TIER_2_HINTS)) return "tier2_reputable";
   if (scope.includes("wikipedia") || scope.includes("wiki")) return "tier3_reference";

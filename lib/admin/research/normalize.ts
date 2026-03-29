@@ -172,6 +172,12 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     hero_image: normalizeText(rawBestGuess.hero_image),
     tags: normalizeTags(rawBestGuess.tags),
     is_free: typeof rawBestGuess.is_free === "boolean" ? rawBestGuess.is_free : null,
+    website_url: normalizeText(rawBestGuess.website_url),
+    facebook_url: normalizeText(rawBestGuess.facebook_url),
+    instagram_url: normalizeText(rawBestGuess.instagram_url),
+    ticket_url: normalizeText(rawBestGuess.ticket_url),
+    address: normalizeText(rawBestGuess.address),
+    category: normalizeText(rawBestGuess.category),
   };
 
   const normalized: ResearchFestivalResult = {
@@ -213,7 +219,10 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     metadata:
       raw.metadata && typeof raw.metadata === "object"
         ? {
-            provider: raw.metadata.provider === "web" || raw.metadata.provider === "openai_web" ? raw.metadata.provider : "mock",
+            provider:
+              raw.metadata.provider === "web" || raw.metadata.provider === "openai_web" || raw.metadata.provider === "gemini_pipeline"
+                ? raw.metadata.provider
+                : "mock",
             mode:
               raw.metadata.mode === "real_web"
                 ? "real_web"
@@ -223,7 +232,9 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
                     ? "openai_structured"
                     : raw.metadata.mode === "fallback_minimal"
                       ? "fallback_minimal"
-                      : "generic_mock",
+                      : raw.metadata.mode === "gemini_multi_step"
+                        ? "gemini_multi_step"
+                        : "generic_mock",
             source_count:
               typeof raw.metadata.source_count === "number" && Number.isFinite(raw.metadata.source_count)
                 ? Math.max(0, Math.floor(raw.metadata.source_count))

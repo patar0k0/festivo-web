@@ -113,14 +113,16 @@ Current behavior in admin edit UI:
 - вЂњUse all safe valuesвЂќ only fills missing fields
 - core moderated fields remain authoritative for save/approve
 
-Admin festival research (`/admin/api/research-festival`) uses a simplified backend flow:
-- query generation + web search
-- authority-first ranking of trustworthy Bulgarian sources
-- fetch and clean top source text excerpts
-- one structured LLM extraction call over source payloads
-- moderator review and optional insert into `pending_festivals`
+Admin festival research (`POST /admin/api/research-festival`, UI `/admin/research`) runs a **multi-step Gemini pipeline** (server-only):
+1. **Search:** Gemini with **Google Search grounding** — multiple query variants (original query, `фестивал`, `събор`, year variants via `buildGeminiPipelineQueries`) collect grounded `groundingChunks` (title, URL; snippet mirrors title when the API does not return a separate snippet).
+2. **Rank:** `lib/admin/research/search-hit-rank.ts` scores sources (Bulgarian domains, official/municipal/tourism/media/Facebook events, list-page penalties) and keeps **top 3–5** URLs.
+3. **Extract:** For each ranked URL, the server fetches page text (`fetchSourceDocument`) and runs **Gemini structured JSON** extraction (`lib/admin/research/gemini-extract.ts`) — evidence-only, unknown → null.
+4. **Validate:** `lib/admin/research/pipeline-validate.ts` enforces date sanity, title length, and clears inconsistent data with warnings.
+5. **Output:** Normalized `ResearchFestivalResult` with `best_guess`, `sources`, `evidence`, `confidence`, `warnings` (no raw model text in the API response).
 
-If LLM extraction fails/unavailable, the API returns a low-confidence minimal result with sources + warnings (preferring null over speculative values).
+**Configuration:** `GEMINI_API_KEY` (or `GOOGLE_AI_API_KEY`); optional `GEMINI_RESEARCH_MODEL` (default `gemini-2.0-flash`), `GEMINI_RESEARCH_TIMEOUT_MS`.
+
+If Gemini is not configured, the route returns **503**. If extraction yields no usable fields, the API returns a **low-confidence** minimal result with sources + warnings (preferring null over speculative values).
 
 `/api/admin/research-ai` (Perplexity-backed extraction) uses a strict structured first pass plus additive follow-up passes:
 - enrichment runs when first-pass has enough still-null factual fields (low threshold for admin UX)

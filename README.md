@@ -42,6 +42,7 @@ Environment variables (no secrets in repo):
 - `NEXT_PUBLIC_SITE_URL=https://festivo.bg`
 - `FESTIVO_PUBLIC_MODE=coming-soon` (or `live`)
 - `PERPLEXITY_API_KEY` (server-only, for admin AI research)
+- `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY` (server-only, for `/admin/api/research-festival` Gemini pipeline); optional `GEMINI_RESEARCH_MODEL`, `GEMINI_RESEARCH_TIMEOUT_MS`
 - `UPSTASH_REDIS_REST_URL` (optional, enables API POST rate limiting)
 - `UPSTASH_REDIS_REST_TOKEN` (optional, enables API POST rate limiting)
 - `CSRF_ALLOWED_HOSTS` (optional, comma-separated extra hostnames for `POST /api/*` Origin/Referer checks; Vercel sets `VERCEL_URL` automatically for preview deploys)

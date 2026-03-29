@@ -57,3 +57,26 @@ export function buildResearchQueries(query: string): string[] {
 
   return queries.slice(0, 6);
 }
+
+/** Multi-query variants for Gemini grounded search (фестивал / събор / year). */
+export function buildGeminiPipelineQueries(query: string): string[] {
+  const base = normalizeSpaces(query);
+  if (!base) return [];
+
+  const queries: string[] = [];
+  const yearsInQuery = base.match(/\b(20[2-3]\d)\b/g) ?? [];
+  const currentY = new Date().getFullYear();
+  const yearExtras = yearsInQuery.length ? yearsInQuery : [String(currentY), String(currentY + 1)];
+
+  pushUnique(queries, base);
+  pushUnique(queries, `${base} фестивал`);
+  pushUnique(queries, `${base} събор`);
+
+  for (const y of yearExtras) {
+    pushUnique(queries, `${stripYear(base)} ${y}`.trim());
+    pushUnique(queries, `${stripYear(base)} ${y} фестивал`.trim());
+    pushUnique(queries, `${stripYear(base)} ${y} събор`.trim());
+  }
+
+  return queries.slice(0, 8);
+}

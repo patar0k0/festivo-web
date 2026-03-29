@@ -66,6 +66,8 @@ These guesses are non-authoritative:
 - core pending fields remain authoritative for save/approve
 - only core moderated values are written into `festivals` during approval
 
+Admin **festival research** (`POST /admin/api/research-festival`, page `/admin/research`) uses a **Gemini multi-step pipeline** (grounded search → ranked URLs → per-page JSON extraction → validation). Env: `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY`; optional `GEMINI_RESEARCH_MODEL`.
+
 `Research with AI` extraction (`/api/admin/research-ai`) uses multiple additive passes when many fields stay null.
 - first pass returns strict structured values; follow-up passes target unresolved fields
 - later passes inherit prior `source_urls` so extracted facts are not wiped when the model omits URLs in JSON

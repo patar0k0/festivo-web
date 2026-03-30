@@ -11,9 +11,14 @@ import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
 import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorOpenAction";
-import { isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
+import { getVideoEmbedSrcFromPageUrl, isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
-import { MEDIA_LIMITS, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
+import {
+  MEDIA_LIMITS,
+  mediaPlanDisplayLabel,
+  resolveAllowedMediaLimitsFromOrganizerPlan,
+  resolveMediaPlanFromOrganizer,
+} from "@/lib/admin/mediaLimits";
 import {
   AdminFieldGrid,
   AdminFieldInlineRow,
@@ -247,10 +252,14 @@ export default function FestivalEditForm({
     return t === "video" || t.includes("video");
   };
 
-  const galleryRows = useMemo(
+  /** Matches server gallery limit count (non-video, non–is_hero rows). */
+  const galleryRowsForLimit = useMemo(
     () => initialMedia.filter((m) => !isVideoMedia(m.type) && !m.is_hero),
     [mediaSnapshot],
   );
+
+  /** All image rows for grid (includes legacy is_hero rows). */
+  const displayGalleryRows = useMemo(() => initialMedia.filter((m) => !isVideoMedia(m.type)), [mediaSnapshot]);
 
   const videoRows = useMemo(() => initialMedia.filter((m) => isVideoMedia(m.type)), [mediaSnapshot]);
 
@@ -263,7 +272,7 @@ export default function FestivalEditForm({
   const mediaPlan = useMemo(() => resolveMediaPlanFromOrganizer(primaryOrganizer), [primaryOrganizer]);
   const mediaLimits = useMemo(() => resolveAllowedMediaLimitsFromOrganizerPlan(primaryOrganizer), [primaryOrganizer]);
 
-  const galleryImageCount = galleryRows.length;
+  const galleryImageCount = galleryRowsForLimit.length;
   const videoCount = videoRows.length;
 
   const videoUrlFromServer = useMemo(() => {
@@ -274,6 +283,8 @@ export default function FestivalEditForm({
   const [galleryBusy, setGalleryBusy] = useState(false);
   const [videoBusy, setVideoBusy] = useState(false);
   const galleryFileRef = useRef<HTMLInputElement | null>(null);
+  const heroFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [heroPreviewError, setHeroPreviewError] = useState(false);
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
   const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(festival.occurrence_dates) ?? []);
   const router = useRouter();
@@ -281,6 +292,14 @@ export default function FestivalEditForm({
   useEffect(() => {
     setVideoUrl(videoUrlFromServer);
   }, [videoUrlFromServer]);
+
+  useEffect(() => {
+    setHeroPreviewError(false);
+  }, [form.hero_image]);
+
+  const videoEmbedSrc = useMemo(() => getVideoEmbedSrcFromPageUrl(videoUrl.trim()), [videoUrl]);
+
+  const planLabel = mediaPlanDisplayLabel(mediaPlan);
 
   const descriptionPreview = useMemo(() => form.description.trim(), [form.description]);
 
@@ -368,12 +387,12 @@ export default function FestivalEditForm({
     updateOrganizerIds(form.organizer_ids.filter((id) => id !== organizerId));
   };
 
-  const importHeroImageFromUrl = async () => {
+  const commitHeroFromUrl = async (sourceUrl: string) => {
     if (saving || importingHeroFromUrl || actionPending) return;
 
-    const url = form.hero_image.trim();
+    const url = sourceUrl.trim();
     if (!url) {
-      setError("Поставете URL на изображение в полето hero_image.");
+      setError("Поставете валиден URL на изображение.");
       return;
     }
     if (!/^https?:\/\//i.test(url)) {
@@ -396,19 +415,48 @@ export default function FestivalEditForm({
       const payload = (await response.json().catch(() => null)) as { ok?: boolean; hero_image?: string; error?: string } | null;
 
       if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error ?? "Неуспешен импорт на hero изображение.");
+        throw new Error(payload?.error ?? "Неуспешен импорт на главно изображение.");
       }
 
       const imported = typeof payload.hero_image === "string" ? payload.hero_image : "";
       if (imported) {
         updateField("hero_image", imported);
       }
-      setMessage("Изображението е свалено и записано в Supabase; външният линк не се пази като hero_image.");
+      setMessage("Главното изображение е обновено.");
       router.refresh();
     } catch (importErr) {
       setError(importErr instanceof Error ? importErr.message : "Възникна грешка при импорт.");
     } finally {
       setImportingHeroFromUrl(false);
+    }
+  };
+
+  const importHeroImageFromUrl = async () => {
+    await commitHeroFromUrl(form.hero_image.trim());
+  };
+
+  const uploadHeroImageFile = async (file: File) => {
+    if (galleryBusy || saving || actionPending || importingHeroFromUrl) return;
+    if (galleryImageCount >= mediaLimits.gallery) {
+      setError("Лимитът за галерия е достигнат. Използвайте полето за URL или ъпгрейд към VIP за повече снимки.");
+      return;
+    }
+    setGalleryBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/admin/api/festivals/${festival.id}/media`, { method: "POST", body: fd, credentials: "include" });
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; row?: PublishedMediaRow; error?: string } | null;
+      if (!res.ok || !payload?.ok || !payload.row?.url) {
+        throw new Error(payload?.error ?? "Качването не бе успешно.");
+      }
+      await commitHeroFromUrl(payload.row.url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Грешка при качване.");
+    } finally {
+      setGalleryBusy(false);
     }
   };
 
@@ -434,7 +482,7 @@ export default function FestivalEditForm({
     }
   };
 
-  const removeGalleryImage = async (mediaId: string) => {
+  const removeGalleryImage = async (mediaId: string, imageUrl: string) => {
     if (galleryBusy || saving || actionPending) return;
     setGalleryBusy(true);
     setMessage("");
@@ -449,6 +497,10 @@ export default function FestivalEditForm({
         throw new Error(payload?.error ?? "Премахването не бе успешно.");
       }
       setMessage("Снимката е премахната от галерията.");
+      const removedUrl = imageUrl.trim();
+      if (removedUrl && form.hero_image.trim() === removedUrl) {
+        updateField("hero_image", "");
+      }
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Грешка при премахване.");
@@ -457,9 +509,10 @@ export default function FestivalEditForm({
     }
   };
 
-  const saveVideoUrl = async () => {
+  const saveVideoUrl = async (overrideUrl?: string) => {
     if (videoBusy || saving || actionPending) return;
-    const trimmed = videoUrl.trim();
+    const raw = overrideUrl !== undefined ? overrideUrl : videoUrl;
+    const trimmed = raw.trim();
     if (trimmed && !isSupportedVideoPageUrl(trimmed)) {
       setError("Видео линкът трябва да е публичен YouTube или Facebook адрес.");
       return;
@@ -477,6 +530,9 @@ export default function FestivalEditForm({
       const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (!res.ok || !payload?.ok) {
         throw new Error(payload?.error ?? "Записът на видео не бе успешен.");
+      }
+      if (overrideUrl !== undefined) {
+        setVideoUrl(trimmed);
       }
       setMessage(trimmed ? "Видео линкът е записан." : "Видео линкът е изчистен.");
       router.refresh();
@@ -995,34 +1051,99 @@ export default function FestivalEditForm({
       </AdminFieldSection>
 
       <AdminFieldSection title={ADMIN_ENTITY_SECTION.media.title} variant={ADMIN_ENTITY_SECTION.media.variant}>
-        <label className="block">
-          <AdminFieldLabel field="heroImage" />
-          <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
+        {/* Hero */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Главно изображение</p>
+          {form.hero_image.trim() ? (
+            <div className="mt-2 overflow-hidden rounded-2xl border border-black/10 bg-black/[0.02]">
+              {heroPreviewError ? (
+                <p className="p-4 text-sm text-black/60">Прегледът не е наличен за този адрес.</p>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={form.hero_image.trim()}
+                  alt=""
+                  className="max-h-[320px] w-full object-cover"
+                  onLoad={() => setHeroPreviewError(false)}
+                  onError={() => setHeroPreviewError(true)}
+                />
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-black/45">Няма избрано главно изображение.</p>
+          )}
+          <label className="mt-3 block">
+            <AdminFieldLabel field="heroImage" />
+            <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
+          </label>
+          <input
+            ref={heroFileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void uploadHeroImageFile(f);
+            }}
+          />
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={importHeroImageFromUrl}
-              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || !form.hero_image.trim()}
+              onClick={() => importHeroImageFromUrl()}
+              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || !form.hero_image.trim()}
               className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
             >
               {importingHeroFromUrl ? "Импорт..." : "Импорт от URL"}
             </button>
+            <button
+              type="button"
+              onClick={() => heroFileInputRef.current?.click()}
+              disabled={
+                saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || galleryImageCount >= mediaLimits.gallery
+              }
+              className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+            >
+              {galleryBusy ? "Качване..." : "Качи / замени файл"}
+            </button>
+            <span
+              className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-black/[0.12] text-[10px] font-bold text-black/45"
+              title="Импортът от външен URL сваля файла на сървъра и записва публичен адрес в storage. При запис на фестивал с http(s) линк към чуждо изображение същото се случва автоматично."
+            >
+              i
+            </span>
           </div>
-          <p className="mt-2 text-xs text-black/55">
-            Импортът сваля файла на сървъра и го качва в Supabase; в базата остава само публичният адрес от storage. При запис с http(s) линк към чуждо изображение същото се случва автоматично.
-          </p>
-        </label>
+          {displayGalleryRows.length ? (
+            <label className="mt-3 block">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Избор от галерията</span>
+              <select
+                value=""
+                onChange={(e) => {
+                  const v = e.target.value;
+                  e.target.value = "";
+                  if (v) void commitHeroFromUrl(v);
+                }}
+                disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy}
+                className={`mt-1.5 ${ADMIN_ENTITY_CONTROL_CLASS}`}
+              >
+                <option value="">Избери снимка…</option>
+                {displayGalleryRows.map((row) => (
+                  <option key={row.id} value={row.url}>
+                    {row.url.length > 72 ? `${row.url.slice(0, 72)}…` : row.url}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
 
+        {/* Gallery */}
         <div className="mt-6 border-t border-black/[0.08] pt-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Галерия (допълнителни снимки)</p>
-          <p className="mt-1 text-xs text-black/50">Качи файл; не се дублира автоматично с hero — публичната страница показва галерията под хедъра.</p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-black/60">
-            <span>
-              <span className="font-semibold text-black/80">{galleryImageCount}</span> / {mediaLimits.gallery} images
-            </span>
-            <span>
-              <span className="font-semibold text-black/80">{videoCount}</span> / {mediaLimits.video} videos
-            </span>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Галерия</p>
+            <p className="text-xs text-black/60">
+              <span className="font-semibold text-black/80">{galleryImageCount}</span> / {mediaLimits.gallery} · {planLabel}
+            </p>
           </div>
           <input
             ref={galleryFileRef}
@@ -1035,63 +1156,108 @@ export default function FestivalEditForm({
               if (f) void uploadGalleryImage(f);
             }}
           />
-          <button
-            type="button"
-            onClick={() => galleryFileRef.current?.click()}
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || galleryImageCount >= mediaLimits.gallery}
-            className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
-          >
-            {galleryBusy ? "Качване..." : "Качи снимка в галерията"}
-          </button>
-          {mediaPlan === "free" && galleryImageCount >= MEDIA_LIMITS.free.gallery ? (
-            <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.gallery} images.</p>
-          ) : null}
-          {galleryRows.length ? (
-            <ul className="mt-3 space-y-2">
-              {galleryRows.map((row) => (
-                <li
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {displayGalleryRows.map((row) => {
+              const isHero = form.hero_image.trim() === row.url.trim();
+              return (
+                <div
                   key={row.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-sm"
+                  className={`group relative overflow-hidden rounded-xl border bg-black/[0.02] ${
+                    isHero ? "border-[#ff4c1f]/50 ring-2 ring-[#ff4c1f]/25" : "border-black/[0.08]"
+                  }`}
                 >
-                  <span className="min-w-0 truncate text-black/80" title={row.url}>
-                    {row.url}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void removeGalleryImage(row.id)}
-                    disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy}
-                    className="shrink-0 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-red-700 disabled:opacity-50"
-                  >
-                    Премахни
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-xs text-black/45">Няма допълнителни снимки в галерията.</p>
-          )}
+                  <div className="aspect-square w-full overflow-hidden bg-black/[0.04]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={row.url} alt="" className="h-full w-full object-cover" />
+                  </div>
+                  <div className="flex flex-col gap-1 border-t border-black/[0.06] bg-white/95 p-1.5">
+                    <button
+                      type="button"
+                      onClick={() => void commitHeroFromUrl(row.url)}
+                      disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy}
+                      className="rounded-md border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] disabled:opacity-50"
+                    >
+                      Главна
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void removeGalleryImage(row.id, row.url)}
+                      disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy}
+                      className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-red-700 disabled:opacity-50"
+                    >
+                      Премахни
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => galleryFileRef.current?.click()}
+              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || galleryImageCount >= mediaLimits.gallery}
+              className="flex aspect-square min-h-[120px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:border-black/[0.25] hover:bg-black/[0.04] disabled:opacity-50"
+            >
+              {galleryBusy ? "Качване..." : "+ Качи"}
+            </button>
+          </div>
+          {mediaPlan === "free" && galleryImageCount >= MEDIA_LIMITS.free.gallery ? (
+            <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.gallery} снимки.</p>
+          ) : null}
+          {!displayGalleryRows.length ? <p className="mt-2 text-xs text-black/45">Няма снимки в галерията.</p> : null}
         </div>
 
+        {/* Video */}
         <div className="mt-6 border-t border-black/[0.08] pt-5">
-          <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Видео (YouTube / Facebook)</span>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Видео</p>
+            <p className="text-xs text-black/60">
+              <span className="font-semibold text-black/80">{videoCount}</span> / {mediaLimits.video} · {planLabel}
+            </p>
+          </div>
+          <label className="mt-2 block">
+            <span className="sr-only">Видео URL</span>
             <input
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
               placeholder="https://www.youtube.com/watch?v=… или Facebook видео линк"
-              className={`mt-1.5 ${ADMIN_ENTITY_CONTROL_CLASS}`}
+              className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </label>
-          <button
-            type="button"
-            onClick={() => void saveVideoUrl()}
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || videoBusy}
-            className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
-          >
-            {videoBusy ? "Запис..." : "Запиши видео линк"}
-          </button>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void saveVideoUrl()}
+              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || videoBusy}
+              className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+            >
+              {videoBusy ? "Запис..." : "Запиши"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void saveVideoUrl("")}
+              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || videoBusy || !videoUrl.trim()}
+              className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+            >
+              {videoBusy ? "Запис..." : "Премахни видео"}
+            </button>
+          </div>
+          {videoEmbedSrc ? (
+            <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.08] bg-black">
+              <div className="relative aspect-video w-full">
+                <iframe
+                  title="Видео преглед"
+                  src={videoEmbedSrc}
+                  className="absolute inset-0 h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                />
+              </div>
+            </div>
+          ) : null}
           {mediaPlan === "free" && videoCount >= MEDIA_LIMITS.free.video ? (
-            <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.video} videos.</p>
+            <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.video} видеа.</p>
           ) : null}
         </div>
       </AdminFieldSection>

@@ -3,6 +3,11 @@ import { hasActiveVip, type OrganizerVipStatusRow } from "@/lib/monetization";
 
 export type MediaPlan = "free" | "vip";
 
+/** Short label for admin UI (matches plan tier naming). */
+export function mediaPlanDisplayLabel(plan: MediaPlan): string {
+  return plan === "vip" ? "VIP" : "Free";
+}
+
 export const MEDIA_LIMITS: Record<MediaPlan, { gallery: number; video: number }> = {
   free: { gallery: 3, video: 1 },
   vip: { gallery: 10, video: 2 },

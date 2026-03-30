@@ -15,8 +15,13 @@ import { listFilledPendingRecordFields, type PendingFestivalQuality } from "@/li
 import { resolvePendingDraftEditorOpenAction } from "@/lib/festival/editorOpenAction";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
-import { isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
-import { MEDIA_LIMITS, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
+import { getVideoEmbedSrcFromPageUrl, isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
+import {
+  MEDIA_LIMITS,
+  mediaPlanDisplayLabel,
+  resolveAllowedMediaLimitsFromOrganizerPlan,
+  resolveMediaPlanFromOrganizer,
+} from "@/lib/admin/mediaLimits";
 import {
   AdminFieldGrid,
   AdminFieldInlineRow,
@@ -466,8 +471,10 @@ export default function PendingFestivalEditForm({
 
   const mediaPlan = useMemo(() => resolveMediaPlanFromOrganizer(primaryOrganizer), [primaryOrganizer]);
   const mediaLimits = useMemo(() => resolveAllowedMediaLimitsFromOrganizerPlan(primaryOrganizer), [primaryOrganizer]);
+  const planLabel = mediaPlanDisplayLabel(mediaPlan);
   const galleryImageCount = galleryUrls.length;
   const videoCount = videoUrlExtra.trim().length ? 1 : 0;
+  const videoEmbedSrc = useMemo(() => getVideoEmbedSrcFromPageUrl(videoUrlExtra.trim()), [videoUrlExtra]);
 
   const [extraGalleryBusy, setExtraGalleryBusy] = useState(false);
   const [extraVideoBusy, setExtraVideoBusy] = useState(false);
@@ -1023,6 +1030,9 @@ export default function PendingFestivalEditForm({
         throw new Error(payload?.error ?? "Премахването от галерията не бе успешно.");
       }
       setGalleryUrls(payload.gallery_image_urls);
+      if (form.hero_image.trim() === url.trim()) {
+        updateField("hero_image", "");
+      }
       setMessage("Снимката е премахната от галерията.");
       router.refresh();
     } catch (e) {
@@ -1032,9 +1042,10 @@ export default function PendingFestivalEditForm({
     }
   };
 
-  const savePendingVideoExtra = async () => {
+  const savePendingVideoExtra = async (overrideUrl?: string) => {
     if (saving || runningAction || extraVideoBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
-    const trimmed = videoUrlExtra.trim();
+    const raw = overrideUrl !== undefined ? overrideUrl : videoUrlExtra;
+    const trimmed = raw.trim();
     if (trimmed && !isSupportedVideoPageUrl(trimmed)) {
       setError("Видео линкът трябва да е публичен YouTube или Facebook адрес.");
       return;
@@ -1052,6 +1063,9 @@ export default function PendingFestivalEditForm({
       const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (!res.ok || !payload?.ok) {
         throw new Error(payload?.error ?? "Записът на видео не бе успешен.");
+      }
+      if (overrideUrl !== undefined) {
+        setVideoUrlExtra(trimmed);
       }
       setMessage(trimmed ? "Видео линкът е записан." : "Видео линкът е изчистен.");
       router.refresh();
@@ -1404,18 +1418,57 @@ export default function PendingFestivalEditForm({
           </AdminFieldGrid>
         </AdminFieldSection>
 
-        <AdminFieldSection
-          title={ADMIN_ENTITY_SECTION.media.title}
-          description="Hero asset, rehosting, and ingest diagnostics."
-          variant={ADMIN_ENTITY_SECTION.media.variant}
-        >
-              <label>
-                <AdminFieldLabel field="heroImage" />
-                <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
+        <AdminFieldSection title={ADMIN_ENTITY_SECTION.media.title} variant={ADMIN_ENTITY_SECTION.media.variant}>
+              {/* Hero */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Главно изображение</p>
+                {heroImageUrl ? (
+                  <div className="mt-2 overflow-hidden rounded-2xl border border-black/10 bg-black/[0.02]">
+                    {heroPreviewError ? (
+                      <p className="p-4 text-sm text-black/60">Прегледът не е наличен за този адрес.</p>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={heroImageUrl}
+                        src={heroImageUrl}
+                        alt=""
+                        className="max-h-[320px] w-full object-cover"
+                        onLoad={() => setHeroPreviewError(false)}
+                        onError={() => setHeroPreviewError(true)}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-black/45">Няма избрано главно изображение.</p>
+                )}
+                <label className="mt-3 block">
+                  <AdminFieldLabel field="heroImage" />
+                  <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
+                </label>
+                {galleryUrls.length ? (
+                  <label className="mt-3 block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Избор от галерията</span>
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        e.target.value = "";
+                        if (v) updateField("hero_image", v);
+                      }}
+                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
+                      className={`mt-1.5 ${ADMIN_ENTITY_CONTROL_CLASS}`}
+                    >
+                      <option value="">Избери снимка…</option>
+                      {galleryUrls.map((u) => (
+                        <option key={u} value={u}>
+                          {u.length > 72 ? `${u.slice(0, 72)}…` : u}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <div className="mt-3 rounded-xl border border-black/[0.08] bg-white px-3 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Manual upload</p>
-                  <p className="mt-1 text-xs text-black/65">Use this when extraction picks a weak image. Max file size: 8MB.</p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <input ref={fileInputRef} type="file" accept="image/*" className="text-xs" />
                     <button
                       type="button"
@@ -1423,7 +1476,7 @@ export default function PendingFestivalEditForm({
                       disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
                       className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
                     >
-                      {uploadingHeroImage ? "Uploading..." : heroImageUrl ? "Replace image" : "Upload image"}
+                      {uploadingHeroImage ? "Качване..." : heroImageUrl ? "Замени файл" : "Качи файл"}
                     </button>
                     <button
                       type="button"
@@ -1431,7 +1484,7 @@ export default function PendingFestivalEditForm({
                       disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage || !heroImageUrl}
                       className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
                     >
-                      {importingHeroFromUrl ? "Importing..." : "Import from URL"}
+                      {importingHeroFromUrl ? "Импорт..." : "Импорт от URL"}
                     </button>
                     <button
                       type="button"
@@ -1444,10 +1497,10 @@ export default function PendingFestivalEditForm({
                         removingHeroImage ||
                         !canImportFromIngestOriginal
                       }
-                      title="Ползва полето Original URL по-долу (от ingest), без да го копираш в Hero image"
+                      title="Ползва полето Original URL по-долу (от ingest), без да го копираш в главното изображение"
                       className="rounded-lg border border-[#18a05e]/35 bg-[#18a05e]/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#0e7a45] disabled:opacity-50"
                     >
-                      {importingHeroFromUrl ? "Importing..." : "Import original URL"}
+                      {importingHeroFromUrl ? "Импорт..." : "Импорт от original URL"}
                     </button>
                     <button
                       type="button"
@@ -1455,73 +1508,49 @@ export default function PendingFestivalEditForm({
                       disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage || !heroImageUrl}
                       className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
                     >
-                      {removingHeroImage ? "Removing..." : "Remove image"}
+                      {removingHeroImage ? "Премахване..." : "Премахни"}
                     </button>
-                  </div>
-                  <p className="mt-2 text-xs text-black/55">
-                    Import from URL downloads the file on the server and uploads it to Supabase; only the storage public URL is stored, not the external link.{" "}
-                    <span className="text-black/65">
-                      „Import original URL“ ползва <span className="font-medium">Original URL</span> от ingest. За Facebook CDN понякога сървърът получава HTML вместо снимка — тогава отвори линка по-долу (логнат във FB), запази изображението и ползвай „Upload image“, или остави ingest да рехостне с браузър контекст.
+                    <span
+                      className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-black/[0.12] text-[10px] font-bold text-black/45"
+                      title="Импортът от външен URL сваля файла на сървъра и записва публичен адрес. За Facebook CDN понякога сървърът получава HTML вместо снимка — тогава отвори линка по-долу (логнат във FB), запази изображението и ползвай „Качи файл“, или остави ingest да рехостне с браузър контекст."
+                    >
+                      i
                     </span>
-                  </p>
-                </div>
-                <div className="mt-3 rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-xs text-black/65">
-                  <p>
-                    Selected source: <span className="font-semibold text-black/80">{heroImageSource ?? "—"}</span>
-                  </p>
-                  <p>
-                    Selected score: <span className="font-semibold text-black/80">{heroImageScore ?? "—"}</span>
-                  </p>
-                  <p className="truncate">
-                    Original URL:{" "}
-                    {heroImageOriginalUrl ? (
-                      <a href={heroImageOriginalUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#0c0e14] underline underline-offset-2">
-                        {heroImageOriginalUrl}
-                      </a>
-                    ) : (
-                      <span className="font-semibold text-black/80">—</span>
-                    )}
-                  </p>
-                  <p>
-                    Status: <span className="font-semibold text-black/80">{heroImageStatus}</span>
-                  </p>
-                </div>
-                {heroImageUrl ? (
-                  <div className="mt-3">
-                    <a href={heroImageUrl} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#0c0e14] underline underline-offset-2">
-                      Open image in new tab
-                    </a>
-                    <div className="mt-3 overflow-hidden rounded-2xl border border-black/10">
-                      {heroPreviewError ? (
-                        <p className="p-4 text-sm text-black/60">Image preview unavailable for this URL.</p>
-                      ) : (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          key={heroImageUrl}
-                          src={heroImageUrl}
-                          alt="Hero preview"
-                          className="h-auto max-h-[360px] w-full object-cover"
-                          onLoad={() => setHeroPreviewError(false)}
-                          onError={() => setHeroPreviewError(true)}
-                        />
-                      )}
-                    </div>
                   </div>
+                </div>
+                {heroImageUrl || hasHeroImageDiagnostics ? (
+                  <details className="mt-2 rounded-lg border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-xs text-black/65">
+                    <summary className="cursor-pointer font-semibold text-black/55">Подробности от извличането</summary>
+                    <p className="mt-2">
+                      Статус: <span className="font-semibold text-black/80">{heroImageStatus}</span>
+                    </p>
+                    <p>
+                      Източник: <span className="font-semibold text-black/80">{heroImageSource ?? "—"}</span>
+                    </p>
+                    <p>
+                      Оценка: <span className="font-semibold text-black/80">{heroImageScore ?? "—"}</span>
+                    </p>
+                    <p className="truncate">
+                      Original URL:{" "}
+                      {heroImageOriginalUrl ? (
+                        <a href={heroImageOriginalUrl} target="_blank" rel="noreferrer" className="font-semibold text-[#0c0e14] underline underline-offset-2">
+                          {heroImageOriginalUrl}
+                        </a>
+                      ) : (
+                        <span className="font-semibold text-black/80">—</span>
+                      )}
+                    </p>
+                  </details>
                 ) : null}
-              </label>
+              </div>
 
+              {/* Gallery */}
               <div className="mt-6 border-t border-black/[0.08] pt-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Галерия (допълнителни снимки)</p>
-                <p className="mt-1 text-xs text-black/50">
-                  Качва се в storage; при одобряване се копират в <span className="font-medium">festival_media</span>.
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-black/60">
-                  <span>
-                    <span className="font-semibold text-black/80">{galleryImageCount}</span> / {mediaLimits.gallery} images
-                  </span>
-                  <span>
-                    <span className="font-semibold text-black/80">{videoCount}</span> / {mediaLimits.video} videos
-                  </span>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Галерия</p>
+                  <p className="text-xs text-black/60">
+                    <span className="font-semibold text-black/80">{galleryImageCount}</span> / {mediaLimits.gallery} · {planLabel}
+                  </p>
                 </div>
                 <input
                   ref={galleryExtraInputRef}
@@ -1534,86 +1563,138 @@ export default function PendingFestivalEditForm({
                     if (f) void uploadPendingGalleryImage(f);
                   }}
                 />
-                <button
-                  type="button"
-                  onClick={() => galleryExtraInputRef.current?.click()}
-                  disabled={
-                    saving ||
-                    Boolean(runningAction) ||
-                    extraGalleryBusy ||
-                    uploadingHeroImage ||
-                    importingHeroFromUrl ||
-                    removingHeroImage
-                    ||
-                    galleryImageCount >= mediaLimits.gallery
-                  }
-                  className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
-                >
-                  {extraGalleryBusy ? "Качване..." : "Качи снимка в галерията"}
-                </button>
-                {mediaPlan === "free" && galleryImageCount >= MEDIA_LIMITS.free.gallery ? (
-                  <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.gallery} images.</p>
-                ) : null}
-                {galleryUrls.length ? (
-                  <ul className="mt-3 space-y-2">
-                    {galleryUrls.map((u) => (
-                      <li
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {galleryUrls.map((u) => {
+                    const isHero = heroImageUrl === u.trim();
+                    return (
+                      <div
                         key={u}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-sm"
+                        className={`group relative overflow-hidden rounded-xl border bg-black/[0.02] ${
+                          isHero ? "border-[#ff4c1f]/50 ring-2 ring-[#ff4c1f]/25" : "border-black/[0.08]"
+                        }`}
                       >
-                        <span className="min-w-0 truncate text-black/80" title={u}>
-                          {u}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => void removePendingGalleryUrl(u)}
-                          disabled={
-                            saving ||
-                            Boolean(runningAction) ||
-                            extraGalleryBusy ||
-                            uploadingHeroImage ||
-                            importingHeroFromUrl ||
-                            removingHeroImage
-                          }
-                          className="shrink-0 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-red-700 disabled:opacity-50"
-                        >
-                          Премахни
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-2 text-xs text-black/45">Няма допълнителни снимки.</p>
-                )}
+                        <div className="aspect-square w-full overflow-hidden bg-black/[0.04]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={u} alt="" className="h-full w-full object-cover" />
+                        </div>
+                        <div className="flex flex-col gap-1 border-t border-black/[0.06] bg-white/95 p-1.5">
+                          <button
+                            type="button"
+                            onClick={() => updateField("hero_image", u)}
+                            disabled={saving || Boolean(runningAction) || extraGalleryBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
+                            className="rounded-md border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] disabled:opacity-50"
+                          >
+                            Главна
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void removePendingGalleryUrl(u)}
+                            disabled={
+                              saving ||
+                              Boolean(runningAction) ||
+                              extraGalleryBusy ||
+                              uploadingHeroImage ||
+                              importingHeroFromUrl ||
+                              removingHeroImage
+                            }
+                            className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-red-700 disabled:opacity-50"
+                          >
+                            Премахни
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => galleryExtraInputRef.current?.click()}
+                    disabled={
+                      saving ||
+                      Boolean(runningAction) ||
+                      extraGalleryBusy ||
+                      uploadingHeroImage ||
+                      importingHeroFromUrl ||
+                      removingHeroImage ||
+                      galleryImageCount >= mediaLimits.gallery
+                    }
+                    className="flex aspect-square min-h-[120px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:border-black/[0.25] hover:bg-black/[0.04] disabled:opacity-50"
+                  >
+                    {extraGalleryBusy ? "Качване..." : "+ Качи"}
+                  </button>
+                </div>
+                {mediaPlan === "free" && galleryImageCount >= MEDIA_LIMITS.free.gallery ? (
+                  <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.gallery} снимки.</p>
+                ) : null}
+                {!galleryUrls.length ? <p className="mt-2 text-xs text-black/45">Няма снимки в галерията.</p> : null}
               </div>
 
+              {/* Video */}
               <div className="mt-6 border-t border-black/[0.08] pt-5">
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Видео (YouTube / Facebook)</span>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Видео</p>
+                  <p className="text-xs text-black/60">
+                    <span className="font-semibold text-black/80">{videoCount}</span> / {mediaLimits.video} · {planLabel}
+                  </p>
+                </div>
+                <label className="mt-2 block">
+                  <span className="sr-only">Видео URL</span>
                   <input
                     value={videoUrlExtra}
                     onChange={(e) => setVideoUrlExtra(e.target.value)}
                     placeholder="https://www.youtube.com/watch?v=… или Facebook видео линк"
-                    className={`mt-1.5 ${ADMIN_ENTITY_CONTROL_CLASS}`}
+                    className={ADMIN_ENTITY_CONTROL_CLASS}
                   />
                 </label>
-                <button
-                  type="button"
-                  onClick={() => void savePendingVideoExtra()}
-                  disabled={
-                    saving ||
-                    Boolean(runningAction) ||
-                    extraVideoBusy ||
-                    uploadingHeroImage ||
-                    importingHeroFromUrl ||
-                    removingHeroImage
-                  }
-                  className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
-                >
-                  {extraVideoBusy ? "Запис..." : "Запиши видео линк"}
-                </button>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void savePendingVideoExtra()}
+                    disabled={
+                      saving ||
+                      Boolean(runningAction) ||
+                      extraVideoBusy ||
+                      uploadingHeroImage ||
+                      importingHeroFromUrl ||
+                      removingHeroImage
+                    }
+                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+                  >
+                    {extraVideoBusy ? "Запис..." : "Запиши"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void savePendingVideoExtra("")}
+                    disabled={
+                      saving ||
+                      Boolean(runningAction) ||
+                      extraVideoBusy ||
+                      uploadingHeroImage ||
+                      importingHeroFromUrl ||
+                      removingHeroImage ||
+                      !videoUrlExtra.trim()
+                    }
+                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+                  >
+                    {extraVideoBusy ? "Запис..." : "Премахни видео"}
+                  </button>
+                </div>
+                {videoEmbedSrc ? (
+                  <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.08] bg-black">
+                    <div className="relative aspect-video w-full">
+                      <iframe
+                        title="Видео преглед"
+                        src={videoEmbedSrc}
+                        className="absolute inset-0 h-full w-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        loading="lazy"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                      />
+                    </div>
+                  </div>
+                ) : null}
                 {mediaPlan === "free" && videoCount >= MEDIA_LIMITS.free.video ? (
-                  <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.video} videos.</p>
+                  <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.video} видеа.</p>
                 ) : null}
               </div>
         </AdminFieldSection>

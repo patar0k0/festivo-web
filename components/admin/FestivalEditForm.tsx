@@ -14,11 +14,14 @@ import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorO
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 import {
   AdminFieldGrid,
+  AdminFieldLabel,
   AdminFieldSection,
   AdminMetaSection,
   AdminSummaryStrip,
-  ADMIN_SECTION,
+  ADMIN_ENTITY_SECTION,
+  buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
+import { ADMIN_FIELD_LABEL, getAdminFieldLabel } from "@/lib/admin/entitySchema";
 
 type FestivalRecord = {
   id: string;
@@ -584,27 +587,35 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
   const summaryOrganizer =
     selectedOrganizers[0]?.name.trim() || form.organizer_name.trim() || "—";
 
+  const updatedAtDisplay = useMemo(() => {
+    const raw = festival.updated_at;
+    if (raw == null || raw === "") return "—";
+    const d = new Date(String(raw));
+    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("bg-BG");
+  }, [festival.updated_at]);
+
+  const summaryItems = useMemo(
+    () =>
+      buildStandardSummaryStripItems({
+        status: form.status,
+        sourceLine:
+          (typeof festival.source_type === "string" ? festival.source_type : "").trim() ||
+          (form.source_url ? `${form.source_url.slice(0, 64)}${form.source_url.length > 64 ? "…" : ""}` : "—"),
+        city: form.city.trim() || form.city_id || "—",
+        startDate: form.start_date.trim() || "—",
+        organizer: summaryOrganizer,
+        contextLabel: ADMIN_FIELD_LABEL.updatedAt,
+        contextValue: updatedAtDisplay,
+      }),
+    [form.status, form.source_url, form.city, form.city_id, form.start_date, festival.source_type, summaryOrganizer, updatedAtDisplay],
+  );
+
   return (
     <form id="admin-festival-edit-form" onSubmit={onSubmit} className="space-y-5 pb-20">
       <AdminSummaryStrip
         title={form.title.trim() || "Festival"}
         eyebrow="Admin · Published festival"
-        items={[
-          { label: "Status", value: form.status },
-          {
-            label: "Source / type",
-            value:
-              (typeof festival.source_type === "string" ? festival.source_type : "").trim() ||
-              (form.source_url ? `${form.source_url.slice(0, 64)}${form.source_url.length > 64 ? "…" : ""}` : "—"),
-          },
-          { label: "City", value: form.city.trim() || form.city_id || "—" },
-          { label: "Start date", value: form.start_date.trim() || "—" },
-          { label: "Organizer", value: summaryOrganizer },
-          {
-            label: "Promotion",
-            value: form.promotion_status === "promoted" ? "Promoted" : "Normal",
-          },
-        ]}
+        items={summaryItems}
         actions={
           <>
             <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em]">
@@ -622,28 +633,32 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         }
       />
 
-      <AdminFieldSection title={ADMIN_SECTION.mainInfo} description="Published identity, listing status, category, and tags." variant="main">
+      <AdminFieldSection
+        title={ADMIN_ENTITY_SECTION.mainInfo.title}
+        description="Published identity, listing status, category, and tags."
+        variant={ADMIN_ENTITY_SECTION.mainInfo.variant}
+      >
         <AdminFieldGrid>
           <label className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">title</span>
+            <AdminFieldLabel field="title" />
             <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" required />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">slug</span>
+            <AdminFieldLabel field="slug" />
             <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">category</span>
+            <AdminFieldLabel field="category" />
             <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">tags</span>
+            <AdminFieldLabel field="tags" />
             <div className="mt-2">
               <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
             </div>
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">status</span>
+            <AdminFieldLabel field="status" />
             <select value={form.status} onChange={(e) => updateField("status", e.target.value as (typeof STATUS_OPTIONS)[number])} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2">
               {STATUS_OPTIONS.map((statusOption) => (
                 <option key={statusOption} value={statusOption}>
@@ -654,15 +669,15 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
-            is_free
+            <AdminFieldLabel field="isFree" className="normal-case tracking-normal" />
           </label>
         </AdminFieldGrid>
       </AdminFieldSection>
 
-      <AdminFieldSection title={ADMIN_SECTION.dateTime} variant="date">
+      <AdminFieldSection title={ADMIN_ENTITY_SECTION.dateTime.title} variant={ADMIN_ENTITY_SECTION.dateTime.variant}>
         <AdminFieldGrid>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">start_date</span>
+            <AdminFieldLabel field="startDate" />
             <DdMmYyyyDateInput
               value={form.start_date ?? ""}
               onChange={(iso) => updateField("start_date", iso)}
@@ -670,7 +685,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">end_date</span>
+            <AdminFieldLabel field="endDate" />
             <DdMmYyyyDateInput
               value={form.end_date ?? ""}
               onChange={(iso) => updateField("end_date", iso)}
@@ -678,7 +693,8 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">start_time (HH:mm)</span>
+            <AdminFieldLabel field="startTime" />
+            <span className="sr-only">HH:mm</span>
             <input
               type="time"
               step={60}
@@ -688,7 +704,8 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">end_time (HH:mm)</span>
+            <AdminFieldLabel field="endTime" />
+            <span className="sr-only">HH:mm</span>
             <input
               type="time"
               step={60}
@@ -698,7 +715,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             />
           </label>
           <div className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Отделни дни (по избор)</span>
+            <AdminFieldLabel field="occurrenceDays" />
             <div className="mt-2">
               <OccurrenceDaysEditor value={occurrenceDays} onChange={setOccurrenceDays} disabled={saving || Boolean(actionPending)} />
             </div>
@@ -706,14 +723,14 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         </AdminFieldGrid>
       </AdminFieldSection>
 
-      <AdminFieldSection title={ADMIN_SECTION.location} variant="location">
+      <AdminFieldSection title={ADMIN_ENTITY_SECTION.location.title} variant={ADMIN_ENTITY_SECTION.location.variant}>
         <AdminFieldGrid>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">city_id</span>
+            <AdminFieldLabel field="cityId" />
             <input value={form.city_id} onChange={(e) => updateField("city_id", e.target.value)} placeholder="напр. 68134" className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">city (display / fallback)</span>
+            <AdminFieldLabel field="cityDisplay" />
             <input
               value={form.city}
               onChange={(e) => updateField("city", e.target.value)}
@@ -722,19 +739,19 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             />
           </label>
           <label className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">location_name / venue_name</span>
+            <AdminFieldLabel field="locationName" />
             <input value={form.location_name} onChange={(e) => updateField("location_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">address</span>
+            <AdminFieldLabel field="address" />
             <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">latitude</span>
+            <AdminFieldLabel field="latitude" />
             <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">longitude</span>
+            <AdminFieldLabel field="longitude" />
             <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
         </AdminFieldGrid>
@@ -743,10 +760,10 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         </button>
       </AdminFieldSection>
 
-      <AdminFieldSection title={ADMIN_SECTION.organizer} variant="organizer">
+      <AdminFieldSection title={ADMIN_ENTITY_SECTION.organizer.title} variant={ADMIN_ENTITY_SECTION.organizer.variant}>
         <AdminFieldGrid>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizers</span>
+            <AdminFieldLabel field="organizers" />
             <div className="mt-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-3">
               <input
                 value={organizerSearch}
@@ -812,7 +829,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <p className="mt-2 text-xs text-black/55">Първият избран организатор остава compatibility organizer_id.</p>
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizer_name</span>
+            <AdminFieldLabel field="organizerName" />
             <input value={form.organizer_name} onChange={(e) => updateField("organizer_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <div className="md:col-span-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-3">
@@ -833,30 +850,30 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         </AdminFieldGrid>
       </AdminFieldSection>
 
-      <AdminFieldSection title={ADMIN_SECTION.linksSources} variant="links">
+      <AdminFieldSection title={ADMIN_ENTITY_SECTION.linksSources.title} variant={ADMIN_ENTITY_SECTION.linksSources.variant}>
         <AdminFieldGrid>
           <label className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">source_url</span>
+            <AdminFieldLabel field="sourceUrl" />
             <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">website_url</span>
+            <AdminFieldLabel field="websiteUrl" />
             <input value={form.website_url} onChange={(e) => updateField("website_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">ticket_url</span>
+            <AdminFieldLabel field="ticketUrl" />
             <input value={form.ticket_url} onChange={(e) => updateField("ticket_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">price_range</span>
+            <AdminFieldLabel field="priceRange" />
             <input value={form.price_range} onChange={(e) => updateField("price_range", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
         </AdminFieldGrid>
       </AdminFieldSection>
 
-      <AdminFieldSection title={ADMIN_SECTION.media} variant="media">
+      <AdminFieldSection title={ADMIN_ENTITY_SECTION.media.title} variant={ADMIN_ENTITY_SECTION.media.variant}>
         <label className="block">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">hero_image</span>
+          <AdminFieldLabel field="heroImage" />
           <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
@@ -874,9 +891,9 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         </label>
       </AdminFieldSection>
 
-      <AdminFieldSection title={ADMIN_SECTION.descriptionContent} variant="description">
+      <AdminFieldSection title={ADMIN_ENTITY_SECTION.descriptionContent.title} variant={ADMIN_ENTITY_SECTION.descriptionContent.variant}>
         <label className="block">
-          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">description</span>
+          <AdminFieldLabel field="description" />
           <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
         </label>
         <div className="mt-3 rounded-xl border border-black/[0.08] bg-white/80 p-3 text-sm text-black/70">
@@ -884,10 +901,10 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         </div>
       </AdminFieldSection>
 
-      <AdminMetaSection title={ADMIN_SECTION.systemMeta} description="Promotion window, listing boosts, and audit identifiers.">
+      <AdminMetaSection title={ADMIN_ENTITY_SECTION.systemMeta.title} description="Promotion window, listing boosts, and audit identifiers.">
         <AdminFieldGrid>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">promotion_status</span>
+            <AdminFieldLabel field="promotionStatus" />
             <select
               value={form.promotion_status}
               onChange={(e) => updateField("promotion_status", e.target.value as "normal" | "promoted")}
@@ -898,7 +915,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             </select>
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">promotion_started_at</span>
+            <AdminFieldLabel field="promotionStartedAt" />
             <input
               type="datetime-local"
               value={form.promotion_started_at}
@@ -907,7 +924,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">promotion_expires_at</span>
+            <AdminFieldLabel field="promotionExpiresAt" />
             <input
               type="datetime-local"
               value={form.promotion_expires_at}
@@ -916,7 +933,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             />
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">promotion_rank</span>
+            <AdminFieldLabel field="promotionRank" />
             <input
               type="number"
               value={form.promotion_rank}
@@ -932,7 +949,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           <div className="grid gap-2 md:grid-cols-2 text-sm">
             {secondaryMetadata.map(({ key, value }) => (
               <p key={key} className="text-black/70">
-                <span className="font-semibold">{key}:</span> {valueLabel(value)}
+                <span className="font-semibold">{getAdminFieldLabel(key)}:</span> {valueLabel(value)}
               </p>
             ))}
           </div>
@@ -945,7 +962,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           <div className="mt-4 space-y-3">
             {debugEntries.map(([key, value]) => (
               <div key={key}>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">{key}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">{getAdminFieldLabel(key)}</p>
                 <pre className="mt-2 overflow-x-auto rounded-xl border border-black/[0.08] bg-black/[0.02] p-3 text-xs text-black/80">{prettyJson(value)}</pre>
               </div>
             ))}

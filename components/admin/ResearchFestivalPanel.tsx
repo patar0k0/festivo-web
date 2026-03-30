@@ -10,9 +10,12 @@ import {
   AdminEntityPageShell,
   AdminFieldGrid,
   AdminFieldSection,
+  AdminFieldLabel,
   AdminSummaryStrip,
-  ADMIN_SECTION,
+  ADMIN_ENTITY_SECTION,
+  buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
+import { ADMIN_FIELD_LABEL, adminResearchAiFieldGridClass } from "@/lib/admin/entitySchema";
 
 type EditableFinalValues = ResearchBestGuess;
 
@@ -47,19 +50,24 @@ type AiEditableStringField =
   | "ticket_url"
   | "hero_image";
 
-const AI_EDITABLE_TEXT_FIELDS: Array<{ key: Exclude<AiEditableStringField, "description">; label: string; placeholder?: string; type?: "text" | "date" | "url" }> = [
-  { key: "title", label: "Title" },
-  { key: "start_date", label: "Start date", placeholder: "dd/mm/yyyy", type: "text" },
-  { key: "end_date", label: "End date", placeholder: "dd/mm/yyyy", type: "text" },
-  { key: "city", label: "City" },
-  { key: "category", label: "Category" },
-  { key: "location_name", label: "Location name" },
-  { key: "address", label: "Address" },
-  { key: "website_url", label: "Website URL", type: "url" },
-  { key: "facebook_url", label: "Facebook URL", type: "url" },
-  { key: "instagram_url", label: "Instagram URL", type: "url" },
-  { key: "ticket_url", label: "Ticket URL", type: "url" },
-  { key: "hero_image", label: "Hero image", type: "url" },
+const AI_EDITABLE_TEXT_FIELDS: Array<{
+  key: Exclude<AiEditableStringField, "description">;
+  labelKey: keyof typeof ADMIN_FIELD_LABEL;
+  placeholder?: string;
+  type?: "text" | "date" | "url";
+}> = [
+  { key: "title", labelKey: "title" },
+  { key: "start_date", labelKey: "startDate", placeholder: "dd/mm/yyyy", type: "text" },
+  { key: "end_date", labelKey: "endDate", placeholder: "dd/mm/yyyy", type: "text" },
+  { key: "city", labelKey: "city" },
+  { key: "category", labelKey: "category" },
+  { key: "location_name", labelKey: "locationName" },
+  { key: "address", labelKey: "address" },
+  { key: "website_url", labelKey: "websiteUrl", type: "url" },
+  { key: "facebook_url", labelKey: "facebookUrl", type: "url" },
+  { key: "instagram_url", labelKey: "instagramUrl", type: "url" },
+  { key: "ticket_url", labelKey: "ticketUrl", type: "url" },
+  { key: "hero_image", labelKey: "heroImage", type: "url" },
 ];
 
 const AI_MAIN_KEYS = new Set<AiEditableStringField>(["title", "category"]);
@@ -123,8 +131,9 @@ function renderAiFieldsForKeys(
   setAiDraftField: (field: AiEditableStringField, rawValue: string) => void,
 ) {
   return AI_EDITABLE_TEXT_FIELDS.filter((f) => keys.has(f.key)).map((field) => (
-    <div key={field.key} className={field.key === "address" ? "md:col-span-2" : ""}>
-      <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">{field.label}</label>
+    <div key={field.key} className={adminResearchAiFieldGridClass(field.key)}>
+      <label>
+        <AdminFieldLabel field={field.labelKey} />
       {field.key === "start_date" || field.key === "end_date" ? (
         <DdMmYyyyDateInput
           value={aiDraft[field.key] ?? ""}
@@ -146,6 +155,7 @@ function renderAiFieldsForKeys(
           If you paste an image URL, it is downloaded and stored in Supabase when you create the draft; the external link is not kept.
         </p>
       ) : null}
+      </label>
     </div>
   ));
 }
@@ -200,35 +210,38 @@ export default function ResearchFestivalPanel() {
         aiDraft.organizer_names?.find((x) => (x ?? "").trim())?.trim() ??
         aiDraft.organizer_name?.trim() ??
         "—";
-      return [
-        { label: "Status", value: `Confidence: ${confidenceLabel(aiDraft.confidence)}` },
-        { label: "Pipeline", value: "AI research" },
-        { label: "Source", value: shortText(aiDraft.source_urls[0] ?? "—") },
-        { label: "City", value: aiDraft.city?.trim() || "—" },
-        { label: "Start date", value: shortText(aiDraft.start_date ?? "—", 24) },
-        { label: "Organizer", value: shortText(org, 48) },
-      ];
+      return buildStandardSummaryStripItems({
+        status: `Confidence: ${confidenceLabel(aiDraft.confidence)}`,
+        sourceLine: shortText(aiDraft.source_urls[0] ?? "—"),
+        city: aiDraft.city?.trim() || "—",
+        startDate: shortText(aiDraft.start_date ?? "—", 24),
+        organizer: shortText(org, 48),
+        contextLabel: ADMIN_FIELD_LABEL.pipeline,
+        contextValue: "AI research",
+      });
     }
     if (result) {
       const org =
         finalValues.organizers?.find((o) => o.trim())?.trim() ?? finalValues.organizer?.trim() ?? "—";
-      return [
-        { label: "Status", value: `Gemini · ${result.confidence.overall}` },
-        { label: "Pipeline", value: "Gemini pipeline" },
-        { label: "Source", value: shortText(sourceSummary || "—") },
-        { label: "City", value: finalValues.city?.trim() || "—" },
-        { label: "Start date", value: shortText(finalValues.start_date ?? "—", 24) },
-        { label: "Organizer", value: shortText(org, 48) },
-      ];
+      return buildStandardSummaryStripItems({
+        status: String(result.confidence.overall ?? "—"),
+        sourceLine: shortText(sourceSummary || "—"),
+        city: finalValues.city?.trim() || "—",
+        startDate: shortText(finalValues.start_date ?? "—", 24),
+        organizer: shortText(org, 48),
+        contextLabel: ADMIN_FIELD_LABEL.pipeline,
+        contextValue: "Gemini pipeline",
+      });
     }
-    return [
-      { label: "Status", value: "—" },
-      { label: "Pipeline", value: "—" },
-      { label: "Source", value: "—" },
-      { label: "City", value: "—" },
-      { label: "Start date", value: "—" },
-      { label: "Organizer", value: "—" },
-    ];
+    return buildStandardSummaryStripItems({
+      status: "—",
+      sourceLine: "—",
+      city: "—",
+      startDate: "—",
+      organizer: "—",
+      contextLabel: ADMIN_FIELD_LABEL.pipeline,
+      contextValue: "—",
+    });
   }, [aiDraft, result, finalValues, sourceSummary]);
 
   const runResearch = async () => {
@@ -442,7 +455,11 @@ export default function ResearchFestivalPanel() {
     <AdminEntityPageShell>
       <AdminSummaryStrip title={summaryTitle} eyebrow={summaryEyebrow} items={summaryItems} actions={summaryActions} />
 
-      <AdminFieldSection title="Research queries" description="Run AI extraction or the Gemini multi-step pipeline." variant="default">
+      <AdminFieldSection
+        title={ADMIN_ENTITY_SECTION.researchQueries.title}
+        description="Run AI extraction or the Gemini multi-step pipeline."
+        variant={ADMIN_ENTITY_SECTION.researchQueries.variant}
+      >
         <div className="space-y-5">
           <div className="space-y-2">
             <label htmlFor="ai-research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
@@ -498,7 +515,11 @@ export default function ResearchFestivalPanel() {
 
       {aiDraft ? (
         <>
-          <AdminFieldSection title={ADMIN_SECTION.mainInfo} description="Confidence reflects extraction certainty for the AI pass." variant="main">
+          <AdminFieldSection
+            title={ADMIN_ENTITY_SECTION.mainInfo.title}
+            description="Confidence reflects extraction certainty for the AI pass."
+            variant={ADMIN_ENTITY_SECTION.mainInfo.variant}
+          >
             <div className="flex flex-wrap items-center gap-2">
               <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${confidenceBadgeStyle(aiDraft.confidence)}`}>
                 Confidence: {confidenceLabel(aiDraft.confidence)}
@@ -508,21 +529,23 @@ export default function ResearchFestivalPanel() {
             <AdminFieldGrid className="mt-4">{renderAiFieldsForKeys(AI_MAIN_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
           </AdminFieldSection>
 
-          <AdminFieldSection title={ADMIN_SECTION.dateTime} variant="date">
+          <AdminFieldSection title={ADMIN_ENTITY_SECTION.dateTime.title} variant={ADMIN_ENTITY_SECTION.dateTime.variant}>
             <AdminFieldGrid>{renderAiFieldsForKeys(AI_DATE_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
           </AdminFieldSection>
 
-          <AdminFieldSection title={ADMIN_SECTION.location} variant="location">
+          <AdminFieldSection title={ADMIN_ENTITY_SECTION.location.title} variant={ADMIN_ENTITY_SECTION.location.variant}>
             <AdminFieldGrid>{renderAiFieldsForKeys(AI_LOC_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
           </AdminFieldSection>
 
-          <AdminFieldSection title={ADMIN_SECTION.organizer} variant="organizer">
-            <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">
-              {(aiDraft.organizer_names?.filter((x) => (x ?? "").trim()).length ?? 0) <= 1 &&
-              !(aiDraft.organizer_name && !aiDraft.organizer_names?.length)
-                ? "Организатор"
-                : "Организатори"}
-            </label>
+          <AdminFieldSection title={ADMIN_ENTITY_SECTION.organizer.title} variant={ADMIN_ENTITY_SECTION.organizer.variant}>
+            <AdminFieldLabel
+              field={
+                (aiDraft.organizer_names?.filter((x) => (x ?? "").trim()).length ?? 0) <= 1 &&
+                !(aiDraft.organizer_name && !aiDraft.organizer_names?.length)
+                  ? "organizerName"
+                  : "organizers"
+              }
+            />
             <div className="mt-2 space-y-2">
               {(aiDraft.organizer_names?.length
                 ? aiDraft.organizer_names
@@ -568,10 +591,14 @@ export default function ResearchFestivalPanel() {
             </div>
           </AdminFieldSection>
 
-          <AdminFieldSection title={ADMIN_SECTION.linksSources} description="Evidence URLs from the AI pass." variant="links">
+          <AdminFieldSection
+            title={ADMIN_ENTITY_SECTION.linksSources.title}
+            description="Evidence URLs from the AI pass."
+            variant={ADMIN_ENTITY_SECTION.linksSources.variant}
+          >
             <AdminFieldGrid>{renderAiFieldsForKeys(AI_LINK_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
             <div className="mt-4 space-y-2 border-t border-black/[0.06] pt-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Source URLs</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">{ADMIN_FIELD_LABEL.sourceUrl}s</p>
               {aiDraft.source_urls.length === 0 ? (
                 <p className="text-sm text-black/60">No sources returned.</p>
               ) : (
@@ -593,18 +620,24 @@ export default function ResearchFestivalPanel() {
             </div>
           </AdminFieldSection>
 
-          <AdminFieldSection title={ADMIN_SECTION.media} variant="media">
+          <AdminFieldSection title={ADMIN_ENTITY_SECTION.media.title} variant={ADMIN_ENTITY_SECTION.media.variant}>
             <AdminFieldGrid>{renderAiFieldsForKeys(AI_MEDIA_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
           </AdminFieldSection>
 
-          <AdminFieldSection title={ADMIN_SECTION.descriptionContent} description="Warnings from the model about missing important fields." variant="description">
-            <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">Description</label>
+          <AdminFieldSection
+            title={ADMIN_ENTITY_SECTION.descriptionContent.title}
+            description="Warnings from the model about missing important fields."
+            variant={ADMIN_ENTITY_SECTION.descriptionContent.variant}
+          >
+            <label>
+              <AdminFieldLabel field="description" />
             <textarea
               value={aiDraft.description ?? ""}
               onChange={(event) => setAiDraftField("description", event.target.value)}
               rows={5}
               className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
             />
+            </label>
             <label className="mt-3 flex items-center gap-2 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-sm">
               <input
                 type="checkbox"
@@ -639,73 +672,87 @@ export default function ResearchFestivalPanel() {
 
       {result ? (
         <>
-          <AdminFieldSection title={ADMIN_SECTION.mainInfo} description="Best guess and alternative title candidates." variant="main">
+          <AdminFieldSection
+            title={ADMIN_ENTITY_SECTION.mainInfo.title}
+            description="Best guess and alternative title candidates."
+            variant={ADMIN_ENTITY_SECTION.mainInfo.variant}
+          >
             <AdminFieldGrid>
               <div className="md:col-span-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Title</label>
+                <label>
+                  <AdminFieldLabel field="title" />
                 <input
                   value={finalValues.title ?? ""}
                   onChange={(e) => setFromCandidate("title", e.target.value || null)}
                   className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
                 />
                 {renderTextCandidates("title", result.candidates.titles)}
+                </label>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Overall confidence</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">{ADMIN_FIELD_LABEL.confidence}</p>
                 <p className="mt-1 text-sm font-medium text-black/80">{result.confidence.overall}</p>
               </div>
             </AdminFieldGrid>
           </AdminFieldSection>
 
-          <AdminFieldSection title={ADMIN_SECTION.dateTime} variant="date">
+          <AdminFieldSection title={ADMIN_ENTITY_SECTION.dateTime.title} variant={ADMIN_ENTITY_SECTION.dateTime.variant}>
             <AdminFieldGrid>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Start date</label>
+                <label>
+                  <AdminFieldLabel field="startDate" />
                 <DdMmYyyyDateInput
                   value={finalValues.start_date ?? ""}
                   onChange={(iso) => setFromCandidate("start_date", iso || null)}
                   className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
                 />
+                </label>
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">End date</label>
+                <label>
+                  <AdminFieldLabel field="endDate" />
                 <DdMmYyyyDateInput
                   value={finalValues.end_date ?? ""}
                   onChange={(iso) => setFromCandidate("end_date", iso || null)}
                   className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
                 />
+                </label>
               </div>
             </AdminFieldGrid>
             <div className="mt-3">{renderDateCandidates(result.candidates.dates)}</div>
           </AdminFieldSection>
 
-          <AdminFieldSection title={ADMIN_SECTION.location} variant="location">
+          <AdminFieldSection title={ADMIN_ENTITY_SECTION.location.title} variant={ADMIN_ENTITY_SECTION.location.variant}>
             <AdminFieldGrid>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">City</label>
+                <label>
+                  <AdminFieldLabel field="city" />
                 <input
                   value={finalValues.city ?? ""}
                   onChange={(e) => setFromCandidate("city", e.target.value || null)}
                   className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
                 />
                 {renderTextCandidates("city", result.candidates.cities)}
+                </label>
               </div>
               <div className="md:col-span-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Location / venue</label>
+                <label>
+                  <AdminFieldLabel field="locationName" />
                 <input
                   value={finalValues.location ?? ""}
                   onChange={(e) => setFromCandidate("location", e.target.value || null)}
                   className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
                 />
                 {renderTextCandidates("location", result.candidates.locations)}
+                </label>
               </div>
             </AdminFieldGrid>
           </AdminFieldSection>
 
-          <AdminFieldSection title={ADMIN_SECTION.organizer} variant="organizer">
-            <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">
-              {(finalValues.organizers?.filter((o) => o.trim()).length ?? 0) <= 1 ? "Организатор" : "Организатори"}
-            </label>
+          <AdminFieldSection title={ADMIN_ENTITY_SECTION.organizer.title} variant={ADMIN_ENTITY_SECTION.organizer.variant}>
+            <AdminFieldLabel
+              field={(finalValues.organizers?.filter((o) => o.trim()).length ?? 0) <= 1 ? "organizerName" : "organizers"}
+            />
             <div className="mt-2 space-y-2">
               {(finalValues.organizers?.length ? finalValues.organizers : [""]).map((org, index) => (
                 <input
@@ -734,13 +781,17 @@ export default function ResearchFestivalPanel() {
             {renderTextCandidates("organizers", result.candidates.organizers)}
           </AdminFieldSection>
 
-          <AdminFieldSection title={ADMIN_SECTION.linksSources} variant="links">
+          <AdminFieldSection title={ADMIN_ENTITY_SECTION.linksSources.title} variant={ADMIN_ENTITY_SECTION.linksSources.variant}>
             <p className="text-sm text-black/75">
-              <span className="font-semibold">Primary source:</span> {sourceSummary}
+              <span className="font-semibold">{ADMIN_FIELD_LABEL.sourceUrl}:</span> {sourceSummary}
             </p>
           </AdminFieldSection>
 
-          <AdminFieldSection title={ADMIN_SECTION.systemMeta} description="Gemini pipeline diagnostics." variant="system">
+          <AdminFieldSection
+            title={ADMIN_ENTITY_SECTION.systemMeta.title}
+            description="Gemini pipeline diagnostics."
+            variant={ADMIN_ENTITY_SECTION.systemMeta.variant}
+          >
             <div className="space-y-1 text-sm text-black/80">
               <p>
                 <span className="font-semibold">Provider:</span> {result.metadata?.provider ?? "-"}

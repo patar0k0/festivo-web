@@ -17,10 +17,13 @@ import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpe
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import {
   AdminFieldGrid,
+  AdminFieldLabel,
   AdminFieldSection,
   AdminSummaryStrip,
-  ADMIN_SECTION,
+  ADMIN_ENTITY_SECTION,
+  buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
+import { ADMIN_FIELD_LABEL, adminLabelForSuggestionField } from "@/lib/admin/entitySchema";
 
 export type PendingFestivalRecord = {
   id: string;
@@ -239,23 +242,6 @@ function statusBadgeLabel(status: SuggestionComparisonStatus) {
   }
 
   return null;
-}
-
-function fieldLabel(field: SuggestionField) {
-  const labels: Record<SuggestionField, string> = {
-    category: "Category",
-    tags: "Tags",
-    venue_name: "Venue name",
-    city_id: "City",
-    start_date: "Start date",
-    end_date: "End date",
-    organizer_name: "Organizer name",
-    source_url: "Source URL",
-    website_url: "Website URL",
-    ticket_url: "Ticket URL",
-  };
-
-  return labels[field];
 }
 
 function normalizeSourceLabel(source: "merge" | "ai" | "deterministic") {
@@ -646,7 +632,7 @@ export default function PendingFestivalEditForm({
     for (const field of safeFields) {
       const suggestion = normalizationSuggestions.find((entry) => entry.field === field);
       if (!suggestion) {
-        skippedUnchangedOrMissing.push(fieldLabel(field));
+        skippedUnchangedOrMissing.push(adminLabelForSuggestionField(field));
         continue;
       }
 
@@ -657,13 +643,13 @@ export default function PendingFestivalEditForm({
       const canApply = comparisonStatus !== "matches" && comparisonStatus !== "empty";
 
       if (!canApply) {
-        skippedUnchangedOrMissing.push(fieldLabel(field));
+        skippedUnchangedOrMissing.push(adminLabelForSuggestionField(field));
         continue;
       }
 
       const didApply = applySuggestion(field, suggestion.value);
       if (didApply) {
-        appliedFields.push(fieldLabel(field));
+        appliedFields.push(adminLabelForSuggestionField(field));
       }
     }
 
@@ -959,21 +945,47 @@ export default function PendingFestivalEditForm({
   const summaryOrganizer =
     organizerEntries[0]?.name.trim() || form.organizer_name.trim() || "—";
 
+  const summaryItems = useMemo(() => {
+    const cityLine =
+      (normalizeDisplayValue(pendingFestival.city?.name_bg) ??
+        normalizeDisplayValue(pendingFestival.city?.slug) ??
+        form.city_id.trim()) ||
+      "—";
+    const sourceLine =
+      (form.source_type || "").trim() ||
+      (form.source_url ? `${form.source_url.slice(0, 64)}${form.source_url.length > 64 ? "…" : ""}` : "—");
+    const reviewed =
+      pendingFestival.reviewed_at != null && pendingFestival.reviewed_at !== ""
+        ? new Date(pendingFestival.reviewed_at).toLocaleString("bg-BG")
+        : "—";
+
+    return buildStandardSummaryStripItems({
+      status: form.status || "—",
+      sourceLine,
+      city: cityLine,
+      startDate: form.start_date.trim() || "—",
+      organizer: summaryOrganizer,
+      contextLabel: ADMIN_FIELD_LABEL.reviewedAt,
+      contextValue: reviewed,
+    });
+  }, [
+    pendingFestival.city?.name_bg,
+    pendingFestival.city?.slug,
+    pendingFestival.reviewed_at,
+    form.city_id,
+    form.source_type,
+    form.source_url,
+    form.start_date,
+    form.status,
+    summaryOrganizer,
+  ]);
+
   return (
     <form id="admin-pending-festival-edit" onSubmit={onSave} className="space-y-5 pb-20">
       <AdminSummaryStrip
         title={form.title.trim() || "Pending festival"}
         eyebrow="Admin · Pending festival"
-        items={[
-          { label: "Status", value: form.status || "—" },
-          {
-            label: "Source / type",
-            value: (form.source_type || "").trim() || (form.source_url ? `${form.source_url.slice(0, 64)}${form.source_url.length > 64 ? "…" : ""}` : "—"),
-          },
-          { label: "City", value: form.city_id.trim() || "—" },
-          { label: "Start date", value: form.start_date.trim() || "—" },
-          { label: "Organizer", value: summaryOrganizer },
-        ]}
+        items={summaryItems}
         actions={
           <>
             <Link
@@ -1021,33 +1033,33 @@ export default function PendingFestivalEditForm({
 
       <div className="space-y-5">
         <AdminFieldSection
-          title={ADMIN_SECTION.mainInfo}
+          title={ADMIN_ENTITY_SECTION.mainInfo.title}
           description="Title, moderation status, category, and tags."
-          variant="main"
+          variant={ADMIN_ENTITY_SECTION.mainInfo.variant}
         >
           <AdminFieldGrid>
             <label className="md:col-span-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Title</span>
+              <AdminFieldLabel field="title" />
               <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" required />
             </label>
             <label>
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Slug</span>
+              <AdminFieldLabel field="slug" />
               <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
             </label>
             <label>
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Category</span>
+              <AdminFieldLabel field="category" />
               <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
             </label>
             <label>
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Status</span>
+              <AdminFieldLabel field="status" />
               <input value={form.status} onChange={(e) => updateField("status", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
             </label>
             <label className="flex items-center gap-2 text-sm md:col-span-2">
               <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
-              is_free
+              <AdminFieldLabel field="isFree" className="normal-case tracking-normal" />
             </label>
             <div className="md:col-span-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Tags</span>
+              <AdminFieldLabel field="tags" />
               <div className="mt-2">
                 <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
               </div>
@@ -1055,10 +1067,10 @@ export default function PendingFestivalEditForm({
           </AdminFieldGrid>
         </AdminFieldSection>
 
-        <AdminFieldSection title={ADMIN_SECTION.dateTime} variant="date">
+        <AdminFieldSection title={ADMIN_ENTITY_SECTION.dateTime.title} variant={ADMIN_ENTITY_SECTION.dateTime.variant}>
           <AdminFieldGrid>
             <label>
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Start date</span>
+              <AdminFieldLabel field="startDate" />
               <DdMmYyyyDateInput
                 value={form.start_date ?? ""}
                 onChange={(iso) => updateField("start_date", iso)}
@@ -1066,7 +1078,7 @@ export default function PendingFestivalEditForm({
               />
             </label>
             <label>
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">End date</span>
+              <AdminFieldLabel field="endDate" />
               <DdMmYyyyDateInput
                 value={form.end_date ?? ""}
                 onChange={(iso) => updateField("end_date", iso)}
@@ -1074,7 +1086,7 @@ export default function PendingFestivalEditForm({
               />
             </label>
             <label>
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Начало (час, HH:mm)</span>
+              <AdminFieldLabel field="startTime" />
               <input
                 type="time"
                 step={60}
@@ -1084,7 +1096,7 @@ export default function PendingFestivalEditForm({
               />
             </label>
             <label>
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Край (час, по избор)</span>
+              <AdminFieldLabel field="endTime" />
               <input
                 type="time"
                 step={60}
@@ -1094,7 +1106,7 @@ export default function PendingFestivalEditForm({
               />
             </label>
             <div className="md:col-span-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Отделни дни (по избор)</span>
+              <AdminFieldLabel field="occurrenceDays" />
               <div className="mt-2">
                 <OccurrenceDaysEditor
                   value={occurrenceDays}
@@ -1106,10 +1118,14 @@ export default function PendingFestivalEditForm({
           </AdminFieldGrid>
         </AdminFieldSection>
 
-        <AdminFieldSection title={ADMIN_SECTION.location} description="Settlement resolution, venue, address, and map coordinates." variant="location">
+        <AdminFieldSection
+          title={ADMIN_ENTITY_SECTION.location.title}
+          description="Settlement resolution, venue, address, and map coordinates."
+          variant={ADMIN_ENTITY_SECTION.location.variant}
+        >
           <AdminFieldGrid>
             <label className="md:col-span-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City (ID / slug / name / free text)</span>
+              <AdminFieldLabel field="cityId" />
               <input
                 value={form.city_id}
                 onChange={(e) => {
@@ -1122,25 +1138,29 @@ export default function PendingFestivalEditForm({
               ) : null}
             </label>
             <label className="md:col-span-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Venue name</span>
+              <AdminFieldLabel field="locationName" />
               <input value={form.venue_name} onChange={(e) => updateField("venue_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
             </label>
             <label className="md:col-span-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Address</span>
+              <AdminFieldLabel field="address" />
               <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
             </label>
             <label>
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Latitude</span>
+              <AdminFieldLabel field="latitude" />
               <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
             </label>
             <label>
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Longitude</span>
+              <AdminFieldLabel field="longitude" />
               <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
             </label>
           </AdminFieldGrid>
         </AdminFieldSection>
 
-        <AdminFieldSection title={ADMIN_SECTION.organizer} description="Catalog links, manual names, or inline organizer creation." variant="organizer">
+        <AdminFieldSection
+          title={ADMIN_ENTITY_SECTION.organizer.title}
+          description="Catalog links, manual names, or inline organizer creation."
+          variant={ADMIN_ENTITY_SECTION.organizer.variant}
+        >
               <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] p-3">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">{orgLabel}</span>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -1231,10 +1251,14 @@ export default function PendingFestivalEditForm({
               </div>
         </AdminFieldSection>
 
-        <AdminFieldSection title={ADMIN_SECTION.linksSources} description="Canonical URLs, ingest source, and ticket links." variant="links">
+        <AdminFieldSection
+          title={ADMIN_ENTITY_SECTION.linksSources.title}
+          description="Canonical URLs, ingest source, and ticket links."
+          variant={ADMIN_ENTITY_SECTION.linksSources.variant}
+        >
           <AdminFieldGrid>
               <label className="md:col-span-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source URL</span>
+                <AdminFieldLabel field="sourceUrl" />
                 <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
                 {lastIngestSummary ? (
                   <p className="mt-2 text-xs text-black/60" title="От съответния ред в Ingest queue (същият source_url)">
@@ -1247,23 +1271,27 @@ export default function PendingFestivalEditForm({
                 ) : null}
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Website URL</span>
+                <AdminFieldLabel field="websiteUrl" />
                 <input value={form.website_url} onChange={(e) => updateField("website_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Ticket URL</span>
+                <AdminFieldLabel field="ticketUrl" />
                 <input value={form.ticket_url} onChange={(e) => updateField("ticket_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Price range</span>
+                <AdminFieldLabel field="priceRange" />
                 <input value={form.price_range} onChange={(e) => updateField("price_range", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
           </AdminFieldGrid>
         </AdminFieldSection>
 
-        <AdminFieldSection title={ADMIN_SECTION.media} description="Hero asset, rehosting, and ingest diagnostics." variant="media">
+        <AdminFieldSection
+          title={ADMIN_ENTITY_SECTION.media.title}
+          description="Hero asset, rehosting, and ingest diagnostics."
+          variant={ADMIN_ENTITY_SECTION.media.variant}
+        >
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Hero image</span>
+                <AdminFieldLabel field="heroImage" />
                 <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
                 <div className="mt-3 rounded-xl border border-black/[0.08] bg-white px-3 py-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Manual upload</p>
@@ -1364,9 +1392,13 @@ export default function PendingFestivalEditForm({
               </label>
         </AdminFieldSection>
 
-        <AdminFieldSection title={ADMIN_SECTION.descriptionContent} description="Public-facing copy and machine-normalized text." variant="description">
+        <AdminFieldSection
+          title={ADMIN_ENTITY_SECTION.descriptionContent.title}
+          description="Public-facing copy and machine-normalized text."
+          variant={ADMIN_ENTITY_SECTION.descriptionContent.variant}
+        >
               <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Description</span>
+                <AdminFieldLabel field="description" />
                 <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
         </AdminFieldSection>
@@ -1376,47 +1408,47 @@ export default function PendingFestivalEditForm({
             <p className="mt-1 text-xs text-black/60">ID, източници, verification, одит. Само за преглед.</p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">ID</span>
+                <AdminFieldLabel field="recordId" />
                 <input value={pendingFestival.id} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source primary URL</span>
+                <AdminFieldLabel field="sourcePrimaryUrl" />
                 <input value={form.source_primary_url} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source count</span>
+                <AdminFieldLabel field="sourceCount" />
                 <input value={form.source_count} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source type</span>
+                <AdminFieldLabel field="sourceType" />
                 <input value={form.source_type} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
               <label className="md:col-span-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Discovered via</span>
+                <AdminFieldLabel field="discoveredVia" />
                 <input value={form.discovered_via} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Verification status</span>
+                <AdminFieldLabel field="verificationStatus" />
                 <input value={form.verification_status} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Verification score</span>
+                <AdminFieldLabel field="verificationScore" />
                 <input value={form.verification_score} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Duplicate of</span>
+                <AdminFieldLabel field="duplicateOf" />
                 <input value={form.duplicate_of} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Created at</span>
+                <AdminFieldLabel field="createdAt" />
                 <input value={form.created_at} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Reviewed at</span>
+                <AdminFieldLabel field="reviewedAt" />
                 <input value={form.reviewed_at} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
               <label className="md:col-span-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Reviewed by</span>
+                <AdminFieldLabel field="reviewedBy" />
                 <input value={form.reviewed_by} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
             </div>
@@ -1433,31 +1465,85 @@ export default function PendingFestivalEditForm({
 
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">description_clean</span>
+                <AdminFieldLabel field="descriptionClean" />
                 <textarea value={form.description_clean} readOnly rows={3} className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">description_short</span>
+                <AdminFieldLabel field="shortDescription" />
                 <textarea value={form.description_short} readOnly rows={3} className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
               </label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">category_guess</span><input value={form.category_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">tags_guess</span><input value={form.tags_guess.join(", ")} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">city_guess</span><input value={form.city_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">is_free_guess</span><input value={pendingFestival.is_free_guess === null ? "" : pendingFestival.is_free_guess ? "true" : "false"} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">hero_image_source</span><input value={form.hero_image_source} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">title_clean</span><input value={form.title_clean} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">location_guess</span><input value={form.location_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">date_guess</span><input value={form.date_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">title_guess</span><input value={form.title_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">latitude_guess</span><input value={form.latitude_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">longitude_guess</span><input value={form.longitude_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">address_guess</span><input value={form.address_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">lat_guess</span><input value={form.lat_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">lng_guess</span><input value={form.lng_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">hero_image_original_url</span><input value={form.hero_image_original_url} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">hero_image_score</span><input value={form.hero_image_score} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">normalization_version</span><input value={form.normalization_version} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
-              <label><span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">extraction_version</span><input value={form.extraction_version} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" /></label>
+              <label>
+                <AdminFieldLabel field="categoryGuess" />
+                <input value={form.category_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <AdminFieldLabel field="tagsGuess" />
+                <input value={form.tags_guess.join(", ")} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <AdminFieldLabel field="cityGuess" />
+                <input value={form.city_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">is_free (guess)</span>
+                <input value={pendingFestival.is_free_guess === null ? "" : pendingFestival.is_free_guess ? "true" : "false"} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <AdminFieldLabel field="heroImageSource" />
+                <input value={form.hero_image_source} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <AdminFieldLabel field="titleClean" />
+                <input value={form.title_clean} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <AdminFieldLabel field="locationGuess" />
+                <input value={form.location_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <AdminFieldLabel field="dateGuess" />
+                <input value={form.date_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Title (guess)</span>
+                <input value={form.title_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Latitude (guess)</span>
+                <input value={form.latitude_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Longitude (guess)</span>
+                <input value={form.longitude_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Address (guess)</span>
+                <input value={form.address_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">lat (guess)</span>
+                <input value={form.lat_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">lng (guess)</span>
+                <input value={form.lng_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <AdminFieldLabel field="heroImageOriginalUrl" />
+                <input value={form.hero_image_original_url} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <AdminFieldLabel field="heroImageScore" />
+                <input value={form.hero_image_score} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <AdminFieldLabel field="normalizationVersion" />
+                <input value={form.normalization_version} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
+              <label>
+                <AdminFieldLabel field="extractionVersion" />
+                <input value={form.extraction_version} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+              </label>
             </div>
 
             <div className="mt-4 space-y-2">
@@ -1514,7 +1600,9 @@ export default function PendingFestivalEditForm({
                       <div key={suggestion.field} className={`rounded-xl border px-3 py-2.5 ${cardTone}`}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">{fieldLabel(suggestion.field)}</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
+                              {adminLabelForSuggestionField(suggestion.field)}
+                            </p>
                             <span className="rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/60">
                               {suggestionStateLabel(comparisonStatus, isApplied)}
                             </span>

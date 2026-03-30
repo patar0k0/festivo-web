@@ -7,8 +7,10 @@ import {
   AdminEntityPageShell,
   AdminFieldSection,
   AdminSummaryStrip,
-  ADMIN_SECTION,
+  ADMIN_ENTITY_SECTION,
+  buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
+import { ADMIN_FIELD_LABEL } from "@/lib/admin/entitySchema";
 
 type IngestJobRow = {
   id: string;
@@ -162,14 +164,15 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
     ]
       .filter(Boolean)
       .join(" · ");
-    return [
-      { label: "Status", value: statusLine || "Queue idle" },
-      { label: "Source type", value: "facebook_event" },
-      { label: "Jobs (page)", value: String(rows.length) },
-      { label: "City", value: "—" },
-      { label: "Start date", value: "—" },
-      { label: "Organizer", value: "—" },
-    ];
+    return buildStandardSummaryStripItems({
+      status: statusLine || "Queue idle",
+      sourceLine: "facebook_event",
+      city: "—",
+      startDate: "—",
+      organizer: "—",
+      contextLabel: ADMIN_FIELD_LABEL.queue,
+      contextValue: `${rows.length} ${rows.length === 1 ? "job" : "jobs"} on this page`,
+    });
   }, [rows]);
 
   return (
@@ -189,13 +192,13 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
       />
 
       <AdminFieldSection
-        title={ADMIN_SECTION.linksSources}
+        title={ADMIN_ENTITY_SECTION.linksSources.title}
         description="Paste a Facebook event URL to enqueue worker ingestion. „С FB сесия“ means the worker used a stored Facebook login (FB_STORAGE_STATE_B64)."
-        variant="links"
+        variant={ADMIN_ENTITY_SECTION.linksSources.variant}
       >
         <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-black/50">
-            Source URL (Facebook event)
+            {ADMIN_FIELD_LABEL.sourceUrl} (Facebook event)
             <input
               value={sourceUrl}
               onChange={(event) => setSourceUrl(event.target.value)}
@@ -218,9 +221,9 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
       </AdminFieldSection>
 
       <AdminFieldSection
-        title={ADMIN_SECTION.systemMeta}
+        title={ADMIN_ENTITY_SECTION.systemMeta.title}
         description="Job lifecycle, worker browser context, and links to moderation records."
-        variant="system"
+        variant={ADMIN_ENTITY_SECTION.systemMeta.variant}
       >
         <div className="overflow-x-auto rounded-xl border border-black/[0.06] bg-white/80">
         <table className="min-w-full divide-y divide-black/[0.08] text-sm">

@@ -646,19 +646,12 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <AdminFieldLabel field="title" />
             <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} required />
           </label>
-          <label>
-            <AdminFieldLabel field="slug" />
+          <AdminFieldInlineRow field="slug">
             <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
-          </label>
+          </AdminFieldInlineRow>
           <AdminFieldInlineRow field="category">
             <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </AdminFieldInlineRow>
-          <label className="md:col-span-2">
-            <AdminFieldLabel field="tags" />
-            <div className="mt-0">
-              <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
-            </div>
-          </label>
           <AdminFieldInlineRow field="status">
             <select value={form.status} onChange={(e) => updateField("status", e.target.value as (typeof STATUS_OPTIONS)[number])} className={ADMIN_ENTITY_CONTROL_CLASS}>
               {STATUS_OPTIONS.map((statusOption) => (
@@ -668,9 +661,20 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               ))}
             </select>
           </AdminFieldInlineRow>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
-            <AdminFieldLabel field="isFree" className="mb-0 inline normal-case tracking-normal" />
+          <AdminFieldInlineRow as="div" field="isFree">
+            <input
+              type="checkbox"
+              checked={form.is_free}
+              onChange={(e) => updateField("is_free", e.target.checked)}
+              className="h-4 w-4 shrink-0 rounded border border-black/20 text-[#0c0e14] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c0e14]"
+              aria-label={getAdminFieldLabel("isFree")}
+            />
+          </AdminFieldInlineRow>
+          <label className="md:col-span-2">
+            <AdminFieldLabel field="tags" />
+            <div className="mt-0">
+              <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
+            </div>
           </label>
         </AdminFieldGrid>
       </AdminFieldSection>

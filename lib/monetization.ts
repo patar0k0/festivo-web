@@ -63,7 +63,7 @@ export function hasActivePromotion(
   return true;
 }
 
-function includedForOrganizer(organizer: OrganizerVipStatusRow): number {
+function includedForOrganizer(organizer: OrganizerCreditRow): number {
   if (!hasActiveVip(organizer)) return 0;
   if (organizer.included_promotions_per_year === null || typeof organizer.included_promotions_per_year === "undefined") {
     return DEFAULT_VIP_INCLUDED_PROMOTIONS_PER_YEAR;

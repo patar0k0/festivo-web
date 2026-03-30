@@ -160,6 +160,13 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
 - Authenticated user UX keeps planning and account concerns separate: `/plan` is for saved festivals/schedule/reminders, while `/profile` is the account hub (identity, shortcuts, direct notification toggles via `/api/notification-settings`, and security actions).
 - **Festival date filtering:** when `occurrence_dates` (jsonb) holds discrete ISO days, listing/calendar/filter logic treats those days as the event schedule; otherwise overlap uses `start_date`/`end_date`. The database exposes `public.festivals_intersecting_range(from, to)` for window queries (see `scripts/sql/20260323_festival_occurrence_dates.sql`). Admin pending/published edit forms can maintain `occurrence_dates`; approve copies it into `festivals`.
 - Pending moderation records are admin-only.
+- **Monetization (organizer + event-level promotion):**
+  - `organizers.plan` supports `free` / `vip`; VIP is active by plan window (`plan_started_at`, `plan_expires_at`).
+  - Festival promotion is event-level via `festivals.promotion_status` (`normal` / `promoted`) and `promotion_rank`.
+  - Public listing priority is: promoted first, then higher `promotion_rank`, then VIP organizers, then higher `organizer_rank`, then `start_date` asc.
+  - Promotion credits are tracked yearly in `organizer_promotion_credits` (one row per organizer/year, lazy-created).
+  - Credit consumption happens only on explicit transition `promotion_status: normal -> promoted` in admin update; edits on already promoted festivals do not consume another credit.
+  - `promotion_expires_at` remains optional/nullable and is not required for promotion at this stage.
 - Public festival detail uses `FestivalGallery` when processed media items exist (replaces older inline-only gallery wiring in `FestivalDetailClient`).
 - **Public festival detail UX:** hero emphasizes a single primary action („Напомни ми“); calendar export is secondary in the same row. The rail groups „Добави в моя план“, navigation, and reminder timing without duplicating the hero CTA. Quick facts render as a compact strip when data exists.
 - **Public reminder persistence:** changing reminder timing on festival detail (`POST /api/plan/reminders`) updates `user_plan_reminders` and synchronizes pending `notification_jobs` reminders for the same user/festival (disable → cancel pending jobs; enable/change → reschedule pending jobs). Фестивалите могат да имат опционални `start_time`/`end_time` (Postgres `time`); планирането на напомнянията и legacy `/api/jobs/reminders` използват Europe/Sofia инстант от `start_date` + `start_time`, когато е зададено.

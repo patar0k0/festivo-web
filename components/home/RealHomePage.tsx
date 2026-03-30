@@ -7,6 +7,7 @@ import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import type { HomePageViewProps } from "@/lib/home/loadHomePageData";
 import { Festival } from "@/lib/types";
+import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import CitySelectClient from "./CitySelectClient";
 import NearMeCtaClient from "./NearMeCtaClient";
 import QuickChipsClient from "./QuickChipsClient";
@@ -53,6 +54,8 @@ function EventsSection({
               startDate={festival.start_date}
               endDate={festival.end_date}
               isFree={festival.is_free}
+              isPromoted={hasActivePromotion(festival)}
+              isVipOrganizer={hasActiveVip(festival.organizer)}
               description={festival.description}
               showDescription
               showDetailsButton

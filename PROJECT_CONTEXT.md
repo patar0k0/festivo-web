@@ -26,6 +26,7 @@ Public users browse verified/published festivals, while ingestion inputs first l
 - **Р”Р°С‚Рё РІ Р°РґРјРёРЅ С„РѕСЂРјРё:** РєРѕРјРїРѕРЅРµРЅС‚ `DdMmYyyyDateInput` + `lib/dates/euDateFormat.ts` Р·Р° РІСЉРІРµР¶РґР°РЅРµ/РїРѕРєР°Р·РІР°РЅРµ РІ EU РїРѕРґСЂРµРґР±Р°.
 - Admin moderation (`pending_festivals` edit/approve/reject, including multi-organizer drafts via `organizer_entries` jsonb and full `festival_organizers` sync on approve; legacy single `organizer_name` still supported)
 - Admin organizer quality controls (duplicate detection + manual merge workflow)
+- Monetization layer: organizer plans (`free`/`vip`), event-level festival promotion (`normal`/`promoted`), yearly VIP promotion credits (`organizer_promotion_credits`), and listing priority that favors promoted and VIP-ranked content
 - Admin ingest queue (`ingest_jobs` enqueue/retry/delete + job-to-record linking)
 - Admin discovery dashboard (`discovery_sources` monitoring + source activation toggles + recent `discovery_runs` visibility)
 - Planning + reminders + notifications

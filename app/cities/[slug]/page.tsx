@@ -13,6 +13,7 @@ import { festivalCityLabel, formatSettlementDisplayName } from "@/lib/settlement
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { getBaseUrl } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import "../../landing.css";
 
 export const revalidate = 21600;
@@ -205,6 +206,8 @@ export default async function CityLandingPage({
                         startDate={festival.start_date}
                         endDate={festival.end_date}
                         isFree={festival.is_free}
+                        isPromoted={hasActivePromotion(festival)}
+                        isVipOrganizer={hasActiveVip(festival.organizer)}
                         description={festival.description}
                         showDescription
                         showDetailsButton

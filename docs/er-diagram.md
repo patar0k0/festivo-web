@@ -63,6 +63,10 @@ erDiagram
     text source_type
     text status
     boolean is_verified
+    text promotion_status
+    timestamptz promotion_started_at
+    timestamptz promotion_expires_at
+    int promotion_rank
   }
 
   festival_days {
@@ -93,8 +97,23 @@ erDiagram
 
   organizers {
     uuid id PK
+    text plan
+    timestamptz plan_started_at
+    timestamptz plan_expires_at
+    int included_promotions_per_year
+    int organizer_rank
     boolean is_active
     uuid merged_into FK
+  }
+
+  organizer_promotion_credits {
+    uuid id PK
+    uuid organizer_id FK
+    int credit_year
+    int included_total
+    int used_total
+    timestamptz created_at
+    timestamptz updated_at
   }
 
   organizer_members {
@@ -217,6 +236,7 @@ erDiagram
   festivals ||--o{ festival_organizers : has
   organizers ||--o{ festival_organizers : linked_to
   organizers ||--o{ organizer_members : has_member
+  organizers ||--o{ organizer_promotion_credits : yearly_credits
   auth_users ||--o{ organizer_members : manages
 
   festivals ||--o{ user_plan_festivals : planned

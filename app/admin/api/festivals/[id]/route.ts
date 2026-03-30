@@ -8,6 +8,7 @@ import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 import { normalizeOrganizerIds, syncFestivalOrganizers } from "@/lib/festivalOrganizers";
 import { mergeOccurrenceDatesWithRange } from "@/lib/festival/occurrenceDates";
 import { scheduleFestivalUpdateNotifications } from "@/lib/notifications/triggers";
+import { consumePromotionCredit, getRemainingPromotionCredits, hasActiveVip } from "@/lib/monetization";
 
 
 type SaveResponse = {
@@ -88,7 +89,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { data: beforeFestival } = await ctx.supabase
       .from("festivals")
-      .select("start_date,end_date,start_time,end_time,city,city_id,address,title,occurrence_dates,status")
+      .select("start_date,end_date,start_time,end_time,city,city_id,address,title,occurrence_dates,status,promotion_status,organizer_id")
       .eq("id", id)
       .maybeSingle();
 
@@ -144,6 +145,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         return NextResponse.json({ error: "Invalid promotion_status" }, { status: 400 });
       }
     }
+
+    const beforePromotionStatus =
+      beforeFestival && typeof beforeFestival === "object" && "promotion_status" in beforeFestival
+        ? (beforeFestival.promotion_status as string | null)
+        : null;
+    const afterPromotionStatus =
+      typeof patch.promotion_status === "string" ? patch.promotion_status : beforePromotionStatus;
+    const shouldConsumePromotionCredit = beforePromotionStatus === "normal" && afterPromotionStatus === "promoted";
 
     if ("promotion_started_at" in body) {
       const parsedPromotionStartedAt = parseDatetimeStringOrNull(body.promotion_started_at);
@@ -201,6 +210,52 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         }
 
         patch.organizer_name = organizer?.name ?? patch.organizer_name ?? null;
+      }
+    }
+
+    let vipOrganizerForCreditConsumption: {
+      id: string;
+      plan: string | null;
+      plan_started_at: string | null;
+      plan_expires_at: string | null;
+      included_promotions_per_year: number | null;
+    } | null = null;
+
+    if (shouldConsumePromotionCredit) {
+      const beforeOrganizerId =
+        beforeFestival && typeof beforeFestival === "object" && "organizer_id" in beforeFestival
+          ? (beforeFestival.organizer_id as string | null)
+          : null;
+      const organizerIdForPromotion =
+        typeof patch.organizer_id === "string" && patch.organizer_id.trim().length > 0
+          ? patch.organizer_id
+          : beforeOrganizerId;
+
+      if (organizerIdForPromotion) {
+        const { data: organizer, error: organizerError } = await ctx.supabase
+          .from("organizers")
+          .select("id,plan,plan_started_at,plan_expires_at,included_promotions_per_year")
+          .eq("id", organizerIdForPromotion)
+          .maybeSingle<{
+            id: string;
+            plan: string | null;
+            plan_started_at: string | null;
+            plan_expires_at: string | null;
+            included_promotions_per_year: number | null;
+          }>();
+
+        if (organizerError) {
+          return NextResponse.json({ error: organizerError.message }, { status: 500 });
+        }
+
+        if (organizer && hasActiveVip(organizer)) {
+          const creditYear = new Date().getUTCFullYear();
+          const remainingCredits = await getRemainingPromotionCredits(ctx.supabase, organizer, creditYear);
+          if (remainingCredits <= 0) {
+            return NextResponse.json({ error: "No remaining VIP promotion credits for this year." }, { status: 409 });
+          }
+          vipOrganizerForCreditConsumption = organizer;
+        }
       }
     }
 
@@ -297,6 +352,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (shouldConsumePromotionCredit && vipOrganizerForCreditConsumption) {
+      const creditYear = new Date().getUTCFullYear();
+      const consumed = await consumePromotionCredit(ctx.supabase, vipOrganizerForCreditConsumption, creditYear);
+      if (!consumed) {
+        return NextResponse.json({ error: "No remaining VIP promotion credits for this year." }, { status: 409 });
+      }
     }
 
     const { data: afterFestival } = await ctx.supabase

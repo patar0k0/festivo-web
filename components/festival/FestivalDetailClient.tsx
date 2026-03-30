@@ -28,6 +28,7 @@ import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from 
 import { formatFestivalDateLineLongBg, primaryFestivalDate } from "@/lib/festival/listingDates";
 import { FESTIVAL_PROGRAM_SECTION_ID } from "@/lib/festival/programmeAnchor";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";
+import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 
 const REMINDER_BLOCK_ID = "festival-reminder-block";
 
@@ -374,6 +375,12 @@ export default function FestivalDetailClient({
                 {cityOrLocationText ? <span className="rounded-full bg-black/40 px-2.5 py-0.5">{cityOrLocationText}</span> : null}
                 {categoryText ? <span className="rounded-full bg-black/40 px-2.5 py-0.5">{categoryText}</span> : null}
                 {showFreeBadge ? <span className="rounded-full bg-[#0f8a4d]/70 px-2.5 py-0.5 text-white">Безплатен вход</span> : null}
+                {hasActivePromotion(festival) ? (
+                  <span className="rounded-full bg-amber-500/70 px-2.5 py-0.5 text-white">Промотирано</span>
+                ) : null}
+                {hasActiveVip(festival.organizer) ? (
+                  <span className="rounded-full bg-violet-500/70 px-2.5 py-0.5 text-white">VIP организатор</span>
+                ) : null}
                 {showPriceRange ? <span className="rounded-full bg-black/45 px-2.5 py-0.5">{priceRange}</span> : null}
                 <a
                   href={`#${FESTIVAL_PROGRAM_SECTION_ID}`}
@@ -576,6 +583,8 @@ export default function FestivalDetailClient({
                       endDate={item.end_date}
                       dateLine={formatFestivalDateLineLongBg(item)}
                       isFree={item.is_free}
+                      isPromoted={hasActivePromotion(item)}
+                      isVipOrganizer={hasActiveVip(item.organizer)}
                     />
                   </Link>
                 ))}
@@ -779,6 +788,12 @@ export default function FestivalDetailClient({
                         ))}
                       </ul>
                     </dd>
+                  </div>
+                ) : null}
+                {hasActiveVip(festival.organizer) ? (
+                  <div>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Баджове</dt>
+                    <dd className="mt-1 text-black/70">VIP организатор</dd>
                   </div>
                 ) : null}
               </dl>

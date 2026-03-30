@@ -31,6 +31,8 @@ type EventCardProps = {
   /** When set, replaces the default start/end date line (e.g. multiple discrete days). */
   dateLine?: string | null;
   isFree?: boolean | null;
+  isPromoted?: boolean | null;
+  isVipOrganizer?: boolean | null;
   description?: string | null;
   showDetailsButton?: boolean;
   detailsHref?: string;
@@ -118,6 +120,8 @@ export default function EventCard({
   endDate,
   dateLine,
   isFree,
+  isPromoted,
+  isVipOrganizer,
   description,
   detailsHref,
   showDescription = false,
@@ -229,6 +233,16 @@ export default function EventCard({
 
         {urgencyTag || signalTag ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
+            {isPromoted ? (
+              <span className="rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-amber-800">
+                Промотирано
+              </span>
+            ) : null}
+            {isVipOrganizer ? (
+              <span className="rounded-full border border-violet-300/70 bg-violet-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-violet-800">
+                VIP организатор
+              </span>
+            ) : null}
             {urgencyTag ? (
               <span className="rounded-full border border-black/[0.08] bg-black/[0.03] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-black/65">
                 {urgencyTag}

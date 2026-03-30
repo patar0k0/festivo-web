@@ -12,12 +12,14 @@ import { fixFestivalText } from "@/lib/queries";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";
+import { sortFestivalsForListing } from "@/lib/festival/sorting";
+import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import "../landing.css";
 
 export const revalidate = 3600;
 
 const FESTIVAL_SELECT =
-  "id,title,slug,city_id,city,start_date,end_date,occurrence_dates,category,hero_image,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(slug,name_bg,is_village)";
+  "id,title,slug,city_id,city,start_date,end_date,occurrence_dates,category,hero_image,image_url,is_free,status,is_verified,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(slug,name_bg,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
 const PAGE_SIZE = 12;
 const HAS_TAGS_COLUMN = true;
 
@@ -141,7 +143,7 @@ export default async function FestivalsPage({
   const pageRaw = Number(getParam(searchParams, "page") ?? "1");
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
   const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const to = from + PAGE_SIZE;
 
   let festivals: FestivalWithCity[] = [];
   let total = 0;
@@ -156,8 +158,7 @@ export default async function FestivalsPage({
       .from("festivals")
       .select(FESTIVAL_SELECT, { count: "exact" })
       .or("status.eq.published,status.eq.verified,is_verified.eq.true")
-      .neq("status", "archived")
-      .order("start_date", { ascending: true });
+      .neq("status", "archived");
 
     if (city) {
       query = query.eq("cities.slug", city);
@@ -208,12 +209,14 @@ export default async function FestivalsPage({
       }
     }
 
-    const { data, count, error } = await query.range(from, to).returns<FestivalWithCity[]>();
+    const { data, count, error } = await query.returns<FestivalWithCity[]>();
 
     if (error) {
       queryError = JSON.stringify(error, null, 2);
     } else {
-      festivals = (data ?? []).map((row) => fixFestivalText(row as Festival));
+      const normalized = (data ?? []).map((row) => fixFestivalText(row as Festival));
+      const sorted = sortFestivalsForListing(normalized);
+      festivals = sorted.slice(from, to);
       total = count ?? 0;
       totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     }
@@ -334,6 +337,8 @@ export default async function FestivalsPage({
                         startDate={festival.start_date}
                         endDate={festival.end_date}
                         isFree={festival.is_free}
+                        isPromoted={hasActivePromotion(festival)}
+                        isVipOrganizer={hasActiveVip(festival.organizer)}
                         description={festival.description}
                         showDescription
                         showDetailsButton

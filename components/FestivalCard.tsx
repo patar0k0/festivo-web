@@ -8,6 +8,7 @@ import { AppleCard, AppleCardBody, AppleCardHeader } from "@/components/apple/Ap
 import ApplePill from "@/components/apple/ApplePill";
 import Heading from "@/components/ui/Heading";
 import Text from "@/components/ui/Text";
+import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 
 export default function FestivalCard({ festival }: { festival: Festival }) {
   const heroImage = getFestivalHeroImage(festival);
@@ -35,6 +36,8 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
             {festival.title}
           </Heading>
           <div className="flex flex-wrap gap-2">
+            {hasActivePromotion(festival) ? <ApplePill active>Промотирано</ApplePill> : null}
+            {hasActiveVip(festival.organizer) ? <ApplePill>VIP организатор</ApplePill> : null}
             {festival.is_free ? <ApplePill active>Free</ApplePill> : null}
             {festival.category ? <ApplePill>{festival.category}</ApplePill> : null}
           </div>

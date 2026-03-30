@@ -8,12 +8,14 @@ import FallbackImage from "@/components/ui/FallbackImage";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Festival, OrganizerProfile } from "@/lib/types";
 import { getBaseUrl } from "@/lib/seo";
+import { sortFestivalsForListing } from "@/lib/festival/sorting";
+import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import "../../landing.css";
 
 export const revalidate = 21600;
 
 const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city,start_date,end_date,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order)";
+  "id,title,slug,city,start_date,end_date,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
 
 async function getOrganizerWithFestivals(slug: string): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
   const supabase = await createSupabaseServerClient();
@@ -22,7 +24,7 @@ async function getOrganizerWithFestivals(slug: string): Promise<{ organizer: Org
 
   const { data: organizer, error: organizerError } = await supabase
     .from("organizers")
-    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,verified")
+    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,verified,plan,plan_started_at,plan_expires_at,included_promotions_per_year,organizer_rank")
     .eq("slug", slug)
     .maybeSingle<OrganizerProfile>();
 
@@ -55,7 +57,7 @@ async function getOrganizerWithFestivals(slug: string): Promise<{ organizer: Org
     throw new Error(festivalsError.message);
   }
 
-  return { organizer, festivals: festivals ?? [] };
+  return { organizer, festivals: sortFestivalsForListing(festivals ?? []) };
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -122,6 +124,11 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700 ring-1 ring-emerald-100">
                         <span aria-hidden="true">✓</span>
                         Потвърден организатор
+                      </span>
+                    ) : null}
+                    {hasActiveVip(organizer) ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 font-semibold text-amber-700 ring-1 ring-amber-100">
+                        VIP организатор
                       </span>
                     ) : null}
                   </div>
@@ -199,6 +206,8 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                       startDate={festival.start_date}
                       endDate={festival.end_date}
                       isFree={festival.is_free}
+                      isPromoted={hasActivePromotion(festival)}
+                      isVipOrganizer={hasActiveVip(festival.organizer)}
                       detailsHref={`/festivals/${festival.slug}`}
                     />
                   ))}

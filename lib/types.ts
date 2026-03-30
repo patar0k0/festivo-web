@@ -34,6 +34,10 @@ export type Festival = {
   source_type?: string | null;
   tags?: string[] | null;
   status?: string | null;
+  promotion_status?: "normal" | "promoted" | null;
+  promotion_started_at?: string | null;
+  promotion_expires_at?: string | null;
+  promotion_rank?: number | null;
   cities?: {
     name_bg?: string | null;
     slug?: string | null;
@@ -43,6 +47,10 @@ export type Festival = {
     id?: string | null;
     name?: string | null;
     slug?: string | null;
+    plan?: "free" | "vip" | null;
+    plan_started_at?: string | null;
+    plan_expires_at?: string | null;
+    organizer_rank?: number | null;
   } | null;
   organizers?: Array<{
     id?: string | null;
@@ -119,5 +127,10 @@ export type OrganizerProfile = {
   } | null;
   city_name_display?: string | null;
   claimed_events_count?: number | null;
+  plan?: "free" | "vip" | null;
+  plan_started_at?: string | null;
+  plan_expires_at?: string | null;
+  included_promotions_per_year?: number | null;
+  organizer_rank?: number | null;
   created_at?: string | null;
 };

@@ -6,6 +6,7 @@ import EventCard from "@/components/ui/EventCard";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
+import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 
 type MapResultsListProps = {
   festivals: Festival[];
@@ -59,6 +60,8 @@ export default function MapResultsList({
               startDate={festival.start_date}
               endDate={festival.end_date}
               isFree={festival.is_free}
+              isPromoted={hasActivePromotion(festival)}
+              isVipOrganizer={hasActiveVip(festival.organizer)}
               description={festival.description}
               showDescription
               detailsHref={`/festivals/${festival.slug}`}

@@ -7,12 +7,13 @@ import { withDefaultFilters } from "@/lib/filters";
 import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
+import { sortFestivalsForListing } from "@/lib/festival/sorting";
 
 export const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city_id,city,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(name_bg,slug,is_village)";
+  "id,title,slug,city_id,city,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,city,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,city,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
 
 const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -202,13 +203,7 @@ function applyFilters<T extends FilterQuery<T>>(
     typedQuery = typedQuery.lte("start_date", applied.to);
   }
 
-  if (applied.sort === "curated") {
-    typedQuery = typedQuery.order("start_date", { ascending: true });
-  } else if (applied.sort === "nearest") {
-    typedQuery = typedQuery.order("start_date", { ascending: true });
-  } else {
-    typedQuery = typedQuery.order("start_date", { ascending: true });
-  }
+  typedQuery = typedQuery.order("start_date", { ascending: true });
 
   return typedQuery;
 }
@@ -253,7 +248,7 @@ export async function getFestivals(
 ): Promise<PaginatedResult<Festival>> {
   const supabase = supabaseServer();
   const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
+  const to = from + pageSize;
 
   if (!supabase) {
     return {
@@ -268,15 +263,18 @@ export async function getFestivals(
   const dateResolution = await resolveFestivalDateFilterIds(supabase, filters, options);
   let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN, { count: "exact" });
   query = applyFilters(query, filters, options, dateResolution);
-  const { data, count, error } = await query.range(from, to).returns<Festival[]>();
+  const { data, count, error } = await query.returns<Festival[]>();
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const total = count ?? 0;
+  const normalized = (data ?? []).map(fixFestivalText);
+  const sorted = sortFestivalsForListing(normalized);
+  const paginated = sorted.slice(from, to);
+  const total = count ?? sorted.length;
   return {
-    data: (data ?? []).map(fixFestivalText),
+    data: paginated,
     page,
     pageSize,
     total,
@@ -406,20 +404,20 @@ export async function getCalendarMonth(month: string, filters: Filters, options?
   }
 
   const days: Record<string, Festival[]> = {};
-  (data ?? []).forEach((festival) => {
+  const sortedData = sortFestivalsForListing((data ?? []).map(fixFestivalText));
+  sortedData.forEach((festival) => {
     const keys = festivalDayKeysInMonth(festival, monthStart, monthEnd);
     if (!keys.length) return;
-    const fixed = fixFestivalText(festival);
     for (const key of keys) {
       if (!days[key]) days[key] = [];
-      days[key].push(fixed);
+      days[key].push(festival);
     }
   });
 
   return {
     monthStart,
     monthEnd,
-    festivals: (data ?? []).map(fixFestivalText),
+    festivals: sortedData,
     days,
   };
 }
@@ -629,12 +627,13 @@ export async function getOrganizerWithFestivals(
 
   return {
     organizer: fixedOrganizer,
-    festivals: (festivals ?? [])
-      .map(fixFestivalText)
-      .sort((a, b) => {
+    festivals: (() => {
+      const listingSorted = sortFestivalsForListing((festivals ?? []).map(fixFestivalText));
+      return listingSorted.sort((a, b) => {
         const bySort = (sortOrderByFestivalId.get(String(a.id)) ?? 9999) - (sortOrderByFestivalId.get(String(b.id)) ?? 9999);
         if (bySort !== 0) return bySort;
-        return (a.start_date ?? "").localeCompare(b.start_date ?? "");
-      }),
+        return 0;
+      });
+    })(),
   };
 }

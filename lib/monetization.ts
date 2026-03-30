@@ -1,6 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type OrganizerMonetizationRow = {
+type OrganizerVipStatusRow = {
+  id?: string | null;
+  plan?: string | null;
+  plan_started_at?: string | null;
+  plan_expires_at?: string | null;
+  included_promotions_per_year?: number | null;
+};
+
+type OrganizerCreditRow = {
   id: string;
   plan?: string | null;
   plan_started_at?: string | null;
@@ -23,12 +31,12 @@ type PromotionStatusRow = {
 
 const DEFAULT_VIP_INCLUDED_PROMOTIONS_PER_YEAR = 3;
 
-export function isVipOrganizer(organizer: OrganizerMonetizationRow | null | undefined): boolean {
+export function isVipOrganizer(organizer: OrganizerVipStatusRow | null | undefined): boolean {
   return organizer?.plan === "vip";
 }
 
 export function hasActiveVip(
-  organizer: OrganizerMonetizationRow | null | undefined,
+  organizer: OrganizerVipStatusRow | null | undefined,
   nowDate: Date = new Date(),
 ): boolean {
   if (!isVipOrganizer(organizer)) return false;
@@ -55,7 +63,7 @@ export function hasActivePromotion(
   return true;
 }
 
-function includedForOrganizer(organizer: OrganizerMonetizationRow): number {
+function includedForOrganizer(organizer: OrganizerVipStatusRow): number {
   if (!hasActiveVip(organizer)) return 0;
   if (organizer.included_promotions_per_year === null || typeof organizer.included_promotions_per_year === "undefined") {
     return DEFAULT_VIP_INCLUDED_PROMOTIONS_PER_YEAR;
@@ -68,9 +76,13 @@ function includedForOrganizer(organizer: OrganizerMonetizationRow): number {
 
 async function getOrCreatePromotionCreditsRow(
   supabase: SupabaseClient,
-  organizer: OrganizerMonetizationRow,
+  organizer: OrganizerCreditRow,
   year: number,
 ): Promise<OrganizerPromotionCreditsRow> {
+  if (!organizer.id) {
+    throw new Error("Organizer id is required for promotion credit operations.");
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from("organizer_promotion_credits")
     .select("organizer_id,credit_year,included_total,used_total")
@@ -120,18 +132,24 @@ async function getOrCreatePromotionCreditsRow(
 
 export async function getRemainingPromotionCredits(
   supabase: SupabaseClient,
-  organizer: OrganizerMonetizationRow,
+  organizer: OrganizerCreditRow,
   year: number,
 ): Promise<number> {
+  if (!organizer.id) {
+    throw new Error("Organizer id is required for promotion credit operations.");
+  }
   const row = await getOrCreatePromotionCreditsRow(supabase, organizer, year);
   return Math.max(0, row.included_total - row.used_total);
 }
 
 export async function consumePromotionCredit(
   supabase: SupabaseClient,
-  organizer: OrganizerMonetizationRow,
+  organizer: OrganizerCreditRow,
   year: number,
 ): Promise<boolean> {
+  if (!organizer.id) {
+    throw new Error("Organizer id is required for promotion credit operations.");
+  }
   const row = await getOrCreatePromotionCreditsRow(supabase, organizer, year);
   if (row.used_total >= row.included_total) {
     return false;

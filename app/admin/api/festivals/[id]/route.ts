@@ -89,7 +89,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { data: beforeFestival } = await ctx.supabase
       .from("festivals")
-      .select("start_date,end_date,start_time,end_time,city,city_id,address,title,occurrence_dates,status,promotion_status,organizer_id")
+      .select(
+        "start_date,end_date,start_time,end_time,city,city_id,address,title,occurrence_dates,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,organizer_id"
+      )
       .eq("id", id)
       .maybeSingle();
 
@@ -358,7 +360,43 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const creditYear = new Date().getUTCFullYear();
       const consumed = await consumePromotionCredit(ctx.supabase, vipOrganizerForCreditConsumption, creditYear);
       if (!consumed) {
-        return NextResponse.json({ error: "No remaining VIP promotion credits for this year." }, { status: 409 });
+        const rollbackPatch: Record<string, unknown> = {
+          promotion_status: beforePromotionStatus,
+        };
+        if (Object.prototype.hasOwnProperty.call(patch, "promotion_started_at")) {
+          rollbackPatch.promotion_started_at =
+            beforeFestival && typeof beforeFestival === "object" && "promotion_started_at" in beforeFestival
+              ? (beforeFestival.promotion_started_at as string | null)
+              : null;
+        }
+        if (Object.prototype.hasOwnProperty.call(patch, "promotion_expires_at")) {
+          rollbackPatch.promotion_expires_at =
+            beforeFestival && typeof beforeFestival === "object" && "promotion_expires_at" in beforeFestival
+              ? (beforeFestival.promotion_expires_at as string | null)
+              : null;
+        }
+        if (Object.prototype.hasOwnProperty.call(patch, "promotion_rank")) {
+          rollbackPatch.promotion_rank =
+            beforeFestival && typeof beforeFestival === "object" && "promotion_rank" in beforeFestival
+              ? (beforeFestival.promotion_rank as number | null)
+              : null;
+        }
+
+        const { error: rollbackError } = await ctx.supabase.from("festivals").update(rollbackPatch).eq("id", id);
+        if (rollbackError) {
+          return NextResponse.json(
+            {
+              error:
+                "VIP promotion credit consumption failed after update, and automatic rollback failed. Festival promotion may need manual admin correction.",
+            },
+            { status: 500 }
+          );
+        }
+
+        return NextResponse.json(
+          { error: "No remaining VIP promotion credits for this year. Festival promotion update was rolled back." },
+          { status: 409 }
+        );
       }
     }
 

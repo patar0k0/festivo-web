@@ -185,7 +185,7 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
         actions={
           <Link
             href="/admin/research"
-            className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.03]"
+            className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.03]"
           >
             Research festival
           </Link>
@@ -230,14 +230,14 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
         <table className="min-w-full divide-y divide-black/[0.08] text-sm">
           <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
             <tr>
-              <th className="px-3 py-3">Status</th>
-              <th className="px-3 py-3">FB браузър</th>
-              <th className="px-3 py-3">Source URL</th>
-              <th className="px-3 py-3">Created</th>
-              <th className="px-3 py-3">Started</th>
-              <th className="px-3 py-3">Finished</th>
-              <th className="px-3 py-3">Error</th>
-              <th className="px-3 py-3 text-right">Actions</th>
+              <th className="px-2.5 py-2">Status</th>
+              <th className="px-2.5 py-2">FB браузър</th>
+              <th className="px-2.5 py-2">Source URL</th>
+              <th className="px-2.5 py-2">Created</th>
+              <th className="px-2.5 py-2">Started</th>
+              <th className="px-2.5 py-2">Finished</th>
+              <th className="px-2.5 py-2">Error</th>
+              <th className="px-2.5 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/[0.06]">
@@ -269,20 +269,20 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
 
                 return (
                   <tr key={row.id} className="hover:bg-black/[0.02]">
-                    <td className="px-3 py-3 text-black/75">{workflowState}</td>
-                    <td className="px-3 py-3 text-black/65" title="Playwright: логнат FB профил или анонимно">
+                    <td className="px-2.5 py-2 text-black/75">{workflowState}</td>
+                    <td className="px-2.5 py-2 text-black/65" title="Playwright: логнат FB профил или анонимно">
                       {fbBrowserContextLabel(row)}
                     </td>
-                    <td className="px-3 py-3 text-black/75">
+                    <td className="px-2.5 py-2 text-black/75">
                       <a href={row.source_url} target="_blank" rel="noreferrer" className="break-all underline decoration-black/25 underline-offset-2">
                         {row.source_url}
                       </a>
                     </td>
-                    <td className="px-3 py-3 text-black/65">{new Date(row.created_at).toLocaleString("bg-BG")}</td>
-                    <td className="px-3 py-3 text-black/65">{row.started_at ? new Date(row.started_at).toLocaleString("bg-BG") : "-"}</td>
-                    <td className="px-3 py-3 text-black/65">{row.finished_at ? new Date(row.finished_at).toLocaleString("bg-BG") : "-"}</td>
-                    <td className="px-3 py-3 text-[#b13a1a]">{row.error ?? "-"}</td>
-                    <td className="px-3 py-3">
+                    <td className="px-2.5 py-2 text-black/65">{new Date(row.created_at).toLocaleString("bg-BG")}</td>
+                    <td className="px-2.5 py-2 text-black/65">{row.started_at ? new Date(row.started_at).toLocaleString("bg-BG") : "-"}</td>
+                    <td className="px-2.5 py-2 text-black/65">{row.finished_at ? new Date(row.finished_at).toLocaleString("bg-BG") : "-"}</td>
+                    <td className="px-2.5 py-2 text-[#b13a1a]">{row.error ?? "-"}</td>
+                    <td className="px-2.5 py-2">
                       <div className="flex flex-wrap items-center justify-end gap-2 whitespace-nowrap">
                         <a
                           href={row.source_url}

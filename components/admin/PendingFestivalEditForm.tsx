@@ -986,7 +986,7 @@ export default function PendingFestivalEditForm({
   ]);
 
   return (
-    <form id="admin-pending-festival-edit" onSubmit={onSave} className="space-y-3 pb-20">
+    <form id="admin-pending-festival-edit" onSubmit={onSave} className="space-y-2.5 pb-20">
       <AdminSummaryStrip
         title={form.title.trim() || "Pending festival"}
         eyebrow="Admin · Pending festival"
@@ -995,7 +995,7 @@ export default function PendingFestivalEditForm({
           <>
             <Link
               href="/admin/pending-festivals"
-              className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em]"
+              className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em]"
             >
               Back
             </Link>
@@ -1003,7 +1003,7 @@ export default function PendingFestivalEditForm({
               type="submit"
               form="admin-pending-festival-edit"
               disabled={Boolean(runningAction) || saving}
-              className="rounded-xl bg-[#0c0e14] px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
+              className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save edits"}
             </button>
@@ -1011,7 +1011,7 @@ export default function PendingFestivalEditForm({
               type="button"
               onClick={() => runDecision("reject")}
               disabled={saving || Boolean(runningAction)}
-              className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
+              className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
             >
               {runningAction === "reject" ? "Rejecting..." : "Reject"}
             </button>
@@ -1019,7 +1019,7 @@ export default function PendingFestivalEditForm({
               type="button"
               onClick={() => runDecision("approve")}
               disabled={saving || Boolean(runningAction)}
-              className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
+              className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
             >
               {runningAction === "approve" ? "Approving..." : "Approve"}
             </button>
@@ -1028,7 +1028,7 @@ export default function PendingFestivalEditForm({
       />
 
       {pendingFestival.submission_source === "organizer_portal" ? (
-        <div className="rounded-2xl border border-[#0c0e14]/15 bg-[#f7f6f3] p-4 text-sm text-[#0c0e14]">
+        <div className="rounded-xl border border-[#0c0e14]/15 bg-[#f7f6f3] p-3 text-sm text-[#0c0e14]">
           <p className="font-semibold">Подаване от организаторски портал</p>
           {typeof pendingFestival.submitted_by_user_id === "string" && pendingFestival.submitted_by_user_id ? (
             <p className="mt-1 font-mono text-xs text-black/55">Потребител (auth id): {pendingFestival.submitted_by_user_id}</p>
@@ -1036,7 +1036,7 @@ export default function PendingFestivalEditForm({
         </div>
       ) : null}
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <AdminFieldSection
           title={ADMIN_ENTITY_SECTION.mainInfo.title}
           description="Title, moderation status, category, and tags."
@@ -1219,7 +1219,7 @@ export default function PendingFestivalEditForm({
                     type="button"
                     onClick={() => pendingOrganizerPickId && addOrganizerById(pendingOrganizerPickId)}
                     disabled={!pendingOrganizerPickId}
-                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] disabled:opacity-40"
+                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:opacity-40"
                   >
                     Добави избрания
                   </button>
@@ -1231,7 +1231,7 @@ export default function PendingFestivalEditForm({
                     placeholder="Име без запис в каталога"
                     className={`min-w-[200px] flex-1 ${ADMIN_ENTITY_CONTROL_BASE}`}
                   />
-                  <button type="button" onClick={addManualOrganizer} className="rounded-lg bg-[#0c0e14] px-3 py-2 text-xs font-semibold text-white">
+                  <button type="button" onClick={addManualOrganizer} className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold text-white">
                     Добави по име
                   </button>
                 </div>
@@ -1248,7 +1248,7 @@ export default function PendingFestivalEditForm({
                     type="button"
                     onClick={onCreateOrganizerInline}
                     disabled={creatingOrganizer || !newOrganizerName.trim()}
-                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold disabled:opacity-40"
+                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
                   >
                     {creatingOrganizer ? "…" : "Създай и добави"}
                   </button>
@@ -1408,10 +1408,10 @@ export default function PendingFestivalEditForm({
               </label>
         </AdminFieldSection>
 
-          <details className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 text-sm">
-            <summary className="cursor-pointer text-lg font-bold">Secondary moderation metadata (collapsed)</summary>
+          <details className="rounded-xl border border-black/[0.06] bg-black/[0.02] p-3 text-sm">
+            <summary className="cursor-pointer text-sm font-semibold text-black/70">Secondary moderation metadata (collapsed)</summary>
             <p className="mt-1 text-xs text-black/60">ID, източници, verification, одит. Само за преглед.</p>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
               <label>
                 <AdminFieldLabel field="recordId" />
                 <input value={pendingFestival.id} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
@@ -1459,16 +1459,16 @@ export default function PendingFestivalEditForm({
             </div>
           </details>
 
-          <details className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
-            <summary className="cursor-pointer text-lg font-bold">Debug / AI / ingestion (collapsed)</summary>
+          <details className="rounded-xl border border-[#0c0e14]/[0.12] bg-[#f8f9fc] p-3 text-sm">
+            <summary className="cursor-pointer text-sm font-semibold text-black/65">Debug / AI / ingestion (collapsed)</summary>
             <p className="mt-1 text-xs text-black/60">Advisory diagnostics and extraction traces. Read-only by default.</p>
-            <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-black/70 sm:grid-cols-3">
+            <div className="mt-2 grid grid-cols-1 gap-1.5 text-xs text-black/70 sm:grid-cols-3">
               <p className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5">Version: <span className="font-semibold text-black/80">{pendingFestival.normalization_version ?? "-"}</span></p>
               <p className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5">Applicable: <span className="font-semibold text-black/80">{applicableSuggestionCount}</span></p>
               <p className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5">Safe: <span className="font-semibold text-black/80">{safeSuggestionCount}</span></p>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
               <label>
                 <AdminFieldLabel field="descriptionClean" />
                 <textarea value={form.description_clean} readOnly rows={3} className={ADMIN_ENTITY_TEXTAREA_READONLY_CLASS} />
@@ -1551,22 +1551,22 @@ export default function PendingFestivalEditForm({
               </label>
             </div>
 
-            <div className="mt-4 space-y-2">
-              <details className="rounded-xl border border-black/[0.1] bg-black/[0.02] p-3">
-                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-black/60">deterministic_guess_json</summary>
-                <pre className="mt-2 overflow-x-auto rounded-lg bg-white p-3 text-xs text-black/75">{prettyJson(pendingFestival.deterministic_guess_json)}</pre>
+            <div className="mt-2 space-y-1.5">
+              <details className="rounded-lg border border-black/[0.08] bg-black/[0.02] p-2">
+                <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.12em] text-black/55">deterministic_guess_json</summary>
+                <pre className="mt-1.5 overflow-x-auto rounded-lg bg-white p-2 text-xs text-black/75">{prettyJson(pendingFestival.deterministic_guess_json)}</pre>
               </details>
-              <details className="rounded-xl border border-black/[0.1] bg-black/[0.02] p-3">
-                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-black/60">ai_guess_json</summary>
-                <pre className="mt-2 overflow-x-auto rounded-lg bg-white p-3 text-xs text-black/75">{prettyJson(pendingFestival.ai_guess_json)}</pre>
+              <details className="rounded-lg border border-black/[0.08] bg-black/[0.02] p-2">
+                <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.12em] text-black/55">ai_guess_json</summary>
+                <pre className="mt-1.5 overflow-x-auto rounded-lg bg-white p-2 text-xs text-black/75">{prettyJson(pendingFestival.ai_guess_json)}</pre>
               </details>
-              <details className="rounded-xl border border-black/[0.1] bg-black/[0.02] p-3">
-                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-black/60">merge_decisions_json</summary>
-                <pre className="mt-2 overflow-x-auto rounded-lg bg-white p-3 text-xs text-black/75">{prettyJson(pendingFestival.merge_decisions_json)}</pre>
+              <details className="rounded-lg border border-black/[0.08] bg-black/[0.02] p-2">
+                <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.12em] text-black/55">merge_decisions_json</summary>
+                <pre className="mt-1.5 overflow-x-auto rounded-lg bg-white p-2 text-xs text-black/75">{prettyJson(pendingFestival.merge_decisions_json)}</pre>
               </details>
-              <details className="rounded-xl border border-black/[0.1] bg-black/[0.02] p-3">
-                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-black/60">evidence_json</summary>
-                <pre className="mt-2 overflow-x-auto rounded-lg bg-white p-3 text-xs text-black/75">{prettyJson(pendingFestival.evidence_json)}</pre>
+              <details className="rounded-lg border border-black/[0.08] bg-black/[0.02] p-2">
+                <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.12em] text-black/55">evidence_json</summary>
+                <pre className="mt-1.5 overflow-x-auto rounded-lg bg-white p-2 text-xs text-black/75">{prettyJson(pendingFestival.evidence_json)}</pre>
               </details>
             </div>
 
@@ -1591,7 +1591,7 @@ export default function PendingFestivalEditForm({
                   ) : null}
                 </div>
 
-                <div className="mt-4 space-y-3">
+                <div className="mt-3 space-y-2">
                   {suggestionRows.map(({ suggestion, currentValue, suggestedValue, comparisonStatus, isApplied, canApply }) => {
                     const cardTone = isApplied
                       ? "border-[#18a05e]/30 bg-[#18a05e]/5"
@@ -1602,7 +1602,7 @@ export default function PendingFestivalEditForm({
                           : "border-[#b13a1a]/20 bg-[#fff6f3]";
 
                     return (
-                      <div key={suggestion.field} className={`rounded-xl border px-3 py-2.5 ${cardTone}`}>
+                      <div key={suggestion.field} className={`rounded-lg border px-2.5 py-2 ${cardTone}`}>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
@@ -1646,15 +1646,15 @@ export default function PendingFestivalEditForm({
             )}
           </details>
 
-          <div className="rounded-2xl border border-[#18a05e]/25 bg-[#f4fbf7] p-5 text-sm">
-            <h2 className="text-lg font-bold">Попълнени полета</h2>
+          <div className="rounded-xl border border-[#18a05e]/25 bg-[#f4fbf7] p-3 text-sm">
+            <h2 className="text-base font-bold">Попълнени полета</h2>
             <p className="mt-1 text-xs text-black/60">
               Какво има в записа към момента на зареждане на страницата (ingest worker + AI нормализация). Празните полета не се изреждат тук — за тях виж „Missing fields“ по-долу.
             </p>
             {filledFieldSummaries.length > 0 ? (
-              <ul className="mt-3 max-h-[min(420px,50vh)] list-none space-y-2 overflow-y-auto pr-1">
+              <ul className="mt-2 max-h-[min(420px,50vh)] list-none space-y-1.5 overflow-y-auto pr-1">
                 {filledFieldSummaries.map((f) => (
-                  <li key={f.key} className="rounded-xl border border-black/[0.08] bg-white px-3 py-2">
+                  <li key={f.key} className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5">
                     <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/50">{f.label}</span>
                     <p className="mt-1 break-all font-mono text-[11px] leading-snug text-black/75">{f.preview}</p>
                   </li>
@@ -1665,8 +1665,8 @@ export default function PendingFestivalEditForm({
             )}
           </div>
 
-          <div className="rounded-2xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-5 text-sm">
-            <h2 className="text-lg font-bold">Pending quality diagnostics</h2>
+          <div className="rounded-xl border border-[#0c0e14]/[0.14] bg-[#f8f9fc] p-3 text-sm">
+            <h2 className="text-base font-bold">Pending quality diagnostics</h2>
             <p className="mt-1 text-xs text-black/60">Derived score for moderation prioritization only. It does not change approve/reject behavior.</p>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1727,8 +1727,8 @@ export default function PendingFestivalEditForm({
       {error ? <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.08] bg-white/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-end gap-2 px-4 py-3 md:px-6">
-          <Link href="/admin/pending-festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em]">
+        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-end gap-2 px-4 py-2.5 md:px-6">
+          <Link href="/admin/pending-festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]">
             Back
           </Link>
           <FestivalEditorOpenSecondary
@@ -1745,7 +1745,7 @@ export default function PendingFestivalEditForm({
             type="button"
             onClick={() => runDecision("reject")}
             disabled={saving || Boolean(runningAction)}
-            className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
+            className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
           >
             {runningAction === "reject" ? "Rejecting..." : "Reject"}
           </button>
@@ -1753,14 +1753,14 @@ export default function PendingFestivalEditForm({
             type="button"
             onClick={() => runDecision("approve")}
             disabled={saving || Boolean(runningAction)}
-            className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
+            className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
           >
             {runningAction === "approve" ? "Approving..." : "Approve"}
           </button>
           <button
             type="submit"
             disabled={Boolean(runningAction) || saving}
-            className="rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
+            className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save edits"}
           </button>

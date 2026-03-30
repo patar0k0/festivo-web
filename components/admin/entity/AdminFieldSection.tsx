@@ -31,13 +31,30 @@ export default function AdminFieldSection({
   children: ReactNode;
   className?: string;
 }) {
+  const isSystem = variant === "system";
   return (
     <section
-      className={`rounded-2xl border p-4 shadow-[0_2px_0_rgba(12,14,20,0.04),0_8px_20px_rgba(12,14,20,0.05)] ${VARIANT_CLASS[variant]} ${className}`.trim()}
+      className={`rounded-xl border shadow-[0_2px_0_rgba(12,14,20,0.04),0_8px_20px_rgba(12,14,20,0.05)] ${isSystem ? "p-2.5" : "p-3"} ${VARIANT_CLASS[variant]} ${className}`.trim()}
     >
-      <div className="mb-2">
-        <h2 className="text-sm font-bold tracking-tight text-[#0c0e14]">{title}</h2>
-        {description ? <p className="mt-1 text-xs text-black/55">{description}</p> : null}
+      <div className={isSystem ? "mb-1" : "mb-1.5"}>
+        <h2
+          className={
+            isSystem
+              ? "text-xs font-semibold tracking-tight text-black/50"
+              : "text-sm font-bold leading-tight tracking-tight text-[#0c0e14]"
+          }
+        >
+          {title}
+        </h2>
+        {description ? (
+          <p
+            className={
+              isSystem ? "mt-0.5 text-[11px] leading-snug text-black/45" : "mt-0.5 text-xs leading-snug text-black/55"
+            }
+          >
+            {description}
+          </p>
+        ) : null}
       </div>
       <div>{children}</div>
     </section>

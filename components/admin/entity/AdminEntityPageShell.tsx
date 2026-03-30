@@ -10,5 +10,5 @@ export default function AdminEntityPageShell({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={`mx-auto w-full max-w-[1200px] space-y-3 ${className}`.trim()}>{children}</div>;
+  return <div className={`mx-auto w-full max-w-[1200px] space-y-2.5 ${className}`.trim()}>{children}</div>;
 }

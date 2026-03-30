@@ -613,21 +613,21 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
   );
 
   return (
-    <form id="admin-festival-edit-form" onSubmit={onSubmit} className="space-y-3 pb-20">
+    <form id="admin-festival-edit-form" onSubmit={onSubmit} className="space-y-2.5 pb-20">
       <AdminSummaryStrip
         title={form.title.trim() || "Festival"}
         eyebrow="Admin · Published festival"
         items={summaryItems}
         actions={
           <>
-            <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em]">
+            <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em]">
               Back
             </Link>
             <button
               type="submit"
               form="admin-festival-edit-form"
               disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
-              className="rounded-xl bg-[#0c0e14] px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
+              className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save"}
             </button>
@@ -757,7 +757,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
         </AdminFieldGrid>
-        <button type="button" onClick={onValidateCoords} className="mt-3 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em]">
+        <button type="button" onClick={onValidateCoords} className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]">
           Validate coords
         </button>
       </AdminFieldSection>
@@ -766,14 +766,14 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         <AdminFieldGrid>
           <label>
             <AdminFieldLabel field="organizers" />
-            <div className="mt-1 rounded-xl border border-black/[0.08] bg-black/[0.02] p-2.5">
+            <div className="mt-1 rounded-xl border border-black/[0.08] bg-black/[0.02] p-2">
               <input
                 value={organizerSearch}
                 onChange={(event) => setOrganizerSearch(event.target.value)}
                 placeholder="Търси по име или slug"
                 className={ADMIN_ENTITY_CONTROL_CLASS}
               />
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-1.5 flex items-center gap-2">
                 <select
                   value={pendingOrganizerId}
                   onChange={(event) => setPendingOrganizerId(event.target.value)}
@@ -790,15 +790,15 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
                   type="button"
                   onClick={onAddOrganizer}
                   disabled={!pendingOrganizerId}
-                  className="shrink-0 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] hover:bg-black/[0.03] disabled:opacity-50"
+                  className="shrink-0 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] hover:bg-black/[0.03] disabled:opacity-50"
                 >
                   Add organizer
                 </button>
               </div>
               {selectedOrganizers.length ? (
-                <div className="mt-3 space-y-2">
+                <div className="mt-2 space-y-1.5">
                   {selectedOrganizers.map((item, index) => (
-                    <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-sm">
+                    <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm">
                       <div className="min-w-0">
                         <p className="truncate font-semibold">
                           {item.name}{" "}
@@ -825,7 +825,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
                   ))}
                 </div>
               ) : (
-                <p className="mt-3 text-xs text-black/55">Няма избрани организатори.</p>
+                <p className="mt-2 text-xs text-black/55">Няма избрани организатори.</p>
               )}
             </div>
             <p className="mt-2 text-xs text-black/55">Първият избран организатор остава compatibility organizer_id.</p>
@@ -834,9 +834,9 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <AdminFieldLabel field="organizerName" />
             <input value={form.organizer_name} onChange={(e) => updateField("organizer_name", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
-          <div className="md:col-span-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-2.5">
+          <div className="md:col-span-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-2">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Нов организатор</p>
-            <div className="mt-2 grid gap-2 md:grid-cols-2">
+            <div className="mt-1.5 grid gap-2 md:grid-cols-2">
               <input placeholder="name" value={newOrganizer.name} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, name: e.target.value, slug: transliteratedSlug(e.target.value) }))} className={ADMIN_ENTITY_CONTROL_CLASS} />
               <input placeholder="slug (auto)" value={newOrganizer.slug} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, slug: e.target.value }))} className={ADMIN_ENTITY_CONTROL_CLASS} />
               <input placeholder="description" value={newOrganizer.description} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, description: e.target.value }))} className={`md:col-span-2 ${ADMIN_ENTITY_CONTROL_CLASS}`} />
@@ -845,7 +845,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               <input placeholder="facebook_url" value={newOrganizer.facebook_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, facebook_url: e.target.value }))} className={ADMIN_ENTITY_CONTROL_CLASS} />
               <input placeholder="instagram_url" value={newOrganizer.instagram_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, instagram_url: e.target.value }))} className={ADMIN_ENTITY_CONTROL_CLASS} />
             </div>
-            <button type="button" onClick={onCreateOrganizer} disabled={creatingOrganizer} className="mt-3 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50">
+            <button type="button" onClick={onCreateOrganizer} disabled={creatingOrganizer} className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50">
               {creatingOrganizer ? "Създаване..." : "Създай организатор"}
             </button>
           </div>
@@ -877,7 +877,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         <label className="block">
           <AdminFieldLabel field="heroImage" />
           <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={importHeroImageFromUrl}
@@ -898,7 +898,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           <AdminFieldLabel field="description" />
           <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className={ADMIN_ENTITY_TEXTAREA_CLASS} />
         </label>
-        <div className="mt-3 rounded-xl border border-black/[0.08] bg-white/80 p-3 text-sm text-black/70">
+        <div className="mt-2 rounded-xl border border-black/[0.08] bg-white/80 p-2.5 text-sm text-black/70">
           {descriptionPreview || "Няма описание за preview."}
         </div>
       </AdminFieldSection>
@@ -959,13 +959,13 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
       ) : null}
 
       {debugEntries.length ? (
-        <details className="rounded-2xl border border-black/[0.08] bg-white/85 p-5">
-          <summary className="cursor-pointer text-sm font-semibold uppercase tracking-[0.14em] text-black/60">Debug / technical fields</summary>
-          <div className="mt-4 space-y-3">
+        <details className="rounded-xl border border-black/[0.06] bg-black/[0.02] p-3">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Debug / technical fields</summary>
+          <div className="mt-2 space-y-2">
             {debugEntries.map(([key, value]) => (
               <div key={key}>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">{getAdminFieldLabel(key)}</p>
-                <pre className="mt-2 overflow-x-auto rounded-xl border border-black/[0.08] bg-black/[0.02] p-3 text-xs text-black/80">{prettyJson(value)}</pre>
+                <pre className="mt-1.5 overflow-x-auto rounded-lg border border-black/[0.08] bg-white/80 p-2 text-xs text-black/80">{prettyJson(value)}</pre>
               </div>
             ))}
           </div>
@@ -976,12 +976,12 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
       {error ? <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.08] bg-white/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-end gap-2 px-4 py-3 md:px-6">
+        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-end gap-2 px-4 py-2.5 md:px-6">
           <label className="mr-auto flex items-center gap-2 text-sm text-black/60">
             <input type="checkbox" checked={form.is_verified} onChange={(e) => updateField("is_verified", e.target.checked)} />
             is_verified (legacy)
           </label>
-          <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em]">
+          <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]">
             Cancel
           </Link>
           <FestivalEditorOpenSecondary
@@ -992,7 +992,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             type="button"
             onClick={() => runArchiveAction(form.status === "archived" ? "restore" : "archive")}
             disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
-            className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
+            className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
           >
             {actionPending === "archive" || actionPending === "restore"
               ? "Working..."
@@ -1004,7 +1004,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             type="button"
             onClick={runDeleteAction}
             disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
-            className="rounded-xl border border-[#b13a1a]/30 bg-[#ff4c1f]/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#b13a1a] disabled:opacity-50"
+            className="rounded-xl border border-[#b13a1a]/30 bg-[#ff4c1f]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#b13a1a] disabled:opacity-50"
           >
             {actionPending === "delete" ? "Deleting..." : "Delete"}
           </button>
@@ -1012,7 +1012,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             type="submit"
             form="admin-festival-edit-form"
             disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
-            className="rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
+            className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}
           </button>

@@ -367,7 +367,7 @@ export default function ResearchFestivalPanel() {
           type="button"
           onClick={createPendingFestival}
           disabled={!canCreate}
-          className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+          className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
         >
           {isCreating ? "Creating..." : "Create pending draft"}
         </button>
@@ -375,7 +375,7 @@ export default function ResearchFestivalPanel() {
           type="button"
           onClick={runAiResearch}
           disabled={!canAiResearch}
-          className="rounded-xl bg-[#0c0e14] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
+          className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
         >
           {isAiResearching ? "Researching..." : "Research again"}
         </button>
@@ -387,7 +387,7 @@ export default function ResearchFestivalPanel() {
         type="button"
         onClick={createPendingFestival}
         disabled={!canCreate}
-        className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+        className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
       >
         {isCreating ? "Creating..." : "Create pending festival"}
       </button>
@@ -462,7 +462,7 @@ export default function ResearchFestivalPanel() {
         description="Run AI extraction or the Gemini multi-step pipeline."
         variant={ADMIN_ENTITY_SECTION.researchQueries.variant}
       >
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div className="space-y-1.5">
             <label htmlFor="ai-research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
               AI search query
@@ -528,7 +528,7 @@ export default function ResearchFestivalPanel() {
               </span>
               <span className="text-xs text-black/55">{aiResult?.source_urls.length ?? 0} source(s) reviewed</span>
             </div>
-            <AdminFieldGrid className="mt-2">{renderAiFieldsForKeys(AI_MAIN_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
+            <AdminFieldGrid className="mt-1.5">{renderAiFieldsForKeys(AI_MAIN_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
           </AdminFieldSection>
 
           <AdminFieldSection title={ADMIN_ENTITY_SECTION.dateTime.title} variant={ADMIN_ENTITY_SECTION.dateTime.variant}>
@@ -599,19 +599,19 @@ export default function ResearchFestivalPanel() {
             variant={ADMIN_ENTITY_SECTION.linksSources.variant}
           >
             <AdminFieldGrid>{renderAiFieldsForKeys(AI_LINK_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
-            <div className="mt-3 space-y-2 border-t border-black/[0.06] pt-3">
+            <div className="mt-2 space-y-1.5 border-t border-black/[0.06] pt-2">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">{ADMIN_FIELD_LABEL.sourceUrl}s</p>
               {aiDraft.source_urls.length === 0 ? (
                 <p className="text-sm text-black/60">No sources returned.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {aiDraft.source_urls.map((url) => (
                     <a
                       key={url}
                       href={url}
                       target="_blank"
                       rel="noreferrer"
-                      className="block rounded-lg border border-black/[0.1] bg-white p-2.5 hover:bg-black/[0.02]"
+                      className="block rounded-lg border border-black/[0.1] bg-white p-2 hover:bg-black/[0.02]"
                     >
                       <p className="text-xs font-semibold uppercase tracking-[0.08em] text-black/45">{getDomainLabel(url)}</p>
                       <p className="mt-1 break-all text-sm text-[#0e7a45] underline-offset-2 hover:underline">{url}</p>
@@ -649,7 +649,7 @@ export default function ResearchFestivalPanel() {
               />
               Festival is free
             </label>
-            <div className="mt-3 space-y-1.5">
+            <div className="mt-2 space-y-1.5">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Missing fields</p>
               {aiDraft.missing_fields.length === 0 ? (
                 <p className="text-sm text-black/60">No missing fields flagged.</p>

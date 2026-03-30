@@ -276,7 +276,7 @@ export const ADMIN_ENTITY_CONTROL_READONLY_CLASS =
 
 /** Multi-line editable text — full width; min-height preserves readability. */
 export const ADMIN_ENTITY_TEXTAREA_CLASS =
-  "w-full min-h-[5rem] rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm text-black/90 placeholder:text-black/40 focus:border-black/20 focus:outline-none focus:ring-1 focus:ring-black/10";
+  "w-full min-h-[4.5rem] rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm text-black/90 placeholder:text-black/40 focus:border-black/20 focus:outline-none focus:ring-1 focus:ring-black/10";
 
 export const ADMIN_ENTITY_TEXTAREA_READONLY_CLASS =
-  "w-full min-h-[4rem] rounded-lg border border-black/[0.1] bg-black/[0.03] px-2.5 py-2 text-sm text-black/80";
+  "w-full min-h-[3.5rem] rounded-lg border border-black/[0.1] bg-black/[0.03] px-2.5 py-1.5 text-sm text-black/80";

@@ -29,8 +29,8 @@ export default function TagsInput({ value, onChange }: TagsInputProps) {
   };
 
   return (
-    <div className="rounded-xl border border-black/[0.1] bg-white px-2.5 py-2">
-      <div className="mb-1.5 flex flex-wrap gap-2">
+    <div className="rounded-xl border border-black/[0.1] bg-white px-2.5 py-1.5">
+      <div className="mb-1 flex flex-wrap gap-1.5">
         {value.map((tag) => (
           <button
             key={tag}

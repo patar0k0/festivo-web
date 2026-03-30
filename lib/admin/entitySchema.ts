@@ -205,6 +205,27 @@ export function adminEntityFieldGridClass(field: string): "" | "md:col-span-2" {
   return FULL_WIDTH_FIELDS.has(field) ? "md:col-span-2" : "";
 }
 
+/**
+ * Canonical `AdminFieldLabel` `field` keys rendered with label + control on one row from `sm` up
+ * (see `AdminFieldInlineRow`). Long text, URLs, tags, media, and complex blocks stay stacked.
+ */
+export const ADMIN_ENTITY_INLINE_LAYOUT_FIELDS = new Set<string>([
+  "city",
+  "cityId",
+  "cityDisplay",
+  "status",
+  "category",
+  "organizerName",
+  "startDate",
+  "endDate",
+  "startTime",
+  "endTime",
+]);
+
+export function adminEntityUsesInlineLayout(field: string): boolean {
+  return ADMIN_ENTITY_INLINE_LAYOUT_FIELDS.has(field);
+}
+
 /** Research-with-AI panel: long text + URLs full width; short scalars half. */
 export function adminResearchAiFieldGridClass(key: string): "" | "md:col-span-2" {
   const full = new Set([

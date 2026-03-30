@@ -14,6 +14,7 @@ import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorO
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 import {
   AdminFieldGrid,
+  AdminFieldInlineRow,
   AdminFieldLabel,
   AdminFieldSection,
   AdminMetaSection,
@@ -649,18 +650,16 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <AdminFieldLabel field="slug" />
             <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
-          <label>
-            <AdminFieldLabel field="category" />
+          <AdminFieldInlineRow field="category">
             <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
-          </label>
+          </AdminFieldInlineRow>
           <label className="md:col-span-2">
             <AdminFieldLabel field="tags" />
             <div className="mt-0">
               <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
             </div>
           </label>
-          <label>
-            <AdminFieldLabel field="status" />
+          <AdminFieldInlineRow field="status">
             <select value={form.status} onChange={(e) => updateField("status", e.target.value as (typeof STATUS_OPTIONS)[number])} className={ADMIN_ENTITY_CONTROL_CLASS}>
               {STATUS_OPTIONS.map((statusOption) => (
                 <option key={statusOption} value={statusOption}>
@@ -668,7 +667,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
                 </option>
               ))}
             </select>
-          </label>
+          </AdminFieldInlineRow>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
             <AdminFieldLabel field="isFree" className="mb-0 inline normal-case tracking-normal" />
@@ -678,24 +677,21 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
 
       <AdminFieldSection title={ADMIN_ENTITY_SECTION.dateTime.title} variant={ADMIN_ENTITY_SECTION.dateTime.variant}>
         <AdminFieldGrid>
-          <label>
-            <AdminFieldLabel field="startDate" />
+          <AdminFieldInlineRow field="startDate">
             <DdMmYyyyDateInput
               value={form.start_date ?? ""}
               onChange={(iso) => updateField("start_date", iso)}
               className={ADMIN_ENTITY_CONTROL_CLASS}
             />
-          </label>
-          <label>
-            <AdminFieldLabel field="endDate" />
+          </AdminFieldInlineRow>
+          <AdminFieldInlineRow field="endDate">
             <DdMmYyyyDateInput
               value={form.end_date ?? ""}
               onChange={(iso) => updateField("end_date", iso)}
               className={ADMIN_ENTITY_CONTROL_CLASS}
             />
-          </label>
-          <label>
-            <AdminFieldLabel field="startTime" />
+          </AdminFieldInlineRow>
+          <AdminFieldInlineRow field="startTime">
             <span className="sr-only">HH:mm</span>
             <input
               type="time"
@@ -704,9 +700,8 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               onChange={(e) => updateField("start_time", e.target.value)}
               className={ADMIN_ENTITY_CONTROL_CLASS}
             />
-          </label>
-          <label>
-            <AdminFieldLabel field="endTime" />
+          </AdminFieldInlineRow>
+          <AdminFieldInlineRow field="endTime">
             <span className="sr-only">HH:mm</span>
             <input
               type="time"
@@ -715,7 +710,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               onChange={(e) => updateField("end_time", e.target.value)}
               className={ADMIN_ENTITY_CONTROL_CLASS}
             />
-          </label>
+          </AdminFieldInlineRow>
           <div className="md:col-span-2">
             <AdminFieldLabel field="occurrenceDays" />
             <div className="mt-0">
@@ -727,19 +722,17 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
 
       <AdminFieldSection title={ADMIN_ENTITY_SECTION.location.title} variant={ADMIN_ENTITY_SECTION.location.variant}>
         <AdminFieldGrid>
-          <label>
-            <AdminFieldLabel field="cityId" />
+          <AdminFieldInlineRow field="cityId">
             <input value={form.city_id} onChange={(e) => updateField("city_id", e.target.value)} placeholder="напр. 68134" className={ADMIN_ENTITY_CONTROL_CLASS} />
-          </label>
-          <label>
-            <AdminFieldLabel field="cityDisplay" />
+          </AdminFieldInlineRow>
+          <AdminFieldInlineRow field="cityDisplay">
             <input
               value={form.city}
               onChange={(e) => updateField("city", e.target.value)}
               placeholder="напр. Пловдив"
               className={ADMIN_ENTITY_CONTROL_CLASS}
             />
-          </label>
+          </AdminFieldInlineRow>
           <label className="md:col-span-2">
             <AdminFieldLabel field="locationName" />
             <input value={form.location_name} onChange={(e) => updateField("location_name", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
@@ -830,10 +823,9 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             </div>
             <p className="mt-2 text-xs text-black/55">Първият избран организатор остава compatibility organizer_id.</p>
           </label>
-          <label>
-            <AdminFieldLabel field="organizerName" />
+          <AdminFieldInlineRow field="organizerName">
             <input value={form.organizer_name} onChange={(e) => updateField("organizer_name", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
-          </label>
+          </AdminFieldInlineRow>
           <div className="md:col-span-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-2">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Нов организатор</p>
             <div className="mt-1.5 grid gap-2 md:grid-cols-2">

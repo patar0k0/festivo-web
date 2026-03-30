@@ -9,12 +9,14 @@ import type { AiResearchConfidence, PerplexityFestivalResearchResult } from "@/l
 import {
   AdminEntityPageShell,
   AdminFieldGrid,
+  AdminFieldInlineRow,
   AdminFieldSection,
   AdminFieldLabel,
   AdminSummaryStrip,
   ADMIN_ENTITY_SECTION,
   ADMIN_ENTITY_CONTROL_CLASS,
   ADMIN_ENTITY_TEXTAREA_CLASS,
+  adminEntityUsesInlineLayout,
   buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
 import { ADMIN_FIELD_LABEL, adminResearchAiFieldGridClass } from "@/lib/admin/entitySchema";
@@ -132,11 +134,9 @@ function renderAiFieldsForKeys(
   aiDraft: PerplexityFestivalResearchResult,
   setAiDraftField: (field: AiEditableStringField, rawValue: string) => void,
 ) {
-  return AI_EDITABLE_TEXT_FIELDS.filter((f) => keys.has(f.key)).map((field) => (
-    <div key={field.key} className={adminResearchAiFieldGridClass(field.key)}>
-      <label>
-        <AdminFieldLabel field={field.labelKey} />
-      {field.key === "start_date" || field.key === "end_date" ? (
+  return AI_EDITABLE_TEXT_FIELDS.filter((f) => keys.has(f.key)).map((field) => {
+    const control =
+      field.key === "start_date" || field.key === "end_date" ? (
         <DdMmYyyyDateInput
           value={aiDraft[field.key] ?? ""}
           onChange={(iso) => setAiDraftField(field.key, iso)}
@@ -151,15 +151,31 @@ function renderAiFieldsForKeys(
           placeholder={field.placeholder}
           className={ADMIN_ENTITY_CONTROL_CLASS}
         />
-      )}
-      {field.key === "hero_image" ? (
+      );
+    const heroHint =
+      field.key === "hero_image" ? (
         <p className="mt-1 text-xs text-black/50">
           If you paste an image URL, it is downloaded and stored in Supabase when you create the draft; the external link is not kept.
         </p>
-      ) : null}
-      </label>
-    </div>
-  ));
+      ) : null;
+    const inline = adminEntityUsesInlineLayout(field.labelKey);
+    return (
+      <div key={field.key} className={adminResearchAiFieldGridClass(field.key)}>
+        {inline ? (
+          <>
+            <AdminFieldInlineRow field={field.labelKey}>{control}</AdminFieldInlineRow>
+            {heroHint}
+          </>
+        ) : (
+          <label>
+            <AdminFieldLabel field={field.labelKey} />
+            {control}
+            {heroHint}
+          </label>
+        )}
+      </div>
+    );
+  });
 }
 
 export default function ResearchFestivalPanel() {
@@ -701,24 +717,22 @@ export default function ResearchFestivalPanel() {
           <AdminFieldSection title={ADMIN_ENTITY_SECTION.dateTime.title} variant={ADMIN_ENTITY_SECTION.dateTime.variant}>
             <AdminFieldGrid>
               <div>
-                <label>
-                  <AdminFieldLabel field="startDate" />
-                <DdMmYyyyDateInput
-                  value={finalValues.start_date ?? ""}
-                  onChange={(iso) => setFromCandidate("start_date", iso || null)}
-                  className={ADMIN_ENTITY_CONTROL_CLASS}
-                />
-                </label>
+                <AdminFieldInlineRow field="startDate">
+                  <DdMmYyyyDateInput
+                    value={finalValues.start_date ?? ""}
+                    onChange={(iso) => setFromCandidate("start_date", iso || null)}
+                    className={ADMIN_ENTITY_CONTROL_CLASS}
+                  />
+                </AdminFieldInlineRow>
               </div>
               <div>
-                <label>
-                  <AdminFieldLabel field="endDate" />
-                <DdMmYyyyDateInput
-                  value={finalValues.end_date ?? ""}
-                  onChange={(iso) => setFromCandidate("end_date", iso || null)}
-                  className={ADMIN_ENTITY_CONTROL_CLASS}
-                />
-                </label>
+                <AdminFieldInlineRow field="endDate">
+                  <DdMmYyyyDateInput
+                    value={finalValues.end_date ?? ""}
+                    onChange={(iso) => setFromCandidate("end_date", iso || null)}
+                    className={ADMIN_ENTITY_CONTROL_CLASS}
+                  />
+                </AdminFieldInlineRow>
               </div>
             </AdminFieldGrid>
             <div className="mt-2">{renderDateCandidates(result.candidates.dates)}</div>
@@ -727,15 +741,14 @@ export default function ResearchFestivalPanel() {
           <AdminFieldSection title={ADMIN_ENTITY_SECTION.location.title} variant={ADMIN_ENTITY_SECTION.location.variant}>
             <AdminFieldGrid>
               <div>
-                <label>
-                  <AdminFieldLabel field="city" />
-                <input
-                  value={finalValues.city ?? ""}
-                  onChange={(e) => setFromCandidate("city", e.target.value || null)}
-                  className={ADMIN_ENTITY_CONTROL_CLASS}
-                />
+                <AdminFieldInlineRow field="city">
+                  <input
+                    value={finalValues.city ?? ""}
+                    onChange={(e) => setFromCandidate("city", e.target.value || null)}
+                    className={ADMIN_ENTITY_CONTROL_CLASS}
+                  />
+                </AdminFieldInlineRow>
                 {renderTextCandidates("city", result.candidates.cities)}
-                </label>
               </div>
               <div className="md:col-span-2">
                 <label>

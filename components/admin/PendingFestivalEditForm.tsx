@@ -17,6 +17,7 @@ import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpe
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import {
   AdminFieldGrid,
+  AdminFieldInlineRow,
   AdminFieldLabel,
   AdminFieldSection,
   AdminSummaryStrip,
@@ -1051,14 +1052,12 @@ export default function PendingFestivalEditForm({
               <AdminFieldLabel field="slug" />
               <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
             </label>
-            <label>
-              <AdminFieldLabel field="category" />
+            <AdminFieldInlineRow field="category">
               <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
-            </label>
-            <label>
-              <AdminFieldLabel field="status" />
+            </AdminFieldInlineRow>
+            <AdminFieldInlineRow field="status">
               <input value={form.status} onChange={(e) => updateField("status", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
-            </label>
+            </AdminFieldInlineRow>
             <label className="flex items-center gap-2 text-sm md:col-span-2">
               <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
               <AdminFieldLabel field="isFree" className="mb-0 inline normal-case tracking-normal" />
@@ -1074,24 +1073,21 @@ export default function PendingFestivalEditForm({
 
         <AdminFieldSection title={ADMIN_ENTITY_SECTION.dateTime.title} variant={ADMIN_ENTITY_SECTION.dateTime.variant}>
           <AdminFieldGrid>
-            <label>
-              <AdminFieldLabel field="startDate" />
+            <AdminFieldInlineRow field="startDate">
               <DdMmYyyyDateInput
                 value={form.start_date ?? ""}
                 onChange={(iso) => updateField("start_date", iso)}
                 className={ADMIN_ENTITY_CONTROL_CLASS}
               />
-            </label>
-            <label>
-              <AdminFieldLabel field="endDate" />
+            </AdminFieldInlineRow>
+            <AdminFieldInlineRow field="endDate">
               <DdMmYyyyDateInput
                 value={form.end_date ?? ""}
                 onChange={(iso) => updateField("end_date", iso)}
                 className={ADMIN_ENTITY_CONTROL_CLASS}
               />
-            </label>
-            <label>
-              <AdminFieldLabel field="startTime" />
+            </AdminFieldInlineRow>
+            <AdminFieldInlineRow field="startTime">
               <input
                 type="time"
                 step={60}
@@ -1099,9 +1095,8 @@ export default function PendingFestivalEditForm({
                 onChange={(e) => updateField("start_time", e.target.value)}
                 className={ADMIN_ENTITY_CONTROL_CLASS}
               />
-            </label>
-            <label>
-              <AdminFieldLabel field="endTime" />
+            </AdminFieldInlineRow>
+            <AdminFieldInlineRow field="endTime">
               <input
                 type="time"
                 step={60}
@@ -1109,7 +1104,7 @@ export default function PendingFestivalEditForm({
                 onChange={(e) => updateField("end_time", e.target.value)}
                 className={ADMIN_ENTITY_CONTROL_CLASS}
               />
-            </label>
+            </AdminFieldInlineRow>
             <div className="md:col-span-2">
               <AdminFieldLabel field="occurrenceDays" />
               <div className="mt-0">
@@ -1129,19 +1124,20 @@ export default function PendingFestivalEditForm({
           variant={ADMIN_ENTITY_SECTION.location.variant}
         >
           <AdminFieldGrid>
-            <label className="md:col-span-2">
-              <AdminFieldLabel field="cityId" />
-              <input
-                value={form.city_id}
-                onChange={(e) => {
-                  updateField("city_id", e.target.value);
-                }}
-                className={ADMIN_ENTITY_CONTROL_CLASS}
-              />
+            <div className="md:col-span-2 space-y-1.5">
+              <AdminFieldInlineRow field="cityId">
+                <input
+                  value={form.city_id}
+                  onChange={(e) => {
+                    updateField("city_id", e.target.value);
+                  }}
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                />
+              </AdminFieldInlineRow>
               {pendingFestival.city_id === null && normalizeDisplayValue(form.city_id) ? (
-                <p className="mt-2 text-xs text-black/50">Unresolved settlement (free text)</p>
+                <p className="text-xs text-black/50">Unresolved settlement (free text)</p>
               ) : null}
-            </label>
+            </div>
             <label className="md:col-span-2">
               <AdminFieldLabel field="locationName" />
               <input value={form.venue_name} onChange={(e) => updateField("venue_name", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />

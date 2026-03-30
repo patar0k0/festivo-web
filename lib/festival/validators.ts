@@ -5,6 +5,7 @@ import {
 } from "@/lib/festival/schema";
 import { parseOrganizerEntriesJson } from "@/lib/admin/pendingOrganizerEntries";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
+import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 
 export type ValidationResult =
   | { ok: true; data: CanonicalFestivalPayload }
@@ -119,7 +120,7 @@ export function canonicalFromUnknown(raw: unknown): ValidationResult {
     ticket_url: normalizeText(sourceValue(body, "ticket_url")),
     price_range: normalizeText(sourceValue(body, "price_range")),
     source_url: normalizeText(sourceValue(body, "source_url")),
-    source_type: normalizeText(sourceValue(body, "source_type")),
+    source_type: normalizeFestivalSourceType(normalizeText(sourceValue(body, "source_type"))),
     status: normalizeText(sourceValue(body, "status")),
   };
 
@@ -192,7 +193,9 @@ export function canonicalPatchFromUnknown(raw: unknown): PatchValidationResult {
   if (hasSourceValue(body, "ticket_url")) canonical.ticket_url = normalizeText(sourceValue(body, "ticket_url"));
   if (hasSourceValue(body, "price_range")) canonical.price_range = normalizeText(sourceValue(body, "price_range"));
   if (hasSourceValue(body, "source_url")) canonical.source_url = normalizeText(sourceValue(body, "source_url"));
-  if (hasSourceValue(body, "source_type")) canonical.source_type = normalizeText(sourceValue(body, "source_type"));
+  if (hasSourceValue(body, "source_type")) {
+    canonical.source_type = normalizeFestivalSourceType(normalizeText(sourceValue(body, "source_type")));
+  }
   if (hasSourceValue(body, "status")) canonical.status = normalizeText(sourceValue(body, "status"));
 
   if (hasSourceValue(body, "organizer_entries")) {

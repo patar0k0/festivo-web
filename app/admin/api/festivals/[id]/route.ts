@@ -106,6 +106,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       ...festivalPatchFromCanonicalPartial(canonical),
       updated_at: new Date().toISOString(),
     };
+    if ("source_type" in body) {
+      const sourceTypeInput = typeof body.source_type === "string" ? body.source_type : body.source_type === null ? null : "";
+      const sourceTypeNormalized = typeof patch.source_type === "string" ? patch.source_type : patch.source_type === null ? null : "";
+      console.info(
+        `[festival-save] id=${id} source_type input="${sourceTypeInput ?? ""}" normalized="${sourceTypeNormalized ?? ""}"`
+      );
+    }
 
     let responseHeroImage: string | null | undefined;
 

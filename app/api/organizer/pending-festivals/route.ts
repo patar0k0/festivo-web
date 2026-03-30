@@ -3,6 +3,7 @@ import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/ad
 import { slugify } from "@/lib/utils";
 import { getPortalAdminClient, getPortalSessionUser, hasActiveOrganizerMembership } from "@/lib/organizer/portal";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
+import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 
 type Body = {
   organizer_id?: string;
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
     organizer_id: orgRow.id,
     organizer_name: orgRow.name,
     source_url: null as string | null,
-    source_type: "organizer_portal",
+    source_type: normalizeFestivalSourceType("organizer_portal"),
     source_primary_url: null as string | null,
     source_count: null as number | null,
     evidence_json: null as unknown,
@@ -141,6 +142,10 @@ export async function POST(request: Request) {
     submitted_by_user_id: session.user.id,
     submission_source: "organizer_portal" as const,
   };
+
+  console.info(
+    `[api/organizer/pending-festivals] source_type input="organizer_portal" normalized="${String(pendingPayload.source_type ?? "")}"`
+  );
 
   const { data: inserted, error: insErr } = await admin.from("pending_festivals").insert(pendingPayload).select("id").single();
 

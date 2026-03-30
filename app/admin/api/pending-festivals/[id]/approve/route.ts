@@ -13,6 +13,7 @@ import { syncFestivalOrganizers } from "@/lib/festivalOrganizers";
 import { scheduleNewFestivalFollowCityJobs } from "@/lib/notifications/triggers";
 import { insertFestivalMediaFromPending } from "@/lib/festival/insertFestivalMediaFromPending";
 import { getMediaLimitExceededErrorMessage, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
+import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 
 type CityRow = {
   id: number;
@@ -161,16 +162,6 @@ function buildBaseSlug(slug: string | null, title: string, pendingId: string) {
 function fail(pendingId: string, reason: string, status: number, error: string) {
   console.error(`[pending-approve] pending_id=${pendingId} fail reason=${reason}`);
   return NextResponse.json<ApiErrorResponse>({ ok: false, error }, { status });
-}
-
-function mapFestivalSourceType(rawSourceType: string | null) {
-  if (!rawSourceType) return null;
-
-  if (rawSourceType === "facebook_event") {
-    return "facebook";
-  }
-
-  return rawSourceType;
 }
 
 function findMissingCanonicalField(row: PendingFestivalRow): keyof PendingFestivalRow | null {
@@ -358,7 +349,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       rawSourceType = pending.source_type;
     }
 
-    const mappedSourceType = mapFestivalSourceType(rawSourceType);
+    const mappedSourceType = normalizeFestivalSourceType(rawSourceType);
 
     let organizerId: string | null = null;
     let organizerDisplayName: string | null = canonicalApproved.organizer_name ?? null;
@@ -457,7 +448,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       );
     }
 
-    console.info(`[pending-approve] pending_id=${id} source_type raw="${rawSourceType ?? ""}" mapped="${mappedSourceType ?? ""}"`);
+    console.info(
+      `[pending-approve] pending_id=${id} source_type input="${rawSourceType ?? ""}" normalized="${mappedSourceType ?? ""}"`
+    );
     console.info(
       `[pending-approve] pending_id=${id} publish source fields=${JSON.stringify({
         title: pending.title,

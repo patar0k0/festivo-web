@@ -1,6 +1,7 @@
 import type { Festival } from "@/lib/types";
 import type { CanonicalFestivalPatchPayload, CanonicalFestivalPayload } from "@/lib/festival/schema";
 import { pendingRowToOrganizerEntries, primaryOrganizerDisplayName } from "@/lib/admin/pendingOrganizerEntries";
+import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 
 type PendingFestivalRowLike = {
   title: string;
@@ -109,7 +110,7 @@ export function canonicalFromPending(row: PendingFestivalRowLike): CanonicalFest
     ticket_url: normalizeText(row.ticket_url),
     price_range: normalizeText(row.price_range),
     source_url: normalizeText(row.source_url),
-    source_type: normalizeText(row.source_type),
+    source_type: normalizeFestivalSourceType(row.source_type),
     status: normalizeText(row.status),
   };
 }
@@ -137,7 +138,7 @@ export function canonicalFromFestival(row: FestivalRowLike): CanonicalFestivalPa
     ticket_url: normalizeText(row.ticket_url),
     price_range: normalizeText(row.price_range),
     source_url: normalizeText(row.source_url),
-    source_type: normalizeText(row.source_type),
+    source_type: normalizeFestivalSourceType(row.source_type),
     status: normalizeText(row.status),
   };
 }
@@ -158,7 +159,7 @@ export function pendingPatchFromCanonical(fields: CanonicalFestivalPayload): Rec
     end_time: fields.end_time,
     organizer_name: fields.organizer_name,
     source_url: fields.source_url,
-    source_type: fields.source_type,
+    source_type: normalizeFestivalSourceType(fields.source_type),
     website_url: fields.website_url,
     ticket_url: fields.ticket_url,
     price_range: fields.price_range,
@@ -187,7 +188,7 @@ export function festivalPatchFromCanonical(fields: CanonicalFestivalPayload): Re
     ticket_url: fields.ticket_url,
     price_range: fields.price_range,
     source_url: fields.source_url,
-    source_type: fields.source_type,
+    source_type: normalizeFestivalSourceType(fields.source_type),
     tags: fields.tags,
     lat: fields.latitude,
     lng: fields.longitude,
@@ -221,7 +222,7 @@ export function pendingPatchFromCanonicalPartial(fields: CanonicalFestivalPatchP
     }
   }
   if ("source_url" in fields) patch.source_url = fields.source_url;
-  if ("source_type" in fields) patch.source_type = fields.source_type;
+  if ("source_type" in fields) patch.source_type = normalizeFestivalSourceType(fields.source_type);
   if ("website_url" in fields) patch.website_url = fields.website_url;
   if ("ticket_url" in fields) patch.ticket_url = fields.ticket_url;
   if ("price_range" in fields) patch.price_range = fields.price_range;
@@ -254,7 +255,7 @@ export function festivalPatchFromCanonicalPartial(fields: CanonicalFestivalPatch
   if ("ticket_url" in fields) patch.ticket_url = fields.ticket_url;
   if ("price_range" in fields) patch.price_range = fields.price_range;
   if ("source_url" in fields) patch.source_url = fields.source_url;
-  if ("source_type" in fields) patch.source_type = fields.source_type;
+  if ("source_type" in fields) patch.source_type = normalizeFestivalSourceType(fields.source_type);
   if ("tags" in fields) patch.tags = fields.tags;
   if ("latitude" in fields) patch.lat = fields.latitude;
   if ("longitude" in fields) patch.lng = fields.longitude;

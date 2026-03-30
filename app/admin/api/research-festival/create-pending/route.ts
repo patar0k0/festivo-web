@@ -5,6 +5,7 @@ import { mapConfidenceToVerificationScore } from "@/lib/admin/research/scoring";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeResearchResult, validateDateFieldsOrErrors, validateDateRangeOrError } from "@/lib/admin/research/normalize";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
+import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 import type { ResearchBestGuess, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
 import type { PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 
@@ -226,6 +227,12 @@ export async function POST(request: Request) {
       parseHmInputToDbTime((ai as { end_time?: unknown }).end_time),
     );
 
+    const aiInputSourceType = "ai_research";
+    const aiNormalizedSourceType = normalizeFestivalSourceType(aiInputSourceType);
+    console.info(
+      `[research-create-pending] source_type input="${aiInputSourceType}" normalized="${aiNormalizedSourceType ?? ""}"`
+    );
+
     const insertPayload: Record<string, unknown> = {
       title: sanitizeNullableString(ai.title) ?? "Untitled festival",
       description: sanitizeNullableString(ai.description),
@@ -256,7 +263,7 @@ export async function POST(request: Request) {
       verification_status: ai.confidence,
       verification_score: mapConfidenceToVerificationScore(ai.confidence),
       extraction_version: "research_ai_perplexity_v1",
-      source_type: "ai_research",
+      source_type: aiNormalizedSourceType,
       status: "pending",
     };
 
@@ -343,9 +350,13 @@ export async function POST(request: Request) {
     verification_status: normalized.confidence.overall,
     verification_score: mapConfidenceToVerificationScore(normalized.confidence.overall),
     extraction_version: "research_candidates_v1",
-    source_type: "web_research",
+    source_type: normalizeFestivalSourceType("web_research"),
     status: "pending",
   };
+
+  console.info(
+    `[research-create-pending] source_type input="web_research" normalized="${String(sharedInsertPayload.source_type ?? "")}"`
+  );
 
   return insertPendingWithFallback(ctx, sharedInsertPayload);
 }

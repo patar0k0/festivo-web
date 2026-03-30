@@ -13,6 +13,7 @@ import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorOpenAction";
 import { isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
+import { MEDIA_LIMITS, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
 import {
   AdminFieldGrid,
   AdminFieldInlineRow,
@@ -169,9 +170,9 @@ type SaveFestivalResponse = {
   hero_image?: string | null;
 };
 
-type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug">;
+type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug" | "plan" | "plan_started_at" | "plan_expires_at">;
 
-type PublishedMediaRow = { id: string; url: string; type: string | null; sort_order: number | null };
+type PublishedMediaRow = { id: string; url: string; type: string | null; sort_order: number | null; is_hero?: boolean | null };
 
 export default function FestivalEditForm({
   festival,
@@ -239,13 +240,34 @@ export default function FestivalEditForm({
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
-  const mediaSnapshot = JSON.stringify(initialMedia.map((m) => ({ id: m.id, url: m.url, type: m.type })));
+  const mediaSnapshot = JSON.stringify(initialMedia.map((m) => ({ id: m.id, url: m.url, type: m.type, is_hero: m.is_hero ?? null })));
+
+  const isVideoMedia = (type: string | null | undefined) => {
+    const t = (type ?? "").toLowerCase();
+    return t === "video" || t.includes("video");
+  };
+
   const galleryRows = useMemo(
-    () => initialMedia.filter((m) => (m.type ?? "").toLowerCase() !== "video"),
+    () => initialMedia.filter((m) => !isVideoMedia(m.type) && !m.is_hero),
     [mediaSnapshot],
   );
+
+  const videoRows = useMemo(() => initialMedia.filter((m) => isVideoMedia(m.type)), [mediaSnapshot]);
+
+  const primaryOrganizer = useMemo(() => {
+    const organizerId = form.organizer_id.trim() || form.organizer_ids[0]?.trim() || "";
+    if (!organizerId) return null;
+    return organizers.find((o) => o.id === organizerId) ?? null;
+  }, [form.organizer_id, form.organizer_ids, organizers]);
+
+  const mediaPlan = useMemo(() => resolveMediaPlanFromOrganizer(primaryOrganizer), [primaryOrganizer]);
+  const mediaLimits = useMemo(() => resolveAllowedMediaLimitsFromOrganizerPlan(primaryOrganizer), [primaryOrganizer]);
+
+  const galleryImageCount = galleryRows.length;
+  const videoCount = videoRows.length;
+
   const videoUrlFromServer = useMemo(() => {
-    const v = initialMedia.find((m) => (m.type ?? "").toLowerCase() === "video");
+    const v = initialMedia.find((m) => isVideoMedia(m.type));
     return v?.url ?? "";
   }, [mediaSnapshot]);
   const [videoUrl, setVideoUrl] = useState(videoUrlFromServer);
@@ -994,6 +1016,14 @@ export default function FestivalEditForm({
         <div className="mt-6 border-t border-black/[0.08] pt-5">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Галерия (допълнителни снимки)</p>
           <p className="mt-1 text-xs text-black/50">Качи файл; не се дублира автоматично с hero — публичната страница показва галерията под хедъра.</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-black/60">
+            <span>
+              <span className="font-semibold text-black/80">{galleryImageCount}</span> / {mediaLimits.gallery} images
+            </span>
+            <span>
+              <span className="font-semibold text-black/80">{videoCount}</span> / {mediaLimits.video} videos
+            </span>
+          </div>
           <input
             ref={galleryFileRef}
             type="file"
@@ -1008,11 +1038,14 @@ export default function FestivalEditForm({
           <button
             type="button"
             onClick={() => galleryFileRef.current?.click()}
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || galleryImageCount >= mediaLimits.gallery}
             className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
           >
             {galleryBusy ? "Качване..." : "Качи снимка в галерията"}
           </button>
+          {mediaPlan === "free" && galleryImageCount >= MEDIA_LIMITS.free.gallery ? (
+            <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.gallery} images.</p>
+          ) : null}
           {galleryRows.length ? (
             <ul className="mt-3 space-y-2">
               {galleryRows.map((row) => (
@@ -1057,6 +1090,9 @@ export default function FestivalEditForm({
           >
             {videoBusy ? "Запис..." : "Запиши видео линк"}
           </button>
+          {mediaPlan === "free" && videoCount >= MEDIA_LIMITS.free.video ? (
+            <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.video} videos.</p>
+          ) : null}
         </div>
       </AdminFieldSection>
 

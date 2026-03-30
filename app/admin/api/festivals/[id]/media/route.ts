@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { getMediaLimitExceededErrorMessage, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
 
 const HERO_IMAGES_BUCKET = process.env.SUPABASE_HERO_IMAGES_BUCKET || "festival-hero-images";
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -74,6 +75,85 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const extension = extensionFromMimeType(file.type) ?? extensionFromFileName(file.name) ?? "bin";
     const timestamp = Date.now();
     const objectPath = `festival-hero/gallery/festival-${festivalId}-${timestamp}.${extension}`;
+
+    // Enforce plan-based media limits before uploading anything to storage.
+    const { data: festivalRow, error: festivalFetchError } = await ctx.supabase
+      .from("festivals")
+      .select("organizer_id")
+      .eq("id", festivalId)
+      .maybeSingle<{ organizer_id: string | null }>();
+
+    if (festivalFetchError) {
+      return NextResponse.json({ error: festivalFetchError.message }, { status: 500 });
+    }
+
+    let organizerId: string | null = festivalRow?.organizer_id ?? null;
+    if (!organizerId) {
+      const { data: linkRow, error: linkError } = await ctx.supabase
+        .from("festival_organizers")
+        .select("organizer_id")
+        .eq("festival_id", festivalId)
+        .order("sort_order", { ascending: true })
+        .limit(1)
+        .maybeSingle<{ organizer_id: string | null }>();
+
+      if (linkError) {
+        return NextResponse.json({ error: linkError.message }, { status: 500 });
+      }
+      organizerId = linkRow?.organizer_id ?? null;
+    }
+
+    let organizerPlanRow: { plan?: string | null; plan_started_at?: string | null; plan_expires_at?: string | null } | null = null;
+    if (organizerId) {
+      const { data: organizerRow, error: orgFetchError } = await ctx.supabase
+        .from("organizers")
+        .select("plan,plan_started_at,plan_expires_at")
+        .eq("id", organizerId)
+        .maybeSingle<{
+          plan: string | null;
+          plan_started_at: string | null;
+          plan_expires_at: string | null;
+        }>();
+
+      if (orgFetchError) {
+        return NextResponse.json({ error: orgFetchError.message }, { status: 500 });
+      }
+
+      organizerPlanRow = organizerRow ?? null;
+    }
+
+    const plan = resolveMediaPlanFromOrganizer(organizerPlanRow);
+    const limits = resolveAllowedMediaLimitsFromOrganizerPlan(organizerPlanRow);
+
+    // Match UI definition: "images" are non-hero rows that are not video.
+    // We also include legacy rows where `type` might be null (UI treats null as image).
+    const { count: nonHeroCount, error: nonHeroCountError } = await ctx.supabase
+      .from("festival_media")
+      .select("id", { count: "exact", head: true })
+      .eq("festival_id", festivalId)
+      .eq("is_hero", false);
+
+    if (nonHeroCountError) {
+      return NextResponse.json({ error: nonHeroCountError.message }, { status: 500 });
+    }
+
+    const { count: videoCount, error: videoCountError } = await ctx.supabase
+      .from("festival_media")
+      .select("id", { count: "exact", head: true })
+      .eq("festival_id", festivalId)
+      .ilike("type", "%video%");
+
+    if (videoCountError) {
+      return NextResponse.json({ error: videoCountError.message }, { status: 500 });
+    }
+
+    const currentImages = (typeof nonHeroCount === "number" ? nonHeroCount : 0) - (typeof videoCount === "number" ? videoCount : 0);
+    if (currentImages >= limits.gallery) {
+      return NextResponse.json(
+        { error: getMediaLimitExceededErrorMessage({ mediaType: "gallery", current: currentImages, limit: limits.gallery, plan }) },
+        { status: 409 },
+      );
+    }
 
     const supabaseAdmin = createSupabaseAdmin();
     const imageBuffer = Buffer.from(await file.arrayBuffer());

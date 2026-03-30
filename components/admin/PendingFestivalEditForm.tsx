@@ -16,6 +16,7 @@ import { resolvePendingDraftEditorOpenAction } from "@/lib/festival/editorOpenAc
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import { isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
+import { MEDIA_LIMITS, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
 import {
   AdminFieldGrid,
   AdminFieldInlineRow,
@@ -156,7 +157,7 @@ function normalizeOptionalText(value: unknown) {
   return typeof value === "string" ? normalizeDisplayValue(value) : null;
 }
 
-type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug">;
+type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug" | "plan" | "plan_started_at" | "plan_expires_at">;
 
 function buildInitialOrganizerEntries(p: PendingFestivalRecord): Array<{ organizer_id: string; name: string }> {
   const rows = pendingRowToOrganizerEntries({
@@ -456,6 +457,18 @@ export default function PendingFestivalEditForm({
   const galleryExtraInputRef = useRef<HTMLInputElement | null>(null);
   const [galleryUrls, setGalleryUrls] = useState<string[]>(() => parseGalleryUrls(pendingFestival.gallery_image_urls));
   const [videoUrlExtra, setVideoUrlExtra] = useState(() => pendingFestival.video_url?.trim() ?? "");
+
+  const primaryOrganizerId = organizerEntries[0]?.organizer_id.trim() ?? "";
+  const primaryOrganizer = useMemo(() => {
+    if (!primaryOrganizerId) return null;
+    return organizerOptions.find((o) => o.id === primaryOrganizerId) ?? null;
+  }, [primaryOrganizerId, organizerOptions]);
+
+  const mediaPlan = useMemo(() => resolveMediaPlanFromOrganizer(primaryOrganizer), [primaryOrganizer]);
+  const mediaLimits = useMemo(() => resolveAllowedMediaLimitsFromOrganizerPlan(primaryOrganizer), [primaryOrganizer]);
+  const galleryImageCount = galleryUrls.length;
+  const videoCount = videoUrlExtra.trim().length ? 1 : 0;
+
   const [extraGalleryBusy, setExtraGalleryBusy] = useState(false);
   const [extraVideoBusy, setExtraVideoBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -1502,6 +1515,14 @@ export default function PendingFestivalEditForm({
                 <p className="mt-1 text-xs text-black/50">
                   Качва се в storage; при одобряване се копират в <span className="font-medium">festival_media</span>.
                 </p>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-black/60">
+                  <span>
+                    <span className="font-semibold text-black/80">{galleryImageCount}</span> / {mediaLimits.gallery} images
+                  </span>
+                  <span>
+                    <span className="font-semibold text-black/80">{videoCount}</span> / {mediaLimits.video} videos
+                  </span>
+                </div>
                 <input
                   ref={galleryExtraInputRef}
                   type="file"
@@ -1523,11 +1544,16 @@ export default function PendingFestivalEditForm({
                     uploadingHeroImage ||
                     importingHeroFromUrl ||
                     removingHeroImage
+                    ||
+                    galleryImageCount >= mediaLimits.gallery
                   }
                   className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
                 >
                   {extraGalleryBusy ? "Качване..." : "Качи снимка в галерията"}
                 </button>
+                {mediaPlan === "free" && galleryImageCount >= MEDIA_LIMITS.free.gallery ? (
+                  <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.gallery} images.</p>
+                ) : null}
                 {galleryUrls.length ? (
                   <ul className="mt-3 space-y-2">
                     {galleryUrls.map((u) => (
@@ -1586,6 +1612,9 @@ export default function PendingFestivalEditForm({
                 >
                   {extraVideoBusy ? "Запис..." : "Запиши видео линк"}
                 </button>
+                {mediaPlan === "free" && videoCount >= MEDIA_LIMITS.free.video ? (
+                  <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.video} videos.</p>
+                ) : null}
               </div>
         </AdminFieldSection>
 

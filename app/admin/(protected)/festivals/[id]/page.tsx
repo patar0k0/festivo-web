@@ -31,7 +31,7 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
     const { data: organizersData, error: organizersError, count } = await adminClient
       .schema("public")
       .from("organizers")
-      .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,created_at", { count: "exact" })
+      .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,created_at,plan,plan_started_at,plan_expires_at", { count: "exact" })
       .order("name", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false, nullsFirst: false });
 
@@ -86,12 +86,12 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
     `[admin-festival-edit] festival_id=${id} city_id=${cityDetails?.id ?? data.city_id ?? "null"} city_name_bg="${cityDetails?.name_bg ?? ""}" city_slug="${cityDetails?.slug ?? data.city ?? ""}" displayed_city="${cityDisplay ?? ""}"`
   );
 
-  let initialMedia: Array<{ id: string; url: string; type: string | null; sort_order: number | null }> = [];
+  let initialMedia: Array<{ id: string; url: string; type: string | null; sort_order: number | null; is_hero?: boolean | null }> = [];
   try {
     const adminClient = createSupabaseAdmin();
     const { data: mediaRows, error: mediaError } = await adminClient
       .from("festival_media")
-      .select("id, url, type, sort_order")
+      .select("id, url, type, sort_order, is_hero")
       .eq("festival_id", id)
       .order("sort_order", { ascending: true });
     if (!mediaError && mediaRows) {
@@ -100,6 +100,7 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
         url: typeof row.url === "string" ? row.url : "",
         type: typeof row.type === "string" ? row.type : null,
         sort_order: typeof row.sort_order === "number" ? row.sort_order : null,
+        is_hero: row.is_hero ?? null,
       }));
     }
   } catch {

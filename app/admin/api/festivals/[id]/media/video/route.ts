@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
+import { getMediaLimitExceededErrorMessage, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -20,7 +21,67 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       );
     }
 
-    const { error: delError } = await ctx.supabase.from("festival_media").delete().eq("festival_id", festivalId).eq("type", "video");
+    // Enforce plan-based media limits before writing any rows.
+    const { data: festivalRow, error: festivalFetchError } = await ctx.supabase
+      .from("festivals")
+      .select("organizer_id")
+      .eq("id", festivalId)
+      .maybeSingle<{ organizer_id: string | null }>();
+
+    if (festivalFetchError) {
+      return NextResponse.json({ error: festivalFetchError.message }, { status: 500 });
+    }
+
+    let organizerId: string | null = festivalRow?.organizer_id ?? null;
+    if (!organizerId) {
+      const { data: linkRow, error: linkError } = await ctx.supabase
+        .from("festival_organizers")
+        .select("organizer_id")
+        .eq("festival_id", festivalId)
+        .order("sort_order", { ascending: true })
+        .limit(1)
+        .maybeSingle<{ organizer_id: string | null }>();
+
+      if (linkError) {
+        return NextResponse.json({ error: linkError.message }, { status: 500 });
+      }
+      organizerId = linkRow?.organizer_id ?? null;
+    }
+
+    let organizerPlanRow: { plan?: string | null; plan_started_at?: string | null; plan_expires_at?: string | null } | null = null;
+    if (organizerId) {
+      const { data: organizerRow, error: orgFetchError } = await ctx.supabase
+        .from("organizers")
+        .select("plan,plan_started_at,plan_expires_at")
+        .eq("id", organizerId)
+        .maybeSingle<{
+          plan: string | null;
+          plan_started_at: string | null;
+          plan_expires_at: string | null;
+        }>();
+
+      if (orgFetchError) {
+        return NextResponse.json({ error: orgFetchError.message }, { status: 500 });
+      }
+      organizerPlanRow = organizerRow ?? null;
+    }
+
+    const plan = resolveMediaPlanFromOrganizer(organizerPlanRow);
+    const limits = resolveAllowedMediaLimitsFromOrganizerPlan(organizerPlanRow);
+
+    const futureVideoCount = raw ? 1 : 0;
+    if (futureVideoCount > limits.video) {
+      return NextResponse.json(
+        { error: getMediaLimitExceededErrorMessage({ mediaType: "video", current: futureVideoCount, limit: limits.video, plan }) },
+        { status: 409 },
+      );
+    }
+
+    const { error: delError } = await ctx.supabase
+      .from("festival_media")
+      .delete()
+      .eq("festival_id", festivalId)
+      .ilike("type", "%video%");
 
     if (delError) {
       return NextResponse.json({ error: delError.message }, { status: 500 });

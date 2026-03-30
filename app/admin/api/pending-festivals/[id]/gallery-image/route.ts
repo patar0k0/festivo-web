@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { pendingRowToOrganizerEntries } from "@/lib/admin/pendingOrganizerEntries";
+import { getMediaLimitExceededErrorMessage, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
 
 const HERO_IMAGES_BUCKET = process.env.SUPABASE_HERO_IMAGES_BUCKET || "festival-hero-images";
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -53,6 +55,59 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const timestamp = Date.now();
     const objectPath = `festival-hero/pending-gallery/${pendingId}-${timestamp}.${extension}`;
 
+    // Enforce plan-based media limits before uploading anything to storage.
+    const { data: pendingRow, error: pendingFetchError } = await ctx.supabase
+      .from("pending_festivals")
+      .select("organizer_id,organizer_entries,organizer_name,gallery_image_urls")
+      .eq("id", pendingId)
+      .maybeSingle<{
+        organizer_id: string | null;
+        organizer_entries: unknown;
+        organizer_name: string | null;
+        gallery_image_urls: unknown;
+      }>();
+
+    if (pendingFetchError) {
+      return NextResponse.json({ error: pendingFetchError.message }, { status: 500 });
+    }
+
+    if (!pendingRow) {
+      return NextResponse.json({ error: "Pending festival not found." }, { status: 404 });
+    }
+
+    const currentGallery = asStringArray(pendingRow.gallery_image_urls);
+
+    const organizerEntries = pendingRowToOrganizerEntries(pendingRow as any);
+    const primaryOrganizerId = pendingRow.organizer_id ?? organizerEntries[0]?.organizer_id ?? null;
+
+    let organizerPlanRow: { plan?: string | null; plan_started_at?: string | null; plan_expires_at?: string | null } | null = null;
+    if (primaryOrganizerId) {
+      const { data: organizerRow, error: orgFetchError } = await ctx.supabase
+        .from("organizers")
+        .select("plan,plan_started_at,plan_expires_at")
+        .eq("id", primaryOrganizerId)
+        .maybeSingle<{
+          plan: string | null;
+          plan_started_at: string | null;
+          plan_expires_at: string | null;
+        }>();
+
+      if (orgFetchError) {
+        return NextResponse.json({ error: orgFetchError.message }, { status: 500 });
+      }
+      organizerPlanRow = organizerRow ?? null;
+    }
+
+    const plan = resolveMediaPlanFromOrganizer(organizerPlanRow);
+    const limits = resolveAllowedMediaLimitsFromOrganizerPlan(organizerPlanRow);
+
+    if (currentGallery.length >= limits.gallery) {
+      return NextResponse.json(
+        { error: getMediaLimitExceededErrorMessage({ mediaType: "gallery", current: currentGallery.length, limit: limits.gallery, plan }) },
+        { status: 409 },
+      );
+    }
+
     const supabaseAdmin = createSupabaseAdmin();
     const imageBuffer = Buffer.from(await file.arrayBuffer());
 
@@ -73,17 +128,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Uploaded image URL is unavailable." }, { status: 500 });
     }
 
-    const { data: row, error: fetchError } = await ctx.supabase
-      .from("pending_festivals")
-      .select("gallery_image_urls")
-      .eq("id", pendingId)
-      .maybeSingle();
-
-    if (fetchError || !row) {
-      return NextResponse.json({ error: fetchError?.message ?? "Pending festival not found." }, { status: fetchError ? 500 : 404 });
-    }
-
-    const next = [...asStringArray(row.gallery_image_urls), publicUrl];
+    const next = [...currentGallery, publicUrl];
 
     const { error: updateError } = await ctx.supabase
       .from("pending_festivals")

@@ -80,7 +80,7 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
     const adminClient = createSupabaseAdmin();
     const { data: organizersData, error: organizersError } = await adminClient
       .from("organizers")
-      .select("id,name,slug")
+      .select("id,name,slug,plan,plan_started_at,plan_expires_at")
       .eq("is_active", true)
       .order("name", { ascending: true, nullsFirst: false });
     if (!organizersError && organizersData) {

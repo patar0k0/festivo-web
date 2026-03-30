@@ -12,6 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { syncFestivalOrganizers } from "@/lib/festivalOrganizers";
 import { scheduleNewFestivalFollowCityJobs } from "@/lib/notifications/triggers";
 import { insertFestivalMediaFromPending } from "@/lib/festival/insertFestivalMediaFromPending";
+import { getMediaLimitExceededErrorMessage, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
 
 type CityRow = {
   id: number;
@@ -408,6 +409,51 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
       console.info(
         `[pending-approve] pending_id=${id} organizer resolution organizer_id=${organizerId ?? "null"} created=${organizerResolution.created ? "true" : "false"}`
+      );
+    }
+
+    // Enforce plan-based media limits at approve time too, so pending->published approval can't bypass limits.
+    const galleryCount = Array.isArray(pending.gallery_image_urls)
+      ? pending.gallery_image_urls.filter((u): u is string => typeof u === "string" && u.trim().length > 0).length
+      : 0;
+    const videoCount = typeof pending.video_url === "string" && pending.video_url.trim() ? 1 : 0;
+
+    let organizerPlanRow: { plan?: string | null; plan_started_at?: string | null; plan_expires_at?: string | null } | null = null;
+    if (organizerId) {
+      const { data: organizerRow, error: organizerPlanError } = await adminCtx.supabase
+        .from("organizers")
+        .select("plan,plan_started_at,plan_expires_at")
+        .eq("id", organizerId)
+        .maybeSingle<{
+          plan: string | null;
+          plan_started_at: string | null;
+          plan_expires_at: string | null;
+        }>();
+
+      if (organizerPlanError) {
+        return fail(id, "organizer_plan_lookup_failed", 500, organizerPlanError.message);
+      }
+      organizerPlanRow = organizerRow ?? null;
+    }
+
+    const plan = resolveMediaPlanFromOrganizer(organizerPlanRow);
+    const limits = resolveAllowedMediaLimitsFromOrganizerPlan(organizerPlanRow);
+
+    if (galleryCount > limits.gallery) {
+      return fail(
+        id,
+        "media_gallery_limit_exceeded",
+        409,
+        getMediaLimitExceededErrorMessage({ mediaType: "gallery", current: galleryCount, limit: limits.gallery, plan }),
+      );
+    }
+
+    if (videoCount > limits.video) {
+      return fail(
+        id,
+        "media_video_limit_exceeded",
+        409,
+        getMediaLimitExceededErrorMessage({ mediaType: "video", current: videoCount, limit: limits.video, plan }),
       );
     }
 

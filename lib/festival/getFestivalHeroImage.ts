@@ -11,8 +11,9 @@ function normalizeImageUrl(value?: string | null): string | null {
 }
 
 function isImageMedia(type?: string | null): boolean {
-  if (!type) return true;
-  return type.toLowerCase().includes("image");
+  if (!type || !type.trim()) return true;
+  const t = type.toLowerCase();
+  return t !== "video" && !t.includes("video");
 }
 
 export function getFestivalHeroImage(festival: FestivalWithMedia): string | null {
@@ -29,6 +30,10 @@ export function getFestivalHeroImage(festival: FestivalWithMedia): string | null
   const primaryImage = media.find((item) => item.is_primary)?.url;
   const normalizedPrimaryImage = normalizeImageUrl(primaryImage);
   if (normalizedPrimaryImage) return normalizedPrimaryImage;
+
+  const markedHero = media.find((item) => item.is_hero)?.url;
+  const normalizedMarkedHero = normalizeImageUrl(markedHero);
+  if (normalizedMarkedHero) return normalizedMarkedHero;
 
   const firstMediaImage = normalizeImageUrl(media[0]?.url);
   if (firstMediaImage) return firstMediaImage;

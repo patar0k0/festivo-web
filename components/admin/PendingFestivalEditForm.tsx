@@ -15,6 +15,7 @@ import { listFilledPendingRecordFields, type PendingFestivalQuality } from "@/li
 import { resolvePendingDraftEditorOpenAction } from "@/lib/festival/editorOpenAction";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
+import { isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
 import {
   AdminFieldGrid,
   AdminFieldInlineRow,
@@ -89,8 +90,15 @@ export type PendingFestivalRecord = {
   longitude_guess?: number | string | null;
   lat_guess?: number | string | null;
   lng_guess?: number | string | null;
+  video_url?: string | null;
+  gallery_image_urls?: unknown;
   [key: string]: unknown;
 };
+
+function parseGalleryUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+}
 
 type ErrorPayload = {
   error?: string;
@@ -445,6 +453,11 @@ export default function PendingFestivalEditForm({
   const [removingHeroImage, setRemovingHeroImage] = useState(false);
   const [heroImageSourceState, setHeroImageSourceState] = useState<string | null>(normalizeOptionalText(pendingFestival.hero_image_source));
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryExtraInputRef = useRef<HTMLInputElement | null>(null);
+  const [galleryUrls, setGalleryUrls] = useState<string[]>(() => parseGalleryUrls(pendingFestival.gallery_image_urls));
+  const [videoUrlExtra, setVideoUrlExtra] = useState(() => pendingFestival.video_url?.trim() ?? "");
+  const [extraGalleryBusy, setExtraGalleryBusy] = useState(false);
+  const [extraVideoBusy, setExtraVideoBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [safeApplySummary, setSafeApplySummary] = useState<{ appliedFields: string[]; skippedUnchangedOrMissing: string[] } | null>(null);
@@ -459,6 +472,11 @@ export default function PendingFestivalEditForm({
 
   const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(pendingFestival.occurrence_dates) ?? []);
   const [heroPreviewError, setHeroPreviewError] = useState(false);
+
+  useEffect(() => {
+    setGalleryUrls(parseGalleryUrls(pendingFestival.gallery_image_urls));
+    setVideoUrlExtra(pendingFestival.video_url?.trim() ?? "");
+  }, [pendingFestival.id, pendingFestival.gallery_image_urls, pendingFestival.video_url]);
   const [appliedAiFields, setAppliedAiFields] = useState<Record<SuggestionField, boolean>>({
     category: false,
     tags: false,
@@ -724,6 +742,8 @@ export default function PendingFestivalEditForm({
           is_free: form.is_free,
           hero_image: form.hero_image.trim() || null,
           tags: form.tags,
+          video_url: videoUrlExtra.trim() || null,
+          gallery_image_urls: galleryUrls,
         }),
       });
 
@@ -948,6 +968,87 @@ export default function PendingFestivalEditForm({
     }
   };
 
+  const uploadPendingGalleryImage = async (file: File) => {
+    if (saving || runningAction || extraGalleryBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    setExtraGalleryBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/gallery-image`, {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; gallery_image_urls?: string[]; error?: string } | null;
+      if (!res.ok || !payload?.ok || !Array.isArray(payload.gallery_image_urls)) {
+        throw new Error(payload?.error ?? "Качването в галерията не бе успешно.");
+      }
+      setGalleryUrls(payload.gallery_image_urls);
+      setMessage("Снимката е добавена към галерията.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Грешка при качване в галерията.");
+    } finally {
+      setExtraGalleryBusy(false);
+    }
+  };
+
+  const removePendingGalleryUrl = async (url: string) => {
+    if (saving || runningAction || extraGalleryBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    setExtraGalleryBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const res = await fetch(
+        `/admin/api/pending-festivals/${pendingFestival.id}/gallery-image?url=${encodeURIComponent(url)}`,
+        { method: "DELETE", credentials: "include" },
+      );
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; gallery_image_urls?: string[]; error?: string } | null;
+      if (!res.ok || !payload?.ok || !Array.isArray(payload.gallery_image_urls)) {
+        throw new Error(payload?.error ?? "Премахването от галерията не бе успешно.");
+      }
+      setGalleryUrls(payload.gallery_image_urls);
+      setMessage("Снимката е премахната от галерията.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Грешка при премахване от галерията.");
+    } finally {
+      setExtraGalleryBusy(false);
+    }
+  };
+
+  const savePendingVideoExtra = async () => {
+    if (saving || runningAction || extraVideoBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    const trimmed = videoUrlExtra.trim();
+    if (trimmed && !isSupportedVideoPageUrl(trimmed)) {
+      setError("Видео линкът трябва да е публичен YouTube или Facebook адрес.");
+      return;
+    }
+    setExtraVideoBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const res = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/video`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ video_url: trimmed || null }),
+      });
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? "Записът на видео не бе успешен.");
+      }
+      setMessage(trimmed ? "Видео линкът е записан." : "Видео линкът е изчистен.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Грешка при запис на видео.");
+    } finally {
+      setExtraVideoBusy(false);
+    }
+  };
+
   const summaryOrganizer =
     organizerEntries[0]?.name.trim() || form.organizer_name.trim() || "—";
 
@@ -1003,7 +1104,7 @@ export default function PendingFestivalEditForm({
             <button
               type="submit"
               form="admin-pending-festival-edit"
-              disabled={Boolean(runningAction) || saving}
+              disabled={Boolean(runningAction) || saving || extraGalleryBusy || extraVideoBusy}
               className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save edits"}
@@ -1395,6 +1496,97 @@ export default function PendingFestivalEditForm({
                   </div>
                 ) : null}
               </label>
+
+              <div className="mt-6 border-t border-black/[0.08] pt-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Галерия (допълнителни снимки)</p>
+                <p className="mt-1 text-xs text-black/50">
+                  Качва се в storage; при одобряване се копират в <span className="font-medium">festival_media</span>.
+                </p>
+                <input
+                  ref={galleryExtraInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f) void uploadPendingGalleryImage(f);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => galleryExtraInputRef.current?.click()}
+                  disabled={
+                    saving ||
+                    Boolean(runningAction) ||
+                    extraGalleryBusy ||
+                    uploadingHeroImage ||
+                    importingHeroFromUrl ||
+                    removingHeroImage
+                  }
+                  className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+                >
+                  {extraGalleryBusy ? "Качване..." : "Качи снимка в галерията"}
+                </button>
+                {galleryUrls.length ? (
+                  <ul className="mt-3 space-y-2">
+                    {galleryUrls.map((u) => (
+                      <li
+                        key={u}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-sm"
+                      >
+                        <span className="min-w-0 truncate text-black/80" title={u}>
+                          {u}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void removePendingGalleryUrl(u)}
+                          disabled={
+                            saving ||
+                            Boolean(runningAction) ||
+                            extraGalleryBusy ||
+                            uploadingHeroImage ||
+                            importingHeroFromUrl ||
+                            removingHeroImage
+                          }
+                          className="shrink-0 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-red-700 disabled:opacity-50"
+                        >
+                          Премахни
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-black/45">Няма допълнителни снимки.</p>
+                )}
+              </div>
+
+              <div className="mt-6 border-t border-black/[0.08] pt-5">
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Видео (YouTube / Facebook)</span>
+                  <input
+                    value={videoUrlExtra}
+                    onChange={(e) => setVideoUrlExtra(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=… или Facebook видео линк"
+                    className={`mt-1.5 ${ADMIN_ENTITY_CONTROL_CLASS}`}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void savePendingVideoExtra()}
+                  disabled={
+                    saving ||
+                    Boolean(runningAction) ||
+                    extraVideoBusy ||
+                    uploadingHeroImage ||
+                    importingHeroFromUrl ||
+                    removingHeroImage
+                  }
+                  className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+                >
+                  {extraVideoBusy ? "Запис..." : "Запиши видео линк"}
+                </button>
+              </div>
         </AdminFieldSection>
 
         <AdminFieldSection
@@ -1738,7 +1930,9 @@ export default function PendingFestivalEditForm({
               Boolean(runningAction) ||
               uploadingHeroImage ||
               importingHeroFromUrl ||
-              removingHeroImage
+              removingHeroImage ||
+              extraGalleryBusy ||
+              extraVideoBusy
             }
           />
           <button
@@ -1759,7 +1953,7 @@ export default function PendingFestivalEditForm({
           </button>
           <button
             type="submit"
-            disabled={Boolean(runningAction) || saving}
+            disabled={Boolean(runningAction) || saving || extraGalleryBusy || extraVideoBusy}
             className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save edits"}

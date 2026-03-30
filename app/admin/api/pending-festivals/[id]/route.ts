@@ -34,6 +34,8 @@ const EXTRA_EDITABLE_FIELDS = [
   "verification_score",
   "extraction_version",
   "duplicate_of",
+  "video_url",
+  "gallery_image_urls",
 ] as const;
 
 function isAllowedExtraValue(value: unknown) {

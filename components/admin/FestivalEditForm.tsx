@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { transliteratedSlug } from "@/lib/text/slug";
 import type { OrganizerProfile } from "@/lib/types";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
 import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorOpenAction";
+import { isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 import {
   AdminFieldGrid,
@@ -170,7 +171,17 @@ type SaveFestivalResponse = {
 
 type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug">;
 
-export default function FestivalEditForm({ festival, organizers }: { festival: FestivalRecord; organizers: OrganizerOption[] }) {
+type PublishedMediaRow = { id: string; url: string; type: string | null; sort_order: number | null };
+
+export default function FestivalEditForm({
+  festival,
+  organizers,
+  initialMedia = [],
+}: {
+  festival: FestivalRecord;
+  organizers: OrganizerOption[];
+  initialMedia?: PublishedMediaRow[];
+}) {
   const initialCityDisplay = festival.city_name ?? festival.city ?? "";
 
   const [form, setForm] = useState({
@@ -228,9 +239,26 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
+  const mediaSnapshot = JSON.stringify(initialMedia.map((m) => ({ id: m.id, url: m.url, type: m.type })));
+  const galleryRows = useMemo(
+    () => initialMedia.filter((m) => (m.type ?? "").toLowerCase() !== "video"),
+    [mediaSnapshot],
+  );
+  const videoUrlFromServer = useMemo(() => {
+    const v = initialMedia.find((m) => (m.type ?? "").toLowerCase() === "video");
+    return v?.url ?? "";
+  }, [mediaSnapshot]);
+  const [videoUrl, setVideoUrl] = useState(videoUrlFromServer);
+  const [galleryBusy, setGalleryBusy] = useState(false);
+  const [videoBusy, setVideoBusy] = useState(false);
+  const galleryFileRef = useRef<HTMLInputElement | null>(null);
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
   const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(festival.occurrence_dates) ?? []);
   const router = useRouter();
+
+  useEffect(() => {
+    setVideoUrl(videoUrlFromServer);
+  }, [videoUrlFromServer]);
 
   const descriptionPreview = useMemo(() => form.description.trim(), [form.description]);
 
@@ -359,6 +387,81 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
       setError(importErr instanceof Error ? importErr.message : "Възникна грешка при импорт.");
     } finally {
       setImportingHeroFromUrl(false);
+    }
+  };
+
+  const uploadGalleryImage = async (file: File) => {
+    if (galleryBusy || saving || actionPending) return;
+    setGalleryBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/admin/api/festivals/${festival.id}/media`, { method: "POST", body: fd, credentials: "include" });
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; row?: PublishedMediaRow; error?: string } | null;
+      if (!res.ok || !payload?.ok || !payload.row) {
+        throw new Error(payload?.error ?? "Качването на снимка не бе успешно.");
+      }
+      setMessage("Снимката е добавена към галерията.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Грешка при качване.");
+    } finally {
+      setGalleryBusy(false);
+    }
+  };
+
+  const removeGalleryImage = async (mediaId: string) => {
+    if (galleryBusy || saving || actionPending) return;
+    setGalleryBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const res = await fetch(`/admin/api/festivals/${festival.id}/media/${encodeURIComponent(mediaId)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? "Премахването не бе успешно.");
+      }
+      setMessage("Снимката е премахната от галерията.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Грешка при премахване.");
+    } finally {
+      setGalleryBusy(false);
+    }
+  };
+
+  const saveVideoUrl = async () => {
+    if (videoBusy || saving || actionPending) return;
+    const trimmed = videoUrl.trim();
+    if (trimmed && !isSupportedVideoPageUrl(trimmed)) {
+      setError("Видео линкът трябва да е публичен YouTube или Facebook адрес.");
+      return;
+    }
+    setVideoBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const res = await fetch(`/admin/api/festivals/${festival.id}/media/video`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ video_url: trimmed || null }),
+      });
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? "Записът на видео не бе успешен.");
+      }
+      setMessage(trimmed ? "Видео линкът е записан." : "Видео линкът е изчистен.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Грешка при запис на видео.");
+    } finally {
+      setVideoBusy(false);
     }
   };
 
@@ -887,6 +990,74 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             Импортът сваля файла на сървъра и го качва в Supabase; в базата остава само публичният адрес от storage. При запис с http(s) линк към чуждо изображение същото се случва автоматично.
           </p>
         </label>
+
+        <div className="mt-6 border-t border-black/[0.08] pt-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Галерия (допълнителни снимки)</p>
+          <p className="mt-1 text-xs text-black/50">Качи файл; не се дублира автоматично с hero — публичната страница показва галерията под хедъра.</p>
+          <input
+            ref={galleryFileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void uploadGalleryImage(f);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => galleryFileRef.current?.click()}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy}
+            className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+          >
+            {galleryBusy ? "Качване..." : "Качи снимка в галерията"}
+          </button>
+          {galleryRows.length ? (
+            <ul className="mt-3 space-y-2">
+              {galleryRows.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-sm"
+                >
+                  <span className="min-w-0 truncate text-black/80" title={row.url}>
+                    {row.url}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void removeGalleryImage(row.id)}
+                    disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy}
+                    className="shrink-0 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-red-700 disabled:opacity-50"
+                  >
+                    Премахни
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-xs text-black/45">Няма допълнителни снимки в галерията.</p>
+          )}
+        </div>
+
+        <div className="mt-6 border-t border-black/[0.08] pt-5">
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Видео (YouTube / Facebook)</span>
+            <input
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=… или Facebook видео линк"
+              className={`mt-1.5 ${ADMIN_ENTITY_CONTROL_CLASS}`}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => void saveVideoUrl()}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || videoBusy}
+            className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+          >
+            {videoBusy ? "Запис..." : "Запиши видео линк"}
+          </button>
+        </div>
       </AdminFieldSection>
 
       <AdminFieldSection title={ADMIN_ENTITY_SECTION.descriptionContent.title} variant={ADMIN_ENTITY_SECTION.descriptionContent.variant}>
@@ -982,12 +1153,12 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           </Link>
           <FestivalEditorOpenSecondary
             action={editorOpenAction}
-            dimmed={saving || importingHeroFromUrl || Boolean(actionPending)}
+            dimmed={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || videoBusy}
           />
           <button
             type="button"
             onClick={() => runArchiveAction(form.status === "archived" ? "restore" : "archive")}
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || videoBusy}
             className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
           >
             {actionPending === "archive" || actionPending === "restore"
@@ -999,7 +1170,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           <button
             type="button"
             onClick={runDeleteAction}
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || videoBusy}
             className="rounded-xl border border-[#b13a1a]/30 bg-[#ff4c1f]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#b13a1a] disabled:opacity-50"
           >
             {actionPending === "delete" ? "Deleting..." : "Delete"}
@@ -1007,7 +1178,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           <button
             type="submit"
             form="admin-festival-edit-form"
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || videoBusy}
             className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}

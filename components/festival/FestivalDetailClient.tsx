@@ -9,6 +9,7 @@ import EventCard from "@/components/ui/EventCard";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
 import FestivalGallery from "@/components/festival/FestivalGallery";
+import FestivalVideoEmbed from "@/components/festival/FestivalVideoEmbed";
 import { FestivalHeroActionBar, FestivalRailActionBar } from "@/components/festival/FestivalDetailActions";
 import FestivalQuickFactsStrip from "@/components/festival/FestivalQuickFactsStrip";
 import FestivalAppCta from "@/components/festival/FestivalAppCta";
@@ -21,6 +22,7 @@ import {
   normalizeFestivalLocationText,
 } from "@/lib/festival/publicLocationDisplay";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { getVideoEmbedSrcFromPageUrl } from "@/lib/festival/videoEmbed";
 import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
 import type { ReminderType } from "@/lib/plan/server";
 import type { AccommodationOffer } from "@/lib/accommodation/types";
@@ -124,8 +126,9 @@ function getGroupedDays(days: FestivalDay[], items: FestivalScheduleItem[]): Gro
 }
 
 function isImageMedia(type?: string | null): boolean {
-  if (!type) return true;
-  return type.toLowerCase().includes("image");
+  if (!type || !type.trim()) return true;
+  const t = type.toLowerCase();
+  return t !== "video" && !t.includes("video");
 }
 
 function normalizeHeroUrl(value?: string | null): string | null {
@@ -219,18 +222,23 @@ export default function FestivalDetailClient({
   });
   const [heroImageFailed, setHeroImageFailed] = useState(false);
 
+  const videoPageUrl = useMemo(() => {
+    const row = media.find((m) => (m.type ?? "").toLowerCase() === "video");
+    const u = normalizeHeroUrl(row?.url);
+    return u ?? null;
+  }, [media]);
+
   const galleryItems = useMemo(() => {
     const seen = new Set<string>();
     const out: Array<{ id: string | number; url: string; caption?: string | null }> = [];
+    const heroNorm = heroImage && !heroImageFailed ? normalizeHeroUrl(heroImage) : null;
     const add = (id: string | number, url: string | null | undefined, caption?: string | null) => {
       const u = normalizeHeroUrl(url);
       if (!u || seen.has(u)) return;
+      if (heroNorm && u === heroNorm) return;
       seen.add(u);
       out.push({ id, url: u, caption });
     };
-    if (heroImage && !heroImageFailed) {
-      add(`hero-${festival.id}`, heroImage, null);
-    }
     for (const m of imageMedia) {
       add(m.id, m.url, m.caption);
     }
@@ -258,7 +266,8 @@ export default function FestivalDetailClient({
   const compactLocationBeyondCity = getCompactMetaLocationBeyondCity(festival, cityName);
   const cityOrLocationText = [cityName, compactLocationBeyondCity].filter(Boolean).join(" · ");
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
-  const showGallerySection = galleryItems.length >= 2;
+  const showGallerySection = galleryItems.length >= 1;
+  const showVideoSection = Boolean(videoPageUrl && getVideoEmbedSrcFromPageUrl(videoPageUrl));
   const urgencyLabel = getFestivalUrgencyLabelBg(festival);
   const icsHref = `/festival/${festival.slug}/ics`;
   const timeLine = earliestScheduleTime(scheduleItems);
@@ -412,6 +421,11 @@ export default function FestivalDetailClient({
         </div>
       </section>
 
+      {showGallerySection ? (
+        <FestivalGallery items={galleryItems} festivalTitle={festival.title || "Фестивал"} />
+      ) : null}
+      {showVideoSection && videoPageUrl ? <FestivalVideoEmbed pageUrl={videoPageUrl} title={festival.title || "Фестивал"} /> : null}
+
       <FestivalQuickFactsStrip segments={quickFactSegments} />
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -557,10 +571,6 @@ export default function FestivalDetailClient({
               </div>
             )}
           </section>
-
-          {showGallerySection ? (
-            <FestivalGallery items={galleryItems} festivalTitle={festival.title || "Фестивал"} />
-          ) : null}
 
           {relatedFestivals.length ? (
             <section className="space-y-4">

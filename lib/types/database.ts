@@ -164,6 +164,7 @@ export type Database = {
           type: string
           caption: string | null
           sort_order: number | null
+          is_hero: boolean
         }
         Insert: {
           id?: string
@@ -172,6 +173,7 @@ export type Database = {
           type: string
           caption?: string | null
           sort_order?: number | null
+          is_hero?: boolean
         }
         Update: {
           id?: string
@@ -180,6 +182,7 @@ export type Database = {
           type?: string
           caption?: string | null
           sort_order?: number | null
+          is_hero?: boolean
         }
       }
       organizers: {

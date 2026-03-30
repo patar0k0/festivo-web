@@ -68,6 +68,8 @@ export type FestivalMedia = {
   type?: string | null;
   caption?: string | null;
   sort_order?: number | null;
+  /** When true and `festivals.hero_image` is empty, may be used as the public hero. */
+  is_hero?: boolean | null;
 };
 
 export type FestivalDay = {

@@ -11,6 +11,7 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { syncFestivalOrganizers } from "@/lib/festivalOrganizers";
 import { scheduleNewFestivalFollowCityJobs } from "@/lib/notifications/triggers";
+import { insertFestivalMediaFromPending } from "@/lib/festival/insertFestivalMediaFromPending";
 
 type CityRow = {
   id: number;
@@ -57,10 +58,12 @@ type PendingFestivalRow = {
   hero_image: string | null;
   tags: unknown;
   status: "pending" | "approved" | "rejected";
+  video_url?: string | null;
+  gallery_image_urls?: unknown;
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status";
+  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls";
 
 async function resolveOrganizerIdsForPublish(
   adminSupabase: SupabaseClient,
@@ -489,6 +492,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
       const message = syncError instanceof Error ? syncError.message : "festival_organizers sync failed";
       return fail(id, "festival_organizers_sync_failed", 500, message);
+    }
+
+    try {
+      await insertFestivalMediaFromPending(adminCtx.supabase, insertedFestival.id, pending);
+    } catch (mediaErr) {
+      await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
+      const message = mediaErr instanceof Error ? mediaErr.message : "festival_media insert failed";
+      return fail(id, "festival_media_insert_failed", 500, message);
     }
 
     const { data: reviewRow, error: reviewError } = await adminCtx.supabase

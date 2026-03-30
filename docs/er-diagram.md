@@ -84,7 +84,10 @@ erDiagram
   festival_media {
     uuid id PK
     uuid festival_id FK
+    text type
     text url
+    int sort_order
+    boolean is_hero
   }
 
   festival_organizers {

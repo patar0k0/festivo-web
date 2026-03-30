@@ -86,9 +86,30 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
     `[admin-festival-edit] festival_id=${id} city_id=${cityDetails?.id ?? data.city_id ?? "null"} city_name_bg="${cityDetails?.name_bg ?? ""}" city_slug="${cityDetails?.slug ?? data.city ?? ""}" displayed_city="${cityDisplay ?? ""}"`
   );
 
+  let initialMedia: Array<{ id: string; url: string; type: string | null; sort_order: number | null }> = [];
+  try {
+    const adminClient = createSupabaseAdmin();
+    const { data: mediaRows, error: mediaError } = await adminClient
+      .from("festival_media")
+      .select("id, url, type, sort_order")
+      .eq("festival_id", id)
+      .order("sort_order", { ascending: true });
+    if (!mediaError && mediaRows) {
+      initialMedia = mediaRows.map((row) => ({
+        id: String(row.id),
+        url: typeof row.url === "string" ? row.url : "",
+        type: typeof row.type === "string" ? row.type : null,
+        sort_order: typeof row.sort_order === "number" ? row.sort_order : null,
+      }));
+    }
+  } catch {
+    /* optional */
+  }
+
   return (
     <FestivalEditForm
       organizers={organizers}
+      initialMedia={initialMedia}
       festival={{
         ...data,
         id: String(data.id),

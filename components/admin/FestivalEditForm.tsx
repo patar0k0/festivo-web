@@ -273,6 +273,10 @@ export default function FestivalEditForm({
   const mediaLimits = useMemo(() => resolveAllowedMediaLimitsFromOrganizerPlan(primaryOrganizer), [primaryOrganizer]);
 
   const galleryImageCount = galleryRowsForLimit.length;
+  /** Plan image cap includes the hero slot when `festivals.hero_image` is set. */
+  const heroHasImage = Boolean(form.hero_image.trim());
+  const totalGallerySlotsUsed = galleryImageCount + (heroHasImage ? 1 : 0);
+  const galleryAtLimit = totalGallerySlotsUsed >= mediaLimits.gallery;
   const videoCount = videoRows.length;
 
   const videoUrlFromServer = useMemo(() => {
@@ -281,9 +285,12 @@ export default function FestivalEditForm({
   }, [mediaSnapshot]);
   const [videoUrl, setVideoUrl] = useState(videoUrlFromServer);
   const [galleryBusy, setGalleryBusy] = useState(false);
+  const [importingGalleryFromUrl, setImportingGalleryFromUrl] = useState(false);
+  const galleryOpsBusy = galleryBusy || importingGalleryFromUrl;
   const [videoBusy, setVideoBusy] = useState(false);
   const galleryFileRef = useRef<HTMLInputElement | null>(null);
   const heroFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [galleryImportUrl, setGalleryImportUrl] = useState("");
   const [heroPreviewError, setHeroPreviewError] = useState(false);
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
   const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(festival.occurrence_dates) ?? []);
@@ -436,8 +443,8 @@ export default function FestivalEditForm({
   };
 
   const uploadHeroImageFile = async (file: File) => {
-    if (galleryBusy || saving || actionPending || importingHeroFromUrl) return;
-    if (galleryImageCount >= mediaLimits.gallery) {
+    if (galleryOpsBusy || saving || actionPending || importingHeroFromUrl) return;
+    if (!heroHasImage && galleryImageCount >= mediaLimits.gallery) {
       setError("Лимитът за галерия е достигнат. Използвайте полето за URL или ъпгрейд към VIP за повече снимки.");
       return;
     }
@@ -460,8 +467,45 @@ export default function FestivalEditForm({
     }
   };
 
+  const importGalleryImageFromUrl = async () => {
+    const url = galleryImportUrl.trim();
+    if (!url) {
+      setError("Поставете валиден URL на изображение.");
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      setError("URL трябва да започва с http:// или https://.");
+      return;
+    }
+    if (galleryOpsBusy || saving || actionPending || importingHeroFromUrl) return;
+    if (galleryAtLimit) return;
+
+    setImportingGalleryFromUrl(true);
+    setMessage("");
+    setError("");
+    try {
+      const res = await fetch(`/admin/api/festivals/${festival.id}/media`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_url: url }),
+      });
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; row?: PublishedMediaRow; error?: string } | null;
+      if (!res.ok || !payload?.ok || !payload.row?.url) {
+        throw new Error(payload?.error ?? "Импортът в галерията не бе успешен.");
+      }
+      setGalleryImportUrl("");
+      setMessage("Снимката е добавена към галерията.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Грешка при импорт в галерията.");
+    } finally {
+      setImportingGalleryFromUrl(false);
+    }
+  };
+
   const uploadGalleryImage = async (file: File) => {
-    if (galleryBusy || saving || actionPending) return;
+    if (galleryOpsBusy || saving || actionPending) return;
     setGalleryBusy(true);
     setMessage("");
     setError("");
@@ -483,7 +527,7 @@ export default function FestivalEditForm({
   };
 
   const removeGalleryImage = async (mediaId: string, imageUrl: string) => {
-    if (galleryBusy || saving || actionPending) return;
+    if (galleryOpsBusy || saving || actionPending) return;
     setGalleryBusy(true);
     setMessage("");
     setError("");
@@ -1091,7 +1135,14 @@ export default function FestivalEditForm({
             <button
               type="button"
               onClick={() => importHeroImageFromUrl()}
-              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || !form.hero_image.trim()}
+              disabled={
+                saving ||
+                importingHeroFromUrl ||
+                Boolean(actionPending) ||
+                galleryOpsBusy ||
+                !form.hero_image.trim() ||
+                (galleryAtLimit && !heroHasImage)
+              }
               className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
             >
               {importingHeroFromUrl ? "Импорт..." : "Импорт от URL"}
@@ -1100,7 +1151,7 @@ export default function FestivalEditForm({
               type="button"
               onClick={() => heroFileInputRef.current?.click()}
               disabled={
-                saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || galleryImageCount >= mediaLimits.gallery
+                saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || (!heroHasImage && galleryImageCount >= mediaLimits.gallery)
               }
               className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
             >
@@ -1123,7 +1174,7 @@ export default function FestivalEditForm({
                   e.target.value = "";
                   if (v) void commitHeroFromUrl(v);
                 }}
-                disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy}
+                disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy}
                 className={`mt-1.5 ${ADMIN_ENTITY_CONTROL_CLASS}`}
               >
                 <option value="">Избери снимка…</option>
@@ -1142,7 +1193,7 @@ export default function FestivalEditForm({
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Галерия</p>
             <p className="text-xs text-black/60">
-              <span className="font-semibold text-black/80">{galleryImageCount}</span> / {mediaLimits.gallery} · {planLabel}
+              <span className="font-semibold text-black/80">{totalGallerySlotsUsed}</span> / {mediaLimits.gallery} · {planLabel}
             </p>
           </div>
           <input
@@ -1174,7 +1225,7 @@ export default function FestivalEditForm({
                     <button
                       type="button"
                       onClick={() => void commitHeroFromUrl(row.url)}
-                      disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy}
+                      disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy}
                       className="rounded-md border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] disabled:opacity-50"
                     >
                       Главна
@@ -1182,7 +1233,7 @@ export default function FestivalEditForm({
                     <button
                       type="button"
                       onClick={() => void removeGalleryImage(row.id, row.url)}
-                      disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy}
+                      disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy}
                       className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-red-700 disabled:opacity-50"
                     >
                       Премахни
@@ -1194,13 +1245,35 @@ export default function FestivalEditForm({
             <button
               type="button"
               onClick={() => galleryFileRef.current?.click()}
-              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || galleryImageCount >= mediaLimits.gallery}
+              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || galleryAtLimit}
               className="flex aspect-square min-h-[120px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:border-black/[0.25] hover:bg-black/[0.04] disabled:opacity-50"
             >
               {galleryBusy ? "Качване..." : "+ Качи"}
             </button>
           </div>
-          {mediaPlan === "free" && galleryImageCount >= MEDIA_LIMITS.free.gallery ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <input
+              value={galleryImportUrl}
+              onChange={(e) => setGalleryImportUrl(e.target.value)}
+              placeholder="https://… (импорт в галерията)"
+              className={`min-w-[200px] flex-1 ${ADMIN_ENTITY_CONTROL_CLASS}`}
+            />
+            <button
+              type="button"
+              onClick={() => void importGalleryImageFromUrl()}
+              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || galleryAtLimit || !galleryImportUrl.trim()}
+              className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+            >
+              {importingGalleryFromUrl ? "Импорт..." : "Импорт от URL"}
+            </button>
+            <span
+              className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-black/[0.12] text-[10px] font-bold text-black/45"
+              title="Сървърът сваля изображението и го записва в storage (като при главното изображение)."
+            >
+              i
+            </span>
+          </div>
+          {mediaPlan === "free" && galleryAtLimit ? (
             <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.gallery} снимки.</p>
           ) : null}
           {!displayGalleryRows.length ? <p className="mt-2 text-xs text-black/45">Няма снимки в галерията.</p> : null}
@@ -1355,12 +1428,12 @@ export default function FestivalEditForm({
           </Link>
           <FestivalEditorOpenSecondary
             action={editorOpenAction}
-            dimmed={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || videoBusy}
+            dimmed={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
           />
           <button
             type="button"
             onClick={() => runArchiveAction(form.status === "archived" ? "restore" : "archive")}
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || videoBusy}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
             className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
           >
             {actionPending === "archive" || actionPending === "restore"
@@ -1372,7 +1445,7 @@ export default function FestivalEditForm({
           <button
             type="button"
             onClick={runDeleteAction}
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || videoBusy}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
             className="rounded-xl border border-[#b13a1a]/30 bg-[#ff4c1f]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#b13a1a] disabled:opacity-50"
           >
             {actionPending === "delete" ? "Deleting..." : "Delete"}
@@ -1380,7 +1453,7 @@ export default function FestivalEditForm({
           <button
             type="submit"
             form="admin-festival-edit-form"
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryBusy || videoBusy}
+            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
             className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rehostHeroImageIfRemote } from "@/lib/admin/rehostHeroImageFromUrl";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import {
@@ -41,6 +42,88 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   try {
     const { id: pendingId } = await params;
+    const contentType = request.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      const body = (await request.json().catch(() => null)) as { source_url?: unknown } | null;
+      const sourceUrl = typeof body?.source_url === "string" ? body.source_url : "";
+      if (!sourceUrl.trim()) {
+        return NextResponse.json({ error: "source_url is required." }, { status: 400 });
+      }
+      if (!/^https?:\/\//i.test(sourceUrl.trim())) {
+        return NextResponse.json({ error: "source_url must start with http:// or https://." }, { status: 400 });
+      }
+
+      const { data: pendingRow, error: pendingFetchError } = await ctx.supabase
+        .from("pending_festivals")
+        .select("organizer_id,organizer_entries,organizer_name,gallery_image_urls")
+        .eq("id", pendingId)
+        .maybeSingle<{
+          organizer_id: string | null;
+          organizer_entries: unknown;
+          organizer_name: string | null;
+          gallery_image_urls: unknown;
+        }>();
+
+      if (pendingFetchError) {
+        return NextResponse.json({ error: pendingFetchError.message }, { status: 500 });
+      }
+
+      if (!pendingRow) {
+        return NextResponse.json({ error: "Pending festival not found." }, { status: 404 });
+      }
+
+      const currentGallery = asStringArray(pendingRow.gallery_image_urls);
+
+      const rowForEntries: PendingOrganizerRowFields = {
+        organizer_entries: pendingRow.organizer_entries,
+        organizer_id: pendingRow.organizer_id,
+        organizer_name: pendingRow.organizer_name,
+      };
+      const organizerEntries = pendingRowToOrganizerEntries(rowForEntries);
+      const primaryOrganizerId = pendingRow.organizer_id ?? organizerEntries[0]?.organizer_id ?? null;
+
+      const { data: organizerPlanRow, error: orgFetchError } = await fetchOrganizerPlanRow(ctx.supabase, primaryOrganizerId);
+
+      if (orgFetchError) {
+        return NextResponse.json({ error: orgFetchError.message }, { status: 500 });
+      }
+
+      const plan = resolveMediaPlanFromOrganizer(organizerPlanRow);
+      const limits = resolveAllowedMediaLimitsFromOrganizerPlan(organizerPlanRow);
+
+      if (currentGallery.length >= limits.gallery) {
+        return NextResponse.json(
+          { error: getMediaLimitExceededErrorMessage({ mediaType: "gallery", current: currentGallery.length, limit: limits.gallery, plan }) },
+          { status: 409 },
+        );
+      }
+
+      const supabaseAdmin = createSupabaseAdmin();
+      const timestamp = Date.now();
+      const outcome = await rehostHeroImageIfRemote(supabaseAdmin, sourceUrl, (ext) =>
+        `festival-hero/pending-gallery/${pendingId}-${timestamp}.${ext}`,
+      );
+
+      if (!outcome.ok) {
+        return NextResponse.json({ error: outcome.error }, { status: 422 });
+      }
+
+      const publicUrl = outcome.publicUrl;
+      const next = [...currentGallery, publicUrl];
+
+      const { error: updateError } = await ctx.supabase
+        .from("pending_festivals")
+        .update({ gallery_image_urls: next })
+        .eq("id", pendingId);
+
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ ok: true, url: publicUrl, gallery_image_urls: next });
+    }
+
     const formData = await request.formData();
     const file = formData.get("file");
 

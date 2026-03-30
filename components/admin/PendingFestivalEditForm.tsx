@@ -473,10 +473,16 @@ export default function PendingFestivalEditForm({
   const mediaLimits = useMemo(() => resolveAllowedMediaLimitsFromOrganizerPlan(primaryOrganizer), [primaryOrganizer]);
   const planLabel = mediaPlanDisplayLabel(mediaPlan);
   const galleryImageCount = galleryUrls.length;
+  const heroHasImage = Boolean(form.hero_image.trim());
+  const totalGallerySlotsUsed = galleryImageCount + (heroHasImage ? 1 : 0);
+  const galleryAtLimit = totalGallerySlotsUsed >= mediaLimits.gallery;
   const videoCount = videoUrlExtra.trim().length ? 1 : 0;
   const videoEmbedSrc = useMemo(() => getVideoEmbedSrcFromPageUrl(videoUrlExtra.trim()), [videoUrlExtra]);
 
   const [extraGalleryBusy, setExtraGalleryBusy] = useState(false);
+  const [galleryImportUrl, setGalleryImportUrl] = useState("");
+  const [importingGalleryFromUrl, setImportingGalleryFromUrl] = useState(false);
+  const galleryOpsBusy = extraGalleryBusy || importingGalleryFromUrl;
   const [extraVideoBusy, setExtraVideoBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -842,6 +848,10 @@ export default function PendingFestivalEditForm({
 
   const uploadHeroImage = async () => {
     if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    if (!heroHasImage && galleryImageCount >= mediaLimits.gallery) {
+      setError("Лимитът за галерия е достигнат. Използвайте полето за URL или ъпгрейд към VIP за повече снимки.");
+      return;
+    }
 
     const selectedFile = fileInputRef.current?.files?.[0] ?? null;
     if (!selectedFile) {
@@ -923,6 +933,10 @@ export default function PendingFestivalEditForm({
 
   const importHeroImageFromUrl = async () => {
     if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    if (galleryAtLimit && !heroHasImage) {
+      setError("Лимитът за снимки е достигнат (включително главното изображение). VIP планът увеличава лимита.");
+      return;
+    }
 
     const url = form.hero_image.trim();
     if (!url) {
@@ -939,6 +953,10 @@ export default function PendingFestivalEditForm({
 
   const importHeroImageFromIngestOriginal = async () => {
     if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    if (galleryAtLimit && !heroHasImage) {
+      setError("Лимитът за снимки е достигнат (включително главното изображение). VIP планът увеличава лимита.");
+      return;
+    }
 
     if (!ingestOriginalHeroUrl) {
       setError("Няма записан Original URL от ingest.");
@@ -988,8 +1006,46 @@ export default function PendingFestivalEditForm({
     }
   };
 
+  const importPendingGalleryImageFromUrl = async () => {
+    const url = galleryImportUrl.trim();
+    if (!url) {
+      setError("Поставете валиден URL на изображение.");
+      return;
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      setError("URL трябва да започва с http:// или https://.");
+      return;
+    }
+    if (saving || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    if (galleryAtLimit) return;
+
+    setImportingGalleryFromUrl(true);
+    setMessage("");
+    setError("");
+    try {
+      const res = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/gallery-image`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_url: url }),
+      });
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; gallery_image_urls?: string[]; error?: string } | null;
+      if (!res.ok || !payload?.ok || !Array.isArray(payload.gallery_image_urls)) {
+        throw new Error(payload?.error ?? "Импортът в галерията не бе успешен.");
+      }
+      setGalleryUrls(payload.gallery_image_urls);
+      setGalleryImportUrl("");
+      setMessage("Снимката е добавена към галерията.");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Грешка при импорт в галерията.");
+    } finally {
+      setImportingGalleryFromUrl(false);
+    }
+  };
+
   const uploadPendingGalleryImage = async (file: File) => {
-    if (saving || runningAction || extraGalleryBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    if (saving || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     setExtraGalleryBusy(true);
     setMessage("");
     setError("");
@@ -1016,7 +1072,7 @@ export default function PendingFestivalEditForm({
   };
 
   const removePendingGalleryUrl = async (url: string) => {
-    if (saving || runningAction || extraGalleryBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    if (saving || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     setExtraGalleryBusy(true);
     setMessage("");
     setError("");
@@ -1131,7 +1187,7 @@ export default function PendingFestivalEditForm({
             <button
               type="submit"
               form="admin-pending-festival-edit"
-              disabled={Boolean(runningAction) || saving || extraGalleryBusy || extraVideoBusy}
+              disabled={Boolean(runningAction) || saving || galleryOpsBusy || extraVideoBusy}
               className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save edits"}
@@ -1455,7 +1511,7 @@ export default function PendingFestivalEditForm({
                         e.target.value = "";
                         if (v) updateField("hero_image", v);
                       }}
-                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
+                      disabled={saving || Boolean(runningAction) || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
                       className={`mt-1.5 ${ADMIN_ENTITY_CONTROL_CLASS}`}
                     >
                       <option value="">Избери снимка…</option>
@@ -1473,7 +1529,14 @@ export default function PendingFestivalEditForm({
                     <button
                       type="button"
                       onClick={uploadHeroImage}
-                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
+                      disabled={
+                        saving ||
+                        Boolean(runningAction) ||
+                        uploadingHeroImage ||
+                        importingHeroFromUrl ||
+                        removingHeroImage ||
+                        (!heroHasImage && galleryImageCount >= mediaLimits.gallery)
+                      }
                       className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
                     >
                       {uploadingHeroImage ? "Качване..." : heroImageUrl ? "Замени файл" : "Качи файл"}
@@ -1481,7 +1544,16 @@ export default function PendingFestivalEditForm({
                     <button
                       type="button"
                       onClick={importHeroImageFromUrl}
-                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage || !heroImageUrl}
+                      disabled={
+                        saving ||
+                        Boolean(runningAction) ||
+                        galleryOpsBusy ||
+                        uploadingHeroImage ||
+                        importingHeroFromUrl ||
+                        removingHeroImage ||
+                        !heroImageUrl ||
+                        (galleryAtLimit && !heroHasImage)
+                      }
                       className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
                     >
                       {importingHeroFromUrl ? "Импорт..." : "Импорт от URL"}
@@ -1492,10 +1564,12 @@ export default function PendingFestivalEditForm({
                       disabled={
                         saving ||
                         Boolean(runningAction) ||
+                        galleryOpsBusy ||
                         uploadingHeroImage ||
                         importingHeroFromUrl ||
                         removingHeroImage ||
-                        !canImportFromIngestOriginal
+                        !canImportFromIngestOriginal ||
+                        (galleryAtLimit && !heroHasImage)
                       }
                       title="Ползва полето Original URL по-долу (от ingest), без да го копираш в главното изображение"
                       className="rounded-lg border border-[#18a05e]/35 bg-[#18a05e]/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#0e7a45] disabled:opacity-50"
@@ -1549,7 +1623,7 @@ export default function PendingFestivalEditForm({
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Галерия</p>
                   <p className="text-xs text-black/60">
-                    <span className="font-semibold text-black/80">{galleryImageCount}</span> / {mediaLimits.gallery} · {planLabel}
+                    <span className="font-semibold text-black/80">{totalGallerySlotsUsed}</span> / {mediaLimits.gallery} · {planLabel}
                   </p>
                 </div>
                 <input
@@ -1581,7 +1655,7 @@ export default function PendingFestivalEditForm({
                           <button
                             type="button"
                             onClick={() => updateField("hero_image", u)}
-                            disabled={saving || Boolean(runningAction) || extraGalleryBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
+                            disabled={saving || Boolean(runningAction) || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
                             className="rounded-md border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] disabled:opacity-50"
                           >
                             Главна
@@ -1592,7 +1666,7 @@ export default function PendingFestivalEditForm({
                             disabled={
                               saving ||
                               Boolean(runningAction) ||
-                              extraGalleryBusy ||
+                              galleryOpsBusy ||
                               uploadingHeroImage ||
                               importingHeroFromUrl ||
                               removingHeroImage
@@ -1611,18 +1685,49 @@ export default function PendingFestivalEditForm({
                     disabled={
                       saving ||
                       Boolean(runningAction) ||
-                      extraGalleryBusy ||
+                      galleryOpsBusy ||
                       uploadingHeroImage ||
                       importingHeroFromUrl ||
                       removingHeroImage ||
-                      galleryImageCount >= mediaLimits.gallery
+                      galleryAtLimit
                     }
                     className="flex aspect-square min-h-[120px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:border-black/[0.25] hover:bg-black/[0.04] disabled:opacity-50"
                   >
                     {extraGalleryBusy ? "Качване..." : "+ Качи"}
                   </button>
                 </div>
-                {mediaPlan === "free" && galleryImageCount >= MEDIA_LIMITS.free.gallery ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    value={galleryImportUrl}
+                    onChange={(e) => setGalleryImportUrl(e.target.value)}
+                    placeholder="https://… (импорт в галерията)"
+                    className={`min-w-[200px] flex-1 ${ADMIN_ENTITY_CONTROL_CLASS}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void importPendingGalleryImageFromUrl()}
+                    disabled={
+                      saving ||
+                      Boolean(runningAction) ||
+                      galleryOpsBusy ||
+                      uploadingHeroImage ||
+                      importingHeroFromUrl ||
+                      removingHeroImage ||
+                      galleryAtLimit ||
+                      !galleryImportUrl.trim()
+                    }
+                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+                  >
+                    {importingGalleryFromUrl ? "Импорт..." : "Импорт от URL"}
+                  </button>
+                  <span
+                    className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-black/[0.12] text-[10px] font-bold text-black/45"
+                    title="Сървърът сваля изображението и го записва в storage (като при главното изображение)."
+                  >
+                    i
+                  </span>
+                </div>
+                {mediaPlan === "free" && galleryAtLimit ? (
                   <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.gallery} снимки.</p>
                 ) : null}
                 {!galleryUrls.length ? <p className="mt-2 text-xs text-black/45">Няма снимки в галерията.</p> : null}
@@ -2041,7 +2146,7 @@ export default function PendingFestivalEditForm({
               uploadingHeroImage ||
               importingHeroFromUrl ||
               removingHeroImage ||
-              extraGalleryBusy ||
+              galleryOpsBusy ||
               extraVideoBusy
             }
           />
@@ -2063,7 +2168,7 @@ export default function PendingFestivalEditForm({
           </button>
           <button
             type="submit"
-            disabled={Boolean(runningAction) || saving || extraGalleryBusy || extraVideoBusy}
+            disabled={Boolean(runningAction) || saving || galleryOpsBusy || extraVideoBusy}
             className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save edits"}

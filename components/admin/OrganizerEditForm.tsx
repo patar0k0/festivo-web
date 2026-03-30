@@ -16,9 +16,22 @@ type OrganizerRecord = {
   phone: string | null;
   verified: boolean | null;
   city_id: number | null;
+  plan: "free" | "vip" | null;
+  plan_started_at: string | null;
+  plan_expires_at: string | null;
+  included_promotions_per_year: number | null;
+  organizer_rank: number | null;
   claimed_events_count: number | null;
   created_at: string | null;
 };
+
+function toDatetimeLocalValue(value: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 type OrganizerAiResearchResult = {
   name: string | null;
@@ -57,6 +70,11 @@ export default function OrganizerEditForm({ organizer }: { organizer: OrganizerR
     phone: organizer.phone ?? "",
     verified: Boolean(organizer.verified),
     city_id: organizer.city_id != null ? String(organizer.city_id) : "",
+    plan: organizer.plan === "vip" ? "vip" : "free",
+    plan_started_at: toDatetimeLocalValue(organizer.plan_started_at),
+    plan_expires_at: toDatetimeLocalValue(organizer.plan_expires_at),
+    included_promotions_per_year: organizer.included_promotions_per_year != null ? String(organizer.included_promotions_per_year) : "0",
+    organizer_rank: organizer.organizer_rank != null ? String(organizer.organizer_rank) : "0",
   });
 
   function updateField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -126,6 +144,11 @@ export default function OrganizerEditForm({ organizer }: { organizer: OrganizerR
         body: JSON.stringify({
           ...form,
           city_id: form.city_id ? Number(form.city_id) : null,
+          included_promotions_per_year:
+            form.included_promotions_per_year.trim() === "" ? null : Number(form.included_promotions_per_year),
+          organizer_rank: form.organizer_rank.trim() === "" ? null : Number(form.organizer_rank),
+          plan_started_at: form.plan_started_at || null,
+          plan_expires_at: form.plan_expires_at || null,
         }),
       });
 
@@ -288,6 +311,29 @@ export default function OrganizerEditForm({ organizer }: { organizer: OrganizerR
         <label>
           <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">city_id</span>
           <input value={form.city_id} onChange={(e) => updateField("city_id", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+        </label>
+        <label>
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">plan</span>
+          <select value={form.plan} onChange={(e) => updateField("plan", e.target.value as "free" | "vip")} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2">
+            <option value="free">free</option>
+            <option value="vip">vip</option>
+          </select>
+        </label>
+        <label>
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">plan_started_at</span>
+          <input type="datetime-local" value={form.plan_started_at} onChange={(e) => updateField("plan_started_at", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+        </label>
+        <label>
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">plan_expires_at</span>
+          <input type="datetime-local" value={form.plan_expires_at} onChange={(e) => updateField("plan_expires_at", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+        </label>
+        <label>
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">included_promotions_per_year</span>
+          <input type="number" value={form.included_promotions_per_year} onChange={(e) => updateField("included_promotions_per_year", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+        </label>
+        <label>
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizer_rank</span>
+          <input type="number" value={form.organizer_rank} onChange={(e) => updateField("organizer_rank", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
         </label>
         <label className="flex items-end gap-2 pb-2 text-sm">
           <input type="checkbox" checked={form.verified} onChange={(e) => updateField("verified", e.target.checked)} /> verified

@@ -20,6 +20,11 @@ type OrganizerPatchPayload = {
   phone?: string | null;
   verified?: boolean;
   city_id?: number | null;
+  plan?: "free" | "vip";
+  plan_started_at?: string | null;
+  plan_expires_at?: string | null;
+  included_promotions_per_year?: number | null;
+  organizer_rank?: number | null;
 };
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -31,7 +36,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const { data, error } = await ctx.supabase
     .from("organizers")
-    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id,claimed_events_count,created_at")
+    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id,plan,plan_started_at,plan_expires_at,included_promotions_per_year,organizer_rank,claimed_events_count,created_at")
     .eq("id", id)
     .eq("is_active", true)
     .maybeSingle();
@@ -70,6 +75,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     phone: normalizeText(body.phone),
     verified: typeof body.verified === "boolean" ? body.verified : undefined,
     city_id: typeof body.city_id === "number" ? body.city_id : body.city_id === null ? null : undefined,
+    plan: body.plan === "free" || body.plan === "vip" ? body.plan : undefined,
+    plan_started_at: body.plan_started_at === null ? null : normalizeText(body.plan_started_at),
+    plan_expires_at: body.plan_expires_at === null ? null : normalizeText(body.plan_expires_at),
+    included_promotions_per_year:
+      typeof body.included_promotions_per_year === "number"
+        ? Math.trunc(body.included_promotions_per_year)
+        : body.included_promotions_per_year === null
+          ? null
+          : undefined,
+    organizer_rank:
+      typeof body.organizer_rank === "number"
+        ? Math.trunc(body.organizer_rank)
+        : body.organizer_rank === null
+          ? null
+          : undefined,
   };
 
   const finalPatch = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined));

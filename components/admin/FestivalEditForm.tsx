@@ -46,6 +46,10 @@ type FestivalRecord = {
   organizer_id?: string | null;
   organizer_ids?: string[] | null;
   updated_at?: string | null;
+  promotion_status?: "normal" | "promoted" | null;
+  promotion_started_at?: string | null;
+  promotion_expires_at?: string | null;
+  promotion_rank?: number | null;
   [key: string]: unknown;
 };
 
@@ -79,6 +83,14 @@ const DEBUG_KEYWORDS = [
 
 function asDateInput(value: string | null) {
   return value ? value.slice(0, 10) : "";
+}
+
+function asDatetimeLocalInput(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function validateCoords(latRaw: string, lngRaw: string) {
@@ -180,6 +192,10 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
     status: festival.status,
     tags: festival.tags ?? [],
     description: festival.description ?? "",
+    promotion_status: festival.promotion_status === "promoted" ? "promoted" : "normal",
+    promotion_started_at: asDatetimeLocalInput(festival.promotion_started_at),
+    promotion_expires_at: asDatetimeLocalInput(festival.promotion_expires_at),
+    promotion_rank: festival.promotion_rank != null ? String(festival.promotion_rank) : "0",
   });
 
   const [message, setMessage] = useState<string>("");
@@ -462,6 +478,10 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           category: form.category || null,
           status: form.status,
           is_verified: form.is_verified,
+          promotion_status: form.promotion_status,
+          promotion_started_at: form.promotion_started_at || null,
+          promotion_expires_at: form.promotion_expires_at || null,
+          promotion_rank: form.promotion_rank.trim() === "" ? null : Number(form.promotion_rank),
         }),
       });
 
@@ -778,6 +798,44 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
                 </option>
               ))}
             </select>
+          </label>
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">promotion_status</span>
+            <select
+              value={form.promotion_status}
+              onChange={(e) => updateField("promotion_status", e.target.value as "normal" | "promoted")}
+              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+            >
+              <option value="normal">normal</option>
+              <option value="promoted">promoted</option>
+            </select>
+          </label>
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">promotion_started_at</span>
+            <input
+              type="datetime-local"
+              value={form.promotion_started_at}
+              onChange={(e) => updateField("promotion_started_at", e.target.value)}
+              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+            />
+          </label>
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">promotion_expires_at</span>
+            <input
+              type="datetime-local"
+              value={form.promotion_expires_at}
+              onChange={(e) => updateField("promotion_expires_at", e.target.value)}
+              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+            />
+          </label>
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">promotion_rank</span>
+            <input
+              type="number"
+              value={form.promotion_rank}
+              onChange={(e) => updateField("promotion_rank", e.target.value)}
+              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+            />
           </label>
           <label className="md:col-span-2">
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">tags</span>

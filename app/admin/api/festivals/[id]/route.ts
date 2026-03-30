@@ -52,6 +52,21 @@ function parseOrganizerId(value: unknown): string[] | null {
   return [trimmed];
 }
 
+function parseIntegerOrNull(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return Math.trunc(value);
+}
+
+function parseDatetimeStringOrNull(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+}
+
 async function findCityById(ctx: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>, cityId: number) {
   const { data, error } = await ctx.supabase.from("cities").select("id,slug,name_bg").eq("id", cityId).maybeSingle();
 
@@ -120,6 +135,38 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if ("is_verified" in body && typeof body.is_verified === "boolean") {
       patch.is_verified = body.is_verified;
+    }
+
+    if ("promotion_status" in body) {
+      if (body.promotion_status === "normal" || body.promotion_status === "promoted") {
+        patch.promotion_status = body.promotion_status;
+      } else {
+        return NextResponse.json({ error: "Invalid promotion_status" }, { status: 400 });
+      }
+    }
+
+    if ("promotion_started_at" in body) {
+      const parsedPromotionStartedAt = parseDatetimeStringOrNull(body.promotion_started_at);
+      if (parsedPromotionStartedAt === undefined) {
+        return NextResponse.json({ error: "Invalid promotion_started_at" }, { status: 400 });
+      }
+      patch.promotion_started_at = parsedPromotionStartedAt;
+    }
+
+    if ("promotion_expires_at" in body) {
+      const parsedPromotionExpiresAt = parseDatetimeStringOrNull(body.promotion_expires_at);
+      if (parsedPromotionExpiresAt === undefined) {
+        return NextResponse.json({ error: "Invalid promotion_expires_at" }, { status: 400 });
+      }
+      patch.promotion_expires_at = parsedPromotionExpiresAt;
+    }
+
+    if ("promotion_rank" in body) {
+      const parsedPromotionRank = parseIntegerOrNull(body.promotion_rank);
+      if (parsedPromotionRank === undefined) {
+        return NextResponse.json({ error: "Invalid promotion_rank" }, { status: 400 });
+      }
+      patch.promotion_rank = parsedPromotionRank;
     }
 
     let organizerIdsFromBody: string[] | null = null;

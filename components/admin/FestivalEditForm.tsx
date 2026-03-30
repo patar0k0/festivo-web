@@ -1165,28 +1165,6 @@ export default function FestivalEditForm({
               i
             </span>
           </div>
-          {displayGalleryRows.length ? (
-            <label className="mt-3 block">
-              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Избор от галерията</span>
-              <select
-                value=""
-                onChange={(e) => {
-                  const v = e.target.value;
-                  e.target.value = "";
-                  if (v) void commitHeroFromUrl(v);
-                }}
-                disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy}
-                className={`mt-1.5 ${ADMIN_ENTITY_CONTROL_CLASS}`}
-              >
-                <option value="">Избери снимка…</option>
-                {displayGalleryRows.map((row) => (
-                  <option key={row.id} value={row.url}>
-                    {row.url.length > 72 ? `${row.url.slice(0, 72)}…` : row.url}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
         </div>
 
         {/* Gallery */}
@@ -1223,14 +1201,20 @@ export default function FestivalEditForm({
                     <img src={row.url} alt="" className="h-full w-full object-cover" />
                   </div>
                   <div className="flex flex-col gap-1 border-t border-black/[0.06] bg-white/95 p-1.5">
-                    <button
-                      type="button"
-                      onClick={() => void commitHeroFromUrl(row.url)}
-                      disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy}
-                      className="rounded-md border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] disabled:opacity-50"
-                    >
-                      Главна
-                    </button>
+                    {isHero ? (
+                      <span className="rounded-md border border-[#ff4c1f]/40 bg-[#ff4c1f]/10 px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-[#c43a1a]">
+                        Главна
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void commitHeroFromUrl(row.url)}
+                        disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy}
+                        className="rounded-md border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] disabled:opacity-50"
+                      >
+                        Направи главна
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => void removeGalleryImage(row.id, row.url)}

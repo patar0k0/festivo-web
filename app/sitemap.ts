@@ -8,7 +8,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (process.env.FESTIVO_PUBLIC_MODE === "coming-soon") {
     return [
       {
-        url: "https://festivo.bg/",
+        url: `${getBaseUrl().replace(/\/$/, "")}/`,
         lastModified: new Date(),
       },
     ];

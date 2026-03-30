@@ -19,11 +19,30 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!festival) return {};
 
   const meta = festivalMeta(festival);
+  const canonical = `${getBaseUrl()}/festivals/${slug}`;
+  const ogImages =
+    meta.shareImageUrl != null ? [{ url: meta.shareImageUrl, alt: festival.title }] : undefined;
+
   return {
     title: meta.title,
-    description: meta.description,
+    ...(meta.description ? { description: meta.description } : {}),
     alternates: {
-      canonical: `${getBaseUrl()}/festivals/${slug}`,
+      canonical,
+    },
+    openGraph: {
+      title: meta.title,
+      ...(meta.description ? { description: meta.description } : {}),
+      url: canonical,
+      siteName: "Festivo",
+      locale: "bg_BG",
+      type: "website",
+      ...(ogImages ? { images: ogImages } : {}),
+    },
+    twitter: {
+      card: ogImages ? "summary_large_image" : "summary",
+      title: meta.title,
+      ...(meta.description ? { description: meta.description } : {}),
+      ...(ogImages ? { images: [ogImages[0].url] } : {}),
     },
   };
 }
@@ -38,7 +57,9 @@ export default async function Page({
 
   if (!data) return notFound();
 
-  const jsonLd = buildFestivalJsonLd(data.festival);
+  const jsonLd = buildFestivalJsonLd(data.festival, {
+    mediaUrls: data.media.map((m) => m.url).filter(Boolean) as string[],
+  });
   const cityFilterValue = data.festival.city;
   const citySlug = data.festival.cities?.slug ?? (data.festival.city ? slugify(data.festival.city) : null);
   const mapQuery =
@@ -93,7 +114,9 @@ export default async function Page({
         </Container>
       </Section>
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {jsonLd ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      ) : null}
     </div>
   );
 }

@@ -1,11 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ResearchBestGuess, ResearchDateCandidate, ResearchFestivalResult, ResearchFieldCandidate } from "@/lib/admin/research/types";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { parseFlexibleDateToIso } from "@/lib/dates/euDateFormat";
 import type { AiResearchConfidence, PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
+import {
+  AdminEntityPageShell,
+  AdminFieldGrid,
+  AdminFieldSection,
+  AdminSummaryStrip,
+  ADMIN_SECTION,
+} from "@/components/admin/entity";
 
 type EditableFinalValues = ResearchBestGuess;
 
@@ -55,6 +62,12 @@ const AI_EDITABLE_TEXT_FIELDS: Array<{ key: Exclude<AiEditableStringField, "desc
   { key: "hero_image", label: "Hero image", type: "url" },
 ];
 
+const AI_MAIN_KEYS = new Set<AiEditableStringField>(["title", "category"]);
+const AI_DATE_KEYS = new Set<AiEditableStringField>(["start_date", "end_date"]);
+const AI_LOC_KEYS = new Set<AiEditableStringField>(["city", "location_name", "address"]);
+const AI_LINK_KEYS = new Set<AiEditableStringField>(["website_url", "facebook_url", "instagram_url", "ticket_url"]);
+const AI_MEDIA_KEYS = new Set<AiEditableStringField>(["hero_image"]);
+
 function sanitizeInputValue(value: string): string | null {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -98,6 +111,45 @@ function formatMissingField(field: string): string {
   return `${normalized} missing`;
 }
 
+function shortText(value: string, max = 72) {
+  const t = value.trim();
+  if (!t) return "—";
+  return t.length > max ? `${t.slice(0, max)}…` : t;
+}
+
+function renderAiFieldsForKeys(
+  keys: Set<AiEditableStringField>,
+  aiDraft: PerplexityFestivalResearchResult,
+  setAiDraftField: (field: AiEditableStringField, rawValue: string) => void,
+) {
+  return AI_EDITABLE_TEXT_FIELDS.filter((f) => keys.has(f.key)).map((field) => (
+    <div key={field.key} className={field.key === "address" ? "md:col-span-2" : ""}>
+      <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">{field.label}</label>
+      {field.key === "start_date" || field.key === "end_date" ? (
+        <DdMmYyyyDateInput
+          value={aiDraft[field.key] ?? ""}
+          onChange={(iso) => setAiDraftField(field.key, iso)}
+          placeholder={field.placeholder}
+          className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+        />
+      ) : (
+        <input
+          type={field.type ?? "text"}
+          value={aiDraft[field.key] ?? ""}
+          onChange={(event) => setAiDraftField(field.key, event.target.value)}
+          placeholder={field.placeholder}
+          className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+        />
+      )}
+      {field.key === "hero_image" ? (
+        <p className="mt-1 text-xs text-black/50">
+          If you paste an image URL, it is downloaded and stored in Supabase when you create the draft; the external link is not kept.
+        </p>
+      ) : null}
+    </div>
+  ));
+}
+
 export default function ResearchFestivalPanel() {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -133,6 +185,51 @@ export default function ResearchFestivalPanel() {
   const setAiDraftField = (field: AiEditableStringField, rawValue: string) => {
     setAiDraft((prev) => (prev ? { ...prev, [field]: sanitizeInputValue(rawValue) } : prev));
   };
+
+  const summaryEyebrow = "Admin · Research festival";
+
+  const summaryTitle = useMemo(() => {
+    if (aiDraft?.title?.trim()) return aiDraft.title.trim();
+    if (finalValues.title?.trim()) return finalValues.title.trim();
+    return "Research Festival";
+  }, [aiDraft, finalValues.title]);
+
+  const summaryItems = useMemo(() => {
+    if (aiDraft) {
+      const org =
+        aiDraft.organizer_names?.find((x) => (x ?? "").trim())?.trim() ??
+        aiDraft.organizer_name?.trim() ??
+        "—";
+      return [
+        { label: "Status", value: `Confidence: ${confidenceLabel(aiDraft.confidence)}` },
+        { label: "Pipeline", value: "AI research" },
+        { label: "Source", value: shortText(aiDraft.source_urls[0] ?? "—") },
+        { label: "City", value: aiDraft.city?.trim() || "—" },
+        { label: "Start date", value: shortText(aiDraft.start_date ?? "—", 24) },
+        { label: "Organizer", value: shortText(org, 48) },
+      ];
+    }
+    if (result) {
+      const org =
+        finalValues.organizers?.find((o) => o.trim())?.trim() ?? finalValues.organizer?.trim() ?? "—";
+      return [
+        { label: "Status", value: `Gemini · ${result.confidence.overall}` },
+        { label: "Pipeline", value: "Gemini pipeline" },
+        { label: "Source", value: shortText(sourceSummary || "—") },
+        { label: "City", value: finalValues.city?.trim() || "—" },
+        { label: "Start date", value: shortText(finalValues.start_date ?? "—", 24) },
+        { label: "Organizer", value: shortText(org, 48) },
+      ];
+    }
+    return [
+      { label: "Status", value: "—" },
+      { label: "Pipeline", value: "—" },
+      { label: "Source", value: "—" },
+      { label: "City", value: "—" },
+      { label: "Start date", value: "—" },
+      { label: "Organizer", value: "—" },
+    ];
+  }, [aiDraft, result, finalValues, sourceSummary]);
 
   const runResearch = async () => {
     setError("");
@@ -247,6 +344,41 @@ export default function ResearchFestivalPanel() {
     }
   };
 
+  let summaryActions: ReactNode = null;
+  if (aiDraft) {
+    summaryActions = (
+      <>
+        <button
+          type="button"
+          onClick={createPendingFestival}
+          disabled={!canCreate}
+          className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {isCreating ? "Creating..." : "Create pending draft"}
+        </button>
+        <button
+          type="button"
+          onClick={runAiResearch}
+          disabled={!canAiResearch}
+          className="rounded-xl bg-[#0c0e14] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {isAiResearching ? "Researching..." : "Research again"}
+        </button>
+      </>
+    );
+  } else if (result) {
+    summaryActions = (
+      <button
+        type="button"
+        onClick={createPendingFestival}
+        disabled={!canCreate}
+        className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+      >
+        {isCreating ? "Creating..." : "Create pending festival"}
+      </button>
+    );
+  }
+
   const appendOrganizerCandidate = (value: string) => {
     const v = value.trim();
     if (!v) return;
@@ -273,7 +405,9 @@ export default function ResearchFestivalPanel() {
             className="rounded-lg border border-black/[0.1] bg-white px-2 py-1 text-left text-xs hover:bg-black/[0.03]"
           >
             <div className="font-medium">{candidate.value}</div>
-            <div className="text-black/55">{candidate.tier ?? "unknown tier"} • {candidate.language ?? "unknown lang"}</div>
+            <div className="text-black/55">
+              {candidate.tier ?? "unknown tier"} • {candidate.language ?? "unknown lang"}
+            </div>
           </button>
         ))}
       </div>
@@ -295,7 +429,9 @@ export default function ResearchFestivalPanel() {
             className="rounded-lg border border-black/[0.1] bg-white px-2 py-1 text-left text-xs hover:bg-black/[0.03]"
           >
             <div className="font-medium">{candidate.label ?? `${candidate.start_date ?? "?"} → ${candidate.end_date ?? "?"}`}</div>
-            <div className="text-black/55">{candidate.tier ?? "unknown tier"} • {candidate.language ?? "unknown lang"}</div>
+            <div className="text-black/55">
+              {candidate.tier ?? "unknown tier"} • {candidate.language ?? "unknown lang"}
+            </div>
           </button>
         ))}
       </div>
@@ -303,295 +439,322 @@ export default function ResearchFestivalPanel() {
   };
 
   return (
-    <div className="space-y-6 rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-      <div className="space-y-2">
-        <h2 className="text-lg font-bold">AI Research</h2>
-        <label htmlFor="ai-research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Search query</label>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input id="ai-research-query" value={aiQuery} onChange={(event) => setAiQuery(event.target.value)} placeholder="сурва 2026" className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm" />
-          <button type="button" onClick={runAiResearch} disabled={!canAiResearch} className="rounded-xl bg-[#0c0e14] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45">
-            {isAiResearching ? "Researching..." : "Research with AI"}
-          </button>
+    <AdminEntityPageShell>
+      <AdminSummaryStrip title={summaryTitle} eyebrow={summaryEyebrow} items={summaryItems} actions={summaryActions} />
+
+      <AdminFieldSection title="Research queries" description="Run AI extraction or the Gemini multi-step pipeline." variant="default">
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <label htmlFor="ai-research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
+              AI search query
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                id="ai-research-query"
+                value={aiQuery}
+                onChange={(event) => setAiQuery(event.target.value)}
+                placeholder="сурва 2026"
+                className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={runAiResearch}
+                disabled={!canAiResearch}
+                className="rounded-xl bg-[#0c0e14] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {isAiResearching ? "Researching..." : "Research with AI"}
+              </button>
+            </div>
+            {aiError ? <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{aiError}</p> : null}
+            {aiSuccess ? <p className="rounded-xl border border-[#0e7a45]/20 bg-[#f0fbf4] px-3 py-2 text-sm text-[#0e7a45]">{aiSuccess}</p> : null}
+          </div>
+
+          <div className="h-px bg-black/[0.08]" />
+
+          <div className="space-y-2">
+            <label htmlFor="research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
+              Festival query (Gemini pipeline)
+            </label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                id="research-query"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Сурва 2026"
+                className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={runResearch}
+                disabled={!canResearch}
+                className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {isResearching ? "Researching..." : "Research"}
+              </button>
+            </div>
+          </div>
         </div>
-        {aiError ? <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{aiError}</p> : null}
-        {aiSuccess ? <p className="rounded-xl border border-[#0e7a45]/20 bg-[#f0fbf4] px-3 py-2 text-sm text-[#0e7a45]">{aiSuccess}</p> : null}
-      </div>
+      </AdminFieldSection>
 
       {aiDraft ? (
-        <div className="space-y-4 rounded-xl border border-black/[0.08] bg-white p-4">
-          <div className="flex flex-col gap-3 border-b border-black/[0.08] pb-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">AI Research Result</p>
-              <p className="mt-1 text-sm text-black/65">Review extracted values, edit as needed, then create a pending draft.</p>
-            </div>
+        <>
+          <AdminFieldSection title={ADMIN_SECTION.mainInfo} description="Confidence reflects extraction certainty for the AI pass." variant="main">
             <div className="flex flex-wrap items-center gap-2">
               <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${confidenceBadgeStyle(aiDraft.confidence)}`}>
                 Confidence: {confidenceLabel(aiDraft.confidence)}
               </span>
-              <button type="button" onClick={createPendingFestival} disabled={!canCreate} className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45">
-                {isCreating ? "Creating..." : "Create pending draft"}
-              </button>
-              <button type="button" onClick={runAiResearch} disabled={!canAiResearch} className="rounded-xl bg-[#0c0e14] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45">
-                {isAiResearching ? "Researching..." : "Research again"}
-              </button>
+              <span className="text-xs text-black/55">{aiResult?.source_urls.length ?? 0} source(s) reviewed</span>
             </div>
-          </div>
+            <AdminFieldGrid className="mt-4">{renderAiFieldsForKeys(AI_MAIN_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
+          </AdminFieldSection>
 
-          <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
-            <div className="space-y-4 rounded-xl border border-black/[0.08] bg-[#fafafa] p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Editable extracted fields</p>
+          <AdminFieldSection title={ADMIN_SECTION.dateTime} variant="date">
+            <AdminFieldGrid>{renderAiFieldsForKeys(AI_DATE_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
+          </AdminFieldSection>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                {AI_EDITABLE_TEXT_FIELDS.map((field) => (
-                  <div key={field.key} className={field.key === "address" ? "md:col-span-2" : ""}>
-                    <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">{field.label}</label>
-                    {field.key === "start_date" || field.key === "end_date" ? (
-                      <DdMmYyyyDateInput
-                        value={aiDraft[field.key] ?? ""}
-                        onChange={(iso) => setAiDraftField(field.key, iso)}
-                        placeholder={field.placeholder}
-                        className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
-                      />
-                    ) : (
-                      <input
-                        type={field.type ?? "text"}
-                        value={aiDraft[field.key] ?? ""}
-                        onChange={(event) => setAiDraftField(field.key, event.target.value)}
-                        placeholder={field.placeholder}
-                        className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
-                      />
-                    )}
-                    {field.key === "hero_image" ? (
-                      <p className="mt-1 text-xs text-black/50">
-                        If you paste an image URL, it is downloaded and stored in Supabase when you create the draft; the external link is not kept.
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
+          <AdminFieldSection title={ADMIN_SECTION.location} variant="location">
+            <AdminFieldGrid>{renderAiFieldsForKeys(AI_LOC_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
+          </AdminFieldSection>
 
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">
-                  {(aiDraft.organizer_names?.filter((x) => (x ?? "").trim()).length ?? 0) <= 1 &&
-                  !(aiDraft.organizer_name && !aiDraft.organizer_names?.length)
-                    ? "Организатор"
-                    : "Организатори"}
-                </label>
-                <div className="mt-2 space-y-2">
-                  {(aiDraft.organizer_names?.length
-                    ? aiDraft.organizer_names
-                    : aiDraft.organizer_name
-                      ? [aiDraft.organizer_name]
-                      : [""]
-                  ).map((org, index) => (
-                    <input
-                      key={`ai-org-${index}`}
-                      value={org ?? ""}
-                      onChange={(e) => {
-                        setAiDraft((prev) => {
-                          if (!prev) return prev;
-                          const base = prev.organizer_names?.length
-                            ? [...prev.organizer_names]
-                            : prev.organizer_name
-                              ? [prev.organizer_name]
-                              : [""];
-                          base[index] = e.target.value;
-                          return { ...prev, organizer_names: base, organizer_name: base.find((x) => x?.trim())?.trim() ?? null };
-                        });
-                      }}
-                      className="w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
-                    />
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setAiDraft((prev) => {
-                        if (!prev) return prev;
-                        const base = prev.organizer_names?.length
-                          ? [...prev.organizer_names]
-                          : prev.organizer_name
-                            ? [prev.organizer_name]
-                            : [];
-                        return { ...prev, organizer_names: [...base, ""] };
-                      })
-                    }
-                    className="text-xs font-semibold text-[#0e7a45]"
-                  >
-                    + Добави организатор
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">Description</label>
-                <textarea
-                  value={aiDraft.description ?? ""}
-                  onChange={(event) => setAiDraftField("description", event.target.value)}
-                  rows={5}
-                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
-                />
-              </div>
-
-              <label className="flex items-center gap-2 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-sm">
+          <AdminFieldSection title={ADMIN_SECTION.organizer} variant="organizer">
+            <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">
+              {(aiDraft.organizer_names?.filter((x) => (x ?? "").trim()).length ?? 0) <= 1 &&
+              !(aiDraft.organizer_name && !aiDraft.organizer_names?.length)
+                ? "Организатор"
+                : "Организатори"}
+            </label>
+            <div className="mt-2 space-y-2">
+              {(aiDraft.organizer_names?.length
+                ? aiDraft.organizer_names
+                : aiDraft.organizer_name
+                  ? [aiDraft.organizer_name]
+                  : [""]
+              ).map((org, index) => (
                 <input
-                  type="checkbox"
-                  checked={aiDraft.is_free === true}
-                  onChange={(event) => setAiDraft((prev) => (prev ? { ...prev, is_free: event.target.checked ? true : null } : prev))}
-                  className="h-4 w-4 rounded border-black/20"
+                  key={`ai-org-${index}`}
+                  value={org ?? ""}
+                  onChange={(e) => {
+                    setAiDraft((prev) => {
+                      if (!prev) return prev;
+                      const base = prev.organizer_names?.length
+                        ? [...prev.organizer_names]
+                        : prev.organizer_name
+                          ? [prev.organizer_name]
+                          : [""];
+                      base[index] = e.target.value;
+                      return { ...prev, organizer_names: base, organizer_name: base.find((x) => x?.trim())?.trim() ?? null };
+                    });
+                  }}
+                  className="w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
                 />
-                Festival is free
-              </label>
+              ))}
+              <button
+                type="button"
+                onClick={() =>
+                  setAiDraft((prev) => {
+                    if (!prev) return prev;
+                    const base = prev.organizer_names?.length
+                      ? [...prev.organizer_names]
+                      : prev.organizer_name
+                        ? [prev.organizer_name]
+                        : [];
+                    return { ...prev, organizer_names: [...base, ""] };
+                  })
+                }
+                className="text-xs font-semibold text-[#0e7a45]"
+              >
+                + Добави организатор
+              </button>
             </div>
+          </AdminFieldSection>
 
-            <aside className="space-y-4 rounded-xl border border-black/[0.08] bg-[#fcfcfc] p-4">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Evidence & metadata</p>
-                <p className="text-sm text-black/75">{aiResult?.source_urls.length ?? 0} source{(aiResult?.source_urls.length ?? 0) === 1 ? "" : "s"} reviewed.</p>
-              </div>
+          <AdminFieldSection title={ADMIN_SECTION.linksSources} description="Evidence URLs from the AI pass." variant="links">
+            <AdminFieldGrid>{renderAiFieldsForKeys(AI_LINK_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
+            <div className="mt-4 space-y-2 border-t border-black/[0.06] pt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Source URLs</p>
+              {aiDraft.source_urls.length === 0 ? (
+                <p className="text-sm text-black/60">No sources returned.</p>
+              ) : (
+                <div className="space-y-2">
+                  {aiDraft.source_urls.map((url) => (
+                    <a
+                      key={url}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block rounded-lg border border-black/[0.1] bg-white p-2.5 hover:bg-black/[0.02]"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-black/45">{getDomainLabel(url)}</p>
+                      <p className="mt-1 break-all text-sm text-[#0e7a45] underline-offset-2 hover:underline">{url}</p>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </AdminFieldSection>
 
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Sources</p>
-                {aiDraft.source_urls.length === 0 ? (
-                  <p className="text-sm text-black/60">No sources returned.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {aiDraft.source_urls.map((url) => (
-                      <a
-                        key={url}
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block rounded-lg border border-black/[0.1] bg-white p-2.5 hover:bg-black/[0.02]"
-                      >
-                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-black/45">{getDomainLabel(url)}</p>
-                        <p className="mt-1 break-all text-sm text-[#0e7a45] underline-offset-2 hover:underline">{url}</p>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
+          <AdminFieldSection title={ADMIN_SECTION.media} variant="media">
+            <AdminFieldGrid>{renderAiFieldsForKeys(AI_MEDIA_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
+          </AdminFieldSection>
 
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Missing fields</p>
-                {aiDraft.missing_fields.length === 0 ? (
-                  <p className="text-sm text-black/60">No missing fields flagged.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {aiDraft.missing_fields.map((field) => (
-                      <span key={field} className="rounded-full border border-black/[0.12] bg-white px-2.5 py-1 text-xs text-black/75">
-                        {formatMissingField(field)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </aside>
-          </div>
-        </div>
+          <AdminFieldSection title={ADMIN_SECTION.descriptionContent} description="Warnings from the model about missing important fields." variant="description">
+            <label className="text-xs font-semibold uppercase tracking-[0.1em] text-black/55">Description</label>
+            <textarea
+              value={aiDraft.description ?? ""}
+              onChange={(event) => setAiDraftField("description", event.target.value)}
+              rows={5}
+              className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+            />
+            <label className="mt-3 flex items-center gap-2 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={aiDraft.is_free === true}
+                onChange={(event) => setAiDraft((prev) => (prev ? { ...prev, is_free: event.target.checked ? true : null } : prev))}
+                className="h-4 w-4 rounded border-black/20"
+              />
+              Festival is free
+            </label>
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Missing fields</p>
+              {aiDraft.missing_fields.length === 0 ? (
+                <p className="text-sm text-black/60">No missing fields flagged.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {aiDraft.missing_fields.map((field) => (
+                    <span key={field} className="rounded-full border border-black/[0.12] bg-white px-2.5 py-1 text-xs text-black/75">
+                      {formatMissingField(field)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </AdminFieldSection>
+        </>
       ) : null}
-
-      <div className="h-px bg-black/[0.08]" />
-
-      <div className="space-y-2">
-        <label htmlFor="research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Festival query (Gemini pipeline)</label>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input id="research-query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Сурва 2026" className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm" />
-          <button type="button" onClick={runResearch} disabled={!canResearch} className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45">
-            {isResearching ? "Researching..." : "Research"}
-          </button>
-        </div>
-      </div>
 
       {error ? <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
       {success ? <p className="rounded-xl border border-[#0e7a45]/20 bg-[#f0fbf4] px-3 py-2 text-sm text-[#0e7a45]">{success}</p> : null}
 
-      {!result ? <p className="text-sm text-black/55">No result yet. Run research to preview extracted festival data.</p> : (
-        <div className="space-y-4 rounded-xl border border-black/[0.08] bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Best guess review</p>
+      {!aiDraft && !result ? <p className="text-sm text-black/55">No extraction result yet. Run AI research or the Gemini pipeline to preview festival data.</p> : null}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Title</label>
-              <input value={finalValues.title ?? ""} onChange={(e) => setFromCandidate("title", e.target.value || null)} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm" />
-              {renderTextCandidates("title", result.candidates.titles)}
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">City</label>
-              <input value={finalValues.city ?? ""} onChange={(e) => setFromCandidate("city", e.target.value || null)} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm" />
-              {renderTextCandidates("city", result.candidates.cities)}
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Start date</label>
-              <DdMmYyyyDateInput
-                value={finalValues.start_date ?? ""}
-                onChange={(iso) => setFromCandidate("start_date", iso || null)}
-                className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">End date</label>
-              <DdMmYyyyDateInput
-                value={finalValues.end_date ?? ""}
-                onChange={(iso) => setFromCandidate("end_date", iso || null)}
-                className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
-              />
-            </div>
-          </div>
-
-          <div>{renderDateCandidates(result.candidates.dates)}</div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Location</label>
-              <input value={finalValues.location ?? ""} onChange={(e) => setFromCandidate("location", e.target.value || null)} className="mt-1 w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm" />
-              {renderTextCandidates("location", result.candidates.locations)}
-            </div>
-            <div className="md:col-span-2">
-              <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">
-                {(finalValues.organizers?.filter((o) => o.trim()).length ?? 0) <= 1 ? "Организатор" : "Организатори"}
-              </label>
-              <div className="mt-2 space-y-2">
-                {(finalValues.organizers?.length ? finalValues.organizers : [""]).map((org, index) => (
-                  <input
-                    key={`gemini-org-${index}`}
-                    value={org}
-                    onChange={(e) => {
-                      const base = [...(finalValues.organizers ?? [""])];
-                      base[index] = e.target.value;
-                      setFinalValues((prev) => ({
-                        ...prev,
-                        organizers: base,
-                        organizer: base.find((x) => x.trim())?.trim() ?? null,
-                      }));
-                    }}
-                    className="w-full rounded-lg border border-black/[0.1] px-2 py-1.5 text-sm"
-                  />
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setFinalValues((prev) => ({ ...prev, organizers: [...(prev.organizers ?? []), ""] }))}
-                  className="text-xs font-semibold text-[#0e7a45]"
-                >
-                  + Добави организатор
-                </button>
+      {result ? (
+        <>
+          <AdminFieldSection title={ADMIN_SECTION.mainInfo} description="Best guess and alternative title candidates." variant="main">
+            <AdminFieldGrid>
+              <div className="md:col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Title</label>
+                <input
+                  value={finalValues.title ?? ""}
+                  onChange={(e) => setFromCandidate("title", e.target.value || null)}
+                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                />
+                {renderTextCandidates("title", result.candidates.titles)}
               </div>
-              {renderTextCandidates("organizers", result.candidates.organizers)}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Overall confidence</p>
+                <p className="mt-1 text-sm font-medium text-black/80">{result.confidence.overall}</p>
+              </div>
+            </AdminFieldGrid>
+          </AdminFieldSection>
+
+          <AdminFieldSection title={ADMIN_SECTION.dateTime} variant="date">
+            <AdminFieldGrid>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Start date</label>
+                <DdMmYyyyDateInput
+                  value={finalValues.start_date ?? ""}
+                  onChange={(iso) => setFromCandidate("start_date", iso || null)}
+                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">End date</label>
+                <DdMmYyyyDateInput
+                  value={finalValues.end_date ?? ""}
+                  onChange={(iso) => setFromCandidate("end_date", iso || null)}
+                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                />
+              </div>
+            </AdminFieldGrid>
+            <div className="mt-3">{renderDateCandidates(result.candidates.dates)}</div>
+          </AdminFieldSection>
+
+          <AdminFieldSection title={ADMIN_SECTION.location} variant="location">
+            <AdminFieldGrid>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">City</label>
+                <input
+                  value={finalValues.city ?? ""}
+                  onChange={(e) => setFromCandidate("city", e.target.value || null)}
+                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                />
+                {renderTextCandidates("city", result.candidates.cities)}
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Location / venue</label>
+                <input
+                  value={finalValues.location ?? ""}
+                  onChange={(e) => setFromCandidate("location", e.target.value || null)}
+                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                />
+                {renderTextCandidates("location", result.candidates.locations)}
+              </div>
+            </AdminFieldGrid>
+          </AdminFieldSection>
+
+          <AdminFieldSection title={ADMIN_SECTION.organizer} variant="organizer">
+            <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">
+              {(finalValues.organizers?.filter((o) => o.trim()).length ?? 0) <= 1 ? "Организатор" : "Организатори"}
+            </label>
+            <div className="mt-2 space-y-2">
+              {(finalValues.organizers?.length ? finalValues.organizers : [""]).map((org, index) => (
+                <input
+                  key={`gemini-org-${index}`}
+                  value={org}
+                  onChange={(e) => {
+                    const base = [...(finalValues.organizers ?? [""])];
+                    base[index] = e.target.value;
+                    setFinalValues((prev) => ({
+                      ...prev,
+                      organizers: base,
+                      organizer: base.find((x) => x.trim())?.trim() ?? null,
+                    }));
+                  }}
+                  className="w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                />
+              ))}
+              <button
+                type="button"
+                onClick={() => setFinalValues((prev) => ({ ...prev, organizers: [...(prev.organizers ?? []), ""] }))}
+                className="text-xs font-semibold text-[#0e7a45]"
+              >
+                + Добави организатор
+              </button>
             </div>
-          </div>
+            {renderTextCandidates("organizers", result.candidates.organizers)}
+          </AdminFieldSection>
 
-          <div className="space-y-1 text-sm text-black/80">
-            <p><span className="font-semibold">Provider:</span> {result.metadata?.provider ?? "-"}</p>
-            <p><span className="font-semibold">Mode:</span> {result.metadata?.mode ?? "-"}</p>
-            <p><span className="font-semibold">Source count:</span> {result.metadata?.source_count ?? result.sources.length}</p>
-            <p><span className="font-semibold">Primary source:</span> {sourceSummary}</p>
-            <p><span className="font-semibold">Confidence:</span> {result.confidence.overall}</p>
-          </div>
-        </div>
-      )}
+          <AdminFieldSection title={ADMIN_SECTION.linksSources} variant="links">
+            <p className="text-sm text-black/75">
+              <span className="font-semibold">Primary source:</span> {sourceSummary}
+            </p>
+          </AdminFieldSection>
 
-      <button type="button" onClick={createPendingFestival} disabled={!canCreate} className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-45">
-        {isCreating ? "Creating..." : "Create pending festival"}
-      </button>
-    </div>
+          <AdminFieldSection title={ADMIN_SECTION.systemMeta} description="Gemini pipeline diagnostics." variant="system">
+            <div className="space-y-1 text-sm text-black/80">
+              <p>
+                <span className="font-semibold">Provider:</span> {result.metadata?.provider ?? "-"}
+              </p>
+              <p>
+                <span className="font-semibold">Mode:</span> {result.metadata?.mode ?? "-"}
+              </p>
+              <p>
+                <span className="font-semibold">Source count:</span> {result.metadata?.source_count ?? result.sources.length}
+              </p>
+            </div>
+          </AdminFieldSection>
+        </>
+      ) : null}
+    </AdminEntityPageShell>
   );
 }

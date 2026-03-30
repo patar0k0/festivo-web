@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  AdminEntityPageShell,
+  AdminFieldSection,
+  AdminSummaryStrip,
+  ADMIN_SECTION,
+} from "@/components/admin/entity";
 
 type IngestJobRow = {
   id: string;
@@ -145,17 +151,51 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
     }
   };
 
-  return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-        <h2 className="text-lg font-bold">Queue Facebook event</h2>
-        <p className="mt-1 text-sm text-black/65">
-          Paste a Facebook event URL to enqueue it for worker ingestion. „С FB сесия“ означава, че worker-ът е ползвал запазен Facebook login (FB_STORAGE_STATE_B64).
-        </p>
+  const summaryItems = useMemo(() => {
+    const pendingReview = rows.filter((r) => r.moderation_action === "open_pending").length;
+    const inFlight = rows.filter((r) => r.status === "pending" || r.status === "processing" || r.status === "queued").length;
+    const failed = rows.filter((r) => r.status === "failed").length;
+    const statusLine = [
+      inFlight > 0 ? `${inFlight} in progress` : null,
+      failed > 0 ? `${failed} failed` : null,
+      pendingReview > 0 ? `${pendingReview} pending review` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return [
+      { label: "Status", value: statusLine || "Queue idle" },
+      { label: "Source type", value: "facebook_event" },
+      { label: "Jobs (page)", value: String(rows.length) },
+      { label: "City", value: "—" },
+      { label: "Start date", value: "—" },
+      { label: "Organizer", value: "—" },
+    ];
+  }, [rows]);
 
-        <form onSubmit={onSubmit} className="mt-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+  return (
+    <AdminEntityPageShell>
+      <AdminSummaryStrip
+        title="Ingest Queue"
+        eyebrow="Admin · Ingestion"
+        items={summaryItems}
+        actions={
+          <Link
+            href="/admin/research"
+            className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.03]"
+          >
+            Research festival
+          </Link>
+        }
+      />
+
+      <AdminFieldSection
+        title={ADMIN_SECTION.linksSources}
+        description="Paste a Facebook event URL to enqueue worker ingestion. „С FB сесия“ means the worker used a stored Facebook login (FB_STORAGE_STATE_B64)."
+        variant="links"
+      >
+        <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-black/50">
-            Facebook event URL
+            Source URL (Facebook event)
             <input
               value={sourceUrl}
               onChange={(event) => setSourceUrl(event.target.value)}
@@ -175,9 +215,14 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
 
         {message ? <p className="mt-3 rounded-lg bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">{message}</p> : null}
         {error ? <p className="mt-3 rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
-      </div>
+      </AdminFieldSection>
 
-      <div className="overflow-x-auto rounded-2xl border border-black/[0.08] bg-white/85 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+      <AdminFieldSection
+        title={ADMIN_SECTION.systemMeta}
+        description="Job lifecycle, worker browser context, and links to moderation records."
+        variant="system"
+      >
+        <div className="overflow-x-auto rounded-xl border border-black/[0.06] bg-white/80">
         <table className="min-w-full divide-y divide-black/[0.08] text-sm">
           <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
             <tr>
@@ -292,7 +337,8 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+        </div>
+      </AdminFieldSection>
+    </AdminEntityPageShell>
   );
 }

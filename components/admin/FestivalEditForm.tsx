@@ -12,6 +12,13 @@ import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorOpenAction";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
+import {
+  AdminFieldGrid,
+  AdminFieldSection,
+  AdminMetaSection,
+  AdminSummaryStrip,
+  ADMIN_SECTION,
+} from "@/components/admin/entity";
 
 type FestivalRecord = {
   id: string;
@@ -574,16 +581,49 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
     }
   };
 
-  return (
-    <form onSubmit={onSubmit} className="space-y-5 pb-20">
-      <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-        <h1 className="text-3xl font-black tracking-tight">Редакция на фестивал</h1>
-        <p className="mt-1 text-xs text-black/55">State: {form.status === "archived" ? "Archived" : "Active"}</p>
-      </div>
+  const summaryOrganizer =
+    selectedOrganizers[0]?.name.trim() || form.organizer_name.trim() || "—";
 
-      <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-        <h2 className="text-lg font-bold">Основни данни (editable)</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+  return (
+    <form id="admin-festival-edit-form" onSubmit={onSubmit} className="space-y-5 pb-20">
+      <AdminSummaryStrip
+        title={form.title.trim() || "Festival"}
+        eyebrow="Admin · Published festival"
+        items={[
+          { label: "Status", value: form.status },
+          {
+            label: "Source / type",
+            value:
+              (typeof festival.source_type === "string" ? festival.source_type : "").trim() ||
+              (form.source_url ? `${form.source_url.slice(0, 64)}${form.source_url.length > 64 ? "…" : ""}` : "—"),
+          },
+          { label: "City", value: form.city.trim() || form.city_id || "—" },
+          { label: "Start date", value: form.start_date.trim() || "—" },
+          { label: "Organizer", value: summaryOrganizer },
+          {
+            label: "Promotion",
+            value: form.promotion_status === "promoted" ? "Promoted" : "Normal",
+          },
+        ]}
+        actions={
+          <>
+            <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em]">
+              Back
+            </Link>
+            <button
+              type="submit"
+              form="admin-festival-edit-form"
+              disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
+              className="rounded-xl bg-[#0c0e14] px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </>
+        }
+      />
+
+      <AdminFieldSection title={ADMIN_SECTION.mainInfo} description="Published identity, listing status, category, and tags." variant="main">
+        <AdminFieldGrid>
           <label className="md:col-span-2">
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">title</span>
             <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" required />
@@ -596,35 +636,31 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">category</span>
             <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
-          <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">city_id</span>
-            <input value={form.city_id} onChange={(e) => updateField("city_id", e.target.value)} placeholder="напр. 68134" className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-          </label>
-          <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">city (display / fallback)</span>
-            <input
-              value={form.city}
-              onChange={(e) => updateField("city", e.target.value)}
-              placeholder="напр. Пловдив"
-              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
-            />
-          </label>
-          <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">location_name / venue_name</span>
-            <input value={form.location_name} onChange={(e) => updateField("location_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-          </label>
           <label className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">address</span>
-            <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">tags</span>
+            <div className="mt-2">
+              <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
+            </div>
           </label>
           <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">latitude</span>
-            <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">status</span>
+            <select value={form.status} onChange={(e) => updateField("status", e.target.value as (typeof STATUS_OPTIONS)[number])} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2">
+              {STATUS_OPTIONS.map((statusOption) => (
+                <option key={statusOption} value={statusOption}>
+                  {statusOption}
+                </option>
+              ))}
+            </select>
           </label>
-          <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">longitude</span>
-            <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
+            is_free
           </label>
+        </AdminFieldGrid>
+      </AdminFieldSection>
+
+      <AdminFieldSection title={ADMIN_SECTION.dateTime} variant="date">
+        <AdminFieldGrid>
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">start_date</span>
             <DdMmYyyyDateInput
@@ -667,6 +703,48 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               <OccurrenceDaysEditor value={occurrenceDays} onChange={setOccurrenceDays} disabled={saving || Boolean(actionPending)} />
             </div>
           </div>
+        </AdminFieldGrid>
+      </AdminFieldSection>
+
+      <AdminFieldSection title={ADMIN_SECTION.location} variant="location">
+        <AdminFieldGrid>
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">city_id</span>
+            <input value={form.city_id} onChange={(e) => updateField("city_id", e.target.value)} placeholder="напр. 68134" className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+          </label>
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">city (display / fallback)</span>
+            <input
+              value={form.city}
+              onChange={(e) => updateField("city", e.target.value)}
+              placeholder="напр. Пловдив"
+              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+            />
+          </label>
+          <label className="md:col-span-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">location_name / venue_name</span>
+            <input value={form.location_name} onChange={(e) => updateField("location_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+          </label>
+          <label className="md:col-span-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">address</span>
+            <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+          </label>
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">latitude</span>
+            <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+          </label>
+          <label>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">longitude</span>
+            <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+          </label>
+        </AdminFieldGrid>
+        <button type="button" onClick={onValidateCoords} className="mt-3 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em]">
+          Validate coords
+        </button>
+      </AdminFieldSection>
+
+      <AdminFieldSection title={ADMIN_SECTION.organizer} variant="organizer">
+        <AdminFieldGrid>
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">organizers</span>
             <div className="mt-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-3">
@@ -752,7 +830,12 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               {creatingOrganizer ? "Създаване..." : "Създай организатор"}
             </button>
           </div>
-          <label>
+        </AdminFieldGrid>
+      </AdminFieldSection>
+
+      <AdminFieldSection title={ADMIN_SECTION.linksSources} variant="links">
+        <AdminFieldGrid>
+          <label className="md:col-span-2">
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">source_url</span>
             <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
@@ -768,37 +851,41 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">price_range</span>
             <input value={form.price_range} onChange={(e) => updateField("price_range", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
           </label>
-          <label className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">hero_image</span>
-            <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={importHeroImageFromUrl}
-                disabled={saving || importingHeroFromUrl || Boolean(actionPending) || !form.hero_image.trim()}
-                className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
-              >
-                {importingHeroFromUrl ? "Импорт..." : "Импорт от URL"}
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-black/55">
-              Импортът сваля файла на сървъра и го качва в Supabase; в базата остава само публичният адрес от storage. При запис с http(s) линк към чуждо изображение същото се случва автоматично.
-            </p>
-          </label>
-          <label className="flex items-center gap-2 text-sm pt-6">
-            <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
-            is_free
-          </label>
-          <label>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">status</span>
-            <select value={form.status} onChange={(e) => updateField("status", e.target.value as (typeof STATUS_OPTIONS)[number])} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2">
-              {STATUS_OPTIONS.map((statusOption) => (
-                <option key={statusOption} value={statusOption}>
-                  {statusOption}
-                </option>
-              ))}
-            </select>
-          </label>
+        </AdminFieldGrid>
+      </AdminFieldSection>
+
+      <AdminFieldSection title={ADMIN_SECTION.media} variant="media">
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">hero_image</span>
+          <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={importHeroImageFromUrl}
+              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || !form.hero_image.trim()}
+              className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+            >
+              {importingHeroFromUrl ? "Импорт..." : "Импорт от URL"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-black/55">
+            Импортът сваля файла на сървъра и го качва в Supabase; в базата остава само публичният адрес от storage. При запис с http(s) линк към чуждо изображение същото се случва автоматично.
+          </p>
+        </label>
+      </AdminFieldSection>
+
+      <AdminFieldSection title={ADMIN_SECTION.descriptionContent} variant="description">
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">description</span>
+          <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+        </label>
+        <div className="mt-3 rounded-xl border border-black/[0.08] bg-white/80 p-3 text-sm text-black/70">
+          {descriptionPreview || "Няма описание за preview."}
+        </div>
+      </AdminFieldSection>
+
+      <AdminMetaSection title={ADMIN_SECTION.systemMeta} description="Promotion window, listing boosts, and audit identifiers.">
+        <AdminFieldGrid>
           <label>
             <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">promotion_status</span>
             <select
@@ -837,36 +924,19 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
             />
           </label>
-          <label className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">tags</span>
-            <div className="mt-2">
-              <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
-            </div>
-          </label>
-          <label className="md:col-span-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">description</span>
-            <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-          </label>
-        </div>
-        <button type="button" onClick={onValidateCoords} className="mt-3 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em]">
-          Validate coords
-        </button>
-        <div className="mt-3 rounded-xl border border-black/[0.08] bg-white/80 p-3 text-sm text-black/70">
-          {descriptionPreview || "Няма описание за preview."}
-        </div>
-      </section>
+        </AdminFieldGrid>
+      </AdminMetaSection>
 
       {secondaryMetadata.length ? (
-        <section className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 text-sm">
-          <h2 className="text-lg font-bold">Вторични метаданни (read-only)</h2>
-          <div className="mt-3 grid gap-2 md:grid-cols-2">
+        <AdminMetaSection title="Read-only identifiers" description="IDs, source lineage, and audit timestamps from the database row.">
+          <div className="grid gap-2 md:grid-cols-2 text-sm">
             {secondaryMetadata.map(({ key, value }) => (
               <p key={key} className="text-black/70">
                 <span className="font-semibold">{key}:</span> {valueLabel(value)}
               </p>
             ))}
           </div>
-        </section>
+        </AdminMetaSection>
       ) : null}
 
       {debugEntries.length ? (
@@ -921,6 +991,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           </button>
           <button
             type="submit"
+            form="admin-festival-edit-form"
             disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
             className="rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
           >

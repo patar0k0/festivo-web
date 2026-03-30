@@ -15,6 +15,12 @@ import { listFilledPendingRecordFields, type PendingFestivalQuality } from "@/li
 import { resolvePendingDraftEditorOpenAction } from "@/lib/festival/editorOpenAction";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
+import {
+  AdminFieldGrid,
+  AdminFieldSection,
+  AdminSummaryStrip,
+  ADMIN_SECTION,
+} from "@/components/admin/entity";
 
 export type PendingFestivalRecord = {
   id: string;
@@ -950,12 +956,59 @@ export default function PendingFestivalEditForm({
     }
   };
 
+  const summaryOrganizer =
+    organizerEntries[0]?.name.trim() || form.organizer_name.trim() || "—";
+
   return (
-    <form onSubmit={onSave} className="space-y-5 pb-20">
-      <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-        <h1 className="text-3xl font-black tracking-tight">Pending Festival Review</h1>
-        <p className="mt-1 text-sm text-black/65">ID: {pendingFestival.id}</p>
-      </div>
+    <form id="admin-pending-festival-edit" onSubmit={onSave} className="space-y-5 pb-20">
+      <AdminSummaryStrip
+        title={form.title.trim() || "Pending festival"}
+        eyebrow="Admin · Pending festival"
+        items={[
+          { label: "Status", value: form.status || "—" },
+          {
+            label: "Source / type",
+            value: (form.source_type || "").trim() || (form.source_url ? `${form.source_url.slice(0, 64)}${form.source_url.length > 64 ? "…" : ""}` : "—"),
+          },
+          { label: "City", value: form.city_id.trim() || "—" },
+          { label: "Start date", value: form.start_date.trim() || "—" },
+          { label: "Organizer", value: summaryOrganizer },
+        ]}
+        actions={
+          <>
+            <Link
+              href="/admin/pending-festivals"
+              className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em]"
+            >
+              Back
+            </Link>
+            <button
+              type="submit"
+              form="admin-pending-festival-edit"
+              disabled={Boolean(runningAction) || saving}
+              className="rounded-xl bg-[#0c0e14] px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save edits"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runDecision("reject")}
+              disabled={saving || Boolean(runningAction)}
+              className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
+            >
+              {runningAction === "reject" ? "Rejecting..." : "Reject"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runDecision("approve")}
+              disabled={saving || Boolean(runningAction)}
+              className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
+            >
+              {runningAction === "approve" ? "Approving..." : "Approve"}
+            </button>
+          </>
+        }
+      />
 
       {pendingFestival.submission_source === "organizer_portal" ? (
         <div className="rounded-2xl border border-[#0c0e14]/15 bg-[#f7f6f3] p-4 text-sm text-[#0c0e14]">
@@ -966,122 +1019,128 @@ export default function PendingFestivalEditForm({
         </div>
       ) : null}
 
-      <section className="grid gap-5 xl:grid-cols-2">
-        <div className="space-y-5">
-          <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5">
-            <h2 className="text-lg font-bold">Core fields</h2>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <label className="md:col-span-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Title</span>
-                <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" required />
-              </label>
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Slug</span>
-                <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-              </label>
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Category</span>
-                <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-              </label>
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City (ID / slug / name / free text)</span>
-                <input
-                  value={form.city_id}
-                  onChange={(e) => {
-                    updateField("city_id", e.target.value);
-                  }}
-                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
-                />
-                {pendingFestival.city_id === null && normalizeDisplayValue(form.city_id) ? (
-                  <p className="mt-2 text-xs text-black/50">Unresolved settlement (free text)</p>
-                ) : null}
-              </label>
-              <label className="md:col-span-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Description</span>
-                <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={5} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-              </label>
-              <div className="md:col-span-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Tags</span>
-                <div className="mt-2">
-                  <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
-                </div>
+      <div className="space-y-5">
+        <AdminFieldSection
+          title={ADMIN_SECTION.mainInfo}
+          description="Title, moderation status, category, and tags."
+          variant="main"
+        >
+          <AdminFieldGrid>
+            <label className="md:col-span-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Title</span>
+              <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" required />
+            </label>
+            <label>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Slug</span>
+              <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            </label>
+            <label>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Category</span>
+              <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            </label>
+            <label>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Status</span>
+              <input value={form.status} onChange={(e) => updateField("status", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            </label>
+            <label className="flex items-center gap-2 text-sm md:col-span-2">
+              <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
+              is_free
+            </label>
+            <div className="md:col-span-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Tags</span>
+              <div className="mt-2">
+                <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
               </div>
             </div>
-          </div>
+          </AdminFieldGrid>
+        </AdminFieldSection>
 
-          <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5">
-            <h2 className="text-lg font-bold">Location & dates</h2>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Start date</span>
-                <DdMmYyyyDateInput
-                  value={form.start_date ?? ""}
-                  onChange={(iso) => updateField("start_date", iso)}
-                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+        <AdminFieldSection title={ADMIN_SECTION.dateTime} variant="date">
+          <AdminFieldGrid>
+            <label>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Start date</span>
+              <DdMmYyyyDateInput
+                value={form.start_date ?? ""}
+                onChange={(iso) => updateField("start_date", iso)}
+                className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              />
+            </label>
+            <label>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">End date</span>
+              <DdMmYyyyDateInput
+                value={form.end_date ?? ""}
+                onChange={(iso) => updateField("end_date", iso)}
+                className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              />
+            </label>
+            <label>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Начало (час, HH:mm)</span>
+              <input
+                type="time"
+                step={60}
+                value={form.start_time}
+                onChange={(e) => updateField("start_time", e.target.value)}
+                className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              />
+            </label>
+            <label>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Край (час, по избор)</span>
+              <input
+                type="time"
+                step={60}
+                value={form.end_time}
+                onChange={(e) => updateField("end_time", e.target.value)}
+                className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              />
+            </label>
+            <div className="md:col-span-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Отделни дни (по избор)</span>
+              <div className="mt-2">
+                <OccurrenceDaysEditor
+                  value={occurrenceDays}
+                  onChange={setOccurrenceDays}
+                  disabled={saving || Boolean(runningAction)}
                 />
-              </label>
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">End date</span>
-                <DdMmYyyyDateInput
-                  value={form.end_date ?? ""}
-                  onChange={(iso) => updateField("end_date", iso)}
-                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
-                />
-              </label>
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Начало (час, HH:mm)</span>
-                <input
-                  type="time"
-                  step={60}
-                  value={form.start_time}
-                  onChange={(e) => updateField("start_time", e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
-                />
-              </label>
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Край (час, по избор)</span>
-                <input
-                  type="time"
-                  step={60}
-                  value={form.end_time}
-                  onChange={(e) => updateField("end_time", e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
-                />
-              </label>
-              <div className="md:col-span-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Отделни дни (по избор)</span>
-                <div className="mt-2">
-                  <OccurrenceDaysEditor
-                    value={occurrenceDays}
-                    onChange={setOccurrenceDays}
-                    disabled={saving || Boolean(runningAction)}
-                  />
-                </div>
               </div>
-              <label className="md:col-span-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Venue name</span>
-                <input value={form.venue_name} onChange={(e) => updateField("venue_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-              </label>
-              <label className="md:col-span-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Address</span>
-                <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-              </label>
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Latitude</span>
-                <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-              </label>
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Longitude</span>
-                <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
-              </label>
             </div>
-          </div>
-        </div>
+          </AdminFieldGrid>
+        </AdminFieldSection>
 
-        <div className="space-y-5">
-          <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5">
-            <h2 className="text-lg font-bold">Organization / media / source</h2>
-            <div className="mt-4 grid gap-3">
+        <AdminFieldSection title={ADMIN_SECTION.location} description="Settlement resolution, venue, address, and map coordinates." variant="location">
+          <AdminFieldGrid>
+            <label className="md:col-span-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">City (ID / slug / name / free text)</span>
+              <input
+                value={form.city_id}
+                onChange={(e) => {
+                  updateField("city_id", e.target.value);
+                }}
+                className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              />
+              {pendingFestival.city_id === null && normalizeDisplayValue(form.city_id) ? (
+                <p className="mt-2 text-xs text-black/50">Unresolved settlement (free text)</p>
+              ) : null}
+            </label>
+            <label className="md:col-span-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Venue name</span>
+              <input value={form.venue_name} onChange={(e) => updateField("venue_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            </label>
+            <label className="md:col-span-2">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Address</span>
+              <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            </label>
+            <label>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Latitude</span>
+              <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            </label>
+            <label>
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Longitude</span>
+              <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            </label>
+          </AdminFieldGrid>
+        </AdminFieldSection>
+
+        <AdminFieldSection title={ADMIN_SECTION.organizer} description="Catalog links, manual names, or inline organizer creation." variant="organizer">
               <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] p-3">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">{orgLabel}</span>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -1170,7 +1229,11 @@ export default function PendingFestivalEditForm({
                   </button>
                 </div>
               </div>
-              <label>
+        </AdminFieldSection>
+
+        <AdminFieldSection title={ADMIN_SECTION.linksSources} description="Canonical URLs, ingest source, and ticket links." variant="links">
+          <AdminFieldGrid>
+              <label className="md:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Source URL</span>
                 <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
                 {lastIngestSummary ? (
@@ -1195,6 +1258,10 @@ export default function PendingFestivalEditForm({
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Price range</span>
                 <input value={form.price_range} onChange={(e) => updateField("price_range", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
+          </AdminFieldGrid>
+        </AdminFieldSection>
+
+        <AdminFieldSection title={ADMIN_SECTION.media} description="Hero asset, rehosting, and ingest diagnostics." variant="media">
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Hero image</span>
                 <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
@@ -1295,16 +1362,14 @@ export default function PendingFestivalEditForm({
                   </div>
                 ) : null}
               </label>
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Status</span>
-                <input value={form.status} onChange={(e) => updateField("status", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+        </AdminFieldSection>
+
+        <AdminFieldSection title={ADMIN_SECTION.descriptionContent} description="Public-facing copy and machine-normalized text." variant="description">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Description</span>
+                <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
               </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
-                is_free
-              </label>
-            </div>
-          </div>
+        </AdminFieldSection>
 
           <details className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 text-sm">
             <summary className="cursor-pointer text-lg font-bold">Secondary moderation metadata (collapsed)</summary>
@@ -1564,7 +1629,6 @@ export default function PendingFestivalEditForm({
           </div>
 
         </div>
-      </section>
 
       {message ? <p className="rounded-lg bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">{message}</p> : null}
       {error ? <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}

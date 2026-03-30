@@ -1,25 +1,15 @@
-# Mandatory AI Context Loading
+# AI context loading
 
-Before generating any code, AI must read the following files in order:
-
-1. `PROJECT_CONTEXT.md`
-2. `AI_CONTEXT.md`
-3. `AI_DEVELOPER_RULES.md`
-4. `AI_SYSTEM_ARCHITECT.md`
-5. `docs/system-architecture.md`
-6. `docs/notification-system.md`
-7. `docs/er-diagram.md`
+**Start with `PROJECT_SNAPSHOT.md`**, then read **only what the task needs** — e.g. `PROJECT_CONTEXT.md`, this file, `AI_DEVELOPER_RULES.md`, `AI_SYSTEM_ARCHITECT.md`, and topic docs under `docs/` when the change touches those areas. Do not preload every file for small or local edits. `.cursor/rules/festivo.mdc` describes task routing.
 
 **Database schema is not defined by markdown docs.** Supabase (live Postgres) is authoritative. Infer tables, columns, RPCs, and access patterns from existing Supabase usage, shared types, and `scripts/sql/` migrations in this repo. Do not read or rely on `docs/database-schema.md` unless a human explicitly asks to sync that file.
 
-These files are the source of truth for:
+The longer docs are the source of truth for:
 
 - system architecture, notification system, API patterns, data relationships (high level)
 - **not** for column-level database schema (use code + Supabase)
 
-AI must never generate code without first reading these files (when the task is not purely mechanical).
-
-If a file is missing, AI should continue using the remaining files.
+If a file is missing, continue using the remaining files.
 
 ---
 
@@ -69,7 +59,7 @@ When you add or change schema, RPCs, RLS, or meaningful API/product behavior, up
 
 Optional: `docs/database-schema.md` only if the team maintains a manual snapshot there; it is **not** mandatory to read or update for every change.
 
-See `.cursor/rules/festivo.mdc` for the full checklist.
+See `.cursor/rules/festivo.mdc` for core guardrails and task routing.
 
 ## Migration quality requirements
 

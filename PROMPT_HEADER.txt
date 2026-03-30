@@ -1,11 +1,12 @@
-Before generating code read the project context:
+Before generating code read the project snapshot, then task-relevant context:
 
+PROJECT_SNAPSHOT.md
 PROJECT_CONTEXT.md
 AI_CONTEXT.md
 AI_DEVELOPER_RULES.md
 AI_SYSTEM_ARCHITECT.md
 
-Use the documentation in docs/ as the source of truth (product/architecture):
+Use the documentation in docs/ as the source of truth (product/architecture); open topic files only when the task needs them:
 
 docs/system-architecture.md
 docs/notification-system.md

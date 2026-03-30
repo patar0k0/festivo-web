@@ -1,60 +1,41 @@
 ---
-description: Festivo mandatory context, doc sync, DB and coding rules
+description: Festivo core guardrails — light always-apply; task routing; minimal context
 alwaysApply: true
 ---
 
-# Festivo agent rules
+# Festivo (agent)
 
-## 1) Mandatory context loading (before substantive work)
+## What this is
 
-Read in this order when the task touches product behavior, data, or APIs:
+Festivo is a **Bulgaria-focused festivals** platform (catalog, planning, moderation, organizers).
 
-1. `PROJECT_CONTEXT.md`
-2. `AI_CONTEXT.md`
-3. `AI_DEVELOPER_RULES.md`
-4. `AI_SYSTEM_ARCHITECT.md`
-5. `docs/system-architecture.md`
-6. `docs/notification-system.md`
-7. `docs/er-diagram.md`
+## Non-negotiables
 
-Skip only for purely mechanical edits (typos, formatting) that cannot affect schema or architecture.
+- **Small, incremental, production-safe** changes; match existing TypeScript and code style.
+- **Do not change the database schema from application code.** Schema changes only via `scripts/sql/YYYYMMDD_description.sql` (indexes, constraints, RLS as needed).
+- When structure or access patterns matter, **verify against Supabase MCP** (live Postgres is authoritative). Do not treat `docs/database-schema.md` as source of truth.
+- **No destructive schema changes** (drops, mass deletes) without explicit human approval.
+- **Secrets and service role keys stay server-only** — never expose to the client.
+- **Moderation flow:** submissions land in **`pending_festivals`** → admin **review** → **approve** (insert into **`festivals`**) or **reject**; public reads **`festivals`**, not pending-only data.
+- Reuse patterns under `app/api`, `app/admin/api`, and `lib/*`. Preserve API compatibility unless a breaking change is explicitly requested.
+- **Documentation:** update **only** files directly affected by the change (`PROJECT_CONTEXT.md`, `docs/system-architecture.md`, `docs/notification-system.md`, `docs/er-diagram.md`, `AI_*` when conventions change — same spirit as existing project docs). Do not preload or duplicate long doc bodies in chat.
 
-## Database context
-Use the Supabase MCP tools to inspect the database schema directly instead of reading docs/database-schema.md
+## Context: read the minimum
 
-**Database schema authority:** Supabase (live Postgres) plus existing client usage, types, and `scripts/sql/` migrations. Do not treat `docs/database-schema.md` as mandatory reading or as source of truth; it may lag production.
+1. **Start with `PROJECT_SNAPSHOT.md`** for stable, high-signal facts.
+2. Then read **only files directly relevant to the current task** (code paths you touch, types, one focused doc if needed).
+3. Open **topic-specific docs** only when the task clearly touches that topic (see routing below).
+4. **Do not** preload `PROJECT_CONTEXT.md`, `AI_CONTEXT.md`, `AI_DEVELOPER_RULES.md`, `AI_SYSTEM_ARCHITECT.md`, or all of `docs/*` for simple UI tweaks, local refactors, or isolated code changes.
 
-## 2) Documentation sync (same task as the code change)
+Detailed product and architecture remain in the repo docs; this rule is a **guardrail + router**, not a full spec.
 
-After completing a task, **update docs in-repo without asking**, when anything relevant changed:
+## Task routing (where to look)
 
-| Change type | Update |
-|-------------|--------|
-| New/altered tables, columns, functions, RPCs, grants, RLS | New/edited `scripts/sql/*.sql`; `docs/er-diagram.md` if entity shapes change; `docs/system-architecture.md` if flows change. `docs/database-schema.md` optional only |
-| Product flows, moderation, public vs admin | `PROJECT_CONTEXT.md`, `docs/system-architecture.md` |
-| Security, edge `middleware`, rate limits, Origin/Referer or similar API hardening | `docs/system-architecture.md` (and `README.md` if new env vars or ops steps) |
-| Cross-cutting AI/migration conventions | `AI_CONTEXT.md` (only if conventions change) |
-| Notifications / jobs | `docs/notification-system.md` |
-
-If a listed file is not impacted, leave it unchanged. **Schema changes must ship with the SQL migration and relevant architecture/ER updates; `docs/database-schema.md` is not required.** API/product behavior changes must update `docs/system-architecture.md` (and related docs) as appropriate.
-
-**Cross-cutting “important” behavior** (auth/session edges, abuse controls, caching, feature flags that affect prod safety): document in `docs/system-architecture.md` in the same task as the code change, and add or extend a `README.md` env/ops bullet when operators must set variables.
-
-## 3) Project summary
-
-- Moderation-first festival catalog: public reads `festivals` (verified/published scope); candidates live in `pending_festivals`.
-- Approve inserts into `festivals`; reject updates pending only.
-- Supabase Postgres + RLS is source of truth.
-- Notifications: plan/reminder/follow → `user_notifications` → push via `device_tokens`.
-
-## 4) Coding conventions
-
-- Small, incremental diffs; reuse `app/api`, `app/admin/api`, `lib/*` patterns.
-- Explicit TypeScript; server-only secrets on server routes.
-- Preserve API compatibility unless a breaking change is requested.
-
-## 5) Database (strict)
-
-- No schema changes from application code; no assumption that migrations are applied in prod.
-- Deliver changes as `scripts/sql/YYYYMMDD_description.sql` with indexes, constraints, and RLS when relevant.
-- No destructive drops without explicit user approval.
+| Kind of work | Start here |
+|--------------|------------|
+| Public UI, listing, festival detail | Relevant `app/*`, `components/*`, `lib/*` |
+| Admin UI / admin APIs | Relevant `app/admin/*`, `app/admin/api/*`, `lib/*` |
+| Database / schema / RLS | `scripts/sql/*`, Supabase MCP, existing queries/types |
+| Notifications / push / jobs | `docs/notification-system.md` + relevant API routes / job handlers |
+| Cross-cutting architecture (auth edge, middleware, jobs contract) | `docs/system-architecture.md` |
+| Entity relationships (diagram-level) | `docs/er-diagram.md` |

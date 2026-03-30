@@ -474,7 +474,10 @@ export default function PendingFestivalEditForm({
   const planLabel = mediaPlanDisplayLabel(mediaPlan);
   const galleryImageCount = galleryUrls.length;
   const heroHasImage = Boolean(form.hero_image.trim());
-  const totalGallerySlotsUsed = galleryImageCount + (heroHasImage ? 1 : 0);
+  const heroAlreadyInGallery = heroHasImage &&
+    galleryUrls.some((u) => u.trim() === form.hero_image.trim());
+  const totalGallerySlotsUsed =
+    galleryImageCount + (heroHasImage && !heroAlreadyInGallery ? 1 : 0);
   const galleryAtLimit = totalGallerySlotsUsed >= mediaLimits.gallery;
   const videoCount = videoUrlExtra.trim().length ? 1 : 0;
   const videoEmbedSrc = useMemo(() => getVideoEmbedSrcFromPageUrl(videoUrlExtra.trim()), [videoUrlExtra]);

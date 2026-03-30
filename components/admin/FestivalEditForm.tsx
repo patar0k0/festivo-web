@@ -275,7 +275,8 @@ export default function FestivalEditForm({
   const galleryImageCount = galleryRowsForLimit.length;
   /** Plan image cap includes the hero slot when `festivals.hero_image` is set. */
   const heroHasImage = Boolean(form.hero_image.trim());
-  const totalGallerySlotsUsed = galleryImageCount + (heroHasImage ? 1 : 0);
+  const heroIsMediaRow = initialMedia.some((m) => Boolean(m.is_hero));
+  const totalGallerySlotsUsed = galleryImageCount + (heroIsMediaRow ? 1 : 0);
   const galleryAtLimit = totalGallerySlotsUsed >= mediaLimits.gallery;
   const videoCount = videoRows.length;
 

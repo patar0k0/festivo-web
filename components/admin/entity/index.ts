@@ -16,4 +16,9 @@ export {
   adminResearchAiFieldGridClass,
   getAdminFieldLabel,
   adminLabelForSuggestionField,
+  ADMIN_ENTITY_CONTROL_BASE,
+  ADMIN_ENTITY_CONTROL_CLASS,
+  ADMIN_ENTITY_CONTROL_READONLY_CLASS,
+  ADMIN_ENTITY_TEXTAREA_CLASS,
+  ADMIN_ENTITY_TEXTAREA_READONLY_CLASS,
 } from "@/lib/admin/entitySchema";

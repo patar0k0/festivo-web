@@ -33,11 +33,13 @@ export default function AdminFieldSection({
 }) {
   return (
     <section
-      className={`rounded-2xl border p-5 shadow-[0_2px_0_rgba(12,14,20,0.04),0_8px_20px_rgba(12,14,20,0.05)] ${VARIANT_CLASS[variant]} ${className}`.trim()}
+      className={`rounded-2xl border p-4 shadow-[0_2px_0_rgba(12,14,20,0.04),0_8px_20px_rgba(12,14,20,0.05)] ${VARIANT_CLASS[variant]} ${className}`.trim()}
     >
-      <h2 className="text-base font-bold tracking-tight text-[#0c0e14]">{title}</h2>
-      {description ? <p className="mt-1 text-xs text-black/55">{description}</p> : null}
-      <div className="mt-4">{children}</div>
+      <div className="mb-2">
+        <h2 className="text-sm font-bold tracking-tight text-[#0c0e14]">{title}</h2>
+        {description ? <p className="mt-1 text-xs text-black/55">{description}</p> : null}
+      </div>
+      <div>{children}</div>
     </section>
   );
 }

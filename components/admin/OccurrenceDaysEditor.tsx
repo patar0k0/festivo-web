@@ -1,6 +1,7 @@
 "use client";
 
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
+import { ADMIN_ENTITY_CONTROL_BASE } from "@/lib/admin/entitySchema";
 
 type Props = {
   value: string[];
@@ -31,18 +32,18 @@ export default function OccurrenceDaysEditor({ value, onChange, disabled }: Prop
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <p className="text-xs text-black/55">
         Отделни дни (напр. 11, 18 и 25). Ако списъкът е празен или всички полета са празни, важат само началната и крайната дата по-горе (непрекъснат период).
       </p>
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {slots.map((row, index) => (
           <div key={`${index}-${row}`} className="flex flex-wrap items-center gap-2">
             <DdMmYyyyDateInput
               value={row}
               onChange={(iso) => setSlot(index, iso)}
               disabled={disabled}
-              className="min-w-[9rem] flex-1 rounded-xl border border-black/[0.1] px-3 py-2 text-sm"
+              className={`min-w-[9rem] flex-1 ${ADMIN_ENTITY_CONTROL_BASE}`}
             />
             <button
               type="button"

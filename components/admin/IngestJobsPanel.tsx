@@ -8,6 +8,7 @@ import {
   AdminFieldSection,
   AdminSummaryStrip,
   ADMIN_ENTITY_SECTION,
+  ADMIN_ENTITY_CONTROL_CLASS,
   buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
 import { ADMIN_FIELD_LABEL } from "@/lib/admin/entitySchema";
@@ -196,28 +197,28 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
         description="Paste a Facebook event URL to enqueue worker ingestion. „С FB сесия“ means the worker used a stored Facebook login (FB_STORAGE_STATE_B64)."
         variant={ADMIN_ENTITY_SECTION.linksSources.variant}
       >
-        <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+        <form onSubmit={onSubmit} className="grid gap-2 md:grid-cols-[1fr_auto] md:items-end">
           <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-black/50">
             {ADMIN_FIELD_LABEL.sourceUrl} (Facebook event)
             <input
               value={sourceUrl}
               onChange={(event) => setSourceUrl(event.target.value)}
               placeholder="https://www.facebook.com/events/..."
-              className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+              className={`mt-1 ${ADMIN_ENTITY_CONTROL_CLASS}`}
               required
             />
           </label>
           <button
             type="submit"
             disabled={busy}
-            className="h-10 rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:cursor-not-allowed disabled:opacity-45"
+            className="h-8 rounded-lg bg-[#0c0e14] px-4 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:cursor-not-allowed disabled:opacity-45"
           >
             {busy ? "Adding..." : "Add to queue"}
           </button>
         </form>
 
-        {message ? <p className="mt-3 rounded-lg bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">{message}</p> : null}
-        {error ? <p className="mt-3 rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
+        {message ? <p className="mt-2 rounded-lg bg-[#18a05e]/10 px-2.5 py-1.5 text-sm text-[#0e7a45]">{message}</p> : null}
+        {error ? <p className="mt-2 rounded-lg bg-[#ff4c1f]/10 px-2.5 py-1.5 text-sm text-[#b13a1a]">{error}</p> : null}
       </AdminFieldSection>
 
       <AdminFieldSection

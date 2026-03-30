@@ -11,6 +11,6 @@ export default function AdminFieldLabel({
   className?: string;
 }) {
   return (
-    <span className={`text-xs font-semibold uppercase tracking-[0.14em] text-black/50 ${className}`.trim()}>{getAdminFieldLabel(field)}</span>
+    <span className={`mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50 ${className}`.trim()}>{getAdminFieldLabel(field)}</span>
   );
 }

@@ -21,6 +21,11 @@ import {
   AdminFieldSection,
   AdminSummaryStrip,
   ADMIN_ENTITY_SECTION,
+  ADMIN_ENTITY_CONTROL_BASE,
+  ADMIN_ENTITY_CONTROL_CLASS,
+  ADMIN_ENTITY_CONTROL_READONLY_CLASS,
+  ADMIN_ENTITY_TEXTAREA_CLASS,
+  ADMIN_ENTITY_TEXTAREA_READONLY_CLASS,
   buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
 import { ADMIN_FIELD_LABEL, adminLabelForSuggestionField } from "@/lib/admin/entitySchema";
@@ -981,7 +986,7 @@ export default function PendingFestivalEditForm({
   ]);
 
   return (
-    <form id="admin-pending-festival-edit" onSubmit={onSave} className="space-y-5 pb-20">
+    <form id="admin-pending-festival-edit" onSubmit={onSave} className="space-y-3 pb-20">
       <AdminSummaryStrip
         title={form.title.trim() || "Pending festival"}
         eyebrow="Admin · Pending festival"
@@ -1031,7 +1036,7 @@ export default function PendingFestivalEditForm({
         </div>
       ) : null}
 
-      <div className="space-y-5">
+      <div className="space-y-3">
         <AdminFieldSection
           title={ADMIN_ENTITY_SECTION.mainInfo.title}
           description="Title, moderation status, category, and tags."
@@ -1040,27 +1045,27 @@ export default function PendingFestivalEditForm({
           <AdminFieldGrid>
             <label className="md:col-span-2">
               <AdminFieldLabel field="title" />
-              <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" required />
+              <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} required />
             </label>
             <label>
               <AdminFieldLabel field="slug" />
-              <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
             </label>
             <label>
               <AdminFieldLabel field="category" />
-              <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
             </label>
             <label>
               <AdminFieldLabel field="status" />
-              <input value={form.status} onChange={(e) => updateField("status", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input value={form.status} onChange={(e) => updateField("status", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
             </label>
             <label className="flex items-center gap-2 text-sm md:col-span-2">
               <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
-              <AdminFieldLabel field="isFree" className="normal-case tracking-normal" />
+              <AdminFieldLabel field="isFree" className="mb-0 inline normal-case tracking-normal" />
             </label>
             <div className="md:col-span-2">
               <AdminFieldLabel field="tags" />
-              <div className="mt-2">
+              <div className="mt-0">
                 <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
               </div>
             </div>
@@ -1074,7 +1079,7 @@ export default function PendingFestivalEditForm({
               <DdMmYyyyDateInput
                 value={form.start_date ?? ""}
                 onChange={(iso) => updateField("start_date", iso)}
-                className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                className={ADMIN_ENTITY_CONTROL_CLASS}
               />
             </label>
             <label>
@@ -1082,7 +1087,7 @@ export default function PendingFestivalEditForm({
               <DdMmYyyyDateInput
                 value={form.end_date ?? ""}
                 onChange={(iso) => updateField("end_date", iso)}
-                className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                className={ADMIN_ENTITY_CONTROL_CLASS}
               />
             </label>
             <label>
@@ -1092,7 +1097,7 @@ export default function PendingFestivalEditForm({
                 step={60}
                 value={form.start_time}
                 onChange={(e) => updateField("start_time", e.target.value)}
-                className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                className={ADMIN_ENTITY_CONTROL_CLASS}
               />
             </label>
             <label>
@@ -1102,12 +1107,12 @@ export default function PendingFestivalEditForm({
                 step={60}
                 value={form.end_time}
                 onChange={(e) => updateField("end_time", e.target.value)}
-                className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                className={ADMIN_ENTITY_CONTROL_CLASS}
               />
             </label>
             <div className="md:col-span-2">
               <AdminFieldLabel field="occurrenceDays" />
-              <div className="mt-2">
+              <div className="mt-0">
                 <OccurrenceDaysEditor
                   value={occurrenceDays}
                   onChange={setOccurrenceDays}
@@ -1131,7 +1136,7 @@ export default function PendingFestivalEditForm({
                 onChange={(e) => {
                   updateField("city_id", e.target.value);
                 }}
-                className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+                className={ADMIN_ENTITY_CONTROL_CLASS}
               />
               {pendingFestival.city_id === null && normalizeDisplayValue(form.city_id) ? (
                 <p className="mt-2 text-xs text-black/50">Unresolved settlement (free text)</p>
@@ -1139,19 +1144,19 @@ export default function PendingFestivalEditForm({
             </label>
             <label className="md:col-span-2">
               <AdminFieldLabel field="locationName" />
-              <input value={form.venue_name} onChange={(e) => updateField("venue_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input value={form.venue_name} onChange={(e) => updateField("venue_name", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
             </label>
             <label className="md:col-span-2">
               <AdminFieldLabel field="address" />
-              <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
             </label>
             <label>
               <AdminFieldLabel field="latitude" />
-              <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
             </label>
             <label>
               <AdminFieldLabel field="longitude" />
-              <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+              <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
             </label>
           </AdminFieldGrid>
         </AdminFieldSection>
@@ -1161,7 +1166,7 @@ export default function PendingFestivalEditForm({
           description="Catalog links, manual names, or inline organizer creation."
           variant={ADMIN_ENTITY_SECTION.organizer.variant}
         >
-              <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] p-3">
+              <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] p-2.5">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">{orgLabel}</span>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {organizerEntries.map((entry, index) => (
@@ -1224,7 +1229,7 @@ export default function PendingFestivalEditForm({
                     value={manualOrganizerName}
                     onChange={(e) => setManualOrganizerName(e.target.value)}
                     placeholder="Име без запис в каталога"
-                    className="min-w-[200px] flex-1 rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+                    className={`min-w-[200px] flex-1 ${ADMIN_ENTITY_CONTROL_BASE}`}
                   />
                   <button type="button" onClick={addManualOrganizer} className="rounded-lg bg-[#0c0e14] px-3 py-2 text-xs font-semibold text-white">
                     Добави по име
@@ -1236,7 +1241,7 @@ export default function PendingFestivalEditForm({
                     <input
                       value={newOrganizerName}
                       onChange={(e) => setNewOrganizerName(e.target.value)}
-                      className="mt-1 rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm font-normal normal-case"
+                      className={`mt-1 ${ADMIN_ENTITY_CONTROL_CLASS} font-normal normal-case`}
                     />
                   </label>
                   <button
@@ -1259,7 +1264,7 @@ export default function PendingFestivalEditForm({
           <AdminFieldGrid>
               <label className="md:col-span-2">
                 <AdminFieldLabel field="sourceUrl" />
-                <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
                 {lastIngestSummary ? (
                   <p className="mt-2 text-xs text-black/60" title="От съответния ред в Ingest queue (същият source_url)">
                     Последен ingest: {lastIngestSummary}
@@ -1272,15 +1277,15 @@ export default function PendingFestivalEditForm({
               </label>
               <label>
                 <AdminFieldLabel field="websiteUrl" />
-                <input value={form.website_url} onChange={(e) => updateField("website_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <input value={form.website_url} onChange={(e) => updateField("website_url", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="ticketUrl" />
-                <input value={form.ticket_url} onChange={(e) => updateField("ticket_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <input value={form.ticket_url} onChange={(e) => updateField("ticket_url", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="priceRange" />
-                <input value={form.price_range} onChange={(e) => updateField("price_range", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <input value={form.price_range} onChange={(e) => updateField("price_range", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
               </label>
           </AdminFieldGrid>
         </AdminFieldSection>
@@ -1292,7 +1297,7 @@ export default function PendingFestivalEditForm({
         >
               <label>
                 <AdminFieldLabel field="heroImage" />
-                <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
                 <div className="mt-3 rounded-xl border border-black/[0.08] bg-white px-3 py-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Manual upload</p>
                   <p className="mt-1 text-xs text-black/65">Use this when extraction picks a weak image. Max file size: 8MB.</p>
@@ -1399,7 +1404,7 @@ export default function PendingFestivalEditForm({
         >
               <label className="block">
                 <AdminFieldLabel field="description" />
-                <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+                <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className={ADMIN_ENTITY_TEXTAREA_CLASS} />
               </label>
         </AdminFieldSection>
 
@@ -1409,47 +1414,47 @@ export default function PendingFestivalEditForm({
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label>
                 <AdminFieldLabel field="recordId" />
-                <input value={pendingFestival.id} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={pendingFestival.id} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="sourcePrimaryUrl" />
-                <input value={form.source_primary_url} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.source_primary_url} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="sourceCount" />
-                <input value={form.source_count} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.source_count} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="sourceType" />
-                <input value={form.source_type} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.source_type} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label className="md:col-span-2">
                 <AdminFieldLabel field="discoveredVia" />
-                <input value={form.discovered_via} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.discovered_via} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="verificationStatus" />
-                <input value={form.verification_status} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.verification_status} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="verificationScore" />
-                <input value={form.verification_score} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.verification_score} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="duplicateOf" />
-                <input value={form.duplicate_of} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.duplicate_of} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="createdAt" />
-                <input value={form.created_at} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.created_at} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="reviewedAt" />
-                <input value={form.reviewed_at} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.reviewed_at} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label className="md:col-span-2">
                 <AdminFieldLabel field="reviewedBy" />
-                <input value={form.reviewed_by} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.reviewed_by} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
             </div>
           </details>
@@ -1466,83 +1471,83 @@ export default function PendingFestivalEditForm({
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label>
                 <AdminFieldLabel field="descriptionClean" />
-                <textarea value={form.description_clean} readOnly rows={3} className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <textarea value={form.description_clean} readOnly rows={3} className={ADMIN_ENTITY_TEXTAREA_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="shortDescription" />
-                <textarea value={form.description_short} readOnly rows={3} className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <textarea value={form.description_short} readOnly rows={3} className={ADMIN_ENTITY_TEXTAREA_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="categoryGuess" />
-                <input value={form.category_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.category_guess} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="tagsGuess" />
-                <input value={form.tags_guess.join(", ")} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.tags_guess.join(", ")} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="cityGuess" />
-                <input value={form.city_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.city_guess} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">is_free (guess)</span>
-                <input value={pendingFestival.is_free_guess === null ? "" : pendingFestival.is_free_guess ? "true" : "false"} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={pendingFestival.is_free_guess === null ? "" : pendingFestival.is_free_guess ? "true" : "false"} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="heroImageSource" />
-                <input value={form.hero_image_source} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.hero_image_source} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="titleClean" />
-                <input value={form.title_clean} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.title_clean} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="locationGuess" />
-                <input value={form.location_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.location_guess} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="dateGuess" />
-                <input value={form.date_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.date_guess} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Title (guess)</span>
-                <input value={form.title_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.title_guess} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Latitude (guess)</span>
-                <input value={form.latitude_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.latitude_guess} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Longitude (guess)</span>
-                <input value={form.longitude_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.longitude_guess} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Address (guess)</span>
-                <input value={form.address_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.address_guess} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">lat (guess)</span>
-                <input value={form.lat_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.lat_guess} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">lng (guess)</span>
-                <input value={form.lng_guess} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.lng_guess} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="heroImageOriginalUrl" />
-                <input value={form.hero_image_original_url} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.hero_image_original_url} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="heroImageScore" />
-                <input value={form.hero_image_score} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.hero_image_score} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="normalizationVersion" />
-                <input value={form.normalization_version} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.normalization_version} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="extractionVersion" />
-                <input value={form.extraction_version} readOnly className="mt-2 w-full rounded-xl border border-black/[0.1] bg-black/[0.03] px-3 py-2" />
+                <input value={form.extraction_version} readOnly className={ADMIN_ENTITY_CONTROL_READONLY_CLASS} />
               </label>
             </div>
 

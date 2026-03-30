@@ -32,9 +32,9 @@ export function AdminMetaDetails({
   defaultOpen?: boolean;
 }) {
   return (
-    <details className="rounded-xl border border-black/[0.08] bg-white/80 p-3" open={defaultOpen}>
+    <details className="rounded-xl border border-black/[0.08] bg-white/80 p-2.5" open={defaultOpen}>
       <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-black/55">{summary}</summary>
-      <div className="mt-3 space-y-3">{children}</div>
+      <div className="mt-2 space-y-2">{children}</div>
     </details>
   );
 }

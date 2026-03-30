@@ -262,3 +262,21 @@ const SUGGESTION_FIELD_LABEL: Record<SuggestionField, AdminFieldLabelKey> = {
 export function adminLabelForSuggestionField(field: SuggestionField): string {
   return ADMIN_FIELD_LABEL[SUGGESTION_FIELD_LABEL[field]];
 }
+
+/** Shared single-line control styles (no width — compose with `w-full`, `flex-1`, etc.). */
+export const ADMIN_ENTITY_CONTROL_BASE =
+  "h-8 rounded-lg border border-black/[0.1] bg-white px-2.5 text-sm text-black/90 placeholder:text-black/40 focus:border-black/20 focus:outline-none focus:ring-1 focus:ring-black/10";
+
+/** Standard full-width text/select/time inputs on admin entity pages. */
+export const ADMIN_ENTITY_CONTROL_CLASS = `w-full ${ADMIN_ENTITY_CONTROL_BASE}`;
+
+/** Read-only single-line fields (system / guess columns). */
+export const ADMIN_ENTITY_CONTROL_READONLY_CLASS =
+  "w-full h-8 rounded-lg border border-black/[0.1] bg-black/[0.03] px-2.5 text-sm text-black/80";
+
+/** Multi-line editable text — full width; min-height preserves readability. */
+export const ADMIN_ENTITY_TEXTAREA_CLASS =
+  "w-full min-h-[5rem] rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm text-black/90 placeholder:text-black/40 focus:border-black/20 focus:outline-none focus:ring-1 focus:ring-black/10";
+
+export const ADMIN_ENTITY_TEXTAREA_READONLY_CLASS =
+  "w-full min-h-[4rem] rounded-lg border border-black/[0.1] bg-black/[0.03] px-2.5 py-2 text-sm text-black/80";

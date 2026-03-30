@@ -13,6 +13,8 @@ import {
   AdminFieldLabel,
   AdminSummaryStrip,
   ADMIN_ENTITY_SECTION,
+  ADMIN_ENTITY_CONTROL_CLASS,
+  ADMIN_ENTITY_TEXTAREA_CLASS,
   buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
 import { ADMIN_FIELD_LABEL, adminResearchAiFieldGridClass } from "@/lib/admin/entitySchema";
@@ -139,7 +141,7 @@ function renderAiFieldsForKeys(
           value={aiDraft[field.key] ?? ""}
           onChange={(iso) => setAiDraftField(field.key, iso)}
           placeholder={field.placeholder}
-          className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+          className={ADMIN_ENTITY_CONTROL_CLASS}
         />
       ) : (
         <input
@@ -147,7 +149,7 @@ function renderAiFieldsForKeys(
           value={aiDraft[field.key] ?? ""}
           onChange={(event) => setAiDraftField(field.key, event.target.value)}
           placeholder={field.placeholder}
-          className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+          className={ADMIN_ENTITY_CONTROL_CLASS}
         />
       )}
       {field.key === "hero_image" ? (
@@ -409,7 +411,7 @@ export default function ResearchFestivalPanel() {
     }
 
     return (
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-1.5 flex flex-wrap gap-2">
         {candidates.map((candidate, index) => (
           <button
             key={`${field}-${candidate.value}-${candidate.source_url}-${index}`}
@@ -433,7 +435,7 @@ export default function ResearchFestivalPanel() {
     }
 
     return (
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-1.5 flex flex-wrap gap-2">
         {candidates.map((candidate, index) => (
           <button
             key={`${candidate.start_date}-${candidate.end_date}-${candidate.source_url}-${index}`}
@@ -460,24 +462,24 @@ export default function ResearchFestivalPanel() {
         description="Run AI extraction or the Gemini multi-step pipeline."
         variant={ADMIN_ENTITY_SECTION.researchQueries.variant}
       >
-        <div className="space-y-5">
-          <div className="space-y-2">
+        <div className="space-y-3">
+          <div className="space-y-1.5">
             <label htmlFor="ai-research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
               AI search query
             </label>
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 id="ai-research-query"
                 value={aiQuery}
                 onChange={(event) => setAiQuery(event.target.value)}
                 placeholder="сурва 2026"
-                className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+                className={ADMIN_ENTITY_CONTROL_CLASS}
               />
               <button
                 type="button"
                 onClick={runAiResearch}
                 disabled={!canAiResearch}
-                className="rounded-xl bg-[#0c0e14] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                className="h-8 shrink-0 rounded-lg bg-[#0c0e14] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {isAiResearching ? "Researching..." : "Research with AI"}
               </button>
@@ -488,23 +490,23 @@ export default function ResearchFestivalPanel() {
 
           <div className="h-px bg-black/[0.08]" />
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label htmlFor="research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
               Festival query (Gemini pipeline)
             </label>
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 id="research-query"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Сурва 2026"
-                className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+                className={ADMIN_ENTITY_CONTROL_CLASS}
               />
               <button
                 type="button"
                 onClick={runResearch}
                 disabled={!canResearch}
-                className="rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
+                className="h-8 shrink-0 rounded-lg border border-black/[0.1] bg-white px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {isResearching ? "Researching..." : "Research"}
               </button>
@@ -526,7 +528,7 @@ export default function ResearchFestivalPanel() {
               </span>
               <span className="text-xs text-black/55">{aiResult?.source_urls.length ?? 0} source(s) reviewed</span>
             </div>
-            <AdminFieldGrid className="mt-4">{renderAiFieldsForKeys(AI_MAIN_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
+            <AdminFieldGrid className="mt-2">{renderAiFieldsForKeys(AI_MAIN_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
           </AdminFieldSection>
 
           <AdminFieldSection title={ADMIN_ENTITY_SECTION.dateTime.title} variant={ADMIN_ENTITY_SECTION.dateTime.variant}>
@@ -546,7 +548,7 @@ export default function ResearchFestivalPanel() {
                   : "organizers"
               }
             />
-            <div className="mt-2 space-y-2">
+            <div className="mt-1 space-y-1.5">
               {(aiDraft.organizer_names?.length
                 ? aiDraft.organizer_names
                 : aiDraft.organizer_name
@@ -568,7 +570,7 @@ export default function ResearchFestivalPanel() {
                       return { ...prev, organizer_names: base, organizer_name: base.find((x) => x?.trim())?.trim() ?? null };
                     });
                   }}
-                  className="w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
                 />
               ))}
               <button
@@ -597,7 +599,7 @@ export default function ResearchFestivalPanel() {
             variant={ADMIN_ENTITY_SECTION.linksSources.variant}
           >
             <AdminFieldGrid>{renderAiFieldsForKeys(AI_LINK_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
-            <div className="mt-4 space-y-2 border-t border-black/[0.06] pt-4">
+            <div className="mt-3 space-y-2 border-t border-black/[0.06] pt-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">{ADMIN_FIELD_LABEL.sourceUrl}s</p>
               {aiDraft.source_urls.length === 0 ? (
                 <p className="text-sm text-black/60">No sources returned.</p>
@@ -635,10 +637,10 @@ export default function ResearchFestivalPanel() {
               value={aiDraft.description ?? ""}
               onChange={(event) => setAiDraftField("description", event.target.value)}
               rows={5}
-              className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm"
+              className={ADMIN_ENTITY_TEXTAREA_CLASS}
             />
             </label>
-            <label className="mt-3 flex items-center gap-2 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-sm">
+            <label className="mt-2 flex items-center gap-2 rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm">
               <input
                 type="checkbox"
                 checked={aiDraft.is_free === true}
@@ -647,7 +649,7 @@ export default function ResearchFestivalPanel() {
               />
               Festival is free
             </label>
-            <div className="mt-4 space-y-2">
+            <div className="mt-3 space-y-1.5">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Missing fields</p>
               {aiDraft.missing_fields.length === 0 ? (
                 <p className="text-sm text-black/60">No missing fields flagged.</p>
@@ -684,7 +686,7 @@ export default function ResearchFestivalPanel() {
                 <input
                   value={finalValues.title ?? ""}
                   onChange={(e) => setFromCandidate("title", e.target.value || null)}
-                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
                 />
                 {renderTextCandidates("title", result.candidates.titles)}
                 </label>
@@ -704,7 +706,7 @@ export default function ResearchFestivalPanel() {
                 <DdMmYyyyDateInput
                   value={finalValues.start_date ?? ""}
                   onChange={(iso) => setFromCandidate("start_date", iso || null)}
-                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
                 />
                 </label>
               </div>
@@ -714,12 +716,12 @@ export default function ResearchFestivalPanel() {
                 <DdMmYyyyDateInput
                   value={finalValues.end_date ?? ""}
                   onChange={(iso) => setFromCandidate("end_date", iso || null)}
-                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
                 />
                 </label>
               </div>
             </AdminFieldGrid>
-            <div className="mt-3">{renderDateCandidates(result.candidates.dates)}</div>
+            <div className="mt-2">{renderDateCandidates(result.candidates.dates)}</div>
           </AdminFieldSection>
 
           <AdminFieldSection title={ADMIN_ENTITY_SECTION.location.title} variant={ADMIN_ENTITY_SECTION.location.variant}>
@@ -730,7 +732,7 @@ export default function ResearchFestivalPanel() {
                 <input
                   value={finalValues.city ?? ""}
                   onChange={(e) => setFromCandidate("city", e.target.value || null)}
-                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
                 />
                 {renderTextCandidates("city", result.candidates.cities)}
                 </label>
@@ -741,7 +743,7 @@ export default function ResearchFestivalPanel() {
                 <input
                   value={finalValues.location ?? ""}
                   onChange={(e) => setFromCandidate("location", e.target.value || null)}
-                  className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
                 />
                 {renderTextCandidates("location", result.candidates.locations)}
                 </label>
@@ -753,7 +755,7 @@ export default function ResearchFestivalPanel() {
             <AdminFieldLabel
               field={(finalValues.organizers?.filter((o) => o.trim()).length ?? 0) <= 1 ? "organizerName" : "organizers"}
             />
-            <div className="mt-2 space-y-2">
+            <div className="mt-1 space-y-1.5">
               {(finalValues.organizers?.length ? finalValues.organizers : [""]).map((org, index) => (
                 <input
                   key={`gemini-org-${index}`}
@@ -767,7 +769,7 @@ export default function ResearchFestivalPanel() {
                       organizer: base.find((x) => x.trim())?.trim() ?? null,
                     }));
                   }}
-                  className="w-full rounded-lg border border-black/[0.1] bg-white px-2 py-1.5 text-sm"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
                 />
               ))}
               <button

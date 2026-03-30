@@ -29,8 +29,8 @@ export default function TagsInput({ value, onChange }: TagsInputProps) {
   };
 
   return (
-    <div className="rounded-xl border border-black/[0.1] bg-white px-3 py-3">
-      <div className="mb-2 flex flex-wrap gap-2">
+    <div className="rounded-xl border border-black/[0.1] bg-white px-2.5 py-2">
+      <div className="mb-1.5 flex flex-wrap gap-2">
         {value.map((tag) => (
           <button
             key={tag}
@@ -43,18 +43,18 @@ export default function TagsInput({ value, onChange }: TagsInputProps) {
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-1.5">
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Добави tag"
-          className="w-full rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+          className="h-8 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
         />
         <button
           type="button"
           onClick={addTag}
-          className="rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em]"
+          className="h-8 shrink-0 rounded-lg border border-black/[0.1] bg-white px-2.5 text-xs font-semibold uppercase tracking-[0.12em]"
         >
           Add
         </button>

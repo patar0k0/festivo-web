@@ -19,6 +19,8 @@ import {
   AdminMetaSection,
   AdminSummaryStrip,
   ADMIN_ENTITY_SECTION,
+  ADMIN_ENTITY_CONTROL_CLASS,
+  ADMIN_ENTITY_TEXTAREA_CLASS,
   buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
 import { ADMIN_FIELD_LABEL, getAdminFieldLabel } from "@/lib/admin/entitySchema";
@@ -611,7 +613,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
   );
 
   return (
-    <form id="admin-festival-edit-form" onSubmit={onSubmit} className="space-y-5 pb-20">
+    <form id="admin-festival-edit-form" onSubmit={onSubmit} className="space-y-3 pb-20">
       <AdminSummaryStrip
         title={form.title.trim() || "Festival"}
         eyebrow="Admin · Published festival"
@@ -641,25 +643,25 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         <AdminFieldGrid>
           <label className="md:col-span-2">
             <AdminFieldLabel field="title" />
-            <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" required />
+            <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} required />
           </label>
           <label>
             <AdminFieldLabel field="slug" />
-            <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
           <label>
             <AdminFieldLabel field="category" />
-            <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
           <label className="md:col-span-2">
             <AdminFieldLabel field="tags" />
-            <div className="mt-2">
+            <div className="mt-0">
               <TagsInput value={form.tags} onChange={(tags) => updateField("tags", tags)} />
             </div>
           </label>
           <label>
             <AdminFieldLabel field="status" />
-            <select value={form.status} onChange={(e) => updateField("status", e.target.value as (typeof STATUS_OPTIONS)[number])} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2">
+            <select value={form.status} onChange={(e) => updateField("status", e.target.value as (typeof STATUS_OPTIONS)[number])} className={ADMIN_ENTITY_CONTROL_CLASS}>
               {STATUS_OPTIONS.map((statusOption) => (
                 <option key={statusOption} value={statusOption}>
                   {statusOption}
@@ -669,7 +671,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={form.is_free} onChange={(e) => updateField("is_free", e.target.checked)} />
-            <AdminFieldLabel field="isFree" className="normal-case tracking-normal" />
+            <AdminFieldLabel field="isFree" className="mb-0 inline normal-case tracking-normal" />
           </label>
         </AdminFieldGrid>
       </AdminFieldSection>
@@ -681,7 +683,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <DdMmYyyyDateInput
               value={form.start_date ?? ""}
               onChange={(iso) => updateField("start_date", iso)}
-              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </label>
           <label>
@@ -689,7 +691,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <DdMmYyyyDateInput
               value={form.end_date ?? ""}
               onChange={(iso) => updateField("end_date", iso)}
-              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </label>
           <label>
@@ -700,7 +702,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               step={60}
               value={form.start_time}
               onChange={(e) => updateField("start_time", e.target.value)}
-              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </label>
           <label>
@@ -711,12 +713,12 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               step={60}
               value={form.end_time}
               onChange={(e) => updateField("end_time", e.target.value)}
-              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </label>
           <div className="md:col-span-2">
             <AdminFieldLabel field="occurrenceDays" />
-            <div className="mt-2">
+            <div className="mt-0">
               <OccurrenceDaysEditor value={occurrenceDays} onChange={setOccurrenceDays} disabled={saving || Boolean(actionPending)} />
             </div>
           </div>
@@ -727,7 +729,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         <AdminFieldGrid>
           <label>
             <AdminFieldLabel field="cityId" />
-            <input value={form.city_id} onChange={(e) => updateField("city_id", e.target.value)} placeholder="напр. 68134" className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.city_id} onChange={(e) => updateField("city_id", e.target.value)} placeholder="напр. 68134" className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
           <label>
             <AdminFieldLabel field="cityDisplay" />
@@ -735,24 +737,24 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               value={form.city}
               onChange={(e) => updateField("city", e.target.value)}
               placeholder="напр. Пловдив"
-              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </label>
           <label className="md:col-span-2">
             <AdminFieldLabel field="locationName" />
-            <input value={form.location_name} onChange={(e) => updateField("location_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.location_name} onChange={(e) => updateField("location_name", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
           <label className="md:col-span-2">
             <AdminFieldLabel field="address" />
-            <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
           <label>
             <AdminFieldLabel field="latitude" />
-            <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
           <label>
             <AdminFieldLabel field="longitude" />
-            <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
         </AdminFieldGrid>
         <button type="button" onClick={onValidateCoords} className="mt-3 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em]">
@@ -764,18 +766,18 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         <AdminFieldGrid>
           <label>
             <AdminFieldLabel field="organizers" />
-            <div className="mt-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-3">
+            <div className="mt-1 rounded-xl border border-black/[0.08] bg-black/[0.02] p-2.5">
               <input
                 value={organizerSearch}
                 onChange={(event) => setOrganizerSearch(event.target.value)}
                 placeholder="Търси по име или slug"
-                className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+                className={ADMIN_ENTITY_CONTROL_CLASS}
               />
               <div className="mt-2 flex items-center gap-2">
                 <select
                   value={pendingOrganizerId}
                   onChange={(event) => setPendingOrganizerId(event.target.value)}
-                  className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
                 >
                   <option value="">Избери организатор…</option>
                   {availableOrganizerOptions.map((item) => (
@@ -830,18 +832,18 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
           </label>
           <label>
             <AdminFieldLabel field="organizerName" />
-            <input value={form.organizer_name} onChange={(e) => updateField("organizer_name", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.organizer_name} onChange={(e) => updateField("organizer_name", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
-          <div className="md:col-span-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-3">
+          <div className="md:col-span-2 rounded-xl border border-black/[0.08] bg-black/[0.02] p-2.5">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Нов организатор</p>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <input placeholder="name" value={newOrganizer.name} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, name: e.target.value, slug: transliteratedSlug(e.target.value) }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
-              <input placeholder="slug (auto)" value={newOrganizer.slug} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, slug: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
-              <input placeholder="description" value={newOrganizer.description} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, description: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2 md:col-span-2" />
-              <input placeholder="logo_url" value={newOrganizer.logo_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, logo_url: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
-              <input placeholder="website_url" value={newOrganizer.website_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, website_url: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
-              <input placeholder="facebook_url" value={newOrganizer.facebook_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, facebook_url: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
-              <input placeholder="instagram_url" value={newOrganizer.instagram_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, instagram_url: e.target.value }))} className="rounded-xl border border-black/[0.1] px-3 py-2" />
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              <input placeholder="name" value={newOrganizer.name} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, name: e.target.value, slug: transliteratedSlug(e.target.value) }))} className={ADMIN_ENTITY_CONTROL_CLASS} />
+              <input placeholder="slug (auto)" value={newOrganizer.slug} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, slug: e.target.value }))} className={ADMIN_ENTITY_CONTROL_CLASS} />
+              <input placeholder="description" value={newOrganizer.description} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, description: e.target.value }))} className={`md:col-span-2 ${ADMIN_ENTITY_CONTROL_CLASS}`} />
+              <input placeholder="logo_url" value={newOrganizer.logo_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, logo_url: e.target.value }))} className={ADMIN_ENTITY_CONTROL_CLASS} />
+              <input placeholder="website_url" value={newOrganizer.website_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, website_url: e.target.value }))} className={ADMIN_ENTITY_CONTROL_CLASS} />
+              <input placeholder="facebook_url" value={newOrganizer.facebook_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, facebook_url: e.target.value }))} className={ADMIN_ENTITY_CONTROL_CLASS} />
+              <input placeholder="instagram_url" value={newOrganizer.instagram_url} onChange={(e) => setNewOrganizer((prev) => ({ ...prev, instagram_url: e.target.value }))} className={ADMIN_ENTITY_CONTROL_CLASS} />
             </div>
             <button type="button" onClick={onCreateOrganizer} disabled={creatingOrganizer} className="mt-3 rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50">
               {creatingOrganizer ? "Създаване..." : "Създай организатор"}
@@ -854,19 +856,19 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
         <AdminFieldGrid>
           <label className="md:col-span-2">
             <AdminFieldLabel field="sourceUrl" />
-            <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.source_url} onChange={(e) => updateField("source_url", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
           <label>
             <AdminFieldLabel field="websiteUrl" />
-            <input value={form.website_url} onChange={(e) => updateField("website_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.website_url} onChange={(e) => updateField("website_url", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
           <label>
             <AdminFieldLabel field="ticketUrl" />
-            <input value={form.ticket_url} onChange={(e) => updateField("ticket_url", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.ticket_url} onChange={(e) => updateField("ticket_url", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
           <label>
             <AdminFieldLabel field="priceRange" />
-            <input value={form.price_range} onChange={(e) => updateField("price_range", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+            <input value={form.price_range} onChange={(e) => updateField("price_range", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
         </AdminFieldGrid>
       </AdminFieldSection>
@@ -874,7 +876,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
       <AdminFieldSection title={ADMIN_ENTITY_SECTION.media.title} variant={ADMIN_ENTITY_SECTION.media.variant}>
         <label className="block">
           <AdminFieldLabel field="heroImage" />
-          <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+          <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -894,7 +896,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
       <AdminFieldSection title={ADMIN_ENTITY_SECTION.descriptionContent.title} variant={ADMIN_ENTITY_SECTION.descriptionContent.variant}>
         <label className="block">
           <AdminFieldLabel field="description" />
-          <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2" />
+          <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className={ADMIN_ENTITY_TEXTAREA_CLASS} />
         </label>
         <div className="mt-3 rounded-xl border border-black/[0.08] bg-white/80 p-3 text-sm text-black/70">
           {descriptionPreview || "Няма описание за preview."}
@@ -908,7 +910,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
             <select
               value={form.promotion_status}
               onChange={(e) => updateField("promotion_status", e.target.value as "normal" | "promoted")}
-              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              className={ADMIN_ENTITY_CONTROL_CLASS}
             >
               <option value="normal">normal</option>
               <option value="promoted">promoted</option>
@@ -920,7 +922,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               type="datetime-local"
               value={form.promotion_started_at}
               onChange={(e) => updateField("promotion_started_at", e.target.value)}
-              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </label>
           <label>
@@ -929,7 +931,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               type="datetime-local"
               value={form.promotion_expires_at}
               onChange={(e) => updateField("promotion_expires_at", e.target.value)}
-              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </label>
           <label>
@@ -938,7 +940,7 @@ export default function FestivalEditForm({ festival, organizers }: { festival: F
               type="number"
               value={form.promotion_rank}
               onChange={(e) => updateField("promotion_rank", e.target.value)}
-              className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2"
+              className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </label>
         </AdminFieldGrid>

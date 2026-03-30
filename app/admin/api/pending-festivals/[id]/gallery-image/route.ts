@@ -162,7 +162,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .from("pending_festivals")
       .select("gallery_image_urls")
       .eq("id", pendingId)
-      .maybeSingle();
+      .maybeSingle<{ gallery_image_urls: unknown }>();
 
     if (fetchError || !row) {
       return NextResponse.json({ error: fetchError?.message ?? "Pending festival not found." }, { status: fetchError ? 500 : 404 });

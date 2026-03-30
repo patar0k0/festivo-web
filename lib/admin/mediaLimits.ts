@@ -17,7 +17,10 @@ export function resolveMediaPlanFromOrganizer(organizer: OrganizerPlanInput, now
   return "free";
 }
 
-export function resolveAllowedMediaLimitsFromOrganizerPlan(organizer: OrganizerPlanInput, nowDate: Date = new Date()) {
+export function resolveAllowedMediaLimitsFromOrganizerPlan(
+  organizer: OrganizerPlanInput,
+  nowDate: Date = new Date(),
+): { gallery: number; video: number } {
   const plan = resolveMediaPlanFromOrganizer(organizer, nowDate);
   return MEDIA_LIMITS[plan];
 }

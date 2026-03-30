@@ -27,7 +27,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       );
     }
 
-    // Enforce plan-based media limits before updating any row.
+    // Enforce plan-based media limits before updating the pending row.
     const { data: pendingRow, error: pendingFetchError } = await ctx.supabase
       .from("pending_festivals")
       .select("organizer_id,organizer_entries,organizer_name")

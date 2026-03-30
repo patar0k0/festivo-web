@@ -33,7 +33,8 @@ export function parseOrganizerEntriesJson(value: unknown): PendingOrganizerEntry
   return out;
 }
 
-type LegacyRow = {
+/** Fields needed from `pending_festivals` (or API) for organizer entry resolution. */
+export type PendingOrganizerRowFields = {
   organizer_entries?: unknown;
   organizer_id?: string | null;
   organizer_name?: string | null;
@@ -50,7 +51,7 @@ export function splitLegacyOrganizerNames(organizerName: string | null | undefin
 }
 
 /** Resolve entries from a pending row (DB or API). */
-export function pendingRowToOrganizerEntries(row: LegacyRow): PendingOrganizerEntry[] {
+export function pendingRowToOrganizerEntries(row: PendingOrganizerRowFields): PendingOrganizerEntry[] {
   const parsed = parseOrganizerEntriesJson(row.organizer_entries);
   if (parsed.length > 0) return parsed;
 

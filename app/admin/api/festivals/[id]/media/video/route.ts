@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
-import { getMediaLimitExceededErrorMessage, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
+import {
+  fetchOrganizerPlanRow,
+  getMediaLimitExceededErrorMessage,
+  resolveAllowedMediaLimitsFromOrganizerPlan,
+  resolveMediaPlanFromOrganizer,
+} from "@/lib/admin/mediaLimits";
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -48,22 +53,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       organizerId = linkRow?.organizer_id ?? null;
     }
 
-    let organizerPlanRow: { plan?: string | null; plan_started_at?: string | null; plan_expires_at?: string | null } | null = null;
-    if (organizerId) {
-      const { data: organizerRow, error: orgFetchError } = await ctx.supabase
-        .from("organizers")
-        .select("plan,plan_started_at,plan_expires_at")
-        .eq("id", organizerId)
-        .maybeSingle<{
-          plan: string | null;
-          plan_started_at: string | null;
-          plan_expires_at: string | null;
-        }>();
+    const { data: organizerPlanRow, error: orgFetchError } = await fetchOrganizerPlanRow(ctx.supabase, organizerId);
 
-      if (orgFetchError) {
-        return NextResponse.json({ error: orgFetchError.message }, { status: 500 });
-      }
-      organizerPlanRow = organizerRow ?? null;
+    if (orgFetchError) {
+      return NextResponse.json({ error: orgFetchError.message }, { status: 500 });
     }
 
     const plan = resolveMediaPlanFromOrganizer(organizerPlanRow);

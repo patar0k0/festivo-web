@@ -1,4 +1,5 @@
-import { hasActiveVip } from "@/lib/monetization";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { hasActiveVip, type OrganizerVipStatusRow } from "@/lib/monetization";
 
 export type MediaPlan = "free" | "vip";
 
@@ -7,19 +8,16 @@ export const MEDIA_LIMITS: Record<MediaPlan, { gallery: number; video: number }>
   vip: { gallery: 10, video: 2 },
 };
 
-export type OrganizerPlanInfo = {
-  plan?: MediaPlan | string | null;
-  plan_started_at?: string | null;
-  plan_expires_at?: string | null;
-} | null | undefined;
+/** Organizer row subset used for VIP window checks and media caps; missing/invalid plan → free via `hasActiveVip`. */
+export type OrganizerPlanInput = OrganizerVipStatusRow | null | undefined;
 
-export function resolveMediaPlanFromOrganizer(organizer: OrganizerPlanInfo, nowDate: Date = new Date()): MediaPlan {
+export function resolveMediaPlanFromOrganizer(organizer: OrganizerPlanInput, nowDate: Date = new Date()): MediaPlan {
   // VIP is active only inside the plan window (matches existing monetization semantics).
-  if (hasActiveVip(organizer as any, nowDate)) return "vip";
+  if (hasActiveVip(organizer, nowDate)) return "vip";
   return "free";
 }
 
-export function resolveAllowedMediaLimitsFromOrganizerPlan(organizer: OrganizerPlanInfo, nowDate: Date = new Date()) {
+export function resolveAllowedMediaLimitsFromOrganizerPlan(organizer: OrganizerPlanInput, nowDate: Date = new Date()) {
   const plan = resolveMediaPlanFromOrganizer(organizer, nowDate);
   return MEDIA_LIMITS[plan];
 }
@@ -38,3 +36,21 @@ export function getMediaLimitExceededErrorMessage(params: {
   return base + upgradeHint;
 }
 
+type OrganizerPlanColumns = {
+  plan: string | null;
+  plan_started_at: string | null;
+  plan_expires_at: string | null;
+};
+
+/** Loads plan columns for media limits; returns `data: null` when `primaryOrganizerId` is missing (treated as free tier). */
+export async function fetchOrganizerPlanRow(supabase: SupabaseClient, primaryOrganizerId: string | null) {
+  if (!primaryOrganizerId) {
+    return { data: null, error: null };
+  }
+  const { data, error } = await supabase
+    .from("organizers")
+    .select("plan,plan_started_at,plan_expires_at")
+    .eq("id", primaryOrganizerId)
+    .maybeSingle<OrganizerPlanColumns>();
+  return { data, error };
+}

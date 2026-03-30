@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
-import { pendingRowToOrganizerEntries } from "@/lib/admin/pendingOrganizerEntries";
-import { getMediaLimitExceededErrorMessage, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
+import {
+  fetchOrganizerPlanRow,
+  getMediaLimitExceededErrorMessage,
+  resolveAllowedMediaLimitsFromOrganizerPlan,
+  resolveMediaPlanFromOrganizer,
+} from "@/lib/admin/mediaLimits";
+import { pendingRowToOrganizerEntries, type PendingOrganizerRowFields } from "@/lib/admin/pendingOrganizerEntries";
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -37,26 +42,20 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: pendingFetchError.message }, { status: 500 });
     }
 
-    const organizerEntries = pendingRow ? pendingRowToOrganizerEntries(pendingRow as any) : [];
+    const rowForEntries: PendingOrganizerRowFields | undefined = pendingRow
+      ? {
+          organizer_entries: pendingRow.organizer_entries,
+          organizer_id: pendingRow.organizer_id,
+          organizer_name: pendingRow.organizer_name,
+        }
+      : undefined;
+    const organizerEntries = rowForEntries ? pendingRowToOrganizerEntries(rowForEntries) : [];
     const primaryOrganizerId = pendingRow?.organizer_id ?? organizerEntries[0]?.organizer_id ?? null;
 
-    let organizerPlanRow: { plan?: string | null; plan_started_at?: string | null; plan_expires_at?: string | null } | null = null;
-    if (primaryOrganizerId) {
-      const { data: organizerRow, error: orgFetchError } = await ctx.supabase
-        .from("organizers")
-        .select("plan,plan_started_at,plan_expires_at")
-        .eq("id", primaryOrganizerId)
-        .maybeSingle<{
-          plan: string | null;
-          plan_started_at: string | null;
-          plan_expires_at: string | null;
-        }>();
+    const { data: organizerPlanRow, error: orgFetchError } = await fetchOrganizerPlanRow(ctx.supabase, primaryOrganizerId);
 
-      if (orgFetchError) {
-        return NextResponse.json({ error: orgFetchError.message }, { status: 500 });
-      }
-
-      organizerPlanRow = organizerRow ?? null;
+    if (orgFetchError) {
+      return NextResponse.json({ error: orgFetchError.message }, { status: 500 });
     }
 
     const plan = resolveMediaPlanFromOrganizer(organizerPlanRow);

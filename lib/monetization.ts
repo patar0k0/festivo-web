@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type OrganizerVipStatusRow = {
+export type OrganizerVipStatusRow = {
   id?: string | null;
   plan?: string | null;
   plan_started_at?: string | null;

@@ -49,6 +49,9 @@ export function hasActiveVip(
   return true;
 }
 
+// Note: promotion_started_at is intentionally ignored.
+// A festival with promotion_status = "promoted" is considered active
+// immediately, regardless of start date. Only promotion_expires_at matters.
 export function hasActivePromotion(
   festival: PromotionStatusRow | null | undefined,
   nowDate: Date = new Date(),

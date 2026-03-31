@@ -1340,8 +1340,8 @@ export default function FestivalEditForm({
         description="Промотираните фестивали получават по-видимо позициониране в платформата."
         variant={ADMIN_ENTITY_SECTION.systemMeta.variant}
       >
-        <AdminFieldGrid>
-          <label className="flex min-h-8 items-center justify-between gap-3 rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2">
+        <div className="space-y-3">
+          <label className="flex min-h-8 w-full items-center justify-between gap-3 rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2">
             <span className="text-sm font-medium text-black/85">Активно промотиране</span>
             <input
               type="checkbox"
@@ -1352,28 +1352,28 @@ export default function FestivalEditForm({
             />
           </label>
           {isPromotionEnabled ? (
-            <>
-              <label className="md:col-span-1">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Начало</span>
+            <div className="flex w-full flex-col gap-3">
+              <label className="block w-full">
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Начало на промоцията</span>
                 <input
                   type="datetime-local"
                   value={form.promotion_started_at}
                   onChange={(e) => updateField("promotion_started_at", e.target.value)}
-                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                  className={`w-full ${ADMIN_ENTITY_CONTROL_CLASS}`}
                 />
               </label>
-              <label className="md:col-span-1">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Край</span>
+              <label className="block w-full">
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Край на промоцията</span>
                 <input
                   type="datetime-local"
                   value={form.promotion_expires_at}
                   onChange={(e) => updateField("promotion_expires_at", e.target.value)}
-                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                  className={`w-full ${ADMIN_ENTITY_CONTROL_CLASS}`}
                 />
               </label>
-            </>
+            </div>
           ) : null}
-        </AdminFieldGrid>
+        </div>
       </AdminFieldSection>
 
       {secondaryMetadata.length ? (

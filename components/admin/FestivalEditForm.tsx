@@ -1335,22 +1335,26 @@ export default function FestivalEditForm({
         />
       </AdminFieldSection>
 
-      <AdminMetaSection title={ADMIN_ENTITY_SECTION.systemMeta.title} description="Promotion window, listing boosts, and audit identifiers.">
+      <AdminFieldSection
+        title="Промотиране"
+        description="Промотираните фестивали получават по-видимо позициониране в платформата."
+        variant={ADMIN_ENTITY_SECTION.systemMeta.variant}
+      >
         <AdminFieldGrid>
-          <label className="flex min-h-8 items-center justify-between gap-3">
-            <AdminFieldLabel field="promotionStatus" />
+          <label className="flex min-h-8 items-center justify-between gap-3 rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2">
+            <span className="text-sm font-medium text-black/85">Активно промотиране</span>
             <input
               type="checkbox"
               checked={isPromotionEnabled}
               onChange={(e) => updateField("promotion_status", e.target.checked ? "promoted" : "normal")}
               className="h-4 w-4 shrink-0 rounded border border-black/20 text-[#0c0e14] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c0e14]"
-              aria-label={getAdminFieldLabel("promotionStatus")}
+              aria-label="Активно промотиране"
             />
           </label>
           {isPromotionEnabled ? (
             <>
-              <label>
-                <AdminFieldLabel field="promotionStartedAt" />
+              <label className="md:col-span-1">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Начало</span>
                 <input
                   type="datetime-local"
                   value={form.promotion_started_at}
@@ -1358,8 +1362,8 @@ export default function FestivalEditForm({
                   className={ADMIN_ENTITY_CONTROL_CLASS}
                 />
               </label>
-              <label>
-                <AdminFieldLabel field="promotionExpiresAt" />
+              <label className="md:col-span-1">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Край</span>
                 <input
                   type="datetime-local"
                   value={form.promotion_expires_at}
@@ -1367,19 +1371,10 @@ export default function FestivalEditForm({
                   className={ADMIN_ENTITY_CONTROL_CLASS}
                 />
               </label>
-              <label>
-                <AdminFieldLabel field="promotionRank" />
-                <input
-                  type="number"
-                  value={form.promotion_rank}
-                  onChange={(e) => updateField("promotion_rank", e.target.value)}
-                  className={ADMIN_ENTITY_CONTROL_CLASS}
-                />
-              </label>
             </>
           ) : null}
         </AdminFieldGrid>
-      </AdminMetaSection>
+      </AdminFieldSection>
 
       {secondaryMetadata.length ? (
         <AdminMetaSection title="Read-only identifiers" description="IDs, source lineage, and audit timestamps from the database row.">

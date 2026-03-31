@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
 import {
   fetchOrganizerPlanRow,
@@ -70,7 +71,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       );
     }
 
-    const { error: delError } = await ctx.supabase
+    const mediaDb = createSupabaseAdmin();
+
+    const { error: delError } = await mediaDb
       .from("festival_media")
       .delete()
       .eq("festival_id", festivalId)
@@ -84,7 +87,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ ok: true, video_url: null });
     }
 
-    const { data: maxRow } = await ctx.supabase
+    const { data: maxRow } = await mediaDb
       .from("festival_media")
       .select("sort_order")
       .eq("festival_id", festivalId)
@@ -94,7 +97,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const nextOrder = typeof maxRow?.sort_order === "number" ? maxRow.sort_order + 1 : 0;
 
-    const { data: inserted, error: insError } = await ctx.supabase
+    const { data: inserted, error: insError } = await mediaDb
       .from("festival_media")
       .insert({
         festival_id: festivalId,

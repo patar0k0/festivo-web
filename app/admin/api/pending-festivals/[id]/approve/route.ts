@@ -534,7 +534,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     try {
-      await insertFestivalMediaFromPending(adminCtx.supabase, insertedFestival.id, pending);
+      await insertFestivalMediaFromPending(serviceSupabase, insertedFestival.id, pending);
     } catch (mediaErr) {
       await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
       const message = mediaErr instanceof Error ? mediaErr.message : "festival_media insert failed";

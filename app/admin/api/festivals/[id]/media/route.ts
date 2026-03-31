@@ -67,7 +67,9 @@ async function assertGalleryInsertAllowed(
   const plan = resolveMediaPlanFromOrganizer(organizerPlanRow);
   const limits = resolveAllowedMediaLimitsFromOrganizerPlan(organizerPlanRow);
 
-  const { count: nonHeroCount, error: nonHeroCountError } = await ctx.supabase
+  const mediaDb = createSupabaseAdmin();
+
+  const { count: nonHeroCount, error: nonHeroCountError } = await mediaDb
     .from("festival_media")
     .select("id", { count: "exact", head: true })
     .eq("festival_id", festivalId)
@@ -77,7 +79,7 @@ async function assertGalleryInsertAllowed(
     return { ok: false, response: NextResponse.json({ error: nonHeroCountError.message }, { status: 500 }) };
   }
 
-  const { count: videoCount, error: videoCountError } = await ctx.supabase
+  const { count: videoCount, error: videoCountError } = await mediaDb
     .from("festival_media")
     .select("id", { count: "exact", head: true })
     .eq("festival_id", festivalId)
@@ -102,7 +104,7 @@ async function assertGalleryInsertAllowed(
 }
 
 async function insertGalleryRowAfterUpload(
-  supabase: NonNullable<Awaited<ReturnType<typeof getAdminContext>>>["supabase"],
+  supabase: ReturnType<typeof createSupabaseAdmin>,
   festivalId: string,
   publicUrl: string,
 ): Promise<{ ok: true; row: Record<string, unknown> } | { ok: false; response: NextResponse }> {
@@ -194,7 +196,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: outcome.error }, { status: 422 });
       }
 
-      const inserted = await insertGalleryRowAfterUpload(ctx.supabase, festivalId, outcome.publicUrl);
+      const inserted = await insertGalleryRowAfterUpload(supabaseAdmin, festivalId, outcome.publicUrl);
       if (!inserted.ok) {
         return inserted.response;
       }
@@ -253,7 +255,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Uploaded image URL is unavailable." }, { status: 500 });
     }
 
-    const inserted = await insertGalleryRowAfterUpload(ctx.supabase, festivalId, publicUrl);
+    const inserted = await insertGalleryRowAfterUpload(supabaseAdmin, festivalId, publicUrl);
     if (!inserted.ok) {
       return inserted.response;
     }

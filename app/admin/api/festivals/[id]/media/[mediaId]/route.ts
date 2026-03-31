@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string; mediaId: string }> }) {
   const ctx = await getAdminContext();
@@ -9,7 +10,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
 
   const { id: festivalId, mediaId } = await params;
 
-  const { error } = await ctx.supabase.from("festival_media").delete().eq("id", mediaId).eq("festival_id", festivalId);
+  const mediaDb = createSupabaseAdmin();
+  const { error } = await mediaDb.from("festival_media").delete().eq("id", mediaId).eq("festival_id", festivalId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

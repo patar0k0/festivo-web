@@ -558,6 +558,38 @@ export async function getFestivalSlugs(): Promise<string[]> {
   return (data ?? []).map((row) => row.slug).filter((slug): slug is string => Boolean(slug));
 }
 
+/**
+ * When an organizer was merged, the source row is `is_active=false` and public lookup by slug fails.
+ * Follow `merged_into` (chain-safe) and return the active canonical slug for redirects.
+ * Requires service role — anon RLS cannot read inactive organizers.
+ */
+export async function resolveOrganizerCanonicalSlug(slug: string): Promise<string | null> {
+  const admin = supabaseAdmin();
+  if (!admin) return null;
+
+  const { data: start } = await admin
+    .from("organizers")
+    .select("slug,is_active,merged_into")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (!start) return null;
+  if (start.is_active) return start.slug;
+
+  let nextId: string | null = start.merged_into;
+  for (let depth = 0; depth < 10 && nextId; depth += 1) {
+    const { data: row } = await admin
+      .from("organizers")
+      .select("slug,is_active,merged_into")
+      .eq("id", nextId)
+      .maybeSingle();
+    if (!row) return null;
+    if (row.is_active) return row.slug;
+    nextId = row.merged_into;
+  }
+  return null;
+}
+
 export async function getOrganizerWithFestivals(
   slug: string,
 ): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {

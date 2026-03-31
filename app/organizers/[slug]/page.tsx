@@ -1,11 +1,11 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import FallbackImage from "@/components/ui/FallbackImage";
-import { getOrganizerWithFestivals } from "@/lib/queries";
+import { getOrganizerWithFestivals, resolveOrganizerCanonicalSlug } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
 import { hasActivePromotion } from "@/lib/monetization";
 import "../../landing.css";
@@ -15,7 +15,11 @@ export const revalidate = 21600;
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const data = await getOrganizerWithFestivals(slug);
-  if (!data) return {};
+  if (!data) {
+    const canonical = await resolveOrganizerCanonicalSlug(slug);
+    if (canonical && canonical !== slug) permanentRedirect(`/organizers/${canonical}`);
+    return {};
+  }
 
   const title = `${data.organizer.name} | Организатор | Festivo`;
   const description = data.organizer.description?.trim() || `Профил на организатор ${data.organizer.name} във Festivo.`;
@@ -37,7 +41,11 @@ function telHref(phone: string): string {
 export default async function OrganizerPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const data = await getOrganizerWithFestivals(slug);
-  if (!data) return notFound();
+  if (!data) {
+    const canonical = await resolveOrganizerCanonicalSlug(slug);
+    if (canonical && canonical !== slug) permanentRedirect(`/organizers/${canonical}`);
+    return notFound();
+  }
 
   const { organizer, festivals } = data;
   const organizerInitials = organizer.name

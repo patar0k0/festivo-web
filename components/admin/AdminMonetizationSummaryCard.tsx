@@ -54,6 +54,10 @@ export default function AdminMonetizationSummaryCard({
     return exp ? `Promotion: promoted · expired · was due ${exp}` : "Promotion: promoted · expired";
   })();
 
+  const galleryDisplay =
+    gallerySlots != null ? `${gallerySlots.used}/${gallerySlots.limit}` : "—/—";
+  const videoDisplay = videos != null ? `${videos.used}/${videos.limit}` : "—/—";
+
   const shouldShowPlanAndLimits = Boolean(planLabel && gallerySlots && videos);
 
   return (
@@ -73,14 +77,10 @@ export default function AdminMonetizationSummaryCard({
           </p>
           <p className="mt-1">
             <span className="text-black/45">Gallery images:</span>{" "}
-            <span className="font-mono font-medium tabular-nums text-[#0c0e14]/90">
-              {gallerySlots.used}/{gallerySlots.limit}
-            </span>
+            <span className="font-mono font-medium tabular-nums text-[#0c0e14]/90">{galleryDisplay}</span>
             <span className="mx-1.5 text-black/25">·</span>
             <span className="text-black/45">Videos:</span>{" "}
-            <span className="font-mono font-medium tabular-nums text-[#0c0e14]/90">
-              {videos.used}/{videos.limit}
-            </span>
+            <span className="font-mono font-medium tabular-nums text-[#0c0e14]/90">{videoDisplay}</span>
           </p>
         </>
       ) : (

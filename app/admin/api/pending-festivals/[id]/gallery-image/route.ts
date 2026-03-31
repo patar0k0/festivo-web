@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { removeHeroStorageObjectForPublicUrlIfApplicable } from "@/lib/admin/festivalHeroStorageCleanup";
 import { rehostHeroImageIfRemote } from "@/lib/admin/rehostHeroImageFromUrl";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
@@ -241,22 +242,34 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return NextResponse.json({ error: "url query parameter is required." }, { status: 400 });
     }
 
-    const { data: row, error: fetchError } = await ctx.supabase
+    const admin = createSupabaseAdmin();
+    const { data: row, error: fetchError } = await admin
       .from("pending_festivals")
       .select("gallery_image_urls")
       .eq("id", pendingId)
       .maybeSingle<{ gallery_image_urls: unknown }>();
 
-    if (fetchError || !row) {
-      return NextResponse.json({ error: fetchError?.message ?? "Pending festival not found." }, { status: fetchError ? 500 : 404 });
+    if (fetchError) {
+      return NextResponse.json({ error: fetchError.message }, { status: 500 });
     }
 
-    const filtered = asStringArray(row.gallery_image_urls).filter((u) => u !== url);
+    if (!row) {
+      return NextResponse.json({ error: "Pending festival not found." }, { status: 404 });
+    }
 
-    const { error: updateError } = await ctx.supabase
-      .from("pending_festivals")
-      .update({ gallery_image_urls: filtered })
-      .eq("id", pendingId);
+    const gallery = asStringArray(row.gallery_image_urls);
+    if (!gallery.includes(url)) {
+      return NextResponse.json({ error: "Gallery image not found." }, { status: 404 });
+    }
+
+    const removal = await removeHeroStorageObjectForPublicUrlIfApplicable(admin, url);
+    if (!removal.ok) {
+      return NextResponse.json({ error: `Storage cleanup failed: ${removal.message}` }, { status: 500 });
+    }
+
+    const filtered = gallery.filter((u) => u !== url);
+
+    const { error: updateError } = await admin.from("pending_festivals").update({ gallery_image_urls: filtered }).eq("id", pendingId);
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });

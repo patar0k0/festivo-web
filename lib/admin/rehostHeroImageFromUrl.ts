@@ -89,8 +89,33 @@ export function isAlreadyOurSupabaseHeroPublicUrl(candidate: string): boolean {
     return false;
   }
   if (parsed.origin !== project.origin) return false;
-  const marker = `/storage/v1/object/public/${HERO_IMAGES_BUCKET}/`;
-  return parsed.pathname.includes(marker);
+  const prefix = `/storage/v1/object/public/${HERO_IMAGES_BUCKET}/`;
+  return parsed.pathname.startsWith(prefix);
+}
+
+/**
+ * True when `candidate` is a Supabase Storage **public** URL for this project’s
+ * festival hero bucket (`SUPABASE_HERO_IMAGES_BUCKET` / `festival-hero-images`).
+ */
+export function isOurSupabaseHeroStoragePublicUrl(candidate: string): boolean {
+  return isAlreadyOurSupabaseHeroPublicUrl(candidate);
+}
+
+/**
+ * Returns the bucket-relative object path for a public hero-bucket URL, or null
+ * if the URL is external or not under `/storage/v1/object/public/<bucket>/`.
+ */
+export function extractHeroStorageObjectPathFromOurPublicUrl(candidate: string): string | null {
+  if (!isAlreadyOurSupabaseHeroPublicUrl(candidate)) return null;
+  const parsed = new URL(candidate.trim());
+  const prefix = `/storage/v1/object/public/${HERO_IMAGES_BUCKET}/`;
+  const rest = parsed.pathname.slice(prefix.length);
+  if (!rest) return null;
+  try {
+    return decodeURIComponent(rest);
+  } catch {
+    return null;
+  }
 }
 
 function extensionFromMimeType(mimeType: string): string | null {

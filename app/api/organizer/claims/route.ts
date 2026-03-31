@@ -4,7 +4,30 @@ import { getPortalAdminClient, getPortalSessionUser } from "@/lib/organizer/port
 type Body = {
   organizer_id?: string;
   slug?: string;
+  contact_email?: string;
+  contact_phone?: string;
 };
+
+function parseClaimContact(body: Body): { ok: true; contact_email: string; contact_phone: string } | { ok: false; error: string } {
+  const email = typeof body.contact_email === "string" ? body.contact_email.trim() : "";
+  const phone = typeof body.contact_phone === "string" ? body.contact_phone.trim() : "";
+  if (!email) {
+    return { ok: false, error: "Имейлът за връзка е задължителен." };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, error: "Невалиден имейл адрес." };
+  }
+  if (email.length > 320) {
+    return { ok: false, error: "Имейлът е твърде дълъг." };
+  }
+  if (!phone) {
+    return { ok: false, error: "Телефонът за връзка е задължителен." };
+  }
+  if (phone.length < 5 || phone.length > 40) {
+    return { ok: false, error: "Посочете валиден телефон за връзка." };
+  }
+  return { ok: true, contact_email: email, contact_phone: phone };
+}
 
 export async function POST(request: Request) {
   const session = await getPortalSessionUser();
@@ -13,6 +36,11 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as Body;
+  const contact = parseClaimContact(body);
+  if (!contact.ok) {
+    return NextResponse.json({ error: contact.error }, { status: 400 });
+  }
+
   let organizerId = typeof body.organizer_id === "string" ? body.organizer_id.trim() : "";
 
   let admin;
@@ -99,6 +127,8 @@ export async function POST(request: Request) {
           role: "owner",
           approved_at: null,
           approved_by: null,
+          contact_email: contact.contact_email,
+          contact_phone: contact.contact_phone,
         })
         .eq("id", existingMine.id)
         .eq("status", "revoked");
@@ -115,6 +145,8 @@ export async function POST(request: Request) {
     user_id: session.user.id,
     role: "owner",
     status: "pending",
+    contact_email: contact.contact_email,
+    contact_phone: contact.contact_phone,
   });
 
   if (insErr) {

@@ -245,6 +245,8 @@ export type Database = {
           created_at: string
           approved_at: string | null
           approved_by: string | null
+          contact_email: string | null
+          contact_phone: string | null
         }
         Insert: {
           id?: string
@@ -255,6 +257,8 @@ export type Database = {
           created_at?: string
           approved_at?: string | null
           approved_by?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
         }
         Update: {
           id?: string
@@ -265,6 +269,8 @@ export type Database = {
           created_at?: string
           approved_at?: string | null
           approved_by?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
         }
       }
       profiles: {

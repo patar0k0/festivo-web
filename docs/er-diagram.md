@@ -128,6 +128,8 @@ erDiagram
     timestamptz created_at
     timestamptz approved_at
     uuid approved_by FK
+    text contact_email
+    text contact_phone
   }
 
   user_roles {

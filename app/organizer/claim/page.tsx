@@ -26,6 +26,8 @@ export default function OrganizerClaimPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState(false);
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const blurCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearBlurTimer = useCallback(() => {
@@ -91,13 +93,23 @@ export default function OrganizerClaimPage() {
       setError("Изберете организатор от списъка.");
       return;
     }
+    const email = contactEmail.trim();
+    const phone = contactPhone.trim();
+    if (!email) {
+      setError("Попълнете имейл за връзка.");
+      return;
+    }
+    if (!phone) {
+      setError("Попълнете телефон за връзка.");
+      return;
+    }
     setBusy(true);
     try {
       const res = await fetch("/api/organizer/claims", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug }),
+        body: JSON.stringify({ slug, contact_email: email, contact_phone: phone }),
       });
       const payload = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
@@ -238,6 +250,39 @@ export default function OrganizerClaimPage() {
               ) : null}
             </div>
           )}
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#0c0e14]" htmlFor="claim-contact-email">
+              Имейл за връзка *
+            </label>
+            <input
+              id="claim-contact-email"
+              type="email"
+              autoComplete="email"
+              value={contactEmail}
+              onChange={(ev) => setContactEmail(ev.target.value)}
+              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+              required
+            />
+            <p className="text-xs text-black/50">На този имейл ще се свържем за потвърждение.</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#0c0e14]" htmlFor="claim-contact-phone">
+              Телефон за връзка *
+            </label>
+            <input
+              id="claim-contact-phone"
+              type="tel"
+              autoComplete="tel"
+              inputMode="tel"
+              value={contactPhone}
+              onChange={(ev) => setContactPhone(ev.target.value)}
+              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+              required
+            />
+            <p className="text-xs text-black/50">Телефонът не се публикува — използва се само за верификация.</p>
+          </div>
 
           <p className="text-xs leading-relaxed text-black/55">
             Не намирате организацията си?{" "}

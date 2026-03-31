@@ -562,10 +562,12 @@ export async function getOrganizerWithFestivals(
   slug: string,
 ): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
   const supabase = await createSupabaseServerClient();
+  /** Service role when configured: anon RLS on `organizers` / embeds can hide valid active rows; app still filters `is_active` and published festivals. */
+  const db = supabaseAdmin() ?? supabase;
 
   console.info("[organizer-public] lookup start", { slug });
 
-  const { data: organizer, error: organizerError } = await supabase
+  const { data: organizer, error: organizerError } = await db
     .from("organizers")
     .select(PUBLIC_ORGANIZER_SELECT)
     .eq("slug", slug)
@@ -600,7 +602,7 @@ export async function getOrganizerWithFestivals(
     ),
   };
 
-  const { data: links, error: linksError } = await supabase
+  const { data: links, error: linksError } = await db
     .from("festival_organizers")
     .select("festival_id,sort_order")
     .eq("organizer_id", organizer.id)
@@ -611,7 +613,21 @@ export async function getOrganizerWithFestivals(
     throw new Error(linksError.message);
   }
 
-  const festivalIds = Array.from(new Set((links ?? []).map((row) => row.festival_id).filter(Boolean)));
+  const { data: legacyRows, error: legacyError } = await db
+    .from("festivals")
+    .select("id")
+    .eq("organizer_id", organizer.id)
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+    .neq("status", "archived")
+    .returns<Array<{ id: string }>>();
+
+  if (legacyError) {
+    throw new Error(legacyError.message);
+  }
+
+  const m2mIds = (links ?? []).map((row) => row.festival_id).filter(Boolean);
+  const legacyIds = (legacyRows ?? []).map((row) => row.id).filter(Boolean);
+  const festivalIds = Array.from(new Set([...m2mIds, ...legacyIds]));
 
   if (!festivalIds.length) {
     return {
@@ -620,7 +636,7 @@ export async function getOrganizerWithFestivals(
     };
   }
 
-  const { data: festivals, error: festivalsError } = await supabase
+  const { data: festivals, error: festivalsError } = await db
     .from("festivals")
     .select(FESTIVAL_SELECT_ORGANIZER_PROFILE)
     .in("id", festivalIds)

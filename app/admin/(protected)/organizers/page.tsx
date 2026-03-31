@@ -7,7 +7,7 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 const ORIGIN_BADGE: Record<OrganizerOriginKind, { label: string; className: string }> = {
   portal: {
     label: "Портал",
-    className: "bg-sky-100 text-sky-950 ring-1 ring-sky-200/90",
+    className: "bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/90",
   },
   pending: {
     label: "Чакащ",

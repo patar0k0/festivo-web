@@ -14,6 +14,7 @@ import { scheduleNewFestivalFollowCityJobs } from "@/lib/notifications/triggers"
 import { insertFestivalMediaFromPending } from "@/lib/festival/insertFestivalMediaFromPending";
 import { getMediaLimitExceededErrorMessage, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
+import { mergeFestivoAdminListingShort } from "@/lib/admin/festivalListingShort";
 
 type CityRow = {
   id: number;
@@ -31,6 +32,7 @@ type PendingFestivalRow = {
   title: string;
   slug: string | null;
   description: string | null;
+  description_short: string | null;
   category: string | null;
   city_id: number | null;
   location_name: string | null;
@@ -65,7 +67,7 @@ type PendingFestivalRow = {
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,category,city_id,location_name,address,latitude,longitude,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls";
+  "id,title,slug,description,description_short,category,city_id,location_name,address,latitude,longitude,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls";
 
 async function resolveOrganizerIdsForPublish(
   adminSupabase: SupabaseClient,
@@ -493,7 +495,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       source_type: mappedSourceType,
       source_primary_url: pending.source_primary_url,
       source_count: pending.source_count,
-      evidence_json: pending.evidence_json,
+      evidence_json: mergeFestivoAdminListingShort(pending.evidence_json, pending.description_short?.trim() || null),
       verification_status: pending.verification_status,
       verification_score: pending.verification_score,
       extraction_version: pending.extraction_version,

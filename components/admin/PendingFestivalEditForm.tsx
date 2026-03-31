@@ -22,6 +22,7 @@ import {
   resolveAllowedMediaLimitsFromOrganizerPlan,
   resolveMediaPlanFromOrganizer,
 } from "@/lib/admin/mediaLimits";
+import AdminFestivalDescriptionFields from "@/components/admin/AdminFestivalDescriptionFields";
 import {
   AdminFieldGrid,
   AdminFieldInlineRow,
@@ -743,6 +744,7 @@ export default function PendingFestivalEditForm({
           title: form.title.trim(),
           slug: form.slug.trim() || null,
           description: form.description.trim() || null,
+          description_short: form.description_short.trim() || null,
           category: form.category.trim() || null,
           city_name_display: cityInput || null,
           city: cityInput || null,
@@ -1793,13 +1795,18 @@ export default function PendingFestivalEditForm({
 
         <AdminFieldSection
           title={ADMIN_ENTITY_SECTION.descriptionContent.title}
-          description="Public-facing copy and machine-normalized text."
+          description="Пълно и кратко описание за публикуване и карта в списък."
           variant={ADMIN_ENTITY_SECTION.descriptionContent.variant}
         >
-              <label className="block">
-                <AdminFieldLabel field="description" />
-                <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className={ADMIN_ENTITY_TEXTAREA_CLASS} />
-              </label>
+          <AdminFestivalDescriptionFields
+            fullLabel="Пълно описание"
+            shortLabel="Кратко описание (за списъци и SEO)"
+            fullValue={form.description}
+            shortValue={form.description_short}
+            onFullChange={(v) => updateField("description", v)}
+            onShortChange={(v) => updateField("description_short", v)}
+            previewTitle={form.title}
+          />
         </AdminFieldSection>
 
           <details className="rounded-xl border border-black/[0.06] bg-black/[0.02] p-3 text-sm">
@@ -1866,10 +1873,6 @@ export default function PendingFestivalEditForm({
               <label>
                 <AdminFieldLabel field="descriptionClean" />
                 <textarea value={form.description_clean} readOnly rows={3} className={ADMIN_ENTITY_TEXTAREA_READONLY_CLASS} />
-              </label>
-              <label>
-                <AdminFieldLabel field="shortDescription" />
-                <textarea value={form.description_short} readOnly rows={3} className={ADMIN_ENTITY_TEXTAREA_READONLY_CLASS} />
               </label>
               <label>
                 <AdminFieldLabel field="categoryGuess" />

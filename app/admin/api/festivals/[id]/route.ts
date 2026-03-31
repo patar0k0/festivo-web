@@ -7,6 +7,7 @@ import { festivalPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 import { normalizeOrganizerIds, syncFestivalOrganizers } from "@/lib/festivalOrganizers";
 import { mergeOccurrenceDatesWithRange } from "@/lib/festival/occurrenceDates";
+import { mergeFestivoAdminListingShort } from "@/lib/admin/festivalListingShort";
 import { scheduleFestivalUpdateNotifications } from "@/lib/notifications/triggers";
 import { consumePromotionCredit, getRemainingPromotionCredits, hasActiveVip } from "@/lib/monetization";
 
@@ -145,6 +146,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if ("is_verified" in body && typeof body.is_verified === "boolean") {
       patch.is_verified = body.is_verified;
+    }
+
+    if ("description_short" in body) {
+      const raw = body.description_short;
+      if (raw !== undefined && raw !== null && typeof raw !== "string") {
+        return NextResponse.json({ error: "Invalid description_short" }, { status: 400 });
+      }
+      const shortStr = raw === null || raw === undefined ? "" : raw.trim();
+      const { data: evRow, error: evErr } = await ctx.supabase.from("festivals").select("evidence_json").eq("id", id).maybeSingle();
+      if (evErr) {
+        return NextResponse.json({ error: evErr.message }, { status: 500 });
+      }
+      patch.evidence_json = mergeFestivoAdminListingShort(evRow?.evidence_json ?? null, shortStr === "" ? null : shortStr);
     }
 
     if ("promotion_status" in body) {

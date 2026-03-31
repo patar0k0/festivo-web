@@ -19,6 +19,7 @@ import {
   resolveAllowedMediaLimitsFromOrganizerPlan,
   resolveMediaPlanFromOrganizer,
 } from "@/lib/admin/mediaLimits";
+import AdminFestivalDescriptionFields from "@/components/admin/AdminFestivalDescriptionFields";
 import {
   AdminFieldGrid,
   AdminFieldInlineRow,
@@ -31,6 +32,7 @@ import {
   ADMIN_ENTITY_TEXTAREA_CLASS,
   buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
+import { getListingShortFromEvidenceJson } from "@/lib/admin/festivalListingShort";
 import { ADMIN_FIELD_LABEL, getAdminFieldLabel } from "@/lib/admin/entitySchema";
 
 type FestivalRecord = {
@@ -60,6 +62,7 @@ type FestivalRecord = {
   status: "draft" | "verified" | "rejected" | "archived" | "published";
   tags: string[] | null;
   description: string | null;
+  evidence_json?: unknown;
   source_url: string | null;
   source_type: string | null;
   organizer_name?: string | null;
@@ -222,6 +225,7 @@ export default function FestivalEditForm({
     status: festival.status,
     tags: festival.tags ?? [],
     description: festival.description ?? "",
+    short_description: getListingShortFromEvidenceJson(festival.evidence_json),
     promotion_status: festival.promotion_status === "promoted" ? "promoted" : "normal",
     promotion_started_at: asDatetimeLocalInput(festival.promotion_started_at),
     promotion_expires_at: asDatetimeLocalInput(festival.promotion_expires_at),
@@ -308,8 +312,6 @@ export default function FestivalEditForm({
   const videoEmbedSrc = useMemo(() => getVideoEmbedSrcFromPageUrl(videoUrl.trim()), [videoUrl]);
 
   const planLabel = mediaPlanDisplayLabel(mediaPlan);
-
-  const descriptionPreview = useMemo(() => form.description.trim(), [form.description]);
 
   const editorOpenAction = useMemo(
     () =>
@@ -692,6 +694,7 @@ export default function FestivalEditForm({
           title: form.title,
           slug: form.slug,
           description: form.description || null,
+          description_short: form.short_description.trim() || null,
           city_id: cityId,
           city_name_display: cityInput || null,
           location_name: form.location_name || null,
@@ -1321,13 +1324,15 @@ export default function FestivalEditForm({
       </AdminFieldSection>
 
       <AdminFieldSection title={ADMIN_ENTITY_SECTION.descriptionContent.title} variant={ADMIN_ENTITY_SECTION.descriptionContent.variant}>
-        <label className="block">
-          <AdminFieldLabel field="description" />
-          <textarea value={form.description} onChange={(e) => updateField("description", e.target.value)} rows={6} className={ADMIN_ENTITY_TEXTAREA_CLASS} />
-        </label>
-        <div className="mt-2 rounded-xl border border-black/[0.08] bg-white/80 p-2.5 text-sm text-black/70">
-          {descriptionPreview || "Няма описание за preview."}
-        </div>
+        <AdminFestivalDescriptionFields
+          fullLabel="Пълно описание"
+          shortLabel="Кратко описание (за списъци и SEO)"
+          fullValue={form.description}
+          shortValue={form.short_description}
+          onFullChange={(v) => updateField("description", v)}
+          onShortChange={(v) => updateField("short_description", v)}
+          previewTitle={form.title}
+        />
       </AdminFieldSection>
 
       <AdminMetaSection title={ADMIN_ENTITY_SECTION.systemMeta.title} description="Promotion window, listing boosts, and audit identifiers.">

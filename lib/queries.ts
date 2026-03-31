@@ -18,8 +18,20 @@ export const FESTIVAL_SELECT_ORGANIZER_PROFILE =
 
 /** Public organizer profile fields (no plan, rank, credits, merge state). */
 // claimed_events_count: included for future public display, not rendered yet
+// No `cities` embed: nested select can fail under anon RLS/embed quirks; city is loaded in a second query.
 const PUBLIC_ORGANIZER_SELECT =
-  "id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id,claimed_events_count,cities:cities!left(name_bg,slug,is_village)";
+  "id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id,claimed_events_count";
+
+/** URL segment → DB slug: trim, decode, unify unicode hyphens. */
+export function normalizePublicOrganizerSlugParam(raw: string): string {
+  let s = raw.trim();
+  try {
+    s = decodeURIComponent(s);
+  } catch {
+    // ignore invalid escape sequences
+  }
+  return s.replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-");
+}
 
 const FESTIVAL_SELECT_DETAIL =
   "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,city,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
@@ -567,11 +579,23 @@ export async function resolveOrganizerCanonicalSlug(slug: string): Promise<strin
   const admin = supabaseAdmin();
   if (!admin) return null;
 
-  const { data: start } = await admin
+  const key = normalizePublicOrganizerSlugParam(slug);
+
+  let start: { slug: string; is_active: boolean | null; merged_into: string | null } | null = null;
+  const { data: byEq } = await admin
     .from("organizers")
     .select("slug,is_active,merged_into")
-    .eq("slug", slug)
+    .eq("slug", key)
     .maybeSingle();
+  start = byEq;
+  if (!start && !/[_%]/.test(key)) {
+    const { data: byIlike } = await admin
+      .from("organizers")
+      .select("slug,is_active,merged_into")
+      .ilike("slug", key)
+      .limit(2);
+    if (byIlike?.length === 1) start = byIlike[0];
+  }
 
   if (!start) return null;
   if (start.is_active) return start.slug;
@@ -593,28 +617,37 @@ export async function resolveOrganizerCanonicalSlug(slug: string): Promise<strin
 export async function getOrganizerWithFestivals(
   slug: string,
 ): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
-  const supabase = await createSupabaseServerClient();
-  /** Service role when configured: anon RLS on `organizers` / embeds can hide valid active rows; app still filters `is_active` and published festivals. */
-  const db = supabaseAdmin() ?? supabase;
+  /** Prefer service role; only open a cookie-bound client when anon fallback is needed. */
+  const db = supabaseAdmin() ?? (await createSupabaseServerClient());
 
-  console.info("[organizer-public] lookup start", { slug });
+  const slugKey = normalizePublicOrganizerSlugParam(slug);
+  console.info("[organizer-public] lookup start", { slug: slugKey });
 
-  const { data: organizer, error: organizerError } = await db
-    .from("organizers")
-    .select(PUBLIC_ORGANIZER_SELECT)
-    .eq("slug", slug)
-    .eq("is_active", true)
-    .maybeSingle<OrganizerProfile>();
+  const baseOrg = () =>
+    db.from("organizers").select(PUBLIC_ORGANIZER_SELECT).eq("is_active", true);
+
+  let organizer: OrganizerProfile | null = null;
+  let organizerError: { message: string } | null = null;
+
+  const first = await baseOrg().eq("slug", slugKey).maybeSingle<OrganizerProfile>();
+  organizerError = first.error ? { message: first.error.message } : null;
+  organizer = first.data;
+
+  if (!organizer && !/[_%]/.test(slugKey)) {
+    const second = await baseOrg().ilike("slug", slugKey).limit(2);
+    if (second.error) organizerError = { message: second.error.message };
+    if (second.data?.length === 1) organizer = second.data[0] as OrganizerProfile;
+  }
 
   if (organizerError) {
     console.error("[organizer-public] organizer lookup error", {
-      slug,
+      slug: slugKey,
       error: organizerError.message,
     });
   }
 
   console.info("[organizer-public] organizer lookup result", {
-    slug,
+    slug: slugKey,
     found: Boolean(organizer),
     organizerId: organizer?.id ?? null,
     organizerName: organizer?.name ?? null,
@@ -624,13 +657,24 @@ export async function getOrganizerWithFestivals(
     return null;
   }
 
+  let cities: OrganizerProfile["cities"] = null;
+  if (organizer.city_id != null) {
+    const { data: cityRow } = await db
+      .from("cities")
+      .select("name_bg,slug,is_village")
+      .eq("id", organizer.city_id)
+      .maybeSingle();
+    cities = cityRow ?? null;
+  }
+
   const fixedOrganizer: OrganizerProfile = {
     ...organizer,
+    cities,
     name: fixMojibakeBG(organizer.name),
     description: organizer.description ? fixMojibakeBG(organizer.description) : organizer.description,
     city_name_display: formatSettlementDisplayName(
-      organizer.cities?.name_bg ?? null,
-      organizer.cities?.is_village,
+      cities?.name_bg ?? null,
+      cities?.is_village,
     ),
   };
 

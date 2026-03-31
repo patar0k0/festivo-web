@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import OrganizerClaimStepStrip from "@/components/organizer/OrganizerClaimStepStrip";
+import OrganizerOnboardingValueBlock from "@/components/organizer/OrganizerOnboardingValueBlock";
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
 import "@/app/landing.css";
 
@@ -41,21 +43,25 @@ export default function OrganizerClaimPage() {
   return (
     <div className="landing-bg min-h-screen px-4 py-8 text-[#0c0e14] md:px-6 md:py-12">
       <div className="mx-auto max-w-lg space-y-6">
-        <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
-          <Link href="/organizer" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45 hover:text-[#0c0e14]">
+        <div className="rounded-2xl border border-amber-200/70 bg-gradient-to-br from-amber-50/95 via-white/95 to-white/90 p-6 shadow-sm ring-1 ring-amber-100/50 md:p-8">
+          <Link href="/organizer" className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-900/45 hover:text-[#0c0e14]">
             ← Начало
           </Link>
-          <h1 className="mt-4 font-[var(--font-display)] text-2xl font-bold">Заявка за съществуващ профил</h1>
-          <p className="mt-2 text-sm text-black/60">
-            Въведете публичния адрес (slug) на организатора — напр. от URL <span className="font-mono text-xs">/organizers/your-slug</span>. След
-            одобрение от администратор ставате собственик на профила.
+          <h1 className="mt-4 font-[var(--font-display)] text-2xl font-bold text-[#0c0e14]">Поеми съществуващ профил</h1>
+          <p className="mt-2 text-sm text-black/65">
+            Организацията ти вече е в Festivo — заяви собственост върху профила. Въведи публичния адрес (slug) — напр. от URL{" "}
+            <span className="font-mono text-xs">/organizers/your-slug</span>.
           </p>
           <div className="mt-6">
             <OrganizerPortalNav variant="onboarding" />
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
+        <OrganizerOnboardingValueBlock variant="claim" />
+
+        <OrganizerClaimStepStrip />
+
+        <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-amber-200/45 bg-white/90 p-6 shadow-sm md:p-8">
           {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
           {ok ? (
             <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
@@ -75,11 +81,17 @@ export default function OrganizerClaimPage() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-xl bg-[#0c0e14] py-3 text-sm font-semibold text-white disabled:opacity-50"
+            className="w-full rounded-xl bg-[#7c2d12] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5c200d] disabled:opacity-50"
           >
-            {busy ? "Изпращане…" : "Изпрати заявка"}
+            {busy ? "Изпращане…" : "Заяви профил"}
           </button>
         </form>
+
+        <p className="text-center text-xs leading-relaxed text-black/50">
+          Заявката се преглежда от екипа на Festivo.
+          <br />
+          Няма да публикуваме промени без ваше одобрение.
+        </p>
       </div>
     </div>
   );

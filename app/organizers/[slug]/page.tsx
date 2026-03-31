@@ -5,15 +5,21 @@ import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import FallbackImage from "@/components/ui/FallbackImage";
-import { getOrganizerWithFestivals, resolveOrganizerCanonicalSlug } from "@/lib/queries";
+import {
+  getOrganizerWithFestivals,
+  normalizePublicOrganizerSlugParam,
+  resolveOrganizerCanonicalSlug,
+} from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
 import { hasActivePromotion } from "@/lib/monetization";
 import "../../landing.css";
 
-export const revalidate = 21600;
+/** Avoid caching a stale 404 after the organizer row appears or slug is fixed (ISR + notFound). */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = normalizePublicOrganizerSlugParam(rawSlug);
   const data = await getOrganizerWithFestivals(slug);
   if (!data) {
     const canonical = await resolveOrganizerCanonicalSlug(slug);
@@ -28,7 +34,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title,
     description,
     alternates: {
-      canonical: `${getBaseUrl()}/organizers/${slug}`,
+      canonical: `${getBaseUrl()}/organizers/${encodeURIComponent(data.organizer.slug)}`,
     },
   };
 }
@@ -39,7 +45,8 @@ function telHref(phone: string): string {
 }
 
 export default async function OrganizerPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = normalizePublicOrganizerSlugParam(rawSlug);
   const data = await getOrganizerWithFestivals(slug);
   if (!data) {
     const canonical = await resolveOrganizerCanonicalSlug(slug);

@@ -1354,13 +1354,16 @@ export default function FestivalEditForm({
           {isPromotionEnabled ? (
             <div className="flex w-full flex-col gap-3">
               <label className="block w-full">
-                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Начало на промоцията</span>
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Промотиран от</span>
                 <input
                   type="datetime-local"
                   value={form.promotion_started_at}
                   onChange={(e) => updateField("promotion_started_at", e.target.value)}
                   className={`w-full ${ADMIN_ENTITY_CONTROL_CLASS}`}
                 />
+                <p className="mt-1.5 text-xs text-black/50">
+                  Информативно — промоцията е активна веднага след включване.
+                </p>
               </label>
               <label className="block w-full">
                 <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Край на промоцията</span>

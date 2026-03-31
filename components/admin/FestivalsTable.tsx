@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
+import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 
 type AdminFestivalRow = {
   id: string;
@@ -162,7 +163,9 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
                   <td className="px-3 py-3 font-medium text-[#0c0e14]">{row.title}</td>
                   <td className="px-3 py-3 text-black/65">{row.city ?? "-"}</td>
                   <td className="px-3 py-3 text-black/65">{formatFestivalDateLineShort(row)}</td>
-                  <td className="px-3 py-3 text-black/65">{row.category ?? "-"}</td>
+                  <td className="px-3 py-3 text-black/65">
+                    {row.category ? labelForPublicCategory(row.category) : "-"}
+                  </td>
                   <td className="px-3 py-3 text-black/65">{row.is_free ? "Yes" : "No"}</td>
                   <td className="px-3 py-3">
                     <span

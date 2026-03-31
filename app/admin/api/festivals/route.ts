@@ -11,6 +11,7 @@ async function resolveCityId(city: string, supabase: NonNullable<Awaited<ReturnT
   const trimmed = city.trim();
   if (!trimmed) return null;
 
+  /** Matches admin city filter dropdown (`city_id` as string). */
   if (/^\d+$/.test(trimmed)) {
     return Number(trimmed);
   }
@@ -25,6 +26,15 @@ async function resolveCityId(city: string, supabase: NonNullable<Awaited<ReturnT
   return data?.id ?? null;
 }
 
+/** Prefer explicit `city_id` when present so filters stay aligned with canonical cities. */
+function parseCityIdParam(raw: string | null): number | null {
+  if (raw == null) return null;
+  const t = raw.trim();
+  if (!/^\d+$/.test(t)) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function GET(request: Request) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
@@ -34,6 +44,7 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const status = asString(url.searchParams.get("status"));
+    const cityIdParam = parseCityIdParam(url.searchParams.get("city_id"));
     const city = asString(url.searchParams.get("city"));
     const category = asString(url.searchParams.get("category"));
     const free = asString(url.searchParams.get("free"));
@@ -49,10 +60,12 @@ export async function GET(request: Request) {
       query = query.eq("status", status);
     }
 
-    if (city) {
-      const cityId = await resolveCityId(city, ctx.supabase);
-      if (cityId != null) {
-        query = query.eq("city_id", cityId);
+    if (cityIdParam != null) {
+      query = query.eq("city_id", cityIdParam);
+    } else if (city) {
+      const resolved = await resolveCityId(city, ctx.supabase);
+      if (resolved != null) {
+        query = query.eq("city_id", resolved);
       } else {
         query = query.ilike("city", `%${city}%`);
       }

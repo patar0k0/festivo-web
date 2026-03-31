@@ -1,7 +1,23 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { classifyOrganizerOriginFromMembers, type OrganizerOriginKind } from "@/lib/admin/organizers";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+
+const ORIGIN_BADGE: Record<OrganizerOriginKind, { label: string; className: string }> = {
+  portal: {
+    label: "Портал",
+    className: "bg-sky-100 text-sky-950 ring-1 ring-sky-200/90",
+  },
+  pending: {
+    label: "Чакащ",
+    className: "bg-amber-100 text-amber-950 ring-1 ring-amber-200/90",
+  },
+  virtual: {
+    label: "Виртуален",
+    className: "bg-black/[0.06] text-black/65 ring-1 ring-black/[0.1]",
+  },
+};
 
 export default async function AdminOrganizersPage() {
   const ctx = await getAdminContext();
@@ -21,7 +37,7 @@ export default async function AdminOrganizersPage() {
   const { data, error, count } = await adminClient
     .schema("public")
     .from("organizers")
-    .select("id,name,slug,verified,claimed_events_count,created_at", { count: "exact" })
+    .select("id,name,slug,verified,claimed_events_count,created_at, organizer_members(status)", { count: "exact" })
     .eq("is_active", true)
     .order("created_at", { ascending: false, nullsFirst: false })
     .order("name", { ascending: true });
@@ -57,6 +73,7 @@ export default async function AdminOrganizersPage() {
           <thead className="bg-black/[0.03] text-left text-xs uppercase tracking-[0.14em] text-black/55">
             <tr>
               <th className="px-4 py-3">Name</th>
+              <th className="px-4 py-3">Тип</th>
               <th className="px-4 py-3">Slug</th>
               <th className="px-4 py-3">Verified</th>
               <th className="px-4 py-3">Claimed events</th>
@@ -65,7 +82,11 @@ export default async function AdminOrganizersPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {rows.map((row) => {
+              const members = row.organizer_members as { status: string }[] | null | undefined;
+              const origin = classifyOrganizerOriginFromMembers(members);
+              const badge = ORIGIN_BADGE[origin];
+              return (
               <tr key={row.id} className="border-t border-black/[0.06]">
                 <td className="px-4 py-3 font-semibold">
                   {row.slug ? (
@@ -75,6 +96,13 @@ export default async function AdminOrganizersPage() {
                   ) : (
                     row.name
                   )}
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight ${badge.className}`}
+                  >
+                    {badge.label}
+                  </span>
                 </td>
                 <td className="px-4 py-3 text-black/70">{row.slug ?? "-"}</td>
                 <td className="px-4 py-3 text-black/70">{row.verified ? "Yes" : "No"}</td>
@@ -97,10 +125,11 @@ export default async function AdminOrganizersPage() {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-black/60">
+                <td colSpan={7} className="px-4 py-8 text-center text-black/60">
                   No organizers found.
                 </td>
               </tr>

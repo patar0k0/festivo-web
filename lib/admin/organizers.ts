@@ -10,6 +10,23 @@ type OrganizerLookupRow = {
 
 export { normalizeOrganizerName, normalizeOrganizerNameForMatch };
 
+/** Derived from `organizer_members.status` only (no extra DB columns). */
+export type OrganizerOriginKind = "portal" | "pending" | "virtual";
+
+/**
+ * portal: at least one active membership (real portal user).
+ * pending: no active row, but at least one pending claim.
+ * virtual: no active/pending rows (no members, or only revoked).
+ */
+export function classifyOrganizerOriginFromMembers(
+  members: { status: string }[] | null | undefined,
+): OrganizerOriginKind {
+  const list = members ?? [];
+  if (list.some((m) => m.status === "active")) return "portal";
+  if (list.some((m) => m.status === "pending")) return "pending";
+  return "virtual";
+}
+
 export async function pickOrganizerSlug(client: SupabaseClient, baseSlug: string) {
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const candidate = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`;

@@ -230,6 +230,7 @@ export default function FestivalEditForm({
     promotion_expires_at: asDatetimeLocalInput(festival.promotion_expires_at),
     promotion_rank: festival.promotion_rank != null ? String(festival.promotion_rank) : "0",
   });
+  const isPromotionEnabled = form.promotion_status === "promoted";
 
   const [message, setMessage] = useState<string>("");
   const [organizerOptions, setOrganizerOptions] = useState<OrganizerOption[]>(organizers);
@@ -1336,44 +1337,47 @@ export default function FestivalEditForm({
 
       <AdminMetaSection title={ADMIN_ENTITY_SECTION.systemMeta.title} description="Promotion window, listing boosts, and audit identifiers.">
         <AdminFieldGrid>
-          <label>
+          <label className="flex min-h-8 items-center justify-between gap-3">
             <AdminFieldLabel field="promotionStatus" />
-            <select
-              value={form.promotion_status}
-              onChange={(e) => updateField("promotion_status", e.target.value as "normal" | "promoted")}
-              className={ADMIN_ENTITY_CONTROL_CLASS}
-            >
-              <option value="normal">normal</option>
-              <option value="promoted">promoted</option>
-            </select>
-          </label>
-          <label>
-            <AdminFieldLabel field="promotionStartedAt" />
             <input
-              type="datetime-local"
-              value={form.promotion_started_at}
-              onChange={(e) => updateField("promotion_started_at", e.target.value)}
-              className={ADMIN_ENTITY_CONTROL_CLASS}
+              type="checkbox"
+              checked={isPromotionEnabled}
+              onChange={(e) => updateField("promotion_status", e.target.checked ? "promoted" : "normal")}
+              className="h-4 w-4 shrink-0 rounded border border-black/20 text-[#0c0e14] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0c0e14]"
+              aria-label={getAdminFieldLabel("promotionStatus")}
             />
           </label>
-          <label>
-            <AdminFieldLabel field="promotionExpiresAt" />
-            <input
-              type="datetime-local"
-              value={form.promotion_expires_at}
-              onChange={(e) => updateField("promotion_expires_at", e.target.value)}
-              className={ADMIN_ENTITY_CONTROL_CLASS}
-            />
-          </label>
-          <label>
-            <AdminFieldLabel field="promotionRank" />
-            <input
-              type="number"
-              value={form.promotion_rank}
-              onChange={(e) => updateField("promotion_rank", e.target.value)}
-              className={ADMIN_ENTITY_CONTROL_CLASS}
-            />
-          </label>
+          {isPromotionEnabled ? (
+            <>
+              <label>
+                <AdminFieldLabel field="promotionStartedAt" />
+                <input
+                  type="datetime-local"
+                  value={form.promotion_started_at}
+                  onChange={(e) => updateField("promotion_started_at", e.target.value)}
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                />
+              </label>
+              <label>
+                <AdminFieldLabel field="promotionExpiresAt" />
+                <input
+                  type="datetime-local"
+                  value={form.promotion_expires_at}
+                  onChange={(e) => updateField("promotion_expires_at", e.target.value)}
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                />
+              </label>
+              <label>
+                <AdminFieldLabel field="promotionRank" />
+                <input
+                  type="number"
+                  value={form.promotion_rank}
+                  onChange={(e) => updateField("promotion_rank", e.target.value)}
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                />
+              </label>
+            </>
+          ) : null}
         </AdminFieldGrid>
       </AdminMetaSection>
 

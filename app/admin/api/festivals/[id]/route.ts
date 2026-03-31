@@ -175,7 +175,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         : null;
     const afterPromotionStatus =
       typeof patch.promotion_status === "string" ? patch.promotion_status : beforePromotionStatus;
-    const shouldConsumePromotionCredit = beforePromotionStatus === "normal" && afterPromotionStatus === "promoted";
+    const shouldConsumePromotionCredit =
+      beforePromotionStatus !== "promoted" && afterPromotionStatus === "promoted";
 
     if ("promotion_started_at" in body) {
       const parsedPromotionStartedAt = parseDatetimeStringOrNull(body.promotion_started_at);

@@ -1,5 +1,7 @@
 "use client";
 
+import { hasActivePromotion } from "@/lib/monetization";
+
 function formatPromotionExpiry(raw: string | null | undefined): string | null {
   const trimmed = raw?.trim();
   if (!trimmed) return null;
@@ -10,16 +12,18 @@ function formatPromotionExpiry(raw: string | null | undefined): string | null {
 
 export type AdminMonetizationSummaryCardProps = {
   organizerName: string;
-  planLabel: string;
-  gallerySlots: { used: number; limit: number };
-  videos: { used: number; limit: number };
+  planLabel?: string | null;
+  gallerySlots?: { used: number; limit: number } | null;
+  videos?: { used: number; limit: number } | null;
   promotion:
     | {
-        scope: "published";
-        status: "normal" | "promoted";
-        expiresAtInput: string | null | undefined;
+        status: "normal" | "promoted" | null | undefined;
+        expiresAtInput?: string | null | undefined;
       }
-    | { scope: "pending" };
+    | {
+        status?: "normal" | "promoted" | null;
+        expiresAtInput?: string | null | undefined;
+      };
 };
 
 /**
@@ -32,15 +36,25 @@ export default function AdminMonetizationSummaryCard({
   videos,
   promotion,
 }: AdminMonetizationSummaryCardProps) {
-  const promotionLine =
-    promotion.scope === "pending"
-      ? "Promotion: not on catalog yet — set on the published festival after approval"
-      : promotion.status === "promoted"
-        ? (() => {
-            const exp = formatPromotionExpiry(promotion.expiresAtInput);
-            return exp ? `Promotion: active · expires ${exp}` : "Promotion: active (no expiry date)";
-          })()
-        : "Promotion: not active";
+  const isPromoted = promotion?.status === "promoted";
+  const isActive = hasActivePromotion({
+    promotion_status: promotion?.status ?? null,
+    promotion_expires_at: promotion?.expiresAtInput ?? null,
+  });
+
+  const exp = isPromoted ? formatPromotionExpiry(promotion?.expiresAtInput) : null;
+
+  const promotionLine = (() => {
+    if (!isPromoted) return "Promotion: not promoted";
+
+    if (isActive) {
+      return exp ? `Promotion: promoted · active · expires ${exp}` : "Promotion: promoted · active";
+    }
+
+    return exp ? `Promotion: promoted · expired · was due ${exp}` : "Promotion: promoted · expired";
+  })();
+
+  const shouldShowPlanAndLimits = Boolean(planLabel && gallerySlots && videos);
 
   return (
     <aside
@@ -48,24 +62,30 @@ export default function AdminMonetizationSummaryCard({
       aria-label="Plan, media limits, and promotion"
     >
       <p className="font-semibold uppercase tracking-[0.12em] text-[#0c0e14]/45">Plan & limits</p>
-      <p className="mt-1.5">
-        <span className="text-black/45">Organizer:</span>{" "}
-        <span className="font-medium text-[#0c0e14]/90">{organizerName || "—"}</span>
-        <span className="mx-1.5 text-black/25">·</span>
-        <span className="text-black/45">Plan:</span>{" "}
-        <span className="font-medium text-[#0c0e14]/90">{planLabel}</span>
-      </p>
-      <p className="mt-1">
-        <span className="text-black/45">Gallery images:</span>{" "}
-        <span className="font-mono font-medium tabular-nums text-[#0c0e14]/90">
-          {gallerySlots.used}/{gallerySlots.limit}
-        </span>
-        <span className="mx-1.5 text-black/25">·</span>
-        <span className="text-black/45">Videos:</span>{" "}
-        <span className="font-mono font-medium tabular-nums text-[#0c0e14]/90">
-          {videos.used}/{videos.limit}
-        </span>
-      </p>
+      {shouldShowPlanAndLimits ? (
+        <>
+          <p className="mt-1.5">
+            <span className="text-black/45">Organizer:</span>{" "}
+            <span className="font-medium text-[#0c0e14]/90">{organizerName || "—"}</span>
+            <span className="mx-1.5 text-black/25">·</span>
+            <span className="text-black/45">Plan:</span>{" "}
+            <span className="font-medium text-[#0c0e14]/90">{planLabel}</span>
+          </p>
+          <p className="mt-1">
+            <span className="text-black/45">Gallery images:</span>{" "}
+            <span className="font-mono font-medium tabular-nums text-[#0c0e14]/90">
+              {gallerySlots.used}/{gallerySlots.limit}
+            </span>
+            <span className="mx-1.5 text-black/25">·</span>
+            <span className="text-black/45">Videos:</span>{" "}
+            <span className="font-mono font-medium tabular-nums text-[#0c0e14]/90">
+              {videos.used}/{videos.limit}
+            </span>
+          </p>
+        </>
+      ) : (
+        <p className="mt-1.5 text-black/70">{organizerName}</p>
+      )}
       <p className="mt-1 text-black/70">{promotionLine}</p>
     </aside>
   );

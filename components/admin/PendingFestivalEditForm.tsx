@@ -66,6 +66,10 @@ export type PendingFestivalRecord = {
   organizer_id?: string | null;
   source_url: string | null;
   is_free: boolean | null;
+  promotion_status?: "normal" | "promoted" | null;
+  promotion_started_at?: string | null;
+  promotion_expires_at?: string | null;
+  promotion_rank?: number | null;
   hero_image: string | null;
   hero_image_source?: string | null;
   hero_image_original_url?: string | null;
@@ -464,14 +468,16 @@ export default function PendingFestivalEditForm({
   const [galleryUrls, setGalleryUrls] = useState<string[]>(() => parseGalleryUrls(pendingFestival.gallery_image_urls));
   const [videoUrlExtra, setVideoUrlExtra] = useState(() => pendingFestival.video_url?.trim() ?? "");
 
-  const primaryOrganizerId = organizerEntries[0]?.organizer_id.trim() ?? "";
-  const primaryOrganizer = useMemo(() => {
-    if (!primaryOrganizerId) return null;
-    return organizerOptions.find((o) => o.id === primaryOrganizerId) ?? null;
-  }, [primaryOrganizerId, organizerOptions]);
+  const firstResolvedOrganizerId = organizerEntries.find((e) => e.organizer_id && e.organizer_id.trim().length > 0)?.organizer_id.trim() ?? "";
+  const firstResolvedOrganizer = useMemo(() => {
+    if (!firstResolvedOrganizerId) return null;
+    return organizerOptions.find((o) => o.id === firstResolvedOrganizerId) ?? null;
+  }, [firstResolvedOrganizerId, organizerOptions]);
 
-  const mediaPlan = useMemo(() => resolveMediaPlanFromOrganizer(primaryOrganizer), [primaryOrganizer]);
-  const mediaLimits = useMemo(() => resolveAllowedMediaLimitsFromOrganizerPlan(primaryOrganizer), [primaryOrganizer]);
+  const organizerConfirmedForPlan = Boolean(firstResolvedOrganizerId);
+
+  const mediaPlan = useMemo(() => resolveMediaPlanFromOrganizer(firstResolvedOrganizer), [firstResolvedOrganizer]);
+  const mediaLimits = useMemo(() => resolveAllowedMediaLimitsFromOrganizerPlan(firstResolvedOrganizer), [firstResolvedOrganizer]);
   const planLabel = mediaPlanDisplayLabel(mediaPlan);
   const galleryImageCount = galleryUrls.length;
   const heroHasImage = Boolean(form.hero_image.trim());
@@ -1137,8 +1143,14 @@ export default function PendingFestivalEditForm({
     }
   };
 
-  const summaryOrganizer =
-    organizerEntries[0]?.name.trim() || form.organizer_name.trim() || "—";
+  const summaryOrganizer = organizerEntries[0]?.name.trim() || form.organizer_name.trim() || "—";
+
+  const firstResolvedOrganizerEntry =
+    organizerEntries.find((e) => e.organizer_id && e.organizer_id.trim().length > 0) ?? null;
+
+  const monetizationOrganizerName = organizerConfirmedForPlan
+    ? firstResolvedOrganizer?.name.trim() || firstResolvedOrganizerEntry?.name.trim() || "—"
+    : "Организаторът не е потвърден";
 
   const summaryItems = useMemo(() => {
     const cityLine =
@@ -1218,11 +1230,14 @@ export default function PendingFestivalEditForm({
       />
 
       <AdminMonetizationSummaryCard
-        organizerName={summaryOrganizer}
-        planLabel={planLabel}
-        gallerySlots={{ used: totalGallerySlotsUsed, limit: mediaLimits.gallery }}
-        videos={{ used: videoCount, limit: mediaLimits.video }}
-        promotion={{ scope: "pending" }}
+        organizerName={monetizationOrganizerName}
+        planLabel={organizerConfirmedForPlan ? planLabel : null}
+        gallerySlots={organizerConfirmedForPlan ? { used: totalGallerySlotsUsed, limit: mediaLimits.gallery } : null}
+        videos={organizerConfirmedForPlan ? { used: videoCount, limit: mediaLimits.video } : null}
+        promotion={{
+          status: pendingFestival.promotion_status === "promoted" ? "promoted" : "normal",
+          expiresAtInput: pendingFestival.promotion_expires_at,
+        }}
       />
 
       {pendingFestival.submission_source === "organizer_portal" ? (

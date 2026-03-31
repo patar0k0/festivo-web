@@ -872,7 +872,6 @@ export default function FestivalEditForm({
         gallerySlots={{ used: totalGallerySlotsUsed, limit: mediaLimits.gallery }}
         videos={{ used: videoCount, limit: mediaLimits.video }}
         promotion={{
-          scope: "published",
           status: form.promotion_status === "promoted" ? "promoted" : "normal",
           expiresAtInput: form.promotion_expires_at,
         }}

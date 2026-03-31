@@ -171,6 +171,7 @@ export default function NotificationSettingsCard() {
       <p className="mt-1 text-sm text-black/55">
         Включи или изключи известията по тип. Промените се запазват веднага.
       </p>
+      <p className="mt-2 text-sm text-black/50">Известията се изпращат към мобилното приложение Festivo.</p>
 
       {errorText ? (
         <p

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { getOptionalUser } from "@/lib/authUser";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import "../landing.css";
 import NotificationSettingsCard from "./NotificationSettingsCard";
+import ProfileAvatar from "./ProfileAvatar";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -44,15 +44,6 @@ export default async function ProfilePage() {
     );
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { data: roleRow } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", user.id)
-    .eq("role", "admin")
-    .maybeSingle();
-  const isAdmin = Boolean(roleRow);
-
   return (
     <div className="landing-bg min-h-screen px-4 py-8 text-[#0c0e14] md:px-6 md:py-12">
       <div className="mx-auto w-full max-w-[720px]">
@@ -69,52 +60,12 @@ export default async function ProfilePage() {
             <section className="py-6 md:py-7">
               <h2 className="text-base font-semibold text-[#0c0e14]">Данни за вход</h2>
               <p className="mt-1 text-sm text-black/55">Вход през Supabase Auth (имейл/парола или социални мрежи).</p>
-              <div className="mt-5 flex items-start gap-4">
-                <div
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-pine text-sm font-bold text-white shadow-sm md:h-14 md:w-14 md:text-base"
-                  aria-hidden
-                >
-                  {initialsFromEmail(user.email)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-black/45">Имейл адрес</p>
-                  <p className="mt-0.5 break-all text-[15px] font-semibold leading-snug text-[#0c0e14]">
-                    {user.email ?? "Няма имейл"}
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <section className="py-6 md:py-7">
-              <h2 className="text-base font-semibold text-[#0c0e14]">Преки връзки</h2>
-              <p className="mt-1 text-sm text-black/55">Най-често използваните страници в приложението.</p>
-              <div className="mt-5 flex flex-wrap gap-2.5">
-                <Link
-                  href="/plan"
-                  className="inline-flex items-center justify-center rounded-lg bg-[#0c0e14] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-black"
-                >
-                  Моят план
-                </Link>
-                <Link
-                  href="/festivals"
-                  className="inline-flex items-center justify-center rounded-lg border border-black/[0.12] bg-white px-4 py-2.5 text-sm font-medium text-[#0c0e14] transition hover:bg-neutral-50"
-                >
-                  Фестивали
-                </Link>
-                <Link
-                  href="/organizer"
-                  className="inline-flex items-center justify-center rounded-lg border border-black/[0.12] bg-white px-4 py-2.5 text-sm font-medium text-[#0c0e14] transition hover:bg-neutral-50"
-                >
-                  За организатори
-                </Link>
-                {isAdmin ? (
-                  <Link
-                    href="/admin"
-                    className="inline-flex items-center justify-center rounded-lg border border-black/[0.12] bg-white px-4 py-2.5 text-sm font-medium text-[#0c0e14] transition hover:bg-neutral-50"
-                  >
-                    Админ панел
-                  </Link>
-                ) : null}
+              <div className="mt-5">
+                <ProfileAvatar
+                  email={user.email}
+                  initials={initialsFromEmail(user.email)}
+                  initialAvatarUrl={user.avatarUrl}
+                />
               </div>
             </section>
 

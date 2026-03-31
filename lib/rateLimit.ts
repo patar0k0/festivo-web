@@ -81,7 +81,8 @@ function getBucket(pathname: string): RateLimitBucket {
     pathname.startsWith("/api/follow/") ||
     pathname === "/api/device-token" ||
     pathname === "/api/push/register" ||
-    pathname === "/api/notification-settings"
+    pathname === "/api/notification-settings" ||
+    pathname === "/api/profile/avatar"
   ) {
     return { id: "user-actions", requests: 30, window: "60 s" };
   }

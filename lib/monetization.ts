@@ -55,12 +55,13 @@ export function hasActivePromotion(
 ): boolean {
   if (festival?.promotion_status !== "promoted") return false;
 
-  const start = festival?.promotion_started_at ? new Date(festival.promotion_started_at) : null;
-  const end = festival?.promotion_expires_at ? new Date(festival.promotion_expires_at) : null;
+  const rawEnd = festival?.promotion_expires_at;
+  if (rawEnd == null || rawEnd === "") return true;
 
-  if (start && !Number.isNaN(start.getTime()) && nowDate < start) return false;
-  if (end && !Number.isNaN(end.getTime()) && nowDate > end) return false;
-  return true;
+  const end = new Date(rawEnd);
+  if (Number.isNaN(end.getTime())) return true;
+
+  return nowDate < end;
 }
 
 function includedForOrganizer(organizer: OrganizerCreditRow): number {

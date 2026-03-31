@@ -37,6 +37,7 @@ import {
   buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
 import { ADMIN_FIELD_LABEL, adminLabelForSuggestionField, getAdminFieldLabel } from "@/lib/admin/entitySchema";
+import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
 
 export type PendingFestivalRecord = {
   id: string;
@@ -1214,6 +1215,14 @@ export default function PendingFestivalEditForm({
             </button>
           </>
         }
+      />
+
+      <AdminMonetizationSummaryCard
+        organizerName={summaryOrganizer}
+        planLabel={planLabel}
+        gallerySlots={{ used: totalGallerySlotsUsed, limit: mediaLimits.gallery }}
+        videos={{ used: videoCount, limit: mediaLimits.video }}
+        promotion={{ scope: "pending" }}
       />
 
       {pendingFestival.submission_source === "organizer_portal" ? (

@@ -33,6 +33,7 @@ import {
 } from "@/components/admin/entity";
 import { getListingShortFromEvidenceJson } from "@/lib/admin/festivalListingShort";
 import { ADMIN_FIELD_LABEL, getAdminFieldLabel } from "@/lib/admin/entitySchema";
+import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
 
 type FestivalRecord = {
   id: string;
@@ -863,6 +864,18 @@ export default function FestivalEditForm({
             </button>
           </>
         }
+      />
+
+      <AdminMonetizationSummaryCard
+        organizerName={summaryOrganizer}
+        planLabel={planLabel}
+        gallerySlots={{ used: totalGallerySlotsUsed, limit: mediaLimits.gallery }}
+        videos={{ used: videoCount, limit: mediaLimits.video }}
+        promotion={{
+          scope: "published",
+          status: form.promotion_status === "promoted" ? "promoted" : "normal",
+          expiresAtInput: form.promotion_expires_at,
+        }}
       />
 
       <AdminFieldSection

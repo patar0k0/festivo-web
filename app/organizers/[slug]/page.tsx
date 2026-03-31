@@ -5,60 +5,12 @@ import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import FallbackImage from "@/components/ui/FallbackImage";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { Festival, OrganizerProfile } from "@/lib/types";
+import { getOrganizerWithFestivals } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
-import { sortFestivalsForListing } from "@/lib/festival/sorting";
-import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
+import { hasActivePromotion } from "@/lib/monetization";
 import "../../landing.css";
 
 export const revalidate = 21600;
-
-const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city,start_date,end_date,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
-
-async function getOrganizerWithFestivals(slug: string): Promise<{ organizer: OrganizerProfile; festivals: Festival[] } | null> {
-  const supabase = await createSupabaseServerClient();
-
-  console.info("[organizer-public] lookup start", { slug });
-
-  const { data: organizer, error: organizerError } = await supabase
-    .from("organizers")
-    .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,verified,plan,plan_started_at,plan_expires_at,included_promotions_per_year,organizer_rank")
-    .eq("slug", slug)
-    .maybeSingle<OrganizerProfile>();
-
-  if (organizerError) {
-    console.error("[organizer-public] organizer lookup error", {
-      slug,
-      error: organizerError.message,
-    });
-  }
-
-  console.info("[organizer-public] organizer lookup result", {
-    slug,
-    found: Boolean(organizer),
-    organizerId: organizer?.id ?? null,
-    organizerName: organizer?.name ?? null,
-  });
-
-  if (!organizer) return null;
-
-  const { data: festivals, error: festivalsError } = await supabase
-    .from("festivals")
-    .select(FESTIVAL_SELECT_MIN)
-    .eq("organizer_id", organizer.id)
-    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
-    .neq("status", "archived")
-    .order("start_date", { ascending: true })
-    .returns<Festival[]>();
-
-  if (festivalsError) {
-    throw new Error(festivalsError.message);
-  }
-
-  return { organizer, festivals: sortFestivalsForListing(festivals ?? []) };
-}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -77,6 +29,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
+function telHref(phone: string): string {
+  const digits = phone.replace(/[^\d+]/g, "");
+  return digits ? `tel:${digits}` : `tel:${phone.trim()}`;
+}
+
 export default async function OrganizerPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const data = await getOrganizerWithFestivals(slug);
@@ -90,7 +47,15 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
     .slice(0, 2)
     .join("")
     .toUpperCase();
-  const cityDisplayCandidate = festivals.find((festival) => festival.city_name_display?.trim())?.city_name_display?.trim();
+
+  const profileUrl = `${getBaseUrl()}/organizers/${encodeURIComponent(organizer.slug)}`;
+  const cityFromProfile = organizer.city_name_display?.trim();
+  const cityFromFestivals = festivals.find((festival) => festival.city_name_display?.trim())?.city_name_display?.trim();
+  const locationLabel = cityFromProfile || cityFromFestivals || null;
+
+  const email = organizer.email?.trim() || null;
+  const phone = organizer.phone?.trim() || null;
+  const description = organizer.description?.trim() || null;
 
   return (
     <div className="landing-bg bg-[#f6f7fb] text-[#0c0e14]">
@@ -107,17 +72,22 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                   )}
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Организатор на събития</p>
-                  <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight text-slate-950 md:text-4xl">{organizer.name}</h1>
+                <div className="min-w-0 flex-1 space-y-5">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Организатор на събития</p>
+                    <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight text-slate-950 md:text-4xl">{organizer.name}</h1>
+                    <p className="mt-2 text-sm text-slate-500">
+                      <span className="select-all">{profileUrl}</span>
+                    </p>
+                  </div>
 
-                  <div className="mt-5 flex flex-wrap gap-2 text-sm text-slate-600">
+                  <div className="flex flex-wrap gap-2 text-sm text-slate-600">
                     <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 font-medium">
                       {festivals.length} {festivals.length === 1 ? "фестивал" : "фестивала"}
                     </span>
 
-                    {cityDisplayCandidate ? (
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 font-medium">{cityDisplayCandidate}</span>
+                    {locationLabel ? (
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 font-medium">{locationLabel}</span>
                     ) : null}
 
                     {organizer.verified ? (
@@ -126,15 +96,10 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                         Потвърден организатор
                       </span>
                     ) : null}
-                    {hasActiveVip(organizer) ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 font-semibold text-amber-700 ring-1 ring-amber-100">
-                        VIP организатор
-                      </span>
-                    ) : null}
                   </div>
 
                   {(organizer.website_url || organizer.facebook_url || organizer.instagram_url) ? (
-                    <div className="mt-6 flex flex-wrap gap-2.5 text-sm">
+                    <div className="flex flex-wrap gap-2.5 text-sm">
                       {organizer.website_url ? (
                         <a
                           href={organizer.website_url}
@@ -172,15 +137,35 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                       ) : null}
                     </div>
                   ) : null}
+
+                  {(email || phone) ? (
+                    <div className="border-t border-slate-100 pt-5">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Контакт</p>
+                      <div className="mt-3 flex flex-col gap-2 text-sm text-slate-700 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2">
+                        {email ? (
+                          <a href={`mailto:${email}`} className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 hover:decoration-slate-500">
+                            {email}
+                          </a>
+                        ) : null}
+                        {phone ? (
+                          <a href={telHref(phone)} className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 hover:decoration-slate-500">
+                            {phone}
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {description ? (
+                    <div className="border-t border-slate-100 pt-5">
+                      <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-500">За организатора</h2>
+                      <p className="mt-3 max-w-3xl whitespace-pre-wrap text-sm leading-7 text-slate-600 md:text-base">{description}</p>
+                    </div>
+                  ) : (
+                    <p className="border-t border-slate-100 pt-5 text-sm leading-7 text-slate-500">Този организатор все още няма добавено описание.</p>
+                  )}
                 </div>
               </div>
-            </section>
-
-            <section className="rounded-3xl border border-black/[0.05] bg-white p-6 shadow-sm md:p-8">
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">За организатора</h2>
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 md:text-base">
-                {organizer.description?.trim() || "Този организатор все още няма добавено описание."}
-              </p>
             </section>
 
             <section className="space-y-4 md:space-y-5">
@@ -207,7 +192,6 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                       endDate={festival.end_date}
                       isFree={festival.is_free}
                       isPromoted={hasActivePromotion(festival)}
-                      isVipOrganizer={hasActiveVip(festival.organizer)}
                       detailsHref={`/festivals/${festival.slug}`}
                     />
                   ))}

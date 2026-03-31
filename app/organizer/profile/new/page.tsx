@@ -52,7 +52,9 @@ export default function NewOrganizerProfilePage() {
             ← Начало
           </Link>
           <h1 className="mt-4 font-[var(--font-display)] text-2xl font-bold">Нов организаторски профил</h1>
-          <p className="mt-2 text-sm text-black/60">Минимални данни; публичният профил следва стандартния изглед на Festivo.</p>
+          <p className="mt-2 text-sm text-black/60">
+            Минимални данни; публичният профил следва стандартния изглед на Festivo. Контактните данни (имейл и телефон) в профила са публично видими за посетителите.
+          </p>
           <div className="mt-6">
             <OrganizerPortalNav variant="onboarding" />
           </div>
@@ -98,7 +100,11 @@ export default function NewOrganizerProfilePage() {
               onChange={(ev) => setEmail(ev.target.value)}
               type="email"
               className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+              aria-describedby="organizer-contact-email-hint"
             />
+            <p id="organizer-contact-email-hint" className="mt-1.5 text-xs leading-snug text-black/55">
+              Видим е за всички посетители на публичния профил на организатора. Не използвай личен адрес, ако не искаш да е публичен.
+            </p>
           </label>
           <button
             type="submit"

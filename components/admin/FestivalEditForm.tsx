@@ -29,7 +29,6 @@ import {
   AdminSummaryStrip,
   ADMIN_ENTITY_SECTION,
   ADMIN_ENTITY_CONTROL_CLASS,
-  ADMIN_ENTITY_TEXTAREA_CLASS,
   buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
 import { getListingShortFromEvidenceJson } from "@/lib/admin/festivalListingShort";

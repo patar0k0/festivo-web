@@ -2,10 +2,24 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 
-const FIRST_VISIBLE = 5;
+/** Tailwind `md` — desktop uses more visible category chips before collapse. */
+const MD_MIN_WIDTH_QUERY = "(min-width: 768px)";
+
+function useMdOrUp(): boolean {
+  return useSyncExternalStore(
+    (onStoreChange) => {
+      if (typeof window === "undefined") return () => {};
+      const mql = window.matchMedia(MD_MIN_WIDTH_QUERY);
+      mql.addEventListener("change", onStoreChange);
+      return () => mql.removeEventListener("change", onStoreChange);
+    },
+    () => window.matchMedia(MD_MIN_WIDTH_QUERY).matches,
+    () => false
+  );
+}
 
 type FestivalsTagChipsClientProps = {
   categories: string[];
@@ -30,12 +44,14 @@ export default function FestivalsTagChipsClient({ categories }: FestivalsTagChip
   const searchParams = useSearchParams();
   const activeTag = searchParams.get("tag");
   const [expanded, setExpanded] = useState(false);
+  /** `getServerSnapshot` is false so SSR/hydration match mobile (3); then `md` breakpoint → 5. */
+  const firstVisible = useMdOrUp() ? 5 : 3;
 
   const { visibleCategories, showToggle } = useMemo(() => {
-    const firstFive = categories.slice(0, FIRST_VISIBLE);
+    const firstSlice = categories.slice(0, firstVisible);
     const selected = activeTag && categories.includes(activeTag) ? activeTag : null;
-    const needsSelected = selected !== null && !firstFive.includes(selected);
-    const collapsed = needsSelected ? [...firstFive, selected] : firstFive;
+    const needsSelected = selected !== null && !firstSlice.includes(selected);
+    const collapsed = needsSelected ? [...firstSlice, selected] : firstSlice;
 
     const hasHiddenCollapsed = categories.some((c) => !collapsed.includes(c));
     const show = expanded || hasHiddenCollapsed;
@@ -44,7 +60,7 @@ export default function FestivalsTagChipsClient({ categories }: FestivalsTagChip
       visibleCategories: expanded ? categories : collapsed,
       showToggle: show,
     };
-  }, [categories, activeTag, expanded]);
+  }, [categories, activeTag, expanded, firstVisible]);
 
   const inactiveChipClass =
     "rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25";

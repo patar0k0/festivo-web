@@ -17,6 +17,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
+import { buildFestivalsTagOrFilter } from "@/lib/festivals/buildFestivalsTagOrFilter";
 import "../landing.css";
 
 export const revalidate = 3600;
@@ -52,23 +53,6 @@ function getParam(searchParams: PageSearchParams, key: string): string | undefin
 
 function toUtcDateString(date: Date) {
   return date.toISOString().slice(0, 10);
-}
-
-/**
- * PostgREST `eq` value: quote when the category string has spaces or non-ascii etc.
- * (Chips use `festivals.category` values; `+` in URLs is decoded to space by Next.js.)
- */
-function postgrestEqText(value: string): string {
-  if (/^[a-zA-Z0-9_.-]+$/.test(value)) return value;
-  return `"${value.replace(/"/g, '""')}"`;
-}
-
-/**
- * Match discovery `tag` against primary category OR `tags` jsonb (chips + counts use `category`;
- * listing previously used only `tags`, which diverged and yielded 0 rows).
- */
-function buildFestivalsTagOrFilter(tag: string): string {
-  return `category.eq.${postgrestEqText(tag)},tags.cs.${JSON.stringify([tag])}`;
 }
 
 function parseDateFilter(value: string | undefined): DateRange | null {
@@ -234,7 +218,14 @@ export default async function FestivalsPage({
     const { data, count, error } = await query.returns<FestivalWithCity[]>();
 
     if (error) {
-      queryError = JSON.stringify(error, null, 2);
+      console.error("[festivals/page] Supabase festivals query failed", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        tag: tag ?? null,
+      });
+      queryError = [error.message, error.details, error.hint].filter(Boolean).join(" — ") || JSON.stringify(error);
     } else {
       const normalized = (data ?? []).map((row) => fixFestivalText(row as Festival));
       const sorted = sortFestivalsForListing(normalized);
@@ -243,6 +234,7 @@ export default async function FestivalsPage({
       totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     }
   } catch (error) {
+    console.error("[festivals/page] festivals query threw", error);
     queryError = error instanceof Error ? error.message : "Unknown error";
   }
 
@@ -312,9 +304,7 @@ export default async function FestivalsPage({
                 {queryError ? (
                   <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-4 text-sm text-red-800">
                     <p>Възникна грешка при зареждане на фестивалите. Опитайте отново.</p>
-                    {process.env.NODE_ENV !== "production" ? (
-                      <p className="mt-2 break-words text-xs text-red-700">{queryError}</p>
-                    ) : null}
+                    <p className="mt-2 break-words font-mono text-xs text-red-700">{queryError}</p>
                   </div>
                 ) : null}
 

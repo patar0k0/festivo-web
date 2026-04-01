@@ -54,6 +54,23 @@ function toUtcDateString(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * PostgREST `eq` value: quote when the category string has spaces or non-ascii etc.
+ * (Chips use `festivals.category` values; `+` in URLs is decoded to space by Next.js.)
+ */
+function postgrestEqText(value: string): string {
+  if (/^[a-zA-Z0-9_.-]+$/.test(value)) return value;
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Match discovery `tag` against primary category OR `tags` jsonb (chips + counts use `category`;
+ * listing previously used only `tags`, which diverged and yielded 0 rows).
+ */
+function buildFestivalsTagOrFilter(tag: string): string {
+  return `category.eq.${postgrestEqText(tag)},tags.cs.${JSON.stringify([tag])}`;
+}
+
 function parseDateFilter(value: string | undefined): DateRange | null {
   if (!value) {
     return null;
@@ -191,7 +208,7 @@ export default async function FestivalsPage({
     }
 
     if (tag) {
-      query = HAS_TAGS_COLUMN ? query.contains("tags", [tag]) : query.eq("category", tag);
+      query = HAS_TAGS_COLUMN ? query.or(buildFestivalsTagOrFilter(tag)) : query.eq("category", tag);
     }
 
     if (!city && !parsedDate && !tag) {

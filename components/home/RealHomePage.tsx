@@ -9,7 +9,7 @@ import type { HomePageViewProps } from "@/lib/home/loadHomePageData";
 import { Festival } from "@/lib/types";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import CitySelectClient from "./CitySelectClient";
-import NearMeCtaClient from "./NearMeCtaClient";
+import HomeDiscoverySearchClient from "./HomeDiscoverySearchClient";
 import QuickChipsClient from "./QuickChipsClient";
 
 function EventsSection({
@@ -83,6 +83,33 @@ export default function RealHomePage({
     ...quickChipHrefs.categoryChips,
   ];
 
+  const secondaryDiscoveryActions = (
+    <>
+      {homeCityOptions.length ? (
+        <CitySelectClient
+          cities={homeCityOptions.map((city) => ({
+            name: city.name,
+            slug: city.slug,
+            filterValue: city.filterValue,
+          }))}
+        />
+      ) : (
+        <Link
+          href="/festivals"
+          className="rounded-2xl border border-black/[0.09] bg-white/90 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+        >
+          Избери град
+        </Link>
+      )}
+      <Link
+        href="/calendar"
+        className="rounded-2xl border border-black/[0.09] bg-white/90 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+      >
+        Избери дата
+      </Link>
+    </>
+  );
+
   return (
     <div className="landing-bg overflow-x-hidden pb-24 text-[#0c0e14] md:pb-0">
       <Section className="overflow-x-clip bg-transparent pb-10 pt-24 md:pb-12 md:pt-28">
@@ -104,30 +131,8 @@ export default function RealHomePage({
                 </p>
               </div>
 
-              <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-center">
-                <NearMeCtaClient className="w-full rounded-2xl border border-[#ff4c1f]/30 bg-[#ff4c1f] px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#f24318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25" />
-                {homeCityOptions.length ? (
-                  <CitySelectClient
-                    cities={homeCityOptions.map((city) => ({
-                      name: city.name,
-                      slug: city.slug,
-                      filterValue: city.filterValue,
-                    }))}
-                  />
-                ) : (
-                  <Link
-                    href="/festivals"
-                    className="rounded-2xl border border-black/[0.09] bg-white/90 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                  >
-                    Избери град
-                  </Link>
-                )}
-                <Link
-                  href="/calendar"
-                  className="rounded-2xl border border-black/[0.09] bg-white/90 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-                >
-                  Избери дата
-                </Link>
+              <div className="mt-5">
+                <HomeDiscoverySearchClient secondaryActions={secondaryDiscoveryActions} />
               </div>
 
               <QuickChipsClient chips={chips} />
@@ -172,7 +177,7 @@ export default function RealHomePage({
         </Container>
       </Section>
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.08] bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(12,14,20,0.12)] backdrop-blur md:hidden">
-        <NearMeCtaClient className="block w-full rounded-2xl border border-[#ff4c1f]/30 bg-[#ff4c1f] px-5 py-3 text-center text-sm font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#f24318] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25" />
+        <HomeDiscoverySearchClient compact secondaryActions={secondaryDiscoveryActions} />
       </div>
     </div>
   );

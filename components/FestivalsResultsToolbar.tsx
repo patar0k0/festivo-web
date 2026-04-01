@@ -41,7 +41,7 @@ export default function FestivalsResultsToolbar({
         </p>
         <span className="text-black/35">•</span>
         <p>
-          Active filters: <span className="font-semibold text-[#0c0e14]">{activeFiltersCount}</span>
+          Активни филтри: <span className="font-semibold text-[#0c0e14]">{activeFiltersCount}</span>
         </p>
         <Link
           href={clearHref}

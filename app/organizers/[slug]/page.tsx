@@ -4,7 +4,7 @@ import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
-import FallbackImage from "@/components/ui/FallbackImage";
+import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import {
   getOrganizerWithFestivals,
   normalizePublicOrganizerSlugParam,
@@ -63,7 +63,6 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
     .join("")
     .toUpperCase();
 
-  const profileUrl = `${getBaseUrl()}/organizers/${encodeURIComponent(organizer.slug)}`;
   const cityFromProfile = organizer.city_name_display?.trim();
   const cityFromFestivals = festivals.find((festival) => festival.city_name_display?.trim())?.city_name_display?.trim();
   const locationLabel = cityFromProfile || cityFromFestivals || null;
@@ -79,21 +78,12 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
           <div className="mx-auto max-w-6xl space-y-8 md:space-y-10">
             <section className="rounded-3xl border border-black/[0.05] bg-white p-6 shadow-sm md:p-8 lg:p-9">
               <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
-                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-3xl bg-gradient-to-br from-[#f4f6ff] to-[#eef3ff] ring-1 ring-black/5 md:h-28 md:w-28">
-                  {organizer.logo_url ? (
-                    <FallbackImage src={organizer.logo_url} alt={organizer.name} fill className="object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-2xl font-bold tracking-wide text-black/55">{organizerInitials || "OF"}</div>
-                  )}
-                </div>
+                <OrganizerProfileLogo logoUrl={organizer.logo_url} name={organizer.name} initials={organizerInitials} />
 
                 <div className="min-w-0 flex-1 space-y-5">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Организатор на събития</p>
                     <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight text-slate-950 md:text-4xl">{organizer.name}</h1>
-                    <p className="mt-2 text-sm text-slate-500">
-                      <span className="select-all">{profileUrl}</span>
-                    </p>
                   </div>
 
                   <div className="flex flex-wrap gap-2 text-sm text-slate-600">

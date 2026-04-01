@@ -1,12 +1,13 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { OAuthButtons } from "@/app/auth/_components/OAuthButtons";
 import { signupErrorMessage } from "@/app/login/authErrors";
-import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/TurnstileWidget";
+import type { TurnstileWidgetHandle } from "@/components/TurnstileWidget";
+import { SignupTurnstileBlock } from "./SignupTurnstileBlock";
 
 type SignupFormProps = {
   next: string;
@@ -61,6 +62,16 @@ export function SignupForm({ next }: SignupFormProps) {
   const [turnstileToken, setTurnstileToken] = useState("");
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
   const needsTurnstile = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
+
+  const onTurnstileSuccess = useCallback((token: string) => {
+    setTurnstileToken(token);
+  }, []);
+  const onTurnstileError = useCallback(() => {
+    setTurnstileToken("");
+  }, []);
+  const onTurnstileExpire = useCallback(() => {
+    setTurnstileToken("");
+  }, []);
 
   async function continueWithOAuth(provider: "google" | "apple") {
     setError("");
@@ -236,6 +247,15 @@ export function SignupForm({ next }: SignupFormProps) {
         </div>
       </label>
 
+      {needsTurnstile ? (
+        <SignupTurnstileBlock
+          ref={turnstileRef}
+          onSuccess={onTurnstileSuccess}
+          onError={onTurnstileError}
+          onExpire={onTurnstileExpire}
+        />
+      ) : null}
+
       {error ? (
         <p className="rounded-xl bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
           {error}
@@ -246,14 +266,6 @@ export function SignupForm({ next }: SignupFormProps) {
           {notice}
         </p>
       ) : null}
-
-      <TurnstileWidget
-        ref={turnstileRef}
-        onSuccess={setTurnstileToken}
-        onError={() => setTurnstileToken("")}
-        onExpire={() => setTurnstileToken("")}
-        className="flex min-h-[65px] justify-center"
-      />
 
       <button
         type="submit"

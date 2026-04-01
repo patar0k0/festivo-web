@@ -36,6 +36,13 @@ export const TurnstileWidget = forwardRef<TurnstileWidgetHandle, TurnstileWidget
   const [apiReady, setApiReady] = useState(false);
   const [containerMounted, setContainerMounted] = useState(false);
 
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  const onExpireRef = useRef(onExpire);
+  onSuccessRef.current = onSuccess;
+  onErrorRef.current = onError;
+  onExpireRef.current = onExpire;
+
   const teardown = useCallback(() => {
     if (typeof window === "undefined" || !window.turnstile || !widgetIdRef.current) {
       widgetIdRef.current = null;
@@ -56,11 +63,11 @@ export const TurnstileWidget = forwardRef<TurnstileWidgetHandle, TurnstileWidget
     teardown();
     widgetIdRef.current = window.turnstile.render(containerRef.current, {
       sitekey: siteKey,
-      callback: onSuccess,
-      "error-callback": onError,
-      "expired-callback": onExpire,
+      callback: (token: string) => onSuccessRef.current(token),
+      "error-callback": () => onErrorRef.current?.(),
+      "expired-callback": () => onExpireRef.current?.(),
     });
-  }, [siteKey, onSuccess, onError, onExpire, teardown]);
+  }, [siteKey, teardown]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.turnstile) {

@@ -49,13 +49,20 @@ Limited responses: **429** with `Retry-After` (seconds).
 - **Jobs:** same bypass as rate limit for trusted job callers.
 - Rejection: **403** with a small JSON body.
 
-Env var summary for production also lives in `README.md` (`UPSTASH_*`, `CSRF_ALLOWED_HOSTS`, `JOBS_SECRET`).
+### Cloudflare Turnstile (public forms)
+
+- **Client:** `components/TurnstileWidget.tsx` loads `https://challenges.cloudflare.com/turnstile/v0/api.js` and renders the widget when `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is set.
+- **Forms:** Email/password signup (`POST /api/auth/signup`), create organizer (`POST /api/organizer/organizers`), and organizer claim (`POST /api/organizer/claims`) send a `turnstileToken` in the JSON body; submit stays disabled until a token exists when the site key is present.
+- **Server:** `lib/turnstile.ts` posts tokens to `https://challenges.cloudflare.com/turnstile/v0/siteverify` with `TURNSTILE_SECRET_KEY`. On verification failure (or empty token when enforcement is on), routes return **403** with `{ "error": "Bot protection check failed." }`.
+- **Fail-open:** If either `NEXT_PUBLIC_TURNSTILE_SITE_KEY` or `TURNSTILE_SECRET_KEY` is missing, verification is skipped and the server logs a one-time warning (local dev without keys). Production should set both.
+
+Env var summary for production also lives in `README.md` (`UPSTASH_*`, `CSRF_ALLOWED_HOSTS`, `JOBS_SECRET`, Turnstile keys).
 
 ### Pathname for layout (internal)
 
 `middleware.ts` forwards `request.nextUrl.pathname` on `NextResponse.next()` as request header `x-festivo-pathname` (overwrites any client-supplied value). The root shell uses it server-side with `FESTIVO_PUBLIC_MODE` and the `festivo_preview` cookie so **coming-soon** and **`/coming-soon`** render without the public header/footer (no catalog navigation on those surfaces).
 
-Auth UX includes signup/login and password recovery: `/signup` creates email+password users (`auth.signUp`), `/login` sends Supabase reset emails, and `/reset-password` applies `auth.updateUser({ password })` for valid recovery sessions.
+Auth UX includes signup/login and password recovery: `/signup` creates email+password users via `POST /api/auth/signup` (Supabase `signUp` on the server; Cloudflare Turnstile when keys are set), `/login` sends Supabase reset emails, and `/reset-password` applies `auth.updateUser({ password })` for valid recovery sessions.
 
 ## Moderation-first content flow
 

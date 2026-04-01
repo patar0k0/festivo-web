@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { getPortalAdminClient, getPortalSessionUser } from "@/lib/organizer/portal";
+import { getRequestClientIp, shouldEnforceTurnstile, verifyTurnstileToken } from "@/lib/turnstile";
 
 type Body = {
   organizer_id?: string;
   slug?: string;
   contact_email?: string;
   contact_phone?: string;
+  turnstileToken?: string;
 };
 
 function parseClaimContact(body: Body): { ok: true; contact_email: string; contact_phone: string } | { ok: false; error: string } {
@@ -36,6 +38,15 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as Body;
+
+  const token = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
+  if (shouldEnforceTurnstile()) {
+    const ok = await verifyTurnstileToken(token, getRequestClientIp(request));
+    if (!ok) {
+      return NextResponse.json({ error: "Bot protection check failed." }, { status: 403 });
+    }
+  }
+
   const contact = parseClaimContact(body);
   if (!contact.ok) {
     return NextResponse.json({ error: contact.error }, { status: 400 });

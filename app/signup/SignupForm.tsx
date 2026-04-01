@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { OAuthButtons } from "@/app/auth/_components/OAuthButtons";
 import { signupErrorMessage } from "@/app/login/authErrors";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/TurnstileWidget";
 
 type SignupFormProps = {
   next: string;
@@ -57,6 +58,9 @@ export function SignupForm({ next }: SignupFormProps) {
   const [oauthProvider, setOauthProvider] = useState<"google" | "apple" | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
+  const needsTurnstile = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
 
   async function continueWithOAuth(provider: "google" | "apple") {
     setError("");
@@ -108,33 +112,47 @@ export function SignupForm({ next }: SignupFormProps) {
 
     setIsSubmitting(true);
     try {
-      const supabase = createSupabaseBrowser();
-      const origin =
-        typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL;
       const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
-      const emailRedirectTo = new URL("/auth/callback", origin);
-      emailRedirectTo.searchParams.set("next", safeNext);
 
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: { emailRedirectTo: emailRedirectTo.toString() },
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          turnstileToken: needsTurnstile ? turnstileToken : "",
+          next: safeNext,
+        }),
       });
 
-      if (signUpError) {
-        setError(signupErrorMessage(signUpError.message, "Неуспешна регистрация. Опитай отново."));
+      const payload = (await res.json().catch(() => null)) as
+        | { error?: string; hasSession?: boolean; needsEmailConfirmation?: boolean }
+        | null;
+
+      if (!res.ok) {
+        setError(
+          typeof payload?.error === "string"
+            ? payload.error
+            : signupErrorMessage(undefined, "Неуспешна регистрация. Опитай отново."),
+        );
+        setTurnstileToken("");
+        turnstileRef.current?.reset();
         return;
       }
 
-      if (data.session) {
+      if (payload?.hasSession) {
         router.push(safeNext);
         router.refresh();
         return;
       }
 
       setNotice("Профилът е създаден. Провери имейла си за потвърждение и след това влез.");
+      setTurnstileToken("");
+      turnstileRef.current?.reset();
     } catch {
       setError("Мрежова грешка. Опитай отново.");
+      setTurnstileToken("");
+      turnstileRef.current?.reset();
     } finally {
       setIsSubmitting(false);
     }
@@ -229,9 +247,17 @@ export function SignupForm({ next }: SignupFormProps) {
         </p>
       ) : null}
 
+      <TurnstileWidget
+        ref={turnstileRef}
+        onSuccess={setTurnstileToken}
+        onError={() => setTurnstileToken("")}
+        onExpire={() => setTurnstileToken("")}
+        className="flex min-h-[65px] justify-center"
+      />
+
       <button
         type="submit"
-        disabled={isSubmitting || oauthBusy}
+        disabled={isSubmitting || oauthBusy || (needsTurnstile && !turnstileToken)}
         className="h-12 w-full rounded-2xl bg-[#0c0e14] px-4 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isSubmitting ? "Създаване..." : "Създай профил"}

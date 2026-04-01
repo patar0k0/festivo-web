@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/TurnstileWidget";
 import OrganizerOnboardingValueBlock from "@/components/organizer/OrganizerOnboardingValueBlock";
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
 import "@/app/landing.css";
@@ -15,6 +16,9 @@ export default function NewOrganizerProfilePage() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
+  const needsTurnstile = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,16 +34,21 @@ export default function NewOrganizerProfilePage() {
           description: description || null,
           website_url: websiteUrl || null,
           email: email || null,
+          turnstileToken: needsTurnstile ? turnstileToken : "",
         }),
       });
       const payload = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
+        setTurnstileToken("");
+        turnstileRef.current?.reset();
         throw new Error(payload?.error ?? "Грешка при създаване.");
       }
       router.push("/organizer/dashboard");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Неуспех.");
+      setTurnstileToken("");
+      turnstileRef.current?.reset();
     } finally {
       setBusy(false);
     }
@@ -107,9 +116,16 @@ export default function NewOrganizerProfilePage() {
               Видим е за всички посетители на публичния профил на организатора. Не използвай личен адрес, ако не искаш да е публичен.
             </p>
           </label>
+          <TurnstileWidget
+            ref={turnstileRef}
+            onSuccess={setTurnstileToken}
+            onError={() => setTurnstileToken("")}
+            onExpire={() => setTurnstileToken("")}
+            className="flex min-h-[65px] justify-center"
+          />
           <button
             type="submit"
-            disabled={busy}
+            disabled={busy || (needsTurnstile && !turnstileToken)}
             className="w-full rounded-xl bg-[#0c3d2e] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#052e22] disabled:opacity-50"
           >
             {busy ? "Създаване…" : "Създай профил"}

@@ -45,6 +45,8 @@ Environment variables (no secrets in repo):
 - `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY` (server-only, for `/admin/api/research-festival` Gemini pipeline); optional `GEMINI_RESEARCH_MODEL`, `GEMINI_RESEARCH_TIMEOUT_MS`
 - `UPSTASH_REDIS_REST_URL` (optional, enables API POST rate limiting)
 - `UPSTASH_REDIS_REST_TOKEN` (optional, enables API POST rate limiting)
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (optional; [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) site key for the browser widget on signup and organizer onboarding forms)
+- `TURNSTILE_SECRET_KEY` (server-only; Turnstile secret for `siteverify` on `POST /api/auth/signup`, `POST /api/organizer/organizers`, `POST /api/organizer/claims` — set together with the site key in production; if either is unset, checks are skipped)
 - `CSRF_ALLOWED_HOSTS` (optional, comma-separated extra hostnames for `POST /api/*` Origin/Referer checks; Vercel sets `VERCEL_URL` automatically for preview deploys)
 - `BOOKING_ACCOMMODATION_ENABLED=1` (optional, registers the Booking.com provider stub in `lib/accommodation`; returns no offers until the API is wired)
 - `ACCOMMODATION_MOCK_PROVIDER=1` / `ACCOMMODATION_MOCK_SAMPLE=1` (optional, dev-only mock accommodation; do not use for fake production inventory)

@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { normalizeOrganizerName, pickOrganizerSlug } from "@/lib/admin/organizers";
 import { transliteratedSlug } from "@/lib/text/slug";
 import { getPortalAdminClient, getPortalSessionUser } from "@/lib/organizer/portal";
+import { getRequestClientIp, shouldEnforceTurnstile, verifyTurnstileToken } from "@/lib/turnstile";
 
 type Body = {
   name?: string;
   description?: string | null;
   website_url?: string | null;
   email?: string | null;
+  turnstileToken?: string;
 };
 
 export async function POST(request: Request) {
@@ -17,6 +19,14 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as Body;
+
+  const token = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
+  if (shouldEnforceTurnstile()) {
+    const ok = await verifyTurnstileToken(token, getRequestClientIp(request));
+    if (!ok) {
+      return NextResponse.json({ error: "Bot protection check failed." }, { status: 403 });
+    }
+  }
   const name = normalizeOrganizerName(body.name);
   if (!name) {
     return NextResponse.json({ error: "Името на организатора е задължително." }, { status: 400 });

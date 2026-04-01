@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/TurnstileWidget";
 import OrganizerClaimStepStrip from "@/components/organizer/OrganizerClaimStepStrip";
 import OrganizerOnboardingValueBlock from "@/components/organizer/OrganizerOnboardingValueBlock";
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
@@ -28,6 +29,9 @@ export default function OrganizerClaimPage() {
   const [ok, setOk] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
+  const needsTurnstile = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
   const blurCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearBlurTimer = useCallback(() => {
@@ -109,16 +113,25 @@ export default function OrganizerClaimPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, contact_email: email, contact_phone: phone }),
+        body: JSON.stringify({
+          slug,
+          contact_email: email,
+          contact_phone: phone,
+          turnstileToken: needsTurnstile ? turnstileToken : "",
+        }),
       });
       const payload = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
+        setTurnstileToken("");
+        turnstileRef.current?.reset();
         throw new Error(payload?.error ?? "Грешка при заявката.");
       }
       setOk(true);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Неуспех.");
+      setTurnstileToken("");
+      turnstileRef.current?.reset();
     } finally {
       setBusy(false);
     }
@@ -292,9 +305,17 @@ export default function OrganizerClaimPage() {
             .
           </p>
 
+          <TurnstileWidget
+            ref={turnstileRef}
+            onSuccess={setTurnstileToken}
+            onError={() => setTurnstileToken("")}
+            onExpire={() => setTurnstileToken("")}
+            className="flex min-h-[65px] justify-center"
+          />
+
           <button
             type="submit"
-            disabled={busy}
+            disabled={busy || (needsTurnstile && !turnstileToken)}
             className="w-full rounded-xl bg-[#7c2d12] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5c200d] disabled:opacity-50"
           >
             {busy ? "Изпращане…" : "Заяви профил"}

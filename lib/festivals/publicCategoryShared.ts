@@ -27,3 +27,22 @@ export function labelForPublicCategory(slug: string): string {
 export function sortPublicFestivalCategorySlugs(slugs: Iterable<string>): string[] {
   return Array.from(slugs).sort((a, b) => a.localeCompare(b, "bg"));
 }
+
+/**
+ * Sort category slugs by active festival count (desc), then Bulgarian locale.
+ * Slugs with zero active festivals sort last among non-tie cases.
+ */
+export function sortPublicFestivalCategorySlugsByActiveCount(
+  slugs: string[],
+  counts: ReadonlyMap<string, number>
+): string[] {
+  return [...slugs].sort((a, b) => {
+    const ca = counts.get(a) ?? 0;
+    const cb = counts.get(b) ?? 0;
+    const aZero = ca === 0 ? 1 : 0;
+    const bZero = cb === 0 ? 1 : 0;
+    if (aZero !== bZero) return aZero - bZero;
+    if (ca !== cb) return cb - ca;
+    return a.localeCompare(b, "bg");
+  });
+}

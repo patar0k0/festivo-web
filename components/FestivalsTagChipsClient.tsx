@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
+
+const FIRST_VISIBLE = 5;
 
 type FestivalsTagChipsClientProps = {
   categories: string[];
@@ -26,10 +29,29 @@ export default function FestivalsTagChipsClient({ categories }: FestivalsTagChip
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeTag = searchParams.get("tag");
+  const [expanded, setExpanded] = useState(false);
+
+  const { visibleCategories, showToggle } = useMemo(() => {
+    const firstFive = categories.slice(0, FIRST_VISIBLE);
+    const selected = activeTag && categories.includes(activeTag) ? activeTag : null;
+    const needsSelected = selected !== null && !firstFive.includes(selected);
+    const collapsed = needsSelected ? [...firstFive, selected] : firstFive;
+
+    const hasHiddenCollapsed = categories.some((c) => !collapsed.includes(c));
+    const show = expanded || hasHiddenCollapsed;
+
+    return {
+      visibleCategories: expanded ? categories : collapsed,
+      showToggle: show,
+    };
+  }, [categories, activeTag, expanded]);
+
+  const inactiveChipClass =
+    "rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25";
 
   return (
     <>
-      {categories.map((category) => {
+      {visibleCategories.map((category) => {
         const active = activeTag === category;
         const href = buildChipHref(pathname, searchParams, category, active);
 
@@ -48,6 +70,15 @@ export default function FestivalsTagChipsClient({ categories }: FestivalsTagChip
           </Link>
         );
       })}
+      {showToggle ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className={inactiveChipClass}
+        >
+          {expanded ? "По-малко ←" : "Още →"}
+        </button>
+      ) : null}
     </>
   );
 }

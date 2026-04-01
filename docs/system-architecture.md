@@ -17,6 +17,31 @@ This repo includes worker helper logic in `workers/ingest_fb_event.js` for:
 - date/location normalization
 - hero-image rehosting to Supabase Storage
 
+## Security configuration
+
+Defense in depth spans the **festivo.bg** edge (Cloudflare) and the **festivo-web** application (Next.js, Supabase).
+
+### Cloudflare (festivo.bg)
+
+Production domain protection is configured in the Cloudflare dashboard (not driven from this repository). Current settings include:
+
+- **Bot fight mode:** enabled
+- **Block AI bots:** enabled
+- **Browser integrity check:** enabled
+- **Continuous script monitoring:** enabled
+- **Hotlink protection:** enabled
+- **Cloudflare managed ruleset:** enabled
+- **Leaked credentials detection:** enabled
+- **HTTP DDoS attack protection:** enabled
+- **Network-layer DDoS attack protection:** enabled
+
+### Application layer (festivo-web)
+
+- **Turnstile bot protection:** **`/signup`**, **`/organizer/profile/new`**, and **`/organizer/claim`** use the widget when site keys are set; corresponding API routes verify tokens server-side. Implementation detail: **Cloudflare Turnstile (public forms)** under Edge middleware below.
+- **Rate limiting:** Upstash, **per bucket** and **per identity** (logged-in user id vs client IP). Implementation detail: **Rate limiting (Upstash)** under Edge middleware below.
+- **Origin / Referer guard:** allowlisted hosts for `POST /api/*`. Implementation detail: **Origin / Referer guard (CSRF-ish)** under Edge middleware below.
+- **RLS policies:** Supabase Postgres; user-owned and role-scoped tables rely on Row Level Security. Policy definitions live in the database (see repo rules: live Postgres / `scripts/sql/` as the authority for schema and RLS).
+
 ## Edge middleware: API POST hardening (festivo-web)
 
 `middleware.ts` runs on the Edge runtime on matched app routes. For **`POST` requests** whose path starts with `/api/`, it applies the following.

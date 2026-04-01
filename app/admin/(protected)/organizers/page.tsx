@@ -74,6 +74,7 @@ export default async function AdminOrganizersPage() {
             <tr>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Тип</th>
+              <th className="px-4 py-3">Членове</th>
               <th className="px-4 py-3">Slug</th>
               <th className="px-4 py-3">Verified</th>
               <th className="px-4 py-3">Claimed events</th>
@@ -86,6 +87,7 @@ export default async function AdminOrganizersPage() {
               const members = row.organizer_members as { status: string }[] | null | undefined;
               const origin = classifyOrganizerOriginFromMembers(members);
               const badge = ORIGIN_BADGE[origin];
+              const activeMemberCount = (members ?? []).filter((m) => m.status === "active").length;
               return (
               <tr key={row.id} className="border-t border-black/[0.06]">
                 <td className="px-4 py-3 font-semibold">
@@ -103,6 +105,9 @@ export default async function AdminOrganizersPage() {
                   >
                     {badge.label}
                   </span>
+                </td>
+                <td className="px-4 py-3 text-black/70 tabular-nums">
+                  {activeMemberCount > 0 ? activeMemberCount : "—"}
                 </td>
                 <td className="px-4 py-3 text-black/70">{row.slug ?? "-"}</td>
                 <td className="px-4 py-3 text-black/70">{row.verified ? "Yes" : "No"}</td>
@@ -129,7 +134,7 @@ export default async function AdminOrganizersPage() {
             })}
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-black/60">
+                <td colSpan={8} className="px-4 py-8 text-center text-black/60">
                   No organizers found.
                 </td>
               </tr>

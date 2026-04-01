@@ -6,8 +6,8 @@ export default function AdminShell({ children, email }: { children: React.ReactN
   return (
     <div className="landing-bg min-h-screen text-[#0c0e14]">
       <div className="border-b border-black/[0.08] bg-white/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center">
+        <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-4 px-4 py-4 lg:flex-row lg:flex-nowrap lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-3 sm:items-center lg:shrink-0">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Festivo админ</p>
               <p className="text-sm text-black/60">{email ?? "admin"}</p>
@@ -20,9 +20,11 @@ export default function AdminShell({ children, email }: { children: React.ReactN
               Към сайта
             </Link>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <AdminTopNav />
-            <form action="/api/auth/logout" method="post" className="flex sm:justify-end">
+          <div className="flex min-w-0 w-full flex-col gap-3 sm:flex-row sm:flex-nowrap sm:items-center lg:min-w-0 lg:flex-1 lg:justify-end">
+            <div className="min-w-0 w-full sm:min-w-0 sm:flex-1 sm:overflow-x-auto lg:max-w-none">
+              <AdminTopNav />
+            </div>
+            <form action="/api/auth/logout" method="post" className="flex shrink-0 sm:justify-end">
               <button type="submit" className="w-full rounded-xl bg-[#0c0e14] px-3 py-2 text-white hover:bg-[#1d202b] sm:w-auto">
                 Изход
               </button>

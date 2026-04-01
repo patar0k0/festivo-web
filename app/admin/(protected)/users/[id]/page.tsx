@@ -98,8 +98,9 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
   const prov = providerBadge(detail.provider);
   const banned = userIsBanned({ banned_until: detail.banned_until });
   const hasActiveOrganizer = detail.organizer_memberships.some((m) => m.status === "active");
-  const metaJson =
-    Object.keys(detail.user_metadata).length === 0 ? null : JSON.stringify(detail.user_metadata, null, 2);
+  const fullNameRaw = detail.user_metadata["full_name"];
+  const displayName =
+    typeof fullNameRaw === "string" && fullNameRaw.trim() ? fullNameRaw.trim() : null;
 
   return (
     <div className="space-y-4">
@@ -116,7 +117,10 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">Имейл</dt>
-            <dd className="mt-0.5 font-semibold text-[#0c0e14]">{detail.email ?? "—"}</dd>
+            <dd className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span className="font-semibold text-[#0c0e14]">{detail.email ?? "—"}</span>
+              {displayName ? <span className="text-black/65">{displayName}</span> : null}
+            </dd>
           </div>
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">Provider</dt>
@@ -160,14 +164,6 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
               )}
             </dd>
           </div>
-          {metaJson ? (
-            <div className="sm:col-span-2">
-              <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">User metadata</dt>
-              <dd className="mt-1 max-h-40 overflow-auto rounded-lg border border-black/[0.08] bg-black/[0.02] p-2 font-mono text-xs text-black/70">
-                {metaJson}
-              </dd>
-            </div>
-          ) : null}
         </dl>
       </section>
 

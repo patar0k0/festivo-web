@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
+import OrganizerEditForm from "@/components/admin/OrganizerEditForm";
+import OrganizerOwnershipSection from "@/components/admin/OrganizerOwnershipSection";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-import OrganizerEditForm from "@/components/admin/OrganizerEditForm";
 
 export default async function AdminOrganizerEditPage({
   params,
@@ -57,5 +58,29 @@ export default async function AdminOrganizerEditPage({
     notFound();
   }
 
-  return <OrganizerEditForm organizer={organizerRow} />;
+  const { data: ownershipRows, error: ownershipError } = await adminClient
+    .schema("public")
+    .from("organizer_members")
+    .select("id,user_id,role,status,created_at,contact_email,contact_phone")
+    .eq("organizer_id", id)
+    .order("created_at", { ascending: true });
+
+  if (ownershipError) {
+    console.error("[admin/organizers/[id]/edit/page] organizer_members query failed", {
+      routeParamId: id,
+      message: ownershipError.message,
+    });
+    return (
+      <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">
+        Failed to load membership: {ownershipError.message}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <OrganizerOwnershipSection members={ownershipRows ?? []} />
+      <OrganizerEditForm organizer={organizerRow} />
+    </div>
+  );
 }

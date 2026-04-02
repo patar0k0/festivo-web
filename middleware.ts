@@ -15,27 +15,40 @@ function withPathnameHeaders(request: NextRequest): Headers {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (request.method === "POST" && pathname.startsWith("/api/")) {
+  // Apply rate limiting to all write operations on /api/* and /admin/api/*
+  // (POST, PATCH, PUT, DELETE). GET requests are intentionally excluded.
+  const isApiWriteMethod = ["POST", "PATCH", "PUT", "DELETE"].includes(
+    request.method,
+  );
+
+  const isApiPath =
+    pathname.startsWith("/api/") || pathname.startsWith("/admin/api/");
+
+  if (isApiWriteMethod && isApiPath) {
     if (!canBypassJobsRateLimit(request)) {
       try {
         const userId = await getSessionUserIdReadOnly(request);
         const rate = await checkRateLimit(request, userId);
         if (rate.limited) {
           return NextResponse.json(
-            { error: "Too many requests. Please try again later." },
+            { error: "Too many requests" },
             {
               status: 429,
               headers: {
                 "Retry-After": String(rate.resetSeconds),
               },
-            }
+            },
           );
         }
       } catch {
-        // Fail-open: never 500 the site if rate limiting throws unexpectedly.
+        return new NextResponse(JSON.stringify({ error: "Too many requests" }), {
+          status: 429,
+        });
       }
     }
+  }
 
+  if (request.method === "POST" && pathname.startsWith("/api/")) {
     const originBlock = verifyApiPostOrigin(request);
     if (originBlock) {
       return originBlock;

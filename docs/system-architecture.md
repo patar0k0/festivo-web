@@ -44,16 +44,17 @@ Production domain protection is configured in the Cloudflare dashboard (not driv
 
 ## Edge middleware: API POST hardening (festivo-web)
 
-`middleware.ts` runs on the Edge runtime on matched app routes. For **`POST` requests** whose path starts with `/api/`, it applies the following.
+`middleware.ts` runs on the Edge runtime on matched app routes.
 
 ### Rate limiting (Upstash)
 
+- **Scope:** **`POST`**, **`PATCH`**, **`PUT`**, and **`DELETE`** to paths under **`/api/*`** or **`/admin/api/*`**. **`GET`** (and other methods) are not rate-limited at the edge.
 - **Implementation:** `lib/rateLimit.ts` uses `@upstash/ratelimit` with `@upstash/redis/cloudflare` (Edge-compatible). Redis keys are **per bucket** and **per identity**: if the request has a logged-in session (`getSession()` in `lib/middlewareSession.ts`, read-only-no cookie write), the key uses **`auth.users` id**; otherwise **client IP** (from `x-forwarded-for` / `x-real-ip`).
 - **Activation:** requires both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. If either is missing, limits are skipped (no error).
-- **Fail-open:** if Upstash throws (network, auth, etc.), the request is **not** blocked-site must not return `500` because of rate limiting.
+- **Fail-open:** `checkRateLimit` does not block the site if Upstash throws (network, auth, etc.); the site must not return `500` because of rate limiting.
 - **Jobs bypass** (applies to `/api/jobs/*` and `/api/notifications/*`): Vercel Cron header `x-vercel-cron`, or `x-job-secret` matching `JOBS_SECRET`. Same bypass is used for the origin check below.
 
-**Buckets (fixed windows):**
+**Buckets (fixed windows):** path prefixes are evaluated against `request.nextUrl.pathname` (same for `/api/*` and `/admin/api/*` where the suffix matches).
 
 | Prefix / path | Limit |
 |---------------|-------|
@@ -61,11 +62,13 @@ Production domain protection is configured in the Cloudflare dashboard (not driv
 | `/api/admin/research-ai` | 10 / 60s |
 | `/api/jobs/*`, `/api/notifications/*` | 10 / 60s (unless bypassed) |
 | `/api/plan/*`, `/api/follow/*`, `POST /api/device-token`, `POST /api/push/register`, `POST /api/notification-settings` | 30 / 60s |
-| other `POST /api/*` | 20 / 10s |
+| other write requests under `/api/*` or `/admin/api/*` | 20 / 10s |
 
 Limited responses: **429** with `Retry-After` (seconds).
 
-### Origin / Referer guard (CSRF-ish)
+### Origin / Referer guard (CSRF-ish) for `POST /api/*`
+
+For **`POST` requests** whose path starts with **`/api/`** only (not other methods, not `/admin/api/*`), the following applies.
 
 - **Implementation:** `lib/postOriginGuard.ts` - `verifyApiPostOrigin(request)`.
 - **Behavior:** if `Origin` or `Referer` is present, the URL's **host** must be in an allowlist built from `NEXT_PUBLIC_SITE_URL`, `VERCEL_URL`, optional comma-separated `CSRF_ALLOWED_HOSTS`, dev localhost hosts, and mutual inclusion of `festivo.bg` / `www.festivo.bg`.

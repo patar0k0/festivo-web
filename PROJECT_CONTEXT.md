@@ -13,7 +13,7 @@ Public users browse verified/published festivals, while ingestion inputs first l
 **Mobile:** Flutter
 **Deployment:** Vercel
 
-**API edge hardening:** `middleware.ts` applies Upstash rate limits and an Origin/Referer allowlist to `POST /api/*` (details, buckets, env vars: `docs/system-architecture.md`, section *Edge middleware: API POST hardening*).
+**API edge hardening:** `middleware.ts` applies Upstash rate limits to **`POST` / `PATCH` / `PUT` / `DELETE`** on **`/api/*`** and **`/admin/api/*`**, and an Origin/Referer allowlist to **`POST /api/*`** only (details, buckets, env vars: `docs/system-architecture.md`, section *Edge middleware: API POST hardening*).
 
 ## Core System Modules
 - Public festival discovery (`festivals` queries scoped to visible statuses); public festival detail loads all `festival_organizers` rows via a dedicated query and resolves organizer names (service role client when `SUPABASE_SERVICE_ROLE_KEY` is set, otherwise anon вЂ” requires RLS `select` on `organizers` for active rows, see `scripts/sql/20260321_organizers_public_select_active.sql`).

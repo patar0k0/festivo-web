@@ -190,6 +190,19 @@ erDiagram
     timestamptz created_at
   }
 
+  admin_audit_logs {
+    uuid id PK
+    timestamptz created_at
+    uuid actor_user_id FK
+    text action
+    text entity_type
+    text entity_id
+    text route
+    text method
+    text status
+    jsonb details
+  }
+
   notification_jobs {
     uuid id PK
     uuid user_id FK
@@ -227,6 +240,7 @@ erDiagram
   auth_users ||--o{ device_tokens : owns
   auth_users ||--o{ analytics_events : creates
   auth_users ||--o{ outbound_clicks : creates
+  auth_users ||--o{ admin_audit_logs : performs_admin_action
   auth_users ||--o{ notification_jobs : scheduled
   auth_users ||--o{ notification_logs : delivery_audit
   notification_jobs ||--o{ notification_logs : has

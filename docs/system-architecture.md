@@ -233,6 +233,11 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
 - Approved festivals persist organizer links in `festival_organizers`, keep `festivals.organizer_id` as compatibility, and keep `organizer_name` as display fallback only.
 - Organizer profile enrichment supports admin AI research via `/api/admin/research-organizer` (Perplexity structured extraction); UI is embedded in organizer edit form and applies extracted values only after moderator action.
 
+## Admin audit logging
+- Successful admin write actions are recorded to `admin_audit_logs` from route success paths (for example organizer/festival create-update-delete, pending approve/reject/edit, claim approvals, and selected admin state mutations).
+- Logging is **best-effort** and **non-blocking**: failures are caught locally and never fail the main admin action.
+- Stored fields are intentionally minimal: actor user id, action name, entity type/id, route/method, status, and small safe metadata in `details` (no secrets, tokens, cookies, or full sensitive payload snapshots).
+
 ## Organizer portal (MVP, user-facing)
 - **Model:** `organizer_members` links `auth.users` to `organizers` with `role` (`owner`, `admin`, `editor`) and `status` (`pending`, `active`, `revoked`). Unique `(organizer_id, user_id)`. RLS: authenticated users may `select` their own rows or admins may read all (`is_admin()`); mutations use server routes with the service role after session checks.
 - **Traceability:** `pending_festivals` adds `organizer_id`, `submitted_by_user_id`, `submission_source` (`organizer_portal` | `admin` | `ingest` | `research`). Organizer-submitted drafts use `submission_source=organizer_portal` and `source_type=organizer_portal` where applicable.

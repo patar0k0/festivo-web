@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { logAdminAction } from "@/lib/admin/audit-log";
 
 function normalizeFacebookEventUrl(input: string) {
   const trimmed = input.trim();
@@ -55,6 +56,23 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  try {
+    await logAdminAction({
+      actor_user_id: ctx.user.id,
+      action: "ingest_job.created",
+      entity_type: "ingest_job",
+      entity_id: String(data.id),
+      route: "/admin/api/ingest-jobs",
+      method: "POST",
+      details: {
+        source_type: "facebook_event",
+      },
+    });
+  } catch (auditError) {
+    const message = auditError instanceof Error ? auditError.message : "unknown";
+    console.error("[admin/audit] ingest_job.created failed", { message });
   }
 
   return NextResponse.json({ ok: true, id: String(data.id) });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { logAdminAction } from "@/lib/admin/audit-log";
 
 export async function POST(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -27,6 +28,21 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
 
     if (!data || data.length === 0) {
       return NextResponse.json({ error: "Reject failed: record is not pending or does not exist." }, { status: 409 });
+    }
+
+    try {
+      await logAdminAction({
+        actor_user_id: ctx.user.id,
+        action: "pending_festival.rejected",
+        entity_type: "pending_festival",
+        entity_id: id,
+        route: "/admin/api/pending-festivals/[id]/reject",
+        method: "POST",
+        details: {},
+      });
+    } catch (auditError) {
+      const message = auditError instanceof Error ? auditError.message : "unknown";
+      console.error("[admin/audit] pending_festival.rejected failed", { message });
     }
 
     return NextResponse.json({ ok: true });

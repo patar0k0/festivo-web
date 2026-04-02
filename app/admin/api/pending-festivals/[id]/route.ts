@@ -6,6 +6,7 @@ import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/ad
 import { pendingPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { mergeOccurrenceDatesWithRange } from "@/lib/festival/occurrenceDates";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
+import { logAdminAction } from "@/lib/admin/audit-log";
 
 const EXTRA_EDITABLE_FIELDS = [
   "description_clean",
@@ -198,6 +199,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     console.info(`[pending-save] pending_id=${id} db update ok`);
+
+    try {
+      await logAdminAction({
+        actor_user_id: ctx.user.id,
+        action: "pending_festival.updated",
+        entity_type: "pending_festival",
+        entity_id: id,
+        route: "/admin/api/pending-festivals/[id]",
+        method: "PATCH",
+        details: {
+          changed_fields: Object.keys(patch),
+          target_city_id: typeof patch.city_id === "number" ? patch.city_id : null,
+          target_title: typeof patch.title === "string" ? patch.title : null,
+        },
+      });
+    } catch (auditError) {
+      const message = auditError instanceof Error ? auditError.message : "unknown";
+      console.error("[admin/audit] pending_festival.updated failed", { message });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

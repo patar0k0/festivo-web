@@ -4,6 +4,7 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeOrganizerName, pickOrganizerSlug } from "@/lib/admin/organizers";
 import { transliteratedSlug } from "@/lib/text/slug";
+import { logAdminAction } from "@/lib/admin/audit-log";
 
 type OrganizerPayload = {
   name?: string;
@@ -88,6 +89,24 @@ export async function POST(request: Request) {
   }
 
   console.info("[admin/api/organizers][POST] Organizer insert succeeded", { organizerId: data.id });
+
+  try {
+    await logAdminAction({
+      actor_user_id: ctx.user.id,
+      action: "organizer.created",
+      entity_type: "organizer",
+      entity_id: data.id,
+      route: "/admin/api/organizers",
+      method: "POST",
+      details: {
+        target_name: data.name,
+        target_slug: data.slug,
+      },
+    });
+  } catch (auditError) {
+    const message = auditError instanceof Error ? auditError.message : "unknown";
+    console.error("[admin/audit] organizer.created failed", { message });
+  }
 
   return NextResponse.json({ row: data }, { status: 201 });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { logAdminAction } from "@/lib/admin/audit-log";
 
 type MergePayload = {
   source_id?: string;
@@ -136,6 +137,25 @@ export async function POST(request: Request) {
     .eq("is_active", true);
 
   if (sourceDeactivateError) return NextResponse.json({ error: sourceDeactivateError.message }, { status: 500 });
+
+  try {
+    await logAdminAction({
+      actor_user_id: ctx.user.id,
+      action: "organizer.merged",
+      entity_type: "organizer",
+      entity_id: targetId,
+      route: "/admin/api/organizers/merge",
+      method: "POST",
+      details: {
+        source_id: sourceId,
+        target_id: targetId,
+        changed_fields: Object.keys(targetPatch),
+      },
+    });
+  } catch (auditError) {
+    const message = auditError instanceof Error ? auditError.message : "unknown";
+    console.error("[admin/audit] organizer.merged failed", { message });
+  }
 
   return NextResponse.json({ ok: true, source_id: sourceId, target_id: targetId });
 }

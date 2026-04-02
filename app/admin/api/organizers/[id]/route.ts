@@ -3,6 +3,7 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { validateNoUnknownKeys } from "@/lib/api/strictBody";
 import { ORGANIZER_PATCH_ALLOWED_KEYS } from "@/lib/admin/patchAllowedKeys";
+import { logAdminAction } from "@/lib/admin/audit-log";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -134,6 +135,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  try {
+    await logAdminAction({
+      actor_user_id: ctx.user.id,
+      action: "organizer.updated",
+      entity_type: "organizer",
+      entity_id: data.id,
+      route: "/admin/api/organizers/[id]",
+      method: "PATCH",
+      details: {
+        changed_fields: payloadKeys,
+      },
+    });
+  } catch (auditError) {
+    const message = auditError instanceof Error ? auditError.message : "unknown";
+    console.error("[admin/audit] organizer.updated failed", { message });
+  }
+
   return NextResponse.json({ ok: true, id: data.id });
 }
 
@@ -174,6 +192,21 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  try {
+    await logAdminAction({
+      actor_user_id: ctx.user.id,
+      action: "organizer.deleted",
+      entity_type: "organizer",
+      entity_id: data.id,
+      route: "/admin/api/organizers/[id]",
+      method: "DELETE",
+      details: {},
+    });
+  } catch (auditError) {
+    const message = auditError instanceof Error ? auditError.message : "unknown";
+    console.error("[admin/audit] organizer.deleted failed", { message });
+  }
 
   return NextResponse.json({ ok: true, id: data.id });
 }

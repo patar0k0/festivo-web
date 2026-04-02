@@ -12,6 +12,7 @@ import { mergeOccurrenceDatesWithRange } from "@/lib/festival/occurrenceDates";
 import { mergeFestivoAdminListingShort } from "@/lib/admin/festivalListingShort";
 import { scheduleFestivalUpdateNotifications } from "@/lib/notifications/triggers";
 import { consumePromotionCredit, getRemainingPromotionCredits, hasActiveVip } from "@/lib/monetization";
+import { logAdminAction } from "@/lib/admin/audit-log";
 
 
 type SaveResponse = {
@@ -463,6 +464,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       ...(responseHeroImage !== undefined ? { hero_image: responseHeroImage } : {}),
     };
 
+    try {
+      await logAdminAction({
+        actor_user_id: ctx.user.id,
+        action: "festival.updated",
+        entity_type: "festival",
+        entity_id: id,
+        route: "/admin/api/festivals/[id]",
+        method: "PATCH",
+        details: {
+          changed_fields: Object.keys(patch).filter((key) => key !== "updated_at"),
+          target_city_id: response.city.id,
+          target_title: typeof patch.title === "string" ? patch.title : null,
+        },
+      });
+    } catch (auditError) {
+      const message = auditError instanceof Error ? auditError.message : "unknown";
+      console.error("[admin/audit] festival.updated failed", { message });
+    }
+
     return NextResponse.json(response);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected admin API error";
@@ -488,5 +508,21 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   }
 
   console.info(`[festival-delete] festival_id=${id} ok`);
+
+  try {
+    await logAdminAction({
+      actor_user_id: ctx.user.id,
+      action: "festival.deleted",
+      entity_type: "festival",
+      entity_id: id,
+      route: "/admin/api/festivals/[id]",
+      method: "DELETE",
+      details: {},
+    });
+  } catch (auditError) {
+    const message = auditError instanceof Error ? auditError.message : "unknown";
+    console.error("[admin/audit] festival.deleted failed", { message });
+  }
+
   return NextResponse.json({ ok: true });
 }

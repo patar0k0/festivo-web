@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { logAdminAction } from "@/lib/admin/audit-log";
 
 type DiscoverySourcePatchPayload = {
   is_active?: unknown;
@@ -43,6 +44,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  try {
+    await logAdminAction({
+      actor_user_id: ctx.user.id,
+      action: "discovery_source.updated",
+      entity_type: "discovery_source",
+      entity_id: id,
+      route: "/admin/api/discovery-sources/[id]",
+      method: "PATCH",
+      details: {
+        changed_fields: Object.keys(patch),
+      },
+    });
+  } catch (auditError) {
+    const message = auditError instanceof Error ? auditError.message : "unknown";
+    console.error("[admin/audit] discovery_source.updated failed", { message });
   }
 
   return NextResponse.json({ ok: true });

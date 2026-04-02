@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { logAdminAction } from "@/lib/admin/audit-log";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -67,6 +68,25 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   if (updErr) {
     return NextResponse.json({ error: updErr.message }, { status: 500 });
+  }
+
+  try {
+    await logAdminAction({
+      actor_user_id: ctx.user.id,
+      action: "claim.approved",
+      entity_type: "claim",
+      entity_id: row.id,
+      route: "/admin/api/organizer-members/[id]/approve",
+      method: "POST",
+      details: {
+        target_organizer_id: row.organizer_id,
+        target_user_id: row.user_id,
+        membership_role: row.role,
+      },
+    });
+  } catch (auditError) {
+    const message = auditError instanceof Error ? auditError.message : "unknown";
+    console.error("[admin/audit] claim.approved failed", { message });
   }
 
   return NextResponse.json({ ok: true });

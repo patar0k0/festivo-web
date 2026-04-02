@@ -15,6 +15,7 @@ import { insertFestivalMediaFromPending } from "@/lib/festival/insertFestivalMed
 import { getMediaLimitExceededErrorMessage, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 import { mergeFestivoAdminListingShort } from "@/lib/admin/festivalListingShort";
+import { logAdminAction } from "@/lib/admin/audit-log";
 
 type CityRow = {
   id: number;
@@ -570,6 +571,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     void scheduleNewFestivalFollowCityJobs(insertedFestival.id).catch((err) =>
       console.warn("[notifications] scheduleNewFestivalFollowCityJobs", err),
     );
+
+    try {
+      await logAdminAction({
+        actor_user_id: adminCtx.user.id,
+        action: "pending_festival.approved",
+        entity_type: "pending_festival",
+        entity_id: id,
+        route: "/admin/api/pending-festivals/[id]/approve",
+        method: "POST",
+        details: {
+          published_festival_id: insertedFestival.id,
+          target_slug: finalSlug,
+          target_city_id: cityId,
+          target_title: pending.title,
+        },
+      });
+    } catch (auditError) {
+      const message = auditError instanceof Error ? auditError.message : "unknown";
+      console.error("[admin/audit] pending_festival.approved failed", { message });
+    }
 
     return NextResponse.json({
       ok: true,

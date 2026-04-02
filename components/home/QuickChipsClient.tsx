@@ -2,10 +2,18 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 
 type QuickChipsClientProps = {
   chips: Array<{ label: string; href: string }>;
 };
+
+const CATEGORY_CHIPS_DEFAULT_VISIBLE_COUNT = 3;
+
+function getCategoryTagFromHref(href: string): string | null {
+  const parsedHref = new URL(href, "https://festivo.local");
+  return parsedHref.searchParams.get("tag");
+}
 
 function isChipActive(href: string, pathname: string, searchParams: ReturnType<typeof useSearchParams>) {
   const parsedHref = new URL(href, "https://festivo.local");
@@ -35,14 +43,102 @@ function chipClassName(active: boolean) {
 export default function QuickChipsClient({ chips }: QuickChipsClientProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const activeTag = searchParams.get("tag");
+  const [expanded, setExpanded] = useState(false);
+
+  const { nonCategoryChips, categoryChips } = useMemo(() => {
+    const non: QuickChipsClientProps["chips"] = [];
+    const cats: QuickChipsClientProps["chips"] = [];
+
+    for (const chip of chips) {
+      const tag = getCategoryTagFromHref(chip.href);
+      if (tag) cats.push(chip);
+      else non.push(chip);
+    }
+
+    return { nonCategoryChips: non, categoryChips: cats };
+  }, [chips]);
+
+  const { firstSliceCategoryChips, selectedExtraChip, hasMoreCategories } = useMemo(() => {
+    const firstSlice = categoryChips.slice(0, CATEGORY_CHIPS_DEFAULT_VISIBLE_COUNT);
+    const selectedTag = activeTag?.trim() ? activeTag.trim() : null;
+    const selectedChip =
+      selectedTag ? categoryChips.find((c) => getCategoryTagFromHref(c.href) === selectedTag) ?? null : null;
+
+    const isSelectedInFirstSlice = selectedChip
+      ? firstSlice.some((c) => getCategoryTagFromHref(c.href) === selectedTag)
+      : false;
+
+    const selectedExtraChip = selectedChip && !isSelectedInFirstSlice ? selectedChip : null;
+
+    const collapsedVisibleCategories = selectedExtraChip ? [...firstSlice, selectedExtraChip] : firstSlice;
+    const hasMoreCategories = categoryChips.some(
+      (c) => !collapsedVisibleCategories.some((cc) => cc.href === c.href)
+    );
+
+    return { firstSliceCategoryChips: firstSlice, selectedExtraChip, hasMoreCategories };
+  }, [activeTag, categoryChips]);
+
+  const showToggle = expanded || hasMoreCategories;
 
   return (
     <div className="mt-4 flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible">
-      {chips.map((chip) => (
-        <Link key={`${chip.label}-${chip.href}`} href={chip.href} className={chipClassName(isChipActive(chip.href, pathname, searchParams))}>
+      {nonCategoryChips.map((chip) => (
+        <Link
+          key={`${chip.label}-${chip.href}`}
+          href={chip.href}
+          className={chipClassName(isChipActive(chip.href, pathname, searchParams))}
+        >
           {chip.label}
         </Link>
       ))}
+
+      {expanded ? (
+        <>
+          {categoryChips.map((chip) => (
+            <Link
+              key={`${chip.label}-${chip.href}`}
+              href={chip.href}
+              className={chipClassName(isChipActive(chip.href, pathname, searchParams))}
+            >
+              {chip.label}
+            </Link>
+          ))}
+          {showToggle ? (
+            <button type="button" onClick={() => setExpanded(false)} className={chipClassName(false)}>
+              По-малко ←
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <>
+          {firstSliceCategoryChips.map((chip) => (
+            <Link
+              key={`${chip.label}-${chip.href}`}
+              href={chip.href}
+              className={chipClassName(isChipActive(chip.href, pathname, searchParams))}
+            >
+              {chip.label}
+            </Link>
+          ))}
+
+          {selectedExtraChip ? (
+            <Link
+              key={`${selectedExtraChip.label}-${selectedExtraChip.href}`}
+              href={selectedExtraChip.href}
+              className={chipClassName(isChipActive(selectedExtraChip.href, pathname, searchParams))}
+            >
+              {selectedExtraChip.label}
+            </Link>
+          ) : null}
+
+          {hasMoreCategories ? (
+            <button type="button" onClick={() => setExpanded(true)} className={chipClassName(false)}>
+              Още →
+            </button>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

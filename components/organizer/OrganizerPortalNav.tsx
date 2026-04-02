@@ -1,23 +1,10 @@
 import Link from "next/link";
-
-const portalLinks: { href: string; label: string }[] = [
-  { href: "/organizer/dashboard", label: "Табло" },
-  { href: "/organizer/profile/new", label: "Нов профил" },
-  { href: "/organizer/claim", label: "Заявка за профил" },
-  { href: "/organizer/festivals/new", label: "Ново подаване" },
-  { href: "/organizer/submissions", label: "Моите подавания" },
-];
-
-const onboardingLinks: { href: string; label: string }[] = [
-  { href: "/organizer", label: "Начало" },
-  { href: "/organizer/profile/new", label: "Нов профил" },
-  { href: "/organizer/claim", label: "Заявка за профил" },
-];
+import { ORGANIZER_ONBOARDING_LINKS, ORGANIZER_PORTAL_LINKS } from "@/lib/organizer/portalNavConfig";
 
 export type OrganizerPortalNavVariant = "portal" | "onboarding";
 
 export default function OrganizerPortalNav({ variant = "portal" }: { variant?: OrganizerPortalNavVariant }) {
-  const links = variant === "onboarding" ? onboardingLinks : portalLinks;
+  const links = variant === "onboarding" ? ORGANIZER_ONBOARDING_LINKS : ORGANIZER_PORTAL_LINKS;
 
   return (
     <nav className="flex flex-wrap gap-2 border-b border-black/[0.08] pb-4 text-xs font-semibold uppercase tracking-[0.12em] text-black/55">

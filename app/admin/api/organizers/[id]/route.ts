@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { validateNoUnknownKeys } from "@/lib/api/strictBody";
+import { ORGANIZER_PATCH_ALLOWED_KEYS } from "@/lib/admin/patchAllowedKeys";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -62,7 +64,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Organizer update is temporarily unavailable" }, { status: 500 });
   }
 
-  const body = (await request.json().catch(() => ({}))) as OrganizerPatchPayload;
+  const body = (await request.json().catch(() => ({}))) as OrganizerPatchPayload & Record<string, unknown>;
+  const strictValidation = validateNoUnknownKeys(body, ORGANIZER_PATCH_ALLOWED_KEYS);
+  if (!strictValidation.ok) {
+    return NextResponse.json(
+      { error: `Unknown field(s): ${strictValidation.unknownKeys.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
   const patch = {
     name: normalizeText(body.name),
     slug: normalizeText(body.slug),

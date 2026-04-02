@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAlreadyOurSupabaseHeroPublicUrl, rehostHeroImageIfRemote } from "@/lib/admin/rehostHeroImageFromUrl";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { FESTIVAL_PATCH_ALLOWED_KEYS } from "@/lib/admin/patchAllowedKeys";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
+import { validateNoUnknownKeys } from "@/lib/api/strictBody";
 import { festivalPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 import { normalizeOrganizerIds, syncFestivalOrganizers } from "@/lib/festivalOrganizers";
@@ -97,6 +99,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .maybeSingle();
 
     const body = (await request.json()) as Record<string, unknown>;
+    const strictValidation = validateNoUnknownKeys(body, FESTIVAL_PATCH_ALLOWED_KEYS);
+    if (!strictValidation.ok) {
+      return NextResponse.json(
+        { error: `Unknown field(s): ${strictValidation.unknownKeys.join(", ")}` },
+        { status: 400 },
+      );
+    }
+
     const parsed = canonicalPatchFromUnknown(body);
     if (!parsed.ok) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });

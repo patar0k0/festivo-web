@@ -43,6 +43,15 @@ type DateRange = {
   mode: "month" | "day";
 };
 
+function escapePostgrestLikeValue(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_")
+    .replace(/,/g, "\\,")
+    .replace(/\./g, "\\.");
+}
+
 function getParam(searchParams: PageSearchParams, key: string): string | undefined {
   const value = searchParams[key];
   if (Array.isArray(value)) {
@@ -106,6 +115,7 @@ function parseDateFilter(value: string | undefined): DateRange | null {
 }
 
 function buildFestivalsHref(params: {
+  q?: string;
   city?: string;
   date?: string;
   tag?: string;
@@ -113,6 +123,7 @@ function buildFestivalsHref(params: {
 }) {
   const query = new URLSearchParams();
 
+  if (params.q) query.set("q", params.q);
   if (params.city) query.set("city", params.city);
   if (params.date) query.set("date", params.date);
   if (params.tag) query.set("tag", params.tag);
@@ -139,6 +150,7 @@ export default async function FestivalsPage({
 }: {
   searchParams: PageSearchParams;
 }) {
+  const q = getParam(searchParams, "q")?.trim() ?? "";
   const city = getParam(searchParams, "city");
   const date = getParam(searchParams, "date");
   const tag = getParam(searchParams, "tag");
@@ -195,7 +207,14 @@ export default async function FestivalsPage({
       query = HAS_TAGS_COLUMN ? query.or(buildFestivalsTagOrFilter(tag)) : query.eq("category", tag);
     }
 
-    if (!city && !parsedDate && !tag) {
+    if (q) {
+      const textFilter = `%${escapePostgrestLikeValue(q)}%`;
+      query = query.or(
+        `title.ilike.${textFilter},description.ilike.${textFilter},location_name.ilike.${textFilter},organizer_name.ilike.${textFilter}`,
+      );
+    }
+
+    if (!q && !city && !parsedDate && !tag) {
       const now = new Date();
       const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
       const todayStr = toUtcDateString(todayUtc);
@@ -223,6 +242,7 @@ export default async function FestivalsPage({
         code: error.code,
         details: error.details,
         hint: error.hint,
+        q: q || null,
         tag: tag ?? null,
       });
       queryError = [error.message, error.details, error.hint].filter(Boolean).join(" — ") || JSON.stringify(error);
@@ -238,15 +258,15 @@ export default async function FestivalsPage({
     queryError = error instanceof Error ? error.message : "Unknown error";
   }
 
-  const activeFiltersCount = Number(Boolean(city)) + Number(Boolean(parsedDate)) + Number(Boolean(tag));
+  const activeFiltersCount = Number(Boolean(q)) + Number(Boolean(city)) + Number(Boolean(parsedDate)) + Number(Boolean(tag));
   const clearHref = "/festivals";
 
   const today = new Date();
   const weekendDate = format(nextSaturday(today), "yyyy-MM-dd");
   const monthDate = format(today, "yyyy-MM");
 
-  const weekendLink = buildFestivalsHref({ city, date: weekendDate, tag });
-  const monthLink = buildFestivalsHref({ city, date: monthDate, tag });
+  const weekendLink = buildFestivalsHref({ q, city, date: weekendDate, tag });
+  const monthLink = buildFestivalsHref({ q, city, date: monthDate, tag });
   const visiblePages = Array.from({ length: totalPages }).slice(0, 5);
 
   return (
@@ -360,7 +380,7 @@ export default async function FestivalsPage({
                       return (
                         <Link
                           key={pageNumber}
-                          href={buildFestivalsHref({ city, date, tag, page: pageNumber })}
+                          href={buildFestivalsHref({ q, city, date, tag, page: pageNumber })}
                           scroll={false}
                           className={`rounded-full border border-black/[0.1] px-4 py-2 text-sm transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
                             pageNumber === page

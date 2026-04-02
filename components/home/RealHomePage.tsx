@@ -112,10 +112,10 @@ export default function RealHomePage({
 
   return (
     <div className="landing-bg overflow-x-hidden pb-24 text-[#0c0e14] md:pb-0">
-      <Section className="overflow-x-clip bg-transparent pb-10 pt-24 md:pb-12 md:pt-28">
+      <Section className="overflow-x-clip bg-transparent pb-10 pt-16 md:pb-12 md:pt-20">
         <Container>
           <div className="space-y-7 lg:space-y-10">
-            <section className="rounded-[28px] border border-black/[0.08] bg-white/75 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">
+            <section className="rounded-[28px] border border-black/[0.08] bg-white/75 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-6">
               <div className="max-w-3xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">
                   Festivo Preview

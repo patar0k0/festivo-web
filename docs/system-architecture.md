@@ -237,6 +237,7 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
 - Successful admin write actions are recorded to `admin_audit_logs` from route success paths (for example organizer/festival create-update-delete, pending approve/reject/edit, claim approvals, and selected admin state mutations).
 - Logging is **best-effort** and **non-blocking**: failures are caught locally and never fail the main admin action.
 - Stored fields are intentionally minimal: actor user id, action name, entity type/id, route/method, status, and small safe metadata in `details` (no secrets, tokens, cookies, or full sensitive payload snapshots).
+- Admins can browse entries at `/admin/activity` (read-only table, cursor pagination via `page`, optional filters on action / entity type / actor / date range; service-role query after the standard admin layout gate).
 
 ## Organizer portal (MVP, user-facing)
 - **Model:** `organizer_members` links `auth.users` to `organizers` with `role` (`owner`, `admin`, `editor`) and `status` (`pending`, `active`, `revoked`). Unique `(organizer_id, user_id)`. RLS: authenticated users may `select` their own rows or admins may read all (`is_admin()`); mutations use server routes with the service role after session checks.

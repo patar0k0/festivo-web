@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
         const rate = await checkRateLimit(request, userId);
         if (rate.limited) {
           return NextResponse.json(
-            { error: "Too many requests" },
+            { error: "Too many requests. Please try again later." },
             {
               status: 429,
               headers: {
@@ -41,9 +41,7 @@ export async function middleware(request: NextRequest) {
           );
         }
       } catch {
-        return new NextResponse(JSON.stringify({ error: "Too many requests" }), {
-          status: 429,
-        });
+        // fail-open: do not block request if limiter fails
       }
     }
   }

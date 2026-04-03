@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
 import { EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED } from "@/lib/email/emailJobTypes";
+import { dedupeKeyOrganizerClaimRejected } from "@/lib/email/emailDedupeKeys";
 import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
@@ -39,7 +40,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Заявката вече е обработена." }, { status: 409 });
   }
 
-  const { error: updErr } = await admin
+  const { data: updatedRows, error: updErr } = await admin
     .from("organizer_members")
     .update({
       status: "revoked",
@@ -47,10 +48,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       approved_by: null,
     })
     .eq("id", id)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select("id");
 
   if (updErr) {
     return NextResponse.json({ error: updErr.message }, { status: 500 });
+  }
+
+  if (!updatedRows?.length) {
+    return NextResponse.json({ error: "Заявката вече е обработена." }, { status: 409 });
   }
 
   const org = row.organizer as { name?: string | null } | null;
@@ -65,7 +71,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
         recipientEmail: recipient,
         recipientUserId: row.user_id,
         payload: { organizerName },
-        dedupeKey: `organizer-claim-rejected:${row.id}`,
+        dedupeKey: dedupeKeyOrganizerClaimRejected(row.id),
       },
       "organizer_claim_rejected",
     );

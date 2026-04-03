@@ -22,6 +22,10 @@
 
 **Осъзнато извън обхват на тези имейли:** pending записи без `organizer_portal` / без `submitted_by_user_id` нямат надежден „подател“ в базата — не се изпраща `festival-approved` / `festival-rejected` към краен потребител. Няма отделна страница „контакти“ в repo — copy за отхвърлена claim сочи към контакти „на сайта“ без измислен URL.
 
+**Дедупликация (`dedupe_key`):** стойностите се конструират само при enqueue (helper `lib/email/emailDedupeKeys.ts`), не в процесора. Типични ключове: `organizer-claim-received` / `admin-new-claim` — `organizer_members.id`; `organizer-claim-approved` / `organizer-claim-rejected` — същият id; `festival-submission-received` / `admin-new-submission` — `pending_festivals.id`; `festival-approved` / `festival-rejected` — `pending_festivals.id`. Повторен insert със същия ключ не създава втори ред (уникален partial index + pre-insert lookup).
+
+**Transition guards:** одобряване/отхвърляне на claim (`organizer_members`) изпраща имейл само ако `UPDATE … WHERE status='pending'` реално промени ред (иначе 409). Pending фестивал: reject вече изисква успешен status transition преди enqueue; approve enqueue е след успешен insert в `festivals` и pending → `approved`, с финален публичен slug в payload.
+
 ## MVP типове (job_type)
 
 | Тип | Приоритет | Тригер | Правила |

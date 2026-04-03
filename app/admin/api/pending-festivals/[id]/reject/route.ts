@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
 import { EMAIL_JOB_TYPE_FESTIVAL_REJECTED } from "@/lib/email/emailJobTypes";
+import { dedupeKeyFestivalRejected } from "@/lib/email/emailDedupeKeys";
 import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { formatBgDateFromIso } from "@/lib/email/formatBg";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
@@ -87,7 +88,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
                 cityDisplay: pendingRow.city_name_display?.trim() || null,
                 startDateDisplay: formatBgDateFromIso(pendingRow.start_date),
               },
-              dedupeKey: `festival-rejected:${id}`,
+              dedupeKey: dedupeKeyFestivalRejected(id),
             },
             "pending_festival_rejected_portal",
           );

@@ -3,6 +3,7 @@ import {
   EMAIL_JOB_TYPE_ADMIN_NEW_CLAIM,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_RECEIVED,
 } from "@/lib/email/emailJobTypes";
+import { dedupeKeyAdminNewClaim, dedupeKeyOrganizerClaimReceived } from "@/lib/email/emailDedupeKeys";
 import { absoluteSiteUrl } from "@/lib/email/emailUrls";
 import { enqueueAdminEmailJobSafe, enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { getPortalAdminClient, getPortalSessionUser } from "@/lib/organizer/portal";
@@ -170,7 +171,7 @@ export async function POST(request: Request) {
             organizerSlug,
             organizerPortalUrl,
           },
-          dedupeKey: `organizer-claim-received:${memberId}`,
+          dedupeKey: dedupeKeyOrganizerClaimReceived(memberId),
         },
         "organizer_claim_created_user",
       );
@@ -185,7 +186,7 @@ export async function POST(request: Request) {
             userId: session.user.id,
             reviewUrl,
           },
-          dedupeKey: `admin-new-claim:${memberId}`,
+          dedupeKey: dedupeKeyAdminNewClaim(memberId),
         },
         "organizer_claim_created_admin",
       );
@@ -231,7 +232,7 @@ export async function POST(request: Request) {
           organizerSlug,
           organizerPortalUrl,
         },
-        dedupeKey: `organizer-claim-received:${memberId}`,
+        dedupeKey: dedupeKeyOrganizerClaimReceived(memberId),
       },
       "organizer_claim_created_user",
     );
@@ -246,7 +247,7 @@ export async function POST(request: Request) {
           userId: session.user.id,
           reviewUrl,
         },
-        dedupeKey: `admin-new-claim:${memberId}`,
+        dedupeKey: dedupeKeyAdminNewClaim(memberId),
       },
       "organizer_claim_created_admin",
     );

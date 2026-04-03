@@ -4,6 +4,7 @@ import {
   EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION,
   EMAIL_JOB_TYPE_FESTIVAL_SUBMISSION_RECEIVED,
 } from "@/lib/email/emailJobTypes";
+import { dedupeKeyAdminNewSubmission, dedupeKeyFestivalSubmissionReceived } from "@/lib/email/emailDedupeKeys";
 import { absoluteSiteUrl } from "@/lib/email/emailUrls";
 import { enqueueAdminEmailJobSafe, enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { formatBgDateFromIso } from "@/lib/email/formatBg";
@@ -186,7 +187,7 @@ export async function POST(request: Request) {
           startDateDisplay,
           submissionsUrl: absoluteSiteUrl("/organizer/submissions"),
         },
-        dedupeKey: `festival-submission-received:${inserted.id}`,
+        dedupeKey: dedupeKeyFestivalSubmissionReceived(inserted.id),
       },
       "organizer_portal_submission_user",
     );
@@ -208,7 +209,7 @@ export async function POST(request: Request) {
         startDateDisplay,
         reviewUrl: absoluteSiteUrl(`/admin/pending-festivals/${inserted.id}`),
       },
-      dedupeKey: `admin-new-submission:${inserted.id}`,
+      dedupeKey: dedupeKeyAdminNewSubmission(inserted.id),
     },
     "organizer_portal_submission_admin",
   );

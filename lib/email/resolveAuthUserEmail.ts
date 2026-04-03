@@ -14,7 +14,9 @@ export async function resolveAuthUserEmail(
     if (error || !data?.user?.email) return null;
     const e = data.user.email.trim();
     return e || null;
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn("[email_jobs] resolveAuthUserEmail failed", { user_id: userId, message });
     return null;
   }
 }

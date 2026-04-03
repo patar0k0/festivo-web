@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
 import { EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED } from "@/lib/email/emailJobTypes";
+import { dedupeKeyOrganizerClaimApproved } from "@/lib/email/emailDedupeKeys";
 import { absoluteSiteUrl } from "@/lib/email/emailUrls";
 import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
@@ -60,7 +61,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     }
   }
 
-  const { error: updErr } = await admin
+  const { data: updatedRows, error: updErr } = await admin
     .from("organizer_members")
     .update({
       status: "active",
@@ -68,10 +69,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       approved_by: ctx.user.id,
     })
     .eq("id", id)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .select("id");
 
   if (updErr) {
     return NextResponse.json({ error: updErr.message }, { status: 500 });
+  }
+
+  if (!updatedRows?.length) {
+    return NextResponse.json({ error: "Заявката вече е обработена." }, { status: 409 });
   }
 
   const org = row.organizer as { name?: string | null; slug?: string | null } | null;
@@ -92,7 +98,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
           organizerSlug,
           dashboardUrl,
         },
-        dedupeKey: `organizer-claim-approved:${row.id}`,
+        dedupeKey: dedupeKeyOrganizerClaimApproved(row.id),
       },
       "organizer_claim_approved",
     );

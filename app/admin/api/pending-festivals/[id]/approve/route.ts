@@ -17,6 +17,7 @@ import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 import { mergeFestivoAdminListingShort } from "@/lib/admin/festivalListingShort";
 import { logAdminAction } from "@/lib/admin/audit-log";
 import { EMAIL_JOB_TYPE_FESTIVAL_APPROVED } from "@/lib/email/emailJobTypes";
+import { dedupeKeyFestivalApproved } from "@/lib/email/emailDedupeKeys";
 import { absoluteSiteUrl } from "@/lib/email/emailUrls";
 import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { formatBgDateFromIso } from "@/lib/email/formatBg";
@@ -612,31 +613,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       null;
 
     if (pending.submission_source === "organizer_portal" && pending.submitted_by_user_id) {
-      const to = await resolveAuthUserEmail(serviceSupabase, pending.submitted_by_user_id);
-      if (to) {
-        void enqueueEmailJobSafe(
-          serviceSupabase,
-          {
-            type: EMAIL_JOB_TYPE_FESTIVAL_APPROVED,
-            recipientEmail: to,
-            recipientUserId: pending.submitted_by_user_id,
-            payload: {
-              festivalTitle: pending.title,
-              festivalSlug: finalSlug,
-              festivalUrl: absoluteSiteUrl(`/festivals/${encodeURIComponent(finalSlug)}`),
-              cityDisplay,
-              startDateDisplay: formatBgDateFromIso(pending.start_date),
+      try {
+        const to = await resolveAuthUserEmail(serviceSupabase, pending.submitted_by_user_id);
+        if (to) {
+          void enqueueEmailJobSafe(
+            serviceSupabase,
+            {
+              type: EMAIL_JOB_TYPE_FESTIVAL_APPROVED,
+              recipientEmail: to,
+              recipientUserId: pending.submitted_by_user_id,
+              payload: {
+                festivalTitle: pending.title,
+                festivalSlug: finalSlug,
+                festivalUrl: absoluteSiteUrl(`/festivals/${encodeURIComponent(finalSlug)}`),
+                cityDisplay,
+                startDateDisplay: formatBgDateFromIso(pending.start_date),
+              },
+              dedupeKey: dedupeKeyFestivalApproved(id),
             },
-            dedupeKey: `festival-approved:${insertedFestival.id}`,
-          },
-          "pending_festival_approved_portal",
-        );
-      } else {
-        console.warn("[email_jobs] skip festival-approved: no auth email for submitter", {
-          pending_id: id,
-          festival_id: insertedFestival.id,
-          submitted_by_user_id: pending.submitted_by_user_id,
-        });
+            "pending_festival_approved_portal",
+          );
+        } else {
+          console.warn("[email_jobs] skip festival-approved: no auth email for submitter", {
+            pending_id: id,
+            festival_id: insertedFestival.id,
+            submitted_by_user_id: pending.submitted_by_user_id,
+          });
+        }
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        console.warn("[email_jobs] festival-approved enqueue path skipped", { pending_id: id, message });
       }
     }
 

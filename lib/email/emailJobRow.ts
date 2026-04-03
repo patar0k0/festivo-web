@@ -14,6 +14,11 @@ export type EmailJobRow = {
   dedupe_key: string | null;
   provider: string | null;
   provider_message_id: string | null;
+  delivery_status: string | null;
+  delivered_at: string | null;
+  bounced_at: string | null;
+  last_event_type: string | null;
+  last_event_at: string | null;
   last_error: string | null;
   sent_at: string | null;
   locked_at: string | null;

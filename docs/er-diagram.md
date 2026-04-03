@@ -231,8 +231,25 @@ erDiagram
     text dedupe_key UK
     text provider
     text provider_message_id
+    text delivery_status
+    timestamptz delivered_at
+    timestamptz bounced_at
+    text last_event_type
+    timestamptz last_event_at
     timestamptz sent_at
     timestamptz locked_at
+  }
+
+  email_events {
+    uuid id PK
+    uuid email_job_id FK
+    text provider
+    text provider_message_id
+    text event_type
+    jsonb event_payload
+    timestamptz occurred_at
+    timestamptz created_at
+    text webhook_delivery_id UK
   }
 
   notification_logs {
@@ -263,6 +280,7 @@ erDiagram
   auth_users ||--o{ notification_jobs : scheduled
   auth_users ||--o{ notification_logs : delivery_audit
   auth_users ||--o{ email_jobs : optional_recipient
+  email_jobs ||--o{ email_events : delivery_audit
   notification_jobs ||--o{ notification_logs : has
 
   cities ||--o{ pending_festivals : moderation_city_fk

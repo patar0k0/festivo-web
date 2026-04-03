@@ -227,3 +227,34 @@ Per-user data used by the web app and jobs. **Background jobs** use the **servic
 | `device_tokens` | on | select/insert/update/delete own | `scripts/sql/20260324_user_data_rls_device_tokens_plan.sql` |
 
 `user_roles` is used for admin checks from the app; RLS/policies are expected to restrict reads/writes to admins (not duplicated in this doc—verify in Supabase if unsure).
+
+## public.email_jobs (delivery summary columns, Phase 4)
+
+Added by `scripts/sql/20260404_email_events_resend_webhooks.sql` (see live Supabase for exact nullability):
+
+| column | type | usage |
+|--------|------|--------|
+| delivery_status | text | coarse Resend-derived state after `status=sent` (e.g. `delivered`, `bounced`, `complained`, `delayed`, `failed`, `accepted`, `suppressed`) |
+| delivered_at | timestamptz | first `email.delivered` time when recorded |
+| bounced_at | timestamptz | first `email.bounced` time when recorded |
+| last_event_type | text | latest Resend webhook `type` for this job |
+| last_event_at | timestamptz | timestamp for that event |
+
+Index: `(provider_message_id)` where set — speeds webhook lookup.
+
+## public.email_events
+
+Append-only audit of inbound Resend (Svix) webhooks. **Service role only** (same pattern as `email_jobs`).
+
+| column | type | usage |
+|--------|------|--------|
+| id | uuid | PK |
+| email_job_id | uuid | optional FK → `email_jobs`, set when `data.email_id` matches `email_jobs.provider_message_id` |
+| provider | text | `resend` |
+| provider_message_id | text | from `data.email_id` when present |
+| event_type | text | Resend payload `type` |
+| event_payload | jsonb | verified JSON body |
+| occurred_at | timestamptz | event time from payload |
+| webhook_delivery_id | text | `svix-id` header; unique for deduplication |
+
+Migration: `scripts/sql/20260404_email_events_resend_webhooks.sql`.

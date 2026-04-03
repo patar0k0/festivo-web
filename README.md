@@ -54,6 +54,7 @@ Environment variables (no secrets in repo):
 - `JOBS_SECRET` (споделен секрет за cron/worker повиквания към `/api/jobs/*` и `/api/notifications/*`, header `x-job-secret`)
 - `FCM_SERVER_KEY` (legacy FCM server key за push през `/api/jobs/push` и `/api/notifications/run`)
 - `RESEND_API_KEY` (server-only; transactional email през Resend; опашка `email_jobs` + `GET /api/jobs/email` с `JOBS_SECRET`; виж `lib/email/*`)
+- `RESEND_WEBHOOK_SECRET` (server-only; Svix signing secret `whsec_…` за `POST /api/email/webhook` — Resend Webhooks в dashboard; виж `docs/notification-system.md` § Phase 4)
 - `EMAIL_FROM` (optional; подразбиране `Festivo <noreply@festivo.bg>` за `from` в Resend)
 - `EMAIL_ADMIN` (optional; inbox за transactional админ алерти `admin-new-claim`, `admin-new-submission`; липсата не чупи claim/submission flow)
 - `EMAIL_REPLY_TO` (optional; Reply-To header при изпращане през Resend)

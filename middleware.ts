@@ -25,7 +25,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/") || pathname.startsWith("/admin/api/");
 
   if (isApiWriteMethod && isApiPath) {
-    const skipRateLimitForPath = pathname.startsWith("/admin/api/discovery");
+    const skipRateLimitForPath =
+      pathname.startsWith("/admin/api/discovery") || pathname === "/api/email/webhook";
     const shouldApplyRateLimit = !skipRateLimitForPath && !canBypassJobsRateLimit(request);
     if (shouldApplyRateLimit) {
       try {

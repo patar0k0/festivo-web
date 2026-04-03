@@ -68,6 +68,11 @@ async function finalizeSendSuccess(
       processing_started_at: null,
       last_error: null,
       updated_at: nowIso,
+      delivery_status: null,
+      delivered_at: null,
+      bounced_at: null,
+      last_event_type: null,
+      last_event_at: null,
     })
     .eq("id", jobId);
 

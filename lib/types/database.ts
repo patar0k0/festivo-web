@@ -419,6 +419,41 @@ export type Database = {
           invalidated_at?: string | null
         }
       }
+      email_events: {
+        Row: {
+          id: string
+          email_job_id: string | null
+          provider: string
+          provider_message_id: string | null
+          event_type: string
+          event_payload: Record<string, unknown>
+          occurred_at: string
+          created_at: string
+          webhook_delivery_id: string | null
+        }
+        Insert: {
+          id?: string
+          email_job_id?: string | null
+          provider: string
+          provider_message_id?: string | null
+          event_type: string
+          event_payload?: Record<string, unknown>
+          occurred_at: string
+          created_at?: string
+          webhook_delivery_id?: string | null
+        }
+        Update: {
+          id?: string
+          email_job_id?: string | null
+          provider?: string
+          provider_message_id?: string | null
+          event_type?: string
+          event_payload?: Record<string, unknown>
+          occurred_at?: string
+          created_at?: string
+          webhook_delivery_id?: string | null
+        }
+      }
       email_jobs: {
         Row: {
           id: string
@@ -435,6 +470,11 @@ export type Database = {
           dedupe_key: string | null
           provider: string | null
           provider_message_id: string | null
+          delivery_status: string | null
+          delivered_at: string | null
+          bounced_at: string | null
+          last_event_type: string | null
+          last_event_at: string | null
           last_error: string | null
           sent_at: string | null
           locked_at: string | null
@@ -457,6 +497,11 @@ export type Database = {
           dedupe_key?: string | null
           provider?: string | null
           provider_message_id?: string | null
+          delivery_status?: string | null
+          delivered_at?: string | null
+          bounced_at?: string | null
+          last_event_type?: string | null
+          last_event_at?: string | null
           last_error?: string | null
           sent_at?: string | null
           locked_at?: string | null
@@ -479,6 +524,11 @@ export type Database = {
           dedupe_key?: string | null
           provider?: string | null
           provider_message_id?: string | null
+          delivery_status?: string | null
+          delivered_at?: string | null
+          bounced_at?: string | null
+          last_event_type?: string | null
+          last_event_at?: string | null
           last_error?: string | null
           sent_at?: string | null
           locked_at?: string | null

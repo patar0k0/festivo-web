@@ -39,6 +39,57 @@ async function readErrorMessage(response: Response, fallback: string) {
   return fallback;
 }
 
+function responseBodyLooksLikeHtml(raw: string): boolean {
+  const head = raw.trim().slice(0, 400);
+  return /<!doctype\s+html/i.test(head) || /<\s*html[\s>]/i.test(head);
+}
+
+/** PATCH is_active only: richer errors + temporary debug logging. */
+async function readDiscoverySourceActivityError(response: Response, requestUrl: string): Promise<string> {
+  const status = response.status;
+  const contentType = response.headers.get("content-type") ?? "";
+  const text = await response.text().catch(() => "");
+  const trimmed = text.trim();
+  const prefix = `Failed to update source activity. [HTTP ${status}]`;
+  const ctLower = contentType.toLowerCase();
+  const claimsJson = ctLower.includes("application/json");
+
+  let usedJsonError = false;
+  let detail: string | null = null;
+
+  if (claimsJson && trimmed) {
+    try {
+      const payload = JSON.parse(text) as { error?: unknown };
+      if (typeof payload.error === "string" && payload.error.trim()) {
+        detail = payload.error.trim();
+        usedJsonError = true;
+      }
+    } catch {
+      /* malformed JSON */
+    }
+  }
+
+  if (detail === null && trimmed) {
+    if (responseBodyLooksLikeHtml(text)) {
+      detail = "Non-JSON response returned by server.";
+    } else {
+      detail = trimmed.slice(0, 500);
+    }
+  }
+
+  if (!usedJsonError) {
+    console.error("[discovery-sources PATCH activity]", {
+      method: "PATCH",
+      url: requestUrl,
+      status,
+      contentType,
+      textPreview: text.slice(0, 300),
+    });
+  }
+
+  return detail ? `${prefix} ${detail}` : prefix;
+}
+
 export default function DiscoverySourcesTable({ rows }: Props) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -63,7 +114,8 @@ export default function DiscoverySourcesTable({ rows }: Props) {
     setError("");
 
     try {
-      const response = await fetch(`/admin/api/discovery-sources/${row.id}`, {
+      const url = `/admin/api/discovery-sources/${row.id}`;
+      const response = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -71,7 +123,7 @@ export default function DiscoverySourcesTable({ rows }: Props) {
       });
 
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, "Failed to update source activity."));
+        throw new Error(await readDiscoverySourceActivityError(response, url));
       }
 
       setMessage(`Updated source: ${row.label}`);

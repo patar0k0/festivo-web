@@ -8,6 +8,11 @@ export function isKnownEmailJobType(value: string): value is EmailJobType {
   return (EMAIL_JOB_TYPES as readonly string[]).includes(value);
 }
 
+/** DB `type` text → narrow union; unknown values must not reach render/send. */
+export function parseEmailJobType(value: string): EmailJobType | null {
+  return isKnownEmailJobType(value) ? value : null;
+}
+
 export type TestEmailJobPayload = {
   name?: string;
 };

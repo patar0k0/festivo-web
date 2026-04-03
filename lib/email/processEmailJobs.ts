@@ -1,37 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createElement } from "react";
 
-import { TestEmail } from "@/emails/templates/TestEmail";
-
-import { EMAIL_JOB_TYPE_TEST, type TestEmailJobPayload } from "./emailJobTypes";
-import { renderEmail } from "./render";
+import type { EmailJobRow } from "./emailJobRow";
+import { parseEmailJobType } from "./emailJobTypes";
+import { renderEmailJob } from "./renderEmailJob";
 import { sendEmail } from "./sendEmail";
+
+export type { EmailJobRow } from "./emailJobRow";
 
 /** Failed-send backoff after each attempt index (1-based). */
 const BACKOFF_MS = [60_000, 5 * 60_000, 15 * 60_000];
 
-export type EmailJobRow = {
-  id: string;
-  type: string;
-  recipient_email: string;
-  recipient_user_id: string | null;
-  locale: string;
-  subject: string | null;
-  payload: Record<string, unknown>;
-  status: string;
-  attempts: number;
-  max_attempts: number;
-  scheduled_at: string;
-  dedupe_key: string | null;
-  provider: string | null;
-  provider_message_id: string | null;
-  last_error: string | null;
-  sent_at: string | null;
-  locked_at: string | null;
-  processing_started_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
+const LAST_ERROR_UNKNOWN_TYPE_PREFIX = "unknown_job_type:";
+const LAST_ERROR_RESEND_NOT_CONFIGURED = "resend_not_configured";
 
 function backoffAfterFailureMs(attemptsAfterIncrement: number): number {
   const idx = Math.min(Math.max(attemptsAfterIncrement - 1, 0), BACKOFF_MS.length - 1);
@@ -66,25 +46,9 @@ export async function requeueStaleProcessingEmailJobs(
 
   const n = data?.length ?? 0;
   if (n > 0) {
-    console.info("[email_jobs] stale processing rows requeued", { count: n });
+    console.info("[email_jobs] stale processing requeued", { count: n });
   }
   return n;
-}
-
-async function buildOutgoingForJob(job: EmailJobRow): Promise<{
-  subject: string;
-  html: string;
-  text: string;
-} | null> {
-  if (job.type === EMAIL_JOB_TYPE_TEST) {
-    const p = job.payload as TestEmailJobPayload;
-    const name = typeof p.name === "string" && p.name.trim() ? p.name.trim() : "приятел";
-    const { html, text } = await renderEmail(createElement(TestEmail, { name }));
-    const subject = job.subject?.trim() || "Festivo — тестов имейл";
-    return { subject, html, text };
-  }
-
-  return null;
 }
 
 async function finalizeSendSuccess(
@@ -108,7 +72,7 @@ async function finalizeSendSuccess(
     .eq("id", jobId);
 
   if (error) {
-    console.error("[email_jobs] finalize sent update failed", {
+    console.error("[email_jobs] finalize sent failed", {
       job_id: jobId,
       message: error.message,
     });
@@ -150,15 +114,16 @@ async function finalizeSendFailure(
   }
 
   if (terminal) {
-    console.warn("[email_jobs] job failed permanently", {
+    console.warn("[email_jobs] job failed (terminal)", {
       job_id: job.id,
       attempts: nextAttempts,
       max_attempts: job.max_attempts,
+      last_error: errorMessage.slice(0, 200),
     });
     return "failed";
   }
 
-  console.info("[email_jobs] job scheduled for retry", {
+  console.info("[email_jobs] job retry scheduled", {
     job_id: job.id,
     attempts: nextAttempts,
     next_scheduled_at: nextScheduled,
@@ -170,10 +135,20 @@ export async function processOneEmailJob(
   supabase: SupabaseClient,
   job: EmailJobRow,
 ): Promise<"sent" | "retried" | "failed"> {
-  const built = await buildOutgoingForJob(job);
-  if (!built) {
-    console.warn("[email_jobs] unknown job type", { job_id: job.id, type: job.type });
-    return finalizeSendFailure(supabase, job, `unknown_job_type:${job.type}`);
+  const jobType = parseEmailJobType(job.type);
+  if (!jobType) {
+    const err = `${LAST_ERROR_UNKNOWN_TYPE_PREFIX}${job.type}`;
+    console.warn("[email_jobs] job rejected: unknown_type", { job_id: job.id, type: job.type });
+    return finalizeSendFailure(supabase, job, err);
+  }
+
+  let built: { subject: string; html: string; text: string };
+  try {
+    built = await renderEmailJob(job, jobType);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "render_failed";
+    console.error("[email_jobs] render failed", { job_id: job.id, type: job.type, message });
+    return finalizeSendFailure(supabase, job, `render_failed:${message.slice(0, 500)}`);
   }
 
   const result = await sendEmail({
@@ -185,7 +160,7 @@ export async function processOneEmailJob(
 
   if (result.ok) {
     await finalizeSendSuccess(supabase, job.id, result.providerMessageId ?? null);
-    console.info("[email_jobs] send ok", {
+    console.info("[email_jobs] job sent", {
       job_id: job.id,
       type: job.type,
       provider_message_id: result.providerMessageId ?? null,
@@ -194,8 +169,16 @@ export async function processOneEmailJob(
   }
 
   const err =
-    result.errorMessage?.trim() || (result.missingApiKey ? "resend_not_configured" : "send_failed");
-  console.warn("[email_jobs] send failed", { job_id: job.id, type: job.type, error: err });
+    result.missingApiKey === true
+      ? LAST_ERROR_RESEND_NOT_CONFIGURED
+      : (result.errorMessage?.trim() || "send_failed");
+
+  if (result.missingApiKey) {
+    console.warn("[email_jobs] job failed: resend_not_configured", { job_id: job.id });
+  } else {
+    console.warn("[email_jobs] job send failed", { job_id: job.id, type: job.type, error: err });
+  }
+
   return finalizeSendFailure(supabase, job, err);
 }
 
@@ -227,7 +210,7 @@ export async function processDueEmailJobs(
     return { picked: 0, sent: 0, retried: 0, failed: 0 };
   }
 
-  console.info("[email_jobs] batch processing", { picked });
+  console.info("[email_jobs] batch start", { picked });
 
   let sent = 0;
   let retried = 0;
@@ -241,7 +224,7 @@ export async function processDueEmailJobs(
       else failed += 1;
     } catch (err) {
       const message = err instanceof Error ? err.message : "unexpected_processor_error";
-      console.error("[email_jobs] processor threw", { job_id: job.id, message });
+      console.error("[email_jobs] processor error", { job_id: job.id, message });
       try {
         const outcome = await finalizeSendFailure(supabase, job, message);
         if (outcome === "failed") failed += 1;
@@ -252,6 +235,6 @@ export async function processDueEmailJobs(
     }
   }
 
-  console.info("[email_jobs] batch done", { picked, sent, retried, failed });
+  console.info("[email_jobs] batch end", { picked, sent, retried, failed });
   return { picked, sent, retried, failed };
 }

@@ -17,8 +17,11 @@ export type SendEmailResult = {
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   if (!resend) {
-    console.error("[sendEmail] RESEND_API_KEY is not set");
-    return { ok: false, missingApiKey: true, errorMessage: "RESEND_API_KEY is not set" };
+    return {
+      ok: false,
+      missingApiKey: true,
+      errorMessage: "RESEND_API_KEY is not set",
+    };
   }
 
   try {
@@ -33,19 +36,17 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     if (error) {
       const errorMessage =
         typeof error.message === "string" ? error.message : JSON.stringify(error).slice(0, 500);
-      console.error("[sendEmail] Resend error:", error);
       return { ok: false, errorMessage };
     }
 
     const providerMessageId =
-      data && typeof data === "object" && "id" in data && typeof data.id === "string"
-        ? data.id
+      data && typeof data === "object" && "id" in data && typeof (data as { id?: unknown }).id === "string"
+        ? (data as { id: string }).id
         : null;
 
     return { ok: true, providerMessageId };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error("[sendEmail] Unexpected error:", err);
     return { ok: false, errorMessage };
   }
 }

@@ -6,7 +6,16 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
+function isEnqueueClientError(message: string): boolean {
+  return (
+    message === "recipientEmail is required" ||
+    message.startsWith("Invalid recipient email") ||
+    message.startsWith("Unknown email job type:")
+  );
+}
+
 export async function GET(request: Request) {
+  // Phase 0-style: no public test surface in production builds.
   if (process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
@@ -44,10 +53,19 @@ export async function GET(request: Request) {
       queued: true,
       outcome: enqueue.outcome,
       jobId: enqueue.jobId,
+      message:
+        enqueue.outcome === "existing"
+          ? "Job already exists for this dedupe key"
+          : "Test email job enqueued; run GET /api/jobs/email to process",
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "enqueue failed";
-    console.error("[test-email] enqueue failed", { message });
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    const status = isEnqueueClientError(message) ? 400 : 500;
+    if (status >= 500) {
+      console.error("[test-email] enqueue failed", { message });
+    } else {
+      console.warn("[test-email] enqueue rejected", { message });
+    }
+    return NextResponse.json({ ok: false, error: message }, { status });
   }
 }

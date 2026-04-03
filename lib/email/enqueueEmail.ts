@@ -23,6 +23,22 @@ function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
+/** Light validation — no external library; rejects obvious garbage. */
+function assertValidRecipientEmail(normalized: string): void {
+  if (!normalized) {
+    throw new Error("recipientEmail is required");
+  }
+  const at = normalized.indexOf("@");
+  if (at <= 0 || at === normalized.length - 1) {
+    throw new Error("Invalid recipient email");
+  }
+  const local = normalized.slice(0, at);
+  const domain = normalized.slice(at + 1);
+  if (!local || !domain || domain.includes("@") || domain.includes(" ")) {
+    throw new Error("Invalid recipient email");
+  }
+}
+
 export async function enqueueEmailJob(
   supabase: SupabaseClient,
   input: EnqueueEmailJobInput,
@@ -32,9 +48,7 @@ export async function enqueueEmailJob(
   }
 
   const recipientEmail = normalizeEmail(input.recipientEmail);
-  if (!recipientEmail) {
-    throw new Error("recipientEmail is required");
-  }
+  assertValidRecipientEmail(recipientEmail);
 
   const dedupeKey = input.dedupeKey?.trim() || null;
   const nowIso = new Date().toISOString();

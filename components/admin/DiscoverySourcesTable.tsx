@@ -25,8 +25,18 @@ type Props = {
 };
 
 async function readErrorMessage(response: Response, fallback: string) {
-  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-  return payload?.error ?? fallback;
+  const text = await response.text().catch(() => "");
+  if (text) {
+    try {
+      const payload = JSON.parse(text) as { error?: unknown };
+      if (typeof payload.error === "string" && payload.error.trim()) {
+        return payload.error.trim();
+      }
+    } catch {
+      /* non-JSON body (e.g. HTML error page) */
+    }
+  }
+  return fallback;
 }
 
 export default function DiscoverySourcesTable({ rows }: Props) {

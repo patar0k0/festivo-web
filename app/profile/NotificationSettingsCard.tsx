@@ -111,15 +111,16 @@ export default function NotificationSettingsCard() {
     };
   }, []);
 
-  const rows = useMemo(
-    () =>
-      (Object.keys(SETTING_LABELS) as Array<keyof NotificationSettings>).map((key) => ({
-        key,
-        label: SETTING_LABELS[key],
-        value: settings[key],
-      })),
-    [settings],
-  );
+  const rows = useMemo(() => {
+    const keys = (Object.keys(SETTING_LABELS) as Array<keyof NotificationSettings>).filter(
+      (key) => key !== "notify_plan_reminders",
+    );
+    return keys.map((key) => ({
+      key,
+      label: SETTING_LABELS[key],
+      value: settings[key],
+    }));
+  }, [settings]);
 
   async function updateSetting(key: keyof NotificationSettings, nextValue: boolean) {
     const prev = settings[key];
@@ -167,9 +168,9 @@ export default function NotificationSettingsCard() {
 
   return (
     <section className="py-6 md:py-7">
-      <h2 className="text-base font-semibold text-[#0c0e14]">Push известия</h2>
+      <h2 className="text-base font-semibold text-[#0c0e14]">Други push известия</h2>
       <p className="mt-1 text-sm text-black/55">
-        Включи или изключи известията по тип. Промените се запазват веднага.
+        Откриване и обзори — отделно от напомнянията за плана (виж секцията „Напомняния“). Промените се запазват веднага.
       </p>
       <p className="mt-2 text-sm text-black/50">Известията се изпращат към мобилното приложение Festivo.</p>
 

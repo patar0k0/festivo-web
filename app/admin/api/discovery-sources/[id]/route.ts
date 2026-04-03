@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type DiscoverySourcePatchPayload = {
   is_active?: unknown;
   max_links_per_run?: unknown;
+  priority?: unknown;
 };
 
 function hasOwn<T extends object>(obj: T, key: string) {
@@ -17,7 +19,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const id = typeof rawId === "string" ? rawId.trim() : "";
+  if (!id) {
+    return NextResponse.json({ error: "Invalid source id" }, { status: 400 });
+  }
+
   const body = (await request.json().catch(() => ({}))) as DiscoverySourcePatchPayload;
 
   const patch: Record<string, unknown> = {};
@@ -36,14 +43,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     patch.max_links_per_run = body.max_links_per_run;
   }
 
+  if (hasOwn(body, "priority")) {
+    if (typeof body.priority !== "number" || !Number.isFinite(body.priority)) {
+      return NextResponse.json({ error: "priority must be a number" }, { status: 400 });
+    }
+    patch.priority = body.priority;
+  }
+
   if (!Object.keys(patch).length) {
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
 
-  const { error } = await ctx.supabase.from("discovery_sources").update(patch).eq("id", id);
+  const admin = createSupabaseAdmin();
+  const { error } = await admin.from("discovery_sources").update(patch).eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("discovery update failed", error);
+    return NextResponse.json({ error: error.message || "Failed to update discovery source" }, { status: 500 });
   }
 
   try {

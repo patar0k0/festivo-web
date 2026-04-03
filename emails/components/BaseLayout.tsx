@@ -7,17 +7,26 @@ import {
 } from "@react-email/components";
 import type { CSSProperties, ReactNode } from "react";
 
+import { EmailFooter } from "./EmailFooter";
+import { EmailHeader } from "./EmailHeader";
+
 type BaseLayoutProps = {
   children: ReactNode;
+  /** Absolute site origin for footer link (e.g. https://festivo.bg). */
+  siteUrl: string;
 };
 
-export function BaseLayout({ children }: BaseLayoutProps) {
+export function BaseLayout({ children, siteUrl }: BaseLayoutProps) {
   return (
     <Html lang="bg">
       <Head />
       <Body style={body}>
         <Section style={outer}>
-          <Container style={container}>{children}</Container>
+          <Container style={container}>
+            <EmailHeader />
+            {children}
+            <EmailFooter siteUrl={siteUrl} />
+          </Container>
         </Section>
       </Body>
     </Html>
@@ -43,4 +52,5 @@ const container: CSSProperties = {
   padding: "32px 28px",
   backgroundColor: "#ffffff",
   borderRadius: "8px",
+  border: "1px solid #e4e4e7",
 };

@@ -5,17 +5,17 @@ import { BaseLayout } from "@/emails/components/BaseLayout";
 
 type TestEmailProps = {
   name: string;
+  siteUrl: string;
 };
 
-export function TestEmail({ name }: TestEmailProps) {
+export function TestEmail({ name, siteUrl }: TestEmailProps) {
   return (
-    <BaseLayout>
+    <BaseLayout siteUrl={siteUrl}>
       <Heading as="h1" style={heading}>
         Здравей, {name}
       </Heading>
       <Text style={paragraph}>
-        Това е тестово съобщение от Festivo. Ако го виждаш, pipeline-ът React
-        Email → Resend работи.
+        Това е тестово съобщение от Festivo. Ако го виждаш, pipeline-ът React Email → Resend работи.
       </Text>
     </BaseLayout>
   );

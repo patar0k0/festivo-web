@@ -1,4 +1,4 @@
-import { EMAIL_FROM } from "./config";
+import { EMAIL_FROM, getEmailReplyTo } from "./config";
 import { resend } from "./resend";
 
 export type SendEmailInput = {
@@ -25,12 +25,14 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   }
 
   try {
+    const replyTo = getEmailReplyTo();
     const { data, error } = await resend.emails.send({
       from: EMAIL_FROM,
       to: input.to,
       subject: input.subject,
       html: input.html,
       text: input.text,
+      ...(replyTo ? { replyTo } : {}),
     });
 
     if (error) {

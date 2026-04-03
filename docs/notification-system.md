@@ -4,7 +4,23 @@
 
 1. **По-стари job маршрути** — пишат директно в `user_notifications`; push през `/api/jobs/push`.
 2. **MVP опашка (notification_jobs)** — планиране, дедупликация, одит в `notification_logs`; изпращане от `/api/notifications/run` чрез FCM (същият `FCM_SERVER_KEY`).
-3. **Transactional email (email_jobs)** — отделна опашка за имейл през Resend; enqueue от приложния код (или dev-only `GET /api/test-email`), batch processor `GET /api/jobs/email` с `JOBS_SECRET` / Vercel cron header; не смесва push payload-и с FCM. Без конфигуриран `RESEND_API_KEY` job-ът не остава зависнал в `processing` — отива в обичайния retry/fail с `last_error` (напр. `resend_not_configured`); непознат `type` → `unknown_job_type:…`.
+3. **Transactional email (email_jobs)** — отделна опашка за имейл през Resend; enqueue от приложния код (или dev-only `GET /api/test-email`), batch processor `GET /api/jobs/email` с `JOBS_SECRET` / Vercel cron header; не смесва push payload-и с FCM. Без конфигуриран `RESEND_API_KEY` job-ът не остава зависнал в `processing` — отива в обичайния retry/fail с `last_error` (напр. `resend_not_configured`); непознат `type` → `unknown_job_type:…`; невалиден payload при рендер → `render_failed:…`. Регистър и валидация: `lib/email/emailRegistry.ts`, `lib/email/emailSchemas.ts`, `lib/email/renderEmailJob.ts`; UI шаблони: `emails/components/*`, `emails/templates/*`. Абсолютни URL се подават в payload при enqueue (база: `NEXT_PUBLIC_SITE_URL` / `getBaseUrl()` в `lib/seo.ts`). **`EMAIL_ADMIN`** (опционално): inbox за админ-only типове (`admin-new-claim`, `admin-new-submission`); ако липсва — enqueue се пропуска с `console.info`, без да се чупи основният flow. **`EMAIL_REPLY_TO`** (опционално): Reply-To към Resend `emails.send`.
+
+**Типове `email_jobs.type` (Phase 2):**
+
+| type | Кой enqueue-ва | Получател |
+|------|----------------|-----------|
+| `test` | dev `GET /api/test-email` | query `to` |
+| `organizer-claim-received` | `POST /api/organizer/claims` (след успех) | `contact_email` от заявката |
+| `admin-new-claim` | същият route | `EMAIL_ADMIN` (ако е зададен) |
+| `organizer-claim-approved` | `POST /admin/api/organizer-members/[id]/approve` | имейл от Supabase Auth за `user_id`, иначе `contact_email` |
+| `organizer-claim-rejected` | `POST /admin/api/organizer-members/[id]/reject` | същото |
+| `festival-submission-received` | `POST /api/organizer/pending-festivals` | Auth имейл на подателя |
+| `admin-new-submission` | същият route | `EMAIL_ADMIN` (ако е зададен) |
+| `festival-approved` | `POST /admin/api/pending-festivals/[id]/approve` | само при `submission_source=organizer_portal` — Auth имейл на `submitted_by_user_id` |
+| `festival-rejected` | `POST /admin/api/pending-festivals/[id]/reject` | същото |
+
+**Осъзнато извън обхват на тези имейли:** pending записи без `organizer_portal` / без `submitted_by_user_id` нямат надежден „подател“ в базата — не се изпраща `festival-approved` / `festival-rejected` към краен потребител. Няма отделна страница „контакти“ в repo — copy за отхвърлена claim сочи към контакти „на сайта“ без измислен URL.
 
 ## MVP типове (job_type)
 

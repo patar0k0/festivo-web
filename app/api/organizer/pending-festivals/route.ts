@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
-import { slugify } from "@/lib/utils";
-import { getPortalAdminClient, getPortalSessionUser, hasActiveOrganizerMembership } from "@/lib/organizer/portal";
+import {
+  EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION,
+  EMAIL_JOB_TYPE_FESTIVAL_SUBMISSION_RECEIVED,
+} from "@/lib/email/emailJobTypes";
+import { absoluteSiteUrl } from "@/lib/email/emailUrls";
+import { enqueueAdminEmailJobSafe, enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
+import { formatBgDateFromIso } from "@/lib/email/formatBg";
+import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
+import { getPortalAdminClient, getPortalSessionUser, hasActiveOrganizerMembership } from "@/lib/organizer/portal";
+import { slugify } from "@/lib/utils";
 
 type Body = {
   organizer_id?: string;
@@ -161,6 +169,49 @@ export async function POST(request: Request) {
   if (slugUpdErr) {
     console.warn("[api/organizer/pending-festivals] slug update", slugUpdErr.message);
   }
+
+  const submitterEmail = await resolveAuthUserEmail(admin, session.user.id);
+  const startDateDisplay = formatBgDateFromIso(startDate);
+  if (submitterEmail) {
+    void enqueueEmailJobSafe(
+      admin,
+      {
+        type: EMAIL_JOB_TYPE_FESTIVAL_SUBMISSION_RECEIVED,
+        recipientEmail: submitterEmail,
+        recipientUserId: session.user.id,
+        payload: {
+          submissionId: inserted.id,
+          festivalTitle: title,
+          cityDisplay: cityRaw || null,
+          startDateDisplay,
+          submissionsUrl: absoluteSiteUrl("/organizer/submissions"),
+        },
+        dedupeKey: `festival-submission-received:${inserted.id}`,
+      },
+      "organizer_portal_submission_user",
+    );
+  } else {
+    console.warn("[email_jobs] skip festival-submission-received: no auth email for submitter", {
+      user_id: session.user.id,
+      pending_id: inserted.id,
+    });
+  }
+
+  void enqueueAdminEmailJobSafe(
+    admin,
+    {
+      type: EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION,
+      payload: {
+        submissionId: inserted.id,
+        festivalTitle: title,
+        cityDisplay: cityRaw || null,
+        startDateDisplay,
+        reviewUrl: absoluteSiteUrl(`/admin/pending-festivals/${inserted.id}`),
+      },
+      dedupeKey: `admin-new-submission:${inserted.id}`,
+    },
+    "organizer_portal_submission_admin",
+  );
 
   return NextResponse.json({ id: inserted.id }, { status: 201 });
 }

@@ -16,11 +16,18 @@ import { getMediaLimitExceededErrorMessage, resolveAllowedMediaLimitsFromOrganiz
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 import { mergeFestivoAdminListingShort } from "@/lib/admin/festivalListingShort";
 import { logAdminAction } from "@/lib/admin/audit-log";
+import { EMAIL_JOB_TYPE_FESTIVAL_APPROVED } from "@/lib/email/emailJobTypes";
+import { absoluteSiteUrl } from "@/lib/email/emailUrls";
+import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
+import { formatBgDateFromIso } from "@/lib/email/formatBg";
+import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
+import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 
 type CityRow = {
   id: number;
   slug: string;
   name_bg: string;
+  is_village: boolean | null;
 };
 
 type ApprovePayload = {
@@ -65,10 +72,13 @@ type PendingFestivalRow = {
   status: "pending" | "approved" | "rejected";
   video_url?: string | null;
   gallery_image_urls?: unknown;
+  submitted_by_user_id?: string | null;
+  submission_source?: string | null;
+  city_name_display?: string | null;
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,description_short,category,city_id,location_name,address,latitude,longitude,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls";
+  "id,title,slug,description,description_short,category,city_id,location_name,address,latitude,longitude,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls,submitted_by_user_id,submission_source,city_name_display";
 
 async function resolveOrganizerIdsForPublish(
   adminSupabase: SupabaseClient,
@@ -196,7 +206,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   async function findCityById(cityId: number) {
-    const { data, error } = await adminCtx.supabase.from("cities").select("id,slug,name_bg").eq("id", cityId).maybeSingle();
+    const { data, error } = await adminCtx.supabase
+      .from("cities")
+      .select("id,slug,name_bg,is_village")
+      .eq("id", cityId)
+      .maybeSingle();
 
     if (error) {
       throw new Error(`Approve failed during city lookup: ${error.message}`);
@@ -590,6 +604,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     } catch (auditError) {
       const message = auditError instanceof Error ? auditError.message : "unknown";
       console.error("[admin/audit] pending_festival.approved failed", { message });
+    }
+
+    const cityDisplay =
+      formatSettlementDisplayName(cityById.name_bg, cityById.is_village ?? undefined) ??
+      pending.city_name_display?.trim() ??
+      null;
+
+    if (pending.submission_source === "organizer_portal" && pending.submitted_by_user_id) {
+      const to = await resolveAuthUserEmail(serviceSupabase, pending.submitted_by_user_id);
+      if (to) {
+        void enqueueEmailJobSafe(
+          serviceSupabase,
+          {
+            type: EMAIL_JOB_TYPE_FESTIVAL_APPROVED,
+            recipientEmail: to,
+            recipientUserId: pending.submitted_by_user_id,
+            payload: {
+              festivalTitle: pending.title,
+              festivalSlug: finalSlug,
+              festivalUrl: absoluteSiteUrl(`/festivals/${encodeURIComponent(finalSlug)}`),
+              cityDisplay,
+              startDateDisplay: formatBgDateFromIso(pending.start_date),
+            },
+            dedupeKey: `festival-approved:${insertedFestival.id}`,
+          },
+          "pending_festival_approved_portal",
+        );
+      } else {
+        console.warn("[email_jobs] skip festival-approved: no auth email for submitter", {
+          pending_id: id,
+          festival_id: insertedFestival.id,
+          submitted_by_user_id: pending.submitted_by_user_id,
+        });
+      }
     }
 
     return NextResponse.json({

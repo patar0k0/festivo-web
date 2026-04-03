@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import OrganizerMemberApproveButton from "@/components/admin/OrganizerMemberApproveButton";
+import OrganizerMemberRejectButton from "@/components/admin/OrganizerMemberRejectButton";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -91,6 +92,7 @@ export default async function AdminOrganizerClaimDetailPage({ params }: { params
         {isPending ? (
           <div className="flex flex-wrap items-center gap-3 border-t border-black/[0.06] pt-6">
             <OrganizerMemberApproveButton memberId={data.id} />
+            <OrganizerMemberRejectButton memberId={data.id} />
           </div>
         ) : (
           <p className="border-t border-black/[0.06] pt-6 text-sm text-black/55">Тази заявка вече не е в състояние „чакаща“.</p>

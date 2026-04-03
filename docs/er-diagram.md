@@ -216,6 +216,25 @@ erDiagram
     int retry_count
   }
 
+  email_jobs {
+    uuid id PK
+    text type
+    text recipient_email
+    uuid recipient_user_id FK
+    text locale
+    text subject
+    jsonb payload
+    text status
+    int attempts
+    int max_attempts
+    timestamptz scheduled_at
+    text dedupe_key UK
+    text provider
+    text provider_message_id
+    timestamptz sent_at
+    timestamptz locked_at
+  }
+
   notification_logs {
     uuid id PK
     uuid job_id FK
@@ -243,6 +262,7 @@ erDiagram
   auth_users ||--o{ admin_audit_logs : performs_admin_action
   auth_users ||--o{ notification_jobs : scheduled
   auth_users ||--o{ notification_logs : delivery_audit
+  auth_users ||--o{ email_jobs : optional_recipient
   notification_jobs ||--o{ notification_logs : has
 
   cities ||--o{ pending_festivals : moderation_city_fk

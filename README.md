@@ -53,7 +53,7 @@ Environment variables (no secrets in repo):
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only; jobs и admin bypass към базата)
 - `JOBS_SECRET` (споделен секрет за cron/worker повиквания към `/api/jobs/*` и `/api/notifications/*`, header `x-job-secret`)
 - `FCM_SERVER_KEY` (legacy FCM server key за push през `/api/jobs/push` и `/api/notifications/run`)
-- `RESEND_API_KEY` (server-only; transactional email през Resend; виж `lib/email/*`)
+- `RESEND_API_KEY` (server-only; transactional email през Resend; опашка `email_jobs` + `GET /api/jobs/email` с `JOBS_SECRET`; виж `lib/email/*`)
 - `EMAIL_FROM` (optional; подразбиране `Festivo <noreply@festivo.bg>` за `from` в Resend)
 
 ## How to test

@@ -4,6 +4,7 @@
 
 1. **По-стари job маршрути** — пишат директно в `user_notifications`; push през `/api/jobs/push`.
 2. **MVP опашка (notification_jobs)** — планиране, дедупликация, одит в `notification_logs`; изпращане от `/api/notifications/run` чрез FCM (същият `FCM_SERVER_KEY`).
+3. **Transactional email (email_jobs)** — отделна опашка за имейл през Resend; enqueue от приложния код (или dev-only `GET /api/test-email`), batch processor `GET /api/jobs/email` с `JOBS_SECRET` / Vercel cron header; не смесва push payload-и с FCM.
 
 ## MVP типове (job_type)
 

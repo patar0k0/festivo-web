@@ -14,7 +14,7 @@ import {
   EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
   type EmailJobType,
 } from "./emailJobTypes";
-import type { UserEmailPreferencesRow } from "./emailPreferences";
+import type { ReminderEmailPrefsEntry } from "./emailPreferences";
 import { canSendEmailTypeToUser } from "./emailPreferences";
 import { enqueueEmailJob } from "./enqueueEmail";
 import { resolveAuthUserEmail } from "./resolveAuthUserEmail";
@@ -123,54 +123,67 @@ export async function loadFestivalsForReminderEmails(
   return map;
 }
 
+export type SavedFestivalReminderEmailEnqueueResult =
+  | { status: "enqueued" }
+  | { status: "skipped"; reason: "preference_disabled" | "preference_lookup_failed" | "other" };
+
 /**
  * Enqueue backup reminder email for the same due `notification_jobs` reminder row.
  * Call after quiet hours + payload validation. Push gating (`push_enabled`, device tokens) is separate.
- * Respects `user_email_preferences` (optional reminders). Fail-soft: logs and returns false on skip/error.
+ * Optional reminders: fail-closed when prefs cannot be loaded; explicit opt-out skips without treating as “no channel”.
  */
 export async function enqueueSavedFestivalReminderEmailFromJob(
   supabase: SupabaseClient,
   job: NotificationJobRow,
   festivalById: Map<string, FestivalRowForReminderEmail>,
-  prefs: UserEmailPreferencesRow | undefined,
-): Promise<boolean> {
+  prefsEntry: ReminderEmailPrefsEntry | undefined,
+): Promise<SavedFestivalReminderEmailEnqueueResult> {
   if (job.job_type !== "reminder") {
-    return false;
+    return { status: "skipped", reason: "other" };
   }
 
   const rawSubkind = (job.payload_json as Record<string, unknown>).reminder_subkind;
   if (rawSubkind !== "24h" && rawSubkind !== "2h") {
     console.warn("[reminder_email] skip: invalid reminder_subkind", { job_id: job.id, rawSubkind });
-    return false;
+    return { status: "skipped", reason: "other" };
   }
 
   const emailType = reminderSubkindToEmailType(rawSubkind);
   if (!emailType) {
-    return false;
+    return { status: "skipped", reason: "other" };
   }
 
-  if (!canSendEmailTypeToUser(emailType, prefs ?? null, job.user_id)) {
-    console.info("[reminder_email] skip: user email preferences", { job_id: job.id, user_id: job.user_id });
-    return false;
+  if (!prefsEntry || !prefsEntry.ok) {
+    console.info("[reminder_email] optional email skipped: preference lookup failed", {
+      job_id: job.id,
+      user_id: job.user_id,
+    });
+    return { status: "skipped", reason: "preference_lookup_failed" };
+  }
+
+  const prefs = prefsEntry.prefs;
+  if (!canSendEmailTypeToUser(emailType, prefs, job.user_id)) {
+    console.info("[reminder_email] optional email skipped: preference disabled", { job_id: job.id, user_id: job.user_id });
+    return { status: "skipped", reason: "preference_disabled" };
   }
 
   const payload = job.payload_json;
   const festivalId = payload.festival_id ?? job.festival_id;
   if (!festivalId) {
     console.warn("[reminder_email] skip: missing festival_id", { job_id: job.id });
-    return false;
+    return { status: "skipped", reason: "other" };
   }
 
   const fest = festivalById.get(festivalId);
   if (!fest) {
     console.warn("[reminder_email] skip: festival not loaded", { job_id: job.id, festival_id: festivalId });
-    return false;
+    return { status: "skipped", reason: "other" };
   }
 
   const slug = fest.slug?.trim();
   if (!slug) {
     console.warn("[reminder_email] skip: missing festival slug", { job_id: job.id, festival_id: festivalId });
-    return false;
+    return { status: "skipped", reason: "other" };
   }
 
   const title = fest.title?.trim() || payload.title?.trim() || "Фестивал";
@@ -180,10 +193,10 @@ export async function enqueueSavedFestivalReminderEmailFromJob(
   const recipient = await resolveAuthUserEmail(supabase, job.user_id);
   if (!recipient) {
     console.info("[reminder_email] skip: no recipient email", { user_id: job.user_id, job_id: job.id });
-    return false;
+    return { status: "skipped", reason: "other" };
   }
 
-  const token = prefs?.unsubscribe_token?.trim() ?? "";
+  const token = prefs.unsubscribe_token?.trim() ?? "";
   const unsubscribeUrl = token ? `${baseUrl}/unsubscribe/${token}` : undefined;
   const managePreferencesUrl = `${baseUrl}/profile`;
 
@@ -214,10 +227,10 @@ export async function enqueueSavedFestivalReminderEmailFromJob(
       payload: emailPayload,
       dedupeKey,
     });
-    return true;
+    return { status: "enqueued" };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[reminder_email] enqueue failed", { job_id: job.id, message });
-    return false;
+    return { status: "skipped", reason: "other" };
   }
 }

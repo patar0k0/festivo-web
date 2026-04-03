@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   enqueueSavedFestivalReminderEmailFromJob,
   loadFestivalsForReminderEmails,
+  type SavedFestivalReminderEmailEnqueueResult,
 } from "@/lib/email/enqueueSavedFestivalReminderEmail";
 import { loadEmailPreferencesMapForReminderUsers } from "@/lib/email/emailPreferences";
 
@@ -12,6 +13,15 @@ import type { NotificationJobRow, NotificationPayloadV1 } from "./types";
 import { isInQuietHours, nextAllowedSendAfterQuietHours } from "./time";
 
 const BACKOFF_MS = [5 * 60 * 1000, 15 * 60 * 1000, 60 * 60 * 1000];
+
+function reminderCancelledLastErrorForEmailSkip(
+  result: SavedFestivalReminderEmailEnqueueResult,
+): string {
+  if (result.status === "enqueued") return "reminder_no_active_channel";
+  if (result.reason === "preference_disabled") return "reminder_email_preference_disabled";
+  if (result.reason === "preference_lookup_failed") return "reminder_email_preference_lookup_failed";
+  return "reminder_no_active_channel";
+}
 
 function jobRetryCount(job: NotificationJobRow & { attempts?: number }): number {
   return job.retry_count ?? job.attempts ?? 0;
@@ -127,15 +137,16 @@ export async function processDueNotificationJobs(
      * Reminder email (`email_jobs`): optional channel via `user_email_preferences`.
      * Push uses `push_enabled` + tokens; email can succeed when push is off or tokens are missing.
      */
-    let reminderEmailEnqueued = false;
+    let reminderEmailResult: SavedFestivalReminderEmailEnqueueResult = { status: "skipped", reason: "other" };
     if (job.job_type === "reminder") {
-      reminderEmailEnqueued = await enqueueSavedFestivalReminderEmailFromJob(
+      reminderEmailResult = await enqueueSavedFestivalReminderEmailFromJob(
         supabase,
         job,
         festivalById,
-        emailPrefsMap.get(job.user_id),
+        emailPrefsMap.get(job.user_id) ?? { ok: false },
       );
     }
+    const reminderEmailEnqueued = reminderEmailResult.status === "enqueued";
 
     if (!pushEnabled && job.job_type === "reminder") {
       if (reminderEmailEnqueued) {
@@ -150,7 +161,7 @@ export async function processDueNotificationJobs(
           .update({
             status: "cancelled",
             updated_at: nowIso,
-            last_error: "reminder_no_active_channel",
+            last_error: reminderCancelledLastErrorForEmailSkip(reminderEmailResult),
           })
           .eq("id", job.id);
         skipped += 1;

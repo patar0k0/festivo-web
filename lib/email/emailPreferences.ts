@@ -96,21 +96,100 @@ export async function getOrCreateUserEmailPreferences(
 }
 
 /**
- * Loads prefs for reminder runners: fills missing users via get-or-create so `unsubscribe_token` exists for email footers.
+ * Loads prefs for optional reminder email gating + footer tokens.
+ * Batch failure → fail-closed for every requested user (no synthetic defaults).
+ * Missing row after a successful batch → strict get-or-insert (failure → fail-closed for that user).
  */
+export type ReminderEmailPrefsEntry =
+  | { ok: true; prefs: UserEmailPreferencesRow }
+  | { ok: false };
+
+/**
+ * Same as get-or-create paths but never returns in-memory defaults on DB errors (used for optional email gating).
+ */
+export async function fetchUserEmailPreferencesStrict(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ ok: true; prefs: UserEmailPreferencesRow } | { ok: false }> {
+  const { data: existing, error: selErr } = await supabase
+    .from("user_email_preferences")
+    .select(PREF_SELECT)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (selErr) {
+    console.warn("[email_prefs] strict select failed", { user_id: userId, message: selErr.message });
+    return { ok: false };
+  }
+
+  if (existing && typeof (existing as { user_id?: unknown }).user_id === "string") {
+    return { ok: true, prefs: existing as unknown as UserEmailPreferencesRow };
+  }
+
+  const { data: inserted, error: insErr } = await supabase
+    .from("user_email_preferences")
+    .insert({ user_id: userId })
+    .select(PREF_SELECT)
+    .single();
+
+  if (!insErr && inserted) {
+    return { ok: true, prefs: inserted as unknown as UserEmailPreferencesRow };
+  }
+
+  const isDup =
+    insErr?.code === "23505" ||
+    (typeof insErr?.message === "string" && insErr.message.toLowerCase().includes("duplicate"));
+
+  if (isDup) {
+    const { data: again, error: againErr } = await supabase
+      .from("user_email_preferences")
+      .select(PREF_SELECT)
+      .eq("user_id", userId)
+      .single();
+    if (!againErr && again) {
+      return { ok: true, prefs: again as unknown as UserEmailPreferencesRow };
+    }
+    console.warn("[email_prefs] strict re-select after dup failed", {
+      user_id: userId,
+      message: againErr?.message,
+    });
+    return { ok: false };
+  }
+
+  console.warn("[email_prefs] strict insert failed", { user_id: userId, message: insErr?.message });
+  return { ok: false };
+}
+
 export async function loadEmailPreferencesMapForReminderUsers(
   supabase: SupabaseClient,
   userIds: string[],
-): Promise<Map<string, UserEmailPreferencesRow>> {
-  const map = await fetchUserEmailPreferencesMap(supabase, userIds);
+): Promise<Map<string, ReminderEmailPrefsEntry>> {
+  const out = new Map<string, ReminderEmailPrefsEntry>();
   const unique = [...new Set(userIds.filter(Boolean))];
-  for (const uid of unique) {
-    if (!map.has(uid)) {
-      const row = await getOrCreateUserEmailPreferences(supabase, uid);
-      map.set(uid, row);
-    }
+  if (!unique.length) return out;
+
+  const { data, error } = await supabase.from("user_email_preferences").select(PREF_SELECT).in("user_id", unique);
+
+  if (error) {
+    console.warn("[email_prefs] batch select failed (optional reminder emails fail-closed for batch)", {
+      message: error.message,
+      user_count: unique.length,
+    });
+    for (const uid of unique) out.set(uid, { ok: false });
+    return out;
   }
-  return map;
+
+  for (const row of (data ?? []) as unknown as UserEmailPreferencesRow[]) {
+    if (row?.user_id) out.set(row.user_id, { ok: true, prefs: row });
+  }
+
+  for (const uid of unique) {
+    if (out.has(uid)) continue;
+    const strict = await fetchUserEmailPreferencesStrict(supabase, uid);
+    out.set(uid, strict.ok ? { ok: true, prefs: strict.prefs } : { ok: false });
+  }
+
+  return out;
 }
 
 export async function fetchUserEmailPreferencesMap(

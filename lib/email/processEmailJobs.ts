@@ -138,9 +138,10 @@ async function finalizeSendFailure(
   return "retried";
 }
 
-async function finalizePreferenceBlocked(
+async function finalizeOptionalPreferenceSkip(
   supabase: SupabaseClient,
   job: EmailJobRow,
+  lastError: "preference_blocked" | "preference_lookup_failed",
 ): Promise<"failed"> {
   const nowIso = new Date().toISOString();
   const { error } = await supabase
@@ -148,7 +149,7 @@ async function finalizePreferenceBlocked(
     .update({
       status: "failed",
       attempts: job.max_attempts,
-      last_error: "preference_blocked",
+      last_error: lastError,
       locked_at: null,
       processing_started_at: null,
       updated_at: nowIso,
@@ -156,11 +157,19 @@ async function finalizePreferenceBlocked(
     .eq("id", job.id);
 
   if (error) {
-    console.error("[email_jobs] preference_blocked finalize failed", { job_id: job.id, message: error.message });
+    console.error("[email_jobs] optional preference skip finalize failed", {
+      job_id: job.id,
+      message: error.message,
+      last_error: lastError,
+    });
     throw new Error(error.message);
   }
 
-  console.info("[email_jobs] job skipped: preference_blocked", { job_id: job.id, type: job.type });
+  const logLabel =
+    lastError === "preference_blocked"
+      ? "optional email skipped: preference disabled"
+      : "optional email skipped: preference lookup failed";
+  console.info(`[email_jobs] ${logLabel}`, { job_id: job.id, type: job.type });
   return "failed";
 }
 
@@ -186,12 +195,19 @@ export async function processOneEmailJob(
       .maybeSingle();
 
     if (prefErr) {
-      console.warn("[email_jobs] preference lookup failed (send continues)", {
+      console.info("[email_jobs] optional email skipped: preference lookup failed", {
         job_id: job.id,
+        type: job.type,
         message: prefErr.message,
       });
-    } else if (!canSendEmailTypeToUser(jobType, (pref as UserEmailPreferencesRow | null) ?? null, recipientUserId)) {
-      return finalizePreferenceBlocked(supabase, job);
+      return finalizeOptionalPreferenceSkip(supabase, job, "preference_lookup_failed");
+    }
+    if (!canSendEmailTypeToUser(jobType, (pref as UserEmailPreferencesRow | null) ?? null, recipientUserId)) {
+      console.info("[email_jobs] optional email skipped: preference disabled", {
+        job_id: job.id,
+        type: job.type,
+      });
+      return finalizeOptionalPreferenceSkip(supabase, job, "preference_blocked");
     }
   }
 

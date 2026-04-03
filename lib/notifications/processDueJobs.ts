@@ -1,4 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+import {
+  enqueueSavedFestivalReminderEmailFromJob,
+  loadFestivalsForReminderEmails,
+} from "@/lib/email/enqueueSavedFestivalReminderEmail";
+
 import { getFcmServerKey, invalidateDeadTokens, MAX_RETRIES, sendFcmToTokens } from "./send";
 import { notificationTypeForJob } from "./notificationTypes";
 import type { NotificationJobRow, NotificationPayloadV1 } from "./types";
@@ -47,6 +53,16 @@ export async function processDueNotificationJobs(
   }
 
   const rows = (jobs ?? []) as (NotificationJobRow & { attempts?: number })[];
+
+  const reminderFestivalIds: string[] = [];
+  for (const j of rows) {
+    if (j.job_type !== "reminder") continue;
+    const pj = j.payload_json as Record<string, unknown>;
+    const fid = (typeof pj.festival_id === "string" ? pj.festival_id : null) ?? j.festival_id;
+    if (fid) reminderFestivalIds.push(fid);
+  }
+  const festivalById = await loadFestivalsForReminderEmails(supabase, reminderFestivalIds);
+
   let sent = 0;
   let failed = 0;
   let rescheduled = 0;
@@ -101,6 +117,10 @@ export async function processDueNotificationJobs(
         .eq("id", job.id);
       failed += 1;
       continue;
+    }
+
+    if (job.job_type === "reminder") {
+      await enqueueSavedFestivalReminderEmailFromJob(supabase, job, festivalById);
     }
 
     const { data: tokenRows, error: tokenErr } = await supabase

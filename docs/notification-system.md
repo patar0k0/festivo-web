@@ -6,7 +6,7 @@
 2. **MVP опашка (notification_jobs)** — планиране, дедупликация, одит в `notification_logs`; изпращане от `/api/notifications/run` чрез FCM (същият `FCM_SERVER_KEY`).
 3. **Transactional email (email_jobs)** — отделна опашка за имейл през Resend; enqueue от приложния код (или dev-only `GET /api/test-email`), batch processor `GET /api/jobs/email` с `JOBS_SECRET` / Vercel cron header; не смесва push payload-и с FCM. Без конфигуриран `RESEND_API_KEY` job-ът не остава зависнал в `processing` — отива в обичайния retry/fail с `last_error` (напр. `resend_not_configured`); непознат `type` → `unknown_job_type:…`; невалиден payload при рендер → `render_failed:…`. Регистър и валидация: `lib/email/emailRegistry.ts`, `lib/email/emailSchemas.ts`, `lib/email/renderEmailJob.ts`; UI шаблони: `emails/components/*`, `emails/templates/*`. Абсолютни URL се подават в payload при enqueue (база: `NEXT_PUBLIC_SITE_URL` / `getBaseUrl()` в `lib/seo.ts`). **`EMAIL_ADMIN`** (опционално): inbox за админ-only типове (`admin-new-claim`, `admin-new-submission`); ако липсва — enqueue се пропуска с `console.info`, без да се чупи основният flow. **`EMAIL_REPLY_TO`** (опционално): Reply-To към Resend `emails.send`.
 
-**Типове `email_jobs.type` (Phase 2):**
+**Типове `email_jobs.type` (Phase 2 + reminder channel):**
 
 | type | Кой enqueue-ва | Получател |
 |------|----------------|-----------|
@@ -19,10 +19,14 @@
 | `admin-new-submission` | същият route | `EMAIL_ADMIN` (ако е зададен) |
 | `festival-approved` | `POST /admin/api/pending-festivals/[id]/approve` | само при `submission_source=organizer_portal` — Auth имейл на `submitted_by_user_id` |
 | `festival-rejected` | `POST /admin/api/pending-festivals/[id]/reject` | същото |
+| `reminder-1-day-before` | `GET /api/notifications/run` при обработка на `notification_jobs` с `job_type=reminder` и `payload_json.reminder_subkind` = `24h` (след push/quiet gates, преди FCM) | имейл от Supabase Auth за `user_id` |
+| `reminder-same-day` | същият runner, `reminder_subkind` = `2h` | същото |
+
+**Напомняния по имейл (без втори scheduler):** планирането остава в `notification_jobs` (`scheduleSavedFestivalReminders` / `syncReminderJobsForPreference` — същите инстанти 24h и 2h преди начало като push). При всяко due reminder job, след като минат проверките за `push_enabled` и тихи часове и payload-ът е валиден, кодът enqueue-ва съответния `email_jobs` ред (fail-soft: няма имейл в Auth → пропуск; грешка при enqueue → лог, push продължава). Дедупликация на имейла: `reminder-1-day-before:{user_id}:{festival_id}` и `reminder-same-day:{user_id}:{festival_id}` (виж `lib/email/emailDedupeKeys.ts`). Няма отделен cron за reminder имейли. Извън обхват: `email_events`/webhooks, UI за предпочитания само за имейл, digest/marketing.
 
 **Осъзнато извън обхват на тези имейли:** pending записи без `organizer_portal` / без `submitted_by_user_id` нямат надежден „подател“ в базата — не се изпраща `festival-approved` / `festival-rejected` към краен потребител. Няма отделна страница „контакти“ в repo — copy за отхвърлена claim сочи към контакти „на сайта“ без измислен URL.
 
-**Дедупликация (`dedupe_key`):** стойностите се конструират само при enqueue (helper `lib/email/emailDedupeKeys.ts`), не в процесора. Типични ключове: `organizer-claim-received` / `admin-new-claim` — `organizer_members.id`; `organizer-claim-approved` / `organizer-claim-rejected` — същият id; `festival-submission-received` / `admin-new-submission` — `pending_festivals.id`; `festival-approved` / `festival-rejected` — `pending_festivals.id`. Повторен insert със същия ключ не създава втори ред (уникален partial index + pre-insert lookup).
+**Дедупликация (`dedupe_key`):** стойностите се конструират само при enqueue (helper `lib/email/emailDedupeKeys.ts`), не в процесора. Типични ключове: `organizer-claim-received` / `admin-new-claim` — `organizer_members.id`; `organizer-claim-approved` / `organizer-claim-rejected` — същият id; `festival-submission-received` / `admin-new-submission` — `pending_festivals.id`; `festival-approved` / `festival-rejected` — `pending_festivals.id`; напомняния — `reminder-1-day-before:{user_id}:{festival_id}` / `reminder-same-day:{user_id}:{festival_id}`. Повторен insert със същия ключ не създава втори ред (уникален partial index + pre-insert lookup).
 
 **Transition guards:** одобряване/отхвърляне на claim (`organizer_members`) изпраща имейл само ако `UPDATE … WHERE status='pending'` реално промени ред (иначе 409). Pending фестивал: reject вече изисква успешен status transition преди enqueue; approve enqueue е след успешен insert в `festivals` и pending → `approved`, с финален публичен slug в payload.
 
@@ -99,5 +103,6 @@
 ## Reminder preference sync (public detail)
 
 - `POST /api/plan/reminders` пази `user_plan_reminders` (`none`, `24h`, `same_day_09`) и синхронизира pending `notification_jobs` (`job_type=reminder`) за същия потребител/фестивал.
+- Локално преглед на шаблоните за reminder имейл: `GET /api/test-email` (не е наличен в production) с `type=reminder-1-day-before` или `reminder-same-day` и URL-encoded JSON в `payload` (полета като при enqueue: `userId`, `festivalId`, `festivalTitle`, `festivalSlug`, `festivalUrl`, `cityDisplay`, `locationSummary`, `startDateDisplay`, `startTimeDisplay`, `reminderKind`: `1_day_before` | `same_day`).
 - При `none`: pending reminder jobs се отменят (`status=cancelled`).
 - При `24h`/`same_day_09`: съществуващите pending reminder jobs първо се отменят, после се насрочват наново чрез текущия scheduler поток.

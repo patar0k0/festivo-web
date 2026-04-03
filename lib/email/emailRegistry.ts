@@ -4,6 +4,7 @@ import { AdminNewClaimEmail } from "@/emails/templates/AdminNewClaimEmail";
 import { AdminNewSubmissionEmail } from "@/emails/templates/AdminNewSubmissionEmail";
 import { FestivalApprovedEmail } from "@/emails/templates/FestivalApprovedEmail";
 import { FestivalRejectedEmail } from "@/emails/templates/FestivalRejectedEmail";
+import { FestivalReminderEmail } from "@/emails/templates/FestivalReminderEmail";
 import { FestivalSubmissionReceivedEmail } from "@/emails/templates/FestivalSubmissionReceivedEmail";
 import { OrganizerClaimApprovedEmail } from "@/emails/templates/OrganizerClaimApprovedEmail";
 import { OrganizerClaimReceivedEmail } from "@/emails/templates/OrganizerClaimReceivedEmail";
@@ -20,6 +21,8 @@ import {
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_RECEIVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED,
+  EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE,
+  EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
   EMAIL_JOB_TYPE_TEST,
   type EmailJobType,
 } from "./emailJobTypes";
@@ -32,6 +35,7 @@ import {
   parseOrganizerClaimApprovedPayload,
   parseOrganizerClaimReceivedPayload,
   parseOrganizerClaimRejectedPayload,
+  parseSavedFestivalReminderEmailPayload,
   parseTestEmailPayload,
 } from "./emailSchemas";
 import { renderEmail } from "./render";
@@ -205,6 +209,56 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
           cityDisplay: p.cityDisplay,
           startDateDisplay: p.startDateDisplay,
           reviewUrl: p.reviewUrl,
+        }),
+      );
+      return { subject, html, text };
+    },
+  },
+
+  [EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE]: {
+    buildDefaultSubject: (pl) => {
+      const p = parseSavedFestivalReminderEmailPayload(pl as Record<string, unknown>);
+      return `Напомняне: „${p.festivalTitle.slice(0, 70)}“ е утре`;
+    },
+    build: async (payload) => {
+      const p = parseSavedFestivalReminderEmailPayload(payload as Record<string, unknown>);
+      const siteUrl = siteOrigin();
+      const subject = `Напомняне: „${p.festivalTitle.slice(0, 70)}“ е утре`;
+      const { html, text } = await renderEmail(
+        createElement(FestivalReminderEmail, {
+          siteUrl,
+          variant: "1_day_before",
+          festivalTitle: p.festivalTitle,
+          festivalUrl: p.festivalUrl,
+          cityDisplay: p.cityDisplay,
+          locationSummary: p.locationSummary,
+          startDateDisplay: p.startDateDisplay,
+          startTimeDisplay: p.startTimeDisplay,
+        }),
+      );
+      return { subject, html, text };
+    },
+  },
+
+  [EMAIL_JOB_TYPE_REMINDER_SAME_DAY]: {
+    buildDefaultSubject: (pl) => {
+      const p = parseSavedFestivalReminderEmailPayload(pl as Record<string, unknown>);
+      return `Днес: „${p.festivalTitle.slice(0, 72)}“`;
+    },
+    build: async (payload) => {
+      const p = parseSavedFestivalReminderEmailPayload(payload as Record<string, unknown>);
+      const siteUrl = siteOrigin();
+      const subject = `Днес: „${p.festivalTitle.slice(0, 72)}“`;
+      const { html, text } = await renderEmail(
+        createElement(FestivalReminderEmail, {
+          siteUrl,
+          variant: "same_day",
+          festivalTitle: p.festivalTitle,
+          festivalUrl: p.festivalUrl,
+          cityDisplay: p.cityDisplay,
+          locationSummary: p.locationSummary,
+          startDateDisplay: p.startDateDisplay,
+          startTimeDisplay: p.startTimeDisplay,
         }),
       );
       return { subject, html, text };

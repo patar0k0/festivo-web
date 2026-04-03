@@ -7,6 +7,8 @@ import {
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_RECEIVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED,
+  EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE,
+  EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
 } from "./emailJobTypes";
 
 /**
@@ -44,4 +46,13 @@ export function dedupeKeyFestivalApproved(pendingFestivalId: string) {
 
 export function dedupeKeyFestivalRejected(pendingFestivalId: string) {
   return `${EMAIL_JOB_TYPE_FESTIVAL_REJECTED}:${pendingFestivalId}`;
+}
+
+/** One reminder email per user, festival, and reminder slot (aligns with `reminder_subkind` 24h / 2h). */
+export function dedupeKeyReminderOneDayBefore(userId: string, festivalId: string) {
+  return `${EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE}:${userId}:${festivalId}`;
+}
+
+export function dedupeKeyReminderSameDay(userId: string, festivalId: string) {
+  return `${EMAIL_JOB_TYPE_REMINDER_SAME_DAY}:${userId}:${festivalId}`;
 }

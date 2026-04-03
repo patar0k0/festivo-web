@@ -156,3 +156,41 @@ export function parseAdminNewSubmissionPayload(raw: Record<string, unknown>): Ad
     reviewUrl: reqString(raw, "reviewUrl", 2000),
   };
 }
+
+export type SavedFestivalReminderEmailPayload = {
+  userId: string;
+  festivalId: string;
+  festivalTitle: string;
+  festivalSlug: string;
+  festivalUrl: string;
+  cityDisplay: string | null;
+  locationSummary: string | null;
+  startDateDisplay: string | null;
+  startTimeDisplay: string | null;
+  reminderKind: "1_day_before" | "same_day";
+};
+
+function parseReminderKind(raw: Record<string, unknown>): "1_day_before" | "same_day" {
+  const v = raw.reminderKind;
+  if (v === "1_day_before" || v === "same_day") {
+    return v;
+  }
+  throw new Error("invalid_payload:reminderKind");
+}
+
+export function parseSavedFestivalReminderEmailPayload(
+  raw: Record<string, unknown>,
+): SavedFestivalReminderEmailPayload {
+  return {
+    userId: reqString(raw, "userId", 80),
+    festivalId: reqString(raw, "festivalId", 80),
+    festivalTitle: reqString(raw, "festivalTitle", 400),
+    festivalSlug: reqString(raw, "festivalSlug", 400),
+    festivalUrl: reqString(raw, "festivalUrl", 2000),
+    cityDisplay: optString(raw, "cityDisplay", 400),
+    locationSummary: optString(raw, "locationSummary", 400),
+    startDateDisplay: optString(raw, "startDateDisplay", 120),
+    startTimeDisplay: optString(raw, "startTimeDisplay", 40),
+    reminderKind: parseReminderKind(raw),
+  };
+}

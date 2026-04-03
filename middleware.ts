@@ -25,7 +25,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/") || pathname.startsWith("/admin/api/");
 
   if (isApiWriteMethod && isApiPath) {
-    if (!canBypassJobsRateLimit(request)) {
+    const skipRateLimitForPath = pathname.startsWith("/admin/api/discovery");
+    const shouldApplyRateLimit = !skipRateLimitForPath && !canBypassJobsRateLimit(request);
+    if (shouldApplyRateLimit) {
       try {
         const userId = await getSessionUserIdReadOnly(request);
         const rate = await checkRateLimit(request, userId);

@@ -406,7 +406,6 @@ export default async function AdminDiscoveryPage({
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-black tracking-tight">Discovery Sources</h2>
         <DiscoverySourcesTable rows={mappedSources} />
       </section>
 

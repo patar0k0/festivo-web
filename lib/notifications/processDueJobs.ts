@@ -119,6 +119,14 @@ export async function processDueNotificationJobs(
       continue;
     }
 
+    /**
+     * Reminder email (`email_jobs`) is a backup channel for the same MVP reminder row — not a second scheduler.
+     * Gating matches push reminder intent:
+     * - `push_enabled === false`: job already cancelled above; no email (user turned off push reminders).
+     * - Quiet hours on `reminder`: job already cancelled above; no email (same as push path).
+     * - Invalid payload: failed above; no email.
+     * Enqueue runs here, after those checks and before `device_tokens`, so missing tokens do not suppress email.
+     */
     if (job.job_type === "reminder") {
       await enqueueSavedFestivalReminderEmailFromJob(supabase, job, festivalById);
     }

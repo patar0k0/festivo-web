@@ -19,10 +19,12 @@
 | `admin-new-submission` | същият route | `EMAIL_ADMIN` (ако е зададен) |
 | `festival-approved` | `POST /admin/api/pending-festivals/[id]/approve` | само при `submission_source=organizer_portal` — Auth имейл на `submitted_by_user_id` |
 | `festival-rejected` | `POST /admin/api/pending-festivals/[id]/reject` | същото |
-| `reminder-1-day-before` | `GET /api/notifications/run` при обработка на `notification_jobs` с `job_type=reminder` и `payload_json.reminder_subkind` = `24h` (след push/quiet gates, преди FCM) | имейл от Supabase Auth за `user_id` |
-| `reminder-same-day` | същият runner, `reminder_subkind` = `2h` | същото |
+| `reminder-1-day-before` | `GET /api/notifications/run` при due `notification_jobs` с `job_type=reminder` и `reminder_subkind` = `24h` (~24 ч преди начало) | имейл от Supabase Auth за `user_id` |
+| `reminder-same-day` | същият runner, `reminder_subkind` = `2h` (**около 2 ч преди начало**, не „сутрин 09:00“; името на типа е историческо) | същото |
 
-**Напомняния по имейл (без втори scheduler):** планирането остава в `notification_jobs` (`scheduleSavedFestivalReminders` / `syncReminderJobsForPreference` — същите инстанти 24h и 2h преди начало като push). При всяко due reminder job, след като минат проверките за `push_enabled` и тихи часове и payload-ът е валиден, кодът enqueue-ва съответния `email_jobs` ред (fail-soft: няма имейл в Auth → пропуск; грешка при enqueue → лог, push продължава). Дедупликация на имейла: `reminder-1-day-before:{user_id}:{festival_id}` и `reminder-same-day:{user_id}:{festival_id}` (виж `lib/email/emailDedupeKeys.ts`). Няма отделен cron за reminder имейли. Извън обхват: `email_events`/webhooks, UI за предпочитания само за имейл, digest/marketing.
+**Canonical path за reminder имейли:** само `notification_jobs` + `GET /api/notifications/run` (`lib/notifications/processDueJobs.ts`). **Legacy** `GET /api/jobs/reminders` пише в `user_notifications` за push и **не** enqueue-ва `email_jobs`.
+
+**Напомняния по имейл (без втори scheduler):** планирането остава в `notification_jobs` (`scheduleSavedFestivalReminders` / `syncReminderJobsForPreference` — същите инстанти 24h и 2h преди начало като push). **Gating (съгласувано с push reminder flow):** ако `user_notification_settings.push_enabled` е изключено, due reminder job се отменя (`push_disabled`) — **без** имейл (напомнянията се третират като изключени). При тихи часове `reminder` се отменя (`quiet_hours_skip`) — **без** имейл. При невалиден FCM payload job → `failed` (`invalid_payload`) — **без** имейл. След тези проверки и валиден payload, reminder имейлът се enqueue-ва **преди** зареждане на `device_tokens`, така че липса на push токени **не** спира имейла (push пътят може да остане в retry/fail, а имейлът — в опашката). Fail-soft: няма имейл в Auth → пропуск; грешка при enqueue → лог, push пътят продължава. Дедупликация: `reminder-1-day-before:{user_id}:{festival_id}` и `reminder-same-day:{user_id}:{festival_id}` (виж `lib/email/emailDedupeKeys.ts`). Няма отделен cron за reminder имейли. Извън обхват: `email_events`/webhooks, UI за предпочитания само за имейл, digest/marketing.
 
 **Осъзнато извън обхват на тези имейли:** pending записи без `organizer_portal` / без `submitted_by_user_id` нямат надежден „подател“ в базата — не се изпраща `festival-approved` / `festival-rejected` към краен потребител. Няма отделна страница „контакти“ в repo — copy за отхвърлена claim сочи към контакти „на сайта“ без измислен URL.
 
@@ -98,11 +100,11 @@
 
 ## Legacy reminder pipeline
 
-`user_plan_reminders` → `/api/jobs/reminders` → `user_notifications` → `/api/jobs/push` — непокътнат; паралелно с MVP reminder jobs от плана.
+`user_plan_reminders` → `/api/jobs/reminders` → `user_notifications` → `/api/jobs/push` — непокътнат; паралелно с MVP reminder jobs от плана. **Не изпраща reminder имейли** и не пипа `notification_jobs` / `email_jobs`.
 
 ## Reminder preference sync (public detail)
 
 - `POST /api/plan/reminders` пази `user_plan_reminders` (`none`, `24h`, `same_day_09`) и синхронизира pending `notification_jobs` (`job_type=reminder`) за същия потребител/фестивал.
-- Локално преглед на шаблоните за reminder имейл: `GET /api/test-email` (не е наличен в production) с `type=reminder-1-day-before` или `reminder-same-day` и URL-encoded JSON в `payload` (полета като при enqueue: `userId`, `festivalId`, `festivalTitle`, `festivalSlug`, `festivalUrl`, `cityDisplay`, `locationSummary`, `startDateDisplay`, `startTimeDisplay`, `reminderKind`: `1_day_before` | `same_day`).
+- Локално преглед на шаблоните за reminder имейл: `GET /api/test-email` (не е наличен в production) с `type=reminder-1-day-before` или `reminder-same-day` и URL-encoded JSON в `payload` (полета като при enqueue: `userId`, `festivalId`, `festivalTitle`, `festivalSlug`, `festivalUrl`, `cityDisplay`, `locationSummary`, `startDateDisplay`, `startTimeDisplay`, `reminderKind`: `1_day_before` | `two_hours_before`; за `reminder-same-day` ползвай `two_hours_before` — `same_day` се приема още като legacy алиас към същото).
 - При `none`: pending reminder jobs се отменят (`status=cancelled`).
 - При `24h`/`same_day_09`: съществуващите pending reminder jobs първо се отменят, после се насрочват наново чрез текущия scheduler поток.

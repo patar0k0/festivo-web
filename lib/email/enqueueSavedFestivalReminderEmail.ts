@@ -94,8 +94,8 @@ function reminderSubkindToEmailType(subkind: unknown): EmailJobType | null {
   return null;
 }
 
-function reminderKindFromSubkind(subkind: "24h" | "2h"): "1_day_before" | "same_day" {
-  return subkind === "24h" ? "1_day_before" : "same_day";
+function reminderKindFromSubkind(subkind: "24h" | "2h"): "1_day_before" | "two_hours_before" {
+  return subkind === "24h" ? "1_day_before" : "two_hours_before";
 }
 
 export async function loadFestivalsForReminderEmails(
@@ -122,7 +122,10 @@ export async function loadFestivalsForReminderEmails(
 }
 
 /**
- * Enqueue reminder email alongside the same notification job that already passed push/quiet gates.
+ * Enqueue backup reminder email for the same due `notification_jobs` reminder row.
+ * Call only after the job has passed the same gates as push in `processDueNotificationJobs`
+ * (`push_enabled`, quiet hours for reminders, valid FCM payload) and **before** loading device tokens,
+ * so email is not blocked by missing `device_tokens`.
  * Fail-soft: logs and returns on missing data, email, or enqueue errors.
  */
 export async function enqueueSavedFestivalReminderEmailFromJob(

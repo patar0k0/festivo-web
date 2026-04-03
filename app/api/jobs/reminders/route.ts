@@ -1,3 +1,8 @@
+/**
+ * Legacy reminder pipeline: reads `user_plan_reminders`, writes due rows to `user_notifications` for `/api/jobs/push`.
+ * Does **not** enqueue `email_jobs` and does **not** use `notification_jobs`. Saved-festival reminder **email** is
+ * canonical only via `GET /api/notifications/run` on due `notification_jobs` (see `docs/notification-system.md`).
+ */
 import { NextResponse } from "next/server";
 import { isAuthorizedJobRequest } from "@/lib/jobs/auth";
 import { acquireCronLock, releaseCronLock } from "@/lib/jobs/locks";

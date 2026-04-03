@@ -167,14 +167,14 @@ export type SavedFestivalReminderEmailPayload = {
   locationSummary: string | null;
   startDateDisplay: string | null;
   startTimeDisplay: string | null;
-  reminderKind: "1_day_before" | "same_day";
+  /** `same_day` accepted as legacy alias for the MVP 2h-before slot (`reminder_subkind` = `2h`). */
+  reminderKind: "1_day_before" | "two_hours_before";
 };
 
-function parseReminderKind(raw: Record<string, unknown>): "1_day_before" | "same_day" {
+function parseReminderKind(raw: Record<string, unknown>): "1_day_before" | "two_hours_before" {
   const v = raw.reminderKind;
-  if (v === "1_day_before" || v === "same_day") {
-    return v;
-  }
+  if (v === "1_day_before") return "1_day_before";
+  if (v === "two_hours_before" || v === "same_day") return "two_hours_before";
   throw new Error("invalid_payload:reminderKind");
 }
 

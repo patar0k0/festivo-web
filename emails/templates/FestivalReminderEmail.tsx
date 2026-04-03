@@ -6,7 +6,7 @@ import { EmailButton } from "@/emails/components/EmailButton";
 import { EmailInfoRow } from "@/emails/components/EmailInfoRow";
 import { EmailSection } from "@/emails/components/EmailSection";
 
-type ReminderVariant = "1_day_before" | "same_day";
+type ReminderVariant = "1_day_before" | "two_hours_before";
 
 type Props = {
   siteUrl: string;
@@ -30,22 +30,38 @@ export function FestivalReminderEmail({
   startTimeDisplay,
 }: Props) {
   const isDayBefore = variant === "1_day_before";
+
+  const dayBeforeLead =
+    startTimeDisplay != null && startTimeDisplay.trim() !== "" ? (
+      <>
+        <strong>{festivalTitle}</strong> е в плана ти и започва утре в {startTimeDisplay}.
+      </>
+    ) : (
+      <>
+        <strong>{festivalTitle}</strong> е в плана ти и започва утре. Часът на начало не е посочен в каталога — виж
+        страницата на фестивала по-долу.
+      </>
+    );
+
+  const twoHoursLead =
+    startTimeDisplay != null && startTimeDisplay.trim() !== "" ? (
+      <>
+        <strong>{festivalTitle}</strong> започва в {startTimeDisplay}. Това напомняне се изпраща около <strong>2 часа</strong>{" "}
+        преди очакваното начало — провери последните детайли преди тръгване.
+      </>
+    ) : (
+      <>
+        <strong>{festivalTitle}</strong> е в плана ти. Това напомняне се изпраща около <strong>2 часа</strong> преди
+        очакваното начало; часът не е посочен в каталога — отвори страницата на фестивала за актуална информация.
+      </>
+    );
+
   return (
     <BaseLayout siteUrl={siteUrl}>
       <Heading as="h1" style={h1}>
-        {isDayBefore ? "Напомняне за утре" : "Днес е денят"}
+        {isDayBefore ? "Напомняне за утре" : "Напомняне преди началото"}
       </Heading>
-      <Text style={p}>
-        {isDayBefore ? (
-          <>
-            <strong>{festivalTitle}</strong> е в плана ти и започва утре.
-          </>
-        ) : (
-          <>
-            <strong>{festivalTitle}</strong> е днес — провери последните детайли преди тръгване.
-          </>
-        )}
-      </Text>
+      <Text style={p}>{isDayBefore ? dayBeforeLead : twoHoursLead}</Text>
       <EmailSection>
         {startDateDisplay ? <EmailInfoRow label="Дата" value={startDateDisplay} /> : null}
         {startTimeDisplay ? <EmailInfoRow label="Начало" value={startTimeDisplay} /> : null}

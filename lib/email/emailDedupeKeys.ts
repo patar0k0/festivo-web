@@ -53,6 +53,7 @@ export function dedupeKeyReminderOneDayBefore(userId: string, festivalId: string
   return `${EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE}:${userId}:${festivalId}`;
 }
 
+/** Maps to `reminder_subkind` `2h` (~2h before start); `email_jobs.type` stays `reminder-same-day` for stability. */
 export function dedupeKeyReminderSameDay(userId: string, festivalId: string) {
   return `${EMAIL_JOB_TYPE_REMINDER_SAME_DAY}:${userId}:${festivalId}`;
 }

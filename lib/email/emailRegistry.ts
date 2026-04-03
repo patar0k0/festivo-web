@@ -243,16 +243,16 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
   [EMAIL_JOB_TYPE_REMINDER_SAME_DAY]: {
     buildDefaultSubject: (pl) => {
       const p = parseSavedFestivalReminderEmailPayload(pl as Record<string, unknown>);
-      return `Днес: „${p.festivalTitle.slice(0, 72)}“`;
+      return `Напомняне: „${p.festivalTitle.slice(0, 64)}“ — около 2 ч. преди начало`;
     },
     build: async (payload) => {
       const p = parseSavedFestivalReminderEmailPayload(payload as Record<string, unknown>);
       const siteUrl = siteOrigin();
-      const subject = `Днес: „${p.festivalTitle.slice(0, 72)}“`;
+      const subject = `Напомняне: „${p.festivalTitle.slice(0, 64)}“ — около 2 ч. преди начало`;
       const { html, text } = await renderEmail(
         createElement(FestivalReminderEmail, {
           siteUrl,
-          variant: "same_day",
+          variant: "two_hours_before",
           festivalTitle: p.festivalTitle,
           festivalUrl: p.festivalUrl,
           cityDisplay: p.cityDisplay,

@@ -578,6 +578,38 @@ export type Database = {
           created_at?: string
         }
       }
+      user_email_preferences: {
+        Row: {
+          user_id: string
+          reminder_emails_enabled: boolean
+          organizer_update_emails_enabled: boolean
+          marketing_emails_enabled: boolean
+          unsubscribed_all_optional: boolean
+          unsubscribe_token: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          reminder_emails_enabled?: boolean
+          organizer_update_emails_enabled?: boolean
+          marketing_emails_enabled?: boolean
+          unsubscribed_all_optional?: boolean
+          unsubscribe_token?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          reminder_emails_enabled?: boolean
+          organizer_update_emails_enabled?: boolean
+          marketing_emails_enabled?: boolean
+          unsubscribed_all_optional?: boolean
+          unsubscribe_token?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
       notification_jobs: {
         Row: {
           id: string

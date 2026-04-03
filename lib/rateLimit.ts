@@ -82,6 +82,8 @@ function getBucket(pathname: string): RateLimitBucket {
     pathname === "/api/device-token" ||
     pathname === "/api/push/register" ||
     pathname === "/api/notification-settings" ||
+    pathname === "/api/email/preferences" ||
+    pathname === "/api/email/unsubscribe" ||
     pathname === "/api/profile/avatar"
   ) {
     return { id: "user-actions", requests: 30, window: "60 s" };

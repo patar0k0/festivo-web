@@ -3,12 +3,33 @@ import type { CSSProperties } from "react";
 
 type EmailFooterProps = {
   siteUrl: string;
+  /** Optional marketing/reminder footer: unsubscribe + manage links. Omit on required transactional mail. */
+  optionalEmailLinks?: {
+    unsubscribeUrl: string;
+    managePreferencesUrl: string;
+  } | null;
 };
 
-export function EmailFooter({ siteUrl }: EmailFooterProps) {
+export function EmailFooter({ siteUrl, optionalEmailLinks }: EmailFooterProps) {
   return (
     <>
       <Hr style={divider} />
+      {optionalEmailLinks?.unsubscribeUrl && optionalEmailLinks.managePreferencesUrl ? (
+        <Text style={footer}>
+          <Link href={optionalEmailLinks.unsubscribeUrl} style={link}>
+            Спри тези имейл напомняния
+          </Link>
+          {" · "}
+          <Link href={optionalEmailLinks.managePreferencesUrl} style={link}>
+            Настройки в профила
+          </Link>
+        </Text>
+      ) : null}
+      {optionalEmailLinks?.unsubscribeUrl ? (
+        <Text style={fineMuted}>
+          Системни имейли (напр. потвърждения за акаунт и заявки към организатори) не се спират от този линк.
+        </Text>
+      ) : null}
       <Text style={footer}>
         Festivo е каталог на фестивали в България.{" "}
         <Link href={siteUrl} style={link}>
@@ -34,6 +55,13 @@ const footer: CSSProperties = {
 
 const fine: CSSProperties = {
   margin: 0,
+  fontSize: "12px",
+  lineHeight: "1.5",
+  color: "#a1a1aa",
+};
+
+const fineMuted: CSSProperties = {
+  margin: "0 0 12px",
   fontSize: "12px",
   lineHeight: "1.5",
   color: "#a1a1aa",

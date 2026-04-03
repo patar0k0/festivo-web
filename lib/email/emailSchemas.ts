@@ -169,6 +169,9 @@ export type SavedFestivalReminderEmailPayload = {
   startTimeDisplay: string | null;
   /** `same_day` accepted as legacy alias for the MVP 2h-before slot (`reminder_subkind` = `2h`). */
   reminderKind: "1_day_before" | "two_hours_before";
+  /** Optional footer link (one token per user in `user_email_preferences`). */
+  unsubscribeUrl?: string | null;
+  managePreferencesUrl?: string | null;
 };
 
 function parseReminderKind(raw: Record<string, unknown>): "1_day_before" | "two_hours_before" {
@@ -192,5 +195,7 @@ export function parseSavedFestivalReminderEmailPayload(
     startDateDisplay: optString(raw, "startDateDisplay", 120),
     startTimeDisplay: optString(raw, "startTimeDisplay", 40),
     reminderKind: parseReminderKind(raw),
+    unsubscribeUrl: optString(raw, "unsubscribeUrl", 2000),
+    managePreferencesUrl: optString(raw, "managePreferencesUrl", 2000),
   };
 }

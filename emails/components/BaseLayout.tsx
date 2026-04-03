@@ -14,9 +14,13 @@ type BaseLayoutProps = {
   children: ReactNode;
   /** Absolute site origin for footer link (e.g. https://festivo.bg). */
   siteUrl: string;
+  optionalEmailLinks?: {
+    unsubscribeUrl: string;
+    managePreferencesUrl: string;
+  } | null;
 };
 
-export function BaseLayout({ children, siteUrl }: BaseLayoutProps) {
+export function BaseLayout({ children, siteUrl, optionalEmailLinks }: BaseLayoutProps) {
   return (
     <Html lang="bg">
       <Head />
@@ -25,7 +29,7 @@ export function BaseLayout({ children, siteUrl }: BaseLayoutProps) {
           <Container style={container}>
             <EmailHeader />
             {children}
-            <EmailFooter siteUrl={siteUrl} />
+            <EmailFooter siteUrl={siteUrl} optionalEmailLinks={optionalEmailLinks} />
           </Container>
         </Section>
       </Body>

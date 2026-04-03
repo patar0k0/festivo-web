@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { canSendEmailTypeToUser, type UserEmailPreferencesRow } from "./emailPreferences";
 import type { EmailJobRow } from "./emailJobRow";
 import { parseEmailJobType } from "./emailJobTypes";
+import { isUserPreferenceGatedEmailType } from "./emailTypeCategory";
 import { renderEmailJob } from "./renderEmailJob";
 import { sendEmail } from "./sendEmail";
 
@@ -136,6 +138,32 @@ async function finalizeSendFailure(
   return "retried";
 }
 
+async function finalizePreferenceBlocked(
+  supabase: SupabaseClient,
+  job: EmailJobRow,
+): Promise<"failed"> {
+  const nowIso = new Date().toISOString();
+  const { error } = await supabase
+    .from("email_jobs")
+    .update({
+      status: "failed",
+      attempts: job.max_attempts,
+      last_error: "preference_blocked",
+      locked_at: null,
+      processing_started_at: null,
+      updated_at: nowIso,
+    })
+    .eq("id", job.id);
+
+  if (error) {
+    console.error("[email_jobs] preference_blocked finalize failed", { job_id: job.id, message: error.message });
+    throw new Error(error.message);
+  }
+
+  console.info("[email_jobs] job skipped: preference_blocked", { job_id: job.id, type: job.type });
+  return "failed";
+}
+
 export async function processOneEmailJob(
   supabase: SupabaseClient,
   job: EmailJobRow,
@@ -145,6 +173,26 @@ export async function processOneEmailJob(
     const err = `${LAST_ERROR_UNKNOWN_TYPE_PREFIX}${job.type}`;
     console.warn("[email_jobs] job rejected: unknown_type", { job_id: job.id, type: job.type });
     return finalizeSendFailure(supabase, job, err);
+  }
+
+  const recipientUserId = job.recipient_user_id?.trim() || null;
+  if (recipientUserId && isUserPreferenceGatedEmailType(jobType)) {
+    const { data: pref, error: prefErr } = await supabase
+      .from("user_email_preferences")
+      .select(
+        "user_id,reminder_emails_enabled,organizer_update_emails_enabled,marketing_emails_enabled,unsubscribed_all_optional,unsubscribe_token,created_at,updated_at",
+      )
+      .eq("user_id", recipientUserId)
+      .maybeSingle();
+
+    if (prefErr) {
+      console.warn("[email_jobs] preference lookup failed (send continues)", {
+        job_id: job.id,
+        message: prefErr.message,
+      });
+    } else if (!canSendEmailTypeToUser(jobType, (pref as UserEmailPreferencesRow | null) ?? null, recipientUserId)) {
+      return finalizePreferenceBlocked(supabase, job);
+    }
   }
 
   let built: { subject: string; html: string; text: string };

@@ -14,7 +14,9 @@ import {
   EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
   type EmailJobType,
 } from "./emailJobTypes";
-import { enqueueEmailJobSafe } from "./enqueueSafe";
+import type { UserEmailPreferencesRow } from "./emailPreferences";
+import { canSendEmailTypeToUser } from "./emailPreferences";
+import { enqueueEmailJob } from "./enqueueEmail";
 import { resolveAuthUserEmail } from "./resolveAuthUserEmail";
 
 const FESTIVAL_REMINDER_SELECT =
@@ -123,48 +125,52 @@ export async function loadFestivalsForReminderEmails(
 
 /**
  * Enqueue backup reminder email for the same due `notification_jobs` reminder row.
- * Call only after the job has passed the same gates as push in `processDueNotificationJobs`
- * (`push_enabled`, quiet hours for reminders, valid FCM payload) and **before** loading device tokens,
- * so email is not blocked by missing `device_tokens`.
- * Fail-soft: logs and returns on missing data, email, or enqueue errors.
+ * Call after quiet hours + payload validation. Push gating (`push_enabled`, device tokens) is separate.
+ * Respects `user_email_preferences` (optional reminders). Fail-soft: logs and returns false on skip/error.
  */
 export async function enqueueSavedFestivalReminderEmailFromJob(
   supabase: SupabaseClient,
   job: NotificationJobRow,
   festivalById: Map<string, FestivalRowForReminderEmail>,
-): Promise<void> {
+  prefs: UserEmailPreferencesRow | undefined,
+): Promise<boolean> {
   if (job.job_type !== "reminder") {
-    return;
+    return false;
   }
 
   const rawSubkind = (job.payload_json as Record<string, unknown>).reminder_subkind;
   if (rawSubkind !== "24h" && rawSubkind !== "2h") {
     console.warn("[reminder_email] skip: invalid reminder_subkind", { job_id: job.id, rawSubkind });
-    return;
+    return false;
   }
 
   const emailType = reminderSubkindToEmailType(rawSubkind);
   if (!emailType) {
-    return;
+    return false;
+  }
+
+  if (!canSendEmailTypeToUser(emailType, prefs ?? null, job.user_id)) {
+    console.info("[reminder_email] skip: user email preferences", { job_id: job.id, user_id: job.user_id });
+    return false;
   }
 
   const payload = job.payload_json;
   const festivalId = payload.festival_id ?? job.festival_id;
   if (!festivalId) {
     console.warn("[reminder_email] skip: missing festival_id", { job_id: job.id });
-    return;
+    return false;
   }
 
   const fest = festivalById.get(festivalId);
   if (!fest) {
     console.warn("[reminder_email] skip: festival not loaded", { job_id: job.id, festival_id: festivalId });
-    return;
+    return false;
   }
 
   const slug = fest.slug?.trim();
   if (!slug) {
     console.warn("[reminder_email] skip: missing festival slug", { job_id: job.id, festival_id: festivalId });
-    return;
+    return false;
   }
 
   const title = fest.title?.trim() || payload.title?.trim() || "Фестивал";
@@ -174,8 +180,12 @@ export async function enqueueSavedFestivalReminderEmailFromJob(
   const recipient = await resolveAuthUserEmail(supabase, job.user_id);
   if (!recipient) {
     console.info("[reminder_email] skip: no recipient email", { user_id: job.user_id, job_id: job.id });
-    return;
+    return false;
   }
+
+  const token = prefs?.unsubscribe_token?.trim() ?? "";
+  const unsubscribeUrl = token ? `${baseUrl}/unsubscribe/${token}` : undefined;
+  const managePreferencesUrl = `${baseUrl}/profile`;
 
   const dedupeKey =
     rawSubkind === "24h"
@@ -193,17 +203,21 @@ export async function enqueueSavedFestivalReminderEmailFromJob(
     startDateDisplay: formatBgLongDate(fest.start_date),
     startTimeDisplay: formatStartTimeDisplay(fest.start_time),
     reminderKind: reminderKindFromSubkind(rawSubkind),
+    ...(unsubscribeUrl ? { unsubscribeUrl, managePreferencesUrl } : { managePreferencesUrl }),
   };
 
-  await enqueueEmailJobSafe(
-    supabase,
-    {
+  try {
+    await enqueueEmailJob(supabase, {
       type: emailType,
       recipientEmail: recipient,
       recipientUserId: job.user_id,
       payload: emailPayload,
       dedupeKey,
-    },
-    `saved_festival_reminder:${job.id}`,
-  );
+    });
+    return true;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[reminder_email] enqueue failed", { job_id: job.id, message });
+    return false;
+  }
 }

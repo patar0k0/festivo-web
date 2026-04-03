@@ -17,6 +17,8 @@ type Props = {
   locationSummary: string | null;
   startDateDisplay: string | null;
   startTimeDisplay: string | null;
+  unsubscribeUrl?: string;
+  managePreferencesUrl?: string;
 };
 
 export function FestivalReminderEmail({
@@ -28,6 +30,8 @@ export function FestivalReminderEmail({
   locationSummary,
   startDateDisplay,
   startTimeDisplay,
+  unsubscribeUrl,
+  managePreferencesUrl,
 }: Props) {
   const isDayBefore = variant === "1_day_before";
 
@@ -56,8 +60,13 @@ export function FestivalReminderEmail({
       </>
     );
 
+  const optionalEmailLinks =
+    unsubscribeUrl?.trim() && managePreferencesUrl?.trim()
+      ? { unsubscribeUrl: unsubscribeUrl.trim(), managePreferencesUrl: managePreferencesUrl.trim() }
+      : null;
+
   return (
-    <BaseLayout siteUrl={siteUrl}>
+    <BaseLayout siteUrl={siteUrl} optionalEmailLinks={optionalEmailLinks}>
       <Heading as="h1" style={h1}>
         {isDayBefore ? "Напомняне за утре" : "Напомняне преди началото"}
       </Heading>

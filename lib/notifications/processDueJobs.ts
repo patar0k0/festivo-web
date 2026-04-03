@@ -4,6 +4,7 @@ import {
   enqueueSavedFestivalReminderEmailFromJob,
   loadFestivalsForReminderEmails,
 } from "@/lib/email/enqueueSavedFestivalReminderEmail";
+import { loadEmailPreferencesMapForReminderUsers } from "@/lib/email/emailPreferences";
 
 import { getFcmServerKey, invalidateDeadTokens, MAX_RETRIES, sendFcmToTokens } from "./send";
 import { notificationTypeForJob } from "./notificationTypes";
@@ -63,6 +64,9 @@ export async function processDueNotificationJobs(
   }
   const festivalById = await loadFestivalsForReminderEmails(supabase, reminderFestivalIds);
 
+  const reminderUserIds = [...new Set(rows.filter((j) => j.job_type === "reminder").map((j) => j.user_id))];
+  const emailPrefsMap = await loadEmailPreferencesMapForReminderUsers(supabase, reminderUserIds);
+
   let sent = 0;
   let failed = 0;
   let rescheduled = 0;
@@ -77,7 +81,7 @@ export async function processDueNotificationJobs(
       .maybeSingle();
 
     const pushEnabled = (settings as { push_enabled?: boolean } | null)?.push_enabled ?? true;
-    if (!pushEnabled) {
+    if (!pushEnabled && job.job_type !== "reminder") {
       await supabase
         .from("notification_jobs")
         .update({ status: "cancelled", updated_at: nowIso, last_error: "push_disabled" })
@@ -120,15 +124,38 @@ export async function processDueNotificationJobs(
     }
 
     /**
-     * Reminder email (`email_jobs`) is a backup channel for the same MVP reminder row — not a second scheduler.
-     * Gating matches push reminder intent:
-     * - `push_enabled === false`: job already cancelled above; no email (user turned off push reminders).
-     * - Quiet hours on `reminder`: job already cancelled above; no email (same as push path).
-     * - Invalid payload: failed above; no email.
-     * Enqueue runs here, after those checks and before `device_tokens`, so missing tokens do not suppress email.
+     * Reminder email (`email_jobs`): optional channel via `user_email_preferences`.
+     * Push uses `push_enabled` + tokens; email can succeed when push is off or tokens are missing.
      */
+    let reminderEmailEnqueued = false;
     if (job.job_type === "reminder") {
-      await enqueueSavedFestivalReminderEmailFromJob(supabase, job, festivalById);
+      reminderEmailEnqueued = await enqueueSavedFestivalReminderEmailFromJob(
+        supabase,
+        job,
+        festivalById,
+        emailPrefsMap.get(job.user_id),
+      );
+    }
+
+    if (!pushEnabled && job.job_type === "reminder") {
+      if (reminderEmailEnqueued) {
+        await supabase
+          .from("notification_jobs")
+          .update({ status: "sent", updated_at: nowIso, last_error: null, retry_count: 0 })
+          .eq("id", job.id);
+        sent += 1;
+      } else {
+        await supabase
+          .from("notification_jobs")
+          .update({
+            status: "cancelled",
+            updated_at: nowIso,
+            last_error: "reminder_no_active_channel",
+          })
+          .eq("id", job.id);
+        skipped += 1;
+      }
+      continue;
     }
 
     const { data: tokenRows, error: tokenErr } = await supabase
@@ -159,6 +186,14 @@ export async function processDueNotificationJobs(
       .filter(Boolean);
 
     if (!tokenList.length) {
+      if (job.job_type === "reminder" && reminderEmailEnqueued) {
+        await supabase
+          .from("notification_jobs")
+          .update({ status: "sent", updated_at: nowIso, last_error: null, retry_count: 0 })
+          .eq("id", job.id);
+        sent += 1;
+        continue;
+      }
       const rc = jobRetryCount(job) + 1;
       const giveUp = rc > MAX_RETRIES;
       await supabase

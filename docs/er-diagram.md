@@ -252,6 +252,17 @@ erDiagram
     text webhook_delivery_id UK
   }
 
+  user_email_preferences {
+    uuid user_id PK
+    boolean reminder_emails_enabled
+    boolean organizer_update_emails_enabled
+    boolean marketing_emails_enabled
+    boolean unsubscribed_all_optional
+    uuid unsubscribe_token UK
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
   notification_logs {
     uuid id PK
     uuid job_id FK
@@ -280,6 +291,7 @@ erDiagram
   auth_users ||--o{ notification_jobs : scheduled
   auth_users ||--o{ notification_logs : delivery_audit
   auth_users ||--o{ email_jobs : optional_recipient
+  auth_users ||--o{ user_email_preferences : email_prefs
   email_jobs ||--o{ email_events : delivery_audit
   notification_jobs ||--o{ notification_logs : has
 

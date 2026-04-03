@@ -234,6 +234,8 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
           locationSummary: p.locationSummary,
           startDateDisplay: p.startDateDisplay,
           startTimeDisplay: p.startTimeDisplay,
+          unsubscribeUrl: p.unsubscribeUrl ?? undefined,
+          managePreferencesUrl: p.managePreferencesUrl ?? undefined,
         }),
       );
       return { subject, html, text };
@@ -259,6 +261,8 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
           locationSummary: p.locationSummary,
           startDateDisplay: p.startDateDisplay,
           startTimeDisplay: p.startTimeDisplay,
+          unsubscribeUrl: p.unsubscribeUrl ?? undefined,
+          managePreferencesUrl: p.managePreferencesUrl ?? undefined,
         }),
       );
       return { subject, html, text };

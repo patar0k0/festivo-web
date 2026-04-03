@@ -2,6 +2,7 @@ import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { getOptionalUser } from "@/lib/authUser";
 import "../landing.css";
+import EmailPreferencesCard from "./EmailPreferencesCard";
 import NotificationSettingsCard from "./NotificationSettingsCard";
 import ProfileAvatar from "./ProfileAvatar";
 
@@ -52,7 +53,7 @@ export default async function ProfilePage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/40">Акаунт</p>
             <h1 className="mt-1.5 text-2xl font-bold tracking-tight text-[#0c0e14] md:text-3xl">Профил</h1>
             <p className="mt-2 max-w-lg text-sm leading-relaxed text-black/60">
-              Имейл, сигурност и push известия на едно място.
+              Имейл, сигурност, имейл напомняния и push известия на едно място.
             </p>
           </header>
 
@@ -90,6 +91,7 @@ export default async function ProfilePage() {
               </div>
             </section>
 
+            <EmailPreferencesCard />
             <NotificationSettingsCard />
           </div>
         </div>

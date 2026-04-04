@@ -323,5 +323,6 @@ erDiagram
 ```
 
 Notes:
+- `user_notification_settings` (not drawn) includes `default_plan_reminder_type` (`none` | `24h` | `same_day_09`) for auto-applying reminder timing when a user saves a festival to their plan; see `scripts/sql/20260406_user_notification_default_plan_reminder_type.sql`.
 - `ingest_jobs -> pending_festivals` and `pending_festivals -> festivals` are workflow links via `source_url`/approval logic, not strict FK constraints.
 - Pending AI guess columns are omitted from the diagram to keep relationships readable; column-level detail lives in Supabase, `scripts/sql/` migrations, and application types/queries—not in a static schema markdown snapshot.

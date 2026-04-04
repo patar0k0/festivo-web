@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
 import type { ReminderType } from "@/lib/plan/server";
 
 type PlanRemindersSummary = {
@@ -11,6 +12,11 @@ type PlanRemindersSummary = {
 type EmailPreferences = {
   reminder_emails_enabled: boolean;
   unsubscribed_all_optional: boolean;
+};
+
+type NotificationSettingsPayload = {
+  push_enabled?: boolean;
+  default_plan_reminder_type?: ReminderType;
 };
 
 function Toggle({
@@ -62,47 +68,72 @@ function messageForFailedSave(status: number, serverMessage?: string): string {
 }
 
 const TIMING_OPTIONS: Array<{ value: ReminderType; label: string; description: string }> = [
-  { value: "none", label: "Без напомняне", description: "Няма насрочени напомняния за запазените фестивали." },
-  { value: "24h", label: "1 ден преди", description: "Около 24 часа преди началото на събитието." },
+  {
+    value: "none",
+    label: "Без напомняне",
+    description:
+      "При ново запазване в плана няма да се създава автоматично напомняне по график. Вече запазените не се променят, освен ако не ги уеднаквиш отделно.",
+  },
+  {
+    value: "24h",
+    label: "1 ден преди",
+    description: "За нови запазвания: около 24 часа преди началото на събитието.",
+  },
   {
     value: "same_day_09",
     label: "В деня (около началото)",
-    description: "В деня на събитието — слот около началния час (и ~2 ч преди него, когато е възможно).",
+    description:
+      "За нови запазвания: в деня на събитието — слот около началния час (и ~2 ч преди него, когато е възможно).",
   },
 ];
 
-function summaryLine(args: {
+function whenPhraseForTiming(timing: ReminderType): string {
+  if (timing === "none") {
+    return "без напомняне по график";
+  }
+  if (timing === "24h") {
+    return "около 1 ден преди началото";
+  }
+  return "в деня на събитието (около началото / ~2 ч преди него)";
+}
+
+function buildSummary(args: {
+  defaultTiming: ReminderType;
   savedFestivalCount: number;
-  timing: ReminderType | "mixed" | null;
+  savedTiming: ReminderType | "mixed" | null;
   pushEnabled: boolean;
   emailEnabled: boolean;
 }): string {
-  const { savedFestivalCount, timing, pushEnabled, emailEnabled } = args;
+  const { defaultTiming, savedFestivalCount, savedTiming, pushEnabled, emailEnabled } = args;
+
+  let savedSentence: string;
   if (savedFestivalCount === 0) {
-    return "Нямаш запазени фестивали в плана — времето по-долу ще се приложи, когато добавиш такива.";
-  }
-  if (timing === "mixed") {
-    return "Имаш различно време за отделни фестивали. Избери опция по-долу, за да я уеднаквиш за всички запазени.";
-  }
-  if (timing === "none" || timing === null) {
-    return "За запазените фестивали няма активно напомняне по време.";
+    savedSentence =
+      "Нямаш запазени фестивали в плана — при следващо добавяне ще се ползва настройката по подразбиране по-долу.";
+  } else if (savedTiming === "mixed") {
+    savedSentence = `Имаш ${savedFestivalCount} запазени фестивала с различно време за напомняне. Можеш да ги уеднаквиш с бутона „Приложи към вече запазените“.`;
+  } else if (savedTiming === "none" || savedTiming === null) {
+    savedSentence =
+      "За текущо запазените няма активно напомняне по време (или е изключено за всички).";
+  } else {
+    savedSentence = `За текущо запазените времето за напомняне е: ${whenPhraseForTiming(savedTiming)}.`;
   }
 
-  const when =
-    timing === "24h"
-      ? "около 1 ден преди началото"
-      : "в деня на събитието (около началото / ~2 ч преди него)";
+  if (defaultTiming === "none") {
+    return `${savedSentence} По подразбиране за нови запазвания няма насрочено напомняне по график.`;
+  }
 
+  const whenDefault = whenPhraseForTiming(defaultTiming);
   if (pushEnabled && emailEnabled) {
-    return `Ще получаваш напомняния ${when} по push и имейл (ако си логнат в приложението и имейлът е наред).`;
+    return `${savedSentence} За нови запазвания напомнянето по график е ${whenDefault} — по push и имейл, когато каналите са наред.`;
   }
   if (pushEnabled) {
-    return `Ще получаваш напомняния ${when} само по push в приложението.`;
+    return `${savedSentence} За нови запазвания напомнянето по график е ${whenDefault} — само по push в приложението.`;
   }
   if (emailEnabled) {
-    return `Ще получаваш напомняния ${when} само по имейл.`;
+    return `${savedSentence} За нови запазвания напомнянето по график е ${whenDefault} — само по имейл.`;
   }
-  return `Времето е зададено (${when}), но и push, и имейл са изключени — няма активен канал за напомняне.`;
+  return `${savedSentence} По подразбиране времето е ${whenDefault}, но и push, и имейл са изключени — няма активен канал за напомняне.`;
 }
 
 export default function ReminderPreferencesCard() {
@@ -112,6 +143,7 @@ export default function ReminderPreferencesCard() {
     unsubscribed_all_optional: false,
   });
   const [planSummary, setPlanSummary] = useState<PlanRemindersSummary | null>(null);
+  const [defaultPlanReminder, setDefaultPlanReminder] = useState<ReminderType>("24h");
 
   const [loadError, setLoadError] = useState("");
   const [errorText, setErrorText] = useState("");
@@ -119,7 +151,8 @@ export default function ReminderPreferencesCard() {
   const [initialLoad, setInitialLoad] = useState(true);
   const [savingPush, setSavingPush] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
-  const [savingTiming, setSavingTiming] = useState(false);
+  const [savingDefaultTiming, setSavingDefaultTiming] = useState(false);
+  const [savingApplySaved, setSavingApplySaved] = useState(false);
 
   const reloadPlanSummary = useCallback(async () => {
     const res = await fetch("/api/plan/reminders", { credentials: "include", cache: "no-store" });
@@ -148,11 +181,12 @@ export default function ReminderPreferencesCard() {
           return;
         }
 
-        const nsJson = (await nsRes.json()) as { settings?: { push_enabled?: boolean } };
+        const nsJson = (await nsRes.json()) as { settings?: NotificationSettingsPayload };
         const emJson = (await emRes.json()) as { preferences?: Partial<EmailPreferences> };
         const planJson = (await planRes.json()) as PlanRemindersSummary;
 
         setPushEnabled(nsJson.settings?.push_enabled !== false);
+        setDefaultPlanReminder(parseDefaultPlanReminderType(nsJson.settings?.default_plan_reminder_type));
         setEmailPrefs({
           reminder_emails_enabled: emJson.preferences?.reminder_emails_enabled !== false,
           unsubscribed_all_optional: emJson.preferences?.unsubscribed_all_optional === true,
@@ -170,19 +204,16 @@ export default function ReminderPreferencesCard() {
     };
   }, []);
 
-  const timingValue = planSummary?.timing ?? null;
-  const selectedTimingForRadio: ReminderType | null =
-    timingValue === "mixed" || timingValue === null ? null : timingValue;
-
   const summary = useMemo(
     () =>
-      summaryLine({
+      buildSummary({
+        defaultTiming: defaultPlanReminder,
         savedFestivalCount: planSummary?.savedFestivalCount ?? 0,
-        timing: timingValue,
+        savedTiming: planSummary?.timing ?? null,
         pushEnabled,
         emailEnabled: emailPrefs.reminder_emails_enabled && !emailPrefs.unsubscribed_all_optional,
       }),
-    [planSummary?.savedFestivalCount, timingValue, pushEnabled, emailPrefs],
+    [planSummary?.savedFestivalCount, planSummary?.timing, defaultPlanReminder, pushEnabled, emailPrefs],
   );
 
   async function updatePush(next: boolean) {
@@ -210,9 +241,12 @@ export default function ReminderPreferencesCard() {
         setErrorText(messageForFailedSave(response.status, serverError));
         return;
       }
-      const payload = (await response.json()) as { settings?: { push_enabled?: boolean } };
+      const payload = (await response.json()) as { settings?: NotificationSettingsPayload };
       if (payload.settings?.push_enabled !== undefined) {
         setPushEnabled(payload.settings.push_enabled !== false);
+      }
+      if (payload.settings?.default_plan_reminder_type) {
+        setDefaultPlanReminder(parseDefaultPlanReminderType(payload.settings.default_plan_reminder_type));
       }
       setStatusText("Запазено.");
     } catch {
@@ -254,48 +288,81 @@ export default function ReminderPreferencesCard() {
     }
   }
 
-  async function updateTiming(next: ReminderType) {
-    setSavingTiming(true);
+  async function saveDefaultReminderTiming(next: ReminderType) {
+    const prev = defaultPlanReminder;
+    setDefaultPlanReminder(next);
+    setSavingDefaultTiming(true);
     setErrorText("");
     setStatusText("");
-    const prevSummary = planSummary;
-    setPlanSummary((s) =>
-      s ? { ...s, timing: next, savedFestivalCount: s.savedFestivalCount } : { savedFestivalCount: 0, timing: next },
-    );
+    try {
+      const res = await fetch("/api/notification-settings", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ default_plan_reminder_type: next }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { settings?: NotificationSettingsPayload; error?: string };
+      if (!res.ok) {
+        setDefaultPlanReminder(prev);
+        setErrorText(json.error ?? messageForFailedSave(res.status));
+        return;
+      }
+      if (json.settings?.default_plan_reminder_type) {
+        setDefaultPlanReminder(parseDefaultPlanReminderType(json.settings.default_plan_reminder_type));
+      }
+      setStatusText("Запазено е по подразбиране за нови фестивали.");
+    } catch {
+      setDefaultPlanReminder(prev);
+      setErrorText("Мрежова грешка. Опитай отново.");
+    } finally {
+      setSavingDefaultTiming(false);
+    }
+  }
+
+  async function applyTimingToSavedFestivals() {
+    const count = planSummary?.savedFestivalCount ?? 0;
+    if (count === 0) return;
+
+    setSavingApplySaved(true);
+    setErrorText("");
+    setStatusText("");
     try {
       const res = await fetch("/api/plan/reminders", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reminderType: next, applyToAllSaved: true }),
+        body: JSON.stringify({ reminderType: defaultPlanReminder, applyToAllSaved: true }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        festivalCount?: number;
+      };
       if (!res.ok) {
-        if (prevSummary) setPlanSummary(prevSummary);
-        setErrorText(json.error ?? messageForFailedSave(res.status));
+        setErrorText(
+          json.error ?? "Не успяхме да приложим времето към вече запазените фестивали. Опитай отново.",
+        );
         return;
       }
       try {
         const fresh = await reloadPlanSummary();
-        if (fresh.savedFestivalCount === 0) {
-          setPlanSummary({ savedFestivalCount: 0, timing: next });
-        } else {
-          setPlanSummary(fresh);
-        }
+        setPlanSummary(fresh);
       } catch {
-        setPlanSummary((s) => (s ? { ...s, timing: next } : { savedFestivalCount: 0, timing: next }));
+        /* keep prior summary */
       }
-      setStatusText("Времето за напомняне е обновено за всички запазени фестивали.");
+      const applied = typeof json.festivalCount === "number" ? json.festivalCount : count;
+      setStatusText(`Приложено е към ${applied} запазени фестивала.`);
     } catch {
-      if (prevSummary) setPlanSummary(prevSummary);
-      setErrorText("Мрежова грешка. Опитай отново.");
+      setErrorText("Мрежова грешка при прилагане към вече запазените. Опитай отново.");
     } finally {
-      setSavingTiming(false);
+      setSavingApplySaved(false);
     }
   }
 
   const channelsDisabled = initialLoad || Boolean(loadError);
-  const timingDisabled = initialLoad || Boolean(loadError) || savingTiming;
+  const timingDisabled = initialLoad || Boolean(loadError) || savingDefaultTiming;
+  const savedCount = planSummary?.savedFestivalCount ?? 0;
+  const applyDisabled =
+    channelsDisabled || savedCount === 0 || savingApplySaved || savingDefaultTiming;
 
   return (
     <section className="py-6 md:py-7">
@@ -381,24 +448,27 @@ export default function ReminderPreferencesCard() {
 
       <div className="mt-5 overflow-hidden rounded-xl border border-black/[0.08] bg-neutral-50/40">
         <div className="border-b border-black/[0.06] bg-white px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Кога да напомняме</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
+            По подразбиране за ново запазени фестивали
+          </p>
           <p className="mt-1 text-xs text-black/50">
-            Важи за всички фестивали, които са в твоя план. От детайла на фестивал можеш да нагласяш поотделно.
+            Това се записва в профила ти и се прилага автоматично при следващо добавяне в плана. Вече запазените не се
+            променят, освен ако не използваш бутона по-долу. От детайла на фестивал можеш да нагласиш поотделно.
           </p>
         </div>
         <ul className="divide-y divide-black/[0.06] bg-white">
           {TIMING_OPTIONS.map((opt) => {
-            const checked = selectedTimingForRadio === opt.value;
+            const checked = defaultPlanReminder === opt.value;
             return (
               <li key={opt.value}>
                 <label className="flex cursor-pointer items-start gap-3 px-4 py-3.5 transition hover:bg-neutral-50/80 md:px-4">
                   <input
                     type="radio"
-                    name="reminder-timing-global"
+                    name="reminder-timing-default"
                     value={opt.value}
                     checked={checked}
                     disabled={timingDisabled}
-                    onChange={() => void updateTiming(opt.value)}
+                    onChange={() => void saveDefaultReminderTiming(opt.value)}
                     className="mt-1 h-4 w-4 shrink-0 border-black/20 text-pine focus:ring-pine"
                   />
                   <span className="min-w-0 flex-1">
@@ -410,11 +480,26 @@ export default function ReminderPreferencesCard() {
             );
           })}
         </ul>
-        {timingValue === "mixed" && !savingTiming ? (
+        {planSummary?.timing === "mixed" && savedCount > 0 && !savingDefaultTiming ? (
           <p className="border-t border-black/[0.06] bg-amber-50/50 px-4 py-2.5 text-xs text-amber-950">
-            Избери една опция, за да я приложиш към всички запазени фестивали.
+            Запазените фестивали в момента имат различно време. Използвай бутона по-долу, за да ги изравниш с избраното
+            по подразбиране.
           </p>
         ) : null}
+        <div className="border-t border-black/[0.06] bg-white px-4 py-3">
+          <button
+            type="button"
+            disabled={applyDisabled}
+            onClick={() => void applyTimingToSavedFestivals()}
+            className="w-full rounded-lg border border-black/[0.12] bg-white px-3 py-2.5 text-sm font-medium text-[#0c0e14] transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {savingApplySaved ? "Прилагане…" : "Приложи към вече запазените"}
+          </button>
+          <p className="mt-2 text-xs text-black/45">
+            Ползва текущото „по подразбиране“ отгоре и обновява всички запазени фестивали в плана. Няма ефект, ако нямаш
+            запазени.
+          </p>
+        </div>
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-black/45">

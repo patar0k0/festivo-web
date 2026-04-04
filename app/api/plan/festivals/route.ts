@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { cancelPendingReminderJobs, scheduleSavedFestivalReminders } from "@/lib/notifications/triggers";
+import { cancelPendingReminderJobs, syncReminderJobsForPreference } from "@/lib/notifications/triggers";
+import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Payload = {
@@ -74,9 +75,46 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
-  void scheduleSavedFestivalReminders(user.id, festivalId).catch((err) =>
-    console.warn("[notifications] scheduleSavedFestivalReminders", err),
-  );
+  const { data: nsRow, error: nsErr } = await supabase
+    .from("user_notification_settings")
+    .select("default_plan_reminder_type")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (nsErr) {
+    console.warn("[plan/festivals] default_plan_reminder_type load", nsErr.message);
+  }
+
+  const defaultTiming = parseDefaultPlanReminderType(nsRow?.default_plan_reminder_type);
+
+  if (defaultTiming === "none") {
+    const { error: delRem } = await supabase
+      .from("user_plan_reminders")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("festival_id", festivalId);
+    if (delRem) {
+      console.warn("[plan/festivals] user_plan_reminders delete", delRem.message);
+    }
+    void syncReminderJobsForPreference(user.id, festivalId, "none").catch((err) =>
+      console.warn("[notifications] syncReminderJobsForPreference", err),
+    );
+  } else {
+    const { error: upsertRemErr } = await supabase.from("user_plan_reminders").upsert(
+      {
+        user_id: user.id,
+        festival_id: festivalId,
+        reminder_type: defaultTiming,
+      },
+      { onConflict: "user_id,festival_id" },
+    );
+    if (upsertRemErr) {
+      console.warn("[plan/festivals] user_plan_reminders upsert", upsertRemErr.message);
+    }
+    void syncReminderJobsForPreference(user.id, festivalId, defaultTiming).catch((err) =>
+      console.warn("[notifications] syncReminderJobsForPreference", err),
+    );
+  }
 
   const { data: verifyRow, error: verifyError } = await getExistingRow();
   if (verifyError) {

@@ -135,10 +135,14 @@ export async function cancelPendingReminderJobs(userId: string, festivalId: stri
     .eq("status", "pending");
 }
 
-/** След записване на фестивал в плана: 24ч и 2ч преди начало (ако има start_date). */
+/**
+ * Schedules pending reminder jobs for a saved festival, respecting explicit timing preference.
+ * `24h` → only ~24h-before slot; `same_day_09` → only ~2h-before slot (MVP semantics).
+ */
 export async function scheduleSavedFestivalReminders(
   userId: string,
   festivalId: string,
+  reminderPreference: Exclude<ReminderType, "none">,
 ): Promise<{ ok: boolean; error?: string }> {
   const supabase = createSupabaseAdmin();
   const { data: festival, error: fErr } = await supabase
@@ -156,7 +160,15 @@ export async function scheduleSavedFestivalReminders(
   }
 
   const now = new Date();
-  const times = computeSavedFestivalReminderTimes(festival.start_date, now, (festival as { start_time?: string | null }).start_time ?? null);
+  const allSlots = computeSavedFestivalReminderTimes(
+    festival.start_date,
+    now,
+    (festival as { start_time?: string | null }).start_time ?? null,
+  );
+  const times =
+    reminderPreference === "24h"
+      ? allSlots.filter((t) => t.subkind === "24h")
+      : allSlots.filter((t) => t.subkind === "2h");
   if (!times.length) {
     return { ok: true };
   }
@@ -201,7 +213,7 @@ export async function syncReminderJobsForPreference(
   if (reminderType === "none") {
     return { ok: true };
   }
-  return scheduleSavedFestivalReminders(userId, festivalId);
+  return scheduleSavedFestivalReminders(userId, festivalId, reminderType);
 }
 
 /** Админ промяна на фестивал: уведомява само потребители със запис в плана. */

@@ -222,7 +222,7 @@ Per-user data used by the web app and jobs. **Background jobs** use the **servic
 | `user_followed_cities` | on | select/insert/delete own | `scripts/sql/20260305_notification_preferences_and_follows.sql` |
 | `user_followed_categories` | on | select/insert/delete own | same |
 | `user_followed_organizers` | on | select/insert/delete own | same |
-| `user_notification_settings` | on | select/insert/update own | `20260305_notification_preferences_and_follows.sql`; if API saves return 500, apply `20260325_user_notification_settings_api_grants.sql` (table privileges for `authenticated`) |
+| `user_notification_settings` | on | select/insert/update own | `20260305_notification_preferences_and_follows.sql`; if API saves return 500, apply `20260325_user_notification_settings_api_grants.sql` (table privileges for `authenticated`); **`default_plan_reminder_type`** (`none`/`24h`/`same_day_09`, default `24h`) — по подразбиране за ново запазени фестивали в плана (`scripts/sql/20260406_user_notification_default_plan_reminder_type.sql`) |
 | `user_notifications` | on | select own; **insert** only **service_role** | `scripts/sql/20260304_user_notifications.sql` — rows created by reminder/discovery jobs |
 | `device_tokens` | on | select/insert/update/delete own | `scripts/sql/20260324_user_data_rls_device_tokens_plan.sql` |
 

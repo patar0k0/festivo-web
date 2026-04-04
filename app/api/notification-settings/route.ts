@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
+import type { ReminderType } from "@/lib/plan/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type NotificationSettings = {
@@ -11,6 +13,8 @@ type NotificationSettings = {
   only_saved: boolean;
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
+  /** Persisted default for newly saved plan festivals (`user_notification_settings`). */
+  default_plan_reminder_type: ReminderType;
 };
 
 type PartialNotificationSettings = Partial<NotificationSettings>;
@@ -25,6 +29,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   only_saved: false,
   quiet_hours_start: null,
   quiet_hours_end: null,
+  default_plan_reminder_type: "24h",
 };
 
 function normalizePayload(payload: PartialNotificationSettings): PartialNotificationSettings {
@@ -57,12 +62,29 @@ function normalizePayload(payload: PartialNotificationSettings): PartialNotifica
   if (payload.quiet_hours_end === null || typeof payload.quiet_hours_end === "string") {
     normalized.quiet_hours_end = payload.quiet_hours_end;
   }
+  if (
+    payload.default_plan_reminder_type === "none" ||
+    payload.default_plan_reminder_type === "24h" ||
+    payload.default_plan_reminder_type === "same_day_09"
+  ) {
+    normalized.default_plan_reminder_type = payload.default_plan_reminder_type;
+  }
 
   return normalized;
 }
 
+function mergeSettingsRow(data: Record<string, unknown> | null): NotificationSettings {
+  const base = { ...DEFAULT_SETTINGS, ...(data ?? {}) };
+  return {
+    ...base,
+    default_plan_reminder_type: parseDefaultPlanReminderType(
+      (data as { default_plan_reminder_type?: unknown } | null)?.default_plan_reminder_type,
+    ),
+  };
+}
+
 const NOTIFICATION_SETTINGS_COLUMNS =
-  "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest,push_enabled,only_saved,quiet_hours_start,quiet_hours_end" as const;
+  "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest,push_enabled,only_saved,quiet_hours_start,quiet_hours_end,default_plan_reminder_type" as const;
 
 async function requireUser() {
   const supabase = await createSupabaseServerClient();
@@ -96,10 +118,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    settings: {
-      ...DEFAULT_SETTINGS,
-      ...(data ?? {}),
-    },
+    settings: mergeSettingsRow(data as Record<string, unknown> | null),
   });
 }
 
@@ -137,7 +156,7 @@ export async function POST(request: Request) {
 
   if (updatedRow) {
     return NextResponse.json({
-      settings: { ...DEFAULT_SETTINGS, ...updatedRow },
+      settings: mergeSettingsRow(updatedRow as Record<string, unknown>),
     });
   }
 
@@ -150,7 +169,7 @@ export async function POST(request: Request) {
 
   if (!insertError && insertedRow) {
     return NextResponse.json({
-      settings: { ...DEFAULT_SETTINGS, ...insertedRow },
+      settings: mergeSettingsRow(insertedRow as Record<string, unknown>),
     });
   }
 
@@ -168,7 +187,7 @@ export async function POST(request: Request) {
 
     if (!retryError && retryRow) {
       return NextResponse.json({
-        settings: { ...DEFAULT_SETTINGS, ...retryRow },
+        settings: mergeSettingsRow(retryRow as Record<string, unknown>),
       });
     }
     return NextResponse.json(

@@ -549,6 +549,7 @@ export type Database = {
           only_saved: boolean
           quiet_hours_start: string | null
           quiet_hours_end: string | null
+          default_plan_reminder_type: string
           created_at: string
         }
         Insert: {
@@ -562,6 +563,7 @@ export type Database = {
           only_saved?: boolean
           quiet_hours_start?: string | null
           quiet_hours_end?: string | null
+          default_plan_reminder_type?: string
           created_at?: string
         }
         Update: {
@@ -575,6 +577,7 @@ export type Database = {
           only_saved?: boolean
           quiet_hours_start?: string | null
           quiet_hours_end?: string | null
+          default_plan_reminder_type?: string
           created_at?: string
         }
       }

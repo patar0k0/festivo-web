@@ -50,7 +50,7 @@ export function ResetPasswordForm() {
 
     function clearInvalidTimer() {
       if (invalidTimerRef.current !== null) {
-        clearTimeout(invalidTimerRef.current);
+        window.clearTimeout(invalidTimerRef.current);
         invalidTimerRef.current = null;
       }
     }
@@ -59,7 +59,7 @@ export function ResetPasswordForm() {
       if (settledRef.current) return;
       settledRef.current = true;
       clearInvalidTimer();
-      timers.forEach((t) => clearTimeout(t));
+      timers.forEach((t) => window.clearTimeout(t));
       setPageView("form");
     }
 
@@ -67,7 +67,7 @@ export function ResetPasswordForm() {
       if (settledRef.current) return;
       settledRef.current = true;
       clearInvalidTimer();
-      timers.forEach((t) => clearTimeout(t));
+      timers.forEach((t) => window.clearTimeout(t));
       setPageView("invalid_link");
     }
 
@@ -131,7 +131,7 @@ export function ResetPasswordForm() {
     return () => {
       settledRef.current = true;
       clearInvalidTimer();
-      timers.forEach((t) => clearTimeout(t));
+      timers.forEach((t) => window.clearTimeout(t));
       unsub?.();
     };
   }, []);
@@ -139,11 +139,11 @@ export function ResetPasswordForm() {
   useEffect(() => {
     if (pageView !== "success" || !successHasSession) return;
 
-    const t = window.setTimeout(() => {
+    const redirectTimer: number = window.setTimeout(() => {
       router.push("/profile");
     }, 2200);
 
-    return () => clearTimeout(t);
+    return () => window.clearTimeout(redirectTimer);
   }, [pageView, successHasSession, router]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {

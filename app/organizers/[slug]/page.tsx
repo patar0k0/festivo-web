@@ -117,7 +117,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
     <div className="landing-bg bg-[#f6f7fb] text-[#0c0e14]">
       <Section className="py-8 md:py-12">
         <Container>
-          <div className="mx-auto max-w-6xl space-y-10 md:space-y-12">
+          <div className="w-full space-y-10 md:space-y-12">
             <section
               aria-labelledby="organizer-profile-heading"
               className="relative overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white shadow-sm ring-1 ring-black/[0.03]"
@@ -285,9 +285,14 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                   {description ? (
                     <OrganizerProfileAbout text={description} />
                   ) : (
-                    <p className="border-t border-slate-100 pt-6 text-[15px] leading-relaxed text-slate-500">
-                      Този организатор все още няма добавено описание.
-                    </p>
+                    <div className="border-t border-slate-100 pt-6">
+                      <div className="rounded-2xl border border-dashed border-slate-200/90 bg-slate-50/80 px-4 py-5 text-center sm:px-6">
+                        <p className="text-sm font-medium text-slate-600">Все още няма описание на организатора</p>
+                        <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+                          Когато бъде добавено, ще се покаже тук за посетителите.
+                        </p>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>

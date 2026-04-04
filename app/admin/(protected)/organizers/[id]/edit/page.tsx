@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import OrganizerEditForm from "@/components/admin/OrganizerEditForm";
-import OrganizerOwnershipSection from "@/components/admin/OrganizerOwnershipSection";
+import { loadOrganizerEditWorkspace } from "@/lib/admin/organizerEditWorkspace";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -77,10 +77,14 @@ export default async function AdminOrganizerEditPage({
     );
   }
 
+  const workspace = await loadOrganizerEditWorkspace(adminClient, {
+    organizerId: id,
+    cityId: organizerRow.city_id ?? null,
+  });
+
   return (
     <div className="space-y-4">
-      <OrganizerOwnershipSection members={ownershipRows ?? []} />
-      <OrganizerEditForm organizer={organizerRow} />
+      <OrganizerEditForm organizer={organizerRow} workspace={workspace} members={ownershipRows ?? []} />
     </div>
   );
 }

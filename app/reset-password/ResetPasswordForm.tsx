@@ -32,7 +32,7 @@ export function ResetPasswordForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successHasSession, setSuccessHasSession] = useState(true);
   const settledRef = useRef(false);
-  const invalidTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const invalidTimerRef = useRef<number | null>(null);
 
   const passwordsMatch = useMemo(
     () => password.length > 0 && confirmPassword.length > 0 && password === confirmPassword,
@@ -46,7 +46,7 @@ export function ResetPasswordForm() {
     }
 
     settledRef.current = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
+    const timers: number[] = [];
 
     function clearInvalidTimer() {
       if (invalidTimerRef.current !== null) {

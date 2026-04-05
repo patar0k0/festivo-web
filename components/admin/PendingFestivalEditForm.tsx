@@ -39,6 +39,7 @@ import {
 import { ADMIN_FIELD_LABEL, adminLabelForSuggestionField, getAdminFieldLabel } from "@/lib/admin/entitySchema";
 import { getAIProviderLabel, getPendingResearchProviderKey } from "@/lib/ai/providerUi";
 import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
+import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
 
 export type PendingFestivalRecord = {
   id: string;
@@ -86,6 +87,7 @@ export type PendingFestivalRecord = {
   tags_guess: unknown;
   tags?: unknown;
   city_guess: string | null;
+  city_name_display?: string | null;
   city?: {
     id: number;
     name_bg: string | null;
@@ -392,9 +394,14 @@ export default function PendingFestivalEditForm({
   const router = useRouter();
   const tagsCurrent = normalizeTagsGuess(pendingFestival.tags);
   const cityDisplayValue =
-    normalizeDisplayValue(pendingFestival.city?.name_bg) ??
-    normalizeDisplayValue(pendingFestival.city?.slug) ??
-    "";
+    festivalSettlementDisplayText({
+      cityRelation: pendingFestival.city
+        ? { name_bg: pendingFestival.city.name_bg, slug: pendingFestival.city.slug }
+        : null,
+      city_name_display: typeof pendingFestival.city_name_display === "string" ? pendingFestival.city_name_display : null,
+      city_guess: typeof pendingFestival.city_guess === "string" ? pendingFestival.city_guess : null,
+      legacyCity: null,
+    }) ?? "";
 
   const [organizerEntries, setOrganizerEntries] = useState(() => buildInitialOrganizerEntries(pendingFestival));
   const [organizerOptions, setOrganizerOptions] = useState<OrganizerOption[]>(organizers);
@@ -1180,9 +1187,16 @@ export default function PendingFestivalEditForm({
 
   const summaryItems = useMemo(() => {
     const cityLine =
-      (normalizeDisplayValue(pendingFestival.city?.name_bg) ??
-        normalizeDisplayValue(pendingFestival.city?.slug) ??
-        form.city_id.trim()) ||
+      (form.city_id.trim() ||
+        (festivalSettlementDisplayText({
+          cityRelation: pendingFestival.city
+            ? { name_bg: pendingFestival.city.name_bg, slug: pendingFestival.city.slug }
+            : null,
+          city_name_display: typeof pendingFestival.city_name_display === "string" ? pendingFestival.city_name_display : null,
+          city_guess: typeof pendingFestival.city_guess === "string" ? pendingFestival.city_guess : null,
+          legacyCity: null,
+        }) ??
+          "")) ||
       "—";
     const sourceLine =
       (form.source_type || "").trim() ||
@@ -1202,8 +1216,9 @@ export default function PendingFestivalEditForm({
       contextValue: reviewed,
     });
   }, [
-    pendingFestival.city?.name_bg,
-    pendingFestival.city?.slug,
+    pendingFestival.city,
+    pendingFestival.city_name_display,
+    pendingFestival.city_guess,
     pendingFestival.reviewed_at,
     form.city_id,
     form.source_type,

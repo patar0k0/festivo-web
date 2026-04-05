@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
+import { resolveCityInputForApproval } from "@/lib/settlements/festivalCityText";
 import { slugify } from "@/lib/utils";
 import { canonicalFromPending, festivalPatchFromCanonical } from "@/lib/festival/mappers";
 import { canonicalFromUnknown } from "@/lib/festival/validators";
@@ -76,10 +77,11 @@ type PendingFestivalRow = {
   submitted_by_user_id?: string | null;
   submission_source?: string | null;
   city_name_display?: string | null;
+  city_guess?: string | null;
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,description_short,category,city_id,location_name,address,latitude,longitude,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls,submitted_by_user_id,submission_source,city_name_display";
+  "id,title,slug,description,description_short,category,city_id,location_name,address,latitude,longitude,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls,submitted_by_user_id,submission_source,city_name_display,city_guess";
 
 async function resolveOrganizerIdsForPublish(
   adminSupabase: SupabaseClient,
@@ -281,13 +283,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const canonicalApproved = canonicalApprovedResult.data;
 
-    let cityInput = "";
-    const postedCity = hasCityOverride && typeof body?.city === "string" ? body.city : "";
-    if (postedCity) {
-      cityInput = normalizeSettlementInput(postedCity);
-    } else if (pending.city_id != null) {
-      cityInput = String(pending.city_id);
-    }
+    const postedCityRaw = hasCityOverride && typeof body?.city === "string" ? body.city : null;
+    const cityInput = resolveCityInputForApproval({
+      postedCity: postedCityRaw,
+      city_id: pending.city_id,
+      cityRelation: null,
+      city_name_display: pending.city_name_display,
+      city_guess: pending.city_guess,
+    });
 
     if (!cityInput) {
       return fail(id, "missing_city", 400, "City is required before approving this festival.");

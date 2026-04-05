@@ -1,3 +1,5 @@
+import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
+
 export type PendingQualityBucket = "ready" | "needs_fix" | "weak";
 
 type PendingQualityInput = {
@@ -87,6 +89,21 @@ export function assessPendingFestivalQuality(row: PendingQualityInput): PendingF
   const endDate = normalizeDateValue(row.end_date);
   const cityId = typeof row.city_id === "number" ? row.city_id : null;
   const cityGuess = normalizeText(row.city_guess);
+  const cityRel =
+    row.city && typeof row.city === "object" && !Array.isArray(row.city)
+      ? (row.city as { name_bg?: unknown; slug?: unknown })
+      : null;
+  const effectiveCityText = festivalSettlementDisplayText({
+    cityRelation: cityRel
+      ? {
+          name_bg: typeof cityRel.name_bg === "string" ? cityRel.name_bg : null,
+          slug: typeof cityRel.slug === "string" ? cityRel.slug : null,
+        }
+      : null,
+    city_name_display: normalizeText(row.city_name_display),
+    city_guess: cityGuess,
+    legacyCity: null,
+  });
   const locationName = normalizeText(row.location_name);
   const locationGuess = normalizeText(row.location_guess);
   const organizerName = normalizeText(row.organizer_name);
@@ -103,7 +120,7 @@ export function assessPendingFestivalQuality(row: PendingQualityInput): PendingF
   if (!description) missingFields.push("description");
   if (!startDate) missingFields.push("start_date");
   if (!endDate) missingFields.push("end_date");
-  if (!cityId && !cityGuess) missingFields.push("city");
+  if (!cityId && !effectiveCityText) missingFields.push("city");
   if (!locationName && !locationGuess) missingFields.push("location_name");
   if (!organizerName) missingFields.push("organizer_name");
   if (!heroImage) missingFields.push("hero_image");
@@ -114,7 +131,7 @@ export function assessPendingFestivalQuality(row: PendingQualityInput): PendingF
   if (description) score += 14;
   if (startDate) score += 16;
   if (endDate) score += 8;
-  if (cityId || cityGuess) score += cityId ? 12 : 8;
+  if (cityId || effectiveCityText) score += cityId ? 12 : 8;
   if (locationName || locationGuess) score += locationName ? 10 : 7;
   if (organizerName) score += 8;
   if (heroImage) score += 8;
@@ -146,8 +163,8 @@ export function assessPendingFestivalQuality(row: PendingQualityInput): PendingF
   if (locationName && locationGuess && sameText(locationName, locationGuess)) {
     autofilledFields.push("location_name");
   }
-  if (!cityId && cityGuess) {
-    autofilledFields.push("city_guess_only");
+  if (!cityId && effectiveCityText) {
+    autofilledFields.push("city_text_only");
   }
 
   return {
@@ -155,7 +172,7 @@ export function assessPendingFestivalQuality(row: PendingQualityInput): PendingF
     quality_bucket,
     missing_fields: missingFields,
     guessed_values: {
-      city: cityGuess ?? undefined,
+      city: effectiveCityText ?? undefined,
       location: locationGuess ?? undefined,
       date: dateGuess ?? undefined,
     },
@@ -186,6 +203,7 @@ type PendingRecordForFillSummary = {
   end_date?: unknown;
   city_id?: unknown;
   city?: { name_bg?: unknown; slug?: unknown } | null;
+  city_name_display?: unknown;
   city_guess?: unknown;
   location_name?: unknown;
   address?: unknown;
@@ -251,14 +269,29 @@ export function listFilledPendingRecordFields(row: PendingRecordForFillSummary):
 
   const cityId = typeof row.city_id === "number" ? row.city_id : null;
   const cityName = normalizeText(row.city?.name_bg) ?? normalizeText(row.city?.slug);
+  const fillCityLine = festivalSettlementDisplayText({
+    cityRelation: row.city
+      ? {
+          name_bg: typeof row.city.name_bg === "string" ? row.city.name_bg : null,
+          slug: typeof row.city.slug === "string" ? row.city.slug : null,
+        }
+      : null,
+    city_name_display: normalizeText(row.city_name_display),
+    city_guess: normalizeText(row.city_guess),
+    legacyCity: null,
+  });
   if (cityId != null && cityName) {
     out.push({ key: "city_resolved", label: "Град (каноничен)", preview: `${cityName} (id ${cityId})` });
   } else if (cityId != null) {
     out.push({ key: "city_id", label: "Град (id)", preview: String(cityId) });
+  } else if (fillCityLine) {
+    out.push({ key: "city_text", label: "Град", preview: fillCityLine });
   }
 
   const cityGuess = normalizeText(row.city_guess);
-  if (cityGuess) out.push({ key: "city_guess", label: "Предположение за град", preview: cityGuess });
+  if (cityGuess && cityGuess !== fillCityLine) {
+    out.push({ key: "city_guess", label: "Предположение за град", preview: cityGuess });
+  }
 
   const locationName = normalizeText(row.location_name);
   if (locationName) out.push({ key: "location_name", label: "Място / venue", preview: truncatePreview(locationName) });

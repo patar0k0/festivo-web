@@ -1,5 +1,6 @@
 import type { Festival } from "@/lib/types";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
+import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
 
 /** Премахва типични представки в началото (за сравнение / нормализация). */
 export function stripBulgarianSettlementPrefix(name: string): string {
@@ -42,13 +43,24 @@ export function formatSettlementDisplayName(
   return trimmed;
 }
 
-/** Етикет за UI: предпочита форматираното име от `fixFestivalText`. */
-export function festivalCityLabel(
-  festival: Pick<Festival, "city_name_display" | "city">,
-  fallback = "България",
-): string {
-  const v = festival.city_name_display?.trim() || festival.city?.trim();
-  return v || fallback;
+type FestivalCityLabelInput = Pick<Festival, "city_name_display" | "city" | "cities"> & {
+  city_guess?: string | null;
+};
+
+/** Етикет за UI: канонично име → показване → предположение → legacy `city`. */
+export function festivalCityLabel(festival: FestivalCityLabelInput, fallback = "България"): string {
+  const raw =
+    festivalSettlementDisplayText({
+      cityRelation: festival.cities ?? null,
+      city_name_display: festival.city_name_display,
+      city_guess: festival.city_guess ?? null,
+      legacyCity: festival.city,
+    }) ?? "";
+  if (!raw.trim()) {
+    return fallback;
+  }
+  const formatted = formatSettlementDisplayName(raw, festival.cities?.is_village ?? undefined);
+  return formatted?.trim() || raw.trim() || fallback;
 }
 
 /**
@@ -57,7 +69,7 @@ export function festivalCityLabel(
  */
 export function organizerPageLocationLabel(
   organizerCities: { name_bg?: string | null; is_village?: boolean | null } | null | undefined,
-  festivals: Pick<Festival, "city_name_display" | "city">[],
+  festivals: FestivalCityLabelInput[],
 ): string | null {
   const primary = formatSettlementDisplayName(organizerCities?.name_bg ?? null, organizerCities?.is_village ?? undefined);
   if (primary?.trim()) return primary.trim();

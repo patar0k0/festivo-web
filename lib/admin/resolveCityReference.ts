@@ -2,6 +2,9 @@ import "server-only";
 
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { normalizeSettlementInput } from "@/lib/settlements/normalizeSettlementInput";
+
+export { normalizeSettlementInput };
 
 export type ResolvedCity = {
   id: number;
@@ -41,18 +44,6 @@ const BG_TO_LATIN: Record<string, string> = {
   ю: "yu",
   я: "ya",
 };
-
-export function normalizeSettlementInput(value: string) {
-  const trimmed = value.trim().replace(/\s+/g, " ");
-
-  if (!trimmed) {
-    return "";
-  }
-
-  // Strip common Bulgarian locality prefixes at the beginning (e.g. "с. ", "гр. ").
-  // Require „с.“ with a dot so we do not strip the first letter of names like „Стара Загора“.
-  return trimmed.replace(/^(?:гр\.\s*|град\s+|с\.\s*|село\s+)/iu, "");
-}
 
 function citySlugFromName(name: string) {
   const lowered = name.toLocaleLowerCase("bg-BG");

@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, OrganizerProfile, PaginatedResult } from "@/lib/types";
 import { withDefaultFilters } from "@/lib/filters";
 import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
+import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
@@ -230,9 +231,15 @@ function applyFilters<T extends FilterQuery<T>>(
 }
 
 export function fixFestivalText(festival: Festival): Festival {
-  const rawDisplayName = festival.cities?.name_bg ?? festival.city;
   const settlementKind = festival.cities?.is_village;
-  const city_name_display = formatSettlementDisplayName(rawDisplayName, settlementKind);
+  const rawLine =
+    festivalSettlementDisplayText({
+      cityRelation: festival.cities ?? null,
+      city_name_display: festival.city_name_display,
+      city_guess: (festival as Festival & { city_guess?: string | null }).city_guess ?? null,
+      legacyCity: festival.city,
+    }) ?? null;
+  const city_name_display = formatSettlementDisplayName(rawLine, settlementKind);
 
   const occurrenceNorm = normalizeOccurrenceDatesInput((festival as Festival & { occurrence_dates?: unknown }).occurrence_dates);
 

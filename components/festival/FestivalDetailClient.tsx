@@ -22,6 +22,7 @@ import {
   normalizeFestivalLocationText,
 } from "@/lib/festival/publicLocationDisplay";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { normalizeFestivalGalleryUrlKey } from "@/lib/festival/normalizeFestivalGalleryUrlKey";
 import { getVideoEmbedSrcFromPageUrl } from "@/lib/festival/videoEmbed";
 import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
 import type { ReminderType } from "@/lib/plan/server";
@@ -231,19 +232,26 @@ export default function FestivalDetailClient({
   const galleryItems = useMemo(() => {
     const seen = new Set<string>();
     const out: Array<{ id: string | number; url: string; caption?: string | null }> = [];
-    const heroNorm = heroImage && !heroImageFailed ? normalizeHeroUrl(heroImage) : null;
+    const markSeen = (url: string): boolean => {
+      const key = normalizeFestivalGalleryUrlKey(url);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    };
     const add = (id: string | number, url: string | null | undefined, caption?: string | null) => {
       const u = normalizeHeroUrl(url);
-      if (!u || seen.has(u)) return;
-      if (heroNorm && u === heroNorm) return;
-      seen.add(u);
+      if (!u || !markSeen(u)) return;
       out.push({ id, url: u, caption });
     };
+    const heroUrl = normalizeHeroUrl(heroImage);
+    if (heroUrl && markSeen(heroUrl)) {
+      out.push({ id: `hero-${festival.id}`, url: heroUrl, caption: null });
+    }
     for (const m of imageMedia) {
       add(m.id, m.url, m.caption);
     }
     return out;
-  }, [festival.id, heroImage, heroImageFailed, imageMedia]);
+  }, [festival.id, heroImage, imageMedia]);
 
   const categoryText = categoryLabel(festival.category);
   const formattedDateRange = formatFestivalDateLineLongBg(festival);

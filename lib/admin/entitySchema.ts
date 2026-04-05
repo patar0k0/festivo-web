@@ -232,6 +232,9 @@ export function adminEntityUsesInlineLayout(field: string): boolean {
 export function adminResearchAiFieldGridClass(key: string): "" | "md:col-span-2" {
   const full = new Set([
     "title",
+    "category",
+    "city",
+    "location_name",
     "address",
     "website_url",
     "facebook_url",

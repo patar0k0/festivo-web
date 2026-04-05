@@ -725,7 +725,7 @@ export default function ResearchFestivalPanel() {
                 {renderTextCandidates("title", result.candidates.titles)}
                 </label>
               </div>
-              <div>
+              <div className="md:col-span-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">{ADMIN_FIELD_LABEL.confidence}</p>
                 <p className="mt-1 text-sm font-medium text-black/80">{result.confidence.overall}</p>
               </div>
@@ -758,7 +758,7 @@ export default function ResearchFestivalPanel() {
 
           <AdminFieldSection title={ADMIN_ENTITY_SECTION.location.title} variant={ADMIN_ENTITY_SECTION.location.variant}>
             <AdminFieldGrid>
-              <div>
+              <div className="md:col-span-2">
                 <AdminFieldInlineRow field="city">
                   <input
                     value={finalValues.city ?? ""}

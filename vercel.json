@@ -11,10 +11,6 @@
     {
       "path": "/api/notifications/weekend-trigger/sat_09",
       "schedule": "0 7 * * 6"
-    },
-    {
-      "path": "/api/jobs/email",
-      "schedule": "*/2 * * * *"
     }
   ]
 }

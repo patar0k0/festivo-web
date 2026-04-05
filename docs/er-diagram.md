@@ -40,6 +40,7 @@ erDiagram
     time start_time
     time end_time
     jsonb occurrence_dates
+    jsonb program_draft
     text hero_image
     text[] tags
     text status

@@ -34,6 +34,8 @@ import {
 import { getListingShortFromEvidenceJson } from "@/lib/admin/festivalListingShort";
 import { ADMIN_FIELD_LABEL, getAdminFieldLabel } from "@/lib/admin/entitySchema";
 import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
+import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
+import { compactProgramDraft, emptyProgramDraft, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
 
 type FestivalRecord = {
   id: string;
@@ -187,10 +189,12 @@ export default function FestivalEditForm({
   festival,
   organizers,
   initialMedia = [],
+  initialProgramDraft,
 }: {
   festival: FestivalRecord;
   organizers: OrganizerOption[];
   initialMedia?: PublishedMediaRow[];
+  initialProgramDraft?: ProgramDraft;
 }) {
   const initialCityDisplay = festival.city_name ?? festival.city ?? "";
 
@@ -298,6 +302,10 @@ export default function FestivalEditForm({
   const [heroPreviewError, setHeroPreviewError] = useState(false);
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
   const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(festival.occurrence_dates) ?? []);
+  const [programDraft, setProgramDraft] = useState<ProgramDraft>(() => initialProgramDraft ?? emptyProgramDraft());
+  const [programDraftSaving, setProgramDraftSaving] = useState(false);
+  const [programDraftMessage, setProgramDraftMessage] = useState("");
+  const [programDraftError, setProgramDraftError] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -307,6 +315,11 @@ export default function FestivalEditForm({
   useEffect(() => {
     setHeroPreviewError(false);
   }, [form.hero_image]);
+
+  const initialProgramDraftKey = JSON.stringify(initialProgramDraft ?? null);
+  useEffect(() => {
+    setProgramDraft(initialProgramDraft ?? emptyProgramDraft());
+  }, [festival.id, initialProgramDraftKey]);
 
   const videoEmbedSrc = useMemo(() => getVideoEmbedSrcFromPageUrl(videoUrl.trim()), [videoUrl]);
 
@@ -601,6 +614,31 @@ export default function FestivalEditForm({
 
     setMessage("");
     setError(validation.message);
+  };
+
+  const onSaveProgramDraft = async () => {
+    setProgramDraftMessage("");
+    setProgramDraftError("");
+    setProgramDraftSaving(true);
+    try {
+      const response = await fetch(`/admin/api/festivals/${festival.id}/schedule`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          program_draft: programDraftHasContent(programDraft) ? compactProgramDraft(programDraft) : null,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Програмата не беше записана."));
+      }
+      setProgramDraftMessage("Програмата е записана.");
+      router.refresh();
+    } catch (e) {
+      setProgramDraftError(e instanceof Error ? e.message : "Грешка при запис на програмата.");
+    } finally {
+      setProgramDraftSaving(false);
+    }
   };
 
   const onCreateOrganizer = async () => {
@@ -963,6 +1001,26 @@ export default function FestivalEditForm({
             </div>
           </div>
         </AdminFieldGrid>
+      </AdminFieldSection>
+
+      <AdminFieldSection
+        title="Програма"
+        description="Публична програма (festival_days / festival_schedule_items). Отделен запис от основните полета на фестивала."
+        variant="default"
+      >
+        <ProgramDraftEditor value={programDraft} onChange={setProgramDraft} />
+        {programDraftError ? <p className="mt-2 text-sm text-[#b13a1a]">{programDraftError}</p> : null}
+        {programDraftMessage ? <p className="mt-2 text-sm text-[#0e7a45]">{programDraftMessage}</p> : null}
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={onSaveProgramDraft}
+            disabled={programDraftSaving || Boolean(actionPending) || saving}
+            className="rounded-lg border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {programDraftSaving ? "Запис…" : "Запази програмата"}
+          </button>
+        </div>
       </AdminFieldSection>
 
       <AdminFieldSection title={ADMIN_ENTITY_SECTION.location.title} variant={ADMIN_ENTITY_SECTION.location.variant}>

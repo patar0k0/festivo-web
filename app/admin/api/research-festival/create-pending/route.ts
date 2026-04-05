@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin/research/pendingCreateHandoff";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
+import { compactProgramDraft, parseProgramDraftUnknown, programDraftHasContent } from "@/lib/festival/programDraft";
 import type { ResearchBestGuess, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
 import type { PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 
@@ -167,6 +168,7 @@ async function insertPendingWithFallback(ctx: AdminContext, payload: Record<stri
     "extraction_version",
     "city_name_display",
     "description_short",
+    "program_draft",
   ]);
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -248,6 +250,15 @@ export async function POST(request: Request) {
     const aiVenue = sanitizeNullableString(ai.location_name);
     const aiSlugGuess = sanitizeNullableString(ai.slug);
 
+    let aiProgramDraftInsert: unknown = null;
+    if (ai.program_draft != null) {
+      const pd = parseProgramDraftUnknown(ai.program_draft);
+      if (!pd.ok) {
+        return NextResponse.json({ error: `program_draft: ${pd.error}` }, { status: 400 });
+      }
+      aiProgramDraftInsert = programDraftHasContent(pd.value) ? compactProgramDraft(pd.value) : null;
+    }
+
     const insertPayload: Record<string, unknown> = {
       title: aiTitle,
       slug: resolvePendingSlugFromResearch(aiSlugGuess, aiTitle),
@@ -285,6 +296,7 @@ export async function POST(request: Request) {
       extraction_version: "research_ai_perplexity_v1",
       source_type: aiNormalizedSourceType,
       status: "pending",
+      program_draft: aiProgramDraftInsert,
     };
 
     return insertPendingWithFallback(ctx, insertPayload);
@@ -311,6 +323,10 @@ export async function POST(request: Request) {
         body.final_values && "description_short" in body.final_values
           ? body.final_values.description_short
           : body.result.best_guess.description_short,
+      program_draft:
+        body.final_values && "program_draft" in body.final_values
+          ? body.final_values.program_draft
+          : body.result.best_guess.program_draft,
     },
   };
 
@@ -331,6 +347,15 @@ export async function POST(request: Request) {
   const sourceUrl = sourcePrimaryUrl ?? fallbackSource?.url ?? null;
 
   const finalValues = normalized.best_guess;
+
+  let programDraftForInsert: unknown = null;
+  if (finalValues.program_draft !== undefined && finalValues.program_draft !== null) {
+    const pd = parseProgramDraftUnknown(finalValues.program_draft);
+    if (!pd.ok) {
+      return NextResponse.json({ error: `program_draft: ${pd.error}` }, { status: 400 });
+    }
+    programDraftForInsert = programDraftHasContent(pd.value) ? compactProgramDraft(pd.value) : null;
+  }
 
   const heroResolvedLegacy = await resolveHeroImageFieldForInsert(sanitizeNullableString(finalValues.hero_image));
   if ("error" in heroResolvedLegacy) {
@@ -388,6 +413,7 @@ export async function POST(request: Request) {
     extraction_version: "research_candidates_v1",
     source_type: normalizeFestivalSourceType("web_research"),
     status: "pending",
+    program_draft: programDraftForInsert,
   };
 
   console.info(

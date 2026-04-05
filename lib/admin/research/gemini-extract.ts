@@ -1,5 +1,17 @@
 import { geminiExtractJson } from "@/lib/admin/research/gemini-provider";
 
+export type GeminiProgramDayRaw = {
+  date: string | null;
+  title: string | null;
+  items: Array<{
+    title: string | null;
+    start_time: string | null;
+    end_time: string | null;
+    stage: string | null;
+    description: string | null;
+  }> | null;
+};
+
 export type GeminiRawExtraction = {
   title: string | null;
   start_date: string | null;
@@ -22,6 +34,11 @@ export type GeminiRawExtraction = {
   is_free: boolean | null;
   category: string | null;
   tags: string[] | null;
+  /**
+   * Optional day-by-day program when the evidence text lists times/lines clearly.
+   * Evidence-only; null when no structured program is stated.
+   */
+  program: { days: GeminiProgramDayRaw[] | null } | null;
 };
 
 const EXTRACTION_SCHEMA = {
@@ -46,6 +63,40 @@ const EXTRACTION_SCHEMA = {
     is_free: { type: "boolean", nullable: true },
     category: { type: "string", nullable: true },
     tags: { type: "array", items: { type: "string" }, nullable: true },
+    program: {
+      type: "object",
+      nullable: true,
+      properties: {
+        days: {
+          type: "array",
+          nullable: true,
+          items: {
+            type: "object",
+            properties: {
+              date: { type: "string", nullable: true },
+              title: { type: "string", nullable: true },
+              items: {
+                type: "array",
+                nullable: true,
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string", nullable: true },
+                    start_time: { type: "string", nullable: true },
+                    end_time: { type: "string", nullable: true },
+                    stage: { type: "string", nullable: true },
+                    description: { type: "string", nullable: true },
+                  },
+                  required: ["title", "start_time", "end_time", "stage", "description"],
+                },
+              },
+            },
+            required: ["date", "title", "items"],
+          },
+        },
+      },
+      required: ["days"],
+    },
   },
   required: [
     "title",
@@ -67,6 +118,7 @@ const EXTRACTION_SCHEMA = {
     "is_free",
     "category",
     "tags",
+    "program",
   ],
 };
 
@@ -79,7 +131,8 @@ const SYSTEM = `Ти извличаш структурирани данни за
 - Кратко описание на български (до 4 изречения) само ако се поддържа от текста.
 - Ако има няколко отделни организатора, попълни organizer_names с всеки поотделно; organizer_name може да е първият или null.
 - URL полета: само ако се появяват като връзки или ясно в текста; иначе null.
-- is_free: true само ако текстъе изрично сочи безплатно/вход свободен; иначе null или false ако има такса.`;
+- is_free: true само ако текстъе изрично сочи безплатно/вход свободен; иначе null или false ако има такса.
+- program: попълни само ако в текста има ясна програма по дни (часове + заглавия/артисти). Поле program.days: масив от дни с date (YYYY-MM-DD) и items с title; start_time/end_time като HH:mm само ако са изрично в текста; stage/description само от текста. Ако няма структурирана програма → program=null.`;
 
 export async function extractFestivalFieldsFromEvidence(input: {
   userQuery: string;
@@ -98,16 +151,25 @@ export async function extractFestivalFieldsFromEvidence(input: {
     0,
   );
 
+  const withProgram = (row: GeminiRawExtraction): GeminiRawExtraction => ({
+    ...row,
+    program: row.program ?? null,
+  });
+
   try {
-    return await geminiExtractJson<GeminiRawExtraction>({
-      systemInstruction: SYSTEM,
-      userText,
-      responseSchema: EXTRACTION_SCHEMA,
-    });
+    return withProgram(
+      await geminiExtractJson<GeminiRawExtraction>({
+        systemInstruction: SYSTEM,
+        userText,
+        responseSchema: EXTRACTION_SCHEMA,
+      }),
+    );
   } catch {
-    return geminiExtractJson<GeminiRawExtraction>({
-      systemInstruction: SYSTEM,
-      userText,
-    });
+    return withProgram(
+      await geminiExtractJson<GeminiRawExtraction>({
+        systemInstruction: SYSTEM,
+        userText,
+      }),
+    );
   }
 }

@@ -1,3 +1,5 @@
+import { compactProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
+
 export type AiResearchConfidence = "low" | "medium" | "high";
 
 export type PerplexityFestivalResearchResult = {
@@ -20,6 +22,8 @@ export type PerplexityFestivalResearchResult = {
   ticket_url: string | null;
   hero_image: string | null;
   is_free: boolean | null;
+  /** Structured program when sources list a schedule (days + timed items). */
+  program_draft: ProgramDraft | null;
   source_urls: string[];
   confidence: AiResearchConfidence;
   missing_fields: string[];
@@ -132,6 +136,7 @@ const REQUIRED_SCHEMA_FIELDS: Array<keyof PerplexityFestivalResearchResult> = [
   "ticket_url",
   "hero_image",
   "is_free",
+  "program_draft",
   "source_urls",
   "confidence",
   "missing_fields",
@@ -158,6 +163,41 @@ const PERPLEXITY_JSON_SCHEMA = {
     ticket_url: { type: ["string", "null"] },
     hero_image: { type: ["string", "null"] },
     is_free: { type: ["boolean", "null"] },
+    program_draft: {
+      type: ["object", "null"],
+      additionalProperties: false,
+      required: ["days"],
+      properties: {
+        version: { type: ["number", "null"] },
+        days: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["date", "items"],
+            properties: {
+              date: { type: "string" },
+              title: { type: ["string", "null"] },
+              items: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["title"],
+                  properties: {
+                    title: { type: "string" },
+                    start_time: { type: ["string", "null"] },
+                    end_time: { type: ["string", "null"] },
+                    stage: { type: ["string", "null"] },
+                    description: { type: ["string", "null"] },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     source_urls: { type: "array", items: { type: "string" } },
     confidence: { type: "string", enum: ["low", "medium", "high"] },
     missing_fields: { type: "array", items: { type: "string" } },
@@ -191,6 +231,13 @@ function sanitizeNullableString(value: unknown): string | null {
 function sanitizeBooleanOrNull(value: unknown): boolean | null {
   if (typeof value !== "boolean") return null;
   return value;
+}
+
+function sanitizeProgramDraftInput(value: unknown): ProgramDraft | null {
+  if (value === null || value === undefined) return null;
+  const parsed = parseProgramDraftUnknown(value);
+  if (!parsed.ok || !programDraftHasContent(parsed.value)) return null;
+  return compactProgramDraft(parsed.value);
 }
 
 function sanitizeConfidence(value: unknown): AiResearchConfidence {
@@ -466,6 +513,7 @@ function normalizeResult(
     ticket_url: sanitizeUrl(data.ticket_url),
     hero_image: sanitizeUrl(data.hero_image),
     is_free: sanitizeBooleanOrNull(data.is_free),
+    program_draft: sanitizeProgramDraftInput(data.program_draft),
     source_urls,
     confidence: sanitizeConfidence(data.confidence),
     missing_fields: [],
@@ -495,6 +543,7 @@ function normalizeResult(
     for (const key of STRICT_NULL_FIELDS) {
       result[key] = null;
     }
+    result.program_draft = null;
 
     if (!hasStrongCanonicalMatch) {
       result.address = null;
@@ -524,12 +573,13 @@ function normalizeResult(
     result.end_date = result.start_date;
   }
 
-  const hasFactualClaims = FACTUAL_FIELDS.some((field) => result[field] !== null);
+  const hasFactualClaims = FACTUAL_FIELDS.some((field) => result[field] !== null) || programDraftHasContent(result.program_draft);
   if (hasFactualClaims && result.source_urls.length === 0) {
     for (const key of FACTUAL_FIELDS) {
       result[key] = null;
     }
     result.organizer_names = null;
+    result.program_draft = null;
   }
 
   // Light heuristic when model omitted boolean (admin-only hint).
@@ -598,6 +648,7 @@ function buildMessages(query: string, context: ExtractionContext): PerplexityMes
             ticket_url: null,
             hero_image: null,
             is_free: null,
+            program_draft: null,
             source_urls: [],
             confidence: "low",
             missing_fields: [],
@@ -612,7 +663,8 @@ function buildMessages(query: string, context: ExtractionContext): PerplexityMes
         "- if website_url is unknown but an event page URL is confirmed in source_urls, set website_url to that event page",
         "- extract organizer_name / organizer_names (multiple distinct organizers) / location_name / address whenever explicitly written in any cited source",
         "- preserve provided social links (facebook_url, instagram_url) when they appear in cited sources",
-        "- program/schedule details must be null unless explicitly supported by trusted sources",
+        "- program_draft: when sources list a day-by-day or timed schedule, return { days: [{ date: YYYY-MM-DD, title?, items: [{ title, start_time?, end_time?, stage?, description? }] }] }; otherwise null",
+        "- program/schedule must not be invented; only explicit listed times/titles from cited sources",
         "- confidence must be one of: low, medium, high",
         "- source_urls should prioritize high-value sources and avoid noisy duplicates",
         "- missing_fields must list schema keys that remain unknown/null",
@@ -642,6 +694,7 @@ function buildEnrichmentMessages(query: string, context: ExtractionContext, firs
     ticket_url: firstPass.ticket_url,
     hero_image: firstPass.hero_image,
     is_free: firstPass.is_free,
+    program_draft: firstPass.program_draft,
   };
 
   return [
@@ -684,6 +737,7 @@ function buildEnrichmentMessages(query: string, context: ExtractionContext, firs
             ticket_url: null,
             hero_image: null,
             is_free: null,
+            program_draft: null,
             source_urls: [],
             confidence: "low",
             missing_fields: [],
@@ -756,6 +810,10 @@ function mergeResults(
 
   if ((!merged.organizer_names || merged.organizer_names.length === 0) && enrichment.organizer_names && enrichment.organizer_names.length > 0) {
     merged.organizer_names = enrichment.organizer_names;
+  }
+
+  if (!programDraftHasContent(merged.program_draft) && programDraftHasContent(enrichment.program_draft)) {
+    merged.program_draft = enrichment.program_draft;
   }
 
   merged.source_urls = cleanSourceUrls([...base.source_urls, ...enrichment.source_urls]);

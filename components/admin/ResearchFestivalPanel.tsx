@@ -3,6 +3,8 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ResearchBestGuess, ResearchDateCandidate, ResearchFestivalResult, ResearchFieldCandidate } from "@/lib/admin/research/types";
+import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
+import { emptyProgramDraft, programDraftHasContent } from "@/lib/festival/programDraft";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { parseFlexibleDateToIso } from "@/lib/dates/euDateFormat";
 import type { AiResearchConfidence, PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
@@ -40,6 +42,7 @@ const EMPTY_FINAL_VALUES: EditableFinalValues = {
   hero_image: null,
   tags: [],
   is_free: null,
+  program_draft: null,
 };
 
 type AiEditableStringField =
@@ -289,7 +292,8 @@ export default function ResearchFestivalPanel() {
       setResult(payload.result);
       setAiResult(null);
       setAiDraft(null);
-      setFinalValues(payload.result.best_guess ?? EMPTY_FINAL_VALUES);
+      const bg = payload.result.best_guess ?? EMPTY_FINAL_VALUES;
+      setFinalValues({ ...EMPTY_FINAL_VALUES, ...bg, program_draft: bg.program_draft ?? null });
       setSuccess("Research completed. Review candidates and finalize values below.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unexpected error while researching.");
@@ -694,6 +698,33 @@ export default function ResearchFestivalPanel() {
             </div>
           </AdminFieldSection>
         </>
+      ) : null}
+
+      {aiDraft || result ? (
+        <AdminFieldSection
+          title="Програма"
+          description="Структурирана програма по дни (часове, сцена, заглавия). Запазва се в черновата при създаване на pending."
+          variant="default"
+        >
+          {aiDraft ? (
+            <ProgramDraftEditor
+              value={aiDraft.program_draft ?? emptyProgramDraft()}
+              onChange={(next) => {
+                const nextDraft = programDraftHasContent(next) ? next : null;
+                setAiDraft((prev) => (prev ? { ...prev, program_draft: nextDraft } : prev));
+              }}
+            />
+          ) : null}
+          {result && !aiDraft ? (
+            <ProgramDraftEditor
+              value={finalValues.program_draft ?? emptyProgramDraft()}
+              onChange={(next) => {
+                const nextDraft = programDraftHasContent(next) ? next : null;
+                setFinalValues((prev) => ({ ...prev, program_draft: nextDraft }));
+              }}
+            />
+          ) : null}
+        </AdminFieldSection>
       ) : null}
 
       {error ? <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}

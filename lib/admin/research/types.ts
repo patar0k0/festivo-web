@@ -1,4 +1,5 @@
 import type { SourceAuthorityTier } from "@/lib/admin/research/source-ranking";
+import type { ProgramDraft } from "@/lib/festival/programDraft";
 
 export type ResearchConfidenceLevel = "high" | "medium" | "low";
 export type ResearchLanguageSignal = "bg" | "mixed" | "non_bg";
@@ -76,6 +77,8 @@ export type ResearchBestGuess = {
   ticket_url?: string | null;
   address?: string | null;
   category?: string | null;
+  /** Structured program draft when research or ingestion extracted a schedule. */
+  program_draft?: ProgramDraft | null;
 };
 
 export type ResearchConfidence = {
@@ -130,6 +133,7 @@ export type ResearchFestivalResult = {
   hero_image?: string | null;
   tags?: string[];
   is_free?: boolean | null;
+  program_draft?: ProgramDraft | null;
 };
 
 export type ResearchFestivalRequest = {

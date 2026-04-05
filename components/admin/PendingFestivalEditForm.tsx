@@ -40,6 +40,8 @@ import { ADMIN_FIELD_LABEL, adminLabelForSuggestionField, getAdminFieldLabel } f
 import { getAIProviderLabel, getPendingResearchProviderKey } from "@/lib/ai/providerUi";
 import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
 import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
+import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
+import { compactProgramDraft, emptyProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
 
 export type PendingFestivalRecord = {
   id: string;
@@ -106,8 +108,15 @@ export type PendingFestivalRecord = {
   lng_guess?: number | string | null;
   video_url?: string | null;
   gallery_image_urls?: unknown;
+  program_draft?: unknown;
   [key: string]: unknown;
 };
+
+function programDraftStateFromPending(value: unknown): ProgramDraft {
+  const p = parseProgramDraftUnknown(value);
+  if (p.ok && programDraftHasContent(p.value)) return compactProgramDraft(p.value);
+  return emptyProgramDraft();
+}
 
 function parseGalleryUrls(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -511,6 +520,7 @@ export default function PendingFestivalEditForm({
   const [galleryImportUrl, setGalleryImportUrl] = useState("");
   const [importingGalleryFromUrl, setImportingGalleryFromUrl] = useState(false);
   const galleryOpsBusy = extraGalleryBusy || importingGalleryFromUrl;
+  const [programDraft, setProgramDraft] = useState<ProgramDraft>(() => programDraftStateFromPending(pendingFestival.program_draft));
   const [extraVideoBusy, setExtraVideoBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -530,7 +540,8 @@ export default function PendingFestivalEditForm({
   useEffect(() => {
     setGalleryUrls(parseGalleryUrls(pendingFestival.gallery_image_urls));
     setVideoUrlExtra(pendingFestival.video_url?.trim() ?? "");
-  }, [pendingFestival.id, pendingFestival.gallery_image_urls, pendingFestival.video_url]);
+    setProgramDraft(programDraftStateFromPending(pendingFestival.program_draft));
+  }, [pendingFestival.id, pendingFestival.gallery_image_urls, pendingFestival.video_url, pendingFestival.program_draft]);
   const [appliedAiFields, setAppliedAiFields] = useState<Record<SuggestionField, boolean>>({
     category: false,
     tags: false,
@@ -814,6 +825,7 @@ export default function PendingFestivalEditForm({
           tags: form.tags,
           video_url: videoUrlExtra.trim() || null,
           gallery_image_urls: galleryUrls,
+          program_draft: programDraftHasContent(programDraft) ? compactProgramDraft(programDraft) : null,
         }),
       });
 
@@ -1373,6 +1385,14 @@ export default function PendingFestivalEditForm({
               </div>
             </div>
           </AdminFieldGrid>
+        </AdminFieldSection>
+
+        <AdminFieldSection
+          title="Програма"
+          description="Чернова за публичната програма. При одобрение се записва в festival_days и festival_schedule_items."
+          variant="default"
+        >
+          <ProgramDraftEditor value={programDraft} onChange={setProgramDraft} />
         </AdminFieldSection>
 
         <AdminFieldSection

@@ -6,6 +6,7 @@ import { rankSearchHits, type SearchHit } from "@/lib/admin/research/search-hit-
 import { extractDomain, fetchSourceDocument } from "@/lib/admin/research/source-extract";
 import { getSourceAuthorityTier } from "@/lib/admin/research/source-ranking";
 import { normalizeResearchResult } from "@/lib/admin/research/normalize";
+import { programDraftFromGeminiProgram, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
 import type {
   ResearchCandidates,
   ResearchConfidence,
@@ -39,6 +40,15 @@ function toSource(hit: SearchHit): ResearchSource {
     tier,
     language: null,
   };
+}
+
+function mergeProgramDraftFromExtractions(rows: Array<{ rank: number; ex: GeminiRawExtraction }>): ProgramDraft | null {
+  const sorted = [...rows].sort((a, b) => a.rank - b.rank);
+  for (const row of sorted) {
+    const draft = programDraftFromGeminiProgram(row.ex.program);
+    if (draft && programDraftHasContent(draft)) return draft;
+  }
+  return null;
 }
 
 function mergeExtractions(
@@ -123,6 +133,13 @@ function mergeExtractions(
         }
       }
       return out;
+    })(),
+    program: (() => {
+      for (const row of sorted) {
+        const draft = programDraftFromGeminiProgram(row.ex.program);
+        if (draft && programDraftHasContent(draft)) return row.ex.program;
+      }
+      return null;
     })(),
   };
 
@@ -306,6 +323,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
         hero_image: null,
         tags: [],
         is_free: null,
+        program_draft: null,
       },
       candidates: { titles: [], dates: [], cities: [], locations: [], organizers: [] },
       sources: [],
@@ -371,6 +389,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
         ticket_url: null,
         address: null,
         category: null,
+        program_draft: null,
       },
       candidates: { titles: [], dates: [], cities: [], locations: [], organizers: [] },
       sources,
@@ -387,6 +406,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
   }
 
   const { merged, evidence, candidates, conflictCount: conflictWarnings } = mergeExtractions(extractionRows, warnings);
+  const programDraftMerged = mergeProgramDraftFromExtractions(extractionRows);
 
   const tier1 = sources.some((s) => s.tier === "tier1_official");
   const overallConf = confidenceFromState({
@@ -423,6 +443,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
       ticket_url: str(merged.ticket_url),
       address: str(merged.address),
       category: str(merged.category),
+      program_draft: programDraftMerged,
     },
     candidates,
     sources,
@@ -453,6 +474,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
     hero_image: str(merged.hero_image),
     tags: Array.isArray(merged.tags) ? merged.tags : [],
     is_free: merged.is_free,
+    program_draft: programDraftMerged,
   };
 
   const validated = validatePipelineResult(raw);

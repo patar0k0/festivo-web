@@ -117,6 +117,7 @@ Auth UX includes signup/login and password recovery: `/signup` creates email+pas
      - resolves city input to canonical `cities.id`
      - enforces start date + slug/source_url conflict checks
      - inserts a new `festivals` row (`status=verified`, `is_verified=true`)
+     - copies gallery / video, then applies **`pending_festivals.program_draft`** into **`festival_days`** + **`festival_schedule_items`** (replace semantics; failure rolls back the new `festivals` row like `festival_media` failures)
      - marks pending row `approved`
      - rollback: deletes inserted festival if pending status update fails
    - Reject (`POST /admin/api/pending-festivals/[id]/reject`):
@@ -155,7 +156,7 @@ Admin festival research (`POST /admin/api/research-festival`, UI `/admin/researc
 2. **Rank:** `lib/admin/research/search-hit-rank.ts` scores sources (Bulgarian domains, official/municipal/tourism/media/Facebook events, list-page penalties) and keeps **top 3–5** URLs.
 3. **Extract:** For each ranked URL, the server fetches page text (`fetchSourceDocument`) and runs **Gemini structured JSON** extraction (`lib/admin/research/gemini-extract.ts`) — evidence-only, unknown → null.
 4. **Validate:** `lib/admin/research/pipeline-validate.ts` enforces date sanity, title length, and clears inconsistent data with warnings.
-5. **Output:** Normalized `ResearchFestivalResult` with `best_guess` (including `organizers[]` plus legacy `organizer`), `sources`, `evidence`, `confidence`, `warnings` (no raw model text in the API response).
+5. **Output:** Normalized `ResearchFestivalResult` with `best_guess` (including `organizers[]` plus legacy `organizer`), optional structured **`program_draft`** when sources list a schedule, `sources`, `evidence`, `confidence`, `warnings` (no raw model text in the API response).
 
 **Configuration:** `GEMINI_API_KEY` (or `GOOGLE_AI_API_KEY`); optional `GEMINI_RESEARCH_MODEL` (default `gemini-2.0-flash`), `GEMINI_RESEARCH_TIMEOUT_MS`.
 

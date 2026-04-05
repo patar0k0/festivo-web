@@ -1,4 +1,5 @@
 import type { ResearchConfidenceLevel, ResearchDateCandidate, ResearchFestivalResult, ResearchFieldCandidate, ResearchSource } from "@/lib/admin/research/types";
+import { compactProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
 import type { SourceAuthorityTier } from "@/lib/admin/research/source-ranking";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 
@@ -104,6 +105,13 @@ function normalizeTier(value: unknown): SourceAuthorityTier | null {
 
 function normalizeLanguage(value: unknown): "bg" | "mixed" | "non_bg" | null {
   return value === "bg" || value === "mixed" || value === "non_bg" ? value : null;
+}
+
+function normalizeProgramDraftGuess(value: unknown): ProgramDraft | null {
+  if (value === undefined || value === null) return null;
+  const parsed = parseProgramDraftUnknown(value);
+  if (!parsed.ok || !programDraftHasContent(parsed.value)) return null;
+  return compactProgramDraft(parsed.value);
 }
 
 function normalizeFieldCandidates(value: unknown): ResearchFieldCandidate[] {
@@ -217,6 +225,7 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     ticket_url: normalizeText(rawBestGuess.ticket_url),
     address: normalizeText(rawBestGuess.address),
     category: normalizeText(rawBestGuess.category),
+    program_draft: normalizeProgramDraftGuess((rawBestGuess as { program_draft?: unknown }).program_draft),
   };
 
   const normalized: ResearchFestivalResult = {
@@ -299,6 +308,7 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     hero_image: bestGuess.hero_image,
     tags: bestGuess.tags,
     is_free: bestGuess.is_free,
+    program_draft: bestGuess.program_draft ?? null,
   };
 
   return normalized;

@@ -3,6 +3,7 @@ import FestivalEditForm from "@/components/admin/FestivalEditForm";
 import type { OrganizerProfile } from "@/lib/types";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { publishedRowsToProgramDraft } from "@/lib/festival/programDraft";
 
 export default async function AdminFestivalEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -107,10 +108,46 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
     /* optional */
   }
 
+  let initialProgramDraft = undefined;
+  try {
+    const adminClient = createSupabaseAdmin();
+    const { data: dayRows, error: dayErr } = await adminClient
+      .from("festival_days")
+      .select("id, date, title")
+      .eq("festival_id", id)
+      .order("date", { ascending: true });
+    if (!dayErr && dayRows?.length) {
+      const dayIds = dayRows.map((d) => String(d.id));
+      const { data: itemRows, error: itemErr } = await adminClient
+        .from("festival_schedule_items")
+        .select("day_id, title, start_time, end_time, stage, description, sort_order")
+        .in("day_id", dayIds)
+        .order("sort_order", { ascending: true })
+        .order("start_time", { ascending: true });
+      if (!itemErr) {
+        initialProgramDraft = publishedRowsToProgramDraft(
+          dayRows.map((d) => ({ id: String(d.id), date: String(d.date), title: d.title })),
+          (itemRows ?? []) as Array<{
+            day_id: string;
+            title: string;
+            start_time: string | null;
+            end_time: string | null;
+            stage: string | null;
+            description: string | null;
+            sort_order: number | null;
+          }>,
+        );
+      }
+    }
+  } catch {
+    /* optional */
+  }
+
   return (
     <FestivalEditForm
       organizers={organizers}
       initialMedia={initialMedia}
+      initialProgramDraft={initialProgramDraft}
       festival={{
         ...data,
         id: String(data.id),

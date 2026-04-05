@@ -13,6 +13,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { syncFestivalOrganizers } from "@/lib/festivalOrganizers";
 import { scheduleNewFestivalFollowCityJobs } from "@/lib/notifications/triggers";
 import { insertFestivalMediaFromPending } from "@/lib/festival/insertFestivalMediaFromPending";
+import {
+  type ProgramDraft,
+  parseProgramDraftUnknown,
+  programDraftHasContent,
+  replaceFestivalScheduleFromProgramDraft,
+} from "@/lib/festival/programDraft";
 import { getMediaLimitExceededErrorMessage, resolveAllowedMediaLimitsFromOrganizerPlan, resolveMediaPlanFromOrganizer } from "@/lib/admin/mediaLimits";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 import { mergeFestivoAdminListingShort } from "@/lib/admin/festivalListingShort";
@@ -74,6 +80,7 @@ type PendingFestivalRow = {
   status: "pending" | "approved" | "rejected";
   video_url?: string | null;
   gallery_image_urls?: unknown;
+  program_draft?: unknown;
   submitted_by_user_id?: string | null;
   submission_source?: string | null;
   city_name_display?: string | null;
@@ -81,7 +88,7 @@ type PendingFestivalRow = {
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,description_short,category,city_id,location_name,address,latitude,longitude,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls,submitted_by_user_id,submission_source,city_name_display,city_guess";
+  "id,title,slug,description,description_short,category,city_id,location_name,address,latitude,longitude,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls,program_draft,submitted_by_user_id,submission_source,city_name_display,city_guess";
 
 async function resolveOrganizerIdsForPublish(
   adminSupabase: SupabaseClient,
@@ -564,6 +571,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
       const message = mediaErr instanceof Error ? mediaErr.message : "festival_media insert failed";
       return fail(id, "festival_media_insert_failed", 500, message);
+    }
+
+    let scheduleDraftForPublish: ProgramDraft | null = null;
+    if (pending.program_draft !== undefined && pending.program_draft !== null) {
+      const parsedDraft = parseProgramDraftUnknown(pending.program_draft);
+      if (!parsedDraft.ok) {
+        await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
+        return fail(id, "invalid_program_draft", 400, parsedDraft.error);
+      }
+      scheduleDraftForPublish = programDraftHasContent(parsedDraft.value) ? parsedDraft.value : null;
+    }
+
+    try {
+      await replaceFestivalScheduleFromProgramDraft(serviceSupabase, insertedFestival.id, scheduleDraftForPublish);
+    } catch (schedErr) {
+      await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
+      const message = schedErr instanceof Error ? schedErr.message : "schedule insert failed";
+      return fail(id, "festival_schedule_insert_failed", 500, message);
     }
 
     const { data: reviewRow, error: reviewError } = await adminCtx.supabase

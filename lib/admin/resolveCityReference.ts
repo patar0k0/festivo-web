@@ -50,8 +50,8 @@ export function normalizeSettlementInput(value: string) {
   }
 
   // Strip common Bulgarian locality prefixes at the beginning (e.g. "с. ", "гр. ").
-  // Keep this conservative to avoid changing unrelated free-form location strings.
-  return trimmed.replace(/^(?:гр|град|с|село)\.?\s+/i, "");
+  // Require „с.“ with a dot so we do not strip the first letter of names like „Стара Загора“.
+  return trimmed.replace(/^(?:гр\.\s*|град\s+|с\.\s*|село\s+)/iu, "");
 }
 
 function citySlugFromName(name: string) {

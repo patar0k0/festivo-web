@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { OrganizerEditInitialCity, OrganizerEditWorkspace } from "@/lib/admin/organizerEditWorkspace";
 import { formatDateValueAsDdMmYyyy } from "@/lib/dates/euDateFormat";
+import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
+import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import OrganizerOwnershipSection, { type OrganizerOwnershipMember } from "@/components/admin/OrganizerOwnershipSection";
 
@@ -91,7 +93,7 @@ function CompletenessRow({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
-type ResolvedCityApi = { id: number; name_bg: string; slug: string };
+type ResolvedCityApi = { id: number; name_bg: string; slug: string; is_village: boolean | null };
 
 export default function OrganizerEditForm({
   organizer,
@@ -169,7 +171,12 @@ export default function OrganizerEditForm({
           suggestions?: ResolvedCityApi[];
         };
         if (res.ok && typeof data.id === "number" && data.name_bg) {
-          setPickedCity({ id: data.id, name_bg: data.name_bg, slug: data.slug });
+          setPickedCity({
+            id: data.id,
+            name_bg: data.name_bg,
+            slug: data.slug,
+            is_village: data.is_village ?? null,
+          });
           setCityQuery(data.name_bg);
           setCitySuggestions([]);
         } else if (res.status === 404 && Array.isArray(data.suggestions)) {
@@ -315,10 +322,15 @@ export default function OrganizerEditForm({
 
   const publicSlug = form.slug.trim();
   const publicHref = publicSlug ? `/organizers/${encodeURIComponent(publicSlug)}` : null;
-  const previewCity =
-    pickedCity?.name_bg?.trim() ||
-    workspace.initialCity?.name_bg?.trim() ||
-    null;
+  const previewCity = (() => {
+    const rel = pickedCity ?? workspace.initialCity;
+    if (!rel?.name_bg?.trim()) return null;
+    return formatSettlementDisplayName(rel.name_bg, rel.is_village ?? undefined)?.trim() ?? null;
+  })();
+
+  const previewWebsiteHref = normalizeExternalHttpHref(form.website_url);
+  const previewFacebookHref = normalizeExternalHttpHref(form.facebook_url);
+  const previewInstagramHref = normalizeExternalHttpHref(form.instagram_url);
   const previewDescription = form.description?.trim() || null;
 
   return (
@@ -510,7 +522,12 @@ export default function OrganizerEditForm({
                             type="button"
                             className="w-full px-3 py-2 text-left hover:bg-black/[0.04]"
                             onClick={() => {
-                              setPickedCity({ id: c.id, name_bg: c.name_bg, slug: c.slug });
+                              setPickedCity({
+                                id: c.id,
+                                name_bg: c.name_bg,
+                                slug: c.slug,
+                                is_village: c.is_village ?? null,
+                              });
                               setCityQuery(c.name_bg);
                               setCitySuggestions([]);
                             }}
@@ -778,16 +795,37 @@ export default function OrganizerEditForm({
               </p>
             )}
             <div className="mt-4 flex flex-wrap gap-2 border-t border-black/[0.06] pt-4">
-              {form.website_url?.trim() ? (
-                <span className="text-xs font-semibold text-[#0e7a45]">Уебсайт</span>
+              {previewWebsiteHref ? (
+                <a
+                  href={previewWebsiteHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold text-[#0e7a45] hover:underline"
+                >
+                  Уебсайт
+                </a>
               ) : null}
-              {form.facebook_url?.trim() ? (
-                <span className="text-xs font-semibold text-[#1877F2]">Facebook</span>
+              {previewFacebookHref ? (
+                <a
+                  href={previewFacebookHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold text-[#1877F2] hover:underline"
+                >
+                  Facebook
+                </a>
               ) : null}
-              {form.instagram_url?.trim() ? (
-                <span className="text-xs font-semibold text-[#E1306C]">Instagram</span>
+              {previewInstagramHref ? (
+                <a
+                  href={previewInstagramHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold text-[#E1306C] hover:underline"
+                >
+                  Instagram
+                </a>
               ) : null}
-              {!form.website_url?.trim() && !form.facebook_url?.trim() && !form.instagram_url?.trim() ? (
+              {!previewWebsiteHref && !previewFacebookHref && !previewInstagramHref ? (
                 <span className="text-xs text-black/40">Няма връзки</span>
               ) : null}
             </div>

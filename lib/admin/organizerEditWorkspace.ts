@@ -6,7 +6,7 @@ import { festivalCityLabel, formatSettlementDisplayName } from "@/lib/settlement
 const FESTIVAL_ADMIN_LINK_SELECT =
   "id,title,slug,start_date,end_date,status,city,city_id,cities(name_bg,slug,is_village)";
 
-export type OrganizerEditInitialCity = { id: number; name_bg: string; slug: string };
+export type OrganizerEditInitialCity = { id: number; name_bg: string; slug: string; is_village: boolean | null };
 
 export type OrganizerEditLinkedFestivalRow = {
   id: string;
@@ -69,7 +69,7 @@ export async function loadOrganizerEditWorkspace(
 
   const [cityRes, m2mRes, legacyRes, pendingFestRes, claimsRes, pendingFestCountRes, claimsCountRes] = await Promise.all([
     cityId != null
-      ? adminClient.from("cities").select("id,name_bg,slug").eq("id", cityId).maybeSingle()
+      ? adminClient.from("cities").select("id,name_bg,slug,is_village").eq("id", cityId).maybeSingle()
       : Promise.resolve({ data: null as OrganizerEditInitialCity | null }),
     adminClient.from("festival_organizers").select("festival_id").eq("organizer_id", organizerId),
     adminClient.from("festivals").select("id").eq("organizer_id", organizerId),

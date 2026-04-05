@@ -3,7 +3,8 @@ import Link from "next/link";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { festivalCityLabel, organizerPageLocationLabel } from "@/lib/settlements/formatDisplayName";
+import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import OrganizerProfileAbout from "@/components/organizers/OrganizerProfileAbout";
 import type { Festival } from "@/lib/types";
@@ -98,9 +99,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
   const { organizer, festivals } = data;
   const organizerInitials = organizerInitialsFromName(organizer.name);
 
-  const cityFromProfile = organizer.city_name_display?.trim();
-  const cityFromFestivals = festivals.find((festival) => festival.city_name_display?.trim())?.city_name_display?.trim();
-  const locationLabel = cityFromProfile || cityFromFestivals || null;
+  const locationLabel = organizerPageLocationLabel(organizer.cities, festivals);
 
   const email = organizer.email?.trim() || null;
   const phone = organizer.phone?.trim() || null;
@@ -109,9 +108,10 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
   const categoryChips = topCategoriesFromFestivals(festivals);
   const festivalCount = festivals.length;
 
-  const hasSocialOrWeb = Boolean(
-    organizer.website_url?.trim() || organizer.facebook_url?.trim() || organizer.instagram_url?.trim(),
-  );
+  const websiteHref = normalizeExternalHttpHref(organizer.website_url);
+  const facebookHref = normalizeExternalHttpHref(organizer.facebook_url);
+  const instagramHref = normalizeExternalHttpHref(organizer.instagram_url);
+  const hasSocialOrWeb = Boolean(websiteHref || facebookHref || instagramHref);
 
   return (
     <div className="landing-bg bg-[#f6f7fb] text-[#0c0e14]">
@@ -208,9 +208,9 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                     <div className="space-y-2">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Връзки</p>
                       <div className="flex flex-wrap gap-2">
-                        {organizer.website_url?.trim() ? (
+                        {websiteHref ? (
                           <a
-                            href={organizer.website_url.trim()}
+                            href={websiteHref}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50"
@@ -219,9 +219,9 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                             <ExternalLinkIcon className="h-3.5 w-3.5 text-slate-400" />
                           </a>
                         ) : null}
-                        {organizer.facebook_url?.trim() ? (
+                        {facebookHref ? (
                           <a
-                            href={organizer.facebook_url.trim()}
+                            href={facebookHref}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-2 rounded-full bg-[#1877F2]/12 px-4 py-2 text-sm font-semibold text-[#145dbf] ring-1 ring-[#1877F2]/25 transition hover:bg-[#1877F2]/18"
@@ -233,9 +233,9 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                             <ExternalLinkIcon className="h-3.5 w-3.5 opacity-70" />
                           </a>
                         ) : null}
-                        {organizer.instagram_url?.trim() ? (
+                        {instagramHref ? (
                           <a
-                            href={organizer.instagram_url.trim()}
+                            href={instagramHref}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-2 rounded-full bg-[#E1306C]/10 px-4 py-2 text-sm font-semibold text-[#bf2558] ring-1 ring-[#E1306C]/22 transition hover:bg-[#E1306C]/14"

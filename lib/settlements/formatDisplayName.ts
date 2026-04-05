@@ -3,7 +3,9 @@ import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 
 /** Премахва типични представки в началото (за сравнение / нормализация). */
 export function stripBulgarianSettlementPrefix(name: string): string {
-  return name.trim().replace(/^(?:гр\.?\s*|град\s+|с\.?\s*|село\s+)/i, "").trim();
+  // Изискваме „с.“ с точка и интервал (или „село “), за да не „сваляме“ първата буква на „Стара Загора“
+  // при case-insensitive съвпадение със съкращението „с.“.
+  return name.trim().replace(/^(?:гр\.\s*|град\s+|с\.\s*|село\s+)/iu, "").trim();
 }
 
 /**
@@ -22,7 +24,7 @@ export function formatSettlementDisplayName(
   const trimmed = fixMojibakeBG(String(rawName).trim());
 
   if (isVillage === true) {
-    if (/^(?:с\.?\s+|село\s+)/i.test(trimmed)) {
+    if (/^(?:с\.\s+|село\s+)/iu.test(trimmed)) {
       return trimmed;
     }
     const base = stripBulgarianSettlementPrefix(trimmed);
@@ -30,7 +32,7 @@ export function formatSettlementDisplayName(
   }
 
   if (isVillage === false) {
-    if (/^(?:гр\.?\s+|град\s+)/i.test(trimmed)) {
+    if (/^(?:гр\.\s+|град\s+)/iu.test(trimmed)) {
       return trimmed;
     }
     const base = stripBulgarianSettlementPrefix(trimmed);
@@ -47,4 +49,21 @@ export function festivalCityLabel(
 ): string {
   const v = festival.city_name_display?.trim() || festival.city?.trim();
   return v || fallback;
+}
+
+/**
+ * Етикет за населено място на публичната страница на организатор:
+ * първо канонично име от `cities`, после първият фестивал с наличен етикет.
+ */
+export function organizerPageLocationLabel(
+  organizerCities: { name_bg?: string | null; is_village?: boolean | null } | null | undefined,
+  festivals: Pick<Festival, "city_name_display" | "city">[],
+): string | null {
+  const primary = formatSettlementDisplayName(organizerCities?.name_bg ?? null, organizerCities?.is_village ?? undefined);
+  if (primary?.trim()) return primary.trim();
+  for (const festival of festivals) {
+    const line = festivalCityLabel(festival, "").trim();
+    if (line) return line;
+  }
+  return null;
 }

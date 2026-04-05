@@ -6,6 +6,7 @@ type ResolvedCity = {
   id: number;
   name_bg: string;
   slug: string;
+  is_village: boolean | null;
 };
 
 type AdminContext = NonNullable<Awaited<ReturnType<typeof getAdminContext>>>;
@@ -75,7 +76,7 @@ async function resolveCity(input: string, queryFn: CityResolveQueryFn): Promise<
 }
 
 async function findCityById(ctx: AdminContext, cityId: number) {
-  const { data, error } = await ctx.supabase.from("cities").select("id,name_bg,slug").eq("id", cityId).maybeSingle();
+  const { data, error } = await ctx.supabase.from("cities").select("id,name_bg,slug,is_village").eq("id", cityId).maybeSingle();
 
   if (error) {
     throw new Error(error.message);
@@ -87,12 +88,12 @@ async function findCityById(ctx: AdminContext, cityId: number) {
 function buildCityResolveQuery(ctx: AdminContext): CityResolveQueryFn {
   return {
     async findBySlugExact(slug) {
-      const { data, error } = await ctx.supabase.from("cities").select("id,name_bg,slug").eq("slug", slug).limit(1);
+      const { data, error } = await ctx.supabase.from("cities").select("id,name_bg,slug,is_village").eq("slug", slug).limit(1);
       if (error) throw new Error(error.message);
       return (data?.[0] ?? null) as ResolvedCity | null;
     },
     async findByNameCaseInsensitive(name) {
-      const { data, error } = await ctx.supabase.from("cities").select("id,name_bg,slug").ilike("name_bg", name).limit(5);
+      const { data, error } = await ctx.supabase.from("cities").select("id,name_bg,slug,is_village").ilike("name_bg", name).limit(5);
       if (error) throw new Error(error.message);
 
       const exact = (data ?? []).find((city) => city.name_bg.toLocaleLowerCase("bg-BG") === name);
@@ -100,8 +101,8 @@ function buildCityResolveQuery(ctx: AdminContext): CityResolveQueryFn {
     },
     async findSuggestions(name, slug, limit) {
       const [nameResult, slugResult] = await Promise.all([
-        ctx.supabase.from("cities").select("id,name_bg,slug").ilike("name_bg", `%${name}%`).limit(limit),
-        ctx.supabase.from("cities").select("id,name_bg,slug").ilike("slug", `%${slug}%`).limit(limit),
+        ctx.supabase.from("cities").select("id,name_bg,slug,is_village").ilike("name_bg", `%${name}%`).limit(limit),
+        ctx.supabase.from("cities").select("id,name_bg,slug,is_village").ilike("slug", `%${slug}%`).limit(limit),
       ]);
 
       if (nameResult.error) throw new Error(nameResult.error.message);

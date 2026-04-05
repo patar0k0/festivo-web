@@ -8,8 +8,11 @@ import type { OrganizerEditInitialCity, OrganizerEditWorkspace } from "@/lib/adm
 import { formatDateValueAsDdMmYyyy } from "@/lib/dates/euDateFormat";
 import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
+import { getAIProviderLabel } from "@/lib/ai/providerUi";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import OrganizerOwnershipSection, { type OrganizerOwnershipMember } from "@/components/admin/OrganizerOwnershipSection";
+
+const ORGANIZER_RESEARCH_PROVIDER = "perplexity";
 
 type OrganizerRecord = {
   id: string;
@@ -228,13 +231,17 @@ export default function OrganizerEditForm({
 
       const payload = (await response.json().catch(() => null)) as { error?: string; result?: OrganizerAiResearchResult } | null;
       if (!response.ok || !payload?.result) {
-        throw new Error(payload?.error ?? "Organizer AI research failed.");
+        throw new Error(payload?.error ?? `Organizer ${getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)} research failed.`);
       }
 
       setResearchResult(payload.result);
-      setResearchSuccess("Organizer AI research completed.");
+      setResearchSuccess(`Organizer ${getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)} research completed.`);
     } catch (researchRunError) {
-      setResearchError(researchRunError instanceof Error ? researchRunError.message : "Unexpected organizer AI research error.");
+      setResearchError(
+        researchRunError instanceof Error
+          ? researchRunError.message
+          : `Unexpected organizer ${getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)} research error.`,
+      );
     } finally {
       setResearching(false);
     }
@@ -255,7 +262,9 @@ export default function OrganizerEditForm({
       phone: researchResult.phone ?? prev.phone,
     }));
 
-    setResearchSuccess("Extracted values applied to the form. Save organizer to persist.");
+    setResearchSuccess(
+      `${getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)} values applied to the form. Save organizer to persist.`,
+    );
     setResearchError(null);
   }
 
@@ -564,7 +573,9 @@ export default function OrganizerEditForm({
           </SectionCard>
 
           <section className="rounded-2xl border border-dashed border-black/[0.12] bg-[#fafafa] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">AI · второстепенно</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
+              {getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)} · второстепенно
+            </p>
             <p className="mt-1 text-xs text-black/55">Изследване и подсказки; записът остава ръчен.</p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <input
@@ -579,7 +590,7 @@ export default function OrganizerEditForm({
                 disabled={researching}
                 className="rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
               >
-                {researching ? "…" : "Research with AI"}
+                {researching ? "…" : `Research (${getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)})`}
               </button>
               <button
                 type="button"
@@ -587,7 +598,7 @@ export default function OrganizerEditForm({
                 disabled={!researchResult || researching}
                 className="rounded-xl border border-black/[0.12] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
               >
-                Приложи стойности
+                Apply ({getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)})
               </button>
             </div>
             {researchError ? <p className="mt-2 text-sm text-[#b13a1a]">{researchError}</p> : null}

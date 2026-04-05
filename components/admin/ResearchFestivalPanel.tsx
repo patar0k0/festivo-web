@@ -6,6 +6,7 @@ import type { ResearchBestGuess, ResearchDateCandidate, ResearchFestivalResult, 
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { parseFlexibleDateToIso } from "@/lib/dates/euDateFormat";
 import type { AiResearchConfidence, PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
+import { getAIProviderLabel } from "@/lib/ai/providerUi";
 import {
   AdminEntityPageShell,
   AdminFieldGrid,
@@ -79,6 +80,10 @@ const AI_DATE_KEYS = new Set<AiEditableStringField>(["start_date", "end_date"]);
 const AI_LOC_KEYS = new Set<AiEditableStringField>(["city", "location_name", "address"]);
 const AI_LINK_KEYS = new Set<AiEditableStringField>(["website_url", "facebook_url", "instagram_url", "ticket_url"]);
 const AI_MEDIA_KEYS = new Set<AiEditableStringField>(["hero_image"]);
+
+/** Client-side keys aligned with server metadata (create-pending, research routes). */
+const RESEARCH_PROVIDER_PERPLEXITY = "perplexity";
+const RESEARCH_PROVIDER_GEMINI = "gemini_pipeline";
 
 function sanitizeInputValue(value: string): string | null {
   const trimmed = value.trim();
@@ -235,7 +240,7 @@ export default function ResearchFestivalPanel() {
         startDate: shortText(aiDraft.start_date ?? "—", 24),
         organizer: shortText(org, 48),
         contextLabel: ADMIN_FIELD_LABEL.pipeline,
-        contextValue: "AI research",
+        contextValue: getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY),
       });
     }
     if (result) {
@@ -248,7 +253,7 @@ export default function ResearchFestivalPanel() {
         startDate: shortText(finalValues.start_date ?? "—", 24),
         organizer: shortText(org, 48),
         contextLabel: ADMIN_FIELD_LABEL.pipeline,
-        contextValue: "Gemini pipeline",
+        contextValue: getAIProviderLabel(RESEARCH_PROVIDER_GEMINI),
       });
     }
     return buildStandardSummaryStripItems({
@@ -305,7 +310,7 @@ export default function ResearchFestivalPanel() {
 
       const payload = (await response.json().catch(() => null)) as { error?: string; result?: PerplexityFestivalResearchResult } | null;
       if (!response.ok || !payload?.result) {
-        throw new Error(payload?.error ?? "AI research request failed.");
+        throw new Error(payload?.error ?? `${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research request failed.`);
       }
 
       setAiResult(payload.result);
@@ -318,9 +323,13 @@ export default function ResearchFestivalPanel() {
             : [];
       setAiDraft({ ...r, organizer_names: names.length > 0 ? names : null });
       setResult(null);
-      setAiSuccess("AI research completed. Review and edit values before creating a pending draft.");
+      setAiSuccess(
+        `${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research completed. Review and edit values before creating a pending draft.`,
+      );
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : "Unexpected error while running AI research.");
+      setAiError(
+        err instanceof Error ? err.message : `Unexpected error while running ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research.`,
+      );
     } finally {
       setIsAiResearching(false);
     }
@@ -393,7 +402,9 @@ export default function ResearchFestivalPanel() {
           disabled={!canAiResearch}
           className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
         >
-          {isAiResearching ? "Researching..." : "Research again"}
+          {isAiResearching
+            ? "Researching..."
+            : `Research again (${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})`}
         </button>
       </>
     );
@@ -475,13 +486,13 @@ export default function ResearchFestivalPanel() {
 
       <AdminFieldSection
         title={ADMIN_ENTITY_SECTION.researchQueries.title}
-        description="Run AI extraction or the Gemini multi-step pipeline."
+        description={`Run ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} extraction or the ${getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)} pipeline.`}
         variant={ADMIN_ENTITY_SECTION.researchQueries.variant}
       >
         <div className="space-y-2">
           <div className="space-y-1.5">
             <label htmlFor="ai-research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
-              AI search query
+              Search query ({getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})
             </label>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
@@ -497,7 +508,7 @@ export default function ResearchFestivalPanel() {
                 disabled={!canAiResearch}
                 className="h-8 shrink-0 rounded-lg bg-[#0c0e14] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
               >
-                {isAiResearching ? "Researching..." : "Research with AI"}
+                {isAiResearching ? "Researching..." : `Research (${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})`}
               </button>
             </div>
             {aiError ? <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{aiError}</p> : null}
@@ -508,7 +519,7 @@ export default function ResearchFestivalPanel() {
 
           <div className="space-y-1.5">
             <label htmlFor="research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
-              Festival query (Gemini pipeline)
+              Festival query ({getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)})
             </label>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
@@ -524,7 +535,7 @@ export default function ResearchFestivalPanel() {
                 disabled={!canResearch}
                 className="h-8 shrink-0 rounded-lg border border-black/[0.1] bg-white px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
               >
-                {isResearching ? "Researching..." : "Research"}
+                {isResearching ? "Researching..." : `Research (${getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)})`}
               </button>
             </div>
           </div>
@@ -535,7 +546,7 @@ export default function ResearchFestivalPanel() {
         <>
           <AdminFieldSection
             title={ADMIN_ENTITY_SECTION.mainInfo.title}
-            description="Confidence reflects extraction certainty for the AI pass."
+            description={`Confidence reflects extraction certainty for the ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} pass.`}
             variant={ADMIN_ENTITY_SECTION.mainInfo.variant}
           >
             <div className="flex flex-wrap items-center gap-2">
@@ -611,7 +622,7 @@ export default function ResearchFestivalPanel() {
 
           <AdminFieldSection
             title={ADMIN_ENTITY_SECTION.linksSources.title}
-            description="Evidence URLs from the AI pass."
+            description={`Evidence URLs from the ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} pass.`}
             variant={ADMIN_ENTITY_SECTION.linksSources.variant}
           >
             <AdminFieldGrid>{renderAiFieldsForKeys(AI_LINK_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
@@ -686,7 +697,12 @@ export default function ResearchFestivalPanel() {
       {error ? <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
       {success ? <p className="rounded-xl border border-[#0e7a45]/20 bg-[#f0fbf4] px-3 py-2 text-sm text-[#0e7a45]">{success}</p> : null}
 
-      {!aiDraft && !result ? <p className="text-sm text-black/55">No extraction result yet. Run AI research or the Gemini pipeline to preview festival data.</p> : null}
+      {!aiDraft && !result ? (
+        <p className="text-sm text-black/55">
+          No extraction result yet. Run {getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research or the{" "}
+          {getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)} pipeline to preview festival data.
+        </p>
+      ) : null}
 
       {result ? (
         <>
@@ -804,7 +820,7 @@ export default function ResearchFestivalPanel() {
 
           <AdminFieldSection
             title={ADMIN_ENTITY_SECTION.systemMeta.title}
-            description="Gemini pipeline diagnostics."
+            description={`${getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)} pipeline diagnostics.`}
             variant={ADMIN_ENTITY_SECTION.systemMeta.variant}
           >
             <div className="space-y-1 text-sm text-black/80">

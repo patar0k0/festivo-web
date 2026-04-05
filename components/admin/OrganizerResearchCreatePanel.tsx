@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getAIProviderLabel } from "@/lib/ai/providerUi";
+
+const ORGANIZER_RESEARCH_PROVIDER = "perplexity";
 
 type OrganizerAiResearchResult = {
   name: string | null;
@@ -55,11 +58,11 @@ export default function OrganizerResearchCreatePanel() {
 
       const payload = (await response.json().catch(() => null)) as { error?: string; result?: OrganizerAiResearchResult } | null;
       if (!response.ok || !payload?.result) {
-        throw new Error(payload?.error ?? "Organizer AI research failed.");
+        throw new Error(payload?.error ?? `Organizer ${getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)} research failed.`);
       }
 
       setResult(payload.result);
-      setSuccess("Organizer AI research completed. Review and create organizer if valid.");
+      setSuccess(`Organizer ${getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)} research completed. Review and create organizer if valid.`);
     } catch (runError) {
       setError(runError instanceof Error ? runError.message : "Unexpected organizer research error.");
     } finally {
@@ -93,7 +96,7 @@ export default function OrganizerResearchCreatePanel() {
 
       const payload = (await response.json().catch(() => null)) as CreateOrganizerResponse | null;
       if (!response.ok || !payload?.row?.id) {
-        throw new Error(payload?.error ?? "Failed to create organizer from AI result.");
+        throw new Error(payload?.error ?? `Failed to create organizer from ${getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)} result.`);
       }
 
       setSuccess(`Organizer created: ${payload.row.name}`);
@@ -125,7 +128,7 @@ export default function OrganizerResearchCreatePanel() {
           disabled={researching}
           className="rounded-xl bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
         >
-          {researching ? "Researching..." : "Research with AI"}
+          {researching ? "Researching..." : `Research (${getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)})`}
         </button>
       </div>
 
@@ -186,7 +189,7 @@ export default function OrganizerResearchCreatePanel() {
             disabled={!result.name || creating}
             className="rounded-xl border border-black/[0.12] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
           >
-            {creating ? "Creating..." : "Create organizer from result"}
+            {creating ? "Creating..." : `Create organizer (${getAIProviderLabel(ORGANIZER_RESEARCH_PROVIDER)})`}
           </button>
         </div>
       ) : null}

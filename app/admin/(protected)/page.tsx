@@ -523,12 +523,12 @@ export default async function AdminDashboardPage() {
             </li>
             <li>
               <Link href="/admin/research" className="font-medium text-[#0c0e14] underline-offset-2 hover:underline">
-                Проучване на фестивал (AI)
+                Проучване на фестивал (Perplexity / Gemini)
               </Link>
             </li>
             <li>
               <Link href="/admin/organizers/research" className="font-medium text-[#0c0e14] underline-offset-2 hover:underline">
-                Нов организатор (AI)
+                Нов организатор (Perplexity)
               </Link>
             </li>
           </ul>

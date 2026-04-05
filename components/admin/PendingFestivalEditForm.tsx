@@ -37,6 +37,7 @@ import {
   buildStandardSummaryStripItems,
 } from "@/components/admin/entity";
 import { ADMIN_FIELD_LABEL, adminLabelForSuggestionField, getAdminFieldLabel } from "@/lib/admin/entitySchema";
+import { getAIProviderLabel, getPendingResearchProviderKey } from "@/lib/ai/providerUi";
 import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
 
 export type PendingFestivalRecord = {
@@ -269,10 +270,20 @@ function statusBadgeLabel(status: SuggestionComparisonStatus) {
   return null;
 }
 
-function normalizeSourceLabel(source: "merge" | "ai" | "deterministic") {
-  if (source === "ai") return "AI";
+function formatNormalizationSourceLabel(source: "merge" | "ai" | "deterministic", aiProviderLabel: string) {
+  if (source === "ai") return aiProviderLabel;
   if (source === "merge") return "Merge";
   return "Deterministic";
+}
+
+function suggestionApplyButtonLabel(
+  isApplied: boolean,
+  source: "merge" | "ai" | "deterministic",
+  aiProviderLabel: string,
+): string {
+  if (isApplied) return "Applied";
+  if (source === "ai") return `Apply (${aiProviderLabel})`;
+  return "Apply";
 }
 
 function suggestionStateLabel(status: SuggestionComparisonStatus, applied: boolean) {
@@ -629,6 +640,21 @@ export default function PendingFestivalEditForm({
       ? "Hero image selected"
       : "Hero image present, diagnostics unavailable";
   const safeFields: SuggestionField[] = ["category", "tags", "venue_name"];
+
+  const pendingResearchProviderKey = useMemo(() => {
+    const extractionVersion =
+      typeof pendingFestival.extraction_version === "string" ? pendingFestival.extraction_version : null;
+    return getPendingResearchProviderKey(pendingFestival.evidence_json, extractionVersion);
+  }, [pendingFestival.evidence_json, pendingFestival.extraction_version]);
+  const pendingResearchProviderLabel = useMemo(
+    () => getAIProviderLabel(pendingResearchProviderKey),
+    [pendingResearchProviderKey],
+  );
+
+  const safeSuggestionsTouchAi = useMemo(() => {
+    const fields: SuggestionField[] = ["category", "tags", "venue_name"];
+    return fields.some((field) => normalizationSuggestions.find((entry) => entry.field === field)?.source === "ai");
+  }, [normalizationSuggestions]);
 
   const guessedPairs = [
     { label: "Date guess", value: qualityDiagnostics.guessed_values.date ?? null },
@@ -1884,7 +1910,7 @@ export default function PendingFestivalEditForm({
           </details>
 
           <details className="rounded-xl border border-[#0c0e14]/[0.12] bg-[#f8f9fc] p-3 text-sm">
-            <summary className="cursor-pointer text-sm font-semibold text-black/65">Debug / AI / ingestion (collapsed)</summary>
+            <summary className="cursor-pointer text-sm font-semibold text-black/65">Debug / normalization / ingestion (collapsed)</summary>
             <p className="mt-1 text-xs text-black/60">Advisory diagnostics and extraction traces. Read-only by default.</p>
             <div className="mt-2 grid grid-cols-1 gap-1.5 text-xs text-black/70 sm:grid-cols-3">
               <p className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1.5">Version: <span className="font-semibold text-black/80">{pendingFestival.normalization_version ?? "-"}</span></p>
@@ -1998,7 +2024,7 @@ export default function PendingFestivalEditForm({
                     onClick={applySafeSuggestions}
                     className="rounded-lg border border-black/15 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
                   >
-                    Apply safe suggestions
+                    {safeSuggestionsTouchAi ? `Apply safe (${pendingResearchProviderLabel})` : "Apply safe suggestions"}
                   </button>
                   {safeApplySummary ? (
                     <div className="mt-2 rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-xs text-black/70">
@@ -2032,7 +2058,7 @@ export default function PendingFestivalEditForm({
                               {suggestionStateLabel(comparisonStatus, isApplied)}
                             </span>
                             <span className="rounded-full border border-black/10 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/60">
-                              Source: {normalizeSourceLabel(suggestion.source)}
+                              Source: {formatNormalizationSourceLabel(suggestion.source, pendingResearchProviderLabel)}
                             </span>
                           </div>
                           <button
@@ -2041,7 +2067,7 @@ export default function PendingFestivalEditForm({
                             disabled={!canApply}
                             className="rounded-lg border border-black/15 bg-white px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-45"
                           >
-                            {isApplied ? "Applied" : "Apply"}
+                            {suggestionApplyButtonLabel(isApplied, suggestion.source, pendingResearchProviderLabel)}
                           </button>
                         </div>
                         <p className="mt-1 text-sm text-black/70">Current: {currentValue ?? "-"}</p>
@@ -2069,7 +2095,9 @@ export default function PendingFestivalEditForm({
           <div className="rounded-xl border border-[#18a05e]/25 bg-[#f4fbf7] p-3 text-sm">
             <h2 className="text-base font-bold">Попълнени полета</h2>
             <p className="mt-1 text-xs text-black/60">
-              Какво има в записа към момента на зареждане на страницата (ingest worker + AI нормализация). Празните полета не се изреждат тук — за тях виж „Missing fields“ по-долу.
+              Какво има в записа към момента на зареждане на страницата (ingest worker
+              {pendingResearchProviderKey ? ` + нормализация · ${pendingResearchProviderLabel}` : " + нормализация"}). Празните полета не се изреждат тук — за тях виж
+              „Missing fields“ по-долу.
             </p>
             {filledFieldSummaries.length > 0 ? (
               <ul className="mt-2 max-h-[min(420px,50vh)] list-none space-y-1.5 overflow-y-auto pr-1">

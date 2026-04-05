@@ -57,8 +57,15 @@ export default async function Page({
 
   if (!data) return notFound();
 
+  const galleryImageUrls = data.media
+    .filter((m) => {
+      const t = (m.type ?? "").toLowerCase();
+      return t !== "video" && !t.includes("video");
+    })
+    .map((m) => m.url)
+    .filter(Boolean) as string[];
   const jsonLd = buildFestivalJsonLd(data.festival, {
-    mediaUrls: data.media.map((m) => m.url).filter(Boolean) as string[],
+    mediaUrls: galleryImageUrls,
   });
   const cityFilterValue = data.festival.city;
   const citySlug = data.festival.cities?.slug ?? (data.festival.city ? slugify(data.festival.city) : null);

@@ -29,6 +29,8 @@ export type Festival = {
   longitude?: number | null;
   ticket_url?: string | null;
   price_range?: string | null;
+  /** External YouTube/Facebook page URL for optional embedded video (not gallery media). */
+  video_url?: string | null;
   website_url?: string | null;
   source_url?: string | null;
   source_type?: string | null;

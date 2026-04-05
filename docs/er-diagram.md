@@ -63,6 +63,7 @@ erDiagram
     text source_type
     text status
     boolean is_verified
+    text video_url
     text promotion_status
     timestamptz promotion_started_at
     timestamptz promotion_expires_at

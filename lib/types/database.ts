@@ -42,6 +42,7 @@ export type Database = {
           website_url: string | null
           ticket_url: string | null
           price_range: string | null
+          video_url: string | null
           tags: string[] | null
           organizer_id: string | null
           source_type: string | null
@@ -70,6 +71,7 @@ export type Database = {
           website_url?: string | null
           ticket_url?: string | null
           price_range?: string | null
+          video_url?: string | null
           tags?: string[] | null
           organizer_id?: string | null
           source_type?: string | null
@@ -98,6 +100,7 @@ export type Database = {
           website_url?: string | null
           ticket_url?: string | null
           price_range?: string | null
+          video_url?: string | null
           tags?: string[] | null
           organizer_id?: string | null
           source_type?: string | null

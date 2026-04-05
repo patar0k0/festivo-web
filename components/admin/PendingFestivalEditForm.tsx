@@ -1771,16 +1771,21 @@ export default function PendingFestivalEditForm({
                 {!galleryUrls.length ? <p className="mt-2 text-xs text-black/45">Няма снимки в галерията.</p> : null}
               </div>
 
-              {/* Video */}
+              {/* Video: external URL only (stored on pending_festivals.video_url) */}
               <div className="mt-6 border-t border-black/[0.08] pt-5">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Видео</p>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Видео линк</p>
+                    <p className="mt-1 max-w-xl text-xs text-black/50">
+                      Публичен YouTube или Facebook URL. Не се качва видео файл; при одобрение се прехвърля в публикувания фестивал.
+                    </p>
+                  </div>
                   <p className="text-xs text-black/60">
                     <span className="font-semibold text-black/80">{videoCount}</span> / {mediaLimits.video} · {planLabel}
                   </p>
                 </div>
-                <label className="mt-2 block">
-                  <span className="sr-only">Видео URL</span>
+                <label className="mt-3 block">
+                  <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">URL на видеото</span>
                   <input
                     value={videoUrlExtra}
                     onChange={(e) => setVideoUrlExtra(e.target.value)}

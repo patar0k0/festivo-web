@@ -224,10 +224,9 @@ export default function FestivalDetailClient({
   const [heroImageFailed, setHeroImageFailed] = useState(false);
 
   const videoPageUrl = useMemo(() => {
-    const row = media.find((m) => (m.type ?? "").toLowerCase() === "video");
-    const u = normalizeHeroUrl(row?.url);
+    const u = normalizeHeroUrl(festival.video_url);
     return u ?? null;
-  }, [media]);
+  }, [festival.video_url]);
 
   const galleryItems = useMemo(() => {
     const seen = new Set<string>();

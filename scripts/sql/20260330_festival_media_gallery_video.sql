@@ -14,4 +14,4 @@ create index if not exists idx_festival_media_festival_sort on public.festival_m
 
 comment on column public.festival_media.is_hero is 'When true, this image may fill the public hero slot if festivals.hero_image is null.';
 comment on column public.pending_festivals.gallery_image_urls is 'JSON array of hosted image URLs; copied to festival_media on approve.';
-comment on column public.pending_festivals.video_url is 'YouTube or Facebook watch URL; copied to festival_media (type=video) on approve.';
+comment on column public.pending_festivals.video_url is 'YouTube or Facebook watch URL; copied to festivals.video_url on approve (see scripts/sql/20260405_festivals_video_url.sql).';

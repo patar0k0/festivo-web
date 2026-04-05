@@ -34,7 +34,7 @@ export function normalizePublicOrganizerSlugParam(raw: string): string {
 }
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,city,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,city,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
 
 const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
 

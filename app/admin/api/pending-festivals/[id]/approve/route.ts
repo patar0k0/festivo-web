@@ -500,6 +500,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
 
     const festivalPatch = festivalPatchFromCanonical(canonicalApproved);
+    const videoUrlForPublish =
+      typeof pending.video_url === "string" && pending.video_url.trim() ? pending.video_url.trim() : null;
+
     const insertPayload = {
       ...festivalPatch,
       occurrence_dates: pending.occurrence_dates ?? null,
@@ -522,6 +525,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       status: "verified",
       is_verified: true,
       updated_at: new Date().toISOString(),
+      video_url: videoUrlForPublish,
     };
 
     console.info(`[pending-approve] pending_id=${id} festivals insert payload keys=${Object.keys(insertPayload).join(",")}`);

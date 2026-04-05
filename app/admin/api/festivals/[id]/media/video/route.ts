@@ -27,7 +27,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       );
     }
 
-    // Enforce plan-based media limits before writing any rows.
+    // Plan limits before persisting video_url on festivals.
     const { data: festivalRow, error: festivalFetchError } = await ctx.supabase
       .from("festivals")
       .select("organizer_id")
@@ -73,47 +73,25 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const mediaDb = createSupabaseAdmin();
 
-    const { error: delError } = await mediaDb
+    const { error: legacyVideoDelError } = await mediaDb
       .from("festival_media")
       .delete()
       .eq("festival_id", festivalId)
       .ilike("type", "%video%");
-
-    if (delError) {
-      return NextResponse.json({ error: delError.message }, { status: 500 });
+    if (legacyVideoDelError) {
+      return NextResponse.json({ error: legacyVideoDelError.message }, { status: 500 });
     }
 
-    if (!raw) {
-      return NextResponse.json({ ok: true, video_url: null });
+    const { error: updError } = await mediaDb
+      .from("festivals")
+      .update({ video_url: raw || null, updated_at: new Date().toISOString() })
+      .eq("id", festivalId);
+
+    if (updError) {
+      return NextResponse.json({ error: updError.message }, { status: 500 });
     }
 
-    const { data: maxRow } = await mediaDb
-      .from("festival_media")
-      .select("sort_order")
-      .eq("festival_id", festivalId)
-      .order("sort_order", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const nextOrder = typeof maxRow?.sort_order === "number" ? maxRow.sort_order + 1 : 0;
-
-    const { data: inserted, error: insError } = await mediaDb
-      .from("festival_media")
-      .insert({
-        festival_id: festivalId,
-        url: raw,
-        type: "video",
-        sort_order: nextOrder,
-        is_hero: false,
-      })
-      .select("id, festival_id, url, type, sort_order")
-      .maybeSingle();
-
-    if (insError) {
-      return NextResponse.json({ error: insError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true, video_url: raw, row: inserted });
+    return NextResponse.json({ ok: true, video_url: raw || null });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
     return NextResponse.json({ error: message }, { status: 500 });

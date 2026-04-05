@@ -79,17 +79,7 @@ async function assertGalleryInsertAllowed(
     return { ok: false, response: NextResponse.json({ error: nonHeroCountError.message }, { status: 500 }) };
   }
 
-  const { count: videoCount, error: videoCountError } = await mediaDb
-    .from("festival_media")
-    .select("id", { count: "exact", head: true })
-    .eq("festival_id", festivalId)
-    .ilike("type", "%video%");
-
-  if (videoCountError) {
-    return { ok: false, response: NextResponse.json({ error: videoCountError.message }, { status: 500 }) };
-  }
-
-  const currentImages = (typeof nonHeroCount === "number" ? nonHeroCount : 0) - (typeof videoCount === "number" ? videoCount : 0);
+  const currentImages = typeof nonHeroCount === "number" ? nonHeroCount : 0;
   if (currentImages >= limits.gallery) {
     return {
       ok: false,

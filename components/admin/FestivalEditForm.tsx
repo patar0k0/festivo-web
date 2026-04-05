@@ -73,6 +73,7 @@ type FestivalRecord = {
   promotion_started_at?: string | null;
   promotion_expires_at?: string | null;
   promotion_rank?: number | null;
+  video_url?: string | null;
   [key: string]: unknown;
 };
 
@@ -266,8 +267,6 @@ export default function FestivalEditForm({
   /** All image rows for grid (includes legacy is_hero rows). */
   const displayGalleryRows = useMemo(() => initialMedia.filter((m) => !isVideoMedia(m.type)), [mediaSnapshot]);
 
-  const videoRows = useMemo(() => initialMedia.filter((m) => isVideoMedia(m.type)), [mediaSnapshot]);
-
   const primaryOrganizer = useMemo(() => {
     const organizerId = form.organizer_id.trim() || form.organizer_ids[0]?.trim() || "";
     if (!organizerId) return null;
@@ -283,12 +282,11 @@ export default function FestivalEditForm({
   const heroIsMediaRow = initialMedia.some((m) => Boolean(m.is_hero));
   const totalGallerySlotsUsed = galleryImageCount + (heroIsMediaRow ? 1 : 0);
   const galleryAtLimit = totalGallerySlotsUsed >= mediaLimits.gallery;
-  const videoCount = videoRows.length;
 
   const videoUrlFromServer = useMemo(() => {
-    const v = initialMedia.find((m) => isVideoMedia(m.type));
-    return v?.url ?? "";
-  }, [mediaSnapshot]);
+    const v = festival.video_url;
+    return typeof v === "string" ? v.trim() : "";
+  }, [festival.video_url]);
   const [videoUrl, setVideoUrl] = useState(videoUrlFromServer);
   const [galleryBusy, setGalleryBusy] = useState(false);
   const [importingGalleryFromUrl, setImportingGalleryFromUrl] = useState(false);
@@ -311,6 +309,8 @@ export default function FestivalEditForm({
   }, [form.hero_image]);
 
   const videoEmbedSrc = useMemo(() => getVideoEmbedSrcFromPageUrl(videoUrl.trim()), [videoUrl]);
+
+  const videoCount = videoUrl.trim() ? 1 : 0;
 
   const planLabel = mediaPlanDisplayLabel(mediaPlan);
 
@@ -1279,16 +1279,21 @@ export default function FestivalEditForm({
           {!displayGalleryRows.length ? <p className="mt-2 text-xs text-black/45">Няма снимки в галерията.</p> : null}
         </div>
 
-        {/* Video */}
+        {/* Video (external URL only — not uploaded to gallery storage) */}
         <div className="mt-6 border-t border-black/[0.08] pt-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Видео</p>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Видео линк</p>
+              <p className="mt-1 max-w-xl text-xs text-black/50">
+                Публичен YouTube или Facebook URL. Не се качва видео файл; записва се само линкът в каталога.
+              </p>
+            </div>
             <p className="text-xs text-black/60">
               <span className="font-semibold text-black/80">{videoCount}</span> / {mediaLimits.video} · {planLabel}
             </p>
           </div>
-          <label className="mt-2 block">
-            <span className="sr-only">Видео URL</span>
+          <label className="mt-3 block">
+            <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">URL на видеото</span>
             <input
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}

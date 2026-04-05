@@ -2,11 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 type PendingMediaSource = {
   gallery_image_urls?: unknown;
-  video_url?: string | null;
 };
 
 /**
- * Copies pending gallery URLs and optional video URL into `festival_media` after publish.
+ * Copies pending gallery image URLs into `festival_media` after publish (images only; video lives on `festivals.video_url`).
  */
 export async function insertFestivalMediaFromPending(
   supabase: SupabaseClient,
@@ -36,17 +35,6 @@ export async function insertFestivalMediaFromPending(
       festival_id: festivalId,
       url,
       type: "image",
-      sort_order: sort++,
-      is_hero: false,
-    });
-  }
-
-  const v = typeof pending.video_url === "string" ? pending.video_url.trim() : "";
-  if (v) {
-    rows.push({
-      festival_id: festivalId,
-      url: v,
-      type: "video",
       sort_order: sort++,
       is_hero: false,
     });

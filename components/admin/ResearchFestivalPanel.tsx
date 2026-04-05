@@ -33,6 +33,8 @@ const EMPTY_FINAL_VALUES: EditableFinalValues = {
   city: null,
   location: null,
   description: null,
+  description_short: null,
+  slug: null,
   organizers: [],
   organizer: null,
   hero_image: null,

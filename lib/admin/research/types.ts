@@ -63,6 +63,10 @@ export type ResearchBestGuess = {
   /** First organizer or legacy single field; mirrors `organizers[0]` when set. */
   organizer: string | null;
   description: string | null;
+  /** Optional short blurb when the pipeline provides it. */
+  description_short?: string | null;
+  /** Suggested URL slug when the pipeline provides it (Latin or mixed; normalized on insert). */
+  slug?: string | null;
   hero_image: string | null;
   tags: string[];
   is_free?: boolean | null;
@@ -118,6 +122,8 @@ export type ResearchFestivalResult = {
   city?: string | null;
   location?: string | null;
   description?: string | null;
+  description_short?: string | null;
+  slug?: string | null;
   organizer?: string | null;
   /** Top-level list (mirrors best_guess.organizers when normalized). */
   organizers?: string[] | null;

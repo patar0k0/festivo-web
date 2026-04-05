@@ -4,6 +4,11 @@ import { rehostHeroImageIfRemote, uniqueResearchHeroObjectPath } from "@/lib/adm
 import { mapConfidenceToVerificationScore } from "@/lib/admin/research/scoring";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeResearchResult, validateDateFieldsOrErrors, validateDateRangeOrError } from "@/lib/admin/research/normalize";
+import {
+  resolveCityTextForPending,
+  resolvePendingSlugFromResearch,
+  resolveVenueTextForPending,
+} from "@/lib/admin/research/pendingCreateHandoff";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 import type { ResearchBestGuess, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
@@ -149,8 +154,10 @@ async function insertPendingWithFallback(ctx: AdminContext, payload: Record<stri
     "instagram_url",
     "ticket_url",
     "location_name",
+    "location_guess",
     "address",
     "category",
+    "category_guess",
     "is_free",
     "source_primary_url",
     "source_count",
@@ -158,6 +165,8 @@ async function insertPendingWithFallback(ctx: AdminContext, payload: Record<stri
     "verification_status",
     "verification_score",
     "extraction_version",
+    "city_name_display",
+    "description_short",
   ]);
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -233,15 +242,26 @@ export async function POST(request: Request) {
       `[research-create-pending] source_type input="${aiInputSourceType}" normalized="${aiNormalizedSourceType ?? ""}"`
     );
 
+    const aiTitle = sanitizeNullableString(ai.title) ?? "Untitled festival";
+    const aiCategory = sanitizeNullableString(ai.category);
+    const aiCityText = sanitizeNullableString(ai.city);
+    const aiVenue = sanitizeNullableString(ai.location_name);
+    const aiSlugGuess = sanitizeNullableString(ai.slug);
+
     const insertPayload: Record<string, unknown> = {
-      title: sanitizeNullableString(ai.title) ?? "Untitled festival",
+      title: aiTitle,
+      slug: resolvePendingSlugFromResearch(aiSlugGuess, aiTitle),
       description: sanitizeNullableString(ai.description),
-      category: sanitizeNullableString(ai.category),
+      category: aiCategory,
+      category_guess: aiCategory,
       start_date: normalizeDateForDb(ai.start_date),
       end_date: normalizeDateForDb(ai.end_date),
       start_time: aiTimes.start_time,
       end_time: aiTimes.end_time,
-      location_name: sanitizeNullableString(ai.location_name),
+      city_guess: aiCityText,
+      city_name_display: aiCityText,
+      location_name: aiVenue,
+      location_guess: aiVenue,
       address: sanitizeNullableString(ai.address),
       organizer_entries: orgEntriesAi,
       organizer_name: primaryNameFromEntries(orgEntriesAi, sanitizeNullableString(ai.organizer_name)),
@@ -285,6 +305,12 @@ export async function POST(request: Request) {
         : Array.isArray(body.result.best_guess.organizers)
           ? body.result.best_guess.organizers
           : [],
+      slug:
+        body.final_values && "slug" in body.final_values ? body.final_values.slug : body.result.best_guess.slug,
+      description_short:
+        body.final_values && "description_short" in body.final_values
+          ? body.final_values.description_short
+          : body.result.best_guess.description_short,
     },
   };
 
@@ -314,11 +340,20 @@ export async function POST(request: Request) {
   const websiteFromForm = sanitizeNullableString(finalValues.website_url);
   const orgEntriesResearch = buildOrganizerEntriesFromResearch(finalValues);
 
+  const resolvedTitle = finalValues.title ?? normalized.query;
+  const cityText = resolveCityTextForPending(finalValues, normalized);
+  const venueText = resolveVenueTextForPending(finalValues, normalized);
+  const categoryText = sanitizeNullableString(finalValues.category);
+
   const sharedInsertPayload: Record<string, unknown> = {
-    title: finalValues.title ?? normalized.query,
+    title: resolvedTitle,
+    slug: resolvePendingSlugFromResearch(finalValues.slug, resolvedTitle),
     description: finalValues.description,
-    city_guess: finalValues.city,
-    location_guess: finalValues.location,
+    description_short: sanitizeNullableString(finalValues.description_short),
+    city_guess: cityText,
+    city_name_display: cityText,
+    location_guess: venueText,
+    location_name: venueText,
     organizer_entries: orgEntriesResearch,
     organizer_name: primaryNameFromEntries(orgEntriesResearch, finalValues.organizer),
     ...heroResolvedLegacy.patch,
@@ -334,7 +369,8 @@ export async function POST(request: Request) {
     instagram_url: sanitizeNullableString(finalValues.instagram_url),
     ticket_url: sanitizeNullableString(finalValues.ticket_url),
     address: sanitizeNullableString(finalValues.address),
-    category: sanitizeNullableString(finalValues.category),
+    category: categoryText,
+    category_guess: categoryText,
     source_primary_url: sourcePrimaryUrl,
     source_count: normalized.sources.length,
     evidence_json: {

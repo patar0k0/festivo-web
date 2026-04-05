@@ -6,6 +6,8 @@ export type PerplexityFestivalResearchResult = {
   category: string | null;
   start_date: string | null;
   end_date: string | null;
+  /** Optional; not part of the strict Perplexity JSON schema but preserved when present. */
+  slug?: string | null;
   city: string | null;
   location_name: string | null;
   address: string | null;

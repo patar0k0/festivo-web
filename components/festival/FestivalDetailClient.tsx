@@ -428,11 +428,6 @@ export default function FestivalDetailClient({
         </div>
       </section>
 
-      {showGallerySection ? (
-        <FestivalGallery items={galleryItems} festivalTitle={festival.title || "Фестивал"} />
-      ) : null}
-      {showVideoSection && videoPageUrl ? <FestivalVideoEmbed pageUrl={videoPageUrl} title={festival.title || "Фестивал"} /> : null}
-
       <FestivalQuickFactsStrip segments={quickFactSegments} />
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -488,9 +483,17 @@ export default function FestivalDetailClient({
 
           <section
             id={FESTIVAL_PROGRAM_SECTION_ID}
-            className="scroll-mt-24 rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]"
+            className={`scroll-mt-24 rounded-2xl border border-black/[0.08] ${
+              hasProgramContent
+                ? "bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]"
+                : "bg-white/55 p-4 shadow-[0_1px_0_rgba(12,14,20,0.03),0_4px_14px_rgba(12,14,20,0.04)]"
+            }`}
           >
-            <h2 className="text-xl font-semibold text-[#0c0e14]">Програма</h2>
+            <h2
+              className={`font-semibold text-[#0c0e14] ${hasProgramContent ? "text-xl" : "text-lg text-black/80"}`}
+            >
+              Програма
+            </h2>
             {hasProgramContent ? (
               <>
                 <p className="mt-2 text-sm text-black/55">
@@ -578,6 +581,17 @@ export default function FestivalDetailClient({
               </div>
             )}
           </section>
+
+          {showGallerySection ? (
+            <FestivalGallery items={galleryItems} festivalTitle={festival.title || "Фестивал"} />
+          ) : null}
+          {showVideoSection && videoPageUrl ? (
+            <FestivalVideoEmbed
+              pageUrl={videoPageUrl}
+              title={festival.title || "Фестивал"}
+              compact
+            />
+          ) : null}
 
           {relatedFestivals.length ? (
             <section className="space-y-4">
@@ -763,10 +777,7 @@ export default function FestivalDetailClient({
             </div>
           </section>
 
-          <FestivalAppCta slug={festival.slug} />
-
-          <div className="space-y-4 border-t border-black/[0.08] pt-4">
-            {showInfoSection ? (
+          {showInfoSection ? (
             <section className="rounded-2xl border border-black/[0.07] bg-white/90 p-5 shadow-[0_1px_0_rgba(12,14,20,0.04)]">
               <h2 className="text-lg font-semibold text-[#0c0e14]">Информация</h2>
               <dl className="mt-4 space-y-3 text-sm">
@@ -817,6 +828,9 @@ export default function FestivalDetailClient({
             </section>
           ) : null}
 
+          <FestivalAppCta slug={festival.slug} />
+
+          <div className="space-y-4 border-t border-black/[0.08] pt-4">
           {showMapSection ? (
             <section className="rounded-2xl border border-black/[0.07] bg-white/90 p-5 shadow-[0_1px_0_rgba(12,14,20,0.04)]">
               <h2 className="text-lg font-semibold text-[#0c0e14]">Карта</h2>

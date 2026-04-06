@@ -8,6 +8,7 @@ import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import OrganizerProfileAbout from "@/components/organizers/OrganizerProfileAbout";
 import type { Festival } from "@/lib/types";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import {
   getOrganizerWithFestivals,
   normalizePublicOrganizerSlugParam,
@@ -323,7 +324,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                       title={festival.title}
                       city={festivalCityLabel(festival)}
                       category={festival.category}
-                      imageUrl={festival.hero_image ?? festival.image_url}
+                      imageUrl={getFestivalHeroImage(festival)}
                       startDate={festival.start_date}
                       endDate={festival.end_date}
                       isFree={festival.is_free}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image, { type ImageProps } from "next/image";
+import { usePathname } from "next/navigation";
 
 type FallbackImageProps = Omit<ImageProps, "src" | "alt"> & {
   src?: string | null;
@@ -25,13 +26,25 @@ export default function FallbackImage({
   ...props
 }: FallbackImageProps) {
   const normalizedSrc = useMemo(() => normalizeSrc(src), [src]);
+  const pathname = usePathname();
   const [failed, setFailed] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     setFailed(false);
     setLoadAttempt(0);
-  }, [normalizedSrc]);
+  }, [normalizedSrc, pathname]);
+
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        setFailed(false);
+        setLoadAttempt(0);
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   const resolvedSrc = useMemo(() => {
     if (!normalizedSrc) return null;

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type Props = {
   logoUrl: string | null | undefined;
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export default function OrganizerProfileLogo({ logoUrl, name, initials, variant = "default" }: Props) {
+  const pathname = usePathname();
   const [failed, setFailed] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const trimmed = logoUrl?.trim() ?? "";
@@ -19,7 +21,18 @@ export default function OrganizerProfileLogo({ logoUrl, name, initials, variant 
   useEffect(() => {
     setFailed(false);
     setLoadAttempt(0);
-  }, [trimmed]);
+  }, [trimmed, pathname]);
+
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        setFailed(false);
+        setLoadAttempt(0);
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   const displayUrl = useMemo(() => {
     if (!trimmed) return "";

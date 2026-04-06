@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { bg } from "date-fns/locale";
 import Badge from "@/components/ui/Badge";
@@ -205,6 +206,8 @@ export default function FestivalDetailClient({
     reminderTypeByFestivalId,
   } = usePlanState();
 
+  const pathname = usePathname();
+
   const displayedDay = groupedDays.find((day) => day.id === activeDayId) ?? groupedDays[0] ?? null;
   const selectedItems = useMemo(
     () =>
@@ -317,7 +320,18 @@ export default function FestivalDetailClient({
   useEffect(() => {
     setHeroImageFailed(false);
     setHeroLoadAttempt(0);
-  }, [festival.id, heroImage]);
+  }, [festival.id, heroImage, pathname]);
+
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        setHeroImageFailed(false);
+        setHeroLoadAttempt(0);
+      }
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -626,7 +640,7 @@ export default function FestivalDetailClient({
                       title={item.title}
                       city={festivalCityLabel(item)}
                       category={item.category}
-                      imageUrl={item.image_url}
+                      imageUrl={getFestivalHeroImage(item)}
                       startDate={primaryFestivalDate(item)}
                       endDate={item.end_date}
                       dateLine={formatFestivalDateLineLongBg(item)}

@@ -23,7 +23,17 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: rawSlug } = await params;
   const slug = normalizePublicFestivalSlugParam(rawSlug);
-  const festival = await getFestivalBySlug(slug);
+  let festival: Awaited<ReturnType<typeof getFestivalBySlug>> = null;
+  try {
+    festival = await getFestivalBySlug(slug);
+  } catch (err) {
+    console.error("[festivals/[slug]] TEMP generateMetadata lookup failed", {
+      rawSlug,
+      normalizedSlug: slug,
+      err,
+    });
+    return {};
+  }
   if (!festival) return {};
 
   const meta = festivalMeta(festival);
@@ -64,6 +74,7 @@ export default async function Page({
   const slug = normalizePublicFestivalSlugParam(rawSlug);
   const data = await getFestivalDetail(slug);
 
+  /** Missing published row only — fetch failures throw and are handled by `app/festivals/error.tsx`. */
   if (!data) return notFound();
 
   const galleryImageUrls = data.media

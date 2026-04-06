@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import { buildFestivalIcs } from "@/lib/ics";
-import { getFestivalBySlug } from "@/lib/queries";
+import { getFestivalBySlug, normalizePublicFestivalSlugParam } from "@/lib/queries";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = normalizePublicFestivalSlugParam(rawSlug);
   let festival;
   try {
     festival = await getFestivalBySlug(slug);

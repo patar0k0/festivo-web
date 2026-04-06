@@ -38,7 +38,10 @@ export function normalizePublicOrganizerSlugParam(raw: string): string {
   return normalizeUrlSlugSegment(raw);
 }
 
-/** Same rules as organizer public URLs — keeps festival detail lookups aligned with encoded links. */
+/**
+ * Public `/festivals/[slug]` (and legacy `/festival/[slug]`) params must be normalized with this before DB lookup
+ * so they match stored `festivals.slug` and links built from that column (see `normalizeUrlSlugSegment`).
+ */
 export function normalizePublicFestivalSlugParam(raw: string): string {
   return normalizeUrlSlugSegment(raw);
 }
@@ -319,33 +322,56 @@ export async function getFestivals(
   };
 }
 
+const FESTIVAL_BY_SLUG_MAX_ATTEMPTS = 2;
+const FESTIVAL_BY_SLUG_RETRY_DELAY_MS = 150;
+
 export async function getFestivalBySlug(rawSlug: string): Promise<Festival | null> {
-  const slug = normalizeUrlSlugSegment(rawSlug);
+  const slug = normalizePublicFestivalSlugParam(rawSlug);
   const supabase = supabaseServer();
   if (!supabase) {
-    return null;
-  }
-  const { data, error } = await supabase
-    .from("festivals")
-    .select(FESTIVAL_SELECT_DETAIL)
-    .eq("slug", slug)
-    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
-    .neq("status", "archived")
-    .maybeSingle();
-
-  if (error) {
-    console.error("[getFestivalBySlug] query error", { slug, message: error.message });
-    throw new Error(`Festival lookup failed: ${error.message}`);
+    console.error("[getFestivalBySlug] TEMP no Supabase client", {
+      rawSlug,
+      normalizedSlug: slug,
+      attempt: 0,
+      message: "client_unavailable",
+    });
+    throw new Error("Festival query failed: Supabase client is not configured");
   }
 
-  const festival = data as Festival | null;
+  let lastMessage = "";
+  for (let attempt = 1; attempt <= FESTIVAL_BY_SLUG_MAX_ATTEMPTS; attempt++) {
+    const { data, error } = await supabase
+      .from("festivals")
+      .select(FESTIVAL_SELECT_DETAIL)
+      .eq("slug", slug)
+      .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+      .neq("status", "archived")
+      .maybeSingle();
 
-  if (!festival) {
-    return null;
+    if (!error) {
+      const festival = data as Festival | null;
+      if (!festival) {
+        return null;
+      }
+      const withOrganizers = await mergeFestivalOrganizersFromJoinTable(supabase, festival);
+      return fixFestivalText(withOrganizers);
+    }
+
+    lastMessage = error.message;
+    console.error("[getFestivalBySlug] TEMP query error", {
+      rawSlug,
+      normalizedSlug: slug,
+      message: error.message,
+      attempt,
+      maxAttempts: FESTIVAL_BY_SLUG_MAX_ATTEMPTS,
+    });
+
+    if (attempt < FESTIVAL_BY_SLUG_MAX_ATTEMPTS) {
+      await new Promise((r) => setTimeout(r, FESTIVAL_BY_SLUG_RETRY_DELAY_MS));
+    }
   }
 
-  const withOrganizers = await mergeFestivalOrganizersFromJoinTable(supabase, festival);
-  return fixFestivalText(withOrganizers);
+  throw new Error(`Festival query failed: ${lastMessage}`);
 }
 
 export async function getFestivalDetail(
@@ -357,7 +383,12 @@ export async function getFestivalDetail(
   scheduleItems: FestivalScheduleItem[];
 } | null> {
   const supabase = supabaseServer();
-  if (!supabase) return null;
+  if (!supabase) {
+    console.error("[getFestivalDetail] TEMP no Supabase client", {
+      normalizedSlug: normalizePublicFestivalSlugParam(slug),
+    });
+    throw new Error("Festival query failed: Supabase client is not configured");
+  }
   const festival = await getFestivalBySlug(slug);
   if (!festival) return null;
 

@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Image, { type ImageProps } from "next/image";
 import { usePathname } from "next/navigation";
+import { useNavigationGeneration } from "@/components/providers/NavigationGenerationProvider";
+import { useImageLoadReset } from "@/components/ui/useImageLoadReset";
 
 type FallbackImageProps = Omit<ImageProps, "src" | "alt"> & {
   src?: string | null;
   fallbackSrc?: string;
   alt?: string | null;
+  /** Entity identity (e.g. festival id) so error state resets even when `src` matches another row. */
+  resetKey?: string | number | null;
 };
 
 function normalizeSrc(src?: string | null): string | null {
@@ -23,28 +27,30 @@ export default function FallbackImage({
   src,
   fallbackSrc = "/images/placeholder.jpg",
   alt,
+  resetKey,
+  unoptimized: unoptimizedProp,
   ...props
 }: FallbackImageProps) {
   const normalizedSrc = useMemo(() => normalizeSrc(src), [src]);
   const pathname = usePathname();
+  const navigationGeneration = useNavigationGeneration();
   const [failed, setFailed] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
 
-  useEffect(() => {
-    setFailed(false);
-    setLoadAttempt(0);
-  }, [normalizedSrc, pathname]);
+  useImageLoadReset(
+    () => {
+      setFailed(false);
+      setLoadAttempt(0);
+    },
+    normalizedSrc,
+    pathname,
+    resetKey,
+  );
 
-  useEffect(() => {
-    const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        setFailed(false);
-        setLoadAttempt(0);
-      }
-    };
-    window.addEventListener("pageshow", onPageShow);
-    return () => window.removeEventListener("pageshow", onPageShow);
-  }, []);
+  const isRemote =
+    Boolean(normalizedSrc) &&
+    (normalizedSrc!.startsWith("http://") || normalizedSrc!.startsWith("https://"));
+  const unoptimized = unoptimizedProp ?? isRemote;
 
   const resolvedSrc = useMemo(() => {
     if (!normalizedSrc) return null;
@@ -59,7 +65,8 @@ export default function FallbackImage({
   return (
     <Image
       {...props}
-      key={finalSrc}
+      unoptimized={unoptimized}
+      key={`${finalSrc}__ng${navigationGeneration}`}
       src={finalSrc}
       alt={normalizedAlt}
       onError={() => {

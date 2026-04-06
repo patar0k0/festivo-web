@@ -45,6 +45,7 @@ export default function FestivalAccommodationSection({ offers, festivalId }: Pro
                     fill
                     className="object-cover"
                     sizes="96px"
+                    resetKey={festivalId ? `${festivalId}-${index}` : `${offer.url}-${index}`}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-[10px] font-medium uppercase tracking-wider text-black/35">

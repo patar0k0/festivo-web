@@ -7,7 +7,13 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const festival = await getFestivalBySlug(slug);
+  let festival;
+  try {
+    festival = await getFestivalBySlug(slug);
+  } catch (err) {
+    console.error("[ics] getFestivalBySlug failed", err);
+    return new Response("Service unavailable", { status: 503 });
+  }
   if (!festival) {
     return new Response("Not found", { status: 404 });
   }

@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useNavigationGeneration } from "@/components/providers/NavigationGenerationProvider";
+import { useImageLoadReset } from "@/components/ui/useImageLoadReset";
 
 type Props = {
   logoUrl: string | null | undefined;
@@ -10,29 +12,32 @@ type Props = {
   initials: string;
   /** Larger treatment for public organizer hero. */
   variant?: "default" | "hero";
+  /** Stable organizer identity so logo error state resets across navigations when URL is unchanged. */
+  resetKey?: string | number | null;
 };
 
-export default function OrganizerProfileLogo({ logoUrl, name, initials, variant = "default" }: Props) {
+export default function OrganizerProfileLogo({
+  logoUrl,
+  name,
+  initials,
+  variant = "default",
+  resetKey,
+}: Props) {
   const pathname = usePathname();
+  const navigationGeneration = useNavigationGeneration();
   const [failed, setFailed] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const trimmed = logoUrl?.trim() ?? "";
 
-  useEffect(() => {
-    setFailed(false);
-    setLoadAttempt(0);
-  }, [trimmed, pathname]);
-
-  useEffect(() => {
-    const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        setFailed(false);
-        setLoadAttempt(0);
-      }
-    };
-    window.addEventListener("pageshow", onPageShow);
-    return () => window.removeEventListener("pageshow", onPageShow);
-  }, []);
+  useImageLoadReset(
+    () => {
+      setFailed(false);
+      setLoadAttempt(0);
+    },
+    trimmed,
+    pathname,
+    resetKey,
+  );
 
   const displayUrl = useMemo(() => {
     if (!trimmed) return "";
@@ -65,7 +70,7 @@ export default function OrganizerProfileLogo({ logoUrl, name, initials, variant 
     >
       {showImage ? (
         <Image
-          key={displayUrl}
+          key={`${displayUrl}__ng${navigationGeneration}`}
           src={displayUrl}
           alt={name}
           fill

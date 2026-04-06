@@ -21,6 +21,7 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
           fill
           className="object-cover"
           priority
+          resetKey={festival.id}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-ink/80 via-ink/40 to-transparent" />
       </div>

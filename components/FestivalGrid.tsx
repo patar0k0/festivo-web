@@ -29,6 +29,7 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
                   alt={festival.title}
                   fill
                   className="object-cover"
+                  resetKey={festival.id}
                 />
               ) : null}
               <div className="absolute left-3 top-3 rounded-full border border-[color:var(--border2)] bg-white/90 px-3 py-1 text-xs backdrop-blur">

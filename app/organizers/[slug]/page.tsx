@@ -133,6 +133,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                   logoUrl={organizer.logo_url}
                   name={organizer.name}
                   initials={organizerInitials}
+                  resetKey={organizer.id}
                 />
 
                 <div className="min-w-0 flex-1 space-y-6 md:space-y-7">
@@ -330,6 +331,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                       isFree={festival.is_free}
                       isPromoted={hasActivePromotion(festival)}
                       detailsHref={`/festivals/${festival.slug}`}
+                      festivalId={festival.id}
                     />
                   ))}
                 </div>

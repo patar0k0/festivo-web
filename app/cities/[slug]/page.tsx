@@ -212,6 +212,7 @@ export default async function CityLandingPage({
                         showDescription
                         showDetailsButton
                         detailsHref={`/festivals/${festival.slug}`}
+                        festivalId={festival.id}
                       />
                     ))}
                   </div>

@@ -7,6 +7,8 @@ import { format, parseISO } from "date-fns";
 import { bg } from "date-fns/locale";
 import Badge from "@/components/ui/Badge";
 import EventCard from "@/components/ui/EventCard";
+import { useNavigationGeneration } from "@/components/providers/NavigationGenerationProvider";
+import { useImageLoadReset } from "@/components/ui/useImageLoadReset";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
 import FestivalGallery from "@/components/festival/FestivalGallery";
@@ -207,6 +209,7 @@ export default function FestivalDetailClient({
   } = usePlanState();
 
   const pathname = usePathname();
+  const navigationGeneration = useNavigationGeneration();
 
   const displayedDay = groupedDays.find((day) => day.id === activeDayId) ?? groupedDays[0] ?? null;
   const selectedItems = useMemo(
@@ -317,21 +320,15 @@ export default function FestivalDetailClient({
 
   const descriptionNeedsToggle = descriptionText.length > 480;
 
-  useEffect(() => {
-    setHeroImageFailed(false);
-    setHeroLoadAttempt(0);
-  }, [festival.id, heroImage, pathname]);
-
-  useEffect(() => {
-    const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        setHeroImageFailed(false);
-        setHeroLoadAttempt(0);
-      }
-    };
-    window.addEventListener("pageshow", onPageShow);
-    return () => window.removeEventListener("pageshow", onPageShow);
-  }, []);
+  useImageLoadReset(
+    () => {
+      setHeroImageFailed(false);
+      setHeroLoadAttempt(0);
+    },
+    festival.id,
+    heroImage,
+    pathname,
+  );
 
   useEffect(() => {
     return () => {
@@ -378,7 +375,7 @@ export default function FestivalDetailClient({
             <>
               {/* eslint-disable-next-line @next/next/no-img-element -- Hero image URL can be external/unknown at runtime and needs direct fallback handling via onError. */}
               <img
-                key={`${festival.id}-${heroDisplayUrl}`}
+                key={`${festival.id}-${heroDisplayUrl}-ng${navigationGeneration}`}
                 src={heroDisplayUrl ?? heroImage}
                 alt={festival.title || "Festival"}
                 className="h-full w-full object-cover"
@@ -647,6 +644,7 @@ export default function FestivalDetailClient({
                       isFree={item.is_free}
                       isPromoted={hasActivePromotion(item)}
                       isVipOrganizer={hasActiveVip(item.organizer)}
+                      festivalId={item.id}
                     />
                   </Link>
                 ))}

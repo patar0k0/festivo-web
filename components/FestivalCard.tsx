@@ -25,6 +25,7 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
               alt={festival.title}
               fill
               className="object-cover"
+              resetKey={festival.id}
             />
           </AppleCardHeader>
         ) : null}

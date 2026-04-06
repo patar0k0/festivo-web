@@ -787,6 +787,7 @@ export default function OrganizerEditForm({
                 logoUrl={form.logo_url}
                 name={form.name.trim() || organizer.name}
                 initials={organizerInitialsFromName(form.name.trim() || organizer.name)}
+                resetKey={organizer.id}
               />
               <div className="min-w-0 flex-1 space-y-1">
                 <p className="truncate font-semibold text-[#0c0e14]">{form.name.trim() || "—"}</p>

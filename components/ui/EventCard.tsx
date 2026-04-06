@@ -152,6 +152,7 @@ export default function EventCard({
                 fill
                 sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
                 className="object-cover transition-transform duration-300 ease-out group-hover/image:scale-105"
+                resetKey={festivalId}
               />
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#f2efe9] text-sm text-black/45">
@@ -175,6 +176,7 @@ export default function EventCard({
             fill
             sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
             className="object-cover"
+            resetKey={festivalId}
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#f2efe9] text-sm text-black/45">

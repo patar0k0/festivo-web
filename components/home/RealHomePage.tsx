@@ -60,6 +60,7 @@ function EventsSection({
               showDescription
               showDetailsButton
               detailsHref={`/festivals/${festival.slug}`}
+              festivalId={festival.id}
             />
           ))}
         </div>

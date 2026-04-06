@@ -333,9 +333,14 @@ export async function getFestivalBySlug(rawSlug: string): Promise<Festival | nul
     .neq("status", "archived")
     .maybeSingle();
 
+  if (error) {
+    console.error("[getFestivalBySlug] query error", { slug, message: error.message });
+    throw new Error(`Festival lookup failed: ${error.message}`);
+  }
+
   const festival = data as Festival | null;
 
-  if (error || !festival) {
+  if (!festival) {
     return null;
   }
 

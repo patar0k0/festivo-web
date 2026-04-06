@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState } from "react";
+import { useNavigationGeneration } from "@/components/providers/NavigationGenerationProvider";
 import FallbackImage from "@/components/ui/FallbackImage";
 
 export type FestivalGalleryItem = {
@@ -18,6 +19,7 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const headingId = useId();
   const lightboxTitleId = useId();
+  const navigationGeneration = useNavigationGeneration();
 
   const close = useCallback(() => setOpenIndex(null), []);
   const len = items.length;
@@ -80,6 +82,7 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
               fill
               sizes="(max-width: 1024px) 50vw, 33vw"
               className="object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04]"
+              resetKey={item.id}
             />
             <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />
             {item.caption?.trim() ? (
@@ -140,6 +143,7 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
 
             {/* eslint-disable-next-line @next/next/no-img-element -- пълноразмерен преглед, външни URL */}
             <img
+              key={`${current.url}-lb-${openIndex}-ng${navigationGeneration}`}
               src={current.url}
               alt={current.caption?.trim() ? current.caption : `${festivalTitle} — снимка ${openIndex + 1}`}
               className="max-h-[min(78vh,100%)] max-w-full object-contain shadow-2xl"

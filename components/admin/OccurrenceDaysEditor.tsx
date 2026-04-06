@@ -1,7 +1,7 @@
 "use client";
 
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
-import { ADMIN_ENTITY_CONTROL_BASE } from "@/lib/admin/entitySchema";
+import { ADMIN_ENTITY_CONTROL_CLASS } from "@/components/admin/entity";
 
 type Props = {
   value: string[];
@@ -43,7 +43,7 @@ export default function OccurrenceDaysEditor({ value, onChange, disabled }: Prop
               value={row}
               onChange={(iso) => setSlot(index, iso)}
               disabled={disabled}
-              className={`min-w-[9rem] flex-1 ${ADMIN_ENTITY_CONTROL_BASE}`}
+              className={`min-w-[9rem] flex-1 ${ADMIN_ENTITY_CONTROL_CLASS}`}
             />
             <button
               type="button"

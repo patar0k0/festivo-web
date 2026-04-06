@@ -35,6 +35,8 @@ import { getListingShortFromEvidenceJson } from "@/lib/admin/festivalListingShor
 import { ADMIN_FIELD_LABEL, getAdminFieldLabel } from "@/lib/admin/entitySchema";
 import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
 import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
+import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
+import AdminDateTimeLocalInput from "@/components/admin/inputs/AdminDateTimeLocalInput";
 import { compactProgramDraft, emptyProgramDraft, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
 
 type FestivalRecord = {
@@ -976,23 +978,14 @@ export default function FestivalEditForm({
           </AdminFieldInlineRow>
           <AdminFieldInlineRow field="startTime">
             <span className="sr-only">HH:mm</span>
-            <input
-              type="time"
-              step={60}
+            <AdminTimeInput
               value={form.start_time}
               onChange={(e) => updateField("start_time", e.target.value)}
-              className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </AdminFieldInlineRow>
           <AdminFieldInlineRow field="endTime">
             <span className="sr-only">HH:mm</span>
-            <input
-              type="time"
-              step={60}
-              value={form.end_time}
-              onChange={(e) => updateField("end_time", e.target.value)}
-              className={ADMIN_ENTITY_CONTROL_CLASS}
-            />
+            <AdminTimeInput value={form.end_time} onChange={(e) => updateField("end_time", e.target.value)} />
           </AdminFieldInlineRow>
           <div className="md:col-span-2">
             <AdminFieldLabel field="occurrenceDays" />
@@ -1004,8 +997,8 @@ export default function FestivalEditForm({
       </AdminFieldSection>
 
       <AdminFieldSection
-        title="Програма"
-        description="Публична програма (festival_days / festival_schedule_items). Отделен запис от основните полета на фестивала."
+        title="Програма и разписание"
+        description="Публично разписание по часове (сцени и събития). При запис в каталога се записва като отделни дни и точки в програмата."
         variant="default"
       >
         <ProgramDraftEditor value={programDraft} onChange={setProgramDraft} />
@@ -1430,23 +1423,16 @@ export default function FestivalEditForm({
             <div className="flex w-full flex-col gap-3">
               <label className="block w-full">
                 <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Промотиран от</span>
-                <input
-                  type="datetime-local"
-                  value={form.promotion_started_at}
-                  onChange={(e) => updateField("promotion_started_at", e.target.value)}
-                  className={`w-full ${ADMIN_ENTITY_CONTROL_CLASS}`}
-                />
+                <AdminDateTimeLocalInput value={form.promotion_started_at} onChange={(e) => updateField("promotion_started_at", e.target.value)} />
                 <p className="mt-1.5 text-xs text-black/50">
                   Информативно — промоцията е активна веднага след включване.
                 </p>
               </label>
               <label className="block w-full">
                 <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Край на промоцията</span>
-                <input
-                  type="datetime-local"
+                <AdminDateTimeLocalInput
                   value={form.promotion_expires_at}
                   onChange={(e) => updateField("promotion_expires_at", e.target.value)}
-                  className={`w-full ${ADMIN_ENTITY_CONTROL_CLASS}`}
                 />
               </label>
             </div>

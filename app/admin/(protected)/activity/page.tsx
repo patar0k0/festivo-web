@@ -7,6 +7,7 @@ import {
   type AdminAuditLogRow,
   queryAdminAuditLogs,
 } from "@/lib/admin/queryAdminAuditLogs";
+import { ADMIN_NATIVE_DATE_INPUT_CLASS } from "@/lib/admin/adminNativeDateTimeClasses";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -242,7 +243,7 @@ export default async function AdminActivityPage({ searchParams }: { searchParams
                 name="date_from"
                 type="date"
                 defaultValue={date_from}
-                className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm"
+                className={`mt-1 ${ADMIN_NATIVE_DATE_INPUT_CLASS}`}
               />
             </label>
             <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
@@ -251,7 +252,7 @@ export default async function AdminActivityPage({ searchParams }: { searchParams
                 name="date_to"
                 type="date"
                 defaultValue={date_to}
-                className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm"
+                className={`mt-1 ${ADMIN_NATIVE_DATE_INPUT_CLASS}`}
               />
             </label>
           </div>

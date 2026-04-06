@@ -11,6 +11,7 @@ import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import { getAIProviderLabel } from "@/lib/ai/providerUi";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import OrganizerOwnershipSection, { type OrganizerOwnershipMember } from "@/components/admin/OrganizerOwnershipSection";
+import AdminDateTimeLocalInput from "@/components/admin/inputs/AdminDateTimeLocalInput";
 
 const ORGANIZER_RESEARCH_PROVIDER = "perplexity";
 
@@ -744,20 +745,18 @@ export default function OrganizerEditForm({
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">plan_started_at</span>
-                <input
-                  type="datetime-local"
+                <AdminDateTimeLocalInput
                   value={form.plan_started_at}
                   onChange={(e) => updateField("plan_started_at", e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+                  className="mt-2 rounded-xl"
                 />
               </label>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">plan_expires_at</span>
-                <input
-                  type="datetime-local"
+                <AdminDateTimeLocalInput
                   value={form.plan_expires_at}
                   onChange={(e) => updateField("plan_expires_at", e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+                  className="mt-2 rounded-xl"
                 />
               </label>
               <label className="md:col-span-2">

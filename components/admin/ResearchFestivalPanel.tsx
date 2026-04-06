@@ -702,8 +702,8 @@ export default function ResearchFestivalPanel() {
 
       {aiDraft || result ? (
         <AdminFieldSection
-          title="Програма"
-          description="Структурирана програма по дни (часове, сцена, заглавия). Запазва се в черновата при създаване на pending."
+          title="Програма и разписание"
+          description="Разписание по часове и събития. Запазва се в черновата при създаване на pending."
           variant="default"
         >
           {aiDraft ? (

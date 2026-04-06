@@ -41,6 +41,7 @@ import { getAIProviderLabel, getPendingResearchProviderKey } from "@/lib/ai/prov
 import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
 import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
 import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
+import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
 import { compactProgramDraft, emptyProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
 
 export type PendingFestivalRecord = {
@@ -1357,22 +1358,10 @@ export default function PendingFestivalEditForm({
               />
             </AdminFieldInlineRow>
             <AdminFieldInlineRow field="startTime">
-              <input
-                type="time"
-                step={60}
-                value={form.start_time}
-                onChange={(e) => updateField("start_time", e.target.value)}
-                className={ADMIN_ENTITY_CONTROL_CLASS}
-              />
+              <AdminTimeInput value={form.start_time} onChange={(e) => updateField("start_time", e.target.value)} />
             </AdminFieldInlineRow>
             <AdminFieldInlineRow field="endTime">
-              <input
-                type="time"
-                step={60}
-                value={form.end_time}
-                onChange={(e) => updateField("end_time", e.target.value)}
-                className={ADMIN_ENTITY_CONTROL_CLASS}
-              />
+              <AdminTimeInput value={form.end_time} onChange={(e) => updateField("end_time", e.target.value)} />
             </AdminFieldInlineRow>
             <div className="md:col-span-2">
               <AdminFieldLabel field="occurrenceDays" />
@@ -1388,8 +1377,8 @@ export default function PendingFestivalEditForm({
         </AdminFieldSection>
 
         <AdminFieldSection
-          title="Програма"
-          description="Чернова за публичната програма. При одобрение се записва в festival_days и festival_schedule_items."
+          title="Програма и разписание"
+          description="Публично разписание по часове. При одобрение става видимо в каталога като отделни дни и точки в програмата."
           variant="default"
         >
           <ProgramDraftEditor value={programDraft} onChange={setProgramDraft} />

@@ -116,6 +116,168 @@ export function programDraftHasContent(draft: ProgramDraft | null | undefined): 
   return draft.days.some((d) => d.items.length > 0);
 }
 
+function cloneProgramDraft(d: ProgramDraft): ProgramDraft {
+  return {
+    version: d.version,
+    days: d.days.map((day) => ({
+      date: day.date,
+      title: day.title ?? null,
+      items: day.items.map((it) => ({ ...it })),
+    })),
+  };
+}
+
+function minutesSinceMidnightFromDbTime(hms: string | null | undefined): number | null {
+  if (!hms || typeof hms !== "string") return null;
+  const m = hms.trim().match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(min)) return null;
+  return h * 60 + min;
+}
+
+/** Sort items for display and stable storage order (time, then title). */
+export function sortProgramDraftItemsByStartTime(items: ProgramDraftItem[]): ProgramDraftItem[] {
+  return [...items].sort((a, b) => {
+    const as = minutesSinceMidnightFromDbTime(a.start_time);
+    const bs = minutesSinceMidnightFromDbTime(b.start_time);
+    const aOrd = as === null ? 24 * 60 : as;
+    const bOrd = bs === null ? 24 * 60 : bs;
+    if (aOrd !== bOrd) return aOrd - bOrd;
+    return a.title.localeCompare(b.title);
+  });
+}
+
+/**
+ * Merge multiple `ProgramDraftDay` rows that share the same ISO date (e.g. after row-first editing).
+ * Invalid-date days are kept at the end for in-progress editing.
+ */
+export function mergeProgramDraftDaysByDate(draft: ProgramDraft): ProgramDraft {
+  const validMap = new Map<string, { title: string | null; items: ProgramDraftItem[] }>();
+  const invalidDays: ProgramDraftDay[] = [];
+
+  for (const day of draft.days) {
+    const d = day.date?.trim() ?? "";
+    if (!d || !isValidIsoDate(d)) {
+      invalidDays.push({
+        date: day.date,
+        title: day.title ?? null,
+        items: day.items.map((it) => ({ ...it })),
+      });
+      continue;
+    }
+    const g = validMap.get(d) ?? { title: null, items: [] as ProgramDraftItem[] };
+    if (!g.title && day.title) g.title = day.title;
+    g.items.push(...day.items.map((it) => ({ ...it })));
+    validMap.set(d, g);
+  }
+
+  const sortedDates = [...validMap.keys()].sort();
+  const mergedValid: ProgramDraftDay[] = sortedDates.map((date) => {
+    const g = validMap.get(date)!;
+    return {
+      date,
+      title: g.title,
+      items: sortProgramDraftItemsByStartTime(g.items),
+    };
+  });
+
+  return {
+    version: draft.version ?? PROGRAM_DRAFT_VERSION,
+    days: [...mergedValid, ...invalidDays],
+  };
+}
+
+/** Flat row model for the admin program editor (stable `id` for React state). */
+export type ProgramEditorRow = {
+  id: string;
+  date: string;
+  dayTitle: string | null;
+  title: string;
+  start_time: string | null;
+  end_time: string | null;
+  stage: string | null;
+  description: string | null;
+};
+
+export function programDraftToEditorRows(draft: ProgramDraft): ProgramEditorRow[] {
+  const merged = mergeProgramDraftDaysByDate(cloneProgramDraft(draft));
+  const rows: ProgramEditorRow[] = [];
+  merged.days.forEach((day, di) => {
+    day.items.forEach((item, ii) => {
+      rows.push({
+        id: `${day.date}-${di}-${ii}`,
+        date: day.date,
+        dayTitle: ii === 0 ? day.title ?? null : null,
+        title: item.title,
+        start_time: item.start_time ?? null,
+        end_time: item.end_time ?? null,
+        stage: item.stage ?? null,
+        description: item.description ?? null,
+      });
+    });
+  });
+  return rows;
+}
+
+export function compareProgramEditorRows(a: ProgramEditorRow, b: ProgramEditorRow): number {
+  const ad = a.date.trim();
+  const bd = b.date.trim();
+  const aDateOk = ad.length > 0 && isValidIsoDate(ad);
+  const bDateOk = bd.length > 0 && isValidIsoDate(bd);
+  if (aDateOk && bDateOk && ad !== bd) return ad.localeCompare(bd);
+  if (aDateOk !== bDateOk) return aDateOk ? -1 : 1;
+  const as = minutesSinceMidnightFromDbTime(a.start_time);
+  const bs = minutesSinceMidnightFromDbTime(b.start_time);
+  const aOrd = as === null ? 24 * 60 : as;
+  const bOrd = bs === null ? 24 * 60 : bs;
+  if (aOrd !== bOrd) return aOrd - bOrd;
+  return a.title.localeCompare(b.title);
+}
+
+/** Build a program draft from flat editor rows (merges duplicate dates, sorts items). */
+export function programDraftFromEditorRows(rows: ProgramEditorRow[]): ProgramDraft {
+  const sorted = [...rows].sort(compareProgramEditorRows);
+  const byDate = new Map<string, { title: string | null; items: ProgramDraftItem[] }>();
+
+  for (const row of sorted) {
+    const d = row.date.trim();
+    if (!d || !isValidIsoDate(d)) continue;
+
+    const g = byDate.get(d) ?? { title: null, items: [] as ProgramDraftItem[] };
+    const dt = row.dayTitle?.trim() ? row.dayTitle.trim() : null;
+    if (dt) g.title = dt;
+
+    const pair = normalizeFestivalTimePair(
+      parseHmInputToDbTime(row.start_time),
+      parseHmInputToDbTime(row.end_time),
+    );
+    const item: ProgramDraftItem = {
+      title: row.title,
+      start_time: pair.start_time,
+      end_time: pair.end_time,
+      stage: row.stage?.trim() ? row.stage.trim() : null,
+      description: row.description?.trim() ? row.description.trim() : null,
+      sort_order: null,
+    };
+    g.items.push(item);
+    byDate.set(d, g);
+  }
+
+  const dates = [...byDate.keys()].sort();
+  const days: ProgramDraftDay[] = dates.map((date) => {
+    const g = byDate.get(date)!;
+    return {
+      date,
+      title: g.title,
+      items: sortProgramDraftItemsByStartTime(g.items),
+    };
+  });
+
+  return { version: PROGRAM_DRAFT_VERSION, days };
+}
+
 type GeminiProgramDay = {
   date?: string | null;
   title?: string | null;

@@ -1,6 +1,5 @@
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
-import "../landing.css";
 
 function MapSkeletonCard() {
   return (
@@ -14,7 +13,7 @@ function MapSkeletonCard() {
 
 export default function MapLoading() {
   return (
-    <div className="landing-bg min-h-screen text-[#0c0e14]">
+    <div className="min-h-screen text-[#0c0e14]">
       <Section className="bg-transparent py-8 md:py-10">
         <Container>
           <div className="space-y-6">

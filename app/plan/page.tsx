@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import PlanPageClient from "@/components/plan/PlanPageClient";
+import { pub } from "@/lib/public-ui/styles";
 import { getOptionalUser } from "@/lib/authUser";
+import { cn } from "@/lib/utils";
 import { getPlanEntriesByUser, getPlanStateByUser } from "@/lib/plan/server";
 import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
@@ -23,7 +25,7 @@ export default async function PlanPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-bg px-4 py-10 text-black">
+      <div className={cn(pub.page, "min-h-screen px-4 py-10")}>
         <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border-subtle bg-surface p-6 text-center shadow-card">
           <h1 className="text-3xl font-black tracking-tight">Моят план</h1>
           <p className="mt-3 text-sm text-black/65">Влез, за да управляваш избраните събития и напомняния.</p>
@@ -87,7 +89,7 @@ export default async function PlanPage() {
       .sort((a, b) => a.parsedStartDate!.getTime() - b.parsedStartDate!.getTime())[0] ?? null;
 
   return (
-    <div className="min-h-screen bg-bg px-4 py-8 text-black md:px-6 md:py-10">
+    <div className={cn(pub.page, "min-h-screen px-4 py-8 md:px-6 md:py-10")}>
       <div className="mx-auto w-full max-w-[1100px]">
         <PlanPageClient
           entries={entries}

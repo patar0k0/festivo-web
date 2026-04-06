@@ -18,7 +18,6 @@ import { getBaseUrl } from "@/lib/seo";
 import { hasActivePromotion } from "@/lib/monetization";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
-import "../../landing.css";
 
 /** Avoid caching a stale 404 after the organizer row appears or slug is fixed (ISR + notFound). */
 export const dynamic = "force-dynamic";

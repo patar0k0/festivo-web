@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-import "../../landing.css";
 import { UnsubscribeClient } from "./UnsubscribeClient";
 
 const UUID_RE =
@@ -13,7 +12,7 @@ export default async function UnsubscribePage({ params }: { params: { token: str
 
   if (!UUID_RE.test(token)) {
     return (
-      <div className="landing-bg min-h-screen px-4 py-10 text-[#0c0e14]">
+      <div className="min-h-screen px-4 py-10 text-[#0c0e14]">
         <div className="mx-auto w-full max-w-lg rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm">
           <h1 className="text-xl font-bold tracking-tight">Невалиден линк</h1>
           <p className="mt-2 text-sm text-black/65">Този адрес не е валиден. Ако копираш линк от имейл, опитай отново.</p>
@@ -27,7 +26,7 @@ export default async function UnsubscribePage({ params }: { params: { token: str
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return (
-      <div className="landing-bg min-h-screen px-4 py-10 text-[#0c0e14]">
+      <div className="min-h-screen px-4 py-10 text-[#0c0e14]">
         <div className="mx-auto w-full max-w-lg rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm">
           <h1 className="text-xl font-bold tracking-tight">Временно недостъпно</h1>
           <p className="mt-2 text-sm text-black/65">Услугата не е настроена. Опитай по-късно.</p>
@@ -41,7 +40,7 @@ export default async function UnsubscribePage({ params }: { params: { token: str
 
   if (error || !data?.user_id) {
     return (
-      <div className="landing-bg min-h-screen px-4 py-10 text-[#0c0e14]">
+      <div className="min-h-screen px-4 py-10 text-[#0c0e14]">
         <div className="mx-auto w-full max-w-lg rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm">
           <h1 className="text-xl font-bold tracking-tight">Линкът не е валиден</h1>
           <p className="mt-2 text-sm text-black/65">
@@ -56,7 +55,7 @@ export default async function UnsubscribePage({ params }: { params: { token: str
   }
 
   return (
-    <div className="landing-bg min-h-screen px-4 py-10 text-[#0c0e14]">
+    <div className="min-h-screen px-4 py-10 text-[#0c0e14]">
       <div className="mx-auto w-full max-w-lg rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/40">Festivo</p>
         <h1 className="mt-1.5 text-2xl font-bold tracking-tight">Управление на имейл</h1>

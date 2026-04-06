@@ -4,7 +4,6 @@ import {
   getPortalAdminClient,
   getPortalSessionUser,
 } from "@/lib/organizer/portal";
-import "@/app/landing.css";
 import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
 
@@ -78,7 +77,7 @@ export default async function OrganizerEntryPage() {
           ) : null}
 
           {loggedIn && hasRevokedOnly ? (
-            <p className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50/90 px-4 py-3 text-sm text-neutral-800">
+            <p className="mt-6 rounded-xl border border-amber-200/55 bg-amber-50/80 px-4 py-3 text-sm text-[#5c200d]/95">
               Членството ви като организатор е прекратено. За достъп отново се свържете с екипа на Festivo или подайте нова заявка за профил, ако е приложимо.
             </p>
           ) : null}

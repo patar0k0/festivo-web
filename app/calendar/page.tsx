@@ -9,7 +9,6 @@ import { getCalendarMonth } from "@/lib/queries";
 import { calendarMeta, getBaseUrl } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
-import "../landing.css";
 
 export const revalidate = 3600;
 

@@ -3,7 +3,6 @@ import { cookies } from "next/headers";
 import ComingSoonPublic from "@/components/home/ComingSoonPublic";
 import RealHomePage from "@/components/home/RealHomePage";
 import { firstHomeSearchParam, loadHomePageData } from "@/lib/home/loadHomePageData";
-import "./landing.css";
 
 const PREVIEW_COOKIE_NAME = "festivo_preview";
 export const dynamic = "force-dynamic";

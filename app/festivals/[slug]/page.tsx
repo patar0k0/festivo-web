@@ -15,7 +15,6 @@ import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { slugify } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
-import "../../landing.css";
 
 /** Match `/organizers/[slug]`: avoid caching a stale `notFound()` / partial payload across soft navigation and ISR. */
 export const dynamic = "force-dynamic";

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { getOptionalUser } from "@/lib/authUser";
-import "../landing.css";
 import NotificationSettingsCard from "./NotificationSettingsCard";
 import ReminderPreferencesCard from "./ReminderPreferencesCard";
 import ProfileAvatar from "./ProfileAvatar";
@@ -22,7 +21,7 @@ export default async function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="landing-bg min-h-screen px-4 py-10 text-[#0c0e14]">
+      <div className="min-h-screen px-4 py-10 text-[#0c0e14]">
         <div className="mx-auto w-full max-w-3xl rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-center shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
           <h1 className="text-3xl font-black tracking-tight">Профил</h1>
           <p className="mt-3 text-sm text-black/65">Влез, за да видиш и управляваш акаунта си.</p>
@@ -46,7 +45,7 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="landing-bg min-h-screen px-4 py-8 text-[#0c0e14] md:px-6 md:py-12">
+    <div className="min-h-screen px-4 py-8 text-[#0c0e14] md:px-6 md:py-12">
       <div className="mx-auto w-full max-w-[720px]">
         <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-[0_1px_0_rgba(12,14,20,0.04),0_24px_48px_rgba(12,14,20,0.08)]">
           <header className="border-b border-black/[0.06] bg-gradient-to-br from-white via-white to-neutral-50 px-5 py-7 md:px-8 md:py-8">

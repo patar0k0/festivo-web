@@ -16,7 +16,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
-import "../../landing.css";
 
 export const revalidate = 21600;
 

@@ -20,7 +20,6 @@ import { Festival } from "@/lib/types";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import { buildFestivalsTagOrFilter } from "@/lib/festivals/buildFestivalsTagOrFilter";
-import "../landing.css";
 
 export const revalidate = 3600;
 

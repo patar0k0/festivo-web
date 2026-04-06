@@ -4,7 +4,6 @@ import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
-import "../landing.css";
 
 export default function MapError({ reset }: { reset: () => void }) {
   return (

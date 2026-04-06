@@ -1,8 +1,6 @@
-import "@/app/landing.css";
-
 export default function ComingSoonPublic() {
   return (
-    <div className="landing-bg relative isolate flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-20 text-[#0c0e14]">
+    <div className="relative isolate flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-20 text-[#0c0e14]">
       <div
         className="pointer-events-none absolute -left-32 top-0 h-[380px] w-[380px] rounded-full bg-[#ff4c1f]/[0.06] blur-3xl"
         aria-hidden

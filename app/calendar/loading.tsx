@@ -1,6 +1,5 @@
 ﻿import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
-import "../landing.css";
 
 function CalendarSkeletonCell() {
   return <div className="h-20 animate-pulse rounded-xl border border-black/[0.08] bg-white/80" />;
@@ -8,7 +7,7 @@ function CalendarSkeletonCell() {
 
 export default function CalendarLoading() {
   return (
-    <div className="landing-bg min-h-screen text-[#0c0e14]">
+    <div className="min-h-screen text-[#0c0e14]">
       <Section className="overflow-x-clip bg-transparent pb-8 pt-8 md:pb-10 md:pt-10">
         <Container>
           <div className="space-y-7 lg:space-y-8">

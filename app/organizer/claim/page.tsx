@@ -7,7 +7,6 @@ import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/Turnst
 import OrganizerClaimStepStrip from "@/components/organizer/OrganizerClaimStepStrip";
 import OrganizerOnboardingValueBlock from "@/components/organizer/OrganizerOnboardingValueBlock";
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
-import "@/app/landing.css";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 

@@ -4,9 +4,9 @@
  * Import `pub` and merge with `cn()` where needed.
  */
 export const pub = {
-  /** Root surface */
-  page: "landing-bg text-[#0c0e14]",
-  pageOverflow: "landing-bg overflow-x-hidden text-[#0c0e14]",
+  /** Page shell (background comes from root `body.landing-bg`) */
+  page: "text-[#0c0e14]",
+  pageOverflow: "overflow-x-hidden text-[#0c0e14]",
 
   /** Layout */
   container: "mx-auto max-w-6xl px-4",

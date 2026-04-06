@@ -3,7 +3,6 @@ import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
 import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories.server";
 import { getBaseUrl, listMeta } from "@/lib/seo";
-import "../landing.css";
 
 export const revalidate = 3600;
 

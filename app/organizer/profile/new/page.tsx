@@ -6,7 +6,6 @@ import { useRef, useState } from "react";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/TurnstileWidget";
 import OrganizerOnboardingValueBlock from "@/components/organizer/OrganizerOnboardingValueBlock";
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
-import "@/app/landing.css";
 import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
 

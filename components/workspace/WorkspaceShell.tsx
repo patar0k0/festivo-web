@@ -1,6 +1,5 @@
 import Link from "next/link";
 import BuildStamp from "@/app/_components/BuildStamp";
-import "@/app/landing.css";
 
 export type WorkspaceDensity = "admin-c" | "organizer-b";
 
@@ -20,8 +19,8 @@ const densityAside: Record<WorkspaceDensity, string> = {
 };
 
 /**
- * Shared internal workspace chrome: landing-bg, top system bar, left sidebar slot, main content.
- * Visual language matches organizer/claim: stone surface, soft borders, ink text, minimal chrome.
+ * Shared internal workspace chrome: top system bar, left sidebar slot, main content.
+ * Page background is `body.landing-bg`; shell uses white/blur panels on top.
  */
 export default function WorkspaceShell({
   density,
@@ -37,7 +36,7 @@ export default function WorkspaceShell({
   sidebar: React.ReactNode;
 }) {
   return (
-    <div className="landing-bg flex min-h-screen flex-col text-[#0c0e14]">
+    <div className="flex min-h-screen flex-col text-[#0c0e14]">
       <header
         className={`border-b border-black/[0.08] bg-white/85 backdrop-blur ${densityTop[density]}`}
       >

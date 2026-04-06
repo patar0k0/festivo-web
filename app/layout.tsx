@@ -4,6 +4,7 @@ import { Fraunces, Manrope } from "next/font/google";
 import LayoutShell from "@/components/LayoutShell";
 import ClientProviders from "@/components/providers/ClientProviders";
 import "./globals.css";
+import "./landing.css";
 
 const manrope = Manrope({
   variable: "--font-sans",
@@ -35,7 +36,7 @@ export default function RootLayout({
         <meta charSet="utf-8" />
       </head>
       <body
-        className={`${manrope.variable} ${fraunces.variable} min-h-screen bg-bg text-black antialiased`}
+        className={`${manrope.variable} ${fraunces.variable} landing-bg min-h-screen text-[#0c0e14] antialiased`}
       >
         <ClientProviders>
           <LayoutShell>{children}</LayoutShell>

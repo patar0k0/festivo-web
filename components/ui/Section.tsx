@@ -1,15 +1,15 @@
 import type { ComponentPropsWithoutRef } from "react";
-import { cn } from "@/components/ui/cn";
+import { cn } from "@/lib/utils";
 
 type SectionProps = ComponentPropsWithoutRef<"section"> & {
-  background?: "white" | "muted";
+  /** Default transparent so the root `landing-bg` shows through on public pages. */
+  background?: "transparent" | "white" | "muted";
 };
 
-export default function Section({ className, background = "white", ...props }: SectionProps) {
+export default function Section({ className, background = "transparent", ...props }: SectionProps) {
+  const bgClass =
+    background === "muted" ? "bg-neutral-50" : background === "white" ? "bg-white" : "";
   return (
-    <section
-      className={cn("py-14 sm:py-16", background === "muted" ? "bg-neutral-50" : "bg-white", className)}
-      {...props}
-    />
+    <section className={cn("py-14 sm:py-16", bgClass, className)} {...props} />
   );
 }

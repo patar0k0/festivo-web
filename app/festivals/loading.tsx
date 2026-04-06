@@ -17,7 +17,7 @@ function SkeletonCard() {
 
 export default function FestivalsLoading() {
   return (
-    <div className="landing-bg min-h-screen text-[#0c0e14]">
+    <div className="min-h-screen text-[#0c0e14]">
       <Section className="bg-transparent py-8 md:py-10">
         <Container>
           <div className="space-y-6">

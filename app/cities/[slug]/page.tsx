@@ -13,6 +13,8 @@ import { festivalCityLabel, formatSettlementDisplayName } from "@/lib/settlement
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { getBaseUrl } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import "../../landing.css";
 
@@ -143,27 +145,27 @@ export default async function CityLandingPage({
   const categoryQuick = popularCategories.slice(0, 4);
 
   return (
-    <div className="landing-bg text-[#0c0e14]">
-      <Section className="overflow-x-clip bg-transparent py-8 md:py-10">
+    <div className={pub.page}>
+      <Section className={pub.section}>
         <Container>
           <div className="space-y-8">
-            <section className="rounded-[24px] border border-black/[0.08] bg-white/80 p-6 shadow-[0_2px_0_rgba(12,14,20,0.06),0_12px_32px_rgba(12,14,20,0.07)] md:p-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/45">Градска страница</p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Фестивали в {cityName}</h1>
-              <p className="mt-3 max-w-2xl text-sm text-black/60 md:text-[15px]">
+            <section className={cn(pub.panelHero, "p-6 md:p-8")}>
+              <p className={pub.eyebrowMuted}>Градска страница</p>
+              <h1 className={cn(pub.pageTitle, "mt-2")}>Фестивали в {cityName}</h1>
+              <p className={cn(pub.body, "mt-3 max-w-2xl text-black/60")}>
                 Безплатни събития, дати и програма. Открий предстоящи фестивали и събития в {cityName}. Запази в план и получавай напомняния.
               </p>
 
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link
                   href={`${cityHref(citySlug)}${freeLink}`}
-                  className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  className={cn(pub.chip, pub.focusRing, "hover:bg-black/[0.03]")}
                 >
                   Само безплатни
                 </Link>
                 <Link
                   href={`${cityHref(citySlug)}${monthLink}`}
-                  className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  className={cn(pub.chip, pub.focusRing, "hover:bg-black/[0.03]")}
                 >
                   Този месец
                 </Link>
@@ -173,7 +175,7 @@ export default async function CityLandingPage({
                     <Link
                       key={category}
                       href={`${cityHref(citySlug)}${categoryLink}`}
-                      className="rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                      className={cn(pub.chip, pub.focusRing, "hover:bg-black/[0.03]")}
                     >
                       {labelForPublicCategory(category)}
                     </Link>
@@ -184,7 +186,7 @@ export default async function CityLandingPage({
 
             <section className="space-y-5">
               <div className="flex flex-wrap items-end justify-between gap-3">
-                <h2 className="text-2xl font-semibold tracking-tight">Предстоящи фестивали</h2>
+                <h2 className={cn(pub.pageTitle, "text-2xl")}>Предстоящи фестивали</h2>
                 <Link
                   href={`/festivals?city=${encodeURIComponent(citySlug)}`}
                   className="text-sm font-semibold text-[#0c0e14] transition hover:text-black/65"
@@ -219,11 +221,11 @@ export default async function CityLandingPage({
                   <Pagination page={cityFestivals.page} totalPages={cityFestivals.totalPages} basePath={cityHref(citySlug)} filters={filters} />
                 </>
               ) : (
-                <div className="rounded-2xl border border-dashed border-black/[0.15] bg-white/70 px-5 py-10 text-center">
+                <div className={cn(pub.sectionCardSoft, "border-dashed px-5 py-10 text-center")}>
                   <p className="text-sm text-black/55">Още няма публикувани фестивали за този град.</p>
                   <Link
                     href="/festivals"
-                    className="mt-4 inline-flex rounded-full border border-black/[0.1] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition hover:border-black/20 hover:bg-black/[0.03]"
+                    className={cn("mt-4 inline-flex", pub.chip, pub.focusRing)}
                   >
                     Разгледай всички фестивали
                   </Link>
@@ -232,8 +234,8 @@ export default async function CityLandingPage({
             </section>
 
             <section className="grid gap-5 lg:grid-cols-2">
-              <div className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-                <h3 className="text-lg font-semibold">Популярни категории в {cityName}</h3>
+              <div className={cn(pub.sectionCardSoft, "p-5")}>
+                <h3 className={pub.sectionTitleMd}>Популярни категории в {cityName}</h3>
                 {popularCategories.length ? (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {popularCategories.map(([category, count]) => (
@@ -250,12 +252,15 @@ export default async function CityLandingPage({
                 )}
               </div>
 
-              <div className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-                <h3 className="text-lg font-semibold">Предстоящи дати</h3>
+              <div className={cn(pub.sectionCardSoft, "p-5")}>
+                <h3 className={pub.sectionTitleMd}>Предстоящи дати</h3>
                 {upcomingMonths.length ? (
                   <ul className="mt-4 space-y-2 text-sm text-black/65">
                     {upcomingMonths.map(([month, count]) => (
-                      <li key={month} className="flex items-center justify-between rounded-xl border border-black/[0.08] bg-white px-3 py-2">
+                      <li
+                        key={month}
+                        className="flex items-center justify-between rounded-xl border border-amber-200/30 bg-white px-3 py-2 ring-1 ring-amber-100/15"
+                      >
                         <span>{format(parseISO(`${month}-01`), "MMMM yyyy")}</span>
                         <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">{count} събития</span>
                       </li>

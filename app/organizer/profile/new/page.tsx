@@ -7,6 +7,8 @@ import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/Turnst
 import OrganizerOnboardingValueBlock from "@/components/organizer/OrganizerOnboardingValueBlock";
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
 import "@/app/landing.css";
+import { pub } from "@/lib/public-ui/styles";
+import { cn } from "@/lib/utils";
 
 export default function NewOrganizerProfilePage() {
   const router = useRouter();
@@ -55,14 +57,14 @@ export default function NewOrganizerProfilePage() {
   }
 
   return (
-    <div className="landing-bg min-h-screen px-4 py-8 text-[#0c0e14] md:px-6 md:py-12">
-      <div className="mx-auto max-w-lg space-y-6">
+    <div className={cn(pub.page, "min-h-screen px-4 py-8 md:px-6 md:py-12")}>
+      <div className={cn(pub.containerNarrow, "space-y-6")}>
         <div className="rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50/90 via-white/95 to-white/90 p-6 shadow-sm ring-1 ring-emerald-100/40 md:p-8">
           <Link href="/organizer" className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-900/45 hover:text-[#0c0e14]">
             ← Начало
           </Link>
-          <h1 className="mt-4 font-[var(--font-display)] text-2xl font-bold text-[#0c0e14]">Създай организатор</h1>
-          <p className="mt-2 text-sm text-black/65">Регистрирай нова организация във Festivo.</p>
+          <h1 className={cn(pub.displayH1, "mt-4 text-2xl md:text-3xl")}>Създай организатор</h1>
+          <p className={cn(pub.bodySm, "mt-2")}>Регистрирай нова организация във Festivo.</p>
           <div className="mt-6">
             <OrganizerPortalNav variant="onboarding" />
           </div>
@@ -75,44 +77,44 @@ export default function NewOrganizerProfilePage() {
           className="space-y-4 rounded-2xl border border-emerald-200/40 bg-white/90 p-6 shadow-sm md:p-8"
         >
           {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
-          <label className="block text-sm font-medium text-[#0c0e14]">
+          <label className={pub.label}>
             Име на организатора *
             <input
               required
               value={name}
               onChange={(ev) => setName(ev.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+              className={cn(pub.input, "mt-1.5")}
             />
           </label>
-          <label className="block text-sm font-medium text-[#0c0e14]">
+          <label className={pub.label}>
             Кратко описание
             <textarea
               value={description}
               onChange={(ev) => setDescription(ev.target.value)}
               rows={3}
-              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+              className={cn(pub.input, "mt-1.5 min-h-[5.5rem] resize-y")}
             />
           </label>
-          <label className="block text-sm font-medium text-[#0c0e14]">
+          <label className={pub.label}>
             Уебсайт
             <input
               value={websiteUrl}
               onChange={(ev) => setWebsiteUrl(ev.target.value)}
               type="url"
               placeholder="https://"
-              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+              className={cn(pub.input, "mt-1.5")}
             />
           </label>
-          <label className="block text-sm font-medium text-[#0c0e14]">
+          <label className={pub.label}>
             Имейл за контакт
             <input
               value={email}
               onChange={(ev) => setEmail(ev.target.value)}
               type="email"
-              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+              className={cn(pub.input, "mt-1.5")}
               aria-describedby="organizer-contact-email-hint"
             />
-            <p id="organizer-contact-email-hint" className="mt-1.5 text-xs leading-snug text-black/55">
+            <p id="organizer-contact-email-hint" className={cn(pub.caption, "mt-1.5 leading-snug")}>
               Видим е за всички посетители на публичния профил на организатора. Не използвай личен адрес, ако не искаш да е публичен.
             </p>
           </label>
@@ -126,7 +128,10 @@ export default function NewOrganizerProfilePage() {
           <button
             type="submit"
             disabled={busy || (needsTurnstile && !turnstileToken)}
-            className="w-full rounded-xl bg-[#0c3d2e] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#052e22] disabled:opacity-50"
+            className={cn(
+              "w-full rounded-xl bg-[#0c3d2e] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#052e22] disabled:opacity-50",
+              pub.focusRing,
+            )}
           >
             {busy ? "Създаване…" : "Създай профил"}
           </button>

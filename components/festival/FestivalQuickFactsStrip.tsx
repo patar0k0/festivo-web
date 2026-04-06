@@ -1,3 +1,5 @@
+import { pub } from "@/lib/public-ui/styles";
+
 type Segment = { key: string; label: string; value: string };
 
 type Props = {
@@ -11,10 +13,7 @@ export default function FestivalQuickFactsStrip({ segments }: Props) {
   if (!segments.length) return null;
 
   return (
-    <section
-      className="rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white to-[#fafaf8] px-4 py-3.5 sm:px-5"
-      aria-label="Кратка информация"
-    >
+    <section className={pub.factsStrip} aria-label="Кратка информация">
       <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1.5 text-[13px] leading-snug text-[#0c0e14]">
         {segments.map((seg, i) => (
           <span key={seg.key} className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">

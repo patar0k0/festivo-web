@@ -3,7 +3,9 @@ import { bg } from "date-fns/locale";
 import Link from "next/link";
 import FallbackImage from "@/components/ui/FallbackImage";
 import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
-import { Card, CardContent } from "@/components/ui/Card";
+import { CardContent } from "@/components/ui/Card";
+import { cn } from "@/components/ui/cn";
+import { pub } from "@/lib/public-ui/styles";
 
 /** Кратко име на месец за оранжева значка (3–4 знака). */
 const BADGE_MONTH_BG: Record<number, string> = {
@@ -137,13 +139,18 @@ export default function EventCard({
   const urgencyTag = getUrgencyTag(startDate);
 
   return (
-    <Card className="group flex h-full flex-col overflow-hidden border border-black/[0.09] bg-white/90 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_28px_rgba(12,14,20,0.07)] transition-all duration-200 hover:-translate-y-1 hover:border-black/[0.16] hover:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)] focus-within:-translate-y-1 focus-within:border-black/[0.16] focus-within:shadow-[0_2px_0_rgba(12,14,20,0.08),0_20px_42px_rgba(12,14,20,0.13)]">
+    <div
+      className={cn(
+        pub.festivalCard,
+        "flex h-full flex-col overflow-hidden transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_2px_0_rgba(12,14,20,0.06),0_20px_42px_rgba(12,14,20,0.11)] focus-within:-translate-y-1 focus-within:shadow-[0_2px_0_rgba(12,14,20,0.06),0_20px_42px_rgba(12,14,20,0.11)]",
+      )}
+    >
       <div className="relative h-56 bg-black/[0.04]">
         {detailsHref ? (
           <Link
             href={detailsHref}
             aria-label={`Отвори фестивал ${title}`}
-            className="group/image absolute inset-0 block overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/70 focus-visible:ring-offset-2"
+            className={cn(pub.festivalCardImageLink, pub.focusRing)}
           >
             {imageUrl ? (
               <FallbackImage
@@ -198,16 +205,12 @@ export default function EventCard({
           aria-hidden
         />
 
-        <div className="pointer-events-none absolute left-4 top-4 rounded-lg bg-[#ff4c1f] px-3 py-2 text-center text-white shadow-[0_8px_18px_rgba(255,76,31,0.35)]">
+        <div className={pub.dateBadge}>
           <div className="text-[10px] font-semibold uppercase tracking-wide">{badge.month}</div>
           <div className="text-base font-bold leading-none">{badge.day}</div>
         </div>
 
-        {categoryText ? (
-          <div className="pointer-events-none absolute right-4 top-4 rounded-full border border-black/5 bg-white/92 px-3 py-1 text-xs font-semibold text-black/70 backdrop-blur">
-            {categoryText}
-          </div>
-        ) : null}
+        {categoryText ? <div className={pub.metaChip}>{categoryText}</div> : null}
       </div>
 
       <CardContent className="flex flex-1 flex-col p-5">
@@ -220,7 +223,11 @@ export default function EventCard({
               <Link
                 href={detailsHref}
                 aria-label={`Отвори детайли за фестивал ${title}`}
-                className="transition-colors duration-200 hover:text-black/70 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/70 focus-visible:ring-offset-2"
+                className={cn(
+                  "transition-colors duration-200 hover:text-black/70 hover:underline",
+                  pub.focusRing,
+                  "focus-visible:ring-offset-2",
+                )}
                 style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
               >
                 {title}
@@ -277,6 +284,6 @@ export default function EventCard({
           ) : null}
         </div>
       </CardContent>
-    </Card>
+    </div>
   );
 }

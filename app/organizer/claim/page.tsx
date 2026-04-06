@@ -8,6 +8,8 @@ import OrganizerClaimStepStrip from "@/components/organizer/OrganizerClaimStepSt
 import OrganizerOnboardingValueBlock from "@/components/organizer/OrganizerOnboardingValueBlock";
 import OrganizerPortalNav from "@/components/organizer/OrganizerPortalNav";
 import "@/app/landing.css";
+import { cn } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 
 type OrganizerSuggestion = {
   id: string;
@@ -155,14 +157,14 @@ export default function OrganizerClaimPage() {
   const showEmptyState = showDropdown && !searchLoading && suggestions.length === 0;
 
   return (
-    <div className="landing-bg min-h-screen px-4 py-8 text-[#0c0e14] md:px-6 md:py-12">
-      <div className="mx-auto max-w-lg space-y-6">
-        <div className="rounded-2xl border border-amber-200/70 bg-gradient-to-br from-amber-50/95 via-white/95 to-white/90 p-6 shadow-sm ring-1 ring-amber-100/50 md:p-8">
-          <Link href="/organizer" className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-900/45 hover:text-[#0c0e14]">
+    <div className={cn(pub.page, "min-h-screen px-4 py-8 md:px-6 md:py-12")}>
+      <div className={cn(pub.containerNarrow, "space-y-6")}>
+        <div className={cn(pub.panelHero, "p-6 md:p-8")}>
+          <Link href="/organizer" className={pub.eyebrow}>
             ← Начало
           </Link>
-          <h1 className="mt-4 font-[var(--font-display)] text-2xl font-bold text-[#0c0e14]">Поеми съществуващ профил</h1>
-          <p className="mt-2 text-sm text-black/65">
+          <h1 className={cn(pub.displayH1, "mt-4 text-2xl md:text-3xl")}>Поеми съществуващ профил</h1>
+          <p className={cn(pub.bodySm, "mt-2")}>
             Организацията ти вече е в Festivo — заяви собственост върху профила. Намери организацията по име и я избери от
             предложенията.
           </p>
@@ -175,7 +177,7 @@ export default function OrganizerClaimPage() {
 
         <OrganizerClaimStepStrip />
 
-        <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-amber-200/45 bg-white/90 p-6 shadow-sm md:p-8">
+        <form onSubmit={onSubmit} className={cn("space-y-4 rounded-2xl border border-amber-200/45 bg-white/90 p-6 shadow-sm ring-1 ring-amber-100/35 md:p-8")}>
           {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
           {ok ? (
             <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
@@ -187,13 +189,13 @@ export default function OrganizerClaimPage() {
 
           {selected ? (
             <div className="space-y-2">
-              <span className="block text-sm font-medium text-[#0c0e14]">Избран организатор</span>
+              <span className={pub.label}>Избран организатор</span>
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200/80 bg-emerald-50/50 px-3 py-2.5">
                 <span className="min-w-0 flex-1 text-sm font-medium text-[#0c0e14]">{selected.name}</span>
                 <button
                   type="button"
                   onClick={clearSelection}
-                  className="shrink-0 rounded-lg border border-black/10 bg-white px-2.5 py-1 text-xs font-semibold text-[#0c0e14] transition hover:bg-black/[0.03]"
+                  className={cn(pub.btnGhost, "shrink-0")}
                 >
                   Промени
                 </button>
@@ -201,7 +203,7 @@ export default function OrganizerClaimPage() {
             </div>
           ) : (
             <div className="relative space-y-2">
-              <label className="block text-sm font-medium text-[#0c0e14]" htmlFor="organizer-search">
+              <label className={pub.label} htmlFor="organizer-search">
                 Търси организатор *
               </label>
               <input
@@ -218,7 +220,7 @@ export default function OrganizerClaimPage() {
                   blurCloseTimer.current = setTimeout(() => setDropdownOpen(false), 150);
                 }}
                 placeholder="напр. Община Банско"
-                className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+                className={cn(pub.input, "mt-1.5")}
                 aria-autocomplete="list"
                 aria-controls="organizer-search-listbox"
               />
@@ -265,7 +267,7 @@ export default function OrganizerClaimPage() {
           )}
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-[#0c0e14]" htmlFor="claim-contact-email">
+            <label className={pub.label} htmlFor="claim-contact-email">
               Имейл за връзка *
             </label>
             <input
@@ -274,14 +276,14 @@ export default function OrganizerClaimPage() {
               autoComplete="email"
               value={contactEmail}
               onChange={(ev) => setContactEmail(ev.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+              className={cn(pub.input, "mt-1.5")}
               required
             />
-            <p className="text-xs text-black/50">На този имейл ще се свържем за потвърждение.</p>
+            <p className={pub.caption}>На този имейл ще се свържем за потвърждение.</p>
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-[#0c0e14]" htmlFor="claim-contact-phone">
+            <label className={pub.label} htmlFor="claim-contact-phone">
               Телефон за връзка *
             </label>
             <input
@@ -291,10 +293,10 @@ export default function OrganizerClaimPage() {
               inputMode="tel"
               value={contactPhone}
               onChange={(ev) => setContactPhone(ev.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-sm"
+              className={cn(pub.input, "mt-1.5")}
               required
             />
-            <p className="text-xs text-black/50">Телефонът не се публикува — използва се само за верификация.</p>
+            <p className={pub.caption}>Телефонът не се публикува — използва се само за верификация.</p>
           </div>
 
           <p className="text-xs leading-relaxed text-black/55">
@@ -316,7 +318,7 @@ export default function OrganizerClaimPage() {
           <button
             type="submit"
             disabled={busy || (needsTurnstile && !turnstileToken)}
-            className="w-full rounded-xl bg-[#7c2d12] py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5c200d] disabled:opacity-50"
+            className={cn(pub.btnPrimaryFull, pub.focusRing)}
           >
             {busy ? "Изпращане…" : "Заяви профил"}
           </button>

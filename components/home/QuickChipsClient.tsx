@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 
 type QuickChipsClientProps = {
   chips: Array<{ label: string; href: string }>;
@@ -32,12 +34,13 @@ function isChipActive(href: string, pathname: string, searchParams: ReturnType<t
 }
 
 function chipClassName(active: boolean) {
-  return [
-    "whitespace-nowrap md:whitespace-normal snap-start rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25",
+  return cn(
+    "whitespace-nowrap md:whitespace-normal snap-start rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+    pub.focusRing,
     active
-      ? "border-[#0c0e14]/30 bg-[#0c0e14]/12 text-[#0c0e14]"
+      ? "border-[#7c2d12]/35 bg-[#7c2d12]/10 text-[#0c0e14]"
       : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white",
-  ].join(" ");
+  );
 }
 
 export default function QuickChipsClient({ chips }: QuickChipsClientProps) {

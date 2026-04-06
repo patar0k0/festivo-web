@@ -6,6 +6,9 @@
   --f-ink-10: rgba(12, 14, 20, 0.1);
   --f-surface: #f5f3ef;
   --f-white: #ffffff;
+  /** Public primary CTA / selection (aligned with `/organizer/claim`) */
+  --f-primary: #7c2d12;
+  --f-primary-hover: #5c200d;
   --f-accent: #ff4c1f;
   --f-accent-muted: rgba(255, 76, 31, 0.1);
   --f-green: #1a9e5c;

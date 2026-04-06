@@ -7,6 +7,8 @@ import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories.server";
 import { getCalendarMonth } from "@/lib/queries";
 import { calendarMeta, getBaseUrl } from "@/lib/seo";
+import { cn } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 import "../landing.css";
 
 export const revalidate = 3600;
@@ -69,15 +71,15 @@ export default async function CalendarPage({
   const initialSelectedDay = buildInitialSelectedDay(dayKeys, calendarData.days);
 
   return (
-    <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
-      <Section className="overflow-x-clip bg-transparent pb-8 pt-8 md:pb-10 md:pt-10">
+    <div className={pub.pageOverflow}>
+      <Section className={pub.sectionLoose}>
         <Container>
-          <div className="space-y-7 lg:space-y-8">
-            <div className="rounded-[28px] border border-black/[0.08] bg-white/75 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">
+          <div className={pub.stackLg}>
+            <div className={pub.panelHero}>
               <div className="max-w-3xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">Festivo Planner</p>
-                <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Календар</h1>
-                <p className="mt-3 text-sm text-black/65 md:text-[15px]">Виж фестивалите по дати и планирай.</p>
+                <p className={pub.eyebrowMuted}>Festivo Planner</p>
+                <h1 className={cn(pub.pageTitle, "mt-2")}>Календар</h1>
+                <p className={cn(pub.body, "mt-3")}>Виж фестивалите по дати и планирай.</p>
               </div>
 
               <div className="mt-6">

@@ -140,7 +140,7 @@ export default function CitySelectClient({ cities, homePath = "/" }: CitySelectC
         aria-expanded={open}
         aria-haspopup="menu"
         aria-controls="city-menu"
-        className="rounded-2xl border border-black/[0.09] bg-white/90 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/[0.18] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+        className="rounded-2xl border border-amber-200/40 bg-white/92 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] shadow-sm ring-1 ring-amber-100/30 transition hover:border-amber-300/55 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/25"
       >
         Избери град
       </button>

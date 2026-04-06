@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Filters } from "@/lib/types";
 import { serializeFilters } from "@/lib/filters";
 import { cn } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 
 export default function Pagination({
   page,
@@ -30,8 +31,11 @@ export default function Pagination({
             href={`${basePath}${suffix}`}
             scroll={false}
             className={cn(
-              "rounded-full border border-black/[0.1] px-4 py-2 text-sm transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25",
-              pageNumber === page ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#0c0e14]" : "bg-white/80 text-[#0c0e14]"
+              "rounded-full border px-4 py-2 text-sm transition hover:border-black/20 hover:bg-white",
+              pub.focusRing,
+              pageNumber === page
+                ? cn(pub.chipActive, "px-4 py-2 normal-case tracking-normal")
+                : "border-black/[0.1] bg-white/80 text-[#0c0e14]",
             )}
           >
             {pageNumber}

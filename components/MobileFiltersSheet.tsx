@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import FiltersSidebar from "@/components/FiltersSidebar";
+import { pub } from "@/lib/public-ui/styles";
+import { cn } from "@/lib/utils";
 import { Filters } from "@/lib/types";
 
 export default function MobileFiltersSheet({
@@ -17,7 +19,7 @@ export default function MobileFiltersSheet({
     <div className="lg:hidden">
       <button
         onClick={() => setOpen(true)}
-        className="rounded-full border border-black/[0.1] bg-white/85 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+        className={cn(pub.chip, pub.focusRing, "bg-white/85 hover:bg-white")}
       >
         Филтри
       </button>
@@ -34,7 +36,7 @@ export default function MobileFiltersSheet({
               <h3 className="text-lg font-semibold text-[#0c0e14]">Филтри</h3>
               <button
                 onClick={() => setOpen(false)}
-                className="rounded-lg px-2 py-1 text-sm text-black/55 transition hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                className={cn("rounded-lg px-2 py-1 text-sm text-black/55 transition hover:text-black", pub.focusRing)}
                 aria-label="Затвори филтри"
               >
                 Затвори

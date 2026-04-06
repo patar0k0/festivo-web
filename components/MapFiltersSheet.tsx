@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import MapFiltersSidebar from "@/components/MapFiltersSidebar";
+import { pub } from "@/lib/public-ui/styles";
+import { cn } from "@/lib/utils";
 import { Filters } from "@/lib/types";
 
 type MapFiltersSheetProps = {
@@ -28,9 +30,12 @@ export default function MapFiltersSheet({
     <div>
       <button
         onClick={() => setOpen(true)}
-        className={`rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_18px_rgba(12,14,20,0.08)] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-          floating ? "px-5 py-3" : ""
-        }`}
+        className={cn(
+          pub.chip,
+          pub.focusRing,
+          "shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_18px_rgba(12,14,20,0.08)] hover:bg-white",
+          floating && "px-5 py-3",
+        )}
       >
         {COPY.open}
       </button>
@@ -47,7 +52,7 @@ export default function MapFiltersSheet({
               <h3 className="text-lg font-semibold text-[#0c0e14]">{COPY.open}</h3>
               <button
                 onClick={() => setOpen(false)}
-                className="rounded-lg px-2 py-1 text-sm text-black/55 transition hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                className={cn("rounded-lg px-2 py-1 text-sm text-black/55 transition hover:text-black", pub.focusRing)}
                 aria-label={COPY.close}
               >
                 {COPY.close}

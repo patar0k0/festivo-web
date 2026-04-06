@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { cn } from "@/lib/utils";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
+import { pub } from "@/lib/public-ui/styles";
 
 /** Tailwind `md` — desktop uses more visible category chips before collapse. */
 const MD_MIN_WIDTH_QUERY = "(min-width: 768px)";
@@ -62,8 +64,7 @@ export default function FestivalsTagChipsClient({ categories }: FestivalsTagChip
     };
   }, [categories, activeTag, expanded, firstVisible]);
 
-  const inactiveChipClass =
-    "rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25";
+  const inactiveChipClass = cn(pub.chip, pub.focusRing);
 
   return (
     <>
@@ -76,11 +77,7 @@ export default function FestivalsTagChipsClient({ categories }: FestivalsTagChip
             key={category}
             href={href}
             scroll={false}
-            className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-              active
-                ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
-            }`}
+            className={cn(pub.focusRing, "transition", active ? pub.chipActive : pub.chip)}
           >
             {labelForPublicCategory(category)}
           </Link>

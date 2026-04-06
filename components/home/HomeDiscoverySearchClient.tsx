@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 
 type HomeDiscoverySearchClientProps = {
   secondaryActions: ReactNode;
@@ -46,17 +47,18 @@ export default function HomeDiscoverySearchClient({
           placeholder={PLACEHOLDER}
           aria-label={PLACEHOLDER}
           className={cn(
-            "w-full border border-black/[0.1] bg-white/95 text-[#0c0e14] shadow-[0_1px_0_rgba(12,14,20,0.04)] outline-none transition placeholder:text-black/40 focus-visible:border-[#ff4c1f]/35 focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/20",
+            pub.inputSearch,
             compact
               ? "rounded-full py-2.5 pl-4 pr-12 text-sm"
-              : "rounded-full py-3.5 pl-5 pr-14 text-[15px] md:py-4 md:pl-6 md:pr-16 md:text-base"
+              : "rounded-full py-3.5 pl-5 pr-14 text-[15px] md:py-4 md:pl-6 md:pr-16 md:text-base",
           )}
         />
         <button
           type="submit"
           aria-label="Търси"
           className={cn(
-            "absolute top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-full text-[#0c0e14] transition hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25",
+            "absolute top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-full text-[#0c0e14] transition hover:bg-black/[0.05]",
+            pub.focusRing,
             compact ? "right-1.5 h-9 w-9" : "right-2 h-10 w-10 md:h-11 md:w-11"
           )}
         >

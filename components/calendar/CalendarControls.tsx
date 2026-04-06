@@ -5,6 +5,8 @@ import { endOfMonth, format, nextSaturday, nextSunday, startOfMonth } from "date
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
+import { cn } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 import { Filters } from "@/lib/types";
 
 type CalendarControlsProps = {
@@ -117,7 +119,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
             value={city}
             onChange={(event) => setCity(event.target.value)}
             placeholder="София, Пловдив"
-            className="mt-2 rounded-xl border border-black/[0.1] bg-white/90 px-4 py-2.5 text-sm text-[#0c0e14] placeholder:text-black/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+            className={cn(pub.input, "mt-2 px-4 py-2.5")}
           />
         </label>
 
@@ -126,7 +128,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
           <select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
-            className="mt-2 rounded-xl border border-black/[0.1] bg-white/90 px-4 py-2.5 text-sm text-[#0c0e14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+            className={cn(pub.input, "mt-2 px-4 py-2.5")}
           >
             <option value="">Всички</option>
             {categoryOptions.map((option) => (
@@ -142,7 +144,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
           <DdMmYyyyDateInput
             value={from}
             onChange={setFrom}
-            className="mt-2 rounded-xl border border-black/[0.1] bg-white/90 px-4 py-2.5 text-sm text-[#0c0e14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+            className={cn(pub.input, "mt-2 px-4 py-2.5")}
           />
         </label>
 
@@ -151,7 +153,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
           <DdMmYyyyDateInput
             value={to}
             onChange={setTo}
-            className="mt-2 rounded-xl border border-black/[0.1] bg-white/90 px-4 py-2.5 text-sm text-[#0c0e14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+            className={cn(pub.input, "mt-2 px-4 py-2.5")}
           />
         </label>
 
@@ -160,15 +162,12 @@ export default function CalendarControls({ month, initialFilters, categoryOption
             type="checkbox"
             checked={freeOnly}
             onChange={(event) => setFreeOnly(event.target.checked)}
-            className="h-4 w-4 rounded border-black/25 text-[#ff4c1f] focus:ring-[#ff4c1f]/30"
+            className={pub.checkboxAccent}
           />
           Само безплатни
         </label>
 
-        <button
-          type="submit"
-          className="self-end rounded-xl bg-[#0c0e14] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
-        >
+        <button type="submit" className={cn("self-end", pub.btnPrimarySm, pub.focusRing)}>
           Приложи
         </button>
       </form>
@@ -178,11 +177,11 @@ export default function CalendarControls({ month, initialFilters, categoryOption
           <button
             type="button"
             onClick={toggleFree}
-            className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-              freeActive
-                ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
-            }`}
+            className={cn(
+              "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+              pub.focusRing,
+              freeActive ? pub.toggleActive : pub.toggleInactive,
+            )}
           >
             Само безплатни
           </button>
@@ -190,11 +189,11 @@ export default function CalendarControls({ month, initialFilters, categoryOption
           <button
             type="button"
             onClick={toggleWeekend}
-            className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-              currentFrom === weekendFrom && currentTo === weekendTo
-                ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
-            }`}
+            className={cn(
+              "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+              pub.focusRing,
+              currentFrom === weekendFrom && currentTo === weekendTo ? pub.toggleActive : pub.toggleInactive,
+            )}
           >
             Този уикенд
           </button>
@@ -202,11 +201,11 @@ export default function CalendarControls({ month, initialFilters, categoryOption
           <button
             type="button"
             onClick={toggleThisMonth}
-            className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-              currentFrom === monthFrom && currentTo === monthTo
-                ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
-            }`}
+            className={cn(
+              "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+              pub.focusRing,
+              currentFrom === monthFrom && currentTo === monthTo ? pub.toggleActive : pub.toggleInactive,
+            )}
           >
             Този месец
           </button>

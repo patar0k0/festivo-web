@@ -136,7 +136,7 @@ export default function MapView({
             <p className="text-xs text-black/55">{formatFestivalDateLineShort(selectedFestival)}</p>
             <Link
               href={`/festivals/${selectedFestival.slug}`}
-              className="mt-2 inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+              className="mt-2 inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/25"
             >
               Детайли
             </Link>

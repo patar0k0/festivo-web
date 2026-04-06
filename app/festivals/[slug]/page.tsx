@@ -13,6 +13,7 @@ import {
 } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { slugify } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
 import "../../landing.css";
 
@@ -109,8 +110,8 @@ export default async function Page({
   const showTravelPopularLabel = bookingClicks30d >= 2;
 
   return (
-    <div className="landing-bg text-[#0c0e14]">
-      <Section className="overflow-x-clip bg-transparent py-8 md:py-10">
+    <div className={pub.page}>
+      <Section className={pub.section}>
         <Container>
           <FestivalDetailClient
             festival={data.festival}

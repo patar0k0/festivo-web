@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { addDays, format, nextSaturday, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 import {
   listPublicFestivalCategorySlugs,
   listPublicFestivalCategorySlugsSortedByActiveCount,
@@ -270,16 +272,16 @@ export default async function FestivalsPage({
   const visiblePages = Array.from({ length: totalPages }).slice(0, 5);
 
   return (
-    <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
+    <div className={pub.pageOverflow}>
         <ScrollRestoration />
-        <Section className="overflow-x-clip bg-transparent pb-8 pt-8 md:pb-10 md:pt-10">
+        <Section className={pub.sectionLoose}>
           <Container>
-            <div className="space-y-7 lg:space-y-8">
-              <div className="rounded-[28px] border border-black/[0.08] bg-white/75 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">
+            <div className={pub.stackLg}>
+              <div className={pub.panelHero}>
                 <div className="max-w-3xl">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">Festivo Explorer</p>
-                  <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">Фестивали в България</h1>
-                  <p className="mt-3 text-sm text-black/65 md:text-[15px]">
+                  <p className={pub.eyebrowMuted}>Festivo Explorer</p>
+                  <h1 className={cn(pub.pageTitle, "mt-2")}>Фестивали в България</h1>
+                  <p className={cn(pub.body, "mt-3")}>
                     Открий безплатни фестивали и събития в България по град, категория и дата.
                   </p>
                 </div>
@@ -288,14 +290,14 @@ export default async function FestivalsPage({
                   <Link
                     href={weekendLink}
                     scroll={false}
-                    className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                    className={cn(pub.chip, pub.focusRing)}
                   >
                     Този уикенд
                   </Link>
                   <Link
                     href={monthLink}
                     scroll={false}
-                    className="rounded-full border border-black/[0.1] bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                    className={cn(pub.chip, pub.focusRing)}
                   >
                     Този месец
                   </Link>
@@ -304,7 +306,12 @@ export default async function FestivalsPage({
               </div>
 
               <div className="min-w-0 space-y-5">
-                <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.08] bg-white/80 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)] backdrop-blur md:flex-row md:items-center md:justify-between">
+                <div
+                  className={cn(
+                    pub.panelMuted,
+                    "flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between",
+                  )}
+                >
                   <div className="flex flex-wrap items-center gap-3 text-sm text-black/70">
                     <p className="font-semibold text-[#0c0e14]">Намерени: {total} фестивала</p>
                     <span className="text-black/35">•</span>
@@ -314,7 +321,7 @@ export default async function FestivalsPage({
                     <Link
                       href={clearHref}
                       scroll={false}
-                      className="rounded-full border border-black/[0.1] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:border-black/20 hover:bg-[#f8f7f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                      className={cn(pub.chipSm, pub.focusRing)}
                     >
                       Изчисти
                     </Link>
@@ -329,20 +336,20 @@ export default async function FestivalsPage({
                 ) : null}
 
                 {!queryError && festivals.length === 0 ? (
-                  <div className="rounded-2xl border border-black/[0.08] bg-white/80 px-6 py-12 text-center shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.06)]">
+                  <div className={cn(pub.sectionCardSoft, "px-6 py-12 text-center")}>
                     <p className="text-base font-semibold text-[#0c0e14]">Няма фестивали по тези филтри.</p>
                     <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
                       <Link
                         href={clearHref}
                         scroll={false}
-                        className="rounded-xl bg-[#0c0e14] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                        className={cn(pub.btnPrimarySm, pub.focusRing)}
                       >
                         Изчисти филтрите
                       </Link>
                       <Link
                         href="/festivals"
                         scroll={false}
-                        className="rounded-xl border border-black/[0.1] bg-white px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#0c0e14] transition hover:border-black/20 hover:bg-[#faf9f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                        className={cn(pub.btnSecondarySm, "px-5 py-2.5 uppercase tracking-[0.15em]", pub.focusRing)}
                       >
                         Виж всички
                       </Link>
@@ -382,11 +389,13 @@ export default async function FestivalsPage({
                           key={pageNumber}
                           href={buildFestivalsHref({ q, city, date, tag, page: pageNumber })}
                           scroll={false}
-                          className={`rounded-full border border-black/[0.1] px-4 py-2 text-sm transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
+                          className={cn(
+                            "rounded-full border border-black/[0.1] px-4 py-2 text-sm transition hover:border-black/20 hover:bg-white",
+                            pub.focusRing,
                             pageNumber === page
-                              ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#0c0e14]"
-                              : "bg-white/80 text-[#0c0e14]"
-                          }`}
+                              ? cn(pub.chipActive, "normal-case tracking-normal")
+                              : "bg-white/80 text-[#0c0e14]",
+                          )}
                         >
                           {pageNumber}
                         </Link>

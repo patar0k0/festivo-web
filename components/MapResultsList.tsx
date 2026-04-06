@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import EventCard from "@/components/ui/EventCard";
+import { pub } from "@/lib/public-ui/styles";
+import { cn } from "@/lib/utils";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
@@ -50,7 +52,7 @@ export default function MapResultsList({
               itemsRef.current[key] = node;
             }}
             onClick={() => onSelectFestival?.(festival)}
-            className={`cursor-pointer rounded-2xl transition ${selected ? "ring-2 ring-[#ff4c1f]/35" : ""}`}
+            className={cn("cursor-pointer rounded-2xl transition", selected && pub.selectionRing)}
           >
             <EventCard
               title={festival.title}
@@ -70,7 +72,10 @@ export default function MapResultsList({
             />
             <Link
               href={`/festivals/${festival.slug}`}
-              className="mt-2 inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+              className={cn(
+                "mt-2 inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c0e14] transition hover:bg-[#f7f6f3]",
+                pub.focusRing,
+              )}
             >
               Детайли
             </Link>

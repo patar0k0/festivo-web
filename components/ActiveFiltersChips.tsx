@@ -3,6 +3,8 @@
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
+import { pub } from "@/lib/public-ui/styles";
+import { cn } from "@/lib/utils";
 
 type Chip = {
   key: string;
@@ -174,7 +176,10 @@ export default function ActiveFiltersChips() {
             key={chip.key}
             type="button"
             onClick={chip.onRemove}
-            className="inline-flex items-center gap-2 rounded-full border border-black/[0.1] bg-white/90 px-3 py-2 text-xs font-semibold text-[#0c0e14] transition hover:border-black/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full border border-black/[0.1] bg-white/90 px-3 py-2 text-xs font-semibold text-[#0c0e14] transition hover:border-black/20 hover:bg-white",
+              pub.focusRing,
+            )}
           >
             <span>{chip.label}</span>
             <span aria-hidden="true" className="text-black/55">

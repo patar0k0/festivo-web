@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 import { addMonths, format, getDay, getDaysInMonth, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 
 type CalendarMonthGridProps = {
   month: string;
@@ -48,12 +50,12 @@ export default function CalendarMonthGrid({
   const nextMonth = format(addMonths(monthStart, 1), "yyyy-MM");
 
   return (
-    <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur md:p-5">
+    <div className={cn(pub.panelMuted, "p-4 md:p-5")}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => onChangeMonth(prevMonth)}
-          className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+          className={cn(pub.btnSecondarySm, "px-3 py-2 hover:bg-[#f7f6f3]", pub.focusRing)}
         >
           Prev
         </button>
@@ -61,7 +63,7 @@ export default function CalendarMonthGrid({
         <button
           type="button"
           onClick={() => onChangeMonth(nextMonth)}
-          className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+          className={cn(pub.btnSecondarySm, "px-3 py-2 hover:bg-[#f7f6f3]", pub.focusRing)}
         >
           Next
         </button>
@@ -94,11 +96,13 @@ export default function CalendarMonthGrid({
               type="button"
               onClick={() => onSelectDay(dayKey)}
               aria-label={`${dateLabel}, ${count} фестивала`}
-              className={`flex h-20 flex-col items-start justify-between rounded-xl border px-2.5 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
+              className={cn(
+                "flex h-20 flex-col items-start justify-between rounded-xl border px-2.5 py-2 text-left transition",
+                pub.focusRing,
                 selected
-                  ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                  : "border-black/[0.08] bg-white/80 text-[#0c0e14] hover:border-black/[0.18]"
-              }`}
+                  ? "border-[#7c2d12] bg-[#7c2d12] text-white"
+                  : "border-black/[0.08] bg-white/80 text-[#0c0e14] hover:border-amber-200/60",
+              )}
             >
               <span className="text-sm font-semibold">{format(cell.date, "d")}</span>
               <span
@@ -107,7 +111,10 @@ export default function CalendarMonthGrid({
                 }`}
               >
                 <span
-                  className={`h-1.5 w-1.5 rounded-full ${selected ? "bg-white" : count > 0 ? "bg-[#ff4c1f]" : "bg-black/20"}`}
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    selected ? "bg-white" : count > 0 ? "bg-[#7c2d12]" : "bg-black/20",
+                  )}
                 />
                 {count}
               </span>

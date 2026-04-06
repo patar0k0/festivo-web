@@ -13,7 +13,9 @@ import MapViewClient from "@/components/MapViewClient";
 import MapResultsList from "@/components/MapResultsList";
 import MapMobileResultsSheet from "@/components/MapMobileResultsSheet";
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
+import { pub } from "@/lib/public-ui/styles";
 import { Festival, Filters } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type MapPageClientProps = {
   filters: Filters;
@@ -242,16 +244,16 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
   };
 
   return (
-    <div className="landing-bg overflow-x-hidden text-[#0c0e14]">
-      <Section className="overflow-x-clip bg-transparent pb-8 pt-8 md:pb-10 md:pt-10">
+    <div className={pub.pageOverflow}>
+      <Section className={pub.sectionLoose}>
         <Container>
-          <div className="space-y-6 lg:space-y-7">
-            <div className="rounded-[28px] border border-black/[0.08] bg-white/75 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_12px_30px_rgba(12,14,20,0.08)] backdrop-blur md:p-7">
+          <div className={pub.stackMd}>
+            <div className={pub.panelHero}>
               <div className="flex flex-wrap items-start justify-between gap-4 md:gap-6">
                 <div className="max-w-3xl">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/40">Festivo Explorer</p>
-                  <h1 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">{COPY.title}</h1>
-                  <p className="mt-3 text-sm text-black/65 md:text-[15px]">{COPY.subtitle}</p>
+                  <p className={pub.eyebrowMuted}>Festivo Explorer</p>
+                  <h1 className={cn(pub.pageTitle, "mt-2")}>{COPY.title}</h1>
+                  <p className={cn(pub.body, "mt-3")}>{COPY.subtitle}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="hidden lg:block xl:hidden">
@@ -269,33 +271,33 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
                 <button
                   type="button"
                   onClick={toggleFree}
-                  className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-                    freeActive
-                      ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                      : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
-                  }`}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+                    pub.focusRing,
+                    freeActive ? pub.toggleActive : pub.toggleInactive,
+                  )}
                 >
                   {COPY.free}
                 </button>
                 <button
                   type="button"
                   onClick={toggleWeekend}
-                  className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-                    currentFrom === weekendFrom && currentTo === weekendTo
-                      ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                      : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
-                  }`}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+                    pub.focusRing,
+                    currentFrom === weekendFrom && currentTo === weekendTo ? pub.toggleActive : pub.toggleInactive,
+                  )}
                 >
                   {COPY.weekend}
                 </button>
                 <button
                   type="button"
                   onClick={toggleMonth}
-                  className={`rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-                    currentFrom === monthFrom && currentTo === monthTo
-                      ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                      : "border-black/[0.1] bg-white/90 text-[#0c0e14] hover:border-black/20 hover:bg-white"
-                  }`}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+                    pub.focusRing,
+                    currentFrom === monthFrom && currentTo === monthTo ? pub.toggleActive : pub.toggleInactive,
+                  )}
                 >
                   {COPY.month}
                 </button>
@@ -314,7 +316,7 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
                   {geoMessage ? (
                     <p className="rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-xs text-[#b13a1a]">{geoMessage}</p>
                   ) : null}
-                  <div className="max-h-[calc(100vh-25rem)] overflow-y-auto rounded-2xl border border-black/[0.08] bg-white/80 p-3 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur">
+                  <div className={cn(pub.panelMuted, "max-h-[calc(100vh-25rem)] overflow-y-auto p-3")}>
                     <MapResultsList
                       festivals={festivalsSortedByDistance}
                       selectedFestivalId={selectedFestivalId}
@@ -325,7 +327,7 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
               </div>
 
               <div className="min-w-0 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/[0.08] bg-white/80 px-4 py-3 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_20px_rgba(12,14,20,0.07)] backdrop-blur">
+                <div className={cn(pub.panelMuted, "flex flex-wrap items-center justify-between gap-3 px-4 py-3")}>
                   <p className="text-sm font-semibold text-[#0c0e14]">
                     {COPY.mapCount}: {mapPoints.length} / {COPY.totalCount}: {total}
                   </p>
@@ -333,21 +335,26 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
                     <button
                       type="button"
                       onClick={onNearMe}
-                      className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                      className={cn(pub.btnSecondarySm, "px-3 py-1.5 hover:bg-[#f7f6f3]", pub.focusRing)}
                     >
                       {COPY.nearMe}
                     </button>
                     <button
                       type="button"
                       onClick={onResetView}
-                      className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                      className={cn(pub.btnSecondarySm, "px-3 py-1.5 hover:bg-[#f7f6f3]", pub.focusRing)}
                     >
                       {COPY.resetView}
                     </button>
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white/80 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur xl:sticky xl:top-[84px]">
+                <div
+                  className={cn(
+                    pub.panelMuted,
+                    "overflow-hidden xl:sticky xl:top-[84px]",
+                  )}
+                >
                   {userCoords ? (
                     <div className="border-b border-black/[0.08] px-4 py-2.5 text-xs font-medium text-black/65">{COPY.locationActive}</div>
                   ) : null}
@@ -363,9 +370,14 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
                   </div>
                 </div>
 
-                <div className="hidden lg:block xl:hidden rounded-2xl border border-black/[0.08] bg-white/80 p-3 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur">
+                <div className={cn(pub.panelMuted, "hidden p-3 lg:block xl:hidden")}>
                   <details>
-                    <summary className="cursor-pointer list-none rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold text-[#0c0e14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25">
+                    <summary
+                      className={cn(
+                        "cursor-pointer list-none rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold text-[#0c0e14]",
+                        pub.focusRing,
+                      )}
+                    >
                       {COPY.results} ({festivals.length})
                     </summary>
                     <div className="mt-3 max-h-[50vh] overflow-y-auto">
@@ -401,7 +413,11 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
                 <button
                   type="button"
                   onClick={onResetFilters}
-                  className="rounded-full bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-white shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_18px_rgba(12,14,20,0.08)] transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  className={cn(
+                    "rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] shadow-sm",
+                    pub.btnPrimarySm,
+                    pub.focusRing,
+                  )}
                 >
                   {COPY.clearFilters}
                 </button>
@@ -409,12 +425,12 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
             </div>
 
             {festivals.length === 0 ? (
-              <div className="rounded-2xl border border-black/[0.08] bg-white/80 px-6 py-10 text-center shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)]">
+              <div className={cn(pub.sectionCardSoft, "px-6 py-10 text-center")}>
                 <p className="text-base font-semibold text-[#0c0e14]">Няма фестивали по тези филтри.</p>
                 <Link
                   href={baseClearHref}
                   scroll={false}
-                  className="mt-4 inline-flex rounded-xl bg-[#0c0e14] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                  className={cn("mt-4 inline-flex", pub.btnPrimarySm, pub.focusRing)}
                 >
                   {COPY.clearFilters}
                 </Link>

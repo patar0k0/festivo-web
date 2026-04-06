@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
+import { pub } from "@/lib/public-ui/styles";
 import { Filters } from "@/lib/types";
 
 function updateParam(params: URLSearchParams, key: string, value?: string) {
@@ -75,7 +76,8 @@ export default function MapFiltersSidebar({
   return (
     <aside
       className={cn(
-        "w-full rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur",
+        pub.panelMuted,
+        "w-full p-5",
         className
       )}
     >
@@ -83,7 +85,7 @@ export default function MapFiltersSidebar({
         <div>
           <label className="text-xs uppercase tracking-[0.2em] text-muted">Град</label>
           <input
-            className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
+            className={cn(pub.input, "mt-2")}
             placeholder="София, Пловдив"
             value={city}
             onChange={(event) => setCity(event.target.value)}
@@ -93,7 +95,7 @@ export default function MapFiltersSidebar({
           <div>
             <label className="text-xs uppercase tracking-[0.2em] text-muted">От</label>
             <DdMmYyyyDateInput
-              className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
+              className={cn(pub.input, "mt-2")}
               value={from}
               onChange={setFrom}
             />
@@ -101,7 +103,7 @@ export default function MapFiltersSidebar({
           <div>
             <label className="text-xs uppercase tracking-[0.2em] text-muted">До</label>
             <DdMmYyyyDateInput
-              className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
+              className={cn(pub.input, "mt-2")}
               value={to}
               onChange={setTo}
             />
@@ -110,7 +112,7 @@ export default function MapFiltersSidebar({
         <div>
           <label className="text-xs uppercase tracking-[0.2em] text-muted">Категория</label>
           <select
-            className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
+            className={cn(pub.input, "mt-2")}
             value={cat}
             onChange={(event) => setCat(event.target.value)}
           >
@@ -125,7 +127,7 @@ export default function MapFiltersSidebar({
         <div>
           <label className="text-xs uppercase tracking-[0.2em] text-muted">Сортиране</label>
           <select
-            className="mt-2 w-full rounded-xl border border-black/[0.1] bg-white/90 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#ff4c1f]/25"
+            className={cn(pub.input, "mt-2")}
             value={sort}
             onChange={(event) => setSort(event.target.value as "soonest" | "curated" | "nearest")}
           >
@@ -139,21 +141,25 @@ export default function MapFiltersSidebar({
             type="checkbox"
             checked={free}
             onChange={(event) => setFree(event.target.checked)}
-            className="h-4 w-4 rounded border-black/25 text-[#ff4c1f] focus:ring-[#ff4c1f]/30"
+            className={pub.checkboxAccent}
           />
           Само безплатни
         </label>
         <button
           type="button"
           onClick={apply}
-          className="w-full rounded-xl bg-[#0c0e14] px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d202b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
+          className={cn("w-full px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em]", pub.btnPrimarySm, pub.focusRing)}
         >
           Приложи филтри
         </button>
         <button
           type="button"
           onClick={clearFilters}
-          className="w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
+          className={cn(
+            "w-full px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] hover:bg-[#f7f6f3]",
+            pub.btnSecondarySm,
+            pub.focusRing,
+          )}
         >
           Изчисти филтрите
         </button>
@@ -161,7 +167,11 @@ export default function MapFiltersSidebar({
           <button
             type="button"
             onClick={onNearMe}
-            className="w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#0c0e14] transition hover:bg-[#f7f6f3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
+            className={cn(
+              "w-full px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] hover:bg-[#f7f6f3]",
+              pub.btnSecondarySm,
+              pub.focusRing,
+            )}
           >
             До мен
           </button>

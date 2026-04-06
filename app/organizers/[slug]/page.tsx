@@ -16,6 +16,8 @@ import {
 } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
 import { hasActivePromotion } from "@/lib/monetization";
+import { cn } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 import "../../landing.css";
 
 /** Avoid caching a stale 404 after the organizer row appears or slug is fixed (ISR + notFound). */
@@ -115,16 +117,16 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
   const hasSocialOrWeb = Boolean(websiteHref || facebookHref || instagramHref);
 
   return (
-    <div className="landing-bg bg-[#f6f7fb] text-[#0c0e14]">
-      <Section className="py-8 md:py-12">
+    <div className={pub.page}>
+      <Section className={pub.section}>
         <Container>
           <div className="w-full space-y-10 md:space-y-12">
             <section
               aria-labelledby="organizer-profile-heading"
-              className="relative overflow-hidden rounded-[1.75rem] border border-black/[0.06] bg-white shadow-sm ring-1 ring-black/[0.03]"
+              className={cn(pub.heroMainCard, "relative overflow-hidden")}
             >
               <div
-                className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-slate-50/90 to-transparent"
+                className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-amber-50/80 to-transparent"
                 aria-hidden
               />
               <div className="relative flex flex-col gap-8 p-6 sm:p-8 md:flex-row md:items-start md:gap-10 lg:p-10">
@@ -138,13 +140,14 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
 
                 <div className="min-w-0 flex-1 space-y-6 md:space-y-7">
                   <header className="space-y-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                      Организатор на събития
-                    </p>
+                    <p className={pub.eyebrow}>Организатор на събития</p>
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
                       <h1
                         id="organizer-profile-heading"
-                        className="text-[1.65rem] font-semibold leading-[1.15] tracking-tight text-slate-950 sm:text-3xl md:text-4xl"
+                        className={cn(
+                          pub.displayH1,
+                          "text-[1.65rem] leading-[1.15] sm:text-3xl",
+                        )}
                       >
                         {organizer.name}
                       </h1>
@@ -165,12 +168,12 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                   </header>
 
                   <div className="flex flex-wrap gap-2">
-                    <span className="inline-flex items-center rounded-full border border-slate-200/80 bg-slate-50/90 px-3 py-1.5 text-sm font-medium text-slate-700">
+                    <span className="inline-flex items-center rounded-full border border-amber-200/50 bg-white/90 px-3 py-1.5 text-sm font-medium text-[#0c0e14] ring-1 ring-amber-100/30">
                       {festivalCount} {festivalCount === 1 ? "фестивал" : "фестивала"}
                     </span>
                     {locationLabel ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-sm font-medium text-slate-700">
-                        <svg className="h-3.5 w-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/45 bg-white px-3 py-1.5 text-sm font-medium text-[#0c0e14] ring-1 ring-amber-100/25">
+                        <svg className="h-3.5 w-3.5 text-black/40" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
                           <path
                             fillRule="evenodd"
                             d="M9.69 1.87a.75.75 0 0 1 .62 0l6.25 2.858a.75.75 0 0 1 .44.684v6.728a5.75 5.75 0 0 1-2.33 4.63l-4.21 3.37a.75.75 0 0 1-.94 0l-4.21-3.37a5.75 5.75 0 0 1-2.33-4.63V5.412a.75.75 0 0 1 .44-.684L9.69 1.87ZM10 3.16 4.25 5.79v5.19a4.25 4.25 0 0 0 1.72 3.42l3.53 2.82 3.53-2.82a4.25 4.25 0 0 0 1.72-3.42V5.79L10 3.16Z"
@@ -184,7 +187,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                     {categoryChips.map((cat) => (
                       <span
                         key={cat}
-                        className="inline-flex items-center rounded-full border border-violet-100 bg-violet-50/70 px-3 py-1.5 text-sm font-medium text-violet-900/90"
+                        className="inline-flex items-center rounded-full border border-violet-200/60 bg-violet-50/80 px-3 py-1.5 text-sm font-medium text-violet-900/90"
                       >
                         {cat}
                       </span>
@@ -194,13 +197,13 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                     <a
                       href="#organizer-festivals"
-                      className="inline-flex items-center justify-center rounded-full bg-[#0c0e14] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                      className={cn(pub.btnPrimary, "rounded-full px-5 py-2.5", pub.focusRing)}
                     >
                       Виж всички фестивали
                     </a>
                     <Link
                       href="/festivals"
-                      className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50"
+                      className={cn(pub.btnSecondary, "rounded-full px-5 py-2.5", pub.focusRing)}
                     >
                       Към каталога
                     </Link>
@@ -208,17 +211,21 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
 
                   {hasSocialOrWeb ? (
                     <div className="space-y-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Връзки</p>
+                      <p className={pub.eyebrowMuted}>Връзки</p>
                       <div className="flex flex-wrap gap-2">
                         {websiteHref ? (
                           <a
                             href={websiteHref}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-50"
+                            className={cn(
+                              pub.btnSecondary,
+                              "gap-2 rounded-full px-4 py-2 text-sm normal-case",
+                              pub.focusRing,
+                            )}
                           >
                             Уебсайт
-                            <ExternalLinkIcon className="h-3.5 w-3.5 text-slate-400" />
+                            <ExternalLinkIcon className="h-3.5 w-3.5 text-black/40" />
                           </a>
                         ) : null}
                         {facebookHref ? (
@@ -251,16 +258,16 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                   ) : null}
 
                   {email || phone ? (
-                    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 sm:p-5">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Контакт</p>
+                    <div className={cn(pub.railCard, "p-4 sm:p-5")}>
+                      <p className={pub.eyebrowMuted}>Контакт</p>
                       <dl className="mt-3 space-y-3 text-sm">
                         {email ? (
                           <div>
-                            <dt className="text-xs font-medium text-slate-500">Имейл</dt>
+                            <dt className="text-xs font-medium text-black/50">Имейл</dt>
                             <dd className="mt-0.5">
                               <a
                                 href={`mailto:${email}`}
-                                className="inline-block font-semibold text-slate-900 underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-500"
+                                className={cn(pub.linkInline, "inline-block underline-offset-4")}
                               >
                                 {email}
                               </a>
@@ -269,11 +276,11 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                         ) : null}
                         {phone ? (
                           <div>
-                            <dt className="text-xs font-medium text-slate-500">Телефон</dt>
+                            <dt className="text-xs font-medium text-black/50">Телефон</dt>
                             <dd className="mt-0.5">
                               <a
                                 href={telHref(phone)}
-                                className="inline-block font-semibold text-slate-900 underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-500"
+                                className={cn(pub.linkInline, "inline-block underline-offset-4")}
                               >
                                 {phone}
                               </a>
@@ -287,10 +294,10 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                   {description ? (
                     <OrganizerProfileAbout text={description} />
                   ) : (
-                    <div className="border-t border-slate-100 pt-6">
-                      <div className="rounded-2xl border border-dashed border-slate-200/90 bg-slate-50/80 px-4 py-5 text-center sm:px-6">
-                        <p className="text-sm font-medium text-slate-600">Все още няма описание на организатора</p>
-                        <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+                    <div className="border-t border-amber-200/35 pt-6">
+                      <div className="rounded-2xl border border-dashed border-amber-200/55 bg-amber-50/40 px-4 py-5 text-center ring-1 ring-amber-100/25 sm:px-6">
+                        <p className="text-sm font-medium text-black/70">Все още няма описание на организатора</p>
+                        <p className="mt-1.5 text-sm leading-relaxed text-black/55">
                           Когато бъде добавено, ще се покаже тук за посетителите.
                         </p>
                       </div>
@@ -305,14 +312,11 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
               aria-labelledby="organizer-festivals-heading"
               className="scroll-mt-24 space-y-5 md:space-y-6"
             >
-              <div className="relative rounded-2xl border-l-4 border-l-slate-900/90 bg-white/80 py-1 pl-5 pr-2 shadow-sm ring-1 ring-black/[0.04] md:pl-6">
-                <h2
-                  id="organizer-festivals-heading"
-                  className="text-xl font-semibold tracking-tight text-slate-950 md:text-2xl"
-                >
+              <div className={cn(pub.panelAccentBar, "border-l-4 border-l-[#7c2d12]/85")}>
+                <h2 id="organizer-festivals-heading" className={cn(pub.sectionTitle, "md:text-2xl")}>
                   Фестивали на {organizer.name}
                 </h2>
-                <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-600 md:text-[15px]">
+                <p className={cn(pub.body, "mt-1.5 max-w-2xl leading-relaxed text-black/65")}>
                   Публикувани събития в каталога на Festivo, свързани с този организатор.
                 </p>
               </div>
@@ -336,7 +340,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                   ))}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-black/[0.06] bg-white p-6 text-sm leading-relaxed text-slate-600 shadow-sm">
+                <div className={cn(pub.sectionCardSoft, "p-6 text-sm leading-relaxed text-black/65")}>
                   Няма публикувани фестивали за този организатор.
                 </div>
               )}

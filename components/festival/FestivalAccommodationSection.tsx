@@ -35,7 +35,7 @@ export default function FestivalAccommodationSection({ offers, festivalId }: Pro
               }
               target="_blank"
               rel="noopener noreferrer"
-              className="flex gap-3 rounded-xl border border-black/[0.08] bg-white p-3 transition hover:border-black/15 hover:shadow-[0_2px_10px_rgba(12,14,20,0.05)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
+              className="flex gap-3 rounded-xl border border-amber-200/30 bg-white p-3 shadow-[0_1px_0_rgba(12,14,20,0.03)] ring-1 ring-amber-100/15 transition hover:border-amber-300/45 hover:shadow-[0_2px_10px_rgba(12,14,20,0.06)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/25"
             >
               <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-lg bg-black/[0.04]">
                 {offer.image_url ? (

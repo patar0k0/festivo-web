@@ -2,6 +2,8 @@ import Link from "next/link";
 import { parseISO } from "date-fns";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { cn } from "@/lib/utils";
+import { pub } from "@/lib/public-ui/styles";
 import { Festival } from "@/lib/types";
 
 type DayEventsListProps = {
@@ -16,9 +18,9 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
     : new Intl.DateTimeFormat("bg-BG", { day: "numeric", month: "long", year: "numeric" }).format(parsedDay);
 
   return (
-    <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.07)] backdrop-blur md:p-5">
+    <div className={cn(pub.panelMuted, "p-4 md:p-5")}>
       <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold tracking-tight text-[#0c0e14]">Събития за {heading}</h2>
+        <h2 className={cn(pub.sectionTitleMd, "font-bold")}>Събития за {heading}</h2>
         <span className="rounded-full bg-black/[0.05] px-2.5 py-1 text-xs font-semibold text-black/60">{festivals.length}</span>
       </div>
 
@@ -32,7 +34,10 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
             <Link
               key={`${festival.slug}-${festival.id}`}
               href={`/festivals/${festival.slug}`}
-              className="block rounded-xl border border-black/[0.09] bg-white p-4 transition hover:border-black/[0.16] hover:shadow-[0_8px_18px_rgba(12,14,20,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+              className={cn(
+                "block rounded-xl border border-amber-200/35 bg-white p-4 ring-1 ring-amber-100/15 transition hover:border-amber-300/50 hover:shadow-[0_8px_18px_rgba(12,14,20,0.08)]",
+                pub.focusRing,
+              )}
             >
               <p className="text-base font-semibold text-[#0c0e14]">{festival.title}</p>
               <p className="mt-1 text-sm text-black/60">
@@ -45,7 +50,7 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
                   </span>
                 ) : null}
                 {festival.is_free ? (
-                  <span className="rounded-full border border-[#ff4c1f]/25 bg-[#ff4c1f]/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#ff4c1f]">
+                  <span className="rounded-full border border-emerald-200/70 bg-emerald-50/90 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-emerald-900/85">
                     Безплатно
                   </span>
                 ) : null}

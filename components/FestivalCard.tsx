@@ -1,58 +1,28 @@
-import FallbackImage from "@/components/ui/FallbackImage";
-import Link from "next/link";
+import EventCard from "@/components/ui/EventCard";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
-import { AppleCard, AppleCardBody, AppleCardHeader } from "@/components/apple/AppleCard";
-import ApplePill from "@/components/apple/ApplePill";
-import Heading from "@/components/ui/Heading";
-import Text from "@/components/ui/Text";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 
+/** Same festival card as homepage / listings / map — single visual system. */
 export default function FestivalCard({ festival }: { festival: Festival }) {
-  const heroImage = getFestivalHeroImage(festival);
-  const hasImage = Boolean(heroImage);
-  const description = festival.description ?? "";
-
   return (
-    <Link href={`/festivals/${festival.slug}`} className="group">
-      <AppleCard className="h-full">
-        {hasImage ? (
-          <AppleCardHeader className="aspect-[16/10] border-b apple-border">
-            <FallbackImage
-              src={heroImage ?? "/hero.svg"}
-              alt={festival.title}
-              fill
-              className="object-cover"
-              resetKey={festival.id}
-            />
-          </AppleCardHeader>
-        ) : null}
-        <AppleCardBody className="space-y-3">
-          <Text variant="muted" size="sm">
-            {festivalCityLabel(festival, "Bulgaria")} · {formatFestivalDateLineShort(festival)}
-          </Text>
-          <Heading as="h3" size="h3" className="text-lg">
-            {festival.title}
-          </Heading>
-          <div className="flex flex-wrap gap-2">
-            {hasActivePromotion(festival) ? <ApplePill active>Промотирано</ApplePill> : null}
-            {hasActiveVip(festival.organizer) ? <ApplePill>VIP организатор</ApplePill> : null}
-            {festival.is_free ? <ApplePill active>Free</ApplePill> : null}
-            {festival.category ? <ApplePill>{festival.category}</ApplePill> : null}
-          </div>
-          {description ? (
-            <p
-              className="text-sm text-muted"
-              style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
-            >
-              {description}
-            </p>
-          ) : null}
-        </AppleCardBody>
-      </AppleCard>
-    </Link>
+    <EventCard
+      title={festival.title}
+      city={festivalCityLabel(festival, "Bulgaria")}
+      category={festival.category}
+      imageUrl={getFestivalHeroImage(festival)}
+      startDate={festival.start_date}
+      endDate={festival.end_date}
+      dateLine={formatFestivalDateLineShort(festival)}
+      isFree={festival.is_free}
+      isPromoted={hasActivePromotion(festival)}
+      isVipOrganizer={hasActiveVip(festival.organizer)}
+      description={festival.description}
+      showDescription
+      detailsHref={`/festivals/${festival.slug}`}
+      festivalId={festival.id}
+    />
   );
 }
-

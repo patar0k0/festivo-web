@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { pub } from "@/lib/public-ui/styles";
+import { cn } from "@/lib/utils";
 
 type Props = {
   text: string;
@@ -20,10 +22,8 @@ export default function OrganizerProfileAbout({ text }: Props) {
   const needsExpand = useMemo(() => shouldOfferExpand(text), [text]);
 
   return (
-    <div className="border-t border-slate-100 pt-6">
-      <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-        За организатора
-      </h2>
+    <div className="border-t border-amber-200/35 pt-6">
+      <h2 className={pub.dtLabel}>За организатора</h2>
       <div
         id={regionId}
         className={
@@ -32,7 +32,7 @@ export default function OrganizerProfileAbout({ text }: Props) {
             : "relative mt-4"
         }
       >
-        <p className="max-w-prose whitespace-pre-wrap text-[15px] leading-[1.7] text-slate-600 md:text-base md:leading-relaxed">
+        <p className="max-w-prose whitespace-pre-wrap text-[15px] leading-[1.7] text-black/65 md:text-base md:leading-relaxed">
           {text}
         </p>
         {!expanded && needsExpand ? (
@@ -45,7 +45,7 @@ export default function OrganizerProfileAbout({ text }: Props) {
       {needsExpand ? (
         <button
           type="button"
-          className="mt-3 text-sm font-semibold text-slate-800 underline decoration-slate-300 underline-offset-4 transition hover:decoration-slate-500"
+          className={cn(pub.linkInline, "mt-3 text-sm")}
           aria-expanded={expanded}
           aria-controls={regionId}
           onClick={() => setExpanded((v) => !v)}

@@ -6,7 +6,9 @@ import { usePathname } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { bg } from "date-fns/locale";
 import Badge from "@/components/ui/Badge";
+import { cn } from "@/components/ui/cn";
 import EventCard from "@/components/ui/EventCard";
+import { pub } from "@/lib/public-ui/styles";
 import { useNavigationGeneration } from "@/components/providers/NavigationGenerationProvider";
 import { useImageLoadReset } from "@/components/ui/useImageLoadReset";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
@@ -369,7 +371,7 @@ export default function FestivalDetailClient({
 
   return (
     <div className="space-y-6 md:space-y-8">
-      <section className="overflow-hidden rounded-[24px] border border-black/[0.08] bg-white shadow-[0_2px_0_rgba(12,14,20,0.06),0_12px_32px_rgba(12,14,20,0.07)]">
+      <section className={pub.heroMainCard}>
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
           {heroImage && !heroImageFailed ? (
             <>
@@ -442,7 +444,7 @@ export default function FestivalDetailClient({
             <div className="mb-3 flex justify-end">
               <Link
                 href={adminEditHref}
-                className="inline-flex items-center justify-center rounded-xl border border-black/[0.12] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] transition hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                className={cn(pub.btnSecondarySm, pub.focusRing)}
               >
                 Редакция
               </Link>
@@ -461,8 +463,8 @@ export default function FestivalDetailClient({
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-8">
           {showDescriptionSection ? (
-            <section className="rounded-2xl border border-black/[0.08] bg-white/80 px-5 pb-5 pt-6 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]">
-              <h2 className="text-xl font-semibold text-[#0c0e14]">Описание</h2>
+            <section className={cn(pub.sectionCard, "px-5 pb-5 pt-6")}>
+              <h2 className={pub.sectionTitle}>Описание</h2>
               {descriptionText ? (
                 <div className="mt-4">
                   <div
@@ -484,7 +486,7 @@ export default function FestivalDetailClient({
                     <button
                       type="button"
                       onClick={() => setDescriptionExpanded((v) => !v)}
-                      className="mt-3 rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-sm font-semibold text-[#0c0e14] transition hover:bg-black/[0.03]"
+                      className={cn(pub.btnGhost, "mt-3 px-3 py-1.5 text-sm")}
                       aria-expanded={descriptionExpanded}
                     >
                       {descriptionExpanded ? "Покажи по-малко" : "Виж повече"}
@@ -511,14 +513,18 @@ export default function FestivalDetailClient({
 
           <section
             id={FESTIVAL_PROGRAM_SECTION_ID}
-            className={`scroll-mt-24 rounded-2xl border border-black/[0.08] ${
+            className={cn(
+              "scroll-mt-24 rounded-2xl border border-amber-200/30 ring-1 ring-amber-100/15",
               hasProgramContent
-                ? "bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]"
-                : "bg-white/55 p-4 shadow-[0_1px_0_rgba(12,14,20,0.03),0_4px_14px_rgba(12,14,20,0.04)]"
-            }`}
+                ? "bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]"
+                : "bg-white/60 p-4 shadow-[0_1px_0_rgba(12,14,20,0.03),0_4px_14px_rgba(12,14,20,0.04)]",
+            )}
           >
             <h2
-              className={`font-semibold text-[#0c0e14] ${hasProgramContent ? "text-xl" : "text-lg text-black/80"}`}
+              className={cn(
+                "font-semibold text-[#0c0e14]",
+                hasProgramContent ? "text-xl" : "text-lg text-black/80",
+              )}
             >
               Програма
             </h2>
@@ -533,11 +539,11 @@ export default function FestivalDetailClient({
                       key={day.id}
                       type="button"
                       onClick={() => setActiveDayId(day.id)}
-                      className={`rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-                        displayedDay?.id === day.id
-                          ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                          : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]"
-                      }`}
+                      className={cn(
+                        "rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+                        pub.focusRing,
+                        displayedDay?.id === day.id ? pub.toggleActive : pub.toggleInactive,
+                      )}
                     >
                       {day.label}
                     </button>
@@ -550,10 +556,7 @@ export default function FestivalDetailClient({
                       const itemId = String(item.id);
                       const selected = isScheduleItemInPlan(itemId);
                       return (
-                        <article
-                          key={item.id}
-                          className="rounded-xl border border-black/[0.08] bg-white p-4 shadow-[0_2px_0_rgba(12,14,20,0.03),0_6px_14px_rgba(12,14,20,0.06)]"
-                        >
+                        <article key={item.id} className={pub.programItemCard}>
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="space-y-1">
                               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
@@ -568,11 +571,11 @@ export default function FestivalDetailClient({
                               onClick={() => {
                                 void toggleScheduleItem(itemId);
                               }}
-                              className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-                                selected
-                                  ? "border-[#0c0e14] bg-[#0c0e14] text-white hover:bg-[#1d202b]"
-                                  : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]"
-                              }`}
+                              className={cn(
+                                "shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+                                pub.focusRing,
+                                selected ? pub.toggleActive : pub.toggleInactive,
+                              )}
                             >
                               {selected ? "Премахни от програмата" : "Добави в програмата"}
                             </button>
@@ -624,7 +627,7 @@ export default function FestivalDetailClient({
           {relatedFestivals.length ? (
             <section className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-xl font-semibold text-[#0c0e14]">Още фестивали в {cityName || "региона"}</h2>
+                <h2 className={pub.sectionTitle}>Още фестивали в {cityName || "региона"}</h2>
                 <div className="flex flex-wrap gap-3 text-sm font-semibold text-[#0c0e14]">
                   {citySlug ? <Link href={cityHref(citySlug)}>Страница на града</Link> : null}
                   {calendarMonth ? <Link href={`/calendar/${calendarMonth}`}>Календар за месеца</Link> : null}
@@ -655,12 +658,9 @@ export default function FestivalDetailClient({
 
         <aside className="lg:sticky lg:top-[88px] lg:self-start">
           <div className="space-y-4">
-          <section
-            id={REMINDER_BLOCK_ID}
-            className="rounded-2xl border border-black/[0.07] bg-[#fbfaf7] p-5 shadow-[0_1px_0_rgba(12,14,20,0.04)]"
-          >
+          <section id={REMINDER_BLOCK_ID} className={pub.railCard}>
             <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold text-black/90">Напомняне</h2>
+              <h2 className={pub.sectionTitleMd}>Напомняне</h2>
               <p className="text-xs leading-relaxed text-black/55">
                 Настрой напомняне за началото на фестивала, после го добави в личния си план. Двете действия са отделни.
               </p>
@@ -715,11 +715,11 @@ export default function FestivalDetailClient({
                         })();
                       }}
                       disabled={!isAuthenticated || reminderPending}
-                      className={`w-full rounded-xl border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 disabled:cursor-not-allowed disabled:opacity-55 ${
-                        active
-                          ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-                          : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]"
-                      }`}
+                      className={cn(
+                        "w-full rounded-xl border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-55",
+                        pub.focusRing,
+                        active ? pub.toggleActive : pub.toggleInactive,
+                      )}
                       aria-pressed={active}
                     >
                       <span className="flex items-center gap-2 text-sm font-semibold">
@@ -807,8 +807,8 @@ export default function FestivalDetailClient({
           </section>
 
           {showInfoSection ? (
-            <section className="rounded-2xl border border-black/[0.07] bg-white/90 p-5 shadow-[0_1px_0_rgba(12,14,20,0.04)]">
-              <h2 className="text-lg font-semibold text-[#0c0e14]">Информация</h2>
+            <section className={pub.railCardPlain}>
+              <h2 className={pub.sectionTitleMd}>Информация</h2>
               <dl className="mt-4 space-y-3 text-sm">
                 {formattedDateRange ? (
                   <div>
@@ -834,7 +834,10 @@ export default function FestivalDetailClient({
                             {row.slug ? (
                               <Link
                                 href={`/organizers/${row.slug}`}
-                                className="underline decoration-black/30 underline-offset-2 transition hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                                className={cn(
+                                  "underline decoration-black/30 underline-offset-2 transition hover:text-black",
+                                  pub.focusRing,
+                                )}
                               >
                                 {row.name}
                               </Link>
@@ -861,8 +864,8 @@ export default function FestivalDetailClient({
 
           <div className="space-y-4 border-t border-black/[0.08] pt-4">
           {showMapSection ? (
-            <section className="rounded-2xl border border-black/[0.07] bg-white/90 p-5 shadow-[0_1px_0_rgba(12,14,20,0.04)]">
-              <h2 className="text-lg font-semibold text-[#0c0e14]">Карта</h2>
+            <section className={pub.railCardPlain}>
+              <h2 className={pub.sectionTitleMd}>Карта</h2>
               <div className="mt-2 space-y-1 text-sm text-black/70">
                 {citySlug && cityName ? (
                   <Link
@@ -919,8 +922,8 @@ export default function FestivalDetailClient({
           ) : null}
 
           {hasCtaButtons ? (
-            <section className="rounded-2xl border border-black/[0.07] bg-white/90 p-5 shadow-[0_1px_0_rgba(12,14,20,0.04)]">
-              <h2 className="text-lg font-semibold text-[#0c0e14]">Полезни връзки</h2>
+            <section className={pub.railCardPlain}>
+              <h2 className={pub.sectionTitleMd}>Полезни връзки</h2>
               <div className="mt-4 flex flex-col gap-2">
                 {festival.website_url ? (
                   <a
@@ -932,7 +935,10 @@ export default function FestivalDetailClient({
                     })}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+                    className={cn(
+                      "w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03]",
+                      pub.focusRing,
+                    )}
                   >
                     Официален сайт
                   </a>
@@ -947,11 +953,13 @@ export default function FestivalDetailClient({
                     })}
                     target="_blank"
                     rel="noreferrer"
-                    className={`rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
+                    className={cn(
+                      "w-full rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition",
+                      pub.focusRing,
                       showFreeBadge
                         ? "border-black/[0.08] bg-[#f8f7f3] text-black/55 hover:bg-[#f0ede6]"
-                        : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]"
-                    }`}
+                        : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]",
+                    )}
                   >
                     Билети
                   </a>

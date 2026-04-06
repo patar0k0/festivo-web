@@ -74,7 +74,7 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
             key={item.id}
             type="button"
             onClick={() => setOpenIndex(index)}
-            className="group relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.04] text-left shadow-[0_1px_0_rgba(12,14,20,0.04)] transition hover:border-black/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/70 focus-visible:ring-offset-2"
+            className="group relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-amber-200/35 bg-black/[0.04] text-left shadow-[0_1px_0_rgba(12,14,20,0.04)] ring-1 ring-amber-100/15 transition hover:border-amber-300/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/35 focus-visible:ring-offset-2"
           >
             <FallbackImage
               src={item.url}

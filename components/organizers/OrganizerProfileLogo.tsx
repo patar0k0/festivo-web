@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Props = {
   logoUrl: string | null | undefined;
@@ -13,8 +13,22 @@ type Props = {
 
 export default function OrganizerProfileLogo({ logoUrl, name, initials, variant = "default" }: Props) {
   const [failed, setFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const trimmed = logoUrl?.trim() ?? "";
-  const showImage = Boolean(trimmed) && !failed;
+
+  useEffect(() => {
+    setFailed(false);
+    setLoadAttempt(0);
+  }, [trimmed]);
+
+  const displayUrl = useMemo(() => {
+    if (!trimmed) return "";
+    if (loadAttempt === 0) return trimmed;
+    const sep = trimmed.includes("?") ? "&" : "?";
+    return `${trimmed}${sep}_festivo_logo_retry=${loadAttempt}`;
+  }, [trimmed, loadAttempt]);
+
+  const showImage = Boolean(displayUrl) && !failed;
   const displayInitials = initials || "OF";
   const isHero = variant === "hero";
 
@@ -38,13 +52,21 @@ export default function OrganizerProfileLogo({ logoUrl, name, initials, variant 
     >
       {showImage ? (
         <Image
-          src={trimmed}
+          key={displayUrl}
+          src={displayUrl}
           alt={name}
           fill
           sizes={sizes}
           className="object-cover"
           unoptimized
-          onError={() => setFailed(true)}
+          priority={variant === "hero"}
+          onError={() => {
+            setLoadAttempt((c) => {
+              if (c < 2) return c + 1;
+              setFailed(true);
+              return c;
+            });
+          }}
         />
       ) : (
         <div

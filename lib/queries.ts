@@ -24,7 +24,7 @@ const PUBLIC_ORGANIZER_SELECT =
   "id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id,claimed_events_count";
 
 /** URL segment → DB slug: trim, decode, unify unicode hyphens. */
-export function normalizePublicOrganizerSlugParam(raw: string): string {
+function normalizeUrlSlugSegment(raw: string): string {
   let s = raw.trim();
   try {
     s = decodeURIComponent(s);
@@ -32,6 +32,15 @@ export function normalizePublicOrganizerSlugParam(raw: string): string {
     // ignore invalid escape sequences
   }
   return s.replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-");
+}
+
+export function normalizePublicOrganizerSlugParam(raw: string): string {
+  return normalizeUrlSlugSegment(raw);
+}
+
+/** Same rules as organizer public URLs — keeps festival detail lookups aligned with encoded links. */
+export function normalizePublicFestivalSlugParam(raw: string): string {
+  return normalizeUrlSlugSegment(raw);
 }
 
 const FESTIVAL_SELECT_DETAIL =
@@ -310,7 +319,8 @@ export async function getFestivals(
   };
 }
 
-export async function getFestivalBySlug(slug: string): Promise<Festival | null> {
+export async function getFestivalBySlug(rawSlug: string): Promise<Festival | null> {
+  const slug = normalizeUrlSlugSegment(rawSlug);
   const supabase = supabaseServer();
   if (!supabase) {
     return null;

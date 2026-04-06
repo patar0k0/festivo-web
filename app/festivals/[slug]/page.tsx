@@ -5,16 +5,23 @@ import Section from "@/components/ui/Section";
 import FestivalDetailClient from "@/components/festival/FestivalDetailClient";
 import { getAdminSession } from "@/lib/admin/isAdmin";
 import { fetchAccommodationOffersForFestival } from "@/lib/accommodation/fetchAccommodationOffers";
-import { getCityFestivals, getFestivalBySlug, getFestivalDetail } from "@/lib/queries";
+import {
+  getCityFestivals,
+  getFestivalBySlug,
+  getFestivalDetail,
+  normalizePublicFestivalSlugParam,
+} from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { slugify } from "@/lib/utils";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
 import "../../landing.css";
 
-export const revalidate = 21600;
+/** Match `/organizers/[slug]`: avoid caching a stale `notFound()` / partial payload across soft navigation and ISR. */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = normalizePublicFestivalSlugParam(rawSlug);
   const festival = await getFestivalBySlug(slug);
   if (!festival) return {};
 
@@ -52,7 +59,8 @@ export default async function Page({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = normalizePublicFestivalSlugParam(rawSlug);
   const data = await getFestivalDetail(slug);
 
   if (!data) return notFound();

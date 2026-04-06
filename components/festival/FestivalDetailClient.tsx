@@ -222,6 +222,15 @@ export default function FestivalDetailClient({
     festival_media: media,
   });
   const [heroImageFailed, setHeroImageFailed] = useState(false);
+  /** Retries after aborted/failed loads common on client navigations (same URL would otherwise stay on the error branch until full reload). */
+  const [heroLoadAttempt, setHeroLoadAttempt] = useState(0);
+
+  const heroDisplayUrl = useMemo(() => {
+    if (!heroImage) return null;
+    if (heroLoadAttempt === 0) return heroImage;
+    const sep = heroImage.includes("?") ? "&" : "?";
+    return `${heroImage}${sep}_festivo_img_retry=${heroLoadAttempt}`;
+  }, [heroImage, heroLoadAttempt]);
 
   const videoPageUrl = useMemo(() => {
     const u = normalizeHeroUrl(festival.video_url);
@@ -307,7 +316,8 @@ export default function FestivalDetailClient({
 
   useEffect(() => {
     setHeroImageFailed(false);
-  }, [heroImage]);
+    setHeroLoadAttempt(0);
+  }, [festival.id, heroImage]);
 
   useEffect(() => {
     return () => {
@@ -354,12 +364,19 @@ export default function FestivalDetailClient({
             <>
               {/* eslint-disable-next-line @next/next/no-img-element -- Hero image URL can be external/unknown at runtime and needs direct fallback handling via onError. */}
               <img
-                src={heroImage}
+                key={`${festival.id}-${heroDisplayUrl}`}
+                src={heroDisplayUrl ?? heroImage}
                 alt={festival.title || "Festival"}
                 className="h-full w-full object-cover"
-                loading="lazy"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
                 onError={() => {
-                  setHeroImageFailed(true);
+                  setHeroLoadAttempt((c) => {
+                    if (c < 2) return c + 1;
+                    setHeroImageFailed(true);
+                    return c;
+                  });
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/0" />

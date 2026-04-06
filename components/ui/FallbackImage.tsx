@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image, { type ImageProps } from "next/image";
 
 type FallbackImageProps = Omit<ImageProps, "src" | "alt"> & {
@@ -26,16 +26,35 @@ export default function FallbackImage({
 }: FallbackImageProps) {
   const normalizedSrc = useMemo(() => normalizeSrc(src), [src]);
   const [failed, setFailed] = useState(false);
-  const finalSrc = !failed && normalizedSrc ? normalizedSrc : fallbackSrc;
+  const [loadAttempt, setLoadAttempt] = useState(0);
+
+  useEffect(() => {
+    setFailed(false);
+    setLoadAttempt(0);
+  }, [normalizedSrc]);
+
+  const resolvedSrc = useMemo(() => {
+    if (!normalizedSrc) return null;
+    if (loadAttempt === 0) return normalizedSrc;
+    const sep = normalizedSrc.includes("?") ? "&" : "?";
+    return `${normalizedSrc}${sep}_festivo_retry=${loadAttempt}`;
+  }, [normalizedSrc, loadAttempt]);
+
+  const finalSrc = !failed && resolvedSrc ? resolvedSrc : fallbackSrc;
   const normalizedAlt = typeof alt === "string" && alt.trim().length > 0 ? alt : "Image";
 
   return (
     <Image
       {...props}
+      key={finalSrc}
       src={finalSrc}
       alt={normalizedAlt}
       onError={() => {
-        setFailed(true);
+        setLoadAttempt((c) => {
+          if (c < 2) return c + 1;
+          setFailed(true);
+          return c;
+        });
       }}
     />
   );

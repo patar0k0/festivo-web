@@ -25,12 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   let festival: Awaited<ReturnType<typeof getFestivalBySlug>> = null;
   try {
     festival = await getFestivalBySlug(slug);
-  } catch (err) {
-    console.error("[festivals/[slug]] TEMP generateMetadata lookup failed", {
-      rawSlug,
-      normalizedSlug: slug,
-      err,
-    });
+  } catch {
     return {};
   }
   if (!festival) return {};

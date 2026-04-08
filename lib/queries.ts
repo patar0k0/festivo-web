@@ -1,4 +1,5 @@
 import { endOfMonth, format, parseISO, startOfMonth } from "date-fns";
+import { cache } from "react";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -325,16 +326,14 @@ export async function getFestivals(
 const FESTIVAL_BY_SLUG_MAX_ATTEMPTS = 2;
 const FESTIVAL_BY_SLUG_RETRY_DELAY_MS = 150;
 
-export async function getFestivalBySlug(rawSlug: string): Promise<Festival | null> {
+/**
+ * One primary row fetch per request: `generateMetadata` and the page both call into this path.
+ * React `cache()` dedupes parallel server work so we do not run duplicate slug queries back-to-back.
+ */
+export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug: string): Promise<Festival | null> {
   const slug = normalizePublicFestivalSlugParam(rawSlug);
   const supabase = supabaseServer();
   if (!supabase) {
-    console.error("[getFestivalBySlug] TEMP no Supabase client", {
-      rawSlug,
-      normalizedSlug: slug,
-      attempt: 0,
-      message: "client_unavailable",
-    });
     throw new Error("Festival query failed: Supabase client is not configured");
   }
 
@@ -358,13 +357,6 @@ export async function getFestivalBySlug(rawSlug: string): Promise<Festival | nul
     }
 
     lastMessage = error.message;
-    console.error("[getFestivalBySlug] TEMP query error", {
-      rawSlug,
-      normalizedSlug: slug,
-      message: error.message,
-      attempt,
-      maxAttempts: FESTIVAL_BY_SLUG_MAX_ATTEMPTS,
-    });
 
     if (attempt < FESTIVAL_BY_SLUG_MAX_ATTEMPTS) {
       await new Promise((r) => setTimeout(r, FESTIVAL_BY_SLUG_RETRY_DELAY_MS));
@@ -372,7 +364,7 @@ export async function getFestivalBySlug(rawSlug: string): Promise<Festival | nul
   }
 
   throw new Error(`Festival query failed: ${lastMessage}`);
-}
+});
 
 export async function getFestivalDetail(
   slug: string
@@ -384,15 +376,12 @@ export async function getFestivalDetail(
 } | null> {
   const supabase = supabaseServer();
   if (!supabase) {
-    console.error("[getFestivalDetail] TEMP no Supabase client", {
-      normalizedSlug: normalizePublicFestivalSlugParam(slug),
-    });
     throw new Error("Festival query failed: Supabase client is not configured");
   }
   const festival = await getFestivalBySlug(slug);
   if (!festival) return null;
 
-  const [{ data: media }, { data: days }] = await Promise.all([
+  const [mediaRes, daysRes] = await Promise.all([
     supabase
       .from("festival_media")
       .select("id, festival_id, url, type, caption, sort_order, is_hero")
@@ -406,26 +395,29 @@ export async function getFestivalDetail(
       .order("date", { ascending: true })
       .returns<FestivalDay[]>(),
   ]);
-  const dayIds = (days ?? []).map((day) => day.id);
-  const scheduleItems =
-    dayIds.length > 0
-      ? (
-          await supabase
-            .from("festival_schedule_items")
-            .select("id, day_id, start_time, end_time, stage, title, description, sort_order")
-            .in("day_id", dayIds)
-            .order("sort_order", { ascending: true })
-            .order("start_time", { ascending: true })
-            .returns<FestivalScheduleItem[]>()
-        ).data
-      : [];
 
-  const fixedDays = (days ?? []).map((day) => ({
+  const media = mediaRes.error ? [] : (mediaRes.data ?? []);
+  const days = daysRes.error ? [] : (daysRes.data ?? []);
+
+  const dayIds = days.map((day) => day.id);
+  let scheduleItems: FestivalScheduleItem[] = [];
+  if (dayIds.length > 0) {
+    const schedRes = await supabase
+      .from("festival_schedule_items")
+      .select("id, day_id, start_time, end_time, stage, title, description, sort_order")
+      .in("day_id", dayIds)
+      .order("sort_order", { ascending: true })
+      .order("start_time", { ascending: true })
+      .returns<FestivalScheduleItem[]>();
+    scheduleItems = schedRes.error ? [] : (schedRes.data ?? []);
+  }
+
+  const fixedDays = days.map((day) => ({
     ...day,
     title: day.title ? fixMojibakeBG(day.title) : day.title,
   }));
 
-  const fixedMedia = (media ?? []).map((item) => ({
+  const fixedMedia = media.map((item) => ({
     ...item,
     caption: item.caption ? fixMojibakeBG(item.caption) : item.caption,
   }));

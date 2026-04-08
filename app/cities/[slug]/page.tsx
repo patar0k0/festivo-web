@@ -45,7 +45,11 @@ async function resolveCityByParam(slugParam: string): Promise<{ city: CityRecord
     query = query.ilike("slug", rawTrimmed);
   }
 
-  const { data } = await query.limit(1).maybeSingle<CityRecord>();
+  const { data, error } = await query.limit(1).maybeSingle<CityRecord>();
+  if (error) {
+    console.error("[cities] resolveCityByParam failed", error.message);
+    throw new Error(`City lookup failed: ${error.message}`);
+  }
   return { city: data ?? null, rawTrimmed };
 }
 

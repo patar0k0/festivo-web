@@ -22,12 +22,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: rawSlug } = await params;
   const slug = normalizePublicFestivalSlugParam(rawSlug);
-  let festival: Awaited<ReturnType<typeof getFestivalBySlug>> = null;
-  try {
-    festival = await getFestivalBySlug(slug);
-  } catch {
-    return {};
-  }
+  const festival = await getFestivalBySlug(slug);
   if (!festival) return {};
 
   const meta = festivalMeta(festival);

@@ -8,13 +8,7 @@ export async function GET(
 ) {
   const { slug: rawSlug } = await params;
   const slug = normalizePublicFestivalSlugParam(rawSlug);
-  let festival;
-  try {
-    festival = await getFestivalBySlug(slug);
-  } catch (err) {
-    console.error("[ics] getFestivalBySlug failed", err);
-    return new Response("Service unavailable", { status: 503 });
-  }
+  const festival = await getFestivalBySlug(slug);
   if (!festival) {
     return new Response("Not found", { status: 404 });
   }

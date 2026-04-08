@@ -52,6 +52,12 @@ const FESTIVAL_SELECT_DETAIL =
 
 const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
 
+/** Primary single-row reads: log and throw on Supabase error; use `null` only when the row is absent. */
+function throwOnSelectError(context: string, error: { message: string } | null | undefined): void {
+  if (!error) return;
+  console.error(`[queries] ${context}`, error.message);
+  throw new Error(`${context}: ${error.message}`);
+}
 
 type FestivalOrganizerLinkRow = {
   sort_order?: number | null;
@@ -363,6 +369,7 @@ export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug:
     }
   }
 
+  console.error("[queries] getFestivalBySlug failed after retries", { slug, message: lastMessage });
   throw new Error(`Festival query failed: ${lastMessage}`);
 });
 
@@ -396,6 +403,19 @@ export async function getFestivalDetail(
       .returns<FestivalDay[]>(),
   ]);
 
+  if (mediaRes.error) {
+    console.error("[queries] festival_media (detail) failed", {
+      festivalId: festival.id,
+      message: mediaRes.error.message,
+    });
+  }
+  if (daysRes.error) {
+    console.error("[queries] festival_days (detail) failed", {
+      festivalId: festival.id,
+      message: daysRes.error.message,
+    });
+  }
+
   const media = mediaRes.error ? [] : (mediaRes.data ?? []);
   const days = daysRes.error ? [] : (daysRes.data ?? []);
 
@@ -409,6 +429,12 @@ export async function getFestivalDetail(
       .order("sort_order", { ascending: true })
       .order("start_time", { ascending: true })
       .returns<FestivalScheduleItem[]>();
+    if (schedRes.error) {
+      console.error("[queries] festival_schedule_items (detail) failed", {
+        festivalId: festival.id,
+        message: schedRes.error.message,
+      });
+    }
     scheduleItems = schedRes.error ? [] : (schedRes.data ?? []);
   }
 
@@ -627,18 +653,20 @@ export async function resolveOrganizerCanonicalSlug(slug: string): Promise<strin
   const key = normalizePublicOrganizerSlugParam(slug);
 
   let start: { slug: string; is_active: boolean | null; merged_into: string | null } | null = null;
-  const { data: byEq } = await admin
+  const { data: byEq, error: byEqError } = await admin
     .from("organizers")
     .select("slug,is_active,merged_into")
     .eq("slug", key)
     .maybeSingle();
+  throwOnSelectError("resolveOrganizerCanonicalSlug eq slug", byEqError);
   start = byEq;
   if (!start && !/[_%]/.test(key)) {
-    const { data: byIlike } = await admin
+    const { data: byIlike, error: byIlikeError } = await admin
       .from("organizers")
       .select("slug,is_active,merged_into")
       .ilike("slug", key)
       .limit(2);
+    throwOnSelectError("resolveOrganizerCanonicalSlug ilike slug", byIlikeError);
     if (byIlike?.length === 1) start = byIlike[0];
   }
 
@@ -647,11 +675,12 @@ export async function resolveOrganizerCanonicalSlug(slug: string): Promise<strin
 
   let nextId: string | null = start.merged_into;
   for (let depth = 0; depth < 10 && nextId; depth += 1) {
-    const { data: row } = await admin
+    const { data: row, error: rowError } = await admin
       .from("organizers")
       .select("slug,is_active,merged_into")
       .eq("id", nextId)
       .maybeSingle();
+    throwOnSelectError("resolveOrganizerCanonicalSlug merged_into chain", rowError);
     if (!row) return null;
     if (row.is_active) return row.slug;
     nextId = row.merged_into;
@@ -666,37 +695,21 @@ export async function getOrganizerWithFestivals(
   const db = supabaseAdmin() ?? (await createSupabaseServerClient());
 
   const slugKey = normalizePublicOrganizerSlugParam(slug);
-  console.info("[organizer-public] lookup start", { slug: slugKey });
 
   const baseOrg = () =>
     db.from("organizers").select(PUBLIC_ORGANIZER_SELECT).eq("is_active", true);
 
   let organizer: OrganizerProfile | null = null;
-  let organizerError: { message: string } | null = null;
 
   const first = await baseOrg().eq("slug", slugKey).maybeSingle<OrganizerProfile>();
-  organizerError = first.error ? { message: first.error.message } : null;
+  throwOnSelectError("getOrganizerWithFestivals organizer by slug", first.error);
   organizer = first.data;
 
   if (!organizer && !/[_%]/.test(slugKey)) {
     const second = await baseOrg().ilike("slug", slugKey).limit(2);
-    if (second.error) organizerError = { message: second.error.message };
+    throwOnSelectError("getOrganizerWithFestivals organizer ilike slug", second.error);
     if (second.data?.length === 1) organizer = second.data[0] as OrganizerProfile;
   }
-
-  if (organizerError) {
-    console.error("[organizer-public] organizer lookup error", {
-      slug: slugKey,
-      error: organizerError.message,
-    });
-  }
-
-  console.info("[organizer-public] organizer lookup result", {
-    slug: slugKey,
-    found: Boolean(organizer),
-    organizerId: organizer?.id ?? null,
-    organizerName: organizer?.name ?? null,
-  });
 
   if (!organizer) {
     return null;
@@ -704,12 +717,19 @@ export async function getOrganizerWithFestivals(
 
   let cities: OrganizerProfile["cities"] = null;
   if (organizer.city_id != null) {
-    const { data: cityRow } = await db
+    const { data: cityRow, error: cityError } = await db
       .from("cities")
       .select("name_bg,slug,is_village")
       .eq("id", organizer.city_id)
       .maybeSingle();
-    cities = cityRow ?? null;
+    if (cityError) {
+      console.error("[queries] organizer cities embed failed", {
+        organizerId: organizer.id,
+        message: cityError.message,
+      });
+    } else {
+      cities = cityRow ?? null;
+    }
   }
 
   const fixedOrganizer: OrganizerProfile = {
@@ -731,7 +751,10 @@ export async function getOrganizerWithFestivals(
     .returns<Array<{ festival_id: string; sort_order: number | null }>>();
 
   if (linksError) {
-    throw new Error(linksError.message);
+    console.error("[queries] getOrganizerWithFestivals festival_organizers failed", {
+      organizerId: organizer.id,
+      message: linksError.message,
+    });
   }
 
   const { data: legacyRows, error: legacyError } = await db
@@ -743,11 +766,14 @@ export async function getOrganizerWithFestivals(
     .returns<Array<{ id: string }>>();
 
   if (legacyError) {
-    throw new Error(legacyError.message);
+    console.error("[queries] getOrganizerWithFestivals legacy organizer_id festivals failed", {
+      organizerId: organizer.id,
+      message: legacyError.message,
+    });
   }
 
-  const m2mIds = (links ?? []).map((row) => row.festival_id).filter(Boolean);
-  const legacyIds = (legacyRows ?? []).map((row) => row.id).filter(Boolean);
+  const m2mIds = linksError ? [] : (links ?? []).map((row) => row.festival_id).filter(Boolean);
+  const legacyIds = legacyError ? [] : (legacyRows ?? []).map((row) => row.id).filter(Boolean);
   const festivalIds = Array.from(new Set([...m2mIds, ...legacyIds]));
 
   if (!festivalIds.length) {
@@ -766,15 +792,21 @@ export async function getOrganizerWithFestivals(
     .returns<Festival[]>();
 
   if (festivalsError) {
-    throw new Error(festivalsError.message);
+    console.error("[queries] getOrganizerWithFestivals festivals by id failed", {
+      organizerId: organizer.id,
+      message: festivalsError.message,
+    });
   }
 
-  const sortOrderByFestivalId = new Map((links ?? []).map((row) => [row.festival_id, row.sort_order ?? 9999]));
+  const sortOrderByFestivalId = new Map(
+    (linksError ? [] : (links ?? [])).map((row) => [row.festival_id, row.sort_order ?? 9999]),
+  );
 
   return {
     organizer: fixedOrganizer,
     festivals: (() => {
-      const listingSorted = sortFestivalsForListing((festivals ?? []).map(fixFestivalText));
+      const rawFestivals = festivalsError ? [] : (festivals ?? []);
+      const listingSorted = sortFestivalsForListing(rawFestivals.map(fixFestivalText));
       return listingSorted.sort((a, b) => {
         const bySort = (sortOrderByFestivalId.get(String(a.id)) ?? 9999) - (sortOrderByFestivalId.get(String(b.id)) ?? 9999);
         if (bySort !== 0) return bySort;

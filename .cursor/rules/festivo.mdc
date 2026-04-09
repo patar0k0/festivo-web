@@ -17,6 +17,8 @@ Festivo is a **Bulgaria-focused festivals** platform (catalog, planning, moderat
 - **No destructive schema changes** (drops, mass deletes) without explicit human approval.
 - **Secrets and service role keys stay server-only** — never expose to the client.
 - **Moderation flow:** submissions land in **`pending_festivals`** → admin **review** → **approve** (insert into **`festivals`**) or **reject**; public reads **`festivals`**, not pending-only data.
+- **Festival time state (upcoming / ongoing / past):** always **derived from dates** via shared helpers (e.g. `getFestivalTemporalState` in `lib/festival/temporal.ts`). **Never** persist time state in the DB. Do **not** add DB fields whose meaning is “past / expired / archived **because of calendar**.” (`status: archived` and similar remain **workflow/moderation**, not a substitute for date-derived state.)
+- **Query error handling (server data loaders):** return **`null` only when the primary row truly does not exist** (e.g. slug miss). On **any Supabase/query/runtime error**, **log and `throw`** — do **not** treat errors as empty lists or silent `null`.
 - Reuse patterns under `app/api`, `app/admin/api`, and `lib/*`. Preserve API compatibility unless a breaking change is explicitly requested.
 - **Documentation:** update **only** files directly affected by the change (`PROJECT_CONTEXT.md`, `docs/system-architecture.md`, `docs/notification-system.md`, `docs/er-diagram.md`, `AI_*` when conventions change — same spirit as existing project docs). Do not preload or duplicate long doc bodies in chat.
 

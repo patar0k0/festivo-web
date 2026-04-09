@@ -4,6 +4,7 @@ import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
+import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { Festival } from "@/lib/types";
 
 type DayEventsListProps = {
@@ -30,7 +31,10 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {festivals.map((festival) => (
+          {festivals.map((festival) => {
+            const tState = getFestivalTemporalState(festival);
+            const temporalChip = tState === "past" ? "Отминал" : tState === "ongoing" ? "Текущ" : null;
+            return (
             <Link
               key={`${festival.slug}-${festival.id}`}
               href={`/festivals/${festival.slug}`}
@@ -44,6 +48,11 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
                 {festivalCityLabel(festival)} • {formatFestivalDateLineShort(festival)}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                {temporalChip ? (
+                  <span className="rounded-full border border-black/[0.08] bg-black/[0.03] px-2.5 py-1 text-xs font-medium text-black/50">
+                    {temporalChip}
+                  </span>
+                ) : null}
                 {festival.category ? (
                   <span className="rounded-full border border-black/[0.1] bg-black/[0.03] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-black/65">
                     {festival.category}
@@ -56,7 +65,8 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
                 ) : null}
               </div>
             </Link>
-          ))}
+          );
+          })}
         </div>
       )}
     </div>

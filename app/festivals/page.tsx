@@ -18,13 +18,15 @@ import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
+import { getFestivalTemporalState } from "@/lib/festival/temporal";
+import type { FestivalWhenFilter } from "@/lib/types";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import { buildFestivalsTagOrFilter } from "@/lib/festivals/buildFestivalsTagOrFilter";
 
 export const revalidate = 3600;
 
 const FESTIVAL_SELECT =
-  "id,title,slug,city_id,city,start_date,end_date,occurrence_dates,category,hero_image,image_url,is_free,status,is_verified,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(slug,name_bg,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
+  "id,title,slug,city_id,city,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,is_verified,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order),cities:cities!left(slug,name_bg,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
 const PAGE_SIZE = 12;
 const HAS_TAGS_COLUMN = true;
 
@@ -120,6 +122,7 @@ function buildFestivalsHref(params: {
   city?: string;
   date?: string;
   tag?: string;
+  when?: FestivalWhenFilter;
   page?: number;
 }) {
   const query = new URLSearchParams();
@@ -128,10 +131,18 @@ function buildFestivalsHref(params: {
   if (params.city) query.set("city", params.city);
   if (params.date) query.set("date", params.date);
   if (params.tag) query.set("tag", params.tag);
+  if (params.when && params.when !== "all") query.set("when", params.when);
   if (params.page && params.page > 1) query.set("page", String(params.page));
 
   const suffix = query.toString();
   return suffix ? `/festivals?${suffix}` : "/festivals";
+}
+
+function parseWhenFilter(raw: string | undefined): FestivalWhenFilter {
+  if (raw === "upcoming" || raw === "ongoing" || raw === "past" || raw === "all") {
+    return raw;
+  }
+  return "all";
 }
 
 export async function generateMetadata() {
@@ -155,6 +166,7 @@ export default async function FestivalsPage({
   const city = getParam(searchParams, "city");
   const date = getParam(searchParams, "date");
   const tag = getParam(searchParams, "tag");
+  const when = parseWhenFilter(getParam(searchParams, "when"));
   const parsedDate = parseDateFilter(date);
 
   const pageRaw = Number(getParam(searchParams, "page") ?? "1");
@@ -175,7 +187,7 @@ export default async function FestivalsPage({
     const supabase = await createSupabaseServerClient();
     let query = supabase
       .from("festivals")
-      .select(FESTIVAL_SELECT, { count: "exact" })
+      .select(FESTIVAL_SELECT)
       .or("status.eq.published,status.eq.verified,is_verified.eq.true")
       .neq("status", "archived");
 
@@ -215,27 +227,7 @@ export default async function FestivalsPage({
       );
     }
 
-    if (!q && !city && !parsedDate && !tag) {
-      const now = new Date();
-      const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-      const todayStr = toUtcDateString(todayUtc);
-      const { data: upcomingIds, error: upcomingRpcError } = await supabase.rpc("festivals_intersecting_range", {
-        p_from: todayStr,
-        p_to: "2099-12-31",
-      });
-      if (!upcomingRpcError && Array.isArray(upcomingIds) && upcomingIds.length > 0) {
-        const ids = upcomingIds
-          .map((row: { festival_id?: string }) => (typeof row?.festival_id === "string" ? row.festival_id : ""))
-          .filter(Boolean);
-        query = query.in("id", ids);
-      } else if (!upcomingRpcError && Array.isArray(upcomingIds) && upcomingIds.length === 0) {
-        query = query.eq("id", "00000000-0000-0000-0000-000000000001");
-      } else {
-        query = query.gte("start_date", todayStr);
-      }
-    }
-
-    const { data, count, error } = await query.returns<FestivalWithCity[]>();
+    const { data, error } = await query.returns<FestivalWithCity[]>();
 
     if (error) {
       console.error("[festivals/page] Supabase festivals query failed", {
@@ -249,9 +241,11 @@ export default async function FestivalsPage({
       queryError = [error.message, error.details, error.hint].filter(Boolean).join(" — ") || JSON.stringify(error);
     } else {
       const normalized = (data ?? []).map((row) => fixFestivalText(row as Festival));
-      const sorted = sortFestivalsForListing(normalized);
+      const scoped =
+        when !== "all" ? normalized.filter((f) => getFestivalTemporalState(f) === when) : normalized;
+      const sorted = sortFestivalsForListing(scoped);
       festivals = sorted.slice(from, to);
-      total = count ?? 0;
+      total = sorted.length;
       totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     }
   } catch (error) {
@@ -259,15 +253,20 @@ export default async function FestivalsPage({
     queryError = error instanceof Error ? error.message : "Unknown error";
   }
 
-  const activeFiltersCount = Number(Boolean(q)) + Number(Boolean(city)) + Number(Boolean(parsedDate)) + Number(Boolean(tag));
+  const activeFiltersCount =
+    Number(Boolean(q)) +
+    Number(Boolean(city)) +
+    Number(Boolean(parsedDate)) +
+    Number(Boolean(tag)) +
+    Number(when !== "all");
   const clearHref = "/festivals";
 
   const today = new Date();
   const weekendDate = format(nextSaturday(today), "yyyy-MM-dd");
   const monthDate = format(today, "yyyy-MM");
 
-  const weekendLink = buildFestivalsHref({ q, city, date: weekendDate, tag });
-  const monthLink = buildFestivalsHref({ q, city, date: monthDate, tag });
+  const weekendLink = buildFestivalsHref({ q, city, date: weekendDate, tag, when });
+  const monthLink = buildFestivalsHref({ q, city, date: monthDate, tag, when });
   const visiblePages = Array.from({ length: totalPages }).slice(0, 5);
 
   return (
@@ -301,6 +300,29 @@ export default async function FestivalsPage({
                     Този месец
                   </Link>
                   <FestivalsTagChipsClient categories={popularCategoryChips} />
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="self-center text-xs font-semibold uppercase tracking-[0.12em] text-black/40">
+                    Време
+                  </span>
+                  {(
+                    [
+                      { key: "all" as const, label: "Всички" },
+                      { key: "ongoing" as const, label: "Текущи" },
+                      { key: "upcoming" as const, label: "Предстоящи" },
+                      { key: "past" as const, label: "Отминали" },
+                    ] as const
+                  ).map(({ key, label }) => (
+                    <Link
+                      key={key}
+                      href={buildFestivalsHref({ q, city, date, tag, when: key })}
+                      scroll={false}
+                      className={cn(pub.chipSm, pub.focusRing, when === key ? pub.chipActive : "")}
+                    >
+                      {label}
+                    </Link>
+                  ))}
                 </div>
               </div>
 
@@ -365,6 +387,9 @@ export default async function FestivalsPage({
                         imageUrl={getFestivalHeroImage(festival)}
                         startDate={festival.start_date}
                         endDate={festival.end_date}
+                        occurrenceDates={festival.occurrence_dates}
+                        startTime={festival.start_time}
+                        endTime={festival.end_time}
                         isFree={festival.is_free}
                         isPromoted={hasActivePromotion(festival)}
                         isVipOrganizer={hasActiveVip(festival.organizer)}
@@ -386,7 +411,7 @@ export default async function FestivalsPage({
                       return (
                         <Link
                           key={pageNumber}
-                          href={buildFestivalsHref({ q, city, date, tag, page: pageNumber })}
+                          href={buildFestivalsHref({ q, city, date, tag, when, page: pageNumber })}
                           scroll={false}
                           className={cn(
                             "rounded-full border border-black/[0.1] px-4 py-2 text-sm transition hover:border-black/20 hover:bg-white",

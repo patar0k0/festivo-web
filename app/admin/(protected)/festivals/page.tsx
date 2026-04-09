@@ -19,6 +19,8 @@ type AdminFestivalRow = {
   city: string | null;
   start_date: string | null;
   end_date: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   occurrence_dates?: unknown;
   category: string | null;
   is_free: boolean | null;

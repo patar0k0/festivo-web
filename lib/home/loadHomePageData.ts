@@ -3,6 +3,7 @@ import { serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listHomeCitySelectOptions } from "@/lib/festivals";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories.server";
+import { sortFestivalsForListing } from "@/lib/festival/sorting";
 import { FESTIVAL_SELECT_MIN, fixFestivalText } from "@/lib/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";
@@ -93,7 +94,7 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
   const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(new Date()), "yyyy-MM-dd");
 
-  const [nearestFestivals, weekendFestivals, citiesResult, categorySlugs] = await Promise.all([
+  const [nearestFestivalsRaw, weekendFestivalsRaw, citiesResult, categorySlugs] = await Promise.all([
     fetchHomeFestivals({ from: today, citySlug, limit: 6 }),
     fetchHomeFestivals({ from: weekendStart, to: weekendEnd, citySlug, limit: 6 }),
     listHomeCitySelectOptions().catch(() => []),
@@ -113,6 +114,9 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
       href: `/festivals?tag=${encodeURIComponent(slug)}`,
     })),
   };
+
+  const nearestFestivals = sortFestivalsForListing(nearestFestivalsRaw);
+  const weekendFestivals = sortFestivalsForListing(weekendFestivalsRaw);
 
   return {
     nearestFestivals,

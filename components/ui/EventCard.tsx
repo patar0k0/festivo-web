@@ -6,6 +6,7 @@ import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
 import { CardContent } from "@/components/ui/Card";
 import { cn } from "@/components/ui/cn";
 import { pub } from "@/lib/public-ui/styles";
+import { getFestivalTemporalState } from "@/lib/festival/temporal";
 
 /** Кратко име на месец за оранжева значка (3–4 знака). */
 const BADGE_MONTH_BG: Record<number, string> = {
@@ -41,6 +42,10 @@ type EventCardProps = {
   showDescription?: boolean;
   showPlanControls?: boolean;
   festivalId?: string | number;
+  /** When set with date fields, derives past/ongoing chip (Europe/Sofia). */
+  occurrenceDates?: unknown;
+  startTime?: string | null;
+  endTime?: string | null;
 };
 
 function getDateBadge(date?: string | null) {
@@ -129,6 +134,9 @@ export default function EventCard({
   showDescription = false,
   showPlanControls = false,
   festivalId,
+  occurrenceDates,
+  startTime,
+  endTime,
 }: EventCardProps) {
   const badge = getDateBadge(startDate);
   const dateText = dateLine?.trim() ? dateLine : formatDateRange(startDate, endDate);
@@ -137,6 +145,14 @@ export default function EventCard({
   const categoryText = categoryLabel(category);
   const signalTag = getSignalTag(isFree, startDate);
   const urgencyTag = getUrgencyTag(startDate);
+  const temporalState = getFestivalTemporalState({
+    start_date: startDate,
+    end_date: endDate,
+    occurrence_dates: occurrenceDates,
+    start_time: startTime ?? null,
+    end_time: endTime ?? null,
+  });
+  const temporalLabel = temporalState === "past" ? "Отминал" : temporalState === "ongoing" ? "Текущ" : null;
 
   return (
     <div
@@ -240,7 +256,7 @@ export default function EventCard({
           </h3>
         </div>
 
-        {urgencyTag || signalTag ? (
+        {isPromoted || isVipOrganizer || urgencyTag || signalTag || temporalLabel ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {isPromoted ? (
               <span className="rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-amber-800">
@@ -250,6 +266,18 @@ export default function EventCard({
             {isVipOrganizer ? (
               <span className="rounded-full border border-violet-300/70 bg-violet-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-violet-800">
                 VIP организатор
+              </span>
+            ) : null}
+            {temporalLabel ? (
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-medium tracking-[0.04em]",
+                  temporalState === "past"
+                    ? "border border-black/[0.06] bg-black/[0.025] text-black/45"
+                    : "border border-black/[0.08] bg-black/[0.03] text-black/55",
+                )}
+              >
+                {temporalLabel}
               </span>
             ) : null}
             {urgencyTag ? (

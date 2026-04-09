@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { pub } from "@/lib/public-ui/styles";
-import { Filters } from "@/lib/types";
+import { type FestivalWhenFilter, Filters } from "@/lib/types";
 
 function updateParam(params: URLSearchParams, key: string, value?: string) {
   if (value) {
@@ -16,7 +16,7 @@ function updateParam(params: URLSearchParams, key: string, value?: string) {
   }
 }
 
-const FILTER_KEYS = ["city", "from", "to", "cat", "free", "sort", "month", "page"];
+const FILTER_KEYS = ["city", "from", "to", "cat", "free", "sort", "month", "when", "page"];
 
 export default function MapFiltersSidebar({
   initialFilters,
@@ -39,6 +39,7 @@ export default function MapFiltersSidebar({
   const [cat, setCat] = useState(initialFilters.cat?.[0] ?? "");
   const [free, setFree] = useState(initialFilters.free ?? true);
   const [sort, setSort] = useState(initialFilters.sort ?? "soonest");
+  const [when, setWhen] = useState<FestivalWhenFilter>(initialFilters.when ?? "all");
 
   const pushComparable = (next: URLSearchParams) => {
     const current = new URLSearchParams(searchParams.toString());
@@ -63,6 +64,7 @@ export default function MapFiltersSidebar({
     updateParam(next, "cat", cat || undefined);
     updateParam(next, "free", free ? "1" : "0");
     updateParam(next, "sort", sort || undefined);
+    updateParam(next, "when", when === "all" ? undefined : when);
     pushComparable(next);
   };
 
@@ -108,6 +110,19 @@ export default function MapFiltersSidebar({
               onChange={setTo}
             />
           </div>
+        </div>
+        <div>
+          <label className="text-xs uppercase tracking-[0.2em] text-muted">Период (спрямо днес)</label>
+          <select
+            className={cn(pub.input, "mt-2")}
+            value={when}
+            onChange={(event) => setWhen(event.target.value as FestivalWhenFilter)}
+          >
+            <option value="all">Всички</option>
+            <option value="ongoing">Текущи</option>
+            <option value="upcoming">Предстоящи</option>
+            <option value="past">Отминали</option>
+          </select>
         </div>
         <div>
           <label className="text-xs uppercase tracking-[0.2em] text-muted">Категория</label>

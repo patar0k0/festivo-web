@@ -3,6 +3,7 @@ import FallbackImage from "@/components/ui/FallbackImage";
 import { format, parseISO } from "date-fns";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { formatFestivalDateLineShort, primaryFestivalDate } from "@/lib/festival/listingDates";
+import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 
@@ -18,6 +19,8 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {festivals.map((festival) => {
         const heroImage = getFestivalHeroImage(festival);
+        const tState = getFestivalTemporalState(festival);
+        const temporalChip = tState === "past" ? "Отминал" : tState === "ongoing" ? "Текущ" : null;
 
         return (
         <Link key={festival.id} href={`/festivals/${festival.slug}`} className="group">
@@ -47,6 +50,11 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
                 {festivalCityLabel(festival, "Bulgaria")} • {formatFestivalDateLineShort(festival)}
               </div>
               <div className="flex flex-wrap gap-2">
+                {temporalChip ? (
+                  <span className="rounded-full border border-[color:var(--border2)] bg-[color:var(--surface2)] px-3 py-1 text-xs text-[color:var(--muted)]">
+                    {temporalChip}
+                  </span>
+                ) : null}
                 {festival.is_free ? (
                   <span className="rounded-full border border-[color:var(--border2)] bg-[color:var(--surface2)] px-3 py-1 text-xs">
                     Безплатно

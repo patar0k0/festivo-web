@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
+import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 
 type AdminFestivalRow = {
@@ -12,6 +13,8 @@ type AdminFestivalRow = {
   city: string | null;
   start_date: string | null;
   end_date: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
   occurrence_dates?: unknown;
   category: string | null;
   is_free: boolean | null;
@@ -19,6 +22,24 @@ type AdminFestivalRow = {
   updated_at: string | null;
   source_type: string | null;
 };
+
+function temporalAdminLabel(row: AdminFestivalRow): string {
+  const state = getFestivalTemporalState({
+    start_date: row.start_date,
+    end_date: row.end_date,
+    occurrence_dates: row.occurrence_dates,
+    start_time: row.start_time ?? null,
+    end_time: row.end_time ?? null,
+  });
+  switch (state) {
+    case "upcoming":
+      return "Upcoming";
+    case "ongoing":
+      return "Ongoing";
+    case "past":
+      return "Past";
+  }
+}
 
 export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
   const router = useRouter();
@@ -138,6 +159,7 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
               <th className="px-3 py-3">Title</th>
               <th className="px-3 py-3">City</th>
               <th className="px-3 py-3">Start-End</th>
+              <th className="px-3 py-3">Time (derived)</th>
               <th className="px-3 py-3">Category</th>
               <th className="px-3 py-3">Free</th>
               <th className="px-3 py-3">State</th>
@@ -163,6 +185,11 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
                   <td className="px-3 py-3 font-medium text-[#0c0e14]">{row.title}</td>
                   <td className="px-3 py-3 text-black/65">{row.city ?? "-"}</td>
                   <td className="px-3 py-3 text-black/65">{formatFestivalDateLineShort(row)}</td>
+                  <td className="px-3 py-3 text-black/65">
+                    <span className="inline-flex rounded-full border border-black/[0.08] bg-black/[0.03] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55">
+                      {temporalAdminLabel(row)}
+                    </span>
+                  </td>
                   <td className="px-3 py-3 text-black/65">
                     {row.category ? labelForPublicCategory(row.category) : "-"}
                   </td>

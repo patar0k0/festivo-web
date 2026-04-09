@@ -51,7 +51,7 @@ const COPY = {
   geoDenied: "Не можем да вземем локацията ти. Показваме ти популярни събития.",
 };
 
-const FILTER_PARAM_KEYS = ["city", "from", "to", "cat", "free", "sort", "month", "q", "search", "radius", "page"];
+const FILTER_PARAM_KEYS = ["city", "from", "to", "cat", "free", "sort", "month", "when", "q", "search", "radius", "page"];
 
 function parseUrlCoord(value: string | null) {
   if (!value) return null;

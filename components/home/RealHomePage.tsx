@@ -53,6 +53,9 @@ function EventsSection({
               imageUrl={getFestivalHeroImage(festival)}
               startDate={festival.start_date}
               endDate={festival.end_date}
+              occurrenceDates={festival.occurrence_dates}
+              startTime={festival.start_time}
+              endTime={festival.end_time}
               isFree={festival.is_free}
               isPromoted={hasActivePromotion(festival)}
               isVipOrganizer={hasActiveVip(festival.organizer)}

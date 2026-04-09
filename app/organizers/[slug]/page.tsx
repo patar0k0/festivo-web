@@ -15,7 +15,8 @@ import {
   resolveOrganizerCanonicalSlug,
 } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
-import { hasActivePromotion } from "@/lib/monetization";
+import { getFestivalTemporalState } from "@/lib/festival/temporal";
+import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 
@@ -109,6 +110,8 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
   const verified = Boolean(organizer.verified);
   const categoryChips = topCategoriesFromFestivals(festivals);
   const festivalCount = festivals.length;
+  const activeOrganizerFestivals = festivals.filter((f) => getFestivalTemporalState(f) !== "past");
+  const pastOrganizerFestivals = festivals.filter((f) => getFestivalTemporalState(f) === "past");
 
   const websiteHref = normalizeExternalHttpHref(organizer.website_url);
   const facebookHref = normalizeExternalHttpHref(organizer.facebook_url);
@@ -321,22 +324,63 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
               </div>
 
               {festivals.length ? (
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                  {festivals.map((festival) => (
-                    <EventCard
-                      key={festival.id}
-                      title={festival.title}
-                      city={festivalCityLabel(festival)}
-                      category={festival.category}
-                      imageUrl={getFestivalHeroImage(festival)}
-                      startDate={festival.start_date}
-                      endDate={festival.end_date}
-                      isFree={festival.is_free}
-                      isPromoted={hasActivePromotion(festival)}
-                      detailsHref={`/festivals/${festival.slug}`}
-                      festivalId={festival.id}
-                    />
-                  ))}
+                <div className="space-y-10">
+                  {activeOrganizerFestivals.length ? (
+                    <div className="space-y-4">
+                      {pastOrganizerFestivals.length ? (
+                        <h3 className={cn(pub.sectionTitleMd, "text-lg text-black/70")}>
+                          Предстоящи и текущи
+                        </h3>
+                      ) : null}
+                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                        {activeOrganizerFestivals.map((festival) => (
+                          <EventCard
+                            key={festival.id}
+                            title={festival.title}
+                            city={festivalCityLabel(festival)}
+                            category={festival.category}
+                            imageUrl={getFestivalHeroImage(festival)}
+                            startDate={festival.start_date}
+                            endDate={festival.end_date}
+                            occurrenceDates={festival.occurrence_dates}
+                            startTime={festival.start_time}
+                            endTime={festival.end_time}
+                            isFree={festival.is_free}
+                            isPromoted={hasActivePromotion(festival)}
+                            isVipOrganizer={hasActiveVip(festival.organizer)}
+                            detailsHref={`/festivals/${festival.slug}`}
+                            festivalId={festival.id}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {pastOrganizerFestivals.length ? (
+                    <div className="space-y-4">
+                      <h3 className={cn(pub.sectionTitleMd, "text-lg text-black/50")}>Отминали</h3>
+                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                        {pastOrganizerFestivals.map((festival) => (
+                          <EventCard
+                            key={festival.id}
+                            title={festival.title}
+                            city={festivalCityLabel(festival)}
+                            category={festival.category}
+                            imageUrl={getFestivalHeroImage(festival)}
+                            startDate={festival.start_date}
+                            endDate={festival.end_date}
+                            occurrenceDates={festival.occurrence_dates}
+                            startTime={festival.start_time}
+                            endTime={festival.end_time}
+                            isFree={festival.is_free}
+                            isPromoted={hasActivePromotion(festival)}
+                            isVipOrganizer={hasActiveVip(festival.organizer)}
+                            detailsHref={`/festivals/${festival.slug}`}
+                            festivalId={festival.id}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <div className={cn(pub.sectionCardSoft, "p-6 text-sm leading-relaxed text-black/65")}>

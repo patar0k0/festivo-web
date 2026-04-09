@@ -16,6 +16,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
+import type { FestivalWhenFilter } from "@/lib/types";
 
 export const revalidate = 21600;
 
@@ -147,6 +148,14 @@ export default async function CityLandingPage({
   });
   const categoryQuick = popularCategories.slice(0, 4);
 
+  const whenChips: { key: FestivalWhenFilter; label: string }[] = [
+    { key: "all", label: "Всички" },
+    { key: "ongoing", label: "Текущи" },
+    { key: "upcoming", label: "Предстоящи" },
+    { key: "past", label: "Отминали" },
+  ];
+  const activeWhen = filters.when ?? "all";
+
   return (
     <div className={pub.page}>
       <Section className={pub.section}>
@@ -185,6 +194,22 @@ export default async function CityLandingPage({
                   );
                 })}
               </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-black/40">Време</span>
+                {whenChips.map(({ key, label }) => {
+                  const href = `${cityHref(citySlug)}${serializeFilters({ ...filters, city: [citySlug], when: key })}`;
+                  return (
+                    <Link
+                      key={key}
+                      href={href}
+                      className={cn(pub.chipSm, pub.focusRing, activeWhen === key ? pub.chipActive : "hover:bg-black/[0.03]")}
+                    >
+                      {label}
+                    </Link>
+                  );
+                })}
+              </div>
             </section>
 
             <section className="space-y-5">
@@ -210,6 +235,9 @@ export default async function CityLandingPage({
                         imageUrl={getFestivalHeroImage(festival)}
                         startDate={festival.start_date}
                         endDate={festival.end_date}
+                        occurrenceDates={festival.occurrence_dates}
+                        startTime={festival.start_time}
+                        endTime={festival.end_time}
                         isFree={festival.is_free}
                         isPromoted={hasActivePromotion(festival)}
                         isVipOrganizer={hasActiveVip(festival.organizer)}

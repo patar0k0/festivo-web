@@ -9,7 +9,8 @@ import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName
 import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
-import { sortFestivalsForListing } from "@/lib/festival/sorting";
+import { compareFestivalsForListing, sortFestivalsForListing } from "@/lib/festival/sorting";
+import { getFestivalTemporalState } from "@/lib/festival/temporal";
 
 export const FESTIVAL_SELECT_MIN =
   "id,title,slug,city_id,city,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
@@ -308,18 +309,21 @@ export async function getFestivals(
   }
 
   const dateResolution = await resolveFestivalDateFilterIds(supabase, filters, options);
-  let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN, { count: "exact" });
+  let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN);
   query = applyFilters(query, filters, options, dateResolution);
-  const { data, count, error } = await query.returns<Festival[]>();
+  const { data, error } = await query.returns<Festival[]>();
 
   if (error) {
     throw new Error(error.message);
   }
 
   const normalized = (data ?? []).map(fixFestivalText);
-  const sorted = sortFestivalsForListing(normalized);
+  const when = filters.when;
+  const scoped =
+    when && when !== "all" ? normalized.filter((f) => getFestivalTemporalState(f) === when) : normalized;
+  const sorted = sortFestivalsForListing(scoped);
   const paginated = sorted.slice(from, to);
-  const total = count ?? sorted.length;
+  const total = sorted.length;
   return {
     data: paginated,
     page,
@@ -806,11 +810,15 @@ export async function getOrganizerWithFestivals(
     organizer: fixedOrganizer,
     festivals: (() => {
       const rawFestivals = festivalsError ? [] : (festivals ?? []);
-      const listingSorted = sortFestivalsForListing(rawFestivals.map(fixFestivalText));
-      return listingSorted.sort((a, b) => {
-        const bySort = (sortOrderByFestivalId.get(String(a.id)) ?? 9999) - (sortOrderByFestivalId.get(String(b.id)) ?? 9999);
+      const fixed = rawFestivals.map(fixFestivalText);
+      return fixed.sort((a, b) => {
+        const pastA = getFestivalTemporalState(a) === "past" ? 1 : 0;
+        const pastB = getFestivalTemporalState(b) === "past" ? 1 : 0;
+        if (pastA !== pastB) return pastA - pastB;
+        const bySort =
+          (sortOrderByFestivalId.get(String(a.id)) ?? 9999) - (sortOrderByFestivalId.get(String(b.id)) ?? 9999);
         if (bySort !== 0) return bySort;
-        return 0;
+        return compareFestivalsForListing(a, b);
       });
     })(),
   };

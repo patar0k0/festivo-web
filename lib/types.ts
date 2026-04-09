@@ -92,6 +92,9 @@ export type FestivalScheduleItem = {
   description?: string | null;
 };
 
+/** Public listing time scope; derived from festival dates — not a DB column. */
+export type FestivalWhenFilter = "all" | "upcoming" | "ongoing" | "past";
+
 export type Filters = {
   city?: string[];
   from?: string;
@@ -100,6 +103,7 @@ export type Filters = {
   free?: boolean;
   sort?: "soonest" | "curated" | "nearest";
   month?: string;
+  when?: FestivalWhenFilter;
 };
 
 export type PaginatedResult<T> = {

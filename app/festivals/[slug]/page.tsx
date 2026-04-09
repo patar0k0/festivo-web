@@ -15,6 +15,7 @@ import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { slugify } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
+import { sortFestivalsForListing } from "@/lib/festival/sorting";
 
 /** Match `/organizers/[slug]`: avoid caching a stale `notFound()` / partial payload across soft navigation and ISR. */
 export const dynamic = "force-dynamic";
@@ -104,7 +105,9 @@ export default async function Page({
     countBookingOutboundClicksLast30Days(String(data.festival.id)),
   ]);
 
-  const relatedFestivals = (relatedResponse?.data ?? []).filter((item) => item.slug !== data.festival.slug);
+  const relatedFestivals = sortFestivalsForListing(
+    (relatedResponse?.data ?? []).filter((item) => item.slug !== data.festival.slug),
+  );
 
   const adminEditHref = adminSession?.isAdmin ? `/admin/festivals/${String(data.festival.id)}` : null;
   const showTravelPopularLabel = bookingClicks30d >= 2;

@@ -34,6 +34,7 @@ import type { ReminderType } from "@/lib/plan/server";
 import type { AccommodationOffer } from "@/lib/accommodation/types";
 import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from "@/lib/types";
 import { formatFestivalDateLineLongBg, primaryFestivalDate } from "@/lib/festival/listingDates";
+import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { FESTIVAL_PROGRAM_SECTION_ID } from "@/lib/festival/programmeAnchor";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
@@ -293,6 +294,8 @@ export default function FestivalDetailClient({
   const showGallerySection = galleryItems.length >= 1;
   const showVideoSection = Boolean(videoPageUrl && getVideoEmbedSrcFromPageUrl(videoPageUrl));
   const urgencyLabel = getFestivalUrgencyLabelBg(festival);
+  const temporalState = useMemo(() => getFestivalTemporalState(festival), [festival]);
+  const isPastFestival = temporalState === "past";
   const icsHref = `/festival/${festival.slug}/ics`;
   const timeLine = earliestScheduleTime(scheduleItems);
   const quickFactSegments = useMemo(() => {
@@ -440,6 +443,12 @@ export default function FestivalDetailClient({
         </div>
 
         <div className="border-t border-black/[0.06] bg-white px-4 py-4 sm:px-6">
+          {isPastFestival ? (
+            <div className="mb-4 rounded-xl border border-black/[0.06] bg-[#faf9f7] px-3.5 py-3 text-sm text-black/55">
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-black/45">Отминал фестивал</p>
+              <p className="mt-1.5 leading-relaxed">Това събитие вече е приключило.</p>
+            </div>
+          ) : null}
           {adminEditHref ? (
             <div className="mb-3 flex justify-end">
               <Link
@@ -644,6 +653,9 @@ export default function FestivalDetailClient({
                       startDate={primaryFestivalDate(item)}
                       endDate={item.end_date}
                       dateLine={formatFestivalDateLineLongBg(item)}
+                      occurrenceDates={item.occurrence_dates}
+                      startTime={item.start_time}
+                      endTime={item.end_time}
                       isFree={item.is_free}
                       isPromoted={hasActivePromotion(item)}
                       isVipOrganizer={hasActiveVip(item.organizer)}

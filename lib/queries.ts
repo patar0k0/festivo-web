@@ -407,11 +407,14 @@ export async function getFestivalDetail(
       .returns<FestivalDay[]>(),
   ]);
 
-  throwOnSelectError(`getFestivalDetail festival_media (${festival.id})`, mediaRes.error);
-  throwOnSelectError(`getFestivalDetail festival_days (${festival.id})`, daysRes.error);
-
-  const media = mediaRes.data ?? [];
-  const days = daysRes.data ?? [];
+  if (mediaRes.error) {
+    console.error(`[queries] getFestivalDetail festival_media (${festival.id})`, mediaRes.error);
+  }
+  if (daysRes.error) {
+    console.error(`[queries] getFestivalDetail festival_days (${festival.id})`, daysRes.error);
+  }
+  const media = mediaRes.error ? [] : (mediaRes.data ?? []);
+  const days = daysRes.error ? [] : (daysRes.data ?? []);
 
   const dayIds = days.map((day) => day.id);
   let scheduleItems: FestivalScheduleItem[] = [];
@@ -423,8 +426,10 @@ export async function getFestivalDetail(
       .order("sort_order", { ascending: true })
       .order("start_time", { ascending: true })
       .returns<FestivalScheduleItem[]>();
-    throwOnSelectError(`getFestivalDetail festival_schedule_items (${festival.id})`, schedRes.error);
-    scheduleItems = schedRes.data ?? [];
+    if (schedRes.error) {
+      console.error(`[queries] getFestivalDetail festival_schedule_items (${festival.id})`, schedRes.error);
+    }
+    scheduleItems = schedRes.error ? [] : (schedRes.data ?? []);
   }
 
   const fixedDays = days.map((day) => ({
@@ -711,8 +716,11 @@ export async function getOrganizerWithFestivals(
       .select("name_bg,slug,is_village")
       .eq("id", organizer.city_id)
       .maybeSingle();
-    throwOnSelectError(`getOrganizerWithFestivals city (${organizer.city_id})`, cityError);
-    cities = cityRow ?? null;
+    if (cityError) {
+      console.error(`[queries] getOrganizerWithFestivals city (${organizer.city_id})`, cityError);
+    } else {
+      cities = cityRow ?? null;
+    }
   }
 
   const fixedOrganizer: OrganizerProfile = {
@@ -733,7 +741,10 @@ export async function getOrganizerWithFestivals(
     .order("sort_order", { ascending: true })
     .returns<Array<{ festival_id: string; sort_order: number | null }>>();
 
-  throwOnSelectError(`getOrganizerWithFestivals festival_organizers (${organizer.id})`, linksError);
+  if (linksError) {
+    console.error(`[queries] getOrganizerWithFestivals festival_organizers (${organizer.id})`, linksError);
+  }
+  const linkRows = linksError ? [] : (links ?? []);
 
   const { data: legacyRows, error: legacyError } = await db
     .from("festivals")
@@ -743,10 +754,13 @@ export async function getOrganizerWithFestivals(
     .neq("status", "archived")
     .returns<Array<{ id: string }>>();
 
-  throwOnSelectError(`getOrganizerWithFestivals legacy festivals (${organizer.id})`, legacyError);
+  if (legacyError) {
+    console.error(`[queries] getOrganizerWithFestivals legacy festivals (${organizer.id})`, legacyError);
+  }
+  const legacyIdRows = legacyError ? [] : (legacyRows ?? []);
 
-  const m2mIds = (links ?? []).map((row) => row.festival_id).filter(Boolean);
-  const legacyIds = (legacyRows ?? []).map((row) => row.id).filter(Boolean);
+  const m2mIds = linkRows.map((row) => row.festival_id).filter(Boolean);
+  const legacyIds = legacyIdRows.map((row) => row.id).filter(Boolean);
   const festivalIds = Array.from(new Set([...m2mIds, ...legacyIds]));
 
   if (!festivalIds.length) {
@@ -764,16 +778,19 @@ export async function getOrganizerWithFestivals(
     .neq("status", "archived")
     .returns<Festival[]>();
 
-  throwOnSelectError(`getOrganizerWithFestivals festivals by id (${organizer.id})`, festivalsError);
+  if (festivalsError) {
+    console.error(`[queries] getOrganizerWithFestivals festivals by id (${organizer.id})`, festivalsError);
+  }
+  const festivalRows = festivalsError ? [] : (festivals ?? []);
 
   const sortOrderByFestivalId = new Map(
-    (links ?? []).map((row) => [row.festival_id, row.sort_order ?? 9999]),
+    linkRows.map((row) => [row.festival_id, row.sort_order ?? 9999]),
   );
 
   return {
     organizer: fixedOrganizer,
     festivals: (() => {
-      const rawFestivals = festivals ?? [];
+      const rawFestivals = festivalRows;
       const fixed = rawFestivals.map(fixFestivalText);
       return fixed.sort((a, b) => {
         const pastA = getFestivalTemporalState(a) === "past" ? 1 : 0;

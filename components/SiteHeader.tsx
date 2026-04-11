@@ -25,8 +25,15 @@ export default async function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#f5f4f0]/90 backdrop-blur-xl">
       <Container className="flex items-center justify-between py-4">
-        <Link href="/" className="text-lg font-semibold tracking-tight text-[#0c0e14]">
-          <span className="font-[var(--font-display)] text-2xl">Festivo</span>
+        <Link href="/" className="inline-flex shrink-0 items-center text-[#0c0e14]">
+          <img
+            src="/brand/festivo-logo.svg"
+            alt="Festivo"
+            width={512}
+            height={128}
+            className="h-8 w-auto"
+            decoding="async"
+          />
         </Link>
         <SiteNavClient isAuthenticated={isAuthenticated} isAdmin={isAdmin} userEmail={userEmail} />
       </Container>

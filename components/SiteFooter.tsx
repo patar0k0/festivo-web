@@ -55,15 +55,16 @@ export default function SiteFooter() {
           <div className="lg:col-span-5">
             <Link
               href="/"
-              className="inline-flex items-center gap-2.5 font-black tracking-tight text-[#0c0e14] no-underline"
+              className="inline-flex items-center text-[#0c0e14] no-underline"
             >
-              <span
-                className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#0c0e14] text-[15px] text-white"
-                aria-hidden="true"
-              >
-                🎪
-              </span>
-              <span className="font-[var(--font-display)] text-xl tracking-tight">Festivo</span>
+              <img
+                src="/brand/festivo-logo-web.svg"
+                alt="Festivo"
+                width={512}
+                height={128}
+                className="h-9 w-auto max-w-[min(100%,240px)]"
+                decoding="async"
+              />
             </Link>
             <div className="mt-5 space-y-3.5">
               <p className="text-[15px] font-medium leading-[1.55] text-[#0c0e14] md:text-base md:leading-[1.55]">

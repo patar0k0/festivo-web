@@ -23,6 +23,9 @@ export const metadata: Metadata = {
     template: "%s · Festivo",
   },
   description: "Browse published festivals, find dates, and plan weekends across Bulgaria.",
+  icons: {
+    icon: "/brand/festivo-icon.svg",
+  },
 };
 
 export default function RootLayout({

@@ -143,8 +143,8 @@ export default function RealHomePage({
                   <HomeDiscoverySearchClient secondaryActions={secondaryDiscoveryActions} />
                 </div>
 
-                <div className="mt-5 md:mt-6">
-                  <hr className="border-amber-900/20 my-2" />
+                <div className="mt-3">
+                  <hr className="border-amber-900/20 my-1" />
                   <QuickChipsClient chips={chips} />
                 </div>
               </div>

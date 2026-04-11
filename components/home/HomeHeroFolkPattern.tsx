@@ -1,5 +1,6 @@
 /**
- * Decorative geometric background for the home hero (non-figurative, low contrast).
+ * Decorative Bulgarian-style folk motif (rhombus + inner cross) for the home hero.
+ * Stroke-only, low-contrast tiling on a ~40×40 diagonal diamond lattice.
  */
 export default function HomeHeroFolkPattern() {
   return (
@@ -11,38 +12,27 @@ export default function HomeHeroFolkPattern() {
       <defs>
         <pattern
           id="festivoHeroFolkPattern"
-          width="72.8"
-          height="72.8"
+          width="40"
+          height="40"
           patternUnits="userSpaceOnUse"
         >
+          {/* Rhomb to tile corners — repeats as a diagonal lattice of identical diamonds */}
           <path
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.17"
-            d="M36.4 7.8 L65 36.4 L36.4 65 L7.8 36.4 Z"
+            strokeWidth="1"
+            d="M 20 0 L 40 20 L 20 40 L 0 20 Z"
           />
+          {/* Inner cross (типичен шевица елемент) */}
           <path
             fill="none"
             stroke="currentColor"
-            strokeWidth="0.845"
-            d="M36.4 20.8 L52 36.4 L36.4 52 L20.8 36.4 Z"
-          />
-          <path
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="0.585"
-            d="M0 36.4h18.2M54.6 36.4H72.8M36.4 0v18.2M36.4 54.6V72.8"
-          />
-          <path
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="0.65"
-            d="M36.4 0 L72.8 36.4 M0 36.4 L36.4 72.8 M72.8 36.4 L36.4 72.8 M36.4 0 L0 36.4"
-            opacity="0.5"
+            strokeWidth="0.85"
+            d="M 20 8 L 20 32 M 8 20 L 32 20"
           />
         </pattern>
       </defs>
-      <rect width="100%" height="100%" fill="url(#festivoHeroFolkPattern)" opacity="0.13" />
+      <rect width="100%" height="100%" fill="url(#festivoHeroFolkPattern)" opacity="0.07" />
     </svg>
   );
 }

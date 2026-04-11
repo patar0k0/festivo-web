@@ -44,7 +44,14 @@
   scroll-behavior: smooth;
 }
 
+html,
 body {
+  transform: none !important;
+  will-change: auto !important;
+}
+
+body {
+  backface-visibility: hidden;
   background: transparent;
   color: #0b1220;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

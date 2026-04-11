@@ -23,7 +23,7 @@ export default async function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#f5f4f0]/90 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#f5f4f0]/95">
       <Container className="flex items-center justify-between py-4">
         <Link href="/" className="inline-flex shrink-0 items-center text-[#0c0e14]">
           <img

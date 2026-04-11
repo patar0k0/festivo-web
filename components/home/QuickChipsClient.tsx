@@ -85,7 +85,7 @@ export default function QuickChipsClient({ chips }: QuickChipsClientProps) {
   const showToggle = expanded || hasMoreCategories;
 
   return (
-    <div className="mt-4 flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible">
+    <div className="mt-3 flex gap-2 overflow-x-auto snap-x snap-mandatory pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible">
       {nonCategoryChips.map((chip) => (
         <Link
           key={`${chip.label}-${chip.href}`}

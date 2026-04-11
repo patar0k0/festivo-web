@@ -122,20 +122,20 @@ export default function RealHomePage({
 
   return (
     <div className={cn(pub.pageOverflow, "pb-24 md:pb-0")}>
-      <Section className="overflow-x-clip bg-transparent pb-10 pt-16 md:pb-12 md:pt-20">
+      <Section className="overflow-x-clip bg-transparent pb-8 pt-12 md:pb-10 md:pt-16">
         <Container>
-          <div className="space-y-7 lg:space-y-10">
-            <section className={cn(pub.panelHero, "p-4 md:p-6")}>
+          <div className="space-y-6 lg:space-y-8">
+            <section className={cn(pub.panelHero, "p-4 md:p-5")}>
               <div className="max-w-3xl">
                 <p className={pub.eyebrowMuted}>Festivo Preview</p>
-                <h1 className={cn(pub.displayH1, "mt-2")}>Открий безплатни фестивали в България</h1>
-                <p className={cn(pub.body, "mt-2")}>Бързо намери събития по град, дата и интерес.</p>
-                <p className="mt-2 text-xs text-black/45 md:text-sm">
+                <h1 className={cn(pub.displayH1, "mt-1.5")}>Открий безплатни фестивали в България</h1>
+                <p className={cn(pub.body, "mt-1.5")}>Бързо намери събития по град, дата и интерес.</p>
+                <p className="mt-1.5 text-xs text-black/45 md:text-sm">
                   Събития от организатори и проверени публични източници
                 </p>
               </div>
 
-              <div className="mt-5">
+              <div className="mt-4">
                 <HomeDiscoverySearchClient secondaryActions={secondaryDiscoveryActions} />
               </div>
 

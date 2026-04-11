@@ -30,7 +30,7 @@ export default function HomeDiscoverySearchClient({
   };
 
   return (
-    <div className={compact ? "space-y-2" : "space-y-3"}>
+    <div className={compact ? "space-y-2" : "space-y-2.5"}>
       <form
         className="relative w-full"
         onSubmit={(e) => {
@@ -50,7 +50,7 @@ export default function HomeDiscoverySearchClient({
             pub.inputSearch,
             compact
               ? "rounded-full py-2.5 pl-4 pr-12 text-sm"
-              : "rounded-full py-3.5 pl-5 pr-14 text-[15px] md:py-4 md:pl-6 md:pr-16 md:text-base",
+              : "rounded-full py-3 pl-5 pr-14 text-[15px] md:py-3.5 md:pl-6 md:pr-14 md:text-[15px]",
           )}
         />
         <button
@@ -59,7 +59,7 @@ export default function HomeDiscoverySearchClient({
           className={cn(
             "absolute top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-full text-[#0c0e14] transition hover:bg-black/[0.05]",
             pub.focusRing,
-            compact ? "right-1.5 h-9 w-9" : "right-2 h-10 w-10 md:h-11 md:w-11"
+            compact ? "right-1.5 h-9 w-9" : "right-2 h-9 w-9 md:h-10 md:w-10"
           )}
         >
           <svg

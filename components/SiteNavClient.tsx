@@ -208,7 +208,7 @@ export default function SiteNavClient({
         ) : null}
       </div>
 
-      <nav className="hidden items-center gap-6 text-xs font-semibold uppercase tracking-[0.2em] text-black/55 md:flex">
+      <nav className="hidden items-center gap-5 text-[11px] font-medium uppercase tracking-[0.17em] text-black/45 md:flex md:gap-6">
         <Link href="/festivals" className="transition hover:text-[#0c0e14]">
           Фестивали
         </Link>
@@ -237,7 +237,7 @@ export default function SiteNavClient({
               onClick={() => setIsProfileMenuOpen((prev) => !prev)}
               aria-expanded={isProfileMenuOpen}
               aria-haspopup="menu"
-              className="inline-flex items-center gap-2 rounded-full border border-black/[0.12] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-black/70 transition hover:border-black/[0.18] hover:text-[#0c0e14]"
+              className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/90 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.13em] text-black/55 transition hover:border-black/[0.12] hover:text-[#0c0e14]"
             >
               Профил
             </button>

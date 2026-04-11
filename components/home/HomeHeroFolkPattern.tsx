@@ -11,38 +11,38 @@ export default function HomeHeroFolkPattern() {
       <defs>
         <pattern
           id="festivoHeroFolkPattern"
-          width="56"
-          height="56"
+          width="72.8"
+          height="72.8"
           patternUnits="userSpaceOnUse"
         >
           <path
             fill="none"
             stroke="currentColor"
-            strokeWidth="0.9"
-            d="M28 6 L50 28 L28 50 L6 28 Z"
+            strokeWidth="1.17"
+            d="M36.4 7.8 L65 36.4 L36.4 65 L7.8 36.4 Z"
+          />
+          <path
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="0.845"
+            d="M36.4 20.8 L52 36.4 L36.4 52 L20.8 36.4 Z"
+          />
+          <path
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="0.585"
+            d="M0 36.4h18.2M54.6 36.4H72.8M36.4 0v18.2M36.4 54.6V72.8"
           />
           <path
             fill="none"
             stroke="currentColor"
             strokeWidth="0.65"
-            d="M28 16 L40 28 L28 40 L16 28 Z"
-          />
-          <path
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="0.45"
-            d="M0 28h14M42 28H56M28 0v14M28 42V56"
-          />
-          <path
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="0.5"
-            d="M28 0 L56 28 M0 28 L28 56 M56 28 L28 56 M28 0 L0 28"
+            d="M36.4 0 L72.8 36.4 M0 36.4 L36.4 72.8 M72.8 36.4 L36.4 72.8 M36.4 0 L0 36.4"
             opacity="0.5"
           />
         </pattern>
       </defs>
-      <rect width="100%" height="100%" fill="url(#festivoHeroFolkPattern)" opacity="0.06" />
+      <rect width="100%" height="100%" fill="url(#festivoHeroFolkPattern)" opacity="0.13" />
     </svg>
   );
 }

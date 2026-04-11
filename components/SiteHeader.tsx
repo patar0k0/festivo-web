@@ -24,14 +24,14 @@ export default async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#f5f4f0]/95">
-      <Container className="flex items-center justify-between py-4">
+      <Container className="flex items-center justify-between py-5">
         <Link href="/" className="inline-flex shrink-0 items-center text-[#0c0e14]">
           <img
             src="/brand/festivo-logo.svg"
             alt="Festivo"
             width={512}
             height={128}
-            className="h-8 w-auto"
+            className="h-11 w-auto"
             decoding="async"
           />
         </Link>

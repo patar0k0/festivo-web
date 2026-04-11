@@ -13,6 +13,7 @@ import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import CitySelectClient from "./CitySelectClient";
 import HomeDiscoverySearchClient from "./HomeDiscoverySearchClient";
 import QuickChipsClient from "./QuickChipsClient";
+import HomeHeroFolkPattern from "./HomeHeroFolkPattern";
 
 function EventsSection({
   id,
@@ -125,21 +126,27 @@ export default function RealHomePage({
       <Section className="overflow-x-clip bg-transparent pb-8 pt-12 md:pb-10 md:pt-16">
         <Container>
           <div className="space-y-6 lg:space-y-8">
-            <section className={cn(pub.panelHero, "p-4 md:p-5")}>
-              <div className="max-w-3xl">
-                <p className={pub.eyebrowMuted}>Festivo Preview</p>
-                <h1 className={cn(pub.displayH1, "mt-1.5")}>Открий безплатни фестивали в България</h1>
-                <p className={cn(pub.body, "mt-1.5")}>Бързо намери събития по град, дата и интерес.</p>
-                <p className="mt-1.5 text-xs text-black/45 md:text-sm">
-                  Събития от организатори и проверени публични източници
-                </p>
-              </div>
+            <section className={cn(pub.panelHero, "relative overflow-hidden p-4 md:p-5")}>
+              <HomeHeroFolkPattern />
+              <div className="relative z-[1]">
+                <div className="max-w-3xl">
+                  <h1 className={cn(pub.displayH1, "font-[var(--font-hero-warm-serif)]")}>
+                    Открий безплатни фестивали в България
+                  </h1>
+                  <p className={cn(pub.body, "mt-1.5")}>Бързо намери събития по град, дата и интерес.</p>
+                  <p className="mt-1.5 text-xs text-black/45 md:text-sm">
+                    Събития от организатори и проверени публични източници
+                  </p>
+                </div>
 
-              <div className="mt-4">
-                <HomeDiscoverySearchClient secondaryActions={secondaryDiscoveryActions} />
-              </div>
+                <div className="mt-4">
+                  <HomeDiscoverySearchClient secondaryActions={secondaryDiscoveryActions} />
+                </div>
 
-              <QuickChipsClient chips={chips} />
+                <div className="mt-5 border-t border-amber-200/45 pt-4 md:mt-6 md:pt-5">
+                  <QuickChipsClient chips={chips} />
+                </div>
+              </div>
             </section>
 
             {selectedCityName ? (

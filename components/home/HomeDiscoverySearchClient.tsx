@@ -30,7 +30,7 @@ export default function HomeDiscoverySearchClient({
   };
 
   return (
-    <div className={compact ? "space-y-2" : "space-y-2.5"}>
+    <div className={compact ? "space-y-2" : "space-y-3.5"}>
       <form
         className="relative w-full"
         onSubmit={(e) => {
@@ -77,7 +77,14 @@ export default function HomeDiscoverySearchClient({
           </svg>
         </button>
       </form>
-      <div className={cn("flex flex-wrap gap-2", !compact && "sm:gap-3")}>{secondaryActions}</div>
+      <div
+        className={cn(
+          "flex flex-wrap gap-2 border-t border-amber-900/[0.08] pt-3",
+          !compact && "sm:gap-3 sm:pt-3.5",
+        )}
+      >
+        {secondaryActions}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
-import { Fraunces, Manrope } from "next/font/google";
+import { Cormorant_Garamond, Fraunces, Manrope } from "next/font/google";
 import LayoutShell from "@/components/LayoutShell";
 import ClientProviders from "@/components/providers/ClientProviders";
 import "./globals.css";
@@ -14,6 +14,12 @@ const manrope = Manrope({
 const fraunces = Fraunces({
   variable: "--font-display",
   subsets: ["latin"],
+});
+
+const cormorantGaramond = Cormorant_Garamond({
+  variable: "--font-hero-warm-serif",
+  subsets: ["latin", "cyrillic"],
+  weight: ["600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -39,7 +45,7 @@ export default function RootLayout({
         <meta charSet="utf-8" />
       </head>
       <body
-        className={`${manrope.variable} ${fraunces.variable} landing-bg min-h-screen text-[#0c0e14] antialiased`}
+        className={`${manrope.variable} ${fraunces.variable} ${cormorantGaramond.variable} landing-bg min-h-screen text-[#0c0e14] antialiased`}
       >
         <ClientProviders>
           <LayoutShell>{children}</LayoutShell>

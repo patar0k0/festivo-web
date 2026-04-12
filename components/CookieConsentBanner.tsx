@@ -1,8 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+
+type CookieConsentRow = {
+  analytics: boolean;
+  marketing: boolean;
+  updated_at: string;
+};
 
 export const FESTIVO_COOKIE_CONSENT_KEY = "festivo_cookie_consent";
 
@@ -31,6 +38,38 @@ function readStoredConsent(): FestivoCookieConsent | null {
 
 function persistConsent(consent: FestivoCookieConsent) {
   window.localStorage.setItem(FESTIVO_COOKIE_CONSENT_KEY, JSON.stringify(consent));
+}
+
+function rowToConsent(row: CookieConsentRow): FestivoCookieConsent {
+  return {
+    analytics: row.analytics,
+    marketing: row.marketing,
+    timestamp: row.updated_at,
+  };
+}
+
+async function upsertCookieConsentForUser(userId: string, consent: FestivoCookieConsent) {
+  let supabase;
+  try {
+    supabase = createSupabaseBrowser();
+  } catch (e) {
+    console.error("[CookieConsentBanner] Supabase browser client unavailable", e);
+    return;
+  }
+
+  const { error } = await supabase.from("cookie_consents").upsert(
+    {
+      user_id: userId,
+      analytics: consent.analytics,
+      marketing: consent.marketing,
+      updated_at: consent.timestamp,
+    },
+    { onConflict: "user_id" },
+  );
+
+  if (error) {
+    console.error("[CookieConsentBanner] cookie_consents upsert failed", error);
+  }
 }
 
 type ConsentSwitchRowProps = {
@@ -86,16 +125,89 @@ export default function CookieConsentBanner() {
   const [open, setOpen] = useState(false);
   const [analytics, setAnalytics] = useState(false);
   const [marketing, setMarketing] = useState(false);
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
-    const existing = readStoredConsent();
-    setOpen(existing === null);
-    setReady(true);
+    cancelledRef.current = false;
+
+    void (async () => {
+      const fromLs = readStoredConsent();
+
+      try {
+        const supabase = createSupabaseBrowser();
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError) {
+          console.error("[CookieConsentBanner] getUser failed", userError);
+        }
+
+        if (!user) {
+          if (!cancelledRef.current) {
+            setOpen(fromLs === null);
+            setReady(true);
+          }
+          return;
+        }
+
+        const { data: row, error: rowError } = await supabase
+          .from("cookie_consents")
+          .select("analytics, marketing, updated_at")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (rowError) {
+          console.error("[CookieConsentBanner] cookie_consents select failed", rowError);
+        }
+
+        if (!cancelledRef.current && row && !rowError) {
+          const typed = row as CookieConsentRow;
+          persistConsent(rowToConsent(typed));
+          setOpen(false);
+          setReady(true);
+          return;
+        }
+
+        if (!cancelledRef.current) {
+          setOpen(fromLs === null);
+          setReady(true);
+        }
+      } catch (e) {
+        console.error("[CookieConsentBanner] consent hydration failed", e);
+        if (!cancelledRef.current) {
+          setOpen(fromLs === null);
+          setReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelledRef.current = true;
+    };
   }, []);
 
   const closeWith = useCallback((next: FestivoCookieConsent) => {
     persistConsent(next);
     setOpen(false);
+    void (async () => {
+      try {
+        const supabase = createSupabaseBrowser();
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+        if (userError) {
+          console.error("[CookieConsentBanner] getUser failed on save", userError);
+          return;
+        }
+        if (!user) return;
+        await upsertCookieConsentForUser(user.id, next);
+      } catch (e) {
+        console.error("[CookieConsentBanner] consent save sync failed", e);
+      }
+    })();
   }, []);
 
   const onAcceptSelected = useCallback(() => {

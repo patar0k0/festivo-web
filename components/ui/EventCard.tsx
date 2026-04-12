@@ -1,11 +1,11 @@
 import { format } from "date-fns";
-import { bg } from "date-fns/locale";
 import Link from "next/link";
 import FallbackImage from "@/components/ui/FallbackImage";
 import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
 import { CardContent } from "@/components/ui/Card";
 import { cn } from "@/components/ui/cn";
 import { pub } from "@/lib/public-ui/styles";
+import { formatContinuousFestivalRangeBg } from "@/lib/festival/listingDates";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 
 /** Кратко име на месец за оранжева значка (3–4 знака). */
@@ -58,17 +58,6 @@ function getDateBadge(date?: string | null) {
     month: month.toLocaleUpperCase("bg-BG"),
     day: format(parsed, "dd"),
   };
-}
-
-function formatDateRange(start?: string | null, end?: string | null) {
-  if (!start) return "Дата предстои";
-  const startDate = new Date(start);
-  if (Number.isNaN(startDate.getTime())) return "Дата предстои";
-  if (!end || end === start) {
-    return format(startDate, "d MMMM yyyy", { locale: bg });
-  }
-  const endDate = new Date(end);
-  return `${format(startDate, "d MMMM", { locale: bg })} - ${format(endDate, "d MMMM yyyy", { locale: bg })}`;
 }
 
 function getSignalTag(isFree?: boolean | null, startDate?: string | null) {
@@ -139,7 +128,7 @@ export default function EventCard({
   endTime,
 }: EventCardProps) {
   const badge = getDateBadge(startDate);
-  const dateText = dateLine?.trim() ? dateLine : formatDateRange(startDate, endDate);
+  const dateText = dateLine?.trim() ? dateLine : formatContinuousFestivalRangeBg(startDate, endDate);
   const locationText = city || "Град: —";
   const snippet = description?.trim();
   const categoryText = categoryLabel(category);

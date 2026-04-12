@@ -4,6 +4,7 @@ import { listHomeCitySelectOptions } from "@/lib/festivals";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories.server";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
+import { calendarYmdToUtcNoon, sofiaWallClockNow } from "@/lib/festival/temporal";
 import { FESTIVAL_SELECT_MIN, fixFestivalText } from "@/lib/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";
@@ -88,11 +89,12 @@ async function fetchHomeFestivals(params: {
  * Same queries and derived hrefs as the public home page (`app/page.tsx`).
  */
 export async function loadHomePageData(citySlug: string | undefined): Promise<HomePageViewProps> {
-  const today = format(new Date(), "yyyy-MM-dd");
-  const weekendStart = format(nextSaturday(new Date()), "yyyy-MM-dd");
-  const weekendEnd = format(nextSunday(new Date()), "yyyy-MM-dd");
-  const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const monthEnd = format(endOfMonth(new Date()), "yyyy-MM-dd");
+  const today = sofiaWallClockNow().ymd;
+  const anchor = calendarYmdToUtcNoon(today);
+  const weekendStart = format(nextSaturday(anchor), "yyyy-MM-dd");
+  const weekendEnd = format(nextSunday(anchor), "yyyy-MM-dd");
+  const monthStart = format(startOfMonth(anchor), "yyyy-MM-dd");
+  const monthEnd = format(endOfMonth(anchor), "yyyy-MM-dd");
 
   const [nearestFestivalsRaw, weekendFestivalsRaw, citiesResult, categorySlugs] = await Promise.all([
     fetchHomeFestivals({ from: today, citySlug, limit: 6 }),

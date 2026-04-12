@@ -30,6 +30,19 @@ export function sofiaWallClockNow(reference: Date = new Date()): WallPoint {
   return { ymd: `${y}-${mo}-${da}`, minutes: Number(h) * 60 + Number(mi) };
 }
 
+/**
+ * Noon UTC on a civil yyyy-MM-dd. Safe anchor for date-fns weekday/month helpers when the
+ * process TZ is UTC (e.g. Vercel): the local calendar day matches y-m-d.
+ */
+export function calendarYmdToUtcNoon(ymd: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!m) return new Date();
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  return new Date(Date.UTC(y, mo - 1, d, 12, 0, 0));
+}
+
 function hmsToMinutes(hms: string | null | undefined): number | null {
   if (hms == null || typeof hms !== "string") return null;
   const m = hms.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);

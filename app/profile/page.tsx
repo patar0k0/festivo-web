@@ -4,6 +4,7 @@ import { getOptionalUser } from "@/lib/authUser";
 import NotificationSettingsCard from "./NotificationSettingsCard";
 import ReminderPreferencesCard from "./ReminderPreferencesCard";
 import ProfileAvatar from "./ProfileAvatar";
+import DeleteAccountButton from "./DeleteAccountButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -88,6 +89,7 @@ export default async function ProfilePage() {
                   </button>
                 </form>
               </div>
+              <DeleteAccountButton />
             </section>
 
             <ReminderPreferencesCard />

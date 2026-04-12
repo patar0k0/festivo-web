@@ -140,10 +140,7 @@ export default function TermsOfUsePage() {
               Festivo.bg си запазва правото да прекрати акаунт при нарушение на условията.
             </p>
             <p className={cn(pub.body, "mt-3 leading-relaxed")}>
-              Потребителят може да изтрие акаунта си по всяко време от настройките или като се свърже с{" "}
-              <a className={externalLinkClass} href="mailto:admin@festivo.bg">
-                admin@festivo.bg
-              </a>
+              Потребителят може да изтрие акаунта си по всяко време от настройките.
             </p>
           </section>
 

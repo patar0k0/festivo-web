@@ -321,6 +321,7 @@ function SavedFestivalPlanCard({
 export default function PlanPageClient({ entries, festivals, pastFestivals, summary }: PlanPageClientProps) {
   const { isScheduleItemInPlan, isFestivalInPlan, setFestivalInPlan, toggleScheduleItem, reminderTypeByFestivalId, setFestivalReminder } = usePlanState();
   const [removingFestivalIds, setRemovingFestivalIds] = useState<Set<string>>(new Set());
+  const [isPastExpanded, setIsPastExpanded] = useState(false);
 
   const upcomingEntries = useMemo(
     () => entries.filter((entry) => isScheduleItemInPlan(entry.scheduleItemId)),
@@ -500,50 +501,66 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
 
       {pastFestivalEntries.length > 0 ? (
         <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition-all duration-200 md:p-6">
-          <h2 className="text-xl font-bold tracking-tight text-black/90">Минали фестивали</h2>
-          <p className="mt-1 text-sm text-black/60">Фестивали, които вече са приключили.</p>
-          <div className="mt-4 space-y-3">
-            {pastFestivalEntries.map((festival, festivalIndex) => {
-              const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
-              const isRemoving = removingFestivalIds.has(festival.id);
-              return (
-                <SavedFestivalPlanCard
-                  key={festival.id}
-                  festival={festival}
-                  festivalIndex={festivalIndex}
-                  isPast
-                  reminder={reminder}
-                  isRemoving={isRemoving}
-                  isNextUpcoming={false}
-                  temporalBadge={null}
-                  onReminderChange={(next) => {
-                    void setFestivalReminder(festival.id, next);
-                  }}
-                  onRemove={async () => {
-                    setRemovingFestivalIds((prev) => new Set(prev).add(festival.id));
-                    try {
-                      const response = await fetch("/api/plan/festivals", {
-                        method: "POST",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ festivalId: festival.id }),
-                      });
+          <h2 className="text-xl font-bold tracking-tight">
+            <button
+              type="button"
+              onClick={() => setIsPastExpanded((v) => !v)}
+              aria-expanded={isPastExpanded}
+              className={cn(
+                "w-full text-left transition-all duration-200",
+                isPastExpanded ? "text-black/90" : "text-black/70"
+              )}
+            >
+              Минали фестивали ({pastFestivals.length}) — {isPastExpanded ? "Скрий" : "Покажи"}
+            </button>
+          </h2>
+          {isPastExpanded ? (
+            <div className="transition-all duration-200">
+              <p className="mt-1 text-sm text-black/60">Фестивали, които вече са приключили.</p>
+              <div className="mt-4 space-y-3">
+                {pastFestivalEntries.map((festival, festivalIndex) => {
+                  const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
+                  const isRemoving = removingFestivalIds.has(festival.id);
+                  return (
+                    <SavedFestivalPlanCard
+                      key={festival.id}
+                      festival={festival}
+                      festivalIndex={festivalIndex}
+                      isPast
+                      reminder={reminder}
+                      isRemoving={isRemoving}
+                      isNextUpcoming={false}
+                      temporalBadge={null}
+                      onReminderChange={(next) => {
+                        void setFestivalReminder(festival.id, next);
+                      }}
+                      onRemove={async () => {
+                        setRemovingFestivalIds((prev) => new Set(prev).add(festival.id));
+                        try {
+                          const response = await fetch("/api/plan/festivals", {
+                            method: "POST",
+                            credentials: "include",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ festivalId: festival.id }),
+                          });
 
-                      if (!response.ok) return;
-                      const payload = (await response.json()) as { inPlan?: boolean };
-                      setFestivalInPlan(festival.id, Boolean(payload.inPlan));
-                    } finally {
-                      setRemovingFestivalIds((prev) => {
-                        const next = new Set(prev);
-                        next.delete(festival.id);
-                        return next;
-                      });
-                    }
-                  }}
-                />
-              );
-            })}
-          </div>
+                          if (!response.ok) return;
+                          const payload = (await response.json()) as { inPlan?: boolean };
+                          setFestivalInPlan(festival.id, Boolean(payload.inPlan));
+                        } finally {
+                          setRemovingFestivalIds((prev) => {
+                            const next = new Set(prev);
+                            next.delete(festival.id);
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 

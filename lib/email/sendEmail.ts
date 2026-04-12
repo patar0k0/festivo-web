@@ -6,6 +6,8 @@ export type SendEmailInput = {
   subject: string;
   html: string;
   text: string;
+  /** Per-message Reply-To (e.g. visitor email); overrides env `EMAIL_REPLY_TO` when non-empty. */
+  replyTo?: string | null;
 };
 
 export type SendEmailResult = {
@@ -25,7 +27,8 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   }
 
   try {
-    const replyTo = getEmailReplyTo();
+    const replyToOverride = typeof input.replyTo === "string" ? input.replyTo.trim() : "";
+    const replyTo = replyToOverride || getEmailReplyTo();
     const { data, error } = await resend.emails.send({
       from: EMAIL_FROM,
       to: input.to,

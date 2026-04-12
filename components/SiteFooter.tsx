@@ -27,8 +27,9 @@ export default function SiteFooter() {
   const organizerLinks = [
     { href: "#", label: "Добави фестивал" },
     { href: "#", label: "Ресурси за организатори" },
-    { href: "#", label: "Контакт" },
   ];
+
+  const contactHref = "/contact";
 
   const legalLinks = [
     { href: "/privacy", label: "Политика за поверителност" },
@@ -139,10 +140,21 @@ export default function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-12 border-t border-black/[0.06] pt-6">
+        <div className="mt-12 flex flex-col gap-3 border-t border-black/[0.06] pt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <p className="text-[11px] leading-relaxed text-black/38">
             © {year} Festivo. Всички права запазени.
           </p>
+          <Link
+            href={contactHref}
+            className={cn(
+              "text-[11px] font-medium leading-relaxed text-[#0c0e14]/55 no-underline transition-colors",
+              "hover:text-[#0c0e14] hover:underline hover:decoration-black/35 hover:underline-offset-[3px]",
+              pub.focusRing,
+              "rounded-sm",
+            )}
+          >
+            Контакт
+          </Link>
         </div>
       </Container>
     </footer>

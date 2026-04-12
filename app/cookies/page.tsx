@@ -140,11 +140,19 @@ export default function CookiesPolicyPage() {
           <section className="mt-10">
             <h2 className="mt-8 mb-2 text-lg font-semibold">Контакт за въпроси</h2>
             <p className={cn(pub.body, "mt-3 leading-relaxed")}>
-              Ако имаш въпроси относно бисквитките или тази политика, пиши ни през контактната форма на{" "}
+              Ако имаш въпроси относно бисквитките или тази политика, използвай страницата{" "}
+              <Link href="/contact" className={externalLinkClass}>
+                Контакт
+              </Link>{" "}
+              на{" "}
               <Link href="/" className={externalLinkClass}>
                 festivo.bg
-              </Link>
-              . Формата е в подвалa на сайта — секция „За организатори“, връзка „Контакт“.
+              </Link>{" "}
+              или пиши на{" "}
+              <a className={externalLinkClass} href="mailto:admin@festivo.bg">
+                admin@festivo.bg
+              </a>
+              .
             </p>
           </section>
 

@@ -152,10 +152,15 @@ export default function PrivacyPolicyPage() {
               <li>Право на преносимост на данните</li>
             </ul>
             <p className={cn(pub.body, "mt-4 leading-relaxed")}>
-              За упражняване на права:{" "}
-              <a className={externalLinkClass} href="mailto:contact@festivo.bg">
-                contact@festivo.bg
+              За упражняване на права използвай{" "}
+              <Link href="/contact" className={externalLinkClass}>
+                формата за контакт
+              </Link>{" "}
+              или пиши на{" "}
+              <a className={externalLinkClass} href="mailto:admin@festivo.bg">
+                admin@festivo.bg
               </a>
+              .
             </p>
           </section>
 

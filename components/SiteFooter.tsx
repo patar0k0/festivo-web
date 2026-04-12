@@ -25,7 +25,7 @@ export default function SiteFooter() {
   ];
 
   const organizerLinks = [
-    { href: "#", label: "Добави фестивал" },
+    { href: "/organizer/festivals/new", label: "Добави фестивал" },
     { href: "#", label: "Ресурси за организатори" },
   ];
 

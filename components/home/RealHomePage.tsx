@@ -36,19 +36,18 @@ function EventsSection({
   id,
   title,
   festivals,
+  seeAllHref,
 }: {
   id?: string;
   title: string;
   festivals: Festival[];
+  seeAllHref: string;
 }) {
   return (
     <section id={id} className="scroll-mt-24 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className={cn(pub.pageTitle, "text-2xl")}>{title}</h2>
-        <Link
-          href="/festivals"
-          className={cn(pub.chip, pub.focusRing, "hover:bg-[#f7f6f3]")}
-        >
+        <Link href={seeAllHref} className={cn(pub.chip, pub.focusRing, "hover:bg-[#f7f6f3]")}>
           Виж всички
         </Link>
       </div>
@@ -177,8 +176,13 @@ export default function RealHomePage({
               <section className={pub.noticeWarm}>Показваме фестивали в {selectedCityName}</section>
             ) : null}
 
-            <EventsSection id="nearest-festivals" title="Предстоящи" festivals={nearestFestivals} />
-            <EventsSection title="Този уикенд" festivals={weekendFestivals} />
+            <EventsSection
+              id="nearest-festivals"
+              title="Предстоящи"
+              festivals={nearestFestivals}
+              seeAllHref="/festivals?when=upcoming"
+            />
+            <EventsSection title="Този уикенд" festivals={weekendFestivals} seeAllHref="/festivals?when=weekend" />
 
             <CitiesSection cities={homeCityOptions} />
           </div>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { addDays, format, nextSaturday, parseISO } from "date-fns";
+import { addDays, format, nextSaturday, nextSunday, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 import {
@@ -18,7 +18,7 @@ import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
-import { getFestivalTemporalState } from "@/lib/festival/temporal";
+import { calendarYmdToUtcNoon, getFestivalTemporalState, sofiaWallClockNow } from "@/lib/festival/temporal";
 import type { FestivalWhenFilter } from "@/lib/types";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import { buildFestivalsTagOrFilter } from "@/lib/festivals/buildFestivalsTagOrFilter";
@@ -39,6 +39,9 @@ type FestivalWithCity = Festival & {
 };
 
 type PageSearchParams = Record<string, string | string[] | undefined>;
+
+/** Extra `when` values beyond `FestivalWhenFilter` (listing-only query semantics). */
+type FestivalsPageWhen = FestivalWhenFilter | "now" | "weekend";
 
 type DateRange = {
   start: string;
@@ -122,7 +125,7 @@ function buildFestivalsHref(params: {
   city?: string;
   date?: string;
   tag?: string;
-  when?: FestivalWhenFilter;
+  when?: FestivalsPageWhen;
   page?: number;
 }) {
   const query = new URLSearchParams();
@@ -138,11 +141,32 @@ function buildFestivalsHref(params: {
   return suffix ? `/festivals?${suffix}` : "/festivals";
 }
 
-function parseWhenFilter(raw: string | undefined): FestivalWhenFilter {
+function parseWhenFilter(raw: string | undefined): FestivalsPageWhen {
+  if (raw === "now") return "now";
+  if (raw === "weekend") return "weekend";
   if (raw === "upcoming" || raw === "ongoing" || raw === "past" || raw === "all") {
     return raw;
   }
   return "all";
+}
+
+/** Friday–Sunday of the same calendar weekend as `nextSaturday(anchor)` (Sofia “today” anchor). */
+function nextWeekendFridaySundayInclusive(todayYmd: string): { fri: string; sun: string } {
+  const anchor = calendarYmdToUtcNoon(todayYmd);
+  const sat = format(nextSaturday(anchor), "yyyy-MM-dd");
+  const sun = format(nextSunday(anchor), "yyyy-MM-dd");
+  const fri = format(addDays(calendarYmdToUtcNoon(sat), -1), "yyyy-MM-dd");
+  return { fri, sun };
+}
+
+function festivalOverlapsWallClockYmdOnStartEndColumns(
+  f: FestivalWithCity,
+  todayYmd: string,
+): boolean {
+  const start = f.start_date?.trim();
+  if (!start) return false;
+  const end = f.end_date?.trim() || start;
+  return start <= todayYmd && end >= todayYmd;
 }
 
 export async function generateMetadata() {
@@ -241,9 +265,34 @@ export default async function FestivalsPage({
       queryError = [error.message, error.details, error.hint].filter(Boolean).join(" — ") || JSON.stringify(error);
     } else {
       const normalized = (data ?? []).map((row) => fixFestivalText(row as Festival));
-      const scoped =
-        when !== "all" ? normalized.filter((f) => getFestivalTemporalState(f) === when) : normalized;
-      const sorted = sortFestivalsForListing(scoped);
+      const todayYmd = sofiaWallClockNow().ymd;
+      const { fri: weekendFri, sun: weekendSun } = nextWeekendFridaySundayInclusive(todayYmd);
+
+      let scoped: FestivalWithCity[];
+      if (when === "now") {
+        scoped = normalized.filter((f) => festivalOverlapsWallClockYmdOnStartEndColumns(f, todayYmd));
+      } else if (when === "weekend") {
+        scoped = normalized.filter((f) => {
+          const sd = f.start_date?.trim();
+          if (!sd) return false;
+          return sd >= weekendFri && sd <= weekendSun;
+        });
+      } else if (when === "upcoming") {
+        scoped = normalized.filter((f) => {
+          const sd = f.start_date?.trim();
+          if (!sd) return false;
+          return sd >= todayYmd;
+        });
+      } else if (when !== "all") {
+        scoped = normalized.filter((f) => getFestivalTemporalState(f) === when);
+      } else {
+        scoped = normalized;
+      }
+
+      const sorted =
+        when === "upcoming"
+          ? [...scoped].sort((a, b) => (a.start_date ?? "").localeCompare(b.start_date ?? ""))
+          : sortFestivalsForListing(scoped);
       festivals = sorted.slice(from, to);
       total = sorted.length;
       totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -261,11 +310,11 @@ export default async function FestivalsPage({
     Number(when !== "all");
   const clearHref = "/festivals";
 
-  const today = new Date();
-  const weekendDate = format(nextSaturday(today), "yyyy-MM-dd");
-  const monthDate = format(today, "yyyy-MM");
+  const todayYmd = sofiaWallClockNow().ymd;
+  const sofiaAnchor = calendarYmdToUtcNoon(todayYmd);
+  const monthDate = format(sofiaAnchor, "yyyy-MM");
 
-  const weekendLink = buildFestivalsHref({ q, city, date: weekendDate, tag, when });
+  const weekendLink = buildFestivalsHref({ q, city, tag, when: "weekend" });
   const monthLink = buildFestivalsHref({ q, city, date: monthDate, tag, when });
   const visiblePages = Array.from({ length: totalPages }).slice(0, 5);
 
@@ -288,7 +337,7 @@ export default async function FestivalsPage({
                   <Link
                     href={weekendLink}
                     scroll={false}
-                    className={cn(pub.chip, pub.focusRing)}
+                    className={cn(pub.chip, pub.focusRing, when === "weekend" ? pub.chipActive : "")}
                   >
                     Този уикенд
                   </Link>
@@ -309,6 +358,7 @@ export default async function FestivalsPage({
                   {(
                     [
                       { key: "all" as const, label: "Всички" },
+                      { key: "now" as const, label: "В момента" },
                       { key: "ongoing" as const, label: "Текущи" },
                       { key: "upcoming" as const, label: "Предстоящи" },
                       { key: "past" as const, label: "Отминали" },

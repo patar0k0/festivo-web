@@ -32,13 +32,16 @@ export default function CurrentFestivalsSection({ currentFestivals }: Props) {
             LIVE
           </span>
         </div>
-        <Link href="/festivals" className={cn(pub.chip, pub.focusRing, "hover:bg-[#f7f6f3]")}>
+        <Link
+          href="/festivals?when=now"
+          className={cn(pub.chip, pub.focusRing, "hover:bg-[#f7f6f3]")}
+        >
           Виж всички
         </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:gap-6">
-        {currentFestivals.map((festival) => (
+        {currentFestivals.slice(0, 3).map((festival) => (
           <EventCard
             key={festival.slug}
             title={festival.title}

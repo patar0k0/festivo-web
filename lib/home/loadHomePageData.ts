@@ -115,7 +115,8 @@ async function fetchPublishedFestivalsTotalCount(): Promise<number> {
   const { count, error } = await supabase
     .from("festivals")
     .select("*", { count: "exact", head: true })
-    .eq("status", "published");
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+    .neq("status", "archived");
 
   if (error) {
     console.error("[loadHomePageData] fetchPublishedFestivalsTotalCount", error);
@@ -130,7 +131,8 @@ async function fetchHomePublishedCityOptionsWithCounts(): Promise<HomeCityOption
   const { data, error } = await supabase
     .from("festivals")
     .select("city, cities:cities!left(slug,name_bg,is_village)")
-    .eq("status", "published")
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+    .neq("status", "archived")
     .not("city", "is", null)
     .returns<Array<{ city: string | null; cities: CityJoinRow | CityJoinRow[] | null }>>();
 

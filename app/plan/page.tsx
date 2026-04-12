@@ -27,11 +27,11 @@ export default async function PlanPage() {
     return (
       <div className={cn(pub.page, "min-h-screen px-4 py-10")}>
         <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border-subtle bg-surface p-6 text-center shadow-card">
-          <h1 className="text-3xl font-black tracking-tight">Моят план</h1>
-          <p className="mt-3 text-sm text-black/65">Влез, за да управляваш избраните събития и напомняния.</p>
+          <h1 className="text-4xl font-black tracking-tight">Моят план</h1>
+          <p className="mt-3 text-sm text-black/75">Влез, за да управляваш избраните събития и напомняния.</p>
           <Link
             href="/login"
-            className="mt-4 inline-flex rounded-full bg-black px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-white"
+            className="mt-4 inline-flex rounded-full bg-black px-5 py-2.5 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-all duration-200 hover:bg-black/90"
           >
             Вход
           </Link>

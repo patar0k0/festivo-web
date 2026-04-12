@@ -1,11 +1,12 @@
 import { format, nextSaturday, nextSunday, startOfMonth, endOfMonth } from "date-fns";
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
-import { listHomeCitySelectOptions } from "@/lib/festivals";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories.server";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
 import { calendarYmdToUtcNoon, sofiaWallClockNow } from "@/lib/festival/temporal";
 import { FESTIVAL_SELECT_MIN, fixFestivalText } from "@/lib/queries";
+import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
+import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";
 
@@ -13,6 +14,8 @@ export type HomeCityOption = {
   name: string;
   slug: string | null;
   filterValue: string;
+  /** Брой фестивали с `status = published` за този филтър (`city`). */
+  publishedFestivalCount: number;
 };
 
 export type HomeQuickChipHrefs = {
@@ -28,6 +31,7 @@ export type HomePageViewProps = {
   currentFestivals: Festival[];
   weekendFestivals: Festival[];
   homeCityOptions: HomeCityOption[];
+  totalFestivalsCount: number;
   selectedCityName?: string | null;
   quickChipHrefs: HomeQuickChipHrefs;
 };
@@ -97,6 +101,84 @@ function sortCurrentFestivalsForHome(festivals: Festival[]): Festival[] {
   return [...festivals].sort((a, b) => effectiveEndYmdForCurrentRow(a).localeCompare(effectiveEndYmdForCurrentRow(b)));
 }
 
+type CityJoinRow = { slug: string | null; name_bg: string | null; is_village: boolean | null };
+
+function normalizeFestivalCityJoin(
+  raw: CityJoinRow | CityJoinRow[] | null | undefined,
+): CityJoinRow | null {
+  if (!raw) return null;
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
+}
+
+async function fetchPublishedFestivalsTotalCount(): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from("festivals")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "published");
+
+  if (error) {
+    console.error("[loadHomePageData] fetchPublishedFestivalsTotalCount", error);
+    throw new Error(`fetchPublishedFestivalsTotalCount: ${error.message}`);
+  }
+  return count ?? 0;
+}
+
+/** Градове с поне един published фестивал; сортиране по брой DESC. */
+async function fetchHomePublishedCityOptionsWithCounts(): Promise<HomeCityOption[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("festivals")
+    .select("city, cities:cities!left(slug,name_bg,is_village)")
+    .eq("status", "published")
+    .not("city", "is", null)
+    .returns<Array<{ city: string | null; cities: CityJoinRow | CityJoinRow[] | null }>>();
+
+  if (error) {
+    console.error("[loadHomePageData] fetchHomePublishedCityOptionsWithCounts", error);
+    throw new Error(`fetchHomePublishedCityOptionsWithCounts: ${error.message}`);
+  }
+
+  const map = new Map<string, { name: string; slug: string | null; publishedFestivalCount: number }>();
+
+  for (const row of data ?? []) {
+    const key = row.city?.trim();
+    if (!key) continue;
+
+    const joined = normalizeFestivalCityJoin(row.cities);
+    const slugFromJoin = joined?.slug ?? null;
+    const displayName = joined?.name_bg
+      ? formatSettlementDisplayName(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg)
+      : fixMojibakeBG(key);
+
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, { name: displayName, slug: slugFromJoin, publishedFestivalCount: 1 });
+    } else {
+      existing.publishedFestivalCount += 1;
+      if (!existing.slug && slugFromJoin) existing.slug = slugFromJoin;
+      if (joined?.name_bg) {
+        existing.name =
+          formatSettlementDisplayName(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg);
+      }
+    }
+  }
+
+  return Array.from(map.entries())
+    .map(([filterValue, v]) => ({
+      filterValue,
+      name: v.name,
+      slug: v.slug,
+      publishedFestivalCount: v.publishedFestivalCount,
+    }))
+    .filter((row) => row.publishedFestivalCount > 0)
+    .sort((a, b) => {
+      const byCount = b.publishedFestivalCount - a.publishedFestivalCount;
+      if (byCount !== 0) return byCount;
+      return a.name.localeCompare(b.name, "bg");
+    });
+}
+
 async function fetchCurrentFestivals(params: { today: string; citySlug?: string }): Promise<Festival[]> {
   const supabase = await createSupabaseServerClient();
   const { today, citySlug } = params;
@@ -135,13 +217,15 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
   const monthStart = format(startOfMonth(anchor), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(anchor), "yyyy-MM-dd");
 
-  const [nearestFestivalsRaw, currentFestivals, weekendFestivalsRaw, citiesResult, categorySlugs] = await Promise.all([
-    fetchHomeFestivals({ from: today, citySlug, limit: 6 }),
-    fetchCurrentFestivals({ today, citySlug }),
-    fetchHomeFestivals({ from: weekendStart, to: weekendEnd, citySlug, limit: 6 }),
-    listHomeCitySelectOptions().catch(() => []),
-    listPublicFestivalCategorySlugs().catch(() => [] as string[]),
-  ]);
+  const [nearestFestivalsRaw, currentFestivals, weekendFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs] =
+    await Promise.all([
+      fetchHomeFestivals({ from: today, citySlug, limit: 6 }),
+      fetchCurrentFestivals({ today, citySlug }),
+      fetchHomeFestivals({ from: weekendStart, to: weekendEnd, citySlug, limit: 6 }),
+      fetchPublishedFestivalsTotalCount(),
+      fetchHomePublishedCityOptionsWithCounts(),
+      listPublicFestivalCategorySlugs().catch(() => [] as string[]),
+    ]);
 
   const selectedCityName = citySlug
     ? (citiesResult.find((item) => item.slug === citySlug)?.name ?? null)
@@ -165,6 +249,7 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
     currentFestivals,
     weekendFestivals,
     homeCityOptions: citiesResult,
+    totalFestivalsCount,
     selectedCityName,
     quickChipHrefs,
   };

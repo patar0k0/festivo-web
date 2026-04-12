@@ -4,7 +4,6 @@ import { cn } from "@/components/ui/cn";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
 import { pub } from "@/lib/public-ui/styles";
-import { cityHref } from "@/lib/cities";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import type { HomePageViewProps } from "@/lib/home/loadHomePageData";
@@ -15,6 +14,23 @@ import HomeDiscoverySearchClient from "./HomeDiscoverySearchClient";
 import QuickChipsClient from "./QuickChipsClient";
 import HomeHeroFolkPattern from "./HomeHeroFolkPattern";
 import CurrentFestivalsSection from "./CurrentFestivalsSection";
+import CitiesSection from "./CitiesSection";
+
+function publishedFestivalsBulgariaLabel(count: number): string {
+  const n = count;
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) {
+    return `${n} фестивала в България`;
+  }
+  const mod10 = n % 10;
+  if (mod10 === 1) {
+    return `${n} фестивал в България`;
+  }
+  if (mod10 >= 2 && mod10 <= 4) {
+    return `${n} фестивала в България`;
+  }
+  return `${n} фестивала в България`;
+}
 
 function EventsSection({
   id,
@@ -79,10 +95,10 @@ export default function RealHomePage({
   currentFestivals,
   weekendFestivals,
   homeCityOptions,
+  totalFestivalsCount,
   selectedCityName,
   quickChipHrefs,
 }: HomePageViewProps) {
-  const footerCities = homeCityOptions.slice(0, 8);
   const chips = [
     { label: "Само безплатни", href: quickChipHrefs.free },
     { label: "Този уикенд", href: quickChipHrefs.weekend },
@@ -136,6 +152,9 @@ export default function RealHomePage({
                     Открий безплатни фестивали в България
                   </h1>
                   <p className={cn(pub.body, "mt-1.5")}>Бързо намери събития по град, дата и интерес.</p>
+                  <p className="mt-1.5 text-xs text-amber-900/50 md:text-sm">
+                    {publishedFestivalsBulgariaLabel(totalFestivalsCount)}
+                  </p>
                   <p className="mt-1.5 text-xs text-black/45 md:text-sm">
                     Събития от организатори и проверени публични източници
                   </p>
@@ -161,30 +180,7 @@ export default function RealHomePage({
             <EventsSection id="nearest-festivals" title="Предстоящи" festivals={nearestFestivals} />
             <EventsSection title="Този уикенд" festivals={weekendFestivals} />
 
-            <section id="home-cities" className={cn(pub.panelMuted, "p-5 md:p-6")}>
-              <h2 className={cn(pub.pageTitle, "text-2xl")}>Градове</h2>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {footerCities.length ? (
-                  footerCities.map((city) => (
-                    <Link
-                      key={city.filterValue}
-                      href={
-                        city.slug
-                          ? cityHref(city.slug)
-                          : `/festivals?city=${encodeURIComponent(city.filterValue)}`
-                      }
-                      className={cn(pub.chip, pub.focusRing, "hover:bg-[#f7f6f3]")}
-                    >
-                      {city.name}
-                    </Link>
-                  ))
-                ) : (
-                  <p className="text-sm text-black/60">
-                    Все още няма налични градове.
-                  </p>
-                )}
-              </div>
-            </section>
+            <CitiesSection cities={homeCityOptions} />
           </div>
         </Container>
       </Section>

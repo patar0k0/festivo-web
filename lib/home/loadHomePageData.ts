@@ -44,6 +44,7 @@ export type HomePageViewProps = {
   nearestFestivals: Festival[];
   currentFestivals: Festival[];
   weekendFestivals: Festival[];
+  monthFestivals: Festival[];
   homeCityOptions: HomeCityOption[];
   totalFestivalsCount: number;
   selectedCityName?: string | null;
@@ -229,11 +230,12 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
   const today = sofiaWallClockNow().ymd;
   const { weekendStart, weekendEnd, monthStart, monthEnd } = festivalDiscoveryCalendarBounds(today);
 
-  const [nearestFestivalsRaw, currentFestivals, weekendFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs] =
+  const [nearestFestivalsRaw, currentFestivals, weekendFestivalsRaw, monthFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs] =
     await Promise.all([
       fetchHomeFestivals({ from: today, citySlug, limit: 6 }),
       fetchCurrentFestivals({ today, citySlug }),
       fetchHomeFestivals({ from: weekendStart, to: weekendEnd, citySlug, limit: 6 }),
+      fetchHomeFestivals({ from: monthStart, to: monthEnd, citySlug, limit: 6 }),
       fetchPublishedFestivalsTotalCount(),
       fetchHomePublishedCityOptionsWithCounts(),
       listPublicFestivalCategorySlugs().catch(() => [] as string[]),
@@ -256,11 +258,13 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
     nearestFestivalsRaw.filter((f) => !currentIds.has(f.id)),
   );
   const weekendFestivals = sortFestivalsForListing(weekendFestivalsRaw);
+  const monthFestivals = sortFestivalsForListing(monthFestivalsRaw);
 
   return {
     nearestFestivals,
     currentFestivals,
     weekendFestivals,
+    monthFestivals,
     homeCityOptions: citiesResult,
     totalFestivalsCount,
     selectedCityName,

@@ -93,6 +93,7 @@ export default function RealHomePage({
   nearestFestivals,
   currentFestivals,
   weekendFestivals,
+  monthFestivals,
   homeCityOptions,
   totalFestivalsCount,
   selectedCityName,
@@ -183,6 +184,9 @@ export default function RealHomePage({
               seeAllHref="/festivals?when=upcoming"
             />
             <EventsSection title="Този уикенд" festivals={weekendFestivals} seeAllHref="/festivals?when=weekend" />
+            {monthFestivals.length > 0 ? (
+              <EventsSection title="Този месец" festivals={monthFestivals} seeAllHref={quickChipHrefs.month} />
+            ) : null}
 
             <CitiesSection cities={homeCityOptions} />
           </div>

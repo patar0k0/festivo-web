@@ -31,7 +31,7 @@ export default function SiteFooter() {
   ];
 
   const legalLinks = [
-    { href: "#", label: "Политика за поверителност" },
+    { href: "/privacy", label: "Политика за поверителност" },
     { href: "/cookies", label: "Политика за бисквитки" },
     { href: "#", label: "Общи условия" },
   ];

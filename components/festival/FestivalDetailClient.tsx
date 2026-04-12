@@ -395,7 +395,7 @@ export default function FestivalDetailClient({
                   });
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-black/0" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/38 via-black/14 to-transparent" />
             </>
           ) : heroImage ? (
             <div className="absolute inset-0 bg-gradient-to-br from-[#ece8df] via-[#f3efe7] to-[#e3ddd2]" />
@@ -406,11 +406,18 @@ export default function FestivalDetailClient({
               </div>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/18" />
+          {heroImage && !heroImageFailed ? (
+            <div
+              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/5 shadow-[inset_0_-32px_48px_-12px_rgba(0,0,0,0.18)]"
+              aria-hidden
+            />
+          ) : (
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/28 to-black/10" aria-hidden />
+          )}
           <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6 md:p-8">
-            <div className="max-w-3xl space-y-3 rounded-2xl bg-black/42 p-3.5 backdrop-blur-[2px] sm:p-4 md:max-w-4xl">
+            <div className="max-w-3xl space-y-3 rounded-2xl bg-black/34 p-3.5 backdrop-blur-[2px] ring-1 ring-inset ring-white/10 sm:p-4 md:max-w-4xl">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="max-w-[22ch] text-xl font-black leading-[1.1] tracking-tight sm:text-2xl sm:leading-[1.05]">
+                <h1 className="max-w-[22ch] text-xl font-semibold leading-[1.03] tracking-tight text-white sm:text-2xl sm:leading-[1.02]">
                   {festival.title}
                 </h1>
                 {urgencyHeroLabel ? (
@@ -433,7 +440,7 @@ export default function FestivalDetailClient({
                 {showPriceRange ? <span className="rounded-full bg-black/45 px-2.5 py-0.5">{priceRange}</span> : null}
                 <a
                   href={`#${FESTIVAL_PROGRAM_SECTION_ID}`}
-                  className="rounded-full bg-black/40 px-2.5 py-0.5 text-white/95 transition hover:bg-black/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                  className="rounded-full bg-black/40 px-2.5 py-0.5 text-white/95 transition-all duration-150 hover:bg-black/45 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                 >
                   Програма
                 </a>
@@ -444,9 +451,9 @@ export default function FestivalDetailClient({
 
         <div className="border-t border-black/[0.06] bg-white px-4 py-4 sm:px-6">
           {isPastFestival ? (
-            <div className="mb-4 rounded-xl border border-black/[0.06] bg-[#faf9f7] px-3.5 py-3 text-sm text-black/55">
-              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-black/45">Отминал фестивал</p>
-              <p className="mt-1.5 leading-relaxed">Това събитие вече е приключило.</p>
+            <div className="mb-4 rounded-xl border border-black/[0.06] bg-[#faf9f7] px-3.5 py-3 text-sm text-black/60 transition-all duration-200 hover:shadow-md hover:-translate-y-px">
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-black/60">Отминал фестивал</p>
+              <p className="mt-1.5 leading-relaxed text-black/80">Това събитие вече е приключило.</p>
             </div>
           ) : null}
           {adminEditHref ? (
@@ -483,7 +490,7 @@ export default function FestivalDetailClient({
                         : undefined
                     }
                   >
-                    <p className="max-w-[74ch] whitespace-pre-line text-[15px] leading-7 text-black/70">{descriptionText}</p>
+                    <p className="max-w-[74ch] whitespace-pre-line text-[15px] leading-relaxed text-black/80">{descriptionText}</p>
                     {!descriptionExpanded && descriptionNeedsToggle ? (
                       <div
                         className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-white via-white/95 to-transparent"
@@ -503,7 +510,7 @@ export default function FestivalDetailClient({
                   ) : null}
                 </div>
               ) : (
-                <p className="mt-4 text-sm text-black/60">Няма описание за този фестивал.</p>
+                <p className="mt-4 text-sm leading-relaxed text-black/80">Няма описание за този фестивал.</p>
               )}
               {(tags.length > 0 || (showFreeBadge && !priceInQuickFactsStrip) || (showPriceRange && !showFreeBadge && !priceInQuickFactsStrip)) ? (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -523,7 +530,7 @@ export default function FestivalDetailClient({
           <section
             id={FESTIVAL_PROGRAM_SECTION_ID}
             className={cn(
-              "scroll-mt-24 rounded-2xl border border-amber-200/30 ring-1 ring-amber-100/15",
+              "scroll-mt-24 rounded-2xl border border-amber-200/30 ring-1 ring-amber-100/15 transition-all duration-200 hover:-translate-y-px hover:shadow-md",
               hasProgramContent
                 ? "bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]"
                 : "bg-white/60 p-4 shadow-[0_1px_0_rgba(12,14,20,0.03),0_4px_14px_rgba(12,14,20,0.04)]",
@@ -531,15 +538,15 @@ export default function FestivalDetailClient({
           >
             <h2
               className={cn(
-                "font-semibold text-[#0c0e14]",
-                hasProgramContent ? "text-xl" : "text-lg text-black/80",
+                "font-medium text-black/90",
+                hasProgramContent ? "text-xl" : "text-lg text-black/90",
               )}
             >
               Програма
             </h2>
             {hasProgramContent ? (
               <>
-                <p className="mt-2 text-sm text-black/55">
+                <p className="mt-2 text-sm leading-relaxed text-black/60">
                   Отделните часове добавяш към личния си план с бутона под всеки ред. Това е различно от напомнянето за целия фестивал — то се настройва от панела встрани.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -549,7 +556,7 @@ export default function FestivalDetailClient({
                       type="button"
                       onClick={() => setActiveDayId(day.id)}
                       className={cn(
-                        "rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+                        "rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition-all duration-150",
                         pub.focusRing,
                         displayedDay?.id === day.id ? pub.toggleActive : pub.toggleInactive,
                       )}
@@ -568,12 +575,12 @@ export default function FestivalDetailClient({
                         <article key={item.id} className={pub.programItemCard}>
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="space-y-1">
-                              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
+                              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">
                                 {formatTimeRange(item.start_time, item.end_time) || "Час предстои"}
                                 {item.stage ? ` • ${item.stage}` : ""}
                               </p>
-                              <h3 className="text-base font-semibold text-[#0c0e14]">{item.title}</h3>
-                              {item.description ? <p className="text-sm text-black/60">{item.description}</p> : null}
+                              <h3 className="text-base font-medium text-black/90">{item.title}</h3>
+                              {item.description ? <p className="text-sm leading-relaxed text-black/80">{item.description}</p> : null}
                             </div>
                             <button
                               type="button"
@@ -581,7 +588,7 @@ export default function FestivalDetailClient({
                                 void toggleScheduleItem(itemId);
                               }}
                               className={cn(
-                                "shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+                                "shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition-all duration-150",
                                 pub.focusRing,
                                 selected ? pub.toggleActive : pub.toggleInactive,
                               )}
@@ -593,15 +600,15 @@ export default function FestivalDetailClient({
                       );
                     })
                   ) : (
-                    <p className="text-sm text-black/55">Няма публикувани точки за избрания ден.</p>
+                    <p className="text-sm leading-relaxed text-black/60">Няма публикувани точки за избрания ден.</p>
                   )}
                 </div>
               </>
             ) : (
-              <div className="mt-4 rounded-xl border border-dashed border-black/[0.12] bg-black/[0.02] px-4 py-6 text-center">
-                <p className="text-sm font-medium text-black/70">Няма публикувана програма за този фестивал.</p>
+              <div className="mt-4 rounded-xl border border-dashed border-black/10 bg-black/[0.02] px-4 py-6 text-center">
+                <p className="text-sm font-medium leading-relaxed text-black/80">Няма публикувана програма за този фестивал.</p>
                 {festival.website_url ? (
-                  <p className="mt-3 text-sm text-black/55">
+                  <p className="mt-3 text-sm leading-relaxed text-black/60">
                     <a
                       href={outboundClickHref({
                         targetUrl: festival.website_url,
@@ -615,7 +622,7 @@ export default function FestivalDetailClient({
                     >
                       Официален сайт
                     </a>
-                    <span className="text-black/45"> — може да има актуална програма.</span>
+                    <span className="text-black/60"> — може да има актуална програма.</span>
                   </p>
                 ) : null}
               </div>
@@ -637,9 +644,23 @@ export default function FestivalDetailClient({
             <section className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className={pub.sectionTitle}>Още фестивали в {cityName || "региона"}</h2>
-                <div className="flex flex-wrap gap-3 text-sm font-semibold text-[#0c0e14]">
-                  {citySlug ? <Link href={cityHref(citySlug)}>Страница на града</Link> : null}
-                  {calendarMonth ? <Link href={`/calendar/${calendarMonth}`}>Календар за месеца</Link> : null}
+                <div className="flex flex-wrap gap-3 text-sm font-medium text-black/90">
+                  {citySlug ? (
+                    <Link
+                      href={cityHref(citySlug)}
+                      className="transition-all duration-150 hover:text-black hover:opacity-90 active:scale-[0.98]"
+                    >
+                      Страница на града
+                    </Link>
+                  ) : null}
+                  {calendarMonth ? (
+                    <Link
+                      href={`/calendar/${calendarMonth}`}
+                      className="transition-all duration-150 hover:text-black hover:opacity-90 active:scale-[0.98]"
+                    >
+                      Календар за месеца
+                    </Link>
+                  ) : null}
                 </div>
               </div>
               <div className="grid gap-5 sm:grid-cols-2">
@@ -673,7 +694,7 @@ export default function FestivalDetailClient({
           <section id={REMINDER_BLOCK_ID} className={pub.railCard}>
             <div className="flex flex-col gap-1">
               <h2 className={pub.sectionTitleMd}>Напомняне</h2>
-              <p className="text-xs leading-relaxed text-black/55">
+              <p className="text-xs leading-relaxed text-black/60">
                 Настрой напомняне за началото на фестивала, после го добави в личния си план. Двете действия са отделни.
               </p>
             </div>
@@ -682,8 +703,8 @@ export default function FestivalDetailClient({
               <FestivalRailActionBar festivalId={String(festival.id)} mapHref={mapHref} />
             </div>
 
-            <div className="mt-4 border-t border-black/[0.08] pt-4">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Кога да напомним</p>
+            <div className="mt-4 border-t border-black/[0.06] pt-4">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-black/60">Кога да напомним</p>
               <div className="space-y-1.5">
                 {reminderOptions.map((option) => {
                   const active = reminder === option.value;
@@ -728,7 +749,7 @@ export default function FestivalDetailClient({
                       }}
                       disabled={!isAuthenticated || reminderPending}
                       className={cn(
-                        "w-full rounded-xl border px-3 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-55",
+                        "w-full rounded-xl border px-3 py-2 text-left transition-all duration-150 hover:border-black/15 disabled:cursor-not-allowed disabled:opacity-55 active:scale-[0.99]",
                         pub.focusRing,
                         active ? pub.toggleActive : pub.toggleInactive,
                       )}
@@ -744,7 +765,7 @@ export default function FestivalDetailClient({
                       </span>
                       <span
                         className={`mt-0.5 block text-xs ${
-                          active ? (reminderPending ? "text-white/90" : "text-white/80") : "text-black/50"
+                          active ? (reminderPending ? "text-white/90" : "text-white/80") : "text-black/60"
                         }`}
                       >
                         {reminderPending && active ? "Запазваме..." : option.helper}
@@ -766,14 +787,14 @@ export default function FestivalDetailClient({
                 </p>
               ) : null}
               {!isAuthenticated ? (
-                <p className="mt-2 text-xs text-black/55">
+                <p className="mt-2 text-xs leading-relaxed text-black/60">
                   Влез, за да ползваш план и да получаваш напомняния.{" "}
                   <Link href="/login" className="underline">
                     Вход
                   </Link>
                 </p>
               ) : (
-                <p className="mt-2 text-xs text-black/45">
+                <p className="mt-2 text-xs leading-relaxed text-black/60">
                   Промените важат за напомнянето за целия фестивал, не за отделните часове в програмата.
                 </p>
               )}
@@ -786,14 +807,14 @@ export default function FestivalDetailClient({
             ) : null}
             {festivalPlanError ? <p className="mt-1 text-xs font-semibold text-red-800">{festivalPlanError}</p> : null}
 
-            <div className="mt-4 border-t border-black/[0.08] pt-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Часове от програмата в плана</p>
+            <div className="mt-4 border-t border-black/[0.06] pt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">Часове от програмата в плана</p>
               {selectedItems.length ? (
                 <div className="mt-3 flex justify-end">
                   <button
                     type="button"
                     onClick={clearPlan}
-                    className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45 transition hover:text-black/70"
+                    className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60 transition-all duration-150 hover:text-black/75 active:scale-[0.98]"
                   >
                     Изчисти часовете
                   </button>
@@ -802,15 +823,18 @@ export default function FestivalDetailClient({
               <div className="mt-2 space-y-1.5">
                 {selectedItems.length ? (
                   selectedItems.map((item) => (
-                    <div key={item.id} className="rounded-xl border border-black/[0.08] bg-white/95 px-3 py-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/45">
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-black/[0.06] bg-white/95 px-3 py-2 transition-all duration-200 hover:-translate-y-px hover:shadow-md"
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/60">
                         {formatTimeRange(item.start_time, item.end_time) || "Час предстои"}
                       </p>
                       <p className="mt-1 text-sm font-semibold text-[#0c0e14]">{item.title}</p>
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-xl border border-dashed border-black/[0.14] bg-[#f5f3ec] px-4 py-4 text-sm text-black/50">
+                  <div className="rounded-xl border border-dashed border-black/10 bg-[#f5f3ec] px-4 py-4 text-sm leading-relaxed text-black/60">
                     Няма избрани часове. Добави ги от секцията „Програма“.
                   </div>
                 )}
@@ -824,22 +848,22 @@ export default function FestivalDetailClient({
               <dl className="mt-4 space-y-3 text-sm">
                 {formattedDateRange ? (
                   <div>
-                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Дата</dt>
-                    <dd className="mt-1 text-black/70">{formattedDateRange}</dd>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">Дата</dt>
+                    <dd className="mt-1 leading-relaxed text-black/80">{formattedDateRange}</dd>
                   </div>
                 ) : null}
                 {locationSummary ? (
                   <div>
-                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Локация</dt>
-                    <dd className="mt-1 text-black/70">{locationSummary}</dd>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">Локация</dt>
+                    <dd className="mt-1 leading-relaxed text-black/80">{locationSummary}</dd>
                   </div>
                 ) : null}
                 {showOrganizer ? (
                   <div>
-                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">
                       {displayOrganizers.length > 1 ? "Организатори" : "Организатор"}
                     </dt>
-                    <dd className="mt-1 text-black/70">
+                    <dd className="mt-1 leading-relaxed text-black/80">
                       <ul className="list-none space-y-1 pl-0">
                         {displayOrganizers.map((row, index) => (
                           <li key={`${row.slug || row.name}-${index}`}>
@@ -864,8 +888,8 @@ export default function FestivalDetailClient({
                 ) : null}
                 {hasActiveVip(festival.organizer) ? (
                   <div>
-                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Баджове</dt>
-                    <dd className="mt-1 text-black/70">VIP организатор</dd>
+                    <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">Баджове</dt>
+                    <dd className="mt-1 leading-relaxed text-black/80">VIP организатор</dd>
                   </div>
                 ) : null}
               </dl>
@@ -874,11 +898,11 @@ export default function FestivalDetailClient({
 
           <FestivalAppCta slug={festival.slug} />
 
-          <div className="space-y-4 border-t border-black/[0.08] pt-4">
+          <div className="space-y-4 border-t border-black/[0.06] pt-4">
           {showMapSection ? (
             <section className={pub.railCardPlain}>
               <h2 className={pub.sectionTitleMd}>Карта</h2>
-              <div className="mt-2 space-y-1 text-sm text-black/70">
+              <div className="mt-2 space-y-1 text-sm leading-relaxed text-black/80">
                 {citySlug && cityName ? (
                   <Link
                     href={cityHref(citySlug)}
@@ -889,9 +913,11 @@ export default function FestivalDetailClient({
                 ) : cityName ? (
                   <p>{cityName}</p>
                 ) : null}
-                {mapLocationBlurb ? <p className={cityName ? "text-black/60" : "font-medium text-black/75"}>{mapLocationBlurb}</p> : null}
+                {mapLocationBlurb ? (
+                  <p className={cityName ? "text-black/60" : "font-medium text-black/80"}>{mapLocationBlurb}</p>
+                ) : null}
               </div>
-              <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.1]">
+              <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.08]">
                 <iframe
                   title={`Карта: ${festival.title}`}
                   src={mapEmbedSrc ?? undefined}
@@ -910,7 +936,7 @@ export default function FestivalDetailClient({
                   })}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-3 inline-flex text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] underline decoration-black/25 underline-offset-2 hover:decoration-black/50"
+                  className="mt-3 inline-flex text-xs font-semibold uppercase tracking-[0.12em] text-black/90 underline decoration-black/25 underline-offset-2 transition-all duration-150 hover:decoration-black/40 hover:opacity-90 active:scale-[0.98]"
                 >
                   Отвори в Google Maps
                 </a>
@@ -948,7 +974,7 @@ export default function FestivalDetailClient({
                     target="_blank"
                     rel="noreferrer"
                     className={cn(
-                      "w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03]",
+                      "w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-black/90 transition-all duration-150 hover:border-black/20 hover:bg-black/[0.04] active:scale-[0.98]",
                       pub.focusRing,
                     )}
                   >
@@ -966,11 +992,11 @@ export default function FestivalDetailClient({
                     target="_blank"
                     rel="noreferrer"
                     className={cn(
-                      "w-full rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition",
+                      "w-full rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition-all duration-150 active:scale-[0.98]",
                       pub.focusRing,
                       showFreeBadge
-                        ? "border-black/[0.08] bg-[#f8f7f3] text-black/55 hover:bg-[#f0ede6]"
-                        : "border-black/[0.1] bg-white text-[#0c0e14] hover:border-black/20 hover:bg-black/[0.03]",
+                        ? "border-black/[0.08] bg-[#f8f7f3] text-black/60 hover:bg-[#f0ede6] hover:opacity-95"
+                        : "border-black/[0.08] bg-white text-black/90 hover:border-black/20 hover:bg-black/[0.04]",
                     )}
                   >
                     Билети

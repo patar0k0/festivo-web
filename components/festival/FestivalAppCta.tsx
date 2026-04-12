@@ -26,10 +26,10 @@ export default function FestivalAppCta({ slug }: Props) {
 
   return (
     <section
-      className="rounded-2xl border border-black/[0.08] bg-gradient-to-br from-[#faf9f6] to-[#f3f1eb] p-5 shadow-[0_1px_0_rgba(12,14,20,0.04),0_6px_14px_rgba(12,14,20,0.05)]"
+      className="rounded-2xl border border-black/[0.08] bg-gradient-to-br from-[#faf9f6] to-[#f3f1eb] p-5 shadow-[0_1px_0_rgba(12,14,20,0.04),0_6px_14px_rgba(12,14,20,0.05)] transition-all duration-200 hover:-translate-y-px hover:shadow-md"
       aria-labelledby="festival-app-cta-heading"
     >
-      <h2 id="festival-app-cta-heading" className="text-base font-semibold text-[#0c0e14]">
+      <h2 id="festival-app-cta-heading" className="text-base font-medium text-black/90">
         📲 По-удобно в приложението
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-black/60">
@@ -38,7 +38,7 @@ export default function FestivalAppCta({ slug }: Props) {
       <button
         type="button"
         onClick={openApp}
-        className="mt-4 w-full rounded-xl border border-black/[0.14] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] shadow-[0_1px_0_rgba(12,14,20,0.04)] transition hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
+        className="mt-4 w-full rounded-xl border border-black/[0.1] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.12em] text-black/90 shadow-sm transition-all duration-150 hover:bg-black/[0.04] hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/30"
       >
         Отвори в приложението
       </button>

@@ -22,8 +22,8 @@ export default function FestivalQuickFactsStrip({ segments }: Props) {
                 ·
               </span>
             ) : null}
-            <span className="shrink-0 text-black/42">{seg.label}</span>
-            <span className="min-w-0 font-semibold text-[#0c0e14]">{seg.value}</span>
+            <span className="shrink-0 text-black/60">{seg.label}</span>
+            <span className="min-w-0 font-semibold text-black/90">{seg.value}</span>
           </span>
         ))}
       </div>

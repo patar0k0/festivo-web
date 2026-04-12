@@ -21,6 +21,49 @@ function planFestivalSortKey(f: FestivalDateFields): string {
   return s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "\uffff";
 }
 
+function planFestivalEndSortKey(f: FestivalDateFields): string {
+  const bounds = festivalEffectiveCalendarBounds(f);
+  if (bounds) return bounds.endYmd;
+  const e = f.end_date?.trim();
+  return e && /^\d{4}-\d{2}-\d{2}$/.test(e) ? e : "0000-00-00";
+}
+
+function mapPlanFestivalRow(row: {
+  id: unknown;
+  slug: string;
+  title: string;
+  city: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  occurrence_dates: unknown;
+  start_time: string | null;
+  end_time: string | null;
+  hero_image: string | null;
+  image_url: string | null;
+  cities: { name_bg?: string | null; is_village?: boolean | null } | null | undefined | Array<{
+    name_bg?: string | null;
+    is_village?: boolean | null;
+  }>;
+}) {
+  const rawJoin = row.cities as { name_bg?: string | null; is_village?: boolean | null } | null | undefined;
+  const joined = Array.isArray(rawJoin) ? rawJoin[0] : rawJoin;
+  return {
+    id: String(row.id),
+    slug: row.slug,
+    title: row.title,
+    city:
+      formatSettlementDisplayName(joined?.name_bg ?? row.city, joined?.is_village ?? undefined) ??
+      (row.city ? fixMojibakeBG(row.city) : null),
+    start_date: row.start_date,
+    end_date: row.end_date,
+    occurrence_dates: row.occurrence_dates ?? null,
+    start_time: row.start_time ?? null,
+    end_time: row.end_time ?? null,
+    hero_image: row.hero_image ?? null,
+    image_url: row.image_url ?? null,
+  };
+}
+
 export default async function PlanPage() {
   noStore();
   const user = await getOptionalUser();
@@ -52,9 +95,13 @@ export default async function PlanPage() {
     city: string | null;
     start_date: string | null;
     end_date: string | null;
+    occurrence_dates: unknown;
+    start_time: string | null;
+    end_time: string | null;
     hero_image: string | null;
     image_url: string | null;
   }> = [];
+  let pastFestivals: typeof festivals = [];
 
   if (festivalIds.length) {
     const { data: festivalRows } = await supabase
@@ -64,29 +111,19 @@ export default async function PlanPage() {
       )
       .in("id", festivalIds);
 
-    const dated = (festivalRows ?? []).filter(
-      (row) => getFestivalTemporalState(row as FestivalDateFields) !== "past"
-    );
-    dated.sort((a, b) =>
+    const rows = festivalRows ?? [];
+    const upcomingRows = rows.filter((row) => getFestivalTemporalState(row as FestivalDateFields) !== "past");
+    const pastRows = rows.filter((row) => getFestivalTemporalState(row as FestivalDateFields) === "past");
+
+    upcomingRows.sort((a, b) =>
       planFestivalSortKey(a as FestivalDateFields).localeCompare(planFestivalSortKey(b as FestivalDateFields))
     );
+    pastRows.sort((a, b) =>
+      planFestivalEndSortKey(b as FestivalDateFields).localeCompare(planFestivalEndSortKey(a as FestivalDateFields))
+    );
 
-    festivals = dated.map((row) => {
-      const rawJoin = row.cities as { name_bg?: string | null; is_village?: boolean | null } | null | undefined;
-      const joined = Array.isArray(rawJoin) ? rawJoin[0] : rawJoin;
-      return {
-        id: String(row.id),
-        slug: row.slug,
-        title: row.title,
-        city:
-          formatSettlementDisplayName(joined?.name_bg ?? row.city, joined?.is_village ?? undefined) ??
-          (row.city ? fixMojibakeBG(row.city) : null),
-        start_date: row.start_date,
-        end_date: row.end_date,
-        hero_image: row.hero_image ?? null,
-        image_url: row.image_url ?? null,
-      };
-    });
+    festivals = upcomingRows.map(mapPlanFestivalRow);
+    pastFestivals = pastRows.map(mapPlanFestivalRow);
   }
 
   const activeReminderCount = Object.values(planState.reminders).filter((reminder) => reminder !== "none").length;
@@ -99,6 +136,7 @@ export default async function PlanPage() {
         <PlanPageClient
           entries={entries}
           festivals={festivals}
+          pastFestivals={pastFestivals}
           summary={{
             savedFestivalCount: festivalIds.length,
             activeReminderCount,

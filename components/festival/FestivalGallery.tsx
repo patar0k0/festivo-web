@@ -54,15 +54,15 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
 
   return (
     <section
-      className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)]"
+      className="rounded-2xl border border-black/[0.08] bg-white/80 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_8px_22px_rgba(12,14,20,0.07)] transition-all duration-200 hover:-translate-y-px hover:shadow-md"
       aria-labelledby={headingId}
     >
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 id={headingId} className="text-xl font-semibold text-[#0c0e14]">
+          <h2 id={headingId} className="text-xl font-medium text-black/90">
             Галерия
           </h2>
-          <p className="mt-1 text-sm text-black/55">
+          <p className="mt-1 text-sm leading-relaxed text-black/60">
             {items.length} {items.length === 1 ? "снимка" : "снимки"} · натисни за цял екран
           </p>
         </div>
@@ -74,7 +74,7 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
             key={item.id}
             type="button"
             onClick={() => setOpenIndex(index)}
-            className="group relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-amber-200/35 bg-black/[0.04] text-left shadow-[0_1px_0_rgba(12,14,20,0.04)] ring-1 ring-amber-100/15 transition hover:border-amber-300/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/35 focus-visible:ring-offset-2"
+            className="group relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-amber-200/35 bg-black/[0.04] text-left shadow-[0_1px_0_rgba(12,14,20,0.04)] ring-1 ring-amber-100/15 transition-all duration-150 hover:border-amber-300/50 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/35 focus-visible:ring-offset-2"
           >
             <FallbackImage
               src={item.url}
@@ -117,7 +117,7 @@ export default function FestivalGallery({ items, festivalTitle }: Props) {
             <button
               type="button"
               onClick={close}
-              className="shrink-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+              className="shrink-0 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white transition-all duration-150 hover:bg-white/20 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
             >
               Затвори
             </button>

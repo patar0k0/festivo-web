@@ -4,11 +4,11 @@ import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
 
 const sectionTitleClass =
-  "text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14]";
+  "text-xs font-medium uppercase tracking-[0.14em] text-black/60";
 
 const linkClass = cn(
-  "block cursor-pointer rounded-lg py-1.5 text-sm font-medium text-[#0c0e14]/78 transition-colors",
-  "hover:text-[#0c0e14] hover:underline hover:decoration-black/35 hover:underline-offset-[3px]",
+  "block cursor-pointer rounded-lg py-1.5 text-sm font-medium text-black/70 transition-all duration-150",
+  "hover:text-black/85 hover:underline hover:decoration-black/25 hover:underline-offset-[3px] active:scale-[0.99]",
   pub.focusRing,
 );
 
@@ -52,7 +52,7 @@ export default function SiteFooter() {
       )}
     >
       <Container className="py-12 md:py-14">
-        <div className="grid gap-12 lg:grid-cols-12 lg:gap-14">
+        <div className="grid gap-14 lg:grid-cols-12 lg:gap-16">
           <div className="lg:col-span-5">
             <Link
               href="/"
@@ -68,10 +68,10 @@ export default function SiteFooter() {
               />
             </Link>
             <div className="mt-5 space-y-3.5">
-              <p className="text-[15px] font-medium leading-[1.55] text-[#0c0e14] md:text-base md:leading-[1.55]">
+              <p className="text-[15px] font-medium leading-relaxed text-black/85 md:text-base">
                 Открий фестивали в България по град, дата и интерес.
               </p>
-              <p className={cn(pub.bodySm, "max-w-[40ch] leading-relaxed")}>
+              <p className={cn(pub.bodySm, "max-w-[40ch] leading-relaxed text-black/60")}>
                 Проверявай детайлите при организатора.
               </p>
               <div className="flex flex-wrap gap-2 pt-1" aria-label="Социални мрежи">
@@ -93,7 +93,7 @@ export default function SiteFooter() {
             </div>
           </div>
 
-          <div className="grid gap-10 sm:grid-cols-2 lg:col-span-7 lg:grid-cols-4 lg:gap-x-10">
+          <div className="grid gap-12 sm:grid-cols-2 lg:col-span-7 lg:grid-cols-4 lg:gap-x-14">
             <div>
               <p className={sectionTitleClass}>Открий</p>
               <nav aria-label="Открий" className="mt-4 space-y-0.5">
@@ -141,14 +141,14 @@ export default function SiteFooter() {
         </div>
 
         <div className="mt-12 flex flex-col gap-3 border-t border-black/[0.06] pt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <p className="text-[11px] leading-relaxed text-black/38">
+          <p className="text-[11px] leading-relaxed text-black/50">
             © {year} Festivo. Всички права запазени.
           </p>
           <Link
             href={contactHref}
             className={cn(
-              "text-[11px] font-medium leading-relaxed text-[#0c0e14]/55 no-underline transition-colors",
-              "hover:text-[#0c0e14] hover:underline hover:decoration-black/35 hover:underline-offset-[3px]",
+              "text-[11px] font-medium leading-relaxed text-black/55 no-underline transition-all duration-150",
+              "hover:text-black/75 hover:underline hover:decoration-black/25 hover:underline-offset-[3px] active:scale-[0.99]",
               pub.focusRing,
               "rounded-sm",
             )}

@@ -39,10 +39,10 @@ export default function FestivalNearbyBookingCard({ place, startDate, endDate, f
 
   return (
     <section
-      className="rounded-2xl border border-black/[0.07] bg-white/90 p-5 shadow-[0_1px_0_rgba(12,14,20,0.04)]"
+      className="rounded-2xl border border-black/[0.08] bg-white/90 p-5 shadow-[0_1px_0_rgba(12,14,20,0.04)] transition-all duration-200 hover:-translate-y-px hover:shadow-md"
       aria-labelledby="festival-nearby-booking-heading"
     >
-      <h2 id="festival-nearby-booking-heading" className="text-lg font-semibold text-[#0c0e14]">
+      <h2 id="festival-nearby-booking-heading" className="text-lg font-medium text-black/90">
         🏨 Настаняване наблизо
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-black/55">Виж наличности за тези дати около фестивала.</p>
@@ -50,11 +50,11 @@ export default function FestivalNearbyBookingCard({ place, startDate, endDate, f
         href={trackedHref}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-4 flex w-full items-center justify-center rounded-xl border border-black/[0.1] bg-white px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] transition hover:border-black/20 hover:bg-black/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
+        className="mt-4 flex w-full items-center justify-center rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-[0.14em] text-black/90 transition-all duration-150 hover:border-black/20 hover:bg-black/[0.04] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25"
       >
         Виж настаняване
       </a>
-      <p className="mt-2 text-[11px] leading-relaxed text-black/40">Отваря се в Booking.com</p>
+      <p className="mt-2 text-[11px] leading-relaxed text-black/60">Отваря се в Booking.com</p>
     </section>
   );
 }

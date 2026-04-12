@@ -8,15 +8,17 @@ import { getPlanEntriesByUser, getPlanStateByUser } from "@/lib/plan/server";
 import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { FestivalDateFields } from "@/lib/festival/listingDates";
+import { festivalEffectiveCalendarBounds, getFestivalTemporalState } from "@/lib/festival/temporal";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function parseDateSafe(value: string | null) {
-  if (!value) return null;
-  const parsed = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
+function planFestivalSortKey(f: FestivalDateFields): string {
+  const bounds = festivalEffectiveCalendarBounds(f);
+  if (bounds) return bounds.startYmd;
+  const s = f.start_date?.trim();
+  return s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "\uffff";
 }
 
 export default async function PlanPage() {
@@ -25,8 +27,8 @@ export default async function PlanPage() {
 
   if (!user) {
     return (
-      <div className={cn(pub.page, "min-h-screen px-4 py-10")}>
-        <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border-subtle bg-surface p-6 text-center shadow-card">
+      <div className={cn(pub.page, "min-h-screen bg-[#f6f4ef] px-4 py-10")}>
+        <div className="mx-auto w-full max-w-3xl rounded-2xl border border-black/5 bg-white p-6 text-center shadow-sm">
           <h1 className="text-4xl font-black tracking-tight">Моят план</h1>
           <p className="mt-3 text-sm text-black/75">Влез, за да управляваш избраните събития и напомняния.</p>
           <Link
@@ -57,10 +59,19 @@ export default async function PlanPage() {
   if (festivalIds.length) {
     const { data: festivalRows } = await supabase
       .from("festivals")
-      .select("id,slug,title,city,start_date,end_date,hero_image,image_url,cities:cities!left(name_bg,is_village)")
+      .select(
+        "id,slug,title,city,start_date,end_date,occurrence_dates,start_time,end_time,hero_image,image_url,cities:cities!left(name_bg,is_village)"
+      )
       .in("id", festivalIds);
 
-    festivals = (festivalRows ?? []).map((row) => {
+    const dated = (festivalRows ?? []).filter(
+      (row) => getFestivalTemporalState(row as FestivalDateFields) !== "past"
+    );
+    dated.sort((a, b) =>
+      planFestivalSortKey(a as FestivalDateFields).localeCompare(planFestivalSortKey(b as FestivalDateFields))
+    );
+
+    festivals = dated.map((row) => {
       const rawJoin = row.cities as { name_bg?: string | null; is_village?: boolean | null } | null | undefined;
       const joined = Array.isArray(rawJoin) ? rawJoin[0] : rawJoin;
       return {
@@ -79,17 +90,11 @@ export default async function PlanPage() {
   }
 
   const activeReminderCount = Object.values(planState.reminders).filter((reminder) => reminder !== "none").length;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
-  const nextUpcomingFestival =
-    festivals
-      .map((festival) => ({ ...festival, parsedStartDate: parseDateSafe(festival.start_date) }))
-      .filter((festival) => festival.parsedStartDate && festival.parsedStartDate >= today)
-      .sort((a, b) => a.parsedStartDate!.getTime() - b.parsedStartDate!.getTime())[0] ?? null;
+  const nextUpcomingFestival = festivals[0] ?? null;
 
   return (
-    <div className={cn(pub.page, "min-h-screen px-4 py-8 md:px-6 md:py-10")}>
+    <div className={cn(pub.page, "min-h-screen bg-[#f6f4ef] px-4 py-8 md:px-6 md:py-10")}>
       <div className="mx-auto w-full max-w-[1100px]">
         <PlanPageClient
           entries={entries}

@@ -38,9 +38,9 @@ export default function CookiesPolicyPage() {
   return (
     <div className={cn(pub.pageOverflow, pub.sectionLoose)}>
       <Container>
-        <article className="mx-auto max-w-3xl">
-          <p className={pub.eyebrowMuted}>Festivo.bg</p>
-          <h1 className={cn(pub.pageTitle, "mt-2")}>Политика за бисквитки</h1>
+        <article className="mx-auto max-w-2xl">
+          <p className={cn(pub.eyebrowMuted, "leading-relaxed")}>Festivo.bg</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Политика за бисквитки</h1>
           <p className={cn(pub.body, "mt-5 leading-relaxed")}>
             Тази страница обяснява какво са бисквитките, защо ги използваме и как можеш да ги управляваш. Тя се отнася
             за уебсайта{" "}
@@ -51,7 +51,7 @@ export default function CookiesPolicyPage() {
           </p>
 
           <section className="mt-10">
-            <h2 className={pub.sectionTitle}>Какво са бисквитките?</h2>
+            <h2 className="mt-8 mb-2 text-lg font-semibold">Какво са бисквитките?</h2>
             <p className={cn(pub.body, "mt-3 leading-relaxed")}>
               Бисквитките са малки текстови файлове, които браузърът ти запазва на устройството, когато посещаваш сайт.
               Те помагат сайтът да помни сесията ти, настройките ти и (когато е приложимо) да разбере как се ползва
@@ -61,7 +61,7 @@ export default function CookiesPolicyPage() {
           </section>
 
           <section className="mt-10">
-            <h2 className={pub.sectionTitle}>Какви бисквитки използва festivo.bg?</h2>
+            <h2 className="mt-8 mb-2 text-lg font-semibold">Какви бисквитки използва festivo.bg?</h2>
 
             <h3 className={cn(pub.sectionTitleMd, "mt-6")}>Задължителни</h3>
             <p className={cn(pub.body, "mt-2 leading-relaxed")}>
@@ -103,7 +103,7 @@ export default function CookiesPolicyPage() {
           </section>
 
           <section className="mt-10">
-            <h2 className={pub.sectionTitle}>Как да управляваш или изключиш бисквитките?</h2>
+            <h2 className="mt-8 mb-2 text-lg font-semibold">Как да управляваш или изключиш бисквитките?</h2>
             <p className={cn(pub.body, "mt-3 leading-relaxed")}>
               Можеш по всяко време да изчистиш или блокираш бисквитки от настройките на браузъра си. Имай предвид, че
               изключването на задължителните бисквитки може да влоши входа, сигурността или някои функции на сайта.
@@ -149,7 +149,7 @@ export default function CookiesPolicyPage() {
           </section>
 
           <section className="mt-10">
-            <h2 className={pub.sectionTitle}>Контакт за въпроси</h2>
+            <h2 className="mt-8 mb-2 text-lg font-semibold">Контакт за въпроси</h2>
             <p className={cn(pub.body, "mt-3 leading-relaxed")}>
               Ако имаш въпроси относно бисквитките или тази политика, пиши ни през контактната форма на{" "}
               <Link href="/" className={externalLinkClass}>
@@ -159,7 +159,7 @@ export default function CookiesPolicyPage() {
             </p>
           </section>
 
-          <p className={cn(pub.caption, "mt-12 border-t border-black/[0.08] pt-6")}>
+          <p className={cn(pub.caption, "mt-12 border-t border-black/[0.08] pt-6 leading-relaxed")}>
             Последна актуализация: април 2026
           </p>
         </article>

@@ -22,6 +22,9 @@ export const revalidate = 3600;
 
 const PAGE_SIZE = 12;
 
+/** Hero + listing share width with `Container` (max-w-6xl). */
+const festivalsPageMainStackClass = "mx-auto w-full max-w-6xl min-w-0 space-y-5";
+
 type PageSearchParams = Record<string, string | string[] | undefined>;
 
 function getParam(searchParams: PageSearchParams, key: string): string | undefined {
@@ -90,7 +93,7 @@ export default async function FestivalsPage({ searchParams }: { searchParams: Pa
       <Section className={pub.sectionLoose}>
         <Container>
           <div className={pub.stackLg}>
-            <div className="max-w-3xl space-y-5">
+            <div className={festivalsPageMainStackClass}>
               <div>
                 <p className={pub.eyebrowMuted}>Festivo Explorer</p>
                 <h1 className={cn(pub.pageTitle, "mt-2")}>Фестивали в България</h1>
@@ -108,7 +111,7 @@ export default async function FestivalsPage({ searchParams }: { searchParams: Pa
               </Suspense>
             </div>
 
-            <div className="min-w-0 space-y-5">
+            <div className={festivalsPageMainStackClass}>
               <div
                 className={cn(
                   pub.panelMuted,

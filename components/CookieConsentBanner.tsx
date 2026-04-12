@@ -36,8 +36,11 @@ function readStoredConsent(): FestivoCookieConsent | null {
   }
 }
 
+export const FESTIVO_COOKIE_CONSENT_CHANGED_EVENT = "festivo_cookie_consent_changed";
+
 function persistConsent(consent: FestivoCookieConsent) {
   window.localStorage.setItem(FESTIVO_COOKIE_CONSENT_KEY, JSON.stringify(consent));
+  window.dispatchEvent(new Event(FESTIVO_COOKIE_CONSENT_CHANGED_EVENT));
 }
 
 function rowToConsent(row: CookieConsentRow): FestivoCookieConsent {
@@ -226,6 +229,14 @@ export default function CookieConsentBanner() {
     });
   }, [closeWith]);
 
+  const onEssentialOnly = useCallback(() => {
+    closeWith({
+      analytics: false,
+      marketing: false,
+      timestamp: new Date().toISOString(),
+    });
+  }, [closeWith]);
+
   if (!ready || !open) return null;
 
   return (
@@ -269,7 +280,14 @@ export default function CookieConsentBanner() {
           </div>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
+              <button
+                type="button"
+                onClick={onEssentialOnly}
+                className="inline-flex min-h-[2.5rem] items-center justify-center rounded-xl border border-amber-300/90 bg-transparent px-4 text-sm font-semibold text-[#7c2d12] transition hover:bg-amber-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/30"
+              >
+                Само задължителни
+              </button>
               <button
                 type="button"
                 onClick={onAcceptSelected}

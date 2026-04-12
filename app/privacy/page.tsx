@@ -79,8 +79,7 @@ export default function PrivacyPolicyPage() {
               <li>Supabase – база данни и authentication</li>
               <li>Vercel – хостинг и инфраструктура</li>
               <li>Resend – имейл нотификации</li>
-              <li>Google Analytics – usage tracking (ако е активен)</li>
-              <li>Meta Pixel – маркетинг (ако е активен)</li>
+              <li>Vercel Analytics – анонимизирана статистика</li>
             </ul>
           </section>
 

@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Политика за бисквитки · Festivo",
     description:
-      "Как festivo.bg използва бисквитки за сесия, аналитика (GA4) и рекламно измерване (Meta Pixel), и как да управляваш предпочитанията си.",
+      "Как festivo.bg използва бисквитки за сесия и предпочитания, опционална аналитика чрез Vercel Analytics, и как да управляваш предпочитанията си.",
     url: canonical,
     siteName: "Festivo",
     locale: "bg_BG",
@@ -85,19 +85,8 @@ export default function CookiesPolicyPage() {
             </p>
             <ul className={listClass}>
               <li>
-                <span className="font-semibold text-[#0c0e14]/88">Google Analytics (GA4)</span> — анонимизирани/обобщени
-                данни за трафик и взаимодействие със страниците.
-              </li>
-            </ul>
-
-            <h3 className={cn(pub.sectionTitleMd, "mt-8")}>Маркетингови</h3>
-            <p className={cn(pub.body, "mt-2 leading-relaxed")}>
-              Използват се за измерване на ефективността на рекламите и за подобряване на кампаниите:
-            </p>
-            <ul className={listClass}>
-              <li>
-                <span className="font-semibold text-[#0c0e14]/88">Meta Pixel</span> — за измерване на реклами и
-                събития, свързани с взаимодействие със сайта, в екосистемата на Meta.
+                <span className="font-semibold text-[#0c0e14]/88">Vercel Analytics</span> — анонимизирана статистика
+                за посещения (без лични данни).
               </li>
             </ul>
           </section>

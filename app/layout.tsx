@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Analytics } from "@vercel/analytics/react";
 import { Cormorant_Garamond, Fraunces, Manrope } from "next/font/google";
+import ConsentGatedAnalytics from "@/components/ConsentGatedAnalytics";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import LayoutShell from "@/components/LayoutShell";
 import ClientProviders from "@/components/providers/ClientProviders";
@@ -51,7 +51,7 @@ export default function RootLayout({
         <ClientProviders>
           <LayoutShell>{children}</LayoutShell>
         </ClientProviders>
-        <Analytics />
+        <ConsentGatedAnalytics />
         <CookieConsentBanner />
       </body>
     </html>

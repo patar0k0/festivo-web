@@ -266,50 +266,48 @@ export default function CookieConsentBanner() {
             <ConsentSwitchRow
               id="analytics"
               label="Аналитични"
-              description="Google Analytics — анонимна статистика за посещения."
+              description="Vercel Analytics — анонимизирана статистика за посещения."
               checked={analytics}
               onChange={setAnalytics}
             />
             <ConsentSwitchRow
               id="marketing"
               label="Маркетингови"
-              description="Meta Pixel — персонализирани реклами и измерване."
+              description="Персонализирани реклами и измерване (не е активно в момента)."
               checked={marketing}
               onChange={setMarketing}
             />
           </div>
 
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
-              <button
-                type="button"
-                onClick={onEssentialOnly}
-                className="inline-flex min-h-[2.5rem] items-center justify-center rounded-xl border border-amber-300/90 bg-transparent px-4 text-sm font-semibold text-[#7c2d12] transition hover:bg-amber-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/30"
-              >
-                Само задължителни
-              </button>
-              <button
-                type="button"
-                onClick={onAcceptSelected}
-                className="inline-flex min-h-[2.5rem] items-center justify-center rounded-xl border border-amber-200/90 bg-white px-4 text-sm font-semibold text-[#7c2d12] shadow-sm transition hover:bg-amber-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/30"
-              >
-                Приеми избраните
-              </button>
-              <button
-                type="button"
-                onClick={onAcceptAll}
-                className="inline-flex min-h-[2.5rem] items-center justify-center rounded-xl bg-[#7c2d12] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6a2810] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf8f3]"
-              >
-                Приеми всички
-              </button>
-            </div>
-            <Link
-              href="/cookies"
-              className="text-center text-sm font-semibold text-[#7c2d12] underline-offset-2 hover:underline sm:text-left"
+          <div className="flex flex-col gap-2 mt-4">
+            <button
+              type="button"
+              onClick={onAcceptAll}
+              className="inline-flex min-h-[2.5rem] items-center justify-center rounded-xl bg-[#7c2d12] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6a2810] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf8f3]"
             >
-              Научи повече
-            </Link>
+              Приеми всички
+            </button>
+            <button
+              type="button"
+              onClick={onAcceptSelected}
+              className="inline-flex min-h-[2.5rem] items-center justify-center rounded-xl border border-amber-200/90 bg-white px-4 text-sm font-semibold text-[#7c2d12] shadow-sm transition hover:bg-amber-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/30"
+            >
+              Приеми избраните
+            </button>
+            <button
+              type="button"
+              onClick={onEssentialOnly}
+              className="inline-flex min-h-[2.5rem] items-center justify-center rounded-xl px-4 text-sm font-semibold text-amber-950/55 transition hover:bg-amber-100/35 hover:text-amber-950/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/25"
+            >
+              Само задължителни
+            </button>
           </div>
+          <Link
+            href="/cookies"
+            className="mt-2 block text-center text-sm font-semibold text-[#7c2d12] underline-offset-2 hover:underline sm:text-left"
+          >
+            Научи повече
+          </Link>
         </div>
       </div>
     </div>

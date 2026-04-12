@@ -29,9 +29,10 @@ export default function ContactPage() {
         <p className={cn(pub.eyebrowMuted, "leading-relaxed")}>Festivo.bg</p>
         <h1 className={cn(pub.displayH1, "mt-2 text-2xl md:text-3xl")}>Контакт</h1>
         <p className={cn(pub.body, "mt-4 leading-relaxed")}>
-          Попълни формата по-долу и ще отговорим, когато е възможно. За спешни въпроси към каталога виж и{" "}
+          Тази форма е за всеки: въпроси за сайта, обратна връзка или сигнал за проблем. Ще отговорим, когато е
+          възможно. Ако си организатор и вече ползваш каталога, инструментите за листинг и статус на подавания са в{" "}
           <Link href="/organizer" className={pub.linkInline}>
-            зоната за организатори
+            портала за организатори
           </Link>
           .
         </p>

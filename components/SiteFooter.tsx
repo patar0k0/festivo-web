@@ -33,7 +33,7 @@ export default function SiteFooter() {
   const legalLinks = [
     { href: "/privacy", label: "Политика за поверителност" },
     { href: "/cookies", label: "Политика за бисквитки" },
-    { href: "#", label: "Общи условия" },
+    { href: "/terms", label: "Общи условия" },
   ];
 
   const socialLinks = [

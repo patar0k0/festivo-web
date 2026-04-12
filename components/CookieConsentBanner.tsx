@@ -63,7 +63,7 @@ function ConsentSwitchRow({ id, label, description, checked, onChange, locked }:
         disabled={disabled}
         onClick={() => onChange?.(!checked)}
         className={cn(
-          "relative h-7 w-12 shrink-0 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf8f3]",
+          "relative box-border h-6 w-11 shrink-0 overflow-hidden rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#faf8f3]",
           checked
             ? "border-[#7c2d12]/40 bg-[#7c2d12]"
             : "border-amber-200/80 bg-amber-100/60",
@@ -72,8 +72,8 @@ function ConsentSwitchRow({ id, label, description, checked, onChange, locked }:
       >
         <span
           className={cn(
-            "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow-sm ring-1 ring-black/[0.06] transition-transform",
-            checked ? "translate-x-5" : "translate-x-0.5",
+            "pointer-events-none absolute left-0.5 top-1/2 block size-5 -translate-y-1/2 rounded-full bg-white shadow-sm ring-1 ring-black/[0.06] transition-transform duration-200 ease-out will-change-transform",
+            checked ? "translate-x-[1.125rem]" : "translate-x-0",
           )}
         />
       </button>

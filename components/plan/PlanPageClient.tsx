@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
+import type { FestivalDateFields } from "@/lib/festival/listingDates";
+import { festivalEffectiveCalendarBounds, getFestivalTemporalState } from "@/lib/festival/temporal";
 import type { PlanEntry, ReminderType } from "@/lib/plan/server";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +26,7 @@ type PlanPageClientProps = {
     savedFestivalCount: number;
     activeReminderCount: number;
     nextUpcomingFestival: {
+      id: string;
       title: string;
       startDate: string | null;
       endDate: string | null;
@@ -53,11 +56,6 @@ function formatDateRange(startDate: string | null, endDate: string | null) {
   return `${formatter.format(start)} - ${formatter.format(end)}`;
 }
 
-function parseDateOnly(value: string | null) {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  return value;
-}
-
 function getSofiaTodayDateString() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Sofia",
@@ -79,55 +77,29 @@ function dateOnlyToUtcMs(value: string) {
   return Date.UTC(year, month - 1, day);
 }
 
-/** Calendar YYYY-MM-DD in Europe/Sofia for a Date, or null. */
-function dateToSofiaDateOnly(value: Date): string | null {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Sofia",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(value);
-
-  const year = parts.find((part) => part.type === "year")?.value;
-  const month = parts.find((part) => part.type === "month")?.value;
-  const day = parts.find((part) => part.type === "day")?.value;
-
-  if (!year || !month || !day) return null;
-  return `${year}-${month}-${day}`;
-}
-
-/** Normalize string | Date to YYYY-MM-DD (Sofia calendar for Date values). */
-function startDateToDateOnly(startDate: string | Date): string | null {
-  if (typeof startDate === "string") {
-    const direct = parseDateOnly(startDate);
-    if (direct) return direct;
-    const parsed = new Date(startDate);
-    if (Number.isNaN(parsed.getTime())) return null;
-    return dateToSofiaDateOnly(parsed);
-  }
-  return dateToSofiaDateOnly(startDate);
-}
-
-function getFestivalStatus(startDate: string | Date): "today" | "week" | "soon" | null {
-  const start = startDateToDateOnly(startDate);
-  if (!start) return null;
-
+function calendarDaysFromTodayToStart(festival: FestivalDateFields): number | null {
+  const bounds = festivalEffectiveCalendarBounds(festival);
+  if (!bounds) return null;
   const today = getSofiaTodayDateString();
   if (!today) return null;
-
-  const diffDays = Math.floor((dateOnlyToUtcMs(start) - dateOnlyToUtcMs(today)) / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) return null;
-  if (diffDays === 0) return "today";
-  if (diffDays <= 7) return "week";
-  return "soon";
+  return Math.floor((dateOnlyToUtcMs(bounds.startYmd) - dateOnlyToUtcMs(today)) / (1000 * 60 * 60 * 24));
 }
 
-const FESTIVAL_STATUS_LABEL: Record<"today" | "week" | "soon", string> = {
-  today: "Днес",
-  week: "Тази седмица",
-  soon: "Скоро",
-};
+function getTemporalBadge(
+  festival: FestivalDateFields
+): { label: string; className: string } | null {
+  const state = getFestivalTemporalState(festival);
+  if (state === "ongoing") {
+    return { label: "В момента", className: "bg-emerald-100 text-emerald-700" };
+  }
+  if (state === "upcoming") {
+    const delta = calendarDaysFromTodayToStart(festival);
+    if (delta != null && delta >= 0 && delta <= 7) {
+      return { label: "Скоро", className: "bg-amber-100 text-amber-700" };
+    }
+  }
+  return null;
+}
 
 function getFestivalCardImage(festival: { hero_image: string | null; image_url: string | null }) {
   return festival.hero_image || festival.image_url || null;
@@ -352,13 +324,16 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
             festivalEntries.map((festival, festivalIndex) => {
               const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
               const isRemoving = removingFestivalIds.has(festival.id);
-              const statusKey = festival.start_date ? getFestivalStatus(festival.start_date) : null;
-              const statusLabel = statusKey ? FESTIVAL_STATUS_LABEL[statusKey] : null;
+              const temporalBadge = getTemporalBadge(festival);
+              const isNextUpcoming = summary.nextUpcomingFestival?.id === festival.id;
               const cardImage = getFestivalCardImage(festival);
               return (
                 <article
                   key={festival.id}
-                  className="rounded-xl border border-black/5 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md"
+                  className={cn(
+                    "rounded-xl border p-5 shadow-sm transition-all duration-200 hover:shadow-md",
+                    isNextUpcoming ? "border-black/10 bg-[#fbf8f3]" : "border-black/5 bg-white"
+                  )}
                 >
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -366,18 +341,17 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
                         <span className="inline-flex items-center rounded-full border border-black/5 px-3 py-1 text-xs text-black/60">
                           {festival.city ?? "България"}
                         </span>
-                        {statusLabel ? (
+                        {temporalBadge ? (
                           <span
                             className={cn(
-                              "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium",
-                              statusKey === "soon"
-                                ? "border-amber-200 bg-amber-50 text-amber-700"
-                                : "border-black/5 text-black/60"
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                              temporalBadge.className
                             )}
                           >
-                            {statusLabel}
+                            {temporalBadge.label}
                           </span>
                         ) : null}
+                        {isNextUpcoming ? <span className="text-xs text-black/50">Следващ</span> : null}
                       </div>
                       <div className="text-sm text-black/60">{formatDateRange(festival.start_date, festival.end_date)}</div>
                     </div>
@@ -454,7 +428,10 @@ export default function PlanPageClient({ entries, festivals, summary }: PlanPage
               );
             })
             ) : (
-              <p className="text-center text-sm text-black/60">Няма предстоящи фестивали сред запазените.</p>
+              <div className="text-center text-sm leading-relaxed text-black/60">
+                <p>Нямаш предстоящи фестивали.</p>
+                <p className="mt-1">Разгледай и запази нови.</p>
+              </div>
             )}
           </div>
         </section>

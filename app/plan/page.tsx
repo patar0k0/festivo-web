@@ -104,6 +104,7 @@ export default async function PlanPage() {
             activeReminderCount,
             nextUpcomingFestival: nextUpcomingFestival
               ? {
+                  id: nextUpcomingFestival.id,
                   title: nextUpcomingFestival.title,
                   startDate: nextUpcomingFestival.start_date,
                   endDate: nextUpcomingFestival.end_date,

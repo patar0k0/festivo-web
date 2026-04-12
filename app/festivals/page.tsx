@@ -281,7 +281,7 @@ export default async function FestivalsPage({
         scoped = normalized.filter((f) => {
           const sd = f.start_date?.trim();
           if (!sd) return false;
-          return sd >= todayYmd;
+          return sd > todayYmd;
         });
       } else if (when !== "all") {
         scoped = normalized.filter((f) => getFestivalTemporalState(f) === when);

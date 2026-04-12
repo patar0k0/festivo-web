@@ -104,6 +104,8 @@ export type Filters = {
   sort?: "soonest" | "curated" | "nearest";
   month?: string;
   when?: FestivalWhenFilter;
+  /** Full-text-ish match on title / description / location / organizer (listing). */
+  q?: string;
 };
 
 export type PaginatedResult<T> = {

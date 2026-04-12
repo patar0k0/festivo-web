@@ -8,6 +8,8 @@ type CitySelectClientProps = {
   cities: Array<{ name: string; slug: string | null; filterValue: string }>;
   /** Base path for `?city=` navigation (default `/`). */
   homePath?: string;
+  /** Appended after `?city=…` (default `#nearest-festivals` on home). Use `""` for `/festivals`. */
+  citySelectNavigateSuffix?: string;
 };
 
 type MenuPosition = {
@@ -28,7 +30,11 @@ function computeMenuPosition(button: HTMLButtonElement): MenuPosition {
   };
 }
 
-export default function CitySelectClient({ cities, homePath = "/" }: CitySelectClientProps) {
+export default function CitySelectClient({
+  cities,
+  homePath = "/",
+  citySelectNavigateSuffix = "#nearest-festivals",
+}: CitySelectClientProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
@@ -98,7 +104,7 @@ export default function CitySelectClient({ cities, homePath = "/" }: CitySelectC
   const onSelect = (city: { slug: string | null; filterValue: string }) => {
     const cityParam = city.slug ?? city.filterValue;
     const base = homePath.endsWith("/") && homePath !== "/" ? homePath.slice(0, -1) : homePath;
-    router.push(`${base}?city=${encodeURIComponent(cityParam)}#nearest-festivals`);
+    router.push(`${base}?city=${encodeURIComponent(cityParam)}${citySelectNavigateSuffix}`);
     setOpen(false);
   };
 

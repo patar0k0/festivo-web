@@ -1,9 +1,9 @@
-import { format, nextSaturday, nextSunday, startOfMonth, endOfMonth } from "date-fns";
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories.server";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
-import { calendarYmdToUtcNoon, sofiaWallClockNow } from "@/lib/festival/temporal";
+import { sofiaWallClockNow } from "@/lib/festival/temporal";
+import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBounds";
 import { FESTIVAL_SELECT_MIN, fixFestivalText } from "@/lib/queries";
 import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
@@ -24,6 +24,20 @@ export type HomeQuickChipHrefs = {
   month: string;
   categoryChips: { label: string; href: string }[];
 };
+
+/** Same chip labels/hrefs as the home hero (for `/festivals` discovery UI). */
+export function buildFestivalsQuickChipLinks(categorySlugs: string[]): Array<{ label: string; href: string }> {
+  const { weekendStart, weekendEnd, monthStart, monthEnd } = festivalDiscoveryCalendarBounds();
+  return [
+    { label: "Само безплатни", href: `/festivals${serializeFilters(withDefaultFilters({ free: true }))}` },
+    { label: "Този уикенд", href: `/festivals${serializeFilters(withDefaultFilters({ from: weekendStart, to: weekendEnd }))}` },
+    { label: "Този месец", href: `/festivals${serializeFilters(withDefaultFilters({ from: monthStart, to: monthEnd }))}` },
+    ...categorySlugs.slice(0, 5).map((slug) => ({
+      label: labelForPublicCategory(slug),
+      href: `/festivals?tag=${encodeURIComponent(slug)}`,
+    })),
+  ];
+}
 
 /** Props for the public home page (`RealHomePage`). */
 export type HomePageViewProps = {
@@ -213,11 +227,7 @@ async function fetchCurrentFestivals(params: { today: string; citySlug?: string 
  */
 export async function loadHomePageData(citySlug: string | undefined): Promise<HomePageViewProps> {
   const today = sofiaWallClockNow().ymd;
-  const anchor = calendarYmdToUtcNoon(today);
-  const weekendStart = format(nextSaturday(anchor), "yyyy-MM-dd");
-  const weekendEnd = format(nextSunday(anchor), "yyyy-MM-dd");
-  const monthStart = format(startOfMonth(anchor), "yyyy-MM-dd");
-  const monthEnd = format(endOfMonth(anchor), "yyyy-MM-dd");
+  const { weekendStart, weekendEnd, monthStart, monthEnd } = festivalDiscoveryCalendarBounds(today);
 
   const [nearestFestivalsRaw, currentFestivals, weekendFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs] =
     await Promise.all([
@@ -233,14 +243,12 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
     ? (citiesResult.find((item) => item.slug === citySlug)?.name ?? null)
     : null;
 
+  const chipLinks = buildFestivalsQuickChipLinks(categorySlugs);
   const quickChipHrefs: HomeQuickChipHrefs = {
-    free: `/festivals${serializeFilters(withDefaultFilters({ free: true }))}`,
-    weekend: `/festivals${serializeFilters(withDefaultFilters({ from: weekendStart, to: weekendEnd }))}`,
-    month: `/festivals${serializeFilters(withDefaultFilters({ from: monthStart, to: monthEnd }))}`,
-    categoryChips: categorySlugs.slice(0, 5).map((slug) => ({
-      label: labelForPublicCategory(slug),
-      href: `/festivals?tag=${encodeURIComponent(slug)}`,
-    })),
+    free: chipLinks[0]!.href,
+    weekend: chipLinks[1]!.href,
+    month: chipLinks[2]!.href,
+    categoryChips: chipLinks.slice(3),
   };
 
   const currentIds = new Set(currentFestivals.map((f) => f.id));

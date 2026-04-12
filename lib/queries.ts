@@ -8,6 +8,7 @@ import { withDefaultFilters } from "@/lib/filters";
 import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
+import { buildFestivalsTagOrFilter } from "@/lib/festivals/buildFestivalsTagOrFilter";
 import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { compareFestivalsForListing, sortFestivalsForListing } from "@/lib/festival/sorting";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
@@ -173,6 +174,21 @@ type FilterQuery<T> = {
   order: (column: string, options?: { ascending: boolean }) => T;
 };
 
+function escapePostgrestLikeValue(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_")
+    .replace(/,/g, "\\,")
+    .replace(/\./g, "\\.");
+}
+
+function looksLikeSingleTokenCitySlug(value: string): boolean {
+  const s = value.trim();
+  if (!s || s.length > 96) return false;
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(s);
+}
+
 type FilterOptions = {
   applyDefaults?: boolean;
 };
@@ -221,11 +237,31 @@ function applyFilters<T extends FilterQuery<T>>(
   }
 
   if (applied.city?.length) {
-    typedQuery = typedQuery.in("city", applied.city);
+    const trimmed = applied.city.map((c) => c.trim()).filter(Boolean);
+    const allSlugLike = trimmed.length > 0 && trimmed.every(looksLikeSingleTokenCitySlug);
+    if (allSlugLike) {
+      typedQuery =
+        trimmed.length === 1
+          ? typedQuery.eq("cities.slug", trimmed[0]!)
+          : typedQuery.in("cities.slug", trimmed);
+    } else {
+      typedQuery = typedQuery.in("city", trimmed);
+    }
   }
 
   if (applied.cat?.length) {
-    typedQuery = typedQuery.in("category", applied.cat);
+    if (applied.cat.length === 1) {
+      typedQuery = typedQuery.or(buildFestivalsTagOrFilter(applied.cat[0]!));
+    } else {
+      typedQuery = typedQuery.or(applied.cat.map((c) => buildFestivalsTagOrFilter(c)).join(","));
+    }
+  }
+
+  if (applied.q?.trim()) {
+    const textFilter = `%${escapePostgrestLikeValue(applied.q.trim())}%`;
+    typedQuery = typedQuery.or(
+      `title.ilike.${textFilter},description.ilike.${textFilter},location_name.ilike.${textFilter},organizer_name.ilike.${textFilter}`,
+    );
   }
 
   if (dateResolution.kind === "rpc") {

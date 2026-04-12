@@ -14,6 +14,7 @@ import CitySelectClient from "./CitySelectClient";
 import HomeDiscoverySearchClient from "./HomeDiscoverySearchClient";
 import QuickChipsClient from "./QuickChipsClient";
 import HomeHeroFolkPattern from "./HomeHeroFolkPattern";
+import CurrentFestivalsSection from "./CurrentFestivalsSection";
 
 function EventsSection({
   id,
@@ -75,6 +76,7 @@ function EventsSection({
 
 export default function RealHomePage({
   nearestFestivals,
+  currentFestivals,
   weekendFestivals,
   homeCityOptions,
   selectedCityName,
@@ -149,6 +151,8 @@ export default function RealHomePage({
                 </div>
               </div>
             </section>
+
+            <CurrentFestivalsSection currentFestivals={currentFestivals} />
 
             {selectedCityName ? (
               <section className={pub.noticeWarm}>Показваме фестивали в {selectedCityName}</section>

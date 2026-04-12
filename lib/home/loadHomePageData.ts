@@ -25,6 +25,7 @@ export type HomeQuickChipHrefs = {
 /** Props for the public home page (`RealHomePage`). */
 export type HomePageViewProps = {
   nearestFestivals: Festival[];
+  currentFestivals: Festival[];
   weekendFestivals: Festival[];
   homeCityOptions: HomeCityOption[];
   selectedCityName?: string | null;
@@ -85,6 +86,44 @@ async function fetchHomeFestivals(params: {
   return (data ?? []).map(fixFestivalText);
 }
 
+function effectiveEndYmdForCurrentRow(f: Festival): string {
+  const end = f.end_date?.trim();
+  if (end) return end;
+  return f.start_date?.trim() || "9999-12-31";
+}
+
+/** DB: start_date <= today AND coalesce(end_date, start_date) >= today; then sort by effective end ascending. */
+function sortCurrentFestivalsForHome(festivals: Festival[]): Festival[] {
+  return [...festivals].sort((a, b) => effectiveEndYmdForCurrentRow(a).localeCompare(effectiveEndYmdForCurrentRow(b)));
+}
+
+async function fetchCurrentFestivals(params: { today: string; citySlug?: string }): Promise<Festival[]> {
+  const supabase = await createSupabaseServerClient();
+  const { today, citySlug } = params;
+
+  let query = supabase
+    .from("festivals")
+    .select(FESTIVAL_SELECT_MIN)
+    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+    .neq("status", "archived")
+    .lte("start_date", today)
+    .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
+
+  if (citySlug) {
+    query = query.eq("city_slug", citySlug);
+  }
+
+  const { data, error } = await query.limit(100).returns<Festival[]>();
+
+  if (error) {
+    console.error("[loadHomePageData] fetchCurrentFestivals", error);
+    throw new Error(`fetchCurrentFestivals: ${error.message}`);
+  }
+
+  const rows = (data ?? []).map(fixFestivalText);
+  return sortCurrentFestivalsForHome(rows).slice(0, 6);
+}
+
 /**
  * Same queries and derived hrefs as the public home page (`app/page.tsx`).
  */
@@ -96,8 +135,9 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
   const monthStart = format(startOfMonth(anchor), "yyyy-MM-dd");
   const monthEnd = format(endOfMonth(anchor), "yyyy-MM-dd");
 
-  const [nearestFestivalsRaw, weekendFestivalsRaw, citiesResult, categorySlugs] = await Promise.all([
+  const [nearestFestivalsRaw, currentFestivals, weekendFestivalsRaw, citiesResult, categorySlugs] = await Promise.all([
     fetchHomeFestivals({ from: today, citySlug, limit: 6 }),
+    fetchCurrentFestivals({ today, citySlug }),
     fetchHomeFestivals({ from: weekendStart, to: weekendEnd, citySlug, limit: 6 }),
     listHomeCitySelectOptions().catch(() => []),
     listPublicFestivalCategorySlugs().catch(() => [] as string[]),
@@ -122,6 +162,7 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
 
   return {
     nearestFestivals,
+    currentFestivals,
     weekendFestivals,
     homeCityOptions: citiesResult,
     selectedCityName,

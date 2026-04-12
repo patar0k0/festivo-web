@@ -12,7 +12,7 @@ type Props = {
 };
 
 export default function CurrentFestivalsSection({ currentFestivals }: Props) {
-  if (currentFestivals.length === 0) {
+  if (currentFestivals.length < 3) {
     return null;
   }
 

@@ -241,7 +241,10 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
     })),
   };
 
-  const nearestFestivals = sortFestivalsForListing(nearestFestivalsRaw);
+  const currentIds = new Set(currentFestivals.map((f) => f.id));
+  const nearestFestivals = sortFestivalsForListing(
+    nearestFestivalsRaw.filter((f) => !currentIds.has(f.id)),
+  );
   const weekendFestivals = sortFestivalsForListing(weekendFestivalsRaw);
 
   return {

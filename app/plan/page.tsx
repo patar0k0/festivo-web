@@ -38,6 +38,12 @@ function mapPlanFestivalRow(row: {
   end_time: string | null;
   hero_image: string | null;
   image_url: string | null;
+  festival_media?: Array<{
+    url: string;
+    type?: string | null;
+    sort_order?: number | null;
+    is_hero?: boolean | null;
+  }> | null;
   cities: { name_bg?: string | null; is_village?: boolean | null } | null | undefined | Array<{
     name_bg?: string | null;
     is_village?: boolean | null;
@@ -45,6 +51,8 @@ function mapPlanFestivalRow(row: {
 }) {
   const rawJoin = row.cities as { name_bg?: string | null; is_village?: boolean | null } | null | undefined;
   const joined = Array.isArray(rawJoin) ? rawJoin[0] : rawJoin;
+  const rawMedia = row.festival_media;
+  const festival_media = Array.isArray(rawMedia) ? rawMedia : null;
   return {
     id: String(row.id),
     slug: row.slug,
@@ -59,6 +67,7 @@ function mapPlanFestivalRow(row: {
     end_time: row.end_time ?? null,
     hero_image: row.hero_image ?? null,
     image_url: row.image_url ?? null,
+    festival_media,
   };
 }
 
@@ -98,6 +107,12 @@ export default async function PlanPage() {
     end_time: string | null;
     hero_image: string | null;
     image_url: string | null;
+    festival_media: Array<{
+      url: string;
+      type?: string | null;
+      sort_order?: number | null;
+      is_hero?: boolean | null;
+    }> | null;
   }> = [];
   let pastFestivals: typeof festivals = [];
 
@@ -105,7 +120,7 @@ export default async function PlanPage() {
     const { data: festivalRows } = await supabase
       .from("festivals")
       .select(
-        "id,slug,title,start_date,end_date,occurrence_dates,start_time,end_time,hero_image,image_url,cities:cities!left(name_bg,is_village)"
+        "id,slug,title,start_date,end_date,occurrence_dates,start_time,end_time,hero_image,image_url,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,is_village)"
       )
       .in("id", festivalIds);
 

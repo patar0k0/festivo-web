@@ -1,10 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    // `remotePatterns` is authoritative for wildcards (e.g. `**.supabase.co`).
+    // `domains` remains for hosts that do not need path rules (Next still resolves these).
+    domains: ["images.unsplash.com", "img.youtube.com"],
     remotePatterns: [
       {
         protocol: "https",
         hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "img.youtube.com",
+        pathname: "/vi/**",
       },
       {
         protocol: "https",

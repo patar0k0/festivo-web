@@ -2,27 +2,26 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
 import type { FestivalDateFields } from "@/lib/festival/listingDates";
 import { festivalEffectiveCalendarBounds, getFestivalTemporalState } from "@/lib/festival/temporal";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import type { PlanEntry, ReminderType } from "@/lib/plan/server";
 import { formatScheduleTimeRange } from "@/lib/festival/festivalTimeFields";
 import { cn } from "@/lib/utils";
+import type { Festival, FestivalMediaItem } from "@/lib/types";
 
-type PlanPageFestivalRow = {
+type PlanPageFestivalRow = FestivalDateFields & {
   id: string;
   slug: string;
   title: string;
   city: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  occurrence_dates: unknown;
-  start_time: string | null;
-  end_time: string | null;
   hero_image: string | null;
   image_url: string | null;
+  festival_media: Array<Pick<FestivalMediaItem, "url" | "type" | "sort_order" | "is_hero">> | null;
 };
 
 type PlanPageClientProps = {
@@ -102,8 +101,14 @@ function getTemporalBadge(
   return null;
 }
 
-function getFestivalCardImage(festival: { hero_image: string | null; image_url: string | null }) {
-  return festival.hero_image || festival.image_url || null;
+/** Resolves display image: optional future `cover_image_url`, then canonical hero / `image_url` / gallery. */
+function resolvePlanFestivalCardImageUrl(festival: PlanPageFestivalRow): string | null {
+  const row = festival as PlanPageFestivalRow & { cover_image_url?: string | null; media?: Array<{ url?: string | null }> | null };
+  const cover = typeof row.cover_image_url === "string" ? row.cover_image_url.trim() : "";
+  if (cover) return normalizePlanImageSrc(cover);
+  const legacyMedia = row.media?.[0]?.url;
+  if (typeof legacyMedia === "string" && legacyMedia.trim()) return normalizePlanImageSrc(legacyMedia.trim());
+  return getFestivalHeroImage(festival as Festival);
 }
 
 /** Tiny neutral JPEG for `placeholder="blur"` on remote URLs (no build-time blurDataURL). */
@@ -135,26 +140,99 @@ function FestivalCardThumbnail({
     setLoadError(false);
   }, [normalized]);
 
+  if (!normalized || loadError) {
+    return <div className="h-24 w-24 shrink-0 rounded-xl bg-black/5 sm:h-28 sm:w-28" aria-hidden />;
+  }
+
   return (
-    <div className="relative h-24 w-full shrink-0 overflow-hidden rounded-xl bg-black/5 sm:h-24 sm:w-24">
-      {normalized && !loadError ? (
-        <Image
-          src={normalized}
-          alt={title}
-          fill
-          className="object-cover"
-          sizes="(max-width: 639px) 100vw, 96px"
-          placeholder="blur"
-          blurDataURL={PLAN_CARD_BLUR_DATA_URL}
-          priority={Boolean(priority)}
-          onError={() => setLoadError(true)}
-        />
-      ) : (
+    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-black/5 sm:h-28 sm:w-28">
+      <Image
+        src={normalized}
+        alt={title}
+        fill
+        className="object-cover"
+        sizes="112px"
+        placeholder="blur"
+        blurDataURL={PLAN_CARD_BLUR_DATA_URL}
+        priority={Boolean(priority)}
+        onError={() => setLoadError(true)}
+      />
+    </div>
+  );
+}
+
+function ReminderMenu({
+  value,
+  onChange,
+}: {
+  value: ReminderType;
+  onChange: (next: ReminderType) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const summary =
+    value === "24h"
+      ? "24ч"
+      : value === "same_day_09"
+        ? "В деня (09:00)"
+        : "Без";
+
+  const options: Array<{ value: ReminderType; label: string }> = [
+    { value: "24h", label: "1 ден по-рано" },
+    { value: "same_day_09", label: "В деня (09:00)" },
+    { value: "none", label: "Без напомняне" },
+  ];
+
+  return (
+    <div ref={rootRef} className="relative inline-block text-left">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-3 py-1.5 text-sm font-medium text-black/80 transition hover:bg-black/5"
+      >
+        Напомняне: {summary}
+        <span className="text-black/40" aria-hidden>
+          ▼
+        </span>
+      </button>
+      {open ? (
         <div
-          className="absolute inset-0 bg-gradient-to-br from-black/[0.06] via-black/[0.05] to-black/[0.1]"
-          aria-hidden
-        />
-      )}
+          className="absolute left-0 z-20 mt-1 min-w-[200px] overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm"
+          role="menu"
+        >
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              role="menuitem"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange(opt.value);
+                setOpen(false);
+              }}
+              className={cn(
+                "flex w-full px-3 py-2 text-left text-sm transition hover:bg-black/[0.04]",
+                value === opt.value ? "bg-[#7c2d12]/10 font-medium text-[#7c2d12]" : "text-black/80"
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -203,112 +281,118 @@ function SavedFestivalPlanCard({
   festivalIndex,
   isPast,
   reminder,
-  isRemoving,
+  planToggleBusy,
   isNextUpcoming,
   temporalBadge,
+  inPlan,
   onReminderChange,
-  onRemove,
+  onTogglePlan,
 }: {
   festival: PlanPageFestivalRow;
   festivalIndex: number;
   isPast: boolean;
   reminder: ReminderType;
-  isRemoving: boolean;
+  planToggleBusy: boolean;
   isNextUpcoming: boolean;
   temporalBadge: { label: string; className: string } | null;
+  inPlan: boolean;
   onReminderChange: (next: ReminderType) => void;
-  onRemove: () => void | Promise<void>;
+  onTogglePlan: () => void | Promise<void>;
 }) {
-  const cardImage = getFestivalCardImage(festival);
+  const router = useRouter();
+  const cardImage = resolvePlanFestivalCardImageUrl(festival);
+
+  const subtitleParts = [
+    formatDateRange(festival.start_date ?? null, festival.end_date ?? null),
+    festival.city?.trim(),
+  ].filter(Boolean) as string[];
+
   return (
     <article
+      onClick={() => {
+        router.push(`/festivals/${festival.slug}`);
+      }}
       className={cn(
-        "rounded-xl border p-5 shadow-sm transition-all duration-200 hover:shadow-md",
+        "cursor-pointer rounded-2xl border border-black/10 p-4 transition hover:bg-black/[0.02]",
         isPast
-          ? "border-black/5 bg-white opacity-60"
+          ? "bg-white opacity-60"
           : isNextUpcoming
-            ? "border-black/10 bg-[#fbf8f3]"
-            : "border-black/5 bg-white"
+            ? "bg-[#fbf8f3]"
+            : "bg-white"
       )}
     >
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {festival.city?.trim() ? (
-              <span className="inline-flex items-center rounded-full border border-black/5 px-3 py-1 text-xs text-black/60">
-                {festival.city}
-              </span>
-            ) : null}
-            {isPast ? (
-              <span className="text-xs text-black/50">Приключил</span>
-            ) : (
-              <>
-                {temporalBadge ? (
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                      temporalBadge.className
-                    )}
-                  >
-                    {temporalBadge.label}
-                  </span>
-                ) : null}
-                {isNextUpcoming ? <span className="text-xs text-black/50">Следващ</span> : null}
-              </>
-            )}
-          </div>
-          <div className="text-sm text-black/60">{formatDateRange(festival.start_date, festival.end_date)}</div>
-        </div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-row gap-3">
           <FestivalCardThumbnail
             imageUrl={cardImage}
             title={festival.title}
             priority={!isPast && festivalIndex === 0}
           />
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <h3 className="text-xl font-medium tracking-tight text-black/90">{festival.title}</h3>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-snug text-black/60">
-              <span>
-                {reminder === "none"
-                  ? "Без активно напомняне"
-                  : reminder === "24h"
-                    ? "Напомняне 24 часа преди началото"
-                    : "Напомняне в деня на събитието"}
-              </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              {isPast ? (
+                <span className="text-xs text-black/50">Приключил</span>
+              ) : (
+                <>
+                  {temporalBadge ? (
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                        temporalBadge.className
+                      )}
+                    >
+                      {temporalBadge.label}
+                    </span>
+                  ) : null}
+                  {isNextUpcoming ? <span className="text-xs text-black/50">Следващ</span> : null}
+                </>
+              )}
             </div>
+            <h3 className="mt-1 line-clamp-2 text-lg font-semibold tracking-tight text-black/90">{festival.title}</h3>
+            <p className="mt-0.5 text-sm leading-snug text-black/60">{subtitleParts.join(" · ")}</p>
           </div>
         </div>
-        <div className="mt-4 flex flex-col gap-4 border-t border-black/5 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/festivals/${festival.slug}`}
-              className="inline-flex rounded-full bg-black px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-white transition-all duration-200 hover:bg-black/90"
-            >
-              Детайли
-            </Link>
-            <Link
-              href={festivalProgrammeHref(`/festivals/${festival.slug}`)}
-              className="inline-flex rounded-full border border-black/10 bg-transparent px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-black transition-all duration-200 hover:bg-black/5"
-            >
-              Програма
-            </Link>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:justify-end">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-black/60">Напомняне:</span>
-              <ReminderPills value={reminder} onChange={onReminderChange} />
-            </div>
+
+        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <ReminderMenu value={reminder} onChange={onReminderChange} />
+        </div>
+
+        <div className="flex flex-row flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/festivals/${festival.slug}`);
+            }}
+            className="inline-flex rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/90 transition hover:bg-black/5"
+          >
+            Виж фестивала
+          </button>
+          {inPlan ? (
             <button
               type="button"
-              onClick={() => {
-                void onRemove();
+              onClick={(e) => {
+                e.stopPropagation();
+                void onTogglePlan();
               }}
-              disabled={isRemoving}
-              className="rounded-full px-4 py-2 text-sm font-medium text-red-600 underline-offset-2 transition-all duration-200 hover:text-red-700 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={planToggleBusy}
+              className="inline-flex rounded-full border border-black/10 bg-[#7c2d12]/10 px-4 py-2 text-sm font-semibold text-[#7c2d12] transition hover:bg-[#7c2d12]/15 disabled:cursor-not-allowed disabled:opacity-45"
             >
-              Премахни
+              ✓ В плана
             </button>
-          </div>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void onTogglePlan();
+              }}
+              disabled={planToggleBusy}
+              className="inline-flex rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/90 transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              + Добави
+            </button>
+          )}
         </div>
       </div>
     </article>
@@ -316,9 +400,29 @@ function SavedFestivalPlanCard({
 }
 
 export default function PlanPageClient({ entries, festivals, pastFestivals, summary }: PlanPageClientProps) {
-  const { isScheduleItemInPlan, isFestivalInPlan, setFestivalInPlan, toggleScheduleItem, reminderTypeByFestivalId, setFestivalReminder } = usePlanState();
-  const [removingFestivalIds, setRemovingFestivalIds] = useState<Set<string>>(new Set());
+  const {
+    isScheduleItemInPlan,
+    isFestivalInPlan,
+    toggleScheduleItem,
+    reminderTypeByFestivalId,
+    setFestivalReminder,
+    toggleFestivalPlan,
+  } = usePlanState();
+  const [planToggleBusyIds, setPlanToggleBusyIds] = useState<Set<string>>(new Set());
   const [isPastExpanded, setIsPastExpanded] = useState(false);
+
+  const runFestivalPlanToggle = async (festivalId: string) => {
+    setPlanToggleBusyIds((prev) => new Set(prev).add(festivalId));
+    try {
+      await toggleFestivalPlan(festivalId);
+    } finally {
+      setPlanToggleBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(festivalId);
+        return next;
+      });
+    }
+  };
 
   const upcomingEntries = useMemo(
     () => entries.filter((entry) => isScheduleItemInPlan(entry.scheduleItemId)),
@@ -455,7 +559,7 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
             {festivalEntries.length ? (
             festivalEntries.map((festival, festivalIndex) => {
               const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
-              const isRemoving = removingFestivalIds.has(festival.id);
+              const planToggleBusy = planToggleBusyIds.has(festival.id);
               const temporalBadge = getTemporalBadge(festival);
               const isNextUpcoming = summary.nextUpcomingFestival?.id === festival.id;
               return (
@@ -465,33 +569,14 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
                   festivalIndex={festivalIndex}
                   isPast={false}
                   reminder={reminder}
-                  isRemoving={isRemoving}
+                  planToggleBusy={planToggleBusy}
                   isNextUpcoming={isNextUpcoming}
                   temporalBadge={temporalBadge}
+                  inPlan={isFestivalInPlan(festival.id)}
                   onReminderChange={(next) => {
                     void setFestivalReminder(festival.id, next);
                   }}
-                  onRemove={async () => {
-                    setRemovingFestivalIds((prev) => new Set(prev).add(festival.id));
-                    try {
-                      const response = await fetch("/api/plan/festivals", {
-                        method: "POST",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ festivalId: festival.id }),
-                      });
-
-                      if (!response.ok) return;
-                      const payload = (await response.json()) as { inPlan?: boolean };
-                      setFestivalInPlan(festival.id, Boolean(payload.inPlan));
-                    } finally {
-                      setRemovingFestivalIds((prev) => {
-                        const next = new Set(prev);
-                        next.delete(festival.id);
-                        return next;
-                      });
-                    }
-                  }}
+                  onTogglePlan={() => runFestivalPlanToggle(festival.id)}
                 />
               );
             })
@@ -526,7 +611,7 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
               <div className="mt-4 space-y-3">
                 {pastFestivalEntries.map((festival, festivalIndex) => {
                   const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
-                  const isRemoving = removingFestivalIds.has(festival.id);
+                  const planToggleBusy = planToggleBusyIds.has(festival.id);
                   return (
                     <SavedFestivalPlanCard
                       key={festival.id}
@@ -534,33 +619,14 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
                       festivalIndex={festivalIndex}
                       isPast
                       reminder={reminder}
-                      isRemoving={isRemoving}
+                      planToggleBusy={planToggleBusy}
                       isNextUpcoming={false}
                       temporalBadge={null}
+                      inPlan={isFestivalInPlan(festival.id)}
                       onReminderChange={(next) => {
                         void setFestivalReminder(festival.id, next);
                       }}
-                      onRemove={async () => {
-                        setRemovingFestivalIds((prev) => new Set(prev).add(festival.id));
-                        try {
-                          const response = await fetch("/api/plan/festivals", {
-                            method: "POST",
-                            credentials: "include",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ festivalId: festival.id }),
-                          });
-
-                          if (!response.ok) return;
-                          const payload = (await response.json()) as { inPlan?: boolean };
-                          setFestivalInPlan(festival.id, Boolean(payload.inPlan));
-                        } finally {
-                          setRemovingFestivalIds((prev) => {
-                            const next = new Set(prev);
-                            next.delete(festival.id);
-                            return next;
-                          });
-                        }
-                      }}
+                      onTogglePlan={() => runFestivalPlanToggle(festival.id)}
                     />
                   );
                 })}

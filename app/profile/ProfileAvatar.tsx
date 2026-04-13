@@ -115,7 +115,7 @@ export default function ProfileAvatar({ email, initials, initialAvatarUrl }: Pro
           </p>
         </div>
       </div>
-      <p className="text-xs text-black/45">JPG, PNG или WebP · до 2 MB</p>
+      <p className="text-xs text-black/45">JPG · PNG · WebP · до 2 MB</p>
       {error ? (
         <p className="text-sm text-red-800" role="alert">
           {error}

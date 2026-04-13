@@ -1,7 +1,6 @@
 import { getOptionalUser } from "@/lib/authUser";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AuthCard } from "@/app/auth/_components/AuthCard";
 import { LoginForm } from "./LoginForm";
 
 const URL_ERROR_MESSAGES: Record<string, string> = {
@@ -73,27 +72,37 @@ export default async function LoginPage({
   }
 
   return (
-    <AuthCard title="Вход" subtitle="Влез, за да ползваш Моят план и напомняния.">
+    <div className="flex min-h-screen items-center justify-center bg-[#f5f4f0] px-4 text-[#0c0e14]">
+      <div className="w-full max-w-md rounded-2xl border border-black/5 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="h-1 w-12 rounded-full bg-[#7c2d12]" aria-hidden="true" />
+          <Link href="/" className="shrink-0 text-sm font-medium text-black/50 transition hover:text-black/80">
+            ← Начало
+          </Link>
+        </div>
+
+        <h1 className="text-xl font-semibold tracking-tight text-black">Влез в профила си</h1>
+        <p className="mt-1 text-sm text-black/60">за да запазваш фестивали и да получаваш напомняния</p>
 
         {errorMessage ? (
-          <p className="mt-4 rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
+          <p className="mt-4 rounded-xl bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
             {errorMessage}
           </p>
         ) : null}
 
         {user ? (
-          <div className="mt-6 space-y-3">
-            <p className="rounded-xl bg-[#0c0e14]/5 px-3 py-2 text-sm text-[#0c0e14]">Имаш активна сесия.</p>
-            <div className="flex flex-wrap gap-2">
+          <div className="mt-6 space-y-4">
+            <p className="rounded-xl bg-black/[0.04] px-3 py-2 text-sm text-[#0c0e14]">Имаш активна сесия.</p>
+            <div className="flex flex-wrap gap-3">
               <Link
                 href="/admin"
-                className="rounded-xl bg-[#0c0e14] px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-white"
+                className="inline-flex rounded-full bg-[#7c2d12] px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
               >
                 Към админ
               </Link>
               <Link
                 href="/"
-                className="rounded-xl border border-black/[0.12] bg-white px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.16em] text-[#0c0e14]"
+                className="inline-flex rounded-full border border-black/10 bg-white px-5 py-2.5 text-sm font-medium text-[#0c0e14] transition hover:bg-black/[0.03]"
               >
                 Начало
               </Link>
@@ -102,6 +111,7 @@ export default async function LoginPage({
         ) : (
           <LoginForm next={afterLoginTarget.startsWith("/") ? afterLoginTarget : "/"} />
         )}
-    </AuthCard>
+      </div>
+    </div>
   );
 }

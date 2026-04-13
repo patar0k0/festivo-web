@@ -6,6 +6,8 @@ type OAuthButtonsProps = {
   oauthProvider: OAuthProvider | null;
   disabled: boolean;
   onContinue: (provider: OAuthProvider) => Promise<void> | void;
+  /** `festivo` — primary terracotta Google pill + soft Apple outline (login / landing alignment). */
+  variant?: "default" | "festivo";
 };
 
 function GoogleIcon() {
@@ -42,7 +44,32 @@ function AppleIcon() {
   );
 }
 
-export function OAuthButtons({ oauthProvider, disabled, onContinue }: OAuthButtonsProps) {
+export function OAuthButtons({ oauthProvider, disabled, onContinue, variant = "default" }: OAuthButtonsProps) {
+  if (variant === "festivo") {
+    return (
+      <>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => void onContinue("google")}
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#7c2d12] py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          <GoogleIcon />
+          <span>{oauthProvider === "google" ? "Пренасочване..." : "Продължи с Google"}</span>
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => void onContinue("apple")}
+          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full border border-black/10 bg-white py-3 text-sm font-medium text-[#0c0e14] transition hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          <AppleIcon />
+          <span>{oauthProvider === "apple" ? "Пренасочване..." : "Продължи с Apple"}</span>
+        </button>
+      </>
+    );
+  }
+
   return (
     <>
       <button

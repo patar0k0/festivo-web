@@ -169,99 +169,105 @@ export function LoginForm({ next }: LoginFormProps) {
   const oauthBusy = oauthProvider !== null;
 
   return (
-    <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
-      <label className="block" htmlFor={emailId}>
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/50">Имейл</span>
-        <input
-          id={emailId}
-          type="email"
-          name="email"
-          autoComplete="email"
-          inputMode="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="mt-2 h-12 w-full rounded-2xl border border-black/[0.1] bg-white/95 px-4 text-sm outline-none ring-[#0c0e14]/15 transition-all focus:border-black/20 focus:ring-4"
-        />
-      </label>
-      <div className="block">
-        <div className="mb-2 flex items-baseline justify-between gap-2">
-          <label htmlFor={passwordId} className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/50">
-            Парола
-          </label>
-        </div>
-        <div className="relative">
-          <input
-            id={passwordId}
-            type={showPassword ? "text" : "password"}
-            name="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="h-12 w-full rounded-2xl border border-black/[0.1] bg-white/95 px-4 pr-12 text-sm outline-none ring-[#0c0e14]/15 transition-all focus:border-black/20 focus:ring-4"
-          />
-          <button
-            type="button"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-black/45 transition hover:bg-black/[0.05] hover:text-black/80"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-pressed={showPassword}
-            aria-label={showPassword ? "Скрий паролата" : "Покажи паролата"}
-          >
-            {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
-          </button>
-        </div>
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => void sendPasswordReset()}
-          disabled={isResetSubmitting || isSubmitting || oauthBusy}
-          className="text-xs font-medium text-black/50 underline decoration-black/20 underline-offset-2 hover:text-black/80 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isResetSubmitting ? "Изпращане..." : "Забравена парола?"}
-        </button>
-      </div>
-
-      {bannerError ? (
-        <p className="rounded-xl bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
-          {bannerError}
-        </p>
-      ) : null}
-      {resetNotice ? (
-        <p className="rounded-xl bg-[#0c0e14]/6 px-3 py-2 text-sm text-[#0c0e14]" role="status">
-          {resetNotice}
-        </p>
-      ) : null}
-
-      <button
-        type="submit"
-        disabled={isSubmitting || oauthBusy || isResetSubmitting}
-        className="h-12 w-full rounded-2xl bg-[#0c0e14] px-4 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        {isSubmitting ? "Влизане..." : "Вход с парола"}
-      </button>
-
-      <div className="relative py-1 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-black/40 before:absolute before:left-0 before:top-1/2 before:h-px before:w-[40%] before:bg-black/[0.08] after:absolute after:right-0 after:top-1/2 after:h-px after:w-[40%] after:bg-black/[0.08]">
-        или
-      </div>
-
+    <form onSubmit={onSubmit} className="mt-2" noValidate>
       <OAuthButtons
+        variant="festivo"
         oauthProvider={oauthProvider}
         disabled={oauthBusy || isSubmitting || isResetSubmitting}
         onContinue={signInWithOAuth}
       />
 
+      <p className="mt-4 text-center text-xs text-black/50">Нямаме пароли. Само бърз вход.</p>
+
+      <div className="relative mt-8 py-2 text-center text-xs font-medium text-black/45 before:absolute before:left-0 before:top-1/2 before:h-px before:w-[32%] before:bg-black/[0.06] after:absolute after:right-0 after:top-1/2 after:h-px after:w-[32%] after:bg-black/[0.06]">
+        или с имейл
+      </div>
+
+      <div className="mt-5 space-y-4">
+        <label className="block" htmlFor={emailId}>
+          <span className="text-sm font-medium text-black/70">Имейл</span>
+          <input
+            id={emailId}
+            type="email"
+            name="email"
+            autoComplete="email"
+            inputMode="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="mt-1.5 w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-sm text-[#0c0e14] outline-none ring-[#7c2d12]/0 transition focus:border-[#7c2d12]/35 focus:ring-4 focus:ring-[#7c2d12]/12"
+          />
+        </label>
+        <div className="block">
+          <label htmlFor={passwordId} className="text-sm font-medium text-black/70">
+            Парола
+          </label>
+          <div className="relative mt-1.5">
+            <input
+              id={passwordId}
+              type={showPassword ? "text" : "password"}
+              name="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="w-full rounded-xl border border-black/[0.08] bg-white py-3 pl-4 pr-12 text-sm text-[#0c0e14] outline-none ring-[#7c2d12]/0 transition focus:border-[#7c2d12]/35 focus:ring-4 focus:ring-[#7c2d12]/12"
+            />
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-black/40 transition hover:bg-black/[0.04] hover:text-black/75"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-pressed={showPassword}
+              aria-label={showPassword ? "Скрий паролата" : "Покажи паролата"}
+            >
+              {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => void sendPasswordReset()}
+            disabled={isResetSubmitting || isSubmitting || oauthBusy}
+            className="text-xs font-medium text-black/50 underline decoration-black/15 underline-offset-2 hover:text-[#7c2d12] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isResetSubmitting ? "Изпращане..." : "Забравена парола?"}
+          </button>
+        </div>
+
+        {bannerError ? (
+          <p className="rounded-xl bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
+            {bannerError}
+          </p>
+        ) : null}
+        {resetNotice ? (
+          <p className="rounded-xl bg-[#7c2d12]/[0.08] px-3 py-2 text-sm text-[#0c0e14]" role="status">
+            {resetNotice}
+          </p>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={isSubmitting || oauthBusy || isResetSubmitting}
+          className="w-full rounded-full border-2 border-[#7c2d12] bg-white py-3 text-sm font-medium text-[#7c2d12] transition hover:bg-[#7c2d12]/[0.06] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isSubmitting ? "Влизане..." : "Вход с имейл и парола"}
+        </button>
+      </div>
+
       {devRedirectHint ? (
-        <p className="text-center text-[11px] leading-relaxed text-black/45">
-          Dev: allowlist в Supabase за redirect - <span className="break-all font-mono">{devRedirectHint}</span>
+        <p className="mt-5 text-center text-[11px] leading-relaxed text-black/40">
+          Dev: allowlist в Supabase за redirect — <span className="break-all font-mono">{devRedirectHint}</span>
         </p>
       ) : null}
 
-      <p className="pt-1 text-center text-sm text-black/60">
+      <p className="mt-5 text-center text-sm text-black/60">
         Нямаш профил?{" "}
-        <Link href="/signup" className="font-semibold text-black/80 underline decoration-black/20 underline-offset-2">
+        <Link
+          href="/signup"
+          className="font-medium text-[#7c2d12] underline decoration-[#7c2d12]/30 underline-offset-2 hover:opacity-90"
+        >
           Регистрация
         </Link>
       </p>

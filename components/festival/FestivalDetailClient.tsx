@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { bg } from "date-fns/locale";
 import Badge from "@/components/ui/Badge";
@@ -40,6 +40,9 @@ import { outboundClickHref } from "@/lib/outbound/outboundLink";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 
 const REMINDER_BLOCK_ID = "festival-reminder-block";
+
+/** Survives navigation to `/login` so „Добави в план“ can complete after auth. */
+const PENDING_PLAN_SCHEDULE_ITEM_KEY = "festivo:pendingPlanScheduleItem";
 
 type Props = {
   festival: Festival;
@@ -186,6 +189,8 @@ export default function FestivalDetailClient({
   const [activeDayId, setActiveDayId] = useState(groupedDays[0]?.id ?? "");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [pendingItem, setPendingItem] = useState<FestivalScheduleItem | null>(null);
   const [reminderPending, setReminderPending] = useState(false);
   const [reminderFeedback, setReminderFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const reminderFeedbackTimerRef = useRef<number | null>(null);
@@ -203,6 +208,7 @@ export default function FestivalDetailClient({
   const { show, Toast } = useToast();
 
   const pathname = usePathname();
+  const router = useRouter();
   const navigationGeneration = useNavigationGeneration();
 
   const displayedDay = groupedDays.find((day) => day.id === activeDayId) ?? groupedDays[0] ?? null;
@@ -353,6 +359,43 @@ export default function FestivalDetailClient({
     return () => window.clearTimeout(t);
   }, [highlightId]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = sessionStorage.getItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { festivalId?: unknown; scheduleItemId?: unknown };
+      const festivalId = parsed.festivalId != null ? String(parsed.festivalId) : "";
+      const scheduleItemId = parsed.scheduleItemId != null ? String(parsed.scheduleItemId) : "";
+      if (!festivalId || !scheduleItemId || festivalId !== String(festival.id)) return;
+      const found = scheduleItems.find((i) => String(i.id) === scheduleItemId);
+      if (!found) {
+        sessionStorage.removeItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
+        return;
+      }
+      sessionStorage.removeItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
+      setPendingItem(found);
+    } catch {
+      try {
+        sessionStorage.removeItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [festival.id, scheduleItems]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !pendingItem) return;
+    const item = pendingItem;
+    setPendingItem(null);
+    setShowLogin(false);
+    void (async () => {
+      await toggleScheduleItem(String(item.id));
+      show(`Добавено: ${item.title}`);
+      setHighlightId(String(item.id));
+    })();
+  }, [isAuthenticated, pendingItem, toggleScheduleItem, show]);
+
   const clearPlan = async () => {
     const ids = selectedItems.map((item) => String(item.id));
     for (const itemId of ids) {
@@ -377,6 +420,63 @@ export default function FestivalDetailClient({
 
   return (
     <div className="space-y-6 md:space-y-8">
+      {showLogin ? (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+          <div className="w-[90%] max-w-sm rounded-xl bg-white p-6 text-center">
+            <h2 className="mb-2 text-lg font-semibold">Влез в профила си</h2>
+
+            <p className="mb-4 text-sm text-black/60">за да добавяш събития в план</p>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (pendingItem) {
+                  try {
+                    sessionStorage.setItem(
+                      PENDING_PLAN_SCHEDULE_ITEM_KEY,
+                      JSON.stringify({
+                        festivalId: String(festival.id),
+                        scheduleItemId: String(pendingItem.id),
+                      }),
+                    );
+                  } catch {
+                    /* ignore */
+                  }
+                }
+                const next =
+                  pathname && pathname.startsWith("/") && !pathname.startsWith("//")
+                    ? pathname
+                    : `/festivals/${festival.slug}`;
+                router.push(`/login?next=${encodeURIComponent(next)}`);
+              }}
+              className="w-full rounded-full bg-[#7c2d12] py-2 text-white"
+            >
+              Вход
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowLogin(false);
+                setPendingItem(null);
+                try {
+                  const raw = sessionStorage.getItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
+                  if (!raw) return;
+                  const parsed = JSON.parse(raw) as { festivalId?: unknown };
+                  if (String(parsed.festivalId ?? "") === String(festival.id)) {
+                    sessionStorage.removeItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
+                  }
+                } catch {
+                  /* ignore */
+                }
+              }}
+              className="mt-2 text-sm text-black/50"
+            >
+              Затвори
+            </button>
+          </div>
+        </div>
+      ) : null}
       <Toast />
       <section className={pub.heroMainCard}>
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
@@ -619,6 +719,11 @@ export default function FestivalDetailClient({
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    if (!isAuthenticated) {
+                                      setPendingItem(item);
+                                      setShowLogin(true);
+                                      return;
+                                    }
                                     void toggleScheduleItem(itemId);
                                     show(`Добавено: ${item.title}`);
                                     setHighlightId(itemId);

@@ -579,31 +579,52 @@ export default function FestivalDetailClient({
                         <article key={item.id}>
                           <div
                             className={cn(
-                              "rounded-xl border p-4 transition",
-                              isAdded ? "border-[#7c2d12] bg-[#7c2d12]/5" : "border-black/10",
+                              "rounded-xl border p-4 transition-all duration-200",
+                              isAdded
+                                ? "border-[#7c2d12] bg-[#7c2d12]/5 shadow-sm"
+                                : "border-black/10 hover:border-black/20",
                             )}
                           >
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div className="space-y-1">
-                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">
-                                  {formatScheduleTimeRange(item.start_time, item.end_time) || "Час предстои"}
-                                  {item.stage ? ` • ${item.stage}` : ""}
-                                </p>
-                                <h3 className="text-base font-medium text-black/90">{item.title}</h3>
-                                {item.description ? <p className="text-sm leading-relaxed text-black/80">{item.description}</p> : null}
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex min-w-0 flex-1 items-start gap-3">
+                                {isAdded ? (
+                                  <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#7c2d12]" aria-hidden />
+                                ) : null}
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">
+                                    {formatScheduleTimeRange(item.start_time, item.end_time) || "Час предстои"}
+                                    {item.stage ? ` • ${item.stage}` : ""}
+                                  </p>
+                                  <h3 className="text-base font-medium text-black/90">{item.title}</h3>
+                                  {item.description ? (
+                                    <p className="text-sm leading-relaxed text-black/80">{item.description}</p>
+                                  ) : null}
+                                </div>
                               </div>
                               {isAdded ? (
-                                <span className="shrink-0 text-sm font-medium text-[#7c2d12]">{"\u2713"} В плана</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void toggleScheduleItem(itemId);
+                                  }}
+                                  className={cn(
+                                    "group shrink-0 text-sm font-medium text-[#7c2d12]",
+                                    pub.focusRing,
+                                  )}
+                                >
+                                  <span className="group-hover:hidden">{"\u2713"} В плана</span>
+                                  <span className="hidden text-black/60 group-hover:inline">Премахни</span>
+                                </button>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => {
                                     void toggleScheduleItem(itemId);
-                                    show("Добавено в плана");
+                                    show(`Добавено: ${item.title}`);
                                     setHighlightId(itemId);
                                   }}
                                   className={cn(
-                                    "shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm transition hover:bg-black/5",
+                                    "shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm transition-all hover:bg-black/5 active:scale-95",
                                     pub.focusRing,
                                   )}
                                 >

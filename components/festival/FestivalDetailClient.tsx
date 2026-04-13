@@ -13,7 +13,7 @@ import { useNavigationGeneration } from "@/components/providers/NavigationGenera
 import { useImageLoadReset } from "@/components/ui/useImageLoadReset";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
-import FestivalGallery from "@/components/festival/FestivalGallery";
+import { FestivalGallery } from "@/components/festival/FestivalGallery";
 import FestivalVideoEmbed from "@/components/festival/FestivalVideoEmbed";
 import { FestivalHeroActionBar, FestivalRailActionBar } from "@/components/festival/FestivalDetailActions";
 import FestivalQuickFactsStrip from "@/components/festival/FestivalQuickFactsStrip";
@@ -27,7 +27,6 @@ import {
   normalizeFestivalLocationText,
 } from "@/lib/festival/publicLocationDisplay";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
-import { normalizeFestivalGalleryUrlKey } from "@/lib/festival/normalizeFestivalGalleryUrlKey";
 import { getVideoEmbedSrcFromPageUrl } from "@/lib/festival/videoEmbed";
 import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
 import type { ReminderType } from "@/lib/plan/server";
@@ -235,29 +234,29 @@ export default function FestivalDetailClient({
     return u ?? null;
   }, [festival.video_url]);
 
-  const galleryItems = useMemo(() => {
+  const galleryImages = useMemo(() => {
     const seen = new Set<string>();
-    const out: Array<{ id: string | number; url: string; caption?: string | null }> = [];
+    const out: string[] = [];
     const markSeen = (url: string): boolean => {
-      const key = normalizeFestivalGalleryUrlKey(url);
+      const key = url.trim().toLowerCase();
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
     };
-    const add = (id: string | number, url: string | null | undefined, caption?: string | null) => {
+    const add = (url: string | null | undefined) => {
       const u = normalizeHeroUrl(url);
       if (!u || !markSeen(u)) return;
-      out.push({ id, url: u, caption });
+      out.push(u);
     };
     const heroUrl = normalizeHeroUrl(heroImage);
     if (heroUrl && markSeen(heroUrl)) {
-      out.push({ id: `hero-${festival.id}`, url: heroUrl, caption: null });
+      out.push(heroUrl);
     }
     for (const m of imageMedia) {
-      add(m.id, m.url, m.caption);
+      add(m.url);
     }
     return out;
-  }, [festival.id, heroImage, imageMedia]);
+  }, [heroImage, imageMedia]);
 
   const categoryText = categoryLabel(festival.category);
   const formattedDateRange = formatFestivalDateLineLongBg(festival);
@@ -280,7 +279,7 @@ export default function FestivalDetailClient({
   const compactLocationBeyondCity = getCompactMetaLocationBeyondCity(festival, cityName);
   const cityOrLocationText = [cityName, compactLocationBeyondCity].filter(Boolean).join(" · ");
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
-  const showGallerySection = galleryItems.length >= 1;
+  const showGallerySection = galleryImages.length >= 1;
   const showVideoSection = Boolean(videoPageUrl && getVideoEmbedSrcFromPageUrl(videoPageUrl));
   const urgencyLabel = getFestivalUrgencyLabelBg(festival);
   const temporalState = useMemo(() => getFestivalTemporalState(festival), [festival]);
@@ -618,9 +617,7 @@ export default function FestivalDetailClient({
             )}
           </section>
 
-          {showGallerySection ? (
-            <FestivalGallery items={galleryItems} festivalTitle={festival.title || "Фестивал"} />
-          ) : null}
+          {showGallerySection ? <FestivalGallery images={galleryImages} /> : null}
           {showVideoSection && videoPageUrl ? (
             <FestivalVideoEmbed
               pageUrl={videoPageUrl}

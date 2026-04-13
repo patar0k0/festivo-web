@@ -10,7 +10,7 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
   return (
     <EventCard
       title={festival.title}
-      city={festivalCityLabel(festival, "Bulgaria")}
+      city={festivalCityLabel(festival, "")}
       category={festival.category}
       imageUrl={getFestivalHeroImage(festival)}
       startDate={festival.start_date}
@@ -19,7 +19,6 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
       occurrenceDates={festival.occurrence_dates}
       startTime={festival.start_time}
       endTime={festival.end_time}
-      isFree={festival.is_free}
       isPromoted={hasActivePromotion(festival)}
       isVipOrganizer={hasActiveVip(festival.organizer)}
       description={festival.description}

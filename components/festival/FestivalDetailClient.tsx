@@ -668,7 +668,7 @@ export default function FestivalDetailClient({
                   <Link key={item.slug} href={`/festivals/${item.slug}`} className="block">
                     <EventCard
                       title={item.title}
-                      city={festivalCityLabel(item)}
+                      city={festivalCityLabel(item, "")}
                       category={item.category}
                       imageUrl={getFestivalHeroImage(item)}
                       startDate={primaryFestivalDate(item)}
@@ -677,7 +677,6 @@ export default function FestivalDetailClient({
                       occurrenceDates={item.occurrence_dates}
                       startTime={item.start_time}
                       endTime={item.end_time}
-                      isFree={item.is_free}
                       isPromoted={hasActivePromotion(item)}
                       isVipOrganizer={hasActiveVip(item.organizer)}
                       festivalId={item.id}

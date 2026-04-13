@@ -102,7 +102,7 @@ export default function MapView({
             <Popup>
               <div className="space-y-1">
                 <p className="text-sm font-semibold">{festival.title}</p>
-                <p className="text-xs text-muted">{festivalCityLabel(festival)}</p>
+                <p className="text-xs text-muted">{festivalCityLabel(festival, "")}</p>
                 <p className="text-xs text-muted">{formatFestivalDateLineShort(festival)}</p>
                 <Link href={`/festivals/${festival.slug}`} className="text-xs font-semibold text-ink">
                   Виж
@@ -132,7 +132,7 @@ export default function MapView({
         <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[500]">
           <div className="pointer-events-auto rounded-xl border border-black/[0.08] bg-white/95 p-3 shadow-[0_2px_0_rgba(12,14,20,0.06),0_14px_30px_rgba(12,14,20,0.16)] backdrop-blur">
             <p className="text-sm font-semibold text-[#0c0e14]">{selectedFestival.title}</p>
-            <p className="mt-0.5 text-xs text-black/60">{festivalCityLabel(selectedFestival)}</p>
+            <p className="mt-0.5 text-xs text-black/60">{festivalCityLabel(selectedFestival, "")}</p>
             <p className="text-xs text-black/55">{formatFestivalDateLineShort(selectedFestival)}</p>
             <Link
               href={`/festivals/${selectedFestival.slug}`}

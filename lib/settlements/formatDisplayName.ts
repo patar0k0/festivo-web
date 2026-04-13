@@ -10,21 +10,20 @@ export function stripBulgarianSettlementPrefix(name: string): string {
 }
 
 /**
- * Име за показ: села — „с. “, градове — „гр. “.
- * При `isVillage === undefined` без промяна (напр. само свободен текст `city` без ред в `cities`).
- * Не дублираме вече налични представки.
+ * Единен етикет за населено място: село → „с. {name_bg}“, град → „гр. {name_bg}“.
+ * При `is_village == null` без префикс (само нормализирано име).
  */
 export function formatSettlementDisplayName(
-  rawName: string | null | undefined,
-  isVillage: boolean | null | undefined,
+  name_bg: string | null | undefined,
+  is_village: boolean | null | undefined,
 ): string | null {
-  if (rawName == null || !String(rawName).trim()) {
+  if (name_bg == null || !String(name_bg).trim()) {
     return null;
   }
 
-  const trimmed = fixMojibakeBG(String(rawName).trim());
+  const trimmed = fixMojibakeBG(String(name_bg).trim());
 
-  if (isVillage === true) {
+  if (is_village === true) {
     if (/^(?:с\.\s+|село\s+)/iu.test(trimmed)) {
       return trimmed;
     }
@@ -32,7 +31,7 @@ export function formatSettlementDisplayName(
     return base ? `с. ${base}` : trimmed;
   }
 
-  if (isVillage === false) {
+  if (is_village === false) {
     if (/^(?:гр\.\s+|град\s+)/iu.test(trimmed)) {
       return trimmed;
     }
@@ -43,24 +42,26 @@ export function formatSettlementDisplayName(
   return trimmed;
 }
 
-type FestivalCityLabelInput = Pick<Festival, "city_name_display" | "city" | "cities"> & {
+type FestivalCityLabelInput = Pick<Festival, "city_name_display" | "cities"> & {
   city_guess?: string | null;
 };
 
-/** Етикет за UI: канонично име → показване → предположение → legacy `city`. */
+/** Публичен етикет: само `cities` или модерирани/AI полета — без legacy `festivals.city`. */
 export function festivalCityLabel(festival: FestivalCityLabelInput, fallback = "България"): string {
-  const raw =
-    festivalSettlementDisplayText({
-      cityRelation: festival.cities ?? null,
-      city_name_display: festival.city_name_display,
-      city_guess: festival.city_guess ?? null,
-      legacyCity: festival.city,
-    }) ?? "";
-  if (!raw.trim()) {
-    return fallback;
+  const rel = festival.cities;
+  if (rel?.name_bg?.trim()) {
+    const formatted = formatSettlementDisplayName(rel.name_bg, rel.is_village ?? false);
+    if (formatted?.trim()) return formatted.trim();
   }
-  const formatted = formatSettlementDisplayName(raw, festival.cities?.is_village ?? undefined);
-  return formatted?.trim() || raw.trim() || fallback;
+  const moderated = festival.city_name_display?.trim();
+  if (moderated) {
+    return formatSettlementDisplayName(moderated, undefined) ?? moderated;
+  }
+  const guess = festival.city_guess?.trim();
+  if (guess) {
+    return formatSettlementDisplayName(guess, undefined) ?? guess;
+  }
+  return fallback;
 }
 
 /**

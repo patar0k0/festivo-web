@@ -1,11 +1,12 @@
 import { format } from "date-fns";
 import Link from "next/link";
 import FallbackImage from "@/components/ui/FallbackImage";
-import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
+import FestivalCardSaveOverlay from "@/components/plan/FestivalCardSaveOverlay";
 import { CardContent } from "@/components/ui/Card";
 import { cn } from "@/components/ui/cn";
 import { pub } from "@/lib/public-ui/styles";
 import { formatContinuousFestivalRangeBg } from "@/lib/festival/listingDates";
+import { categoryLabel } from "@/lib/festival/categoryLabel";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 
 /** Кратко име на месец за оранжева значка (3–4 знака). */
@@ -33,14 +34,12 @@ type EventCardProps = {
   endDate?: string | null;
   /** When set, replaces the default start/end date line (e.g. multiple discrete days). */
   dateLine?: string | null;
-  isFree?: boolean | null;
   isPromoted?: boolean | null;
   isVipOrganizer?: boolean | null;
   description?: string | null;
   showDetailsButton?: boolean;
   detailsHref?: string;
   showDescription?: boolean;
-  showPlanControls?: boolean;
   festivalId?: string | number;
   /** When set with date fields, derives past/ongoing chip (Europe/Sofia). */
   occurrenceDates?: unknown;
@@ -60,8 +59,7 @@ function getDateBadge(date?: string | null) {
   };
 }
 
-function getSignalTag(isFree?: boolean | null, startDate?: string | null) {
-  if (isFree === true) return "Безплатно";
+function getWeekendTag(startDate?: string | null) {
   if (!startDate) return null;
 
   const parsed = new Date(startDate);
@@ -90,23 +88,6 @@ function getUrgencyTag(startDate?: string | null) {
   return null;
 }
 
-function categoryLabel(category?: string | null): string | null {
-  if (!category) return null;
-
-  const labels: Record<string, string> = {
-    music: "Музика",
-    folk: "Фолклор",
-    arts: "Изкуство",
-    food: "Храна",
-    cultural: "Култура",
-    sports: "Спорт",
-    film: "Кино",
-    theater: "Театър",
-  };
-
-  return labels[category.toLowerCase()] ?? category;
-}
-
 export default function EventCard({
   title,
   city,
@@ -115,13 +96,11 @@ export default function EventCard({
   startDate,
   endDate,
   dateLine,
-  isFree,
   isPromoted,
   isVipOrganizer,
   description,
   detailsHref,
   showDescription = false,
-  showPlanControls = false,
   festivalId,
   occurrenceDates,
   startTime,
@@ -129,10 +108,10 @@ export default function EventCard({
 }: EventCardProps) {
   const badge = getDateBadge(startDate);
   const dateText = dateLine?.trim() ? dateLine : formatContinuousFestivalRangeBg(startDate, endDate);
-  const locationText = city || "Град: —";
+  const locationText = city?.trim() ? city.trim() : "";
   const snippet = description?.trim();
   const categoryText = categoryLabel(category);
-  const signalTag = getSignalTag(isFree, startDate);
+  const weekendTag = getWeekendTag(startDate);
   const urgencyTag = getUrgencyTag(startDate);
   const temporalState = getFestivalTemporalState({
     start_date: startDate,
@@ -215,13 +194,15 @@ export default function EventCard({
           <div className="text-base font-bold leading-none">{badge.day}</div>
         </div>
 
-        {categoryText ? <div className={pub.metaChip}>{categoryText}</div> : null}
+        {festivalId != null ? (
+          <FestivalCardSaveOverlay festivalId={String(festivalId)} className="absolute right-3 top-3 z-10" />
+        ) : null}
       </div>
 
       <CardContent className="flex flex-1 flex-col p-5">
         <div className="space-y-2">
           <p className="text-sm text-black/55">
-            {locationText} • {dateText}
+            {locationText ? `${locationText} • ${dateText}` : dateText}
           </p>
           <h3 className="text-xl font-semibold tracking-tight text-[#0c0e14]">
             {detailsHref ? (
@@ -245,7 +226,7 @@ export default function EventCard({
           </h3>
         </div>
 
-        {isPromoted || isVipOrganizer || urgencyTag || signalTag || temporalLabel ? (
+        {isPromoted || isVipOrganizer || urgencyTag || weekendTag || temporalLabel || categoryText ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {isPromoted ? (
               <span className="rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-amber-800">
@@ -274,9 +255,12 @@ export default function EventCard({
                 {urgencyTag}
               </span>
             ) : null}
-            {signalTag ? (
+            {categoryText ? (
+              <span className="rounded-full bg-black/5 px-2 py-0.5 text-xs text-black/70">{categoryText}</span>
+            ) : null}
+            {weekendTag ? (
               <span className="rounded-full border border-black/[0.08] bg-black/[0.03] px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-black/65">
-                {signalTag}
+                {weekendTag}
               </span>
             ) : null}
           </div>
@@ -291,15 +275,6 @@ export default function EventCard({
           </p>
         ) : null}
 
-        <div className="mt-auto pt-4">
-          {showPlanControls && festivalId != null ? (
-            <PlanFestivalBookmark
-              festivalId={String(festivalId)}
-              showProgrammeLink={false}
-              showReminder={false}
-            />
-          ) : null}
-        </div>
       </CardContent>
     </div>
   );

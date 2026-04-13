@@ -6,7 +6,6 @@ import { getOptionalUser } from "@/lib/authUser";
 import { cn } from "@/lib/utils";
 import { getPlanEntriesByUser, getPlanStateByUser } from "@/lib/plan/server";
 import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
-import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { FestivalDateFields } from "@/lib/festival/listingDates";
 import { festivalEffectiveCalendarBounds, getFestivalTemporalState } from "@/lib/festival/temporal";
@@ -32,7 +31,6 @@ function mapPlanFestivalRow(row: {
   id: unknown;
   slug: string;
   title: string;
-  city: string | null;
   start_date: string | null;
   end_date: string | null;
   occurrence_dates: unknown;
@@ -51,9 +49,9 @@ function mapPlanFestivalRow(row: {
     id: String(row.id),
     slug: row.slug,
     title: row.title,
-    city:
-      formatSettlementDisplayName(joined?.name_bg ?? row.city, joined?.is_village ?? undefined) ??
-      (row.city ? fixMojibakeBG(row.city) : null),
+    city: joined?.name_bg?.trim()
+      ? formatSettlementDisplayName(joined.name_bg, joined.is_village ?? false)
+      : null,
     start_date: row.start_date,
     end_date: row.end_date,
     occurrence_dates: row.occurrence_dates ?? null,
@@ -107,7 +105,7 @@ export default async function PlanPage() {
     const { data: festivalRows } = await supabase
       .from("festivals")
       .select(
-        "id,slug,title,city,start_date,end_date,occurrence_dates,start_time,end_time,hero_image,image_url,cities:cities!left(name_bg,is_village)"
+        "id,slug,title,start_date,end_date,occurrence_dates,start_time,end_time,hero_image,image_url,cities:cities!left(name_bg,is_village)"
       )
       .in("id", festivalIds);
 

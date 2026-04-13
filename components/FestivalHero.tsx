@@ -28,7 +28,7 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
       <div className="relative z-10 grid gap-8 p-8 text-white md:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
           <p className="text-xs uppercase tracking-[0.3em] text-white/70">
-            {festivalCityLabel(festival, "Bulgaria")} · {formatFestivalDateLineShort(festival)}
+            {[festivalCityLabel(festival, "").trim(), formatFestivalDateLineShort(festival)].filter(Boolean).join(" · ")}
           </p>
           <h1 className="text-3xl font-semibold md:text-5xl">{festival.title}</h1>
           {festival.is_free && <span className="badge bg-white/90 text-ink">Free</span>}

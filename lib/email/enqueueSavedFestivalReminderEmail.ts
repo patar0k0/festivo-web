@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotificationJobRow } from "@/lib/notifications/types";
 import { TZ } from "@/lib/notifications/time";
 import { getBaseUrl } from "@/lib/seo";
-import { formatSettlementDisplayName, festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
 
 import {
   dedupeKeyReminderOneDayBefore,
@@ -20,13 +20,12 @@ import { enqueueEmailJob } from "./enqueueEmail";
 import { resolveAuthUserEmail } from "./resolveAuthUserEmail";
 
 const FESTIVAL_REMINDER_SELECT =
-  "id,title,slug,city,city_id,start_date,start_time,location_name,address,cities:cities!left(name_bg,slug,is_village)";
+  "id,title,slug,city_id,start_date,start_time,location_name,address,cities:cities!left(name_bg,slug,is_village)";
 
 export type FestivalRowForReminderEmail = {
   id: string;
   title: string | null;
   slug: string | null;
-  city: string | null;
   city_id: number | null;
   start_date: string | null;
   start_time: string | null;
@@ -83,11 +82,10 @@ function locationSummaryFromFestival(row: FestivalRowForReminderEmail): string |
 
 function cityDisplayFromFestival(row: FestivalRowForReminderEmail): string | null {
   const c = normalizeCityJoin(row.cities);
-  if (c?.name_bg) {
+  if (c?.name_bg?.trim()) {
     return formatSettlementDisplayName(c.name_bg, c.is_village);
   }
-  const fallback = festivalCityLabel({ city: row.city ?? "", city_name_display: null }, "").trim();
-  return fallback || null;
+  return null;
 }
 
 function reminderSubkindToEmailType(subkind: unknown): EmailJobType | null {

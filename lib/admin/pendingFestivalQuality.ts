@@ -102,7 +102,6 @@ export function assessPendingFestivalQuality(row: PendingQualityInput): PendingF
       : null,
     city_name_display: normalizeText(row.city_name_display),
     city_guess: cityGuess,
-    legacyCity: null,
   });
   const locationName = normalizeText(row.location_name);
   const locationGuess = normalizeText(row.location_guess);
@@ -278,7 +277,6 @@ export function listFilledPendingRecordFields(row: PendingRecordForFillSummary):
       : null,
     city_name_display: normalizeText(row.city_name_display),
     city_guess: normalizeText(row.city_guess),
-    legacyCity: null,
   });
   if (cityId != null && cityName) {
     out.push({ key: "city_resolved", label: "Град (каноничен)", preview: `${cityName} (id ${cityId})` });

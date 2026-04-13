@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 const FESTIVAL_SELECT =
-  "id,title,slug,city,city_id,start_date,end_date,category,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range";
+  "id,title,slug,city_id,start_date,end_date,category,image_url,is_free,status,is_verified,lat,lng,description,ticket_url,price_range,cities:cities!left(name_bg,slug,is_village)";
 
 export async function GET(request: NextRequest) {
   const preview = request.cookies.get("festivo_preview")?.value;

@@ -5,7 +5,7 @@ import { Festival } from "@/lib/types";
 export default function FestivalLocation({ festival }: { festival: Festival }) {
   const summary = formatPublicFestivalLocationSummary(festival);
   const cityL = festivalCityLabel(festival, "");
-  if (!summary && !cityL && !festival.city && !festival.city_name_display) return null;
+  if (!summary && !cityL && !festival.city_name_display) return null;
   const display = [summary, cityL].filter(Boolean).join(", ");
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(display)}`;
 

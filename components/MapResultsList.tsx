@@ -56,7 +56,7 @@ export default function MapResultsList({
           >
             <EventCard
               title={festival.title}
-              city={festivalCityLabel(festival)}
+              city={festivalCityLabel(festival, "")}
               category={festival.category}
               imageUrl={getFestivalHeroImage(festival)}
               startDate={festival.start_date}
@@ -64,13 +64,11 @@ export default function MapResultsList({
               occurrenceDates={festival.occurrence_dates}
               startTime={festival.start_time}
               endTime={festival.end_time}
-              isFree={festival.is_free}
               isPromoted={hasActivePromotion(festival)}
               isVipOrganizer={hasActiveVip(festival.organizer)}
               description={festival.description}
               showDescription
               detailsHref={`/festivals/${festival.slug}`}
-              showPlanControls
               festivalId={festival.id}
             />
             <Link

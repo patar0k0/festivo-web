@@ -337,7 +337,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                           <EventCard
                             key={festival.id}
                             title={festival.title}
-                            city={festivalCityLabel(festival)}
+                            city={festivalCityLabel(festival, "")}
                             category={festival.category}
                             imageUrl={getFestivalHeroImage(festival)}
                             startDate={festival.start_date}
@@ -345,7 +345,6 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                             occurrenceDates={festival.occurrence_dates}
                             startTime={festival.start_time}
                             endTime={festival.end_time}
-                            isFree={festival.is_free}
                             isPromoted={hasActivePromotion(festival)}
                             isVipOrganizer={hasActiveVip(festival.organizer)}
                             detailsHref={`/festivals/${festival.slug}`}
@@ -363,7 +362,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                           <EventCard
                             key={festival.id}
                             title={festival.title}
-                            city={festivalCityLabel(festival)}
+                            city={festivalCityLabel(festival, "")}
                             category={festival.category}
                             imageUrl={getFestivalHeroImage(festival)}
                             startDate={festival.start_date}
@@ -371,7 +370,6 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                             occurrenceDates={festival.occurrence_dates}
                             startTime={festival.start_time}
                             endTime={festival.end_time}
-                            isFree={festival.is_free}
                             isPromoted={hasActivePromotion(festival)}
                             isVipOrganizer={hasActiveVip(festival.organizer)}
                             detailsHref={`/festivals/${festival.slug}`}

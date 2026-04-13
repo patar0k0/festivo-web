@@ -13,8 +13,9 @@ import { Festival } from "@/lib/types";
 export type HomeCityOption = {
   name: string;
   slug: string | null;
+  /** `cities.slug` — стойност за `?city=` на началната страница. */
   filterValue: string;
-  /** Брой фестивали с `status = published` за този филтър (`city`). */
+  /** Брой публикувани фестивали за този `city_id` / slug. */
   publishedFestivalCount: number;
 };
 
@@ -76,7 +77,7 @@ async function fetchHomeFestivals(params: {
     .limit(limit);
 
   if (params.citySlug) {
-    query = query.eq("city_slug", params.citySlug);
+    query = query.eq("cities.slug", params.citySlug);
   }
 
   const rangeTo = params.to ?? "2099-12-31";
@@ -140,16 +141,16 @@ async function fetchPublishedFestivalsTotalCount(): Promise<number> {
   return count ?? 0;
 }
 
-/** Градове с поне един published фестивал; сортиране по брой DESC. */
+/** Населени места от `cities` с поне един публикуван фестивал (`city_id`); сортиране по брой DESC. */
 async function fetchHomePublishedCityOptionsWithCounts(): Promise<HomeCityOption[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("festivals")
-    .select("city, cities:cities!left(slug,name_bg,is_village)")
+    .select("cities:cities!inner(slug,name_bg,is_village)")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
-    .not("city", "is", null)
-    .returns<Array<{ city: string | null; cities: CityJoinRow | CityJoinRow[] | null }>>();
+    .not("city_id", "is", null)
+    .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
 
   if (error) {
     console.error("[loadHomePageData] fetchHomePublishedCityOptionsWithCounts", error);
@@ -159,25 +160,19 @@ async function fetchHomePublishedCityOptionsWithCounts(): Promise<HomeCityOption
   const map = new Map<string, { name: string; slug: string | null; publishedFestivalCount: number }>();
 
   for (const row of data ?? []) {
-    const key = row.city?.trim();
-    if (!key) continue;
-
     const joined = normalizeFestivalCityJoin(row.cities);
-    const slugFromJoin = joined?.slug ?? null;
-    const displayName = joined?.name_bg
-      ? formatSettlementDisplayName(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg)
-      : fixMojibakeBG(key);
+    const slug = joined?.slug?.trim();
+    if (!joined || !slug) continue;
 
-    const existing = map.get(key);
+    const displayName =
+      formatSettlementDisplayName(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg ?? slug);
+
+    const existing = map.get(slug);
     if (!existing) {
-      map.set(key, { name: displayName, slug: slugFromJoin, publishedFestivalCount: 1 });
+      map.set(slug, { name: displayName, slug, publishedFestivalCount: 1 });
     } else {
       existing.publishedFestivalCount += 1;
-      if (!existing.slug && slugFromJoin) existing.slug = slugFromJoin;
-      if (joined?.name_bg) {
-        existing.name =
-          formatSettlementDisplayName(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg);
-      }
+      existing.name = displayName;
     }
   }
 
@@ -209,7 +204,7 @@ async function fetchCurrentFestivals(params: { today: string; citySlug?: string 
     .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
 
   if (citySlug) {
-    query = query.eq("city_slug", citySlug);
+    query = query.eq("cities.slug", citySlug);
   }
 
   const { data, error } = await query.limit(100).returns<Festival[]>();

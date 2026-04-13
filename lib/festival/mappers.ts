@@ -42,6 +42,8 @@ type PendingFestivalRowLike = {
 type FestivalRowLike = Festival & {
   city_name_display?: string | null;
   city_name?: string | null;
+  /** Legacy `festivals.city` when still present in admin/API payloads. */
+  city?: string | null;
 };
 
 function normalizeText(value: unknown): string | null {
@@ -68,12 +70,15 @@ function normalizeTags(value: unknown): string[] {
 function cityDisplayFallback(row: PendingFestivalRowLike | FestivalRowLike): string | null {
   const pendingLike = row as PendingFestivalRowLike;
   const cityRelation = pendingLike.cityRelation;
-  return festivalSettlementDisplayText({
-    cityRelation: cityRelation ? { name_bg: cityRelation.name_bg, slug: cityRelation.slug } : null,
-    city_name_display: row.city_name_display,
-    city_guess: pendingLike.city_guess,
-    legacyCity: normalizeText(row.city_name) ?? normalizeText(row.city),
-  });
+  return (
+    festivalSettlementDisplayText({
+      cityRelation: cityRelation ? { name_bg: cityRelation.name_bg, slug: cityRelation.slug } : null,
+      city_name_display: row.city_name_display,
+      city_guess: pendingLike.city_guess,
+    }) ??
+    normalizeText(row.city_name) ??
+    normalizeText(row.city)
+  );
 }
 
 export function canonicalFromPending(row: PendingFestivalRowLike): CanonicalFestivalPayload {

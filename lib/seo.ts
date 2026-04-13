@@ -95,7 +95,6 @@ function addressLocality(festival: Festival): string | undefined {
     cityRelation: festival.cities ?? null,
     city_name_display: festival.city_name_display,
     city_guess: (festival as Festival & { city_guess?: string | null }).city_guess ?? null,
-    legacyCity: festival.city,
   });
   if (!raw?.trim()) return undefined;
   return formatSettlementDisplayName(raw, festival.cities?.is_village ?? undefined) ?? raw.trim();

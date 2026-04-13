@@ -14,11 +14,11 @@ import { compareFestivalsForListing, sortFestivalsForListing } from "@/lib/festi
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 
 export const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city_id,city,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
+  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
 
 /** Festival rows for `/organizers/[slug]`: nested organizer without plan/rank/promotion-credit fields. */
 export const FESTIVAL_SELECT_ORGANIZER_PROFILE =
-  "id,title,slug,city_id,city,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug)";
+  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug)";
 
 /** Public organizer profile fields (no plan, rank, credits, merge state). */
 // claimed_events_count: included for future public display, not rendered yet
@@ -50,9 +50,66 @@ export function normalizePublicFestivalSlugParam(raw: string): string {
 }
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,city,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
 
 const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
+
+/** Reserved filter token when URL city params cannot be mapped to `cities.slug`. */
+const IMPOSSIBLE_CITY_SLUG_FILTER = "__festivo_no_city_match__";
+
+async function resolveCityFilterTokensToSlugs(
+  supabase: NonNullable<ReturnType<typeof supabaseServer>>,
+  tokens: string[],
+): Promise<string[] | null> {
+  const trimmed = tokens.map((c) => c.trim()).filter(Boolean);
+  if (!trimmed.length) return [];
+  if (trimmed.every(looksLikeSingleTokenCitySlug)) return trimmed;
+
+  const { data: allCities, error } = await supabase.from("cities").select("slug,name_bg");
+  if (error) {
+    console.error("[queries] resolveCityFilterTokensToSlugs", error.message);
+    return null;
+  }
+
+  const byNameBg = new Map<string, string>();
+  const bySlug = new Map<string, string>();
+  for (const row of allCities ?? []) {
+    const slug = typeof row.slug === "string" ? row.slug.trim() : "";
+    const bg = typeof row.name_bg === "string" ? row.name_bg.trim() : "";
+    if (slug) bySlug.set(slug.toLowerCase(), slug);
+    if (bg) byNameBg.set(bg.toLowerCase(), slug);
+  }
+
+  const out: string[] = [];
+  for (const t of trimmed) {
+    const tl = t.toLowerCase();
+    if (bySlug.has(tl)) {
+      out.push(bySlug.get(tl)!);
+      continue;
+    }
+    if (byNameBg.has(tl)) {
+      out.push(byNameBg.get(tl)!);
+      continue;
+    }
+    return null;
+  }
+  return out;
+}
+
+async function withCitySlugsResolvedInFilters(
+  supabase: NonNullable<ReturnType<typeof supabaseServer>>,
+  filters: Filters,
+  options?: FilterOptions,
+): Promise<Filters> {
+  const applied = options?.applyDefaults === false ? filters : withDefaultFilters(filters);
+  if (!applied.city?.length) return filters;
+
+  const slugs = await resolveCityFilterTokensToSlugs(supabase, applied.city);
+  if (slugs === null) {
+    return { ...filters, city: [IMPOSSIBLE_CITY_SLUG_FILTER] };
+  }
+  return { ...filters, city: slugs };
+}
 
 /** Primary single-row reads: log and throw on Supabase error; use `null` only when the row is absent. */
 function throwOnSelectError(context: string, error: { message: string } | null | undefined): void {
@@ -238,15 +295,10 @@ function applyFilters<T extends FilterQuery<T>>(
 
   if (applied.city?.length) {
     const trimmed = applied.city.map((c) => c.trim()).filter(Boolean);
-    const allSlugLike = trimmed.length > 0 && trimmed.every(looksLikeSingleTokenCitySlug);
-    if (allSlugLike) {
-      typedQuery =
-        trimmed.length === 1
-          ? typedQuery.eq("cities.slug", trimmed[0]!)
-          : typedQuery.in("cities.slug", trimmed);
-    } else {
-      typedQuery = typedQuery.in("city", trimmed);
-    }
+    typedQuery =
+      trimmed.length === 1
+        ? typedQuery.eq("cities.slug", trimmed[0]!)
+        : typedQuery.in("cities.slug", trimmed);
   }
 
   if (applied.cat?.length) {
@@ -293,7 +345,6 @@ export function fixFestivalText(festival: Festival): Festival {
       cityRelation: festival.cities ?? null,
       city_name_display: festival.city_name_display,
       city_guess: (festival as Festival & { city_guess?: string | null }).city_guess ?? null,
-      legacyCity: festival.city,
     }) ?? null;
   const city_name_display = formatSettlementDisplayName(rawLine, settlementKind);
 
@@ -304,7 +355,6 @@ export function fixFestivalText(festival: Festival): Festival {
     occurrence_dates: occurrenceNorm,
     title: fixMojibakeBG(festival.title),
     description: festival.description ? fixMojibakeBG(festival.description) : festival.description,
-    city: festival.city ? fixMojibakeBG(festival.city) : festival.city,
     address: festival.address ? fixMojibakeBG(festival.address) : festival.address,
     location_name: festival.location_name ? fixMojibakeBG(festival.location_name) : festival.location_name,
     venue_name: festival.location_name ? fixMojibakeBG(festival.location_name) : festival.location_name,
@@ -345,8 +395,9 @@ export async function getFestivals(
   }
 
   const dateResolution = await resolveFestivalDateFilterIds(supabase, filters, options);
+  const filtersForQuery = await withCitySlugsResolvedInFilters(supabase, filters, options);
   let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN);
-  query = applyFilters(query, filters, options, dateResolution);
+  query = applyFilters(query, filtersForQuery, options, dateResolution);
   const { data, error } = await query.returns<Festival[]>();
 
   if (error) {
@@ -516,8 +567,9 @@ export async function getCalendarMonth(month: string, filters: Filters, options?
     to: format(monthEnd, "yyyy-MM-dd"),
   };
   const dateResolution = await resolveFestivalDateFilterIds(supabase, monthFilters, options);
+  const monthFiltersForQuery = await withCitySlugsResolvedInFilters(supabase, monthFilters, options);
   let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN);
-  query = applyFilters(query, monthFilters, options, dateResolution);
+  query = applyFilters(query, monthFiltersForQuery, options, dateResolution);
 
   const { data, error } = await query.returns<Festival[]>();
 
@@ -545,27 +597,8 @@ export async function getCalendarMonth(month: string, filters: Filters, options?
 }
 
 export async function getCities(): Promise<string[]> {
-  const supabase = supabaseServer();
-  if (!supabase) {
-    return [];
-  }
-  const { data, error } = await supabase
-    .from("festivals")
-    .select("city")
-    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
-    .neq("status", "archived")
-    .returns<{ city: string | null }[]>();
-
-  if (error) {
-    return [];
-  }
-
-  const set = new Set<string>();
-  (data ?? []).forEach((row) => {
-    if (row.city) set.add(fixMojibakeBG(row.city));
-  });
-
-  return Array.from(set).sort();
+  const links = await getCityLinks();
+  return links.map((l) => l.name).sort((a, b) => a.localeCompare(b, "bg"));
 }
 
 export async function getCityLinks(): Promise<Array<{ name: string; slug: string }>> {
@@ -603,7 +636,7 @@ function normalizeFestivalCityJoin(
   return Array.isArray(raw) ? (raw[0] ?? null) : raw;
 }
 
-/** Градове, които реално се срещат в публикувани фестивали (полето `city` е стойността за филтъра). */
+/** Градове с поне един публикуван фестивал; `filterValue` е `cities.slug`. */
 export async function getHomeCitySelectOptions(): Promise<
   Array<{ name: string; slug: string | null; filterValue: string }>
 > {
@@ -614,16 +647,11 @@ export async function getHomeCitySelectOptions(): Promise<
 
   const { data, error } = await supabase
     .from("festivals")
-    .select("city, cities:cities!left(slug,name_bg,is_village)")
+    .select("cities:cities!inner(slug,name_bg,is_village)")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
-    .not("city", "is", null)
-    .returns<
-      Array<{
-        city: string | null;
-        cities: CityJoinRow | CityJoinRow[] | null;
-      }>
-    >();
+    .not("city_id", "is", null)
+    .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
 
   if (error || !data?.length) {
     return [];
@@ -632,19 +660,13 @@ export async function getHomeCitySelectOptions(): Promise<
   const map = new Map<string, { name: string; slug: string | null }>();
 
   for (const row of data) {
-    const key = row.city?.trim();
-    if (!key) continue;
-
-    const prev = map.get(key) ?? {
-      name: fixMojibakeBG(key),
-      slug: null as string | null,
-    };
     const joined = normalizeFestivalCityJoin(row.cities);
-    const slug = joined?.slug ?? prev.slug;
-    const name = joined?.name_bg
-      ? formatSettlementDisplayName(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg)
-      : prev.name;
-    map.set(key, { name, slug });
+    const slug = joined?.slug?.trim();
+    if (!joined || !slug) continue;
+
+    const name =
+      formatSettlementDisplayName(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg ?? slug);
+    map.set(slug, { name, slug });
   }
 
   return Array.from(map.entries())

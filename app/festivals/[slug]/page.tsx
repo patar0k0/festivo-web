@@ -12,7 +12,6 @@ import {
   normalizePublicFestivalSlugParam,
 } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
-import { slugify } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
@@ -77,8 +76,8 @@ export default async function Page({
   const jsonLd = buildFestivalJsonLd(data.festival, {
     mediaUrls: galleryImageUrls,
   });
-  const cityFilterValue = data.festival.city;
-  const citySlug = data.festival.cities?.slug ?? (data.festival.city ? slugify(data.festival.city) : null);
+  const citySlug = data.festival.cities?.slug?.trim() || null;
+  const cityFilterValue = citySlug;
   const mapQuery =
     data.festival.latitude != null && data.festival.longitude != null
       ? `${data.festival.latitude},${data.festival.longitude}`

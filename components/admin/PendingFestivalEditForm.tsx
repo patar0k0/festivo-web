@@ -410,7 +410,6 @@ export default function PendingFestivalEditForm({
         : null,
       city_name_display: typeof pendingFestival.city_name_display === "string" ? pendingFestival.city_name_display : null,
       city_guess: typeof pendingFestival.city_guess === "string" ? pendingFestival.city_guess : null,
-      legacyCity: null,
     }) ?? "";
 
   const [organizerEntries, setOrganizerEntries] = useState(() => buildInitialOrganizerEntries(pendingFestival));
@@ -1207,7 +1206,6 @@ export default function PendingFestivalEditForm({
             : null,
           city_name_display: typeof pendingFestival.city_name_display === "string" ? pendingFestival.city_name_display : null,
           city_guess: typeof pendingFestival.city_guess === "string" ? pendingFestival.city_guess : null,
-          legacyCity: null,
         }) ??
           "")) ||
       "—";

@@ -5,6 +5,7 @@ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { formatFestivalDateLineShort, primaryFestivalDate } from "@/lib/festival/listingDates";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { categoryLabel } from "@/lib/festival/categoryLabel";
 import { Festival } from "@/lib/types";
 
 function formatBadgeDate(festival: Festival) {
@@ -21,6 +22,7 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
         const heroImage = getFestivalHeroImage(festival);
         const tState = getFestivalTemporalState(festival);
         const temporalChip = tState === "past" ? "Отминал" : tState === "ongoing" ? "Текущ" : null;
+        const categoryText = categoryLabel(festival.category);
 
         return (
         <Link key={festival.id} href={`/festivals/${festival.slug}`} className="group">
@@ -47,7 +49,7 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
             <div className="space-y-3 p-5">
               <div className="text-[17px] font-semibold tracking-[-0.2px]">{festival.title}</div>
               <div className="text-sm text-[color:var(--muted)]">
-                {festivalCityLabel(festival, "Bulgaria")} • {formatFestivalDateLineShort(festival)}
+                {[festivalCityLabel(festival, "").trim(), formatFestivalDateLineShort(festival)].filter(Boolean).join(" · ")}
               </div>
               <div className="flex flex-wrap gap-2">
                 {temporalChip ? (
@@ -55,15 +57,8 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
                     {temporalChip}
                   </span>
                 ) : null}
-                {festival.is_free ? (
-                  <span className="rounded-full border border-[color:var(--border2)] bg-[color:var(--surface2)] px-3 py-1 text-xs">
-                    Безплатно
-                  </span>
-                ) : null}
-                {festival.category ? (
-                  <span className="rounded-full border border-[color:var(--border2)] bg-[color:var(--surface2)] px-3 py-1 text-xs">
-                    {festival.category}
-                  </span>
+                {categoryText ? (
+                  <span className="rounded-full bg-black/5 px-2 py-0.5 text-xs text-black/70">{categoryText}</span>
                 ) : null}
               </div>
             </div>

@@ -4,7 +4,6 @@ export type Festival = {
   title: string;
   description?: string | null;
   city_id?: number | null;
-  city?: string | null;
   city_name_display?: string | null;
   location_name?: string | null;
   /** Optional venue label when present in API responses / selects. */

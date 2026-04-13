@@ -53,12 +53,11 @@ function visibleCatalogStatus(status: string | null | undefined): boolean {
 }
 
 function pendingCityLabel(row: {
-  city: string | null;
   city_row: { name_bg: string | null; slug: string | null; is_village: boolean | null } | null;
 }): string {
   const nested = row.city_row;
   const formatted = formatSettlementDisplayName(nested?.name_bg ?? null, nested?.is_village ?? null);
-  return formatted?.trim() || row.city?.trim() || "—";
+  return formatted?.trim() || "—";
 }
 
 export async function loadOrganizerEditWorkspace(
@@ -169,7 +168,6 @@ export async function loadOrganizerEditWorkspace(
       title: r.title,
       status: r.status,
       cityLabel: pendingCityLabel({
-        city: r.city,
         city_row: cityRow,
       }),
       created_at: r.created_at,

@@ -59,7 +59,6 @@ type FestivalRow = {
   id: string | number;
   slug: string;
   title: string;
-  city: string | null;
   cities?: CityJoinRow | CityJoinRow[] | null;
 };
 
@@ -210,7 +209,7 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
 
   const { data: festivalRows } = await db
     .from("festivals")
-    .select("id,slug,title,city,cities:cities!left(name_bg,is_village)")
+    .select("id,slug,title,cities:cities!left(name_bg,is_village)")
     .in("id", festivalIds)
     .returns<FestivalRow[]>();
 
@@ -226,8 +225,9 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
 
     const joined = normalizePlanCityJoin(festival.cities);
     const cityLabel =
-      formatSettlementDisplayName(joined?.name_bg ?? festival.city, joined?.is_village ?? undefined) ??
-      (festival.city ? fixMojibakeBG(festival.city) : null);
+      joined?.name_bg?.trim() != null && joined.name_bg.trim() !== ""
+        ? formatSettlementDisplayName(joined.name_bg, joined.is_village ?? false)
+        : null;
     entries.push({
       scheduleItemId: String(schedule.id),
       festivalId: String(festival.id),

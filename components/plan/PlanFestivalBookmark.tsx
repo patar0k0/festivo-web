@@ -14,9 +14,31 @@ type PlanFestivalBookmarkProps = {
   showProgrammeLink?: boolean;
   /** Listing cards: hide reminder select (default true elsewhere). */
   showReminder?: boolean;
+  /** Compact heart control for card image overlay (save only). */
+  variant?: "default" | "icon";
 };
 
 const LOGIN_HREF = "/login";
+
+function HeartIcon({ filled }: { filled: boolean }) {
+  if (filled) {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden className="text-[#7c2d12]">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden className="text-[#0c0e14]/70">
+      <path
+        d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export default function PlanFestivalBookmark({
   festivalId,
@@ -24,6 +46,7 @@ export default function PlanFestivalBookmark({
   compact = true,
   showProgrammeLink = true,
   showReminder = true,
+  variant = "default",
 }: PlanFestivalBookmarkProps) {
   const {
     isAuthenticated,
@@ -82,6 +105,27 @@ export default function PlanFestivalBookmark({
       setLoading(false);
     }
   };
+
+  if (variant === "icon") {
+    return (
+      <button
+        type="button"
+        onClick={(event) => {
+          stopEvent(event);
+          void toggleSaved();
+        }}
+        disabled={loading}
+        title={error ?? undefined}
+        aria-label={saved ? "Премахни от плана" : "Запази в плана"}
+        aria-pressed={saved}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-black/[0.12] bg-white/95 shadow-sm backdrop-blur transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/30 disabled:cursor-not-allowed disabled:opacity-45 ${
+          saved ? "border-[#7c2d12]/35 bg-white" : "hover:bg-white"
+        }`}
+      >
+        {loading ? <span className="text-xs text-black/50">…</span> : <HeartIcon filled={saved} />}
+      </button>
+    );
+  }
 
   return (
     <div className={`space-y-2 ${compact ? "" : "mt-3"}`} onClick={(event) => event.stopPropagation()}>

@@ -19,7 +19,6 @@ type FestivalRow = {
   title: string | null;
   slug: string;
   start_date: string | null;
-  city: string | null;
   city_id: number | null;
   status: string | null;
 };
@@ -64,7 +63,7 @@ export function shouldNotifyUpdate(
     return true;
   }
 
-  if (normStr(before.city) !== normStr(after.city)) {
+  if (normStr(before.city_id) !== normStr(after.city_id)) {
     return true;
   }
 
@@ -340,7 +339,7 @@ export async function scheduleNewFestivalFollowCityJobs(
   const supabase = createSupabaseAdmin();
   const { data: festival, error: fErr } = await supabase
     .from("festivals")
-    .select("id,title,slug,city,city_id,start_date,status,category_slug,organizer_id")
+    .select("id,title,slug,city_id,start_date,status,category_slug,organizer_id")
     .eq("id", festivalId)
     .maybeSingle();
 
@@ -353,8 +352,8 @@ export async function scheduleNewFestivalFollowCityJobs(
     return { ok: true, inserted: 0 };
   }
 
-  let citySlug = f.city;
-  if (!citySlug && f.city_id != null) {
+  let citySlug: string | null = null;
+  if (f.city_id != null) {
     const { data: city } = await supabase.from("cities").select("slug").eq("id", f.city_id).maybeSingle<{ slug: string }>();
     citySlug = city?.slug ?? null;
   }
@@ -451,7 +450,7 @@ export async function scheduleWeekendNearbyJobs(
 
   const { data: festRows, error: festErr } = await supabase
     .from("festivals")
-    .select("id,title,slug,city,city_id,start_date,end_date,status")
+    .select("id,title,slug,city_id,start_date,end_date,status")
     .neq("status", "archived")
     .gte("start_date", fromIso)
     .lte("start_date", toIso);
@@ -525,10 +524,7 @@ export async function scheduleWeekendNearbyJobs(
     const matched: FestivalRow[] = [];
 
     for (const fest of festivals) {
-      let slug = fest.city?.trim() || null;
-      if (!slug && fest.city_id != null) {
-        slug = citySlugById.get(fest.city_id) ?? null;
-      }
+      const slug = fest.city_id != null ? citySlugById.get(fest.city_id) ?? null : null;
 
       if (slug && follows.has(slug)) {
         matched.push(fest);

@@ -8,7 +8,6 @@ type Payload = {
 type FestivalRow = {
   id: string;
   title: string | null;
-  city: string | null;
   city_id: number | null;
   category_slug: string | null;
   organizer_id: string | null;
@@ -63,7 +62,7 @@ export async function POST(request: Request) {
 
   const { data: festival, error: festivalError } = await supabase
     .from("festivals")
-    .select("id,title,city,city_id,category_slug,organizer_id")
+    .select("id,title,city_id,category_slug,organizer_id")
     .eq("id", festivalId)
     .single();
 
@@ -73,8 +72,8 @@ export async function POST(request: Request) {
 
   const festivalRow = festival as FestivalRow;
 
-  let citySlug = festivalRow.city;
-  if (!citySlug && festivalRow.city_id != null) {
+  let citySlug: string | null = null;
+  if (festivalRow.city_id != null) {
     const { data: city } = await supabase.from("cities").select("slug").eq("id", festivalRow.city_id).maybeSingle<{ slug: string }>();
     citySlug = city?.slug ?? null;
   }

@@ -239,9 +239,11 @@ function SavedFestivalPlanCard({
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full border border-black/5 px-3 py-1 text-xs text-black/60">
-              {festival.city ?? "България"}
-            </span>
+            {festival.city?.trim() ? (
+              <span className="inline-flex items-center rounded-full border border-black/5 px-3 py-1 text-xs text-black/60">
+                {festival.city}
+              </span>
+            ) : null}
             {isPast ? (
               <span className="text-xs text-black/50">Приключил</span>
             ) : (
@@ -576,7 +578,7 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/40">Програма</p>
                 <h2 className="text-xl font-bold tracking-tight text-black/90">{first.festivalTitle}</h2>
-                <p className="text-sm text-black/60">{first.city ?? "България"}</p>
+                {first.city?.trim() ? <p className="text-sm text-black/60">{first.city}</p> : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <ReminderPills

@@ -6,8 +6,6 @@ export type FestivalCityTextSource = {
   cityRelation?: FestivalCityRelation;
   city_name_display?: string | null;
   city_guess?: string | null;
-  /** Published `festivals.city` (often canonical slug) or legacy free text */
-  legacyCity?: string | null;
 };
 
 function trimNullable(value: unknown): string | null {
@@ -17,8 +15,8 @@ function trimNullable(value: unknown): string | null {
 }
 
 /**
- * Raw settlement label for forms, approval resolution, and canonical mapping.
- * Order: canonical join (name, then slug) → moderated display → AI guess → legacy slug/text.
+ * Raw settlement label for forms and resolution (no legacy `festivals.city` text).
+ * Order: canonical join (name, then slug) → moderated display → AI guess.
  */
 export function festivalSettlementDisplayText(src: FestivalCityTextSource): string | null {
   const rel = src.cityRelation;
@@ -27,7 +25,6 @@ export function festivalSettlementDisplayText(src: FestivalCityTextSource): stri
     trimNullable(rel?.slug) ??
     trimNullable(src.city_name_display) ??
     trimNullable(src.city_guess) ??
-    trimNullable(src.legacyCity) ??
     null
   );
 }
@@ -55,7 +52,6 @@ export function resolveCityInputForApproval(src: CityApprovalInputSource): strin
     cityRelation: src.cityRelation,
     city_name_display: src.city_name_display,
     city_guess: src.city_guess,
-    legacyCity: null,
   });
   if (fromText) {
     return normalizeSettlementInput(fromText);

@@ -45,7 +45,7 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
             >
               <p className="text-base font-semibold text-[#0c0e14]">{festival.title}</p>
               <p className="mt-1 text-sm text-black/60">
-                {festivalCityLabel(festival)} • {formatFestivalDateLineShort(festival)}
+                {[festivalCityLabel(festival, "").trim(), formatFestivalDateLineShort(festival)].filter(Boolean).join(" · ")}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {temporalChip ? (

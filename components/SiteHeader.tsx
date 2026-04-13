@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import Container from "@/components/ui/Container";
 import SiteNavClient from "@/components/SiteNavClient";
@@ -26,13 +27,13 @@ export default async function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#f5f4f0]/95">
       <Container className="flex items-center justify-between py-3">
         <Link href="/" className="inline-flex shrink-0 items-center text-[#0c0e14]">
-          <img
+          <Image
             src="/brand/festivo-logo.svg"
             alt="Festivo"
             width={512}
             height={128}
             className="h-10 w-auto md:h-12 drop-shadow-[0_1px_1px_rgba(0,0,0,0.06)]"
-            decoding="async"
+            priority
           />
         </Link>
         <SiteNavClient isAuthenticated={isAuthenticated} isAdmin={isAdmin} userEmail={userEmail} />

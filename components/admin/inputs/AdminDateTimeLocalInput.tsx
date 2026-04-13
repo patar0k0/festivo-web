@@ -7,8 +7,10 @@ import {
   formatTime,
   isValidTime,
   joinLocalDatetime,
+  normalizeTime,
   splitDatetimeLocalValue,
 } from "@/lib/admin/adminDateTimeTextFormat";
+import { cn } from "@/lib/utils";
 
 export type AdminDateTimeLocalInputProps = Omit<ComponentPropsWithoutRef<"input">, "type" | "value" | "onChange"> & {
   className?: string;
@@ -42,6 +44,7 @@ const AdminDateTimeLocalInput = forwardRef<HTMLInputElement, AdminDateTimeLocalI
 
     const dateId = id ? `${id}-date` : undefined;
     const timeId = id ? `${id}-time` : undefined;
+    const timeInvalid = timeText.length > 0 && !isValidTime(timeText);
 
     return (
       <div className={`flex flex-wrap items-end gap-2 ${className}`.trim()}>
@@ -56,7 +59,7 @@ const AdminDateTimeLocalInput = forwardRef<HTMLInputElement, AdminDateTimeLocalI
             spellCheck={false}
             placeholder="ДД.ММ.ГГГГ"
             disabled={disabled}
-            className={`${ADMIN_NATIVE_DATETIME_LOCAL_INPUT_CLASS} mt-0`}
+            className={cn(ADMIN_NATIVE_DATETIME_LOCAL_INPUT_CLASS, "mt-0")}
             value={dateText}
             onFocus={() => setFocused(true)}
             onBlur={() => {
@@ -83,13 +86,23 @@ const AdminDateTimeLocalInput = forwardRef<HTMLInputElement, AdminDateTimeLocalI
             placeholder="HH:mm"
             pattern="[0-9]{2}:[0-9]{2}"
             disabled={disabled}
-            aria-invalid={timeText.length > 0 && !isValidTime(timeText) ? true : undefined}
-            className={`${ADMIN_NATIVE_DATETIME_LOCAL_INPUT_CLASS} mt-0 tabular-nums`}
+            aria-invalid={timeInvalid ? true : undefined}
+            className={cn(
+              ADMIN_NATIVE_DATETIME_LOCAL_INPUT_CLASS,
+              "mt-0 tabular-nums",
+              timeInvalid && "border-red-500 bg-red-50",
+            )}
             value={timeText}
             onFocus={() => setFocused(true)}
             onBlur={() => {
               setFocused(false);
-              pushJoined(dateText, timeText);
+              const normalized = normalizeTime(timeText);
+              if (normalized !== timeText) {
+                setTimeText(normalized);
+                pushJoined(dateText, normalized);
+              } else {
+                pushJoined(dateText, timeText);
+              }
             }}
             onChange={(e) => {
               const next = formatTime(e.target.value);

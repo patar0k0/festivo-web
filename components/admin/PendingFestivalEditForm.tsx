@@ -422,6 +422,7 @@ export default function PendingFestivalEditForm({
 
   useEffect(() => {
     setOrganizerEntries(buildInitialOrganizerEntries(pendingFestival));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset organizer rows when pending id changes; full object would over-sync
   }, [pendingFestival.id]);
 
   useEffect(() => {

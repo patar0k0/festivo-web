@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import Container from "@/components/ui/Container";
 import { pub } from "@/lib/public-ui/styles";
@@ -58,13 +59,12 @@ export default function SiteFooter() {
               href="/"
               className="inline-flex items-center text-[#0c0e14] no-underline"
             >
-              <img
+              <Image
                 src="/brand/festivo-logo-web.svg"
                 alt="Festivo"
                 width={512}
                 height={128}
                 className="h-9 w-auto max-w-[min(100%,240px)]"
-                decoding="async"
               />
             </Link>
             <div className="mt-5 space-y-3.5">

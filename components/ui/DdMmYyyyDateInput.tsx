@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   formatDateValueAsDdMmYyyy,
   formatDateValueAsDdMmYyyyDots,
@@ -32,8 +32,11 @@ export default function DdMmYyyyDateInput({
 }: DdMmYyyyDateInputProps) {
   const resolvedPlaceholder = placeholder ?? (visualVariant === "dots" ? "ДД.ММ.ГГГГ" : "dd/mm/yyyy");
 
-  const toDisplay = (v: string) =>
-    visualVariant === "dots" ? formatDateValueAsDdMmYyyyDots(v) : formatDateValueAsDdMmYyyy(v);
+  const toDisplay = useCallback(
+    (v: string) =>
+      visualVariant === "dots" ? formatDateValueAsDdMmYyyyDots(v) : formatDateValueAsDdMmYyyy(v),
+    [visualVariant],
+  );
 
   const [text, setText] = useState(() => toDisplay(value));
   const [focused, setFocused] = useState(false);
@@ -42,7 +45,7 @@ export default function DdMmYyyyDateInput({
     if (!focused) {
       setText(toDisplay(value));
     }
-  }, [value, focused, visualVariant]);
+  }, [value, focused, toDisplay]);
 
   const commit = () => {
     const trimmed = text.trim();

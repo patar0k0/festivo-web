@@ -267,11 +267,16 @@ export default function FestivalEditForm({
   /** Matches server gallery limit count (non-video, non–is_hero rows). */
   const galleryRowsForLimit = useMemo(
     () => initialMedia.filter((m) => !isVideoMedia(m.type) && !m.is_hero),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `mediaSnapshot` intentionally tracks `initialMedia` by stable JSON key
     [mediaSnapshot],
   );
 
   /** All image rows for grid (includes legacy is_hero rows). */
-  const displayGalleryRows = useMemo(() => initialMedia.filter((m) => !isVideoMedia(m.type)), [mediaSnapshot]);
+  const displayGalleryRows = useMemo(
+    () => initialMedia.filter((m) => !isVideoMedia(m.type)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `mediaSnapshot` intentionally tracks `initialMedia` by stable JSON key
+    [mediaSnapshot],
+  );
 
   const primaryOrganizer = useMemo(() => {
     const organizerId = form.organizer_id.trim() || form.organizer_ids[0]?.trim() || "";
@@ -321,6 +326,7 @@ export default function FestivalEditForm({
   const initialProgramDraftKey = JSON.stringify(initialProgramDraft ?? null);
   useEffect(() => {
     setProgramDraft(initialProgramDraft ?? emptyProgramDraft());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `initialProgramDraftKey` tracks `initialProgramDraft` without unstable object identity
   }, [festival.id, initialProgramDraftKey]);
 
   const videoEmbedSrc = useMemo(() => getVideoEmbedSrcFromPageUrl(videoUrl.trim()), [videoUrl]);

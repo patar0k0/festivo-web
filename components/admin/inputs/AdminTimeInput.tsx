@@ -1,17 +1,21 @@
 "use client";
 
-import { forwardRef, type ChangeEvent, type ComponentPropsWithoutRef } from "react";
+import {
+  forwardRef,
+  type ChangeEvent,
+  type ComponentPropsWithoutRef,
+  type FocusEvent,
+} from "react";
 import { ADMIN_NATIVE_TIME_INPUT_CLASS } from "@/lib/admin/adminNativeDateTimeClasses";
-import { formatTime, isValidTime } from "@/lib/admin/adminDateTimeTextFormat";
+import { formatTime, isValidTime, normalizeTime } from "@/lib/admin/adminDateTimeTextFormat";
+import { cn } from "@/lib/utils";
 
-export type AdminTimeInputProps = Omit<ComponentPropsWithoutRef<"input">, "type"> & {
+export type AdminTimeInputProps = Omit<ComponentPropsWithoutRef<"input">, "type" | "step"> & {
   className?: string;
-  /** Ignored — native time step is not used for text inputs. */
-  step?: number;
 };
 
 const AdminTimeInput = forwardRef<HTMLInputElement, AdminTimeInputProps>(function AdminTimeInput(
-  { className = "", onChange, value, step: _step, ...rest },
+  { className = "", onChange, onBlur, value, ...rest },
   ref,
 ) {
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -21,6 +25,19 @@ const AdminTimeInput = forwardRef<HTMLInputElement, AdminTimeInputProps>(functio
       target: { ...e.target, value: next },
       currentTarget: { ...e.currentTarget, value: next },
     } as ChangeEvent<HTMLInputElement>);
+  };
+
+  const handleBlur = (e: FocusEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const next = normalizeTime(raw);
+    if (next !== raw) {
+      onChange?.({
+        ...e,
+        target: { ...e.target, value: next },
+        currentTarget: { ...e.currentTarget, value: next },
+      } as ChangeEvent<HTMLInputElement>);
+    }
+    onBlur?.(e);
   };
 
   const showInvalid = typeof value === "string" && value.length > 0 && !isValidTime(value);
@@ -36,9 +53,10 @@ const AdminTimeInput = forwardRef<HTMLInputElement, AdminTimeInputProps>(functio
       placeholder="HH:mm"
       pattern="[0-9]{2}:[0-9]{2}"
       aria-invalid={showInvalid || undefined}
-      className={`${ADMIN_NATIVE_TIME_INPUT_CLASS} ${className}`.trim()}
+      className={cn(ADMIN_NATIVE_TIME_INPUT_CLASS, className, showInvalid && "border-red-500 bg-red-50")}
       value={value}
       onChange={handleChange}
+      onBlur={handleBlur}
     />
   );
 });

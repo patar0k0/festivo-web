@@ -1,20 +1,46 @@
 import {
   formatIsoYyyyMmDdToDdMmYyyyDots,
-  formatTypingMaskEuropeanDots,
   parseFlexibleDateToIso,
 } from "@/lib/dates/euDateFormat";
 
-/** Masks typing to HH:mm (24h) with a colon after hours. */
+/** Masks typing to HH:mm (24h);3 digits → 0H:mm, 4 digits → HH:mm. */
 export function formatTime(value: string) {
   const digits = value.replace(/\D/g, "").slice(0, 4);
-  if (digits.length <= 2) return digits;
-  return digits.slice(0, 2) + ":" + digits.slice(2);
+
+  if (digits.length === 3) {
+    return "0" + digits[0] + ":" + digits.slice(1);
+  }
+
+  if (digits.length === 4) {
+    return digits.slice(0, 2) + ":" + digits.slice(2);
+  }
+
+  return digits;
+}
+
+/** Pads hours/minutes on blur (e.g. `9:3` → `09:03`). */
+export function normalizeTime(v: string) {
+  if (!v) return v;
+  const [h, m] = v.split(":");
+  return `${h.padStart(2, "0")}:${m?.padStart(2, "0") || "00"}`;
 }
 
 export const isValidTime = (v: string) => /^([01]\d|2[0-3]):([0-5]\d)$/.test(v);
 
-/** Masks typing to DD.MM.YYYY with dots (re-exported name for admin call sites). */
-export const formatDate = formatTypingMaskEuropeanDots;
+/** Masks typing to DD.MM.YYYY with dots (digits only; partial year while typing). */
+export function formatDate(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+
+  if (digits.length >= 5) {
+    return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`;
+  }
+
+  if (digits.length >= 3) {
+    return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+  }
+
+  return digits;
+}
 
 export { formatIsoYyyyMmDdToDdMmYyyyDots };
 

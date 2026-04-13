@@ -9,12 +9,14 @@ type HeroProps = {
   festivalId: string;
   icsHref: string;
   reminderAnchorId: string;
+  /** When set, guests call this instead of context-only auth hint (e.g. open login modal). */
+  onGuestReminderClick?: () => void;
 };
 
 /**
  * Hero / top zone: single primary CTA (reminder) + calendar as secondary.
  */
-export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId }: HeroProps) {
+export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId, onGuestReminderClick }: HeroProps) {
   const { isAuthenticated, requireAuthForPlan, reminderTypeByFestivalId, setFestivalReminder } = usePlanState();
 
   const reminder = reminderTypeByFestivalId[festivalId] ?? "none";
@@ -26,14 +28,18 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId }:
 
   const onReminderPrimary = useCallback(async () => {
     if (!isAuthenticated) {
-      requireAuthForPlan();
+      if (onGuestReminderClick) {
+        onGuestReminderClick();
+      } else {
+        requireAuthForPlan();
+      }
       return;
     }
     if (reminder === "none") {
       await setFestivalReminder(festivalId, "24h" as ReminderType);
     }
     scrollToReminder();
-  }, [festivalId, isAuthenticated, reminder, requireAuthForPlan, scrollToReminder, setFestivalReminder]);
+  }, [festivalId, isAuthenticated, onGuestReminderClick, reminder, requireAuthForPlan, scrollToReminder, setFestivalReminder]);
 
   const primaryReminderLabel =
     reminder === "none"
@@ -45,8 +51,10 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId }:
   const heroReminderHelper =
     reminder === "none" ? "Ще ти напомним за началото на събитието" : "Напомнянето е включено";
 
-  const primaryClass =
-    "inline-flex min-h-[56px] w-full flex-[1.2] items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#ff5c32] to-[#ff4c1f] px-4 py-3 text-center text-[15px] font-semibold text-white shadow-sm transition-all duration-200 hover:scale-[1.02] hover:from-[#ff6438] hover:to-[#f2491c] hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/40 sm:min-w-[12rem]";
+  const isGuest = !isAuthenticated;
+  const primaryClass = isGuest
+    ? "inline-flex min-h-[56px] w-full flex-[1.2] items-center justify-center gap-2 rounded-xl bg-black/10 px-4 py-3 text-center text-[15px] font-semibold text-black/40 shadow-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15 sm:min-w-[12rem]"
+    : "inline-flex min-h-[56px] w-full flex-[1.2] items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#ff5c32] to-[#ff4c1f] px-4 py-3 text-center text-[15px] font-semibold text-white shadow-sm transition-all duration-200 hover:scale-[1.02] hover:from-[#ff6438] hover:to-[#f2491c] hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/40 sm:min-w-[12rem]";
   const secondaryClass =
     "inline-flex min-h-[44px] w-full flex-1 items-center justify-center gap-2 rounded-xl border border-black/[0.1] bg-white px-4 py-2.5 text-center text-sm font-semibold text-black/90 transition-all duration-150 hover:bg-black/[0.04] hover:opacity-[0.98] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 sm:min-w-[10rem]";
 
@@ -68,20 +76,26 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId }:
 type RailProps = {
   festivalId: string;
   mapHref: string | null;
+  onGuestPlanClick?: () => void;
 };
 
 /**
  * Rail: planning + navigation only (reminder timing lives in the same aside card below).
  */
-export function FestivalRailActionBar({ festivalId, mapHref }: RailProps) {
+export function FestivalRailActionBar({ festivalId, mapHref, onGuestPlanClick }: RailProps) {
   const { isAuthenticated, requireAuthForPlan, toggleFestivalPlan, festivalIds } = usePlanState();
   const [planBusy, setPlanBusy] = useState(false);
 
+  const isGuest = !isAuthenticated;
   const festivalInPlan = festivalIds.includes(festivalId);
 
   const onPlan = useCallback(async () => {
     if (!isAuthenticated) {
-      requireAuthForPlan();
+      if (onGuestPlanClick) {
+        onGuestPlanClick();
+      } else {
+        requireAuthForPlan();
+      }
       return;
     }
     setPlanBusy(true);
@@ -90,16 +104,24 @@ export function FestivalRailActionBar({ festivalId, mapHref }: RailProps) {
     } finally {
       setPlanBusy(false);
     }
-  }, [festivalId, isAuthenticated, requireAuthForPlan, toggleFestivalPlan]);
+  }, [festivalId, isAuthenticated, onGuestPlanClick, requireAuthForPlan, toggleFestivalPlan]);
 
-  const btnClass =
-    "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-black/[0.1] bg-white px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-[0.1em] text-black/90 transition-all duration-150 hover:border-black/20 hover:bg-black/[0.04] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 disabled:opacity-50";
+  const planBtnClass =
+    "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.1em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 disabled:opacity-50";
   const navClass =
     "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-black/[0.1] bg-white px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-[0.1em] text-black/90 transition-all duration-150 hover:border-black/20 hover:bg-black/[0.04] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25";
 
+  const planButtonClass = planBusy
+    ? `${planBtnClass} border border-black/[0.1] bg-white text-black/90 opacity-50`
+    : festivalInPlan && !isGuest
+      ? `${planBtnClass} border border-[#7c2d12]/30 bg-[#7c2d12]/10 text-[#7c2d12] hover:opacity-95`
+      : isGuest
+        ? `${planBtnClass} bg-black/10 text-black/40`
+        : `${planBtnClass} bg-[#7c2d12] text-white hover:opacity-90`;
+
   return (
     <div className="space-y-2">
-      <button type="button" onClick={() => void onPlan()} disabled={planBusy} className={btnClass}>
+      <button type="button" onClick={() => void onPlan()} disabled={planBusy} className={planButtonClass}>
         {festivalInPlan ? "✔ В плана ти" : "Добави в моя план"}
       </button>
       {mapHref ? (

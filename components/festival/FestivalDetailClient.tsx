@@ -196,7 +196,6 @@ export default function FestivalDetailClient({
   const reminderFeedbackTimerRef = useRef<number | null>(null);
   const {
     isAuthenticated,
-    requireAuthForPlan,
     festivalIds,
     festivalPlanError,
     isScheduleItemInPlan,
@@ -204,6 +203,8 @@ export default function FestivalDetailClient({
     setFestivalReminder,
     reminderTypeByFestivalId,
   } = usePlanState();
+
+  const isGuest = !isAuthenticated;
 
   const { show, Toast } = useToast();
 
@@ -425,7 +426,9 @@ export default function FestivalDetailClient({
           <div className="w-[90%] max-w-sm rounded-xl bg-white p-6 text-center">
             <h2 className="mb-2 text-lg font-semibold">Влез в профила си</h2>
 
-            <p className="mb-4 text-sm text-black/60">за да добавяш събития в план</p>
+            <p className="mb-4 text-sm text-black/60">
+              Влез, за да добавяш в план и да получаваш напомняния.
+            </p>
 
             <button
               type="button"
@@ -574,6 +577,7 @@ export default function FestivalDetailClient({
             festivalId={String(festival.id)}
             icsHref={icsHref}
             reminderAnchorId={REMINDER_BLOCK_ID}
+            onGuestReminderClick={() => setShowLogin(true)}
           />
         </div>
       </section>
@@ -832,27 +836,33 @@ export default function FestivalDetailClient({
             </div>
 
             <div className="mt-3">
-              <FestivalRailActionBar festivalId={String(festival.id)} mapHref={mapHref} />
+              <FestivalRailActionBar
+                festivalId={String(festival.id)}
+                mapHref={mapHref}
+                onGuestPlanClick={() => setShowLogin(true)}
+              />
             </div>
 
             <div className="mt-4 border-t border-black/[0.06] pt-4">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-black/60">Кога да напомним</p>
-              <div className="space-y-1.5">
-                {reminderOptions.map((option) => {
+              <div className="relative">
+                <div className={cn(isGuest && "pointer-events-none opacity-50")}>
+                  <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-black/60">
+                    Кога да напомним
+                    {isGuest ? (
+                      <span className="text-xs font-normal normal-case text-black/40" aria-hidden>
+                        {"\u{1F512}"}
+                      </span>
+                    ) : null}
+                  </p>
+                  <div className="space-y-1.5">
+                    {reminderOptions.map((option) => {
                   const active = reminder === option.value;
                   return (
                     <button
                       key={option.value}
                       type="button"
                       onClick={() => {
-                        if (!isAuthenticated) {
-                          requireAuthForPlan();
-                          setReminderFeedback({
-                            kind: "error",
-                            text: "Влез, за да получаваш напомняния.",
-                          });
-                          return;
-                        }
+                        if (!isAuthenticated) return;
                         if (reminderPending || reminder === option.value) return;
                         setReminderPending(true);
                         setReminderFeedback(null);
@@ -905,6 +915,16 @@ export default function FestivalDetailClient({
                     </button>
                   );
                 })}
+                  </div>
+                </div>
+                {isGuest ? (
+                  <button
+                    type="button"
+                    className="absolute inset-0 z-10 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+                    aria-label="Вход, за да настроиш напомняния"
+                    onClick={() => setShowLogin(true)}
+                  />
+                ) : null}
               </div>
               {reminderFeedback ? (
                 <p
@@ -919,12 +939,18 @@ export default function FestivalDetailClient({
                 </p>
               ) : null}
               {!isAuthenticated ? (
-                <p className="mt-2 text-xs leading-relaxed text-black/60">
-                  Влез, за да ползваш план и да получаваш напомняния.{" "}
-                  <Link href="/login" className="underline">
+                <div className="mt-2">
+                  <p className="text-sm text-black/60">
+                    Влез, за да добавяш в план и да получаваш напомняния.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowLogin(true)}
+                    className="mt-1 text-sm underline"
+                  >
                     Вход
-                  </Link>
-                </p>
+                  </button>
+                </div>
               ) : (
                 <p className="mt-2 text-xs leading-relaxed text-black/60">
                   Промените важат за напомнянето за целия фестивал, не за отделните часове в програмата.

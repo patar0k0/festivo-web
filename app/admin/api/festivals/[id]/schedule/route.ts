@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
 import { compactProgramDraft, parseProgramDraftUnknown, programDraftHasContent, publishedRowsToProgramDraft, replaceFestivalScheduleFromProgramDraft } from "@/lib/festival/programDraft";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type ScheduleGetResponse = {
   ok: true;
@@ -24,7 +25,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const { data: days, error: daysErr } = await ctx.supabase
+  const admin = createSupabaseAdmin();
+  const { data: days, error: daysErr } = await admin
     .from("festival_days")
     .select("id, date, title")
     .eq("festival_id", id)
@@ -47,7 +49,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }> = [];
 
   if (dayIds.length > 0) {
-    const { data: itemRows, error: itemsErr } = await ctx.supabase
+    const { data: itemRows, error: itemsErr } = await admin
       .from("festival_schedule_items")
       .select("day_id, title, start_time, end_time, stage, description, sort_order")
       .in("day_id", dayIds)
@@ -97,7 +99,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const draft = programDraftHasContent(parsed.value) ? compactProgramDraft(parsed.value) : null;
 
   try {
-    await replaceFestivalScheduleFromProgramDraft(ctx.supabase, id, draft);
+    const admin = createSupabaseAdmin();
+    await replaceFestivalScheduleFromProgramDraft(admin, id, draft);
   } catch (e) {
     const message = e instanceof Error ? e.message : "schedule update failed";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { bg } from "date-fns/locale";
 import Badge from "@/components/ui/Badge";
@@ -41,8 +41,17 @@ import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 
 const REMINDER_BLOCK_ID = "festival-reminder-block";
 
-/** Survives navigation to `/login` so „Добави в план“ can complete after auth. */
-const PENDING_PLAN_SCHEDULE_ITEM_KEY = "festivo:pendingPlanScheduleItem";
+const POST_LOGIN_ACTIONS = new Set(["add_festival", "add_item", "set_reminder"]);
+
+function isReminderTypeParam(value: string | null): value is ReminderType {
+  return value === "24h" || value === "same_day_09" || value === "none";
+}
+
+function planReminderSuccessCopy(value: ReminderType): string {
+  if (value === "none") return "Напомнянето е изключено.";
+  if (value === "24h") return "Ще ти напомним 1 ден по-рано.";
+  return "Ще ти напомним в деня в 09:00.";
+}
 
 type Props = {
   festival: Festival;
@@ -189,19 +198,20 @@ export default function FestivalDetailClient({
   const [activeDayId, setActiveDayId] = useState(groupedDays[0]?.id ?? "");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [highlightId, setHighlightId] = useState<string | null>(null);
-  const [showLogin, setShowLogin] = useState(false);
-  const [pendingItem, setPendingItem] = useState<FestivalScheduleItem | null>(null);
   const [reminderPending, setReminderPending] = useState(false);
   const [reminderFeedback, setReminderFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const reminderFeedbackTimerRef = useRef<number | null>(null);
+  const postLoginPlanActionConsumedRef = useRef(false);
   const {
     isAuthenticated,
     festivalIds,
     festivalPlanError,
     isScheduleItemInPlan,
     toggleScheduleItem,
+    toggleFestivalPlan,
     setFestivalReminder,
     reminderTypeByFestivalId,
+    refreshPlanState,
   } = usePlanState();
 
   const isGuest = !isAuthenticated;
@@ -210,7 +220,22 @@ export default function FestivalDetailClient({
 
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const navigationGeneration = useNavigationGeneration();
+
+  const planActionParam = searchParams.get("action");
+  const planIdParam = searchParams.get("id");
+  const planReminderTypeParam = searchParams.get("type");
+
+  const redirectToLoginForPlanAction = useCallback(
+    (extra: { action: string; id?: string; type?: string }) => {
+      const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+      const idPart = extra.id != null ? `&id=${encodeURIComponent(extra.id)}` : "";
+      const typePart = extra.type != null ? `&type=${encodeURIComponent(extra.type)}` : "";
+      router.push(`/login?next=${next}&action=${encodeURIComponent(extra.action)}${idPart}${typePart}`);
+    },
+    [router],
+  );
 
   const displayedDay = groupedDays.find((day) => day.id === activeDayId) ?? groupedDays[0] ?? null;
   const selectedItems = useMemo(
@@ -361,41 +386,96 @@ export default function FestivalDetailClient({
   }, [highlightId]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = sessionStorage.getItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as { festivalId?: unknown; scheduleItemId?: unknown };
-      const festivalId = parsed.festivalId != null ? String(parsed.festivalId) : "";
-      const scheduleItemId = parsed.scheduleItemId != null ? String(parsed.scheduleItemId) : "";
-      if (!festivalId || !scheduleItemId || festivalId !== String(festival.id)) return;
-      const found = scheduleItems.find((i) => String(i.id) === scheduleItemId);
-      if (!found) {
-        sessionStorage.removeItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
-        return;
-      }
-      sessionStorage.removeItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
-      setPendingItem(found);
-    } catch {
-      try {
-        sessionStorage.removeItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
-      } catch {
-        /* ignore */
-      }
+    if (!planActionParam) {
+      postLoginPlanActionConsumedRef.current = false;
     }
-  }, [festival.id, scheduleItems]);
+  }, [planActionParam]);
 
   useEffect(() => {
-    if (!isAuthenticated || !pendingItem) return;
-    const item = pendingItem;
-    setPendingItem(null);
-    setShowLogin(false);
+    if (!isAuthenticated || !planActionParam || !POST_LOGIN_ACTIONS.has(planActionParam)) return;
+    if (postLoginPlanActionConsumedRef.current) return;
+
+    postLoginPlanActionConsumedRef.current = true;
+
     void (async () => {
-      await toggleScheduleItem(String(item.id));
-      show(`Добавено: ${item.title}`);
-      setHighlightId(String(item.id));
+      const stateRes = await fetch("/api/plan/state", { credentials: "include", cache: "no-store" });
+      let festivalIdSet = new Set<string>();
+      let scheduleIdSet = new Set<string>();
+      if (stateRes.ok) {
+        const p = (await stateRes.json()) as { festivalIds?: string[]; scheduleItemIds?: string[] };
+        festivalIdSet = new Set((p.festivalIds ?? []).map(String));
+        scheduleIdSet = new Set((p.scheduleItemIds ?? []).map(String));
+      }
+
+      const cleanUrl = () => {
+        router.replace(pathname);
+      };
+
+      if (planActionParam === "add_festival" && planIdParam && String(planIdParam) === String(festival.id)) {
+        if (!festivalIdSet.has(String(festival.id))) {
+          await toggleFestivalPlan(String(festival.id));
+          show("Фестивалът е добавен в плана");
+        } else {
+          show("Вече е в плана ти");
+        }
+        await refreshPlanState();
+        cleanUrl();
+        return;
+      }
+
+      if (planActionParam === "add_item" && planIdParam) {
+        const found = scheduleItems.find((i) => String(i.id) === String(planIdParam));
+        if (!found) {
+          await refreshPlanState();
+          cleanUrl();
+          return;
+        }
+        if (!scheduleIdSet.has(String(planIdParam))) {
+          await toggleScheduleItem(String(planIdParam));
+          show("Събитието е добавено в плана");
+          setHighlightId(String(planIdParam));
+        } else {
+          show("Вече е в плана ти");
+        }
+        await refreshPlanState();
+        cleanUrl();
+        return;
+      }
+
+      if (
+        planActionParam === "set_reminder" &&
+        planReminderTypeParam &&
+        isReminderTypeParam(planReminderTypeParam)
+      ) {
+        const result = await setFestivalReminder(String(festival.id), planReminderTypeParam);
+        if (result.ok) {
+          show(planReminderSuccessCopy(planReminderTypeParam));
+        } else {
+          show(result.error ?? "Не успяхме да запазим напомнянето.");
+        }
+        await refreshPlanState();
+        cleanUrl();
+        return;
+      }
+
+      await refreshPlanState();
+      cleanUrl();
     })();
-  }, [isAuthenticated, pendingItem, toggleScheduleItem, show]);
+  }, [
+    isAuthenticated,
+    planActionParam,
+    planIdParam,
+    planReminderTypeParam,
+    festival.id,
+    pathname,
+    router,
+    scheduleItems,
+    show,
+    toggleFestivalPlan,
+    toggleScheduleItem,
+    setFestivalReminder,
+    refreshPlanState,
+  ]);
 
   const clearPlan = async () => {
     const ids = selectedItems.map((item) => String(item.id));
@@ -404,11 +484,6 @@ export default function FestivalDetailClient({
     }
   };
 
-  const reminderSuccessMessage = (value: ReminderType): string => {
-    if (value === "none") return "Напомнянето е изключено.";
-    if (value === "24h") return "Ще ти напомним 1 ден по-рано.";
-    return "Ще ти напомним в деня в 09:00.";
-  };
 
   const urgencyHeroLabel =
     urgencyLabel === "Днес"
@@ -421,65 +496,6 @@ export default function FestivalDetailClient({
 
   return (
     <div className="space-y-6 md:space-y-8">
-      {showLogin ? (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
-          <div className="w-[90%] max-w-sm rounded-xl bg-white p-6 text-center">
-            <h2 className="mb-2 text-lg font-semibold">Влез в профила си</h2>
-
-            <p className="mb-4 text-sm text-black/60">
-              Влез, за да добавяш в план и да получаваш напомняния.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (pendingItem) {
-                  try {
-                    sessionStorage.setItem(
-                      PENDING_PLAN_SCHEDULE_ITEM_KEY,
-                      JSON.stringify({
-                        festivalId: String(festival.id),
-                        scheduleItemId: String(pendingItem.id),
-                      }),
-                    );
-                  } catch {
-                    /* ignore */
-                  }
-                }
-                const next =
-                  pathname && pathname.startsWith("/") && !pathname.startsWith("//")
-                    ? pathname
-                    : `/festivals/${festival.slug}`;
-                router.push(`/login?next=${encodeURIComponent(next)}`);
-              }}
-              className="w-full rounded-full bg-[#7c2d12] py-2 text-white"
-            >
-              Вход
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setShowLogin(false);
-                setPendingItem(null);
-                try {
-                  const raw = sessionStorage.getItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
-                  if (!raw) return;
-                  const parsed = JSON.parse(raw) as { festivalId?: unknown };
-                  if (String(parsed.festivalId ?? "") === String(festival.id)) {
-                    sessionStorage.removeItem(PENDING_PLAN_SCHEDULE_ITEM_KEY);
-                  }
-                } catch {
-                  /* ignore */
-                }
-              }}
-              className="mt-2 text-sm text-black/50"
-            >
-              Затвори
-            </button>
-          </div>
-        </div>
-      ) : null}
       <Toast />
       <section className={pub.heroMainCard}>
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
@@ -577,7 +593,9 @@ export default function FestivalDetailClient({
             festivalId={String(festival.id)}
             icsHref={icsHref}
             reminderAnchorId={REMINDER_BLOCK_ID}
-            onGuestReminderClick={() => setShowLogin(true)}
+            onGuestReminderClick={() =>
+              redirectToLoginForPlanAction({ action: "set_reminder", type: "24h" })
+            }
           />
         </div>
       </section>
@@ -724,8 +742,7 @@ export default function FestivalDetailClient({
                                   type="button"
                                   onClick={() => {
                                     if (!isAuthenticated) {
-                                      setPendingItem(item);
-                                      setShowLogin(true);
+                                      redirectToLoginForPlanAction({ action: "add_item", id: itemId });
                                       return;
                                     }
                                     void toggleScheduleItem(itemId);
@@ -839,13 +856,15 @@ export default function FestivalDetailClient({
               <FestivalRailActionBar
                 festivalId={String(festival.id)}
                 mapHref={mapHref}
-                onGuestPlanClick={() => setShowLogin(true)}
+                onGuestPlanClick={() =>
+                  redirectToLoginForPlanAction({ action: "add_festival", id: String(festival.id) })
+                }
               />
             </div>
 
             <div className="mt-4 border-t border-black/[0.06] pt-4">
               <div className="relative">
-                <div className={cn(isGuest && "pointer-events-none opacity-50")}>
+                <div className={cn(isGuest && "opacity-95")}>
                   <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-black/60">
                     Кога да напомним
                     {isGuest ? (
@@ -862,7 +881,10 @@ export default function FestivalDetailClient({
                       key={option.value}
                       type="button"
                       onClick={() => {
-                        if (!isAuthenticated) return;
+                        if (!isAuthenticated) {
+                          redirectToLoginForPlanAction({ action: "set_reminder", type: option.value });
+                          return;
+                        }
                         if (reminderPending || reminder === option.value) return;
                         setReminderPending(true);
                         setReminderFeedback(null);
@@ -878,7 +900,7 @@ export default function FestivalDetailClient({
                           }
                           setReminderFeedback({
                             kind: "success",
-                            text: reminderSuccessMessage(option.value),
+                            text: planReminderSuccessCopy(option.value),
                           });
                           if (reminderFeedbackTimerRef.current) {
                             window.clearTimeout(reminderFeedbackTimerRef.current);
@@ -889,7 +911,7 @@ export default function FestivalDetailClient({
                           setReminderPending(false);
                         })();
                       }}
-                      disabled={!isAuthenticated || reminderPending}
+                      disabled={reminderPending}
                       className={cn(
                         "w-full rounded-xl border px-3 py-2 text-left transition-all duration-150 hover:border-black/15 disabled:cursor-not-allowed disabled:opacity-55 active:scale-[0.99]",
                         pub.focusRing,
@@ -917,14 +939,7 @@ export default function FestivalDetailClient({
                 })}
                   </div>
                 </div>
-                {isGuest ? (
-                  <button
-                    type="button"
-                    className="absolute inset-0 z-10 cursor-pointer rounded-lg border-0 bg-transparent p-0"
-                    aria-label="Вход, за да настроиш напомняния"
-                    onClick={() => setShowLogin(true)}
-                  />
-                ) : null}
+
               </div>
               {reminderFeedback ? (
                 <p
@@ -945,7 +960,10 @@ export default function FestivalDetailClient({
                   </p>
                   <button
                     type="button"
-                    onClick={() => setShowLogin(true)}
+                    onClick={() => {
+                      const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
+                      router.push(`/login?next=${next}`);
+                    }}
                     className="mt-1 text-sm underline"
                   >
                     Вход

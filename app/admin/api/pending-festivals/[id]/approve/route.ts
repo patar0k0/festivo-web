@@ -30,6 +30,7 @@ import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { formatBgDateFromIso } from "@/lib/email/formatBg";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
 import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { ensureFestivalHasImage } from "@/lib/festival/ensureFestivalHasImage";
 
 type CityRow = {
   id: number;
@@ -510,11 +511,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
 
     const festivalPatch = festivalPatchFromCanonical(canonicalApproved);
+    const { hero_image: _canonicalHero, image_url: _canonicalImageUrl, ...festivalPatchWithoutHero } = festivalPatch;
+    const heroImage = ensureFestivalHasImage(pending.hero_image, pending.gallery_image_urls);
     const videoUrlForPublish =
       typeof pending.video_url === "string" && pending.video_url.trim() ? pending.video_url.trim() : null;
 
     const insertPayload = {
-      ...festivalPatch,
+      ...festivalPatchWithoutHero,
+      ...(heroImage ? { hero_image: heroImage, image_url: heroImage } : {}),
       occurrence_dates: pending.occurrence_dates ?? null,
       slug: finalSlug,
       city: cityText || null,

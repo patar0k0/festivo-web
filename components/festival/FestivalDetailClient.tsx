@@ -14,7 +14,7 @@ import { useImageLoadReset } from "@/components/ui/useImageLoadReset";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
 import { FestivalGallery } from "@/components/festival/FestivalGallery";
-import FestivalVideoEmbed from "@/components/festival/FestivalVideoEmbed";
+import { VideoEmbed } from "@/components/ui/VideoEmbed";
 import { FestivalHeroActionBar, FestivalRailActionBar } from "@/components/festival/FestivalDetailActions";
 import FestivalQuickFactsStrip from "@/components/festival/FestivalQuickFactsStrip";
 import FestivalAppCta from "@/components/festival/FestivalAppCta";
@@ -27,7 +27,6 @@ import {
   normalizeFestivalLocationText,
 } from "@/lib/festival/publicLocationDisplay";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
-import { getVideoEmbedSrcFromPageUrl } from "@/lib/festival/videoEmbed";
 import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
 import type { ReminderType } from "@/lib/plan/server";
 import type { AccommodationOffer } from "@/lib/accommodation/types";
@@ -280,7 +279,6 @@ export default function FestivalDetailClient({
   const cityOrLocationText = [cityName, compactLocationBeyondCity].filter(Boolean).join(" · ");
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
   const showGallerySection = galleryImages.length >= 1;
-  const showVideoSection = Boolean(videoPageUrl && getVideoEmbedSrcFromPageUrl(videoPageUrl));
   const urgencyLabel = getFestivalUrgencyLabelBg(festival);
   const temporalState = useMemo(() => getFestivalTemporalState(festival), [festival]);
   const isPastFestival = temporalState === "past";
@@ -618,13 +616,7 @@ export default function FestivalDetailClient({
           </section>
 
           {showGallerySection ? <FestivalGallery images={galleryImages} /> : null}
-          {showVideoSection && videoPageUrl ? (
-            <FestivalVideoEmbed
-              pageUrl={videoPageUrl}
-              title={festival.title || "Фестивал"}
-              compact
-            />
-          ) : null}
+          {videoPageUrl ? <VideoEmbed url={videoPageUrl} /> : null}
 
           {relatedFestivals.length ? (
             <section className="space-y-4">

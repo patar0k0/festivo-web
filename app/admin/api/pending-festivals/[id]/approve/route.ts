@@ -511,7 +511,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
 
     const festivalPatch = festivalPatchFromCanonical(canonicalApproved);
-    const { hero_image: _canonicalHero, image_url: _canonicalImageUrl, ...festivalPatchWithoutHero } = festivalPatch;
+    const festivalPatchWithoutHero = { ...festivalPatch };
+    delete festivalPatchWithoutHero.hero_image;
+    delete festivalPatchWithoutHero.image_url;
     const heroImage = ensureFestivalHasImage(pending.hero_image, pending.gallery_image_urls);
     const videoUrlForPublish =
       typeof pending.video_url === "string" && pending.video_url.trim() ? pending.video_url.trim() : null;

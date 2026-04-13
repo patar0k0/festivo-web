@@ -41,7 +41,7 @@ export default function DeleteAccountButton() {
         type="button"
         disabled={loading}
         onClick={() => void handleDelete()}
-        className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-800 transition hover:border-red-300 hover:bg-red-50 disabled:opacity-60"
+        className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-transparent px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
       >
         {loading ? "Изтриване…" : "Изтрий акаунта"}
       </button>

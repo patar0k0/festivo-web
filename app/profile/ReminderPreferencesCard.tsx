@@ -239,6 +239,7 @@ export default function ReminderPreferencesCard() {
       ) : null}
 
       <p className="mt-5 text-sm font-medium text-[#0c0e14]">Как да напомняме?</p>
+      <p className="text-sm text-black/50 mb-3">За събитията в твоя план</p>
       <ul className="mt-2 space-y-0.5">
         {TIMING_OPTIONS.map((opt) => {
           const checked = defaultPlanReminder === opt.value;
@@ -261,9 +262,9 @@ export default function ReminderPreferencesCard() {
         })}
       </ul>
 
-      <ul className="mt-6 space-y-3">
-        <li className="flex items-center justify-between gap-4">
-          <span className="text-[15px] text-[#0c0e14]">Нови фестивали</span>
+      <div className="mt-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <span>Нови фестивали</span>
           {initialLoad ? (
             <div className="h-7 w-12 shrink-0 animate-pulse rounded-full bg-black/[0.08]" />
           ) : (
@@ -273,9 +274,9 @@ export default function ReminderPreferencesCard() {
               onChange={(v) => void updateNewFestivals(v)}
             />
           )}
-        </li>
-        <li className="flex items-center justify-between gap-4">
-          <span className="text-[15px] text-[#0c0e14]">Нови събития</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span>Нови събития</span>
           {initialLoad ? (
             <div className="h-7 w-12 shrink-0 animate-pulse rounded-full bg-black/[0.08]" />
           ) : (
@@ -285,8 +286,8 @@ export default function ReminderPreferencesCard() {
               onChange={(v) => void updateNewEvents(v)}
             />
           )}
-        </li>
-      </ul>
+        </div>
+      </div>
     </section>
   );
 }

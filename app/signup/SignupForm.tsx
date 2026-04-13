@@ -13,6 +13,9 @@ type SignupFormProps = {
   next: string;
 };
 
+const fieldClass =
+  "w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-[#0c0e14] outline-none transition focus:border-[#7c2d12]/35 focus:ring-2 focus:ring-[#7c2d12]/30";
+
 function EyeOpenIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
@@ -172,124 +175,114 @@ export function SignupForm({ next }: SignupFormProps) {
   const oauthBusy = oauthProvider !== null;
 
   return (
-    <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+    <form onSubmit={onSubmit} className="mt-2" noValidate>
       <OAuthButtons
+        variant="festivo"
         oauthProvider={oauthProvider}
         disabled={oauthBusy || isSubmitting}
         onContinue={continueWithOAuth}
       />
 
-      <div className="relative py-1 text-center text-[11px] font-medium uppercase tracking-[0.12em] text-black/40 before:absolute before:left-0 before:top-1/2 before:h-px before:w-[40%] before:bg-black/[0.08] after:absolute after:right-0 after:top-1/2 after:h-px after:w-[40%] after:bg-black/[0.08]">
-        или
+      <p className="mt-3 text-center text-xs text-black/50">Нямаме пароли. Само бърз вход.</p>
+
+      <div className="mt-6 border-t border-black/5 pt-4">
+        <p className="mb-2 text-center text-xs text-black/50">или с имейл</p>
+
+        <div className="space-y-3">
+          <input
+            type="email"
+            name="email"
+            autoComplete="email"
+            inputMode="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className={fieldClass}
+            placeholder="Имейл"
+            aria-label="Имейл"
+          />
+
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className={`${fieldClass} pr-12`}
+              placeholder="Парола"
+              aria-label="Парола"
+            />
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-black/40 transition hover:bg-black/[0.04] hover:text-black/75"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-pressed={showPassword}
+              aria-label={showPassword ? "Скрий паролата" : "Покажи паролата"}
+            >
+              {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
+            </button>
+          </div>
+
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? "text" : "password"}
+              name="confirmPassword"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              className={`${fieldClass} pr-12`}
+              placeholder="Потвърди паролата"
+              aria-label="Потвърди паролата"
+            />
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-black/40 transition hover:bg-black/[0.04] hover:text-black/75"
+              onClick={() => setShowConfirmPassword((v) => !v)}
+              aria-pressed={showConfirmPassword}
+              aria-label={showConfirmPassword ? "Скрий потвърждението" : "Покажи потвърждението"}
+            >
+              {showConfirmPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
+            </button>
+          </div>
+
+          {needsTurnstile ? (
+            <SignupTurnstileBlock
+              ref={turnstileRef}
+              onSuccess={onTurnstileSuccess}
+              onError={onTurnstileError}
+              onExpire={onTurnstileExpire}
+            />
+          ) : null}
+
+          {error ? (
+            <p className="rounded-xl bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {notice ? (
+            <p className="rounded-xl bg-[#7c2d12]/[0.08] px-3 py-2 text-sm text-[#0c0e14]" role="status">
+              {notice}
+            </p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={isSubmitting || oauthBusy || (needsTurnstile && !turnstileToken)}
+            className="w-full rounded-full border border-[#7c2d12] py-2 font-medium text-[#7c2d12] transition hover:bg-[#7c2d12]/5 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSubmitting ? "Създаване..." : "Създай профил"}
+          </button>
+        </div>
       </div>
 
-      <label className="block">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/50">Имейл</span>
-        <input
-          type="email"
-          name="email"
-          autoComplete="email"
-          inputMode="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="mt-2 h-12 w-full rounded-2xl border border-black/[0.1] bg-white/95 px-4 text-sm outline-none ring-[#0c0e14]/15 transition-all focus:border-black/20 focus:ring-4"
-        />
-      </label>
-
-      <label className="block">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/50">Парола</span>
-        <div className="relative mt-2">
-          <input
-            type={showPassword ? "text" : "password"}
-            name="password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="h-12 w-full rounded-2xl border border-black/[0.1] bg-white/95 px-4 pr-12 text-sm outline-none ring-[#0c0e14]/15 transition-all focus:border-black/20 focus:ring-4"
-          />
-          <button
-            type="button"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-black/45 transition hover:bg-black/[0.05] hover:text-black/80"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-pressed={showPassword}
-            aria-label={showPassword ? "Скрий паролата" : "Покажи паролата"}
-          >
-            {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
-          </button>
-        </div>
-      </label>
-
-      <label className="block">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/50">Повтори паролата</span>
-        <div className="relative mt-2">
-          <input
-            type={showConfirmPassword ? "text" : "password"}
-            name="confirmPassword"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.target.value)}
-            className="h-12 w-full rounded-2xl border border-black/[0.1] bg-white/95 px-4 pr-12 text-sm outline-none ring-[#0c0e14]/15 transition-all focus:border-black/20 focus:ring-4"
-          />
-          <button
-            type="button"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-black/45 transition hover:bg-black/[0.05] hover:text-black/80"
-            onClick={() => setShowConfirmPassword((v) => !v)}
-            aria-pressed={showConfirmPassword}
-            aria-label={showConfirmPassword ? "Скрий потвърждението" : "Покажи потвърждението"}
-          >
-            {showConfirmPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
-          </button>
-        </div>
-      </label>
-
-      {needsTurnstile ? (
-        <SignupTurnstileBlock
-          ref={turnstileRef}
-          onSuccess={onTurnstileSuccess}
-          onError={onTurnstileError}
-          onExpire={onTurnstileExpire}
-        />
-      ) : null}
-
-      {error ? (
-        <p className="rounded-xl bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {notice ? (
-        <p className="rounded-xl bg-[#0c0e14]/6 px-3 py-2 text-sm text-[#0c0e14]" role="status">
-          {notice}
-        </p>
-      ) : null}
-
-      <button
-        type="submit"
-        disabled={isSubmitting || oauthBusy || (needsTurnstile && !turnstileToken)}
-        className="h-12 w-full rounded-2xl bg-[#0c0e14] px-4 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-70"
-      >
-        {isSubmitting ? "Създаване..." : "Създай профил"}
-      </button>
-
-      <p className="text-center text-xs leading-relaxed text-black/50">
-        С регистрацията приемаш{" "}
-        <a href="#" className="underline decoration-black/25 underline-offset-2 hover:text-black/75">
-          Общите условия
-        </a>{" "}
-        и{" "}
-        <a href="#" className="underline decoration-black/25 underline-offset-2 hover:text-black/75">
-          Политиката за поверителност
-        </a>
-        .
-      </p>
-
-      <p className="text-center text-sm text-black/60">
+      <p className="mt-4 text-center text-xs text-black/50">
         Имаш профил?{" "}
-        <Link href="/login" className="font-semibold text-black/80 underline decoration-black/20 underline-offset-2">
+        <Link href="/login" className="text-[#7c2d12]">
           Вход
         </Link>
       </p>

@@ -11,6 +11,7 @@ import EventCard from "@/components/ui/EventCard";
 import { pub } from "@/lib/public-ui/styles";
 import { useNavigationGeneration } from "@/components/providers/NavigationGenerationProvider";
 import { useImageLoadReset } from "@/components/ui/useImageLoadReset";
+import { useToast } from "@/components/ui/useToast";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
 import { FestivalMedia } from "@/components/festival/FestivalMedia";
@@ -30,7 +31,7 @@ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
 import type { ReminderType } from "@/lib/plan/server";
 import type { AccommodationOffer } from "@/lib/accommodation/types";
-import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from "@/lib/types";
+import type { Festival, FestivalDay, FestivalMedia as FestivalMediaRow, FestivalScheduleItem } from "@/lib/types";
 import { formatFestivalDateLineLongBg, primaryFestivalDate } from "@/lib/festival/listingDates";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { formatScheduleTimeRange, sortByStartTimeLocale } from "@/lib/festival/festivalTimeFields";
@@ -42,7 +43,7 @@ const REMINDER_BLOCK_ID = "festival-reminder-block";
 
 type Props = {
   festival: Festival;
-  media: FestivalMedia[];
+  media: FestivalMediaRow[];
   days: FestivalDay[];
   scheduleItems: FestivalScheduleItem[];
   mapHref: string | null;
@@ -184,6 +185,7 @@ export default function FestivalDetailClient({
   const sortedScheduleItems = useMemo(() => sortScheduleItems(scheduleItems), [scheduleItems]);
   const [activeDayId, setActiveDayId] = useState(groupedDays[0]?.id ?? "");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const [reminderPending, setReminderPending] = useState(false);
   const [reminderFeedback, setReminderFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const reminderFeedbackTimerRef = useRef<number | null>(null);
@@ -197,6 +199,8 @@ export default function FestivalDetailClient({
     setFestivalReminder,
     reminderTypeByFestivalId,
   } = usePlanState();
+
+  const { show, Toast } = useToast();
 
   const pathname = usePathname();
   const navigationGeneration = useNavigationGeneration();
@@ -343,6 +347,12 @@ export default function FestivalDetailClient({
     );
   }, [festival.slug, festival.hero_image, imageMedia.length, heroImage]);
 
+  useEffect(() => {
+    if (!highlightId) return;
+    const t = window.setTimeout(() => setHighlightId(null), 1200);
+    return () => window.clearTimeout(t);
+  }, [highlightId]);
+
   const clearPlan = async () => {
     const ids = selectedItems.map((item) => String(item.id));
     for (const itemId of ids) {
@@ -367,6 +377,7 @@ export default function FestivalDetailClient({
 
   return (
     <div className="space-y-6 md:space-y-8">
+      <Toast />
       <section className={pub.heroMainCard}>
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
           {heroImage && !heroImageFailed ? (
@@ -563,31 +574,43 @@ export default function FestivalDetailClient({
                   {(displayedDay?.items ?? []).length ? (
                     displayedDay?.items.map((item) => {
                       const itemId = String(item.id);
-                      const selected = isScheduleItemInPlan(itemId);
+                      const isAdded = isScheduleItemInPlan(itemId);
                       return (
-                        <article key={item.id} className={pub.programItemCard}>
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="space-y-1">
-                              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">
-                                {formatScheduleTimeRange(item.start_time, item.end_time) || "Час предстои"}
-                                {item.stage ? ` • ${item.stage}` : ""}
-                              </p>
-                              <h3 className="text-base font-medium text-black/90">{item.title}</h3>
-                              {item.description ? <p className="text-sm leading-relaxed text-black/80">{item.description}</p> : null}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                void toggleScheduleItem(itemId);
-                              }}
-                              className={cn(
-                                "shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition-all duration-150",
-                                pub.focusRing,
-                                selected ? pub.toggleActive : pub.toggleInactive,
+                        <article key={item.id}>
+                          <div
+                            className={cn(
+                              "rounded-xl border p-4 transition",
+                              isAdded ? "border-[#7c2d12] bg-[#7c2d12]/5" : "border-black/10",
+                            )}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="space-y-1">
+                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">
+                                  {formatScheduleTimeRange(item.start_time, item.end_time) || "Час предстои"}
+                                  {item.stage ? ` • ${item.stage}` : ""}
+                                </p>
+                                <h3 className="text-base font-medium text-black/90">{item.title}</h3>
+                                {item.description ? <p className="text-sm leading-relaxed text-black/80">{item.description}</p> : null}
+                              </div>
+                              {isAdded ? (
+                                <span className="shrink-0 text-sm font-medium text-[#7c2d12]">{"\u2713"} В плана</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void toggleScheduleItem(itemId);
+                                    show("Добавено в плана");
+                                    setHighlightId(itemId);
+                                  }}
+                                  className={cn(
+                                    "shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm transition hover:bg-black/5",
+                                    pub.focusRing,
+                                  )}
+                                >
+                                  + Добави в план
+                                </button>
                               )}
-                            >
-                              {selected ? "Премахни от програмата" : "Добави в програмата"}
-                            </button>
+                            </div>
                           </div>
                         </article>
                       );
@@ -808,7 +831,10 @@ export default function FestivalDetailClient({
                   selectedItems.map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-xl border border-black/[0.06] bg-white/95 px-3 py-2 transition-all duration-200 hover:-translate-y-px hover:shadow-md"
+                      className={cn(
+                        "rounded-xl border border-black/[0.06] bg-white/95 px-3 py-2 transition-all duration-200 hover:-translate-y-px hover:shadow-md",
+                        highlightId === String(item.id) ? "bg-[#7c2d12]/10" : "",
+                      )}
                     >
                       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/60">
                         {formatScheduleTimeRange(item.start_time, item.end_time) || "Час предстои"}

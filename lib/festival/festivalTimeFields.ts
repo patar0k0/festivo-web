@@ -93,7 +93,7 @@ export function formatScheduleTimeRange(start?: string | null, end?: string | nu
 }
 
 /** Lexicographic order on Postgres `time` strings (HH:MM:SS); missing `start_time` first, then `title`. */
-export function sortByStartTimeLocale<T extends { start_time?: string | null; title: string }>(items: T[]): T[] {
+export function sortByStartTime<T extends { start_time?: string | null; title: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => {
     const c = (a.start_time ?? "").localeCompare(b.start_time ?? "");
     if (c !== 0) return c;

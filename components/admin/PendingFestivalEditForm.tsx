@@ -1346,6 +1346,7 @@ export default function PendingFestivalEditForm({
                 value={form.start_date ?? ""}
                 onChange={(iso) => updateField("start_date", iso)}
                 className={ADMIN_ENTITY_CONTROL_CLASS}
+                visualVariant="dots"
               />
             </AdminFieldInlineRow>
             <AdminFieldInlineRow field="endDate">
@@ -1353,12 +1354,15 @@ export default function PendingFestivalEditForm({
                 value={form.end_date ?? ""}
                 onChange={(iso) => updateField("end_date", iso)}
                 className={ADMIN_ENTITY_CONTROL_CLASS}
+                visualVariant="dots"
               />
             </AdminFieldInlineRow>
             <AdminFieldInlineRow field="startTime">
+              <span className="sr-only">HH:mm</span>
               <AdminTimeInput value={form.start_time} onChange={(e) => updateField("start_time", e.target.value)} />
             </AdminFieldInlineRow>
             <AdminFieldInlineRow field="endTime">
+              <span className="sr-only">HH:mm</span>
               <AdminTimeInput value={form.end_time} onChange={(e) => updateField("end_time", e.target.value)} />
             </AdminFieldInlineRow>
             <div className="md:col-span-2">

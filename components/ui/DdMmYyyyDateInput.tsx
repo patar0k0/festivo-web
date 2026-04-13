@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatDateValueAsDdMmYyyy, parseFlexibleDateToIso } from "@/lib/dates/euDateFormat";
+import {
+  formatDateValueAsDdMmYyyy,
+  formatDateValueAsDdMmYyyyDots,
+  formatTypingMaskEuropeanDots,
+  parseFlexibleDateToIso,
+} from "@/lib/dates/euDateFormat";
 
 export type DdMmYyyyDateInputProps = {
   value: string;
@@ -11,6 +16,8 @@ export type DdMmYyyyDateInputProps = {
   name?: string;
   disabled?: boolean;
   placeholder?: string;
+  /** Admin: dotted mask + `ДД.ММ.ГГГГ` display; public UI keeps slash-oriented typing. */
+  visualVariant?: "slash" | "dots";
 };
 
 export default function DdMmYyyyDateInput({
@@ -20,16 +27,22 @@ export default function DdMmYyyyDateInput({
   id,
   name,
   disabled,
-  placeholder = "dd/mm/yyyy",
+  placeholder,
+  visualVariant = "slash",
 }: DdMmYyyyDateInputProps) {
-  const [text, setText] = useState(() => formatDateValueAsDdMmYyyy(value));
+  const resolvedPlaceholder = placeholder ?? (visualVariant === "dots" ? "ДД.ММ.ГГГГ" : "dd/mm/yyyy");
+
+  const toDisplay = (v: string) =>
+    visualVariant === "dots" ? formatDateValueAsDdMmYyyyDots(v) : formatDateValueAsDdMmYyyy(v);
+
+  const [text, setText] = useState(() => toDisplay(value));
   const [focused, setFocused] = useState(false);
 
   useEffect(() => {
     if (!focused) {
-      setText(formatDateValueAsDdMmYyyy(value));
+      setText(toDisplay(value));
     }
-  }, [value, focused]);
+  }, [value, focused, visualVariant]);
 
   const commit = () => {
     const trimmed = text.trim();
@@ -39,7 +52,7 @@ export default function DdMmYyyyDateInput({
     }
     const iso = parseFlexibleDateToIso(trimmed);
     if (iso === null) {
-      setText(formatDateValueAsDdMmYyyy(value));
+      setText(toDisplay(value));
       return;
     }
     if (iso === "") {
@@ -47,7 +60,7 @@ export default function DdMmYyyyDateInput({
       return;
     }
     onChange(iso);
-    setText(formatDateValueAsDdMmYyyy(iso));
+    setText(toDisplay(iso));
   };
 
   return (
@@ -58,7 +71,7 @@ export default function DdMmYyyyDateInput({
       inputMode="numeric"
       autoComplete="off"
       spellCheck={false}
-      placeholder={placeholder}
+      placeholder={resolvedPlaceholder}
       disabled={disabled}
       className={className}
       value={text}
@@ -68,7 +81,8 @@ export default function DdMmYyyyDateInput({
         commit();
       }}
       onChange={(e) => {
-        const next = e.target.value;
+        const raw = e.target.value;
+        const next = visualVariant === "dots" ? formatTypingMaskEuropeanDots(raw) : raw;
         setText(next);
         const trimmed = next.trim();
         if (!trimmed) {

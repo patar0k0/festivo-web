@@ -152,6 +152,7 @@ function renderAiFieldsForKeys(
           onChange={(iso) => setAiDraftField(field.key, iso)}
           placeholder={field.placeholder}
           className={ADMIN_ENTITY_CONTROL_CLASS}
+          visualVariant="dots"
         />
       ) : (
         <input
@@ -771,6 +772,7 @@ export default function ResearchFestivalPanel() {
                     value={finalValues.start_date ?? ""}
                     onChange={(iso) => setFromCandidate("start_date", iso || null)}
                     className={ADMIN_ENTITY_CONTROL_CLASS}
+                    visualVariant="dots"
                   />
                 </AdminFieldInlineRow>
               </div>
@@ -780,6 +782,7 @@ export default function ResearchFestivalPanel() {
                     value={finalValues.end_date ?? ""}
                     onChange={(iso) => setFromCandidate("end_date", iso || null)}
                     className={ADMIN_ENTITY_CONTROL_CLASS}
+                    visualVariant="dots"
                   />
                 </AdminFieldInlineRow>
               </div>

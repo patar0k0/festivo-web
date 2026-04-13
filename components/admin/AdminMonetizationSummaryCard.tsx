@@ -1,5 +1,6 @@
 "use client";
 
+import { format } from "date-fns";
 import { hasActivePromotion } from "@/lib/monetization";
 
 function formatPromotionExpiry(raw: string | null | undefined): string | null {
@@ -7,7 +8,7 @@ function formatPromotionExpiry(raw: string | null | undefined): string | null {
   if (!trimmed) return null;
   const d = new Date(trimmed);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleString("bg-BG", { dateStyle: "medium", timeStyle: "short" });
+  return format(d, "dd.MM.yyyy HH:mm");
 }
 
 export type AdminMonetizationSummaryCardProps = {

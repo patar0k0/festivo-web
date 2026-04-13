@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   normalizeScheduleItemTimePair,
   parseHmInputToDbTime,
-  sortByStartTimeLocale,
+  sortByStartTime,
 } from "@/lib/festival/festivalTimeFields";
 
 export const PROGRAM_DRAFT_VERSION = 1;
@@ -200,7 +200,7 @@ function minutesSinceMidnightFromDbTime(hms: string | null | undefined): number 
 
 /** Sort items for display and stable storage order (`start_time` lexicographic, then title). */
 export function sortProgramDraftItemsByStartTime(items: ProgramDraftItem[]): ProgramDraftItem[] {
-  return sortByStartTimeLocale(items);
+  return sortByStartTime(items);
 }
 
 /**

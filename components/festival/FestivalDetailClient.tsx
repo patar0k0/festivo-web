@@ -34,7 +34,7 @@ import type { AccommodationOffer } from "@/lib/accommodation/types";
 import type { Festival, FestivalDay, FestivalMediaItem, FestivalScheduleItem } from "@/lib/types";
 import { formatFestivalDateLineLongBg, primaryFestivalDate } from "@/lib/festival/listingDates";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
-import { formatScheduleTimeRange, sortByStartTimeLocale } from "@/lib/festival/festivalTimeFields";
+import { formatScheduleTimeRange, sortByStartTime } from "@/lib/festival/festivalTimeFields";
 import { FESTIVAL_PROGRAM_SECTION_ID } from "@/lib/festival/programmeAnchor";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
@@ -78,7 +78,7 @@ function formatDayLabel(day: FestivalDay): string {
 }
 
 function sortScheduleItems(items: FestivalScheduleItem[]): FestivalScheduleItem[] {
-  return sortByStartTimeLocale(items);
+  return sortByStartTime(items);
 }
 
 function earliestScheduleTime(items: FestivalScheduleItem[]): string | null {

@@ -967,6 +967,7 @@ export default function FestivalEditForm({
               value={form.start_date ?? ""}
               onChange={(iso) => updateField("start_date", iso)}
               className={ADMIN_ENTITY_CONTROL_CLASS}
+              visualVariant="dots"
             />
           </AdminFieldInlineRow>
           <AdminFieldInlineRow field="endDate">
@@ -974,6 +975,7 @@ export default function FestivalEditForm({
               value={form.end_date ?? ""}
               onChange={(iso) => updateField("end_date", iso)}
               className={ADMIN_ENTITY_CONTROL_CLASS}
+              visualVariant="dots"
             />
           </AdminFieldInlineRow>
           <AdminFieldInlineRow field="startTime">

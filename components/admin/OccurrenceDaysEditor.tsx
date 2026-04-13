@@ -44,6 +44,7 @@ export default function OccurrenceDaysEditor({ value, onChange, disabled }: Prop
               onChange={(iso) => setSlot(index, iso)}
               disabled={disabled}
               className={`min-w-[9rem] flex-1 ${ADMIN_ENTITY_CONTROL_CLASS}`}
+              visualVariant="dots"
             />
             <button
               type="button"

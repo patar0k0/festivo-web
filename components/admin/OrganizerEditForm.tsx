@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 import type { OrganizerEditInitialCity, OrganizerEditWorkspace } from "@/lib/admin/organizerEditWorkspace";
 import { formatDateValueAsDdMmYyyy } from "@/lib/dates/euDateFormat";
 import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
@@ -772,7 +773,9 @@ export default function OrganizerEditForm({
                 Claimed events (брояч): <span className="font-mono tabular-nums">{organizer.claimed_events_count ?? 0}</span>
                 <span className="mx-2 text-black/25">·</span>
                 Създаден:{" "}
-                <span className="font-mono">{organizer.created_at ? new Date(organizer.created_at).toLocaleString("bg-BG") : "—"}</span>
+                <span className="font-mono">
+                  {organizer.created_at ? format(new Date(organizer.created_at), "dd.MM.yyyy HH:mm") : "—"}
+                </span>
               </div>
             </div>
           </section>

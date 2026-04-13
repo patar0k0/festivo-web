@@ -1,5 +1,5 @@
 import { format, parseISO } from "date-fns";
-import { formatScheduleTimeRange, sortByStartTimeLocale } from "@/lib/festival/festivalTimeFields";
+import { formatScheduleTimeRange, sortByStartTime } from "@/lib/festival/festivalTimeFields";
 import { FestivalDay, FestivalScheduleItem } from "@/lib/types";
 
 function groupByDay(days: FestivalDay[], items: FestivalScheduleItem[]) {
@@ -46,7 +46,7 @@ export default function FestivalProgram({
               {formatDayTitle(day)}
             </h3>
             <ul className="mt-4 space-y-3 text-sm">
-              {sortByStartTimeLocale(dayItems).map((item) => (
+              {sortByStartTime(dayItems).map((item) => (
                 <li key={item.id} className="flex flex-col gap-1">
                   <span className="text-xs uppercase tracking-widest text-muted">
                     {formatScheduleTimeRange(item.start_time, item.end_time)}

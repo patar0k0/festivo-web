@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { format } from "date-fns";
 import { formatAuditDetailsPreview, sanitizeAuditDetailsForDisplay } from "@/lib/admin/auditLogDetailsFormat";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import {
@@ -7,7 +8,7 @@ import {
   type AdminAuditLogRow,
   queryAdminAuditLogs,
 } from "@/lib/admin/queryAdminAuditLogs";
-import { ADMIN_NATIVE_DATE_INPUT_CLASS } from "@/lib/admin/adminNativeDateTimeClasses";
+import AdminActivityIsoDateField from "@/components/admin/inputs/AdminActivityIsoDateField";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -79,13 +80,7 @@ function AuditRow({
   return (
     <tr className="border-t border-black/[0.06] align-top">
       <td className="px-4 py-3 text-black/75 whitespace-nowrap">
-        {new Date(row.created_at).toLocaleString("bg-BG", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
+        {format(new Date(row.created_at), "dd.MM.yy HH:mm")}
       </td>
       <td className="px-4 py-3">
         <span
@@ -239,21 +234,15 @@ export default async function AdminActivityPage({ searchParams }: { searchParams
             </label>
             <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
               От дата
-              <input
-                name="date_from"
-                type="date"
-                defaultValue={date_from}
-                className={`mt-1 ${ADMIN_NATIVE_DATE_INPUT_CLASS}`}
-              />
+              <div className="mt-1">
+                <AdminActivityIsoDateField name="date_from" defaultIso={date_from} className="w-full" />
+              </div>
             </label>
             <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
               До дата
-              <input
-                name="date_to"
-                type="date"
-                defaultValue={date_to}
-                className={`mt-1 ${ADMIN_NATIVE_DATE_INPUT_CLASS}`}
-              />
+              <div className="mt-1">
+                <AdminActivityIsoDateField name="date_to" defaultIso={date_to} className="w-full" />
+              </div>
             </label>
           </div>
 

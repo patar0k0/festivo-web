@@ -7,7 +7,7 @@ import {
   dbTimeToHmInput,
   isScheduleTimeOrderInvalid,
   parseHmInputToDbTime,
-  sortByStartTimeLocale,
+  sortByStartTime,
 } from "@/lib/festival/festivalTimeFields";
 import {
   compactProgramDraft,
@@ -74,7 +74,7 @@ export default function ProgramDraftEditor({ value, onChange, datePlaceholder = 
 
   const applyBlocks = useCallback(
     (next: ProgramEditorDayBlock[]) => {
-      const ordered = next.map((b) => ({ ...b, items: sortByStartTimeLocale(b.items) }));
+      const ordered = next.map((b) => ({ ...b, items: sortByStartTime(b.items) }));
       const built = programDraftFromEditorDayBlocks(ordered);
       lastEmittedRef.current = serializeDraft(built);
       setBlocks(ordered);
@@ -175,6 +175,7 @@ export default function ProgramDraftEditor({ value, onChange, datePlaceholder = 
                   onChange={(iso) => updateDay(block.id, { date: iso })}
                   className={`${ADMIN_ENTITY_CONTROL_CLASS} mt-1`}
                   placeholder={datePlaceholder}
+                  visualVariant="dots"
                 />
               </label>
               <button
@@ -208,11 +209,10 @@ export default function ProgramDraftEditor({ value, onChange, datePlaceholder = 
                 return (
                   <li key={row.id} className="rounded-lg border border-black/[0.06] bg-black/[0.02] p-2.5">
                     <div className="grid gap-2.5 md:grid-cols-12 md:items-start">
-                      <div className="flex flex-wrap items-end gap-2 md:col-span-3" lang="bg-BG">
+                      <div className="flex flex-wrap items-end gap-2 md:col-span-3">
                         <label className="w-[7rem] shrink-0">
                           <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">Начало</span>
                           <AdminTimeInput
-                            step={300}
                             value={startHm}
                             onChange={(e) => updateItem(block.id, row.id, { start_time: parseHmInputToDbTime(e.target.value) })}
                             className="mt-1 !w-[7rem] shrink-0 tabular-nums"
@@ -222,7 +222,6 @@ export default function ProgramDraftEditor({ value, onChange, datePlaceholder = 
                         <label className="w-[7rem] shrink-0">
                           <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/40">Край</span>
                           <AdminTimeInput
-                            step={300}
                             value={endHm}
                             onChange={(e) => updateItem(block.id, row.id, { end_time: parseHmInputToDbTime(e.target.value) })}
                             className="mt-1 !w-[7rem] shrink-0 tabular-nums"

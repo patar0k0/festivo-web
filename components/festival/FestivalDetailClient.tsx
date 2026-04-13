@@ -13,8 +13,8 @@ import { useNavigationGeneration } from "@/components/providers/NavigationGenera
 import { useImageLoadReset } from "@/components/ui/useImageLoadReset";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { cityHref } from "@/lib/cities";
-import { FestivalGallery } from "@/components/festival/FestivalGallery";
-import { VideoEmbed } from "@/components/ui/VideoEmbed";
+import { FestivalMedia } from "@/components/festival/FestivalMedia";
+import type { MediaItem } from "@/components/ui/MediaLightbox";
 import { FestivalHeroActionBar, FestivalRailActionBar } from "@/components/festival/FestivalDetailActions";
 import FestivalQuickFactsStrip from "@/components/festival/FestivalQuickFactsStrip";
 import FestivalAppCta from "@/components/festival/FestivalAppCta";
@@ -278,7 +278,14 @@ export default function FestivalDetailClient({
   const compactLocationBeyondCity = getCompactMetaLocationBeyondCity(festival, cityName);
   const cityOrLocationText = [cityName, compactLocationBeyondCity].filter(Boolean).join(" · ");
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
-  const showGallerySection = galleryImages.length >= 1;
+  const mediaItems = useMemo<MediaItem[]>(
+    () => [
+      ...galleryImages.map((url) => ({ type: "image" as const, url })),
+      ...(videoPageUrl ? [{ type: "video" as const, url: videoPageUrl }] : []),
+    ],
+    [galleryImages, videoPageUrl],
+  );
+  const showMediaSection = mediaItems.length >= 1;
   const urgencyLabel = getFestivalUrgencyLabelBg(festival);
   const temporalState = useMemo(() => getFestivalTemporalState(festival), [festival]);
   const isPastFestival = temporalState === "past";
@@ -615,8 +622,7 @@ export default function FestivalDetailClient({
             )}
           </section>
 
-          {showGallerySection ? <FestivalGallery images={galleryImages} /> : null}
-          {videoPageUrl ? <VideoEmbed url={videoPageUrl} /> : null}
+          {showMediaSection ? <FestivalMedia items={mediaItems} /> : null}
 
           {relatedFestivals.length ? (
             <section className="space-y-4">

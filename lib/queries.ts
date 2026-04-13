@@ -5,8 +5,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, OrganizerProfile, PaginatedResult } from "@/lib/types";
 import { withDefaultFilters } from "@/lib/filters";
-import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
-import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
+import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { buildFestivalsTagOrFilter } from "@/lib/festivals/buildFestivalsTagOrFilter";
 import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
@@ -341,12 +341,12 @@ function applyFilters<T extends FilterQuery<T>>(
 export function fixFestivalText(festival: Festival): Festival {
   const settlementKind = festival.cities?.is_village;
   const rawLine =
-    festivalSettlementDisplayText({
+    festivalSettlementSourceText({
       cityRelation: festival.cities ?? null,
       city_name_display: festival.city_name_display,
       city_guess: (festival as Festival & { city_guess?: string | null }).city_guess ?? null,
     }) ?? null;
-  const city_name_display = formatSettlementDisplayName(rawLine, settlementKind);
+  const city_name_display = festivalSettlementDisplayText(rawLine, settlementKind);
 
   const occurrenceNorm = normalizeOccurrenceDatesInput((festival as Festival & { occurrence_dates?: unknown }).occurrence_dates);
 
@@ -622,7 +622,7 @@ export async function getCityLinks(): Promise<Array<{ name: string; slug: string
       Boolean(row.name_bg && row.slug),
     )
     .map((row) => ({
-      name: formatSettlementDisplayName(row.name_bg, row.is_village) ?? fixMojibakeBG(row.name_bg),
+      name: festivalSettlementDisplayText(row.name_bg, row.is_village) ?? fixMojibakeBG(row.name_bg),
       slug: row.slug,
     }));
 }
@@ -665,7 +665,7 @@ export async function getHomeCitySelectOptions(): Promise<
     if (!joined || !slug) continue;
 
     const name =
-      formatSettlementDisplayName(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg ?? slug);
+      festivalSettlementDisplayText(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg ?? slug);
     map.set(slug, { name, slug });
   }
 
@@ -786,10 +786,7 @@ export async function getOrganizerWithFestivals(
     cities,
     name: fixMojibakeBG(organizer.name),
     description: organizer.description ? fixMojibakeBG(organizer.description) : organizer.description,
-    city_name_display: formatSettlementDisplayName(
-      cities?.name_bg ?? null,
-      cities?.is_village,
-    ),
+    city_name_display: festivalSettlementDisplayText(cities?.name_bg ?? null, cities?.is_village),
   };
 
   const { data: links, error: linksError } = await db

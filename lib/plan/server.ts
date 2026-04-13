@@ -1,5 +1,5 @@
 import { type SupabaseClient, type User } from "@supabase/supabase-js";
-import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
+import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -226,7 +226,7 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
     const joined = normalizePlanCityJoin(festival.cities);
     const cityLabel =
       joined?.name_bg?.trim() != null && joined.name_bg.trim() !== ""
-        ? formatSettlementDisplayName(joined.name_bg, joined.is_village ?? false)
+        ? festivalSettlementDisplayText(joined.name_bg, joined.is_village ?? false)
         : null;
     entries.push({
       scheduleItemId: String(schedule.id),

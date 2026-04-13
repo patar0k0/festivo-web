@@ -35,6 +35,7 @@ import type { AccommodationOffer } from "@/lib/accommodation/types";
 import type { Festival, FestivalDay, FestivalMedia, FestivalScheduleItem } from "@/lib/types";
 import { formatFestivalDateLineLongBg, primaryFestivalDate } from "@/lib/festival/listingDates";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
+import { formatScheduleTimeRange, sortByStartTimeLocale } from "@/lib/festival/festivalTimeFields";
 import { FESTIVAL_PROGRAM_SECTION_ID } from "@/lib/festival/programmeAnchor";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
@@ -75,19 +76,7 @@ function formatDayLabel(day: FestivalDay): string {
 }
 
 function sortScheduleItems(items: FestivalScheduleItem[]): FestivalScheduleItem[] {
-  return [...items].sort((a, b) => {
-    const aTime = a.start_time ?? "99:99";
-    const bTime = b.start_time ?? "99:99";
-    if (aTime !== bTime) return aTime.localeCompare(bTime);
-    return (a.sort_order ?? 9999) - (b.sort_order ?? 9999);
-  });
-}
-
-function formatTimeRange(start?: string | null, end?: string | null): string {
-  const from = start ? start.slice(0, 5) : "";
-  const to = end ? end.slice(0, 5) : "";
-  if (from && to) return `${from} – ${to}`;
-  return from || "";
+  return sortByStartTimeLocale(items);
 }
 
 function earliestScheduleTime(items: FestivalScheduleItem[]): string | null {
@@ -576,7 +565,7 @@ export default function FestivalDetailClient({
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="space-y-1">
                               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">
-                                {formatTimeRange(item.start_time, item.end_time) || "Час предстои"}
+                                {formatScheduleTimeRange(item.start_time, item.end_time) || "Час предстои"}
                                 {item.stage ? ` • ${item.stage}` : ""}
                               </p>
                               <h3 className="text-base font-medium text-black/90">{item.title}</h3>
@@ -827,7 +816,7 @@ export default function FestivalDetailClient({
                       className="rounded-xl border border-black/[0.06] bg-white/95 px-3 py-2 transition-all duration-200 hover:-translate-y-px hover:shadow-md"
                     >
                       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/60">
-                        {formatTimeRange(item.start_time, item.end_time) || "Час предстои"}
+                        {formatScheduleTimeRange(item.start_time, item.end_time) || "Час предстои"}
                       </p>
                       <p className="mt-1 text-sm font-semibold text-[#0c0e14]">{item.title}</p>
                     </div>

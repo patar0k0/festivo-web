@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { OrganizerEditInitialCity, OrganizerEditWorkspace } from "@/lib/admin/organizerEditWorkspace";
 import { formatDateValueAsDdMmYyyy } from "@/lib/dates/euDateFormat";
-import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
+import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
 import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import { getAIProviderLabel } from "@/lib/ai/providerUi";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
@@ -335,7 +335,7 @@ export default function OrganizerEditForm({
   const previewCity = (() => {
     const rel = pickedCity ?? workspace.initialCity;
     if (!rel?.name_bg?.trim()) return null;
-    return formatSettlementDisplayName(rel.name_bg, rel.is_village ?? undefined)?.trim() ?? null;
+    return festivalSettlementDisplayText(rel.name_bg, rel.is_village ?? undefined)?.trim() ?? null;
   })();
 
   const previewWebsiteHref = normalizeExternalHttpHref(form.website_url);

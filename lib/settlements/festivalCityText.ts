@@ -18,7 +18,8 @@ function trimNullable(value: unknown): string | null {
  * Raw settlement label for forms and resolution (no legacy `festivals.city` text).
  * Order: canonical join (name, then slug) → moderated display → AI guess.
  */
-export function festivalSettlementDisplayText(src: FestivalCityTextSource): string | null {
+/** Raw settlement line from festival fields (no гр./с. prefix; not mojibake-normalized). */
+export function festivalSettlementSourceText(src: FestivalCityTextSource): string | null {
   const rel = src.cityRelation;
   return (
     trimNullable(rel?.name_bg) ??
@@ -48,7 +49,7 @@ export function resolveCityInputForApproval(src: CityApprovalInputSource): strin
   if (src.city_id != null && Number.isFinite(Number(src.city_id))) {
     return String(src.city_id);
   }
-  const fromText = festivalSettlementDisplayText({
+  const fromText = festivalSettlementSourceText({
     cityRelation: src.cityRelation,
     city_name_display: src.city_name_display,
     city_guess: src.city_guess,

@@ -1,4 +1,4 @@
-import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
+import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
 
 export type PendingQualityBucket = "ready" | "needs_fix" | "weak";
 
@@ -93,7 +93,7 @@ export function assessPendingFestivalQuality(row: PendingQualityInput): PendingF
     row.city && typeof row.city === "object" && !Array.isArray(row.city)
       ? (row.city as { name_bg?: unknown; slug?: unknown })
       : null;
-  const effectiveCityText = festivalSettlementDisplayText({
+  const effectiveCityText = festivalSettlementSourceText({
     cityRelation: cityRel
       ? {
           name_bg: typeof cityRel.name_bg === "string" ? cityRel.name_bg : null,
@@ -268,7 +268,7 @@ export function listFilledPendingRecordFields(row: PendingRecordForFillSummary):
 
   const cityId = typeof row.city_id === "number" ? row.city_id : null;
   const cityName = normalizeText(row.city?.name_bg) ?? normalizeText(row.city?.slug);
-  const fillCityLine = festivalSettlementDisplayText({
+  const fillCityLine = festivalSettlementSourceText({
     cityRelation: row.city
       ? {
           name_bg: typeof row.city.name_bg === "string" ? row.city.name_bg : null,

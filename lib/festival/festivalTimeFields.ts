@@ -50,3 +50,53 @@ export function normalizeFestivalTimePair(
   if (em < sm) return { start_time: null, end_time: null };
   return { start_time: start, end_time: end };
 }
+
+/**
+ * Schedule rows: keep start; drop end when missing or end ≤ start (invalid order).
+ * Used for program draft items so editors do not lose the start time on bad pairs.
+ */
+export function normalizeScheduleItemTimePair(
+  start: string | null,
+  end: string | null,
+): { start_time: string | null; end_time: string | null } {
+  if (!start && !end) return { start_time: null, end_time: null };
+  if (!start) return { start_time: null, end_time: null };
+  if (!end) return { start_time: start, end_time: null };
+  const sm = minutesSinceMidnightHms(start);
+  const em = minutesSinceMidnightHms(end);
+  if (sm === null || em === null) return { start_time: null, end_time: null };
+  if (em <= sm) return { start_time: start, end_time: null };
+  return { start_time: start, end_time: end };
+}
+
+/** True when both times are valid HH:MM:SS and end is not after start. */
+export function isScheduleTimeOrderInvalid(start: string | null | undefined, end: string | null | undefined): boolean {
+  if (!start?.trim() || !end?.trim()) return false;
+  const sm = minutesSinceMidnightHms(start.trim());
+  const em = minutesSinceMidnightHms(end.trim());
+  if (sm === null || em === null) return false;
+  return em <= sm;
+}
+
+/** HH:mm for labels (24h, leading zeros). */
+export function formatScheduleHm(db: string | null | undefined): string {
+  const v = dbTimeToHmInput(db);
+  return v || "";
+}
+
+/** "18:00" or "18:00 – 21:30" (en dash). */
+export function formatScheduleTimeRange(start?: string | null, end?: string | null): string {
+  const a = formatScheduleHm(start ?? null);
+  const b = formatScheduleHm(end ?? null);
+  if (a && b) return `${a} – ${b}`;
+  return a || "";
+}
+
+/** Lexicographic order on Postgres `time` strings (HH:MM:SS); missing `start_time` first, then `title`. */
+export function sortByStartTimeLocale<T extends { start_time?: string | null; title: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const c = (a.start_time ?? "").localeCompare(b.start_time ?? "");
+    if (c !== 0) return c;
+    return a.title.localeCompare(b.title);
+  });
+}

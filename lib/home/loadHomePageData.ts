@@ -5,7 +5,7 @@ import { sortFestivalsForListing } from "@/lib/festival/sorting";
 import { sofiaWallClockNow } from "@/lib/festival/temporal";
 import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBounds";
 import { FESTIVAL_SELECT_MIN, fixFestivalText } from "@/lib/queries";
-import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
+import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";
@@ -165,7 +165,7 @@ async function fetchHomePublishedCityOptionsWithCounts(): Promise<HomeCityOption
     if (!joined || !slug) continue;
 
     const displayName =
-      formatSettlementDisplayName(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg ?? slug);
+      festivalSettlementDisplayText(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg ?? slug);
 
     const existing = map.get(slug);
     if (!existing) {

@@ -39,7 +39,7 @@ import {
 import { ADMIN_FIELD_LABEL, adminLabelForSuggestionField, getAdminFieldLabel } from "@/lib/admin/entitySchema";
 import { getAIProviderLabel, getPendingResearchProviderKey } from "@/lib/ai/providerUi";
 import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
-import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
+import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
 import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
 import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
 import { compactProgramDraft, emptyProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
@@ -404,7 +404,7 @@ export default function PendingFestivalEditForm({
   const router = useRouter();
   const tagsCurrent = normalizeTagsGuess(pendingFestival.tags);
   const cityDisplayValue =
-    festivalSettlementDisplayText({
+    festivalSettlementSourceText({
       cityRelation: pendingFestival.city
         ? { name_bg: pendingFestival.city.name_bg, slug: pendingFestival.city.slug }
         : null,
@@ -1200,7 +1200,7 @@ export default function PendingFestivalEditForm({
   const summaryItems = useMemo(() => {
     const cityLine =
       (form.city_id.trim() ||
-        (festivalSettlementDisplayText({
+        (festivalSettlementSourceText({
           cityRelation: pendingFestival.city
             ? { name_bg: pendingFestival.city.name_bg, slug: pendingFestival.city.slug }
             : null,

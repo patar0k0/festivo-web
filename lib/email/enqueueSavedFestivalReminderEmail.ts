@@ -3,7 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NotificationJobRow } from "@/lib/notifications/types";
 import { TZ } from "@/lib/notifications/time";
 import { getBaseUrl } from "@/lib/seo";
-import { formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
+import { formatScheduleHm } from "@/lib/festival/festivalTimeFields";
+import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
 
 import {
   dedupeKeyReminderOneDayBefore,
@@ -63,15 +64,10 @@ function formatBgLongDate(isoDate: string | null | undefined): string | null {
   }
 }
 
-/** Postgres `time` as HH:MM:SS → short BG label */
+/** Postgres `time` as HH:mm → short BG label (24h, leading zeros). */
 function formatStartTimeDisplay(dbTime: string | null | undefined): string | null {
-  if (!dbTime?.trim()) return null;
-  const m = String(dbTime).trim().match(/^(\d{1,2}):(\d{2})/);
-  if (!m) return null;
-  const hh = Number(m[1]);
-  const mm = m[2];
-  if (Number.isNaN(hh)) return null;
-  return `${hh}:${mm} ч.`;
+  const hm = formatScheduleHm(dbTime);
+  return hm ? `${hm} ч.` : null;
 }
 
 function locationSummaryFromFestival(row: FestivalRowForReminderEmail): string | null {
@@ -83,7 +79,7 @@ function locationSummaryFromFestival(row: FestivalRowForReminderEmail): string |
 function cityDisplayFromFestival(row: FestivalRowForReminderEmail): string | null {
   const c = normalizeCityJoin(row.cities);
   if (c?.name_bg?.trim()) {
-    return formatSettlementDisplayName(c.name_bg, c.is_village);
+    return festivalSettlementDisplayText(c.name_bg, c.is_village);
   }
   return null;
 }

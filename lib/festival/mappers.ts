@@ -2,7 +2,7 @@ import type { Festival } from "@/lib/types";
 import type { CanonicalFestivalPatchPayload, CanonicalFestivalPayload } from "@/lib/festival/schema";
 import { pendingRowToOrganizerEntries, primaryOrganizerDisplayName } from "@/lib/admin/pendingOrganizerEntries";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
-import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
+import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
 
 type PendingFestivalRowLike = {
   title: string;
@@ -71,7 +71,7 @@ function cityDisplayFallback(row: PendingFestivalRowLike | FestivalRowLike): str
   const pendingLike = row as PendingFestivalRowLike;
   const cityRelation = pendingLike.cityRelation;
   return (
-    festivalSettlementDisplayText({
+    festivalSettlementSourceText({
       cityRelation: cityRelation ? { name_bg: cityRelation.name_bg, slug: cityRelation.slug } : null,
       city_name_display: row.city_name_display,
       city_guess: pendingLike.city_guess,

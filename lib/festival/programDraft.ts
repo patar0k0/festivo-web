@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
+import {
+  normalizeScheduleItemTimePair,
+  parseHmInputToDbTime,
+  sortByStartTimeLocale,
+} from "@/lib/festival/festivalTimeFields";
 
 export const PROGRAM_DRAFT_VERSION = 1;
 
@@ -45,7 +49,7 @@ function normalizeItemRow(raw: unknown, sortIndex: number): ProgramDraftItem | n
   const o = raw as Record<string, unknown>;
   const title = trimStr(o.title);
   if (!title) return null;
-  const startPair = normalizeFestivalTimePair(parseHmInputToDbTime(o.start_time), parseHmInputToDbTime(o.end_time));
+  const startPair = normalizeScheduleItemTimePair(parseHmInputToDbTime(o.start_time), parseHmInputToDbTime(o.end_time));
   return {
     title,
     start_time: startPair.start_time,
@@ -67,11 +71,61 @@ function normalizeDayRow(raw: unknown): ProgramDraftDay | null {
     const row = normalizeItemRow(it, idx);
     if (row) items.push(row);
   });
-  return {
-    date,
-    title: trimStr(o.title),
-    items,
-  };
+  if (items.length > 0) {
+    return {
+      date,
+      title: trimStr(o.title),
+      items,
+    };
+  }
+  const single = normalizeItemRow(o, 0);
+  if (single) {
+    return {
+      date,
+      title: trimStr(o.dayTitle ?? o.day_title),
+      items: [single],
+    };
+  }
+  return null;
+}
+
+/** Legacy: flat `items[]` (optional per-row `date`) or undated items under root `date`. */
+function legacyFlatItemsToDays(
+  itemsRaw: unknown[],
+  rootDate: string | null,
+  rootTitle: string | null,
+): ProgramDraftDay[] {
+  const dated = new Map<string, unknown[]>();
+  const undated: unknown[] = [];
+  for (const raw of itemsRaw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const itemDate = trimStr((raw as Record<string, unknown>).date);
+    if (itemDate && isValidIsoDate(itemDate)) {
+      if (!dated.has(itemDate)) dated.set(itemDate, []);
+      dated.get(itemDate)!.push(raw);
+    } else {
+      undated.push(raw);
+    }
+  }
+  if (dated.size === 0 && undated.length > 0 && rootDate && isValidIsoDate(rootDate)) {
+    const items: ProgramDraftItem[] = [];
+    undated.forEach((it, idx) => {
+      const row = normalizeItemRow(it, idx);
+      if (row) items.push(row);
+    });
+    if (!items.length) return [];
+    return [{ date: rootDate, title: rootTitle, items: sortProgramDraftItemsByStartTime(items) }];
+  }
+  const dates = [...dated.keys()].sort();
+  return dates.map((d) => {
+    const bucket = dated.get(d)!;
+    const items: ProgramDraftItem[] = [];
+    bucket.forEach((it, idx) => {
+      const row = normalizeItemRow(it, idx);
+      if (row) items.push(row);
+    });
+    return { date: d, title: null, items: sortProgramDraftItemsByStartTime(items) };
+  });
 }
 
 /**
@@ -85,17 +139,24 @@ export function parseProgramDraftUnknown(input: unknown): { ok: true; value: Pro
     return { ok: false, error: "program_draft must be an object or null" };
   }
   const o = input as Record<string, unknown>;
+  const version =
+    typeof o.version === "number" && Number.isFinite(o.version) ? Math.trunc(o.version) : PROGRAM_DRAFT_VERSION;
   const daysIn = Array.isArray(o.days) ? o.days : null;
+  if ((!daysIn || daysIn.length === 0) && Array.isArray(o.items) && o.items.length > 0) {
+    const legacyDays = legacyFlatItemsToDays(o.items, trimStr(o.date), trimStr(o.title));
+    if (legacyDays.length > 0) {
+      const daysSorted = legacyDays.map((d) => ({ ...d, items: sortProgramDraftItemsByStartTime(d.items) }));
+      return { ok: true, value: { version, days: daysSorted } };
+    }
+  }
   if (!daysIn) {
     return { ok: false, error: "program_draft.days must be an array" };
   }
   const days: ProgramDraftDay[] = [];
   for (const d of daysIn) {
     const day = normalizeDayRow(d);
-    if (day) days.push(day);
+    if (day) days.push({ ...day, items: sortProgramDraftItemsByStartTime(day.items) });
   }
-  const version =
-    typeof o.version === "number" && Number.isFinite(o.version) ? Math.trunc(o.version) : PROGRAM_DRAFT_VERSION;
   return { ok: true, value: { version, days } };
 }
 
@@ -105,7 +166,7 @@ export function compactProgramDraft(draft: ProgramDraft): ProgramDraft {
     .map((d) => ({
       date: d.date,
       title: d.title?.trim() ? d.title.trim() : null,
-      items: d.items.filter((it) => it.title.trim().length > 0),
+      items: sortProgramDraftItemsByStartTime(d.items.filter((it) => it.title.trim().length > 0)),
     }))
     .filter((d) => isValidIsoDate(d.date));
   return { version: draft.version ?? PROGRAM_DRAFT_VERSION, days };
@@ -137,16 +198,9 @@ function minutesSinceMidnightFromDbTime(hms: string | null | undefined): number 
   return h * 60 + min;
 }
 
-/** Sort items for display and stable storage order (time, then title). */
+/** Sort items for display and stable storage order (`start_time` lexicographic, then title). */
 export function sortProgramDraftItemsByStartTime(items: ProgramDraftItem[]): ProgramDraftItem[] {
-  return [...items].sort((a, b) => {
-    const as = minutesSinceMidnightFromDbTime(a.start_time);
-    const bs = minutesSinceMidnightFromDbTime(b.start_time);
-    const aOrd = as === null ? 24 * 60 : as;
-    const bOrd = bs === null ? 24 * 60 : bs;
-    if (aOrd !== bOrd) return aOrd - bOrd;
-    return a.title.localeCompare(b.title);
-  });
+  return sortByStartTimeLocale(items);
 }
 
 /**
@@ -163,7 +217,7 @@ export function mergeProgramDraftDaysByDate(draft: ProgramDraft): ProgramDraft {
       invalidDays.push({
         date: day.date,
         title: day.title ?? null,
-        items: day.items.map((it) => ({ ...it })),
+        items: sortProgramDraftItemsByStartTime(day.items.map((it) => ({ ...it }))),
       });
       continue;
     }
@@ -189,6 +243,85 @@ export function mergeProgramDraftDaysByDate(draft: ProgramDraft): ProgramDraft {
   };
 }
 
+/** One schedule row inside a day block (admin editor). */
+export type ProgramEditorItemRow = {
+  id: string;
+  title: string;
+  start_time: string | null;
+  end_time: string | null;
+  stage: string | null;
+  description: string | null;
+};
+
+/** Grouped day block for the admin program editor. */
+export type ProgramEditorDayBlock = {
+  id: string;
+  date: string;
+  dayTitle: string | null;
+  items: ProgramEditorItemRow[];
+};
+
+export function programDraftToEditorDayBlocks(draft: ProgramDraft): ProgramEditorDayBlock[] {
+  const merged = mergeProgramDraftDaysByDate(cloneProgramDraft(draft));
+  return merged.days.map((day, di) => ({
+    id: `day-${day.date}-${di}`,
+    date: day.date,
+    dayTitle: day.title ?? null,
+    items: day.items.map((item, ii) => ({
+      id: `day-${day.date}-${di}-item-${ii}`,
+      title: item.title,
+      start_time: item.start_time ?? null,
+      end_time: item.end_time ?? null,
+      stage: item.stage ?? null,
+      description: item.description ?? null,
+    })),
+  }));
+}
+
+/** Merge blocks by date (preserves first-seen date order), sorts items per day. */
+export function programDraftFromEditorDayBlocks(blocks: ProgramEditorDayBlock[]): ProgramDraft {
+  const dateOrder: string[] = [];
+  const itemsByDate = new Map<string, ProgramDraftItem[]>();
+  const titleByDate = new Map<string, string | null>();
+
+  for (const block of blocks) {
+    const d = block.date.trim();
+    if (!d || !isValidIsoDate(d)) continue;
+
+    if (!itemsByDate.has(d)) {
+      itemsByDate.set(d, []);
+      dateOrder.push(d);
+    }
+    const dt = block.dayTitle?.trim() ? block.dayTitle.trim() : null;
+    if (dt) titleByDate.set(d, dt);
+
+    for (const row of block.items) {
+      const title = row.title.trim();
+      if (!title) continue;
+      const pair = normalizeScheduleItemTimePair(
+        parseHmInputToDbTime(row.start_time),
+        parseHmInputToDbTime(row.end_time),
+      );
+      itemsByDate.get(d)!.push({
+        title,
+        start_time: pair.start_time,
+        end_time: pair.end_time,
+        stage: row.stage?.trim() ? row.stage.trim() : null,
+        description: row.description?.trim() ? row.description.trim() : null,
+        sort_order: null,
+      });
+    }
+  }
+
+  const days: ProgramDraftDay[] = dateOrder.map((date) => ({
+    date,
+    title: titleByDate.get(date) ?? null,
+    items: sortProgramDraftItemsByStartTime(itemsByDate.get(date) ?? []),
+  }));
+
+  return { version: PROGRAM_DRAFT_VERSION, days };
+}
+
 /** Flat row model for the admin program editor (stable `id` for React state). */
 export type ProgramEditorRow = {
   id: string;
@@ -202,14 +335,13 @@ export type ProgramEditorRow = {
 };
 
 export function programDraftToEditorRows(draft: ProgramDraft): ProgramEditorRow[] {
-  const merged = mergeProgramDraftDaysByDate(cloneProgramDraft(draft));
   const rows: ProgramEditorRow[] = [];
-  merged.days.forEach((day, di) => {
-    day.items.forEach((item, ii) => {
+  for (const b of programDraftToEditorDayBlocks(draft)) {
+    b.items.forEach((item, ii) => {
       rows.push({
-        id: `${day.date}-${di}-${ii}`,
-        date: day.date,
-        dayTitle: ii === 0 ? day.title ?? null : null,
+        id: item.id,
+        date: b.date,
+        dayTitle: ii === 0 ? b.dayTitle : null,
         title: item.title,
         start_time: item.start_time ?? null,
         end_time: item.end_time ?? null,
@@ -217,7 +349,7 @@ export function programDraftToEditorRows(draft: ProgramDraft): ProgramEditorRow[
         description: item.description ?? null,
       });
     });
-  });
+  }
   return rows;
 }
 
@@ -239,43 +371,30 @@ export function compareProgramEditorRows(a: ProgramEditorRow, b: ProgramEditorRo
 /** Build a program draft from flat editor rows (merges duplicate dates, sorts items). */
 export function programDraftFromEditorRows(rows: ProgramEditorRow[]): ProgramDraft {
   const sorted = [...rows].sort(compareProgramEditorRows);
-  const byDate = new Map<string, { title: string | null; items: ProgramDraftItem[] }>();
+  const blocks: ProgramEditorDayBlock[] = [];
+  let cur: ProgramEditorDayBlock | null = null;
 
   for (const row of sorted) {
     const d = row.date.trim();
     if (!d || !isValidIsoDate(d)) continue;
 
-    const g = byDate.get(d) ?? { title: null, items: [] as ProgramDraftItem[] };
+    if (!cur || cur.date !== d) {
+      cur = { id: `legacy-${d}-${blocks.length}`, date: d, dayTitle: null, items: [] };
+      blocks.push(cur);
+    }
     const dt = row.dayTitle?.trim() ? row.dayTitle.trim() : null;
-    if (dt) g.title = dt;
-
-    const pair = normalizeFestivalTimePair(
-      parseHmInputToDbTime(row.start_time),
-      parseHmInputToDbTime(row.end_time),
-    );
-    const item: ProgramDraftItem = {
+    if (dt) cur.dayTitle = dt;
+    cur.items.push({
+      id: row.id,
       title: row.title,
-      start_time: pair.start_time,
-      end_time: pair.end_time,
-      stage: row.stage?.trim() ? row.stage.trim() : null,
-      description: row.description?.trim() ? row.description.trim() : null,
-      sort_order: null,
-    };
-    g.items.push(item);
-    byDate.set(d, g);
+      start_time: row.start_time,
+      end_time: row.end_time,
+      stage: row.stage,
+      description: row.description,
+    });
   }
 
-  const dates = [...byDate.keys()].sort();
-  const days: ProgramDraftDay[] = dates.map((date) => {
-    const g = byDate.get(date)!;
-    return {
-      date,
-      title: g.title,
-      items: sortProgramDraftItemsByStartTime(g.items),
-    };
-  });
-
-  return { version: PROGRAM_DRAFT_VERSION, days };
+  return programDraftFromEditorDayBlocks(blocks);
 }
 
 type GeminiProgramDay = {

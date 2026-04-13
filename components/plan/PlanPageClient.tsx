@@ -8,6 +8,7 @@ import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
 import type { FestivalDateFields } from "@/lib/festival/listingDates";
 import { festivalEffectiveCalendarBounds, getFestivalTemporalState } from "@/lib/festival/temporal";
 import type { PlanEntry, ReminderType } from "@/lib/plan/server";
+import { formatScheduleTimeRange } from "@/lib/festival/festivalTimeFields";
 import { cn } from "@/lib/utils";
 
 type PlanPageFestivalRow = {
@@ -39,12 +40,6 @@ type PlanPageClientProps = {
     } | null;
   };
 };
-
-function formatTimeRange(start?: string | null, end?: string | null) {
-  if (start && end) return `${start.slice(0, 5)} - ${end.slice(0, 5)}`;
-  if (start) return start.slice(0, 5);
-  return "Час предстои";
-}
 
 function formatDateRange(startDate: string | null, endDate: string | null) {
   if (!startDate) return "Дата предстои";
@@ -337,7 +332,16 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
       if (!map.has(key)) map.set(key, []);
       map.get(key)?.push(entry);
     });
-    return Array.from(map.entries());
+    return Array.from(map.entries()).map(([fid, list]) => [
+      fid,
+      [...list].sort((a, b) => {
+        const dc = (a.dayDate ?? "").localeCompare(b.dayDate ?? "");
+        if (dc !== 0) return dc;
+        const tc = (a.startTime ?? "").localeCompare(b.startTime ?? "");
+        if (tc !== 0) return tc;
+        return a.title.localeCompare(b.title);
+      }),
+    ]) as [string, PlanEntry[]][];
   }, [upcomingEntries]);
 
   const festivalEntries = useMemo(
@@ -610,7 +614,7 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
                 >
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/40">
-                      {item.dayDate ?? "Дата"} • {formatTimeRange(item.startTime, item.endTime)}
+                      {item.dayDate ?? "Дата"} • {formatScheduleTimeRange(item.startTime, item.endTime) || "Час предстои"}
                     </p>
                     <p className="text-sm font-medium text-black/90">{item.title}</p>
                     {item.stage ? <p className="text-[13px] text-black/60">{item.stage}</p> : null}

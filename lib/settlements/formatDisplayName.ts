@@ -1,6 +1,5 @@
 import type { Festival } from "@/lib/types";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
-import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
 
 /** Премахва типични представки в началото (за сравнение / нормализация). */
 export function stripBulgarianSettlementPrefix(name: string): string {
@@ -13,7 +12,7 @@ export function stripBulgarianSettlementPrefix(name: string): string {
  * Единен етикет за населено място: село → „с. {name_bg}“, град → „гр. {name_bg}“.
  * При `is_village == null` без префикс (само нормализирано име).
  */
-export function formatSettlementDisplayName(
+export function festivalSettlementDisplayText(
   name_bg: string | null | undefined,
   is_village: boolean | null | undefined,
 ): string | null {
@@ -50,16 +49,16 @@ type FestivalCityLabelInput = Pick<Festival, "city_name_display" | "cities"> & {
 export function festivalCityLabel(festival: FestivalCityLabelInput, fallback = "България"): string {
   const rel = festival.cities;
   if (rel?.name_bg?.trim()) {
-    const formatted = formatSettlementDisplayName(rel.name_bg, rel.is_village ?? false);
+    const formatted = festivalSettlementDisplayText(rel.name_bg, rel.is_village ?? false);
     if (formatted?.trim()) return formatted.trim();
   }
   const moderated = festival.city_name_display?.trim();
   if (moderated) {
-    return formatSettlementDisplayName(moderated, undefined) ?? moderated;
+    return festivalSettlementDisplayText(moderated, undefined) ?? moderated;
   }
   const guess = festival.city_guess?.trim();
   if (guess) {
-    return formatSettlementDisplayName(guess, undefined) ?? guess;
+    return festivalSettlementDisplayText(guess, undefined) ?? guess;
   }
   return fallback;
 }
@@ -72,7 +71,10 @@ export function organizerPageLocationLabel(
   organizerCities: { name_bg?: string | null; is_village?: boolean | null } | null | undefined,
   festivals: FestivalCityLabelInput[],
 ): string | null {
-  const primary = formatSettlementDisplayName(organizerCities?.name_bg ?? null, organizerCities?.is_village ?? undefined);
+  const primary = festivalSettlementDisplayText(
+    organizerCities?.name_bg ?? null,
+    organizerCities?.is_village ?? undefined,
+  );
   if (primary?.trim()) return primary.trim();
   for (const festival of festivals) {
     const line = festivalCityLabel(festival, "").trim();

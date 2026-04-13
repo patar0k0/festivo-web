@@ -9,7 +9,7 @@ import { cityHref } from "@/lib/cities";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
-import { festivalCityLabel, formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
+import { festivalCityLabel, festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { getBaseUrl } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -63,7 +63,7 @@ export async function generateMetadata({
   const { city, rawTrimmed } = await resolveCityByParam(slug);
   const cityName =
     city != null
-      ? formatSettlementDisplayName(city.name_bg, city.is_village) ?? city.name_bg
+      ? festivalSettlementDisplayText(city.name_bg, city.is_village) ?? city.name_bg
       : rawTrimmed;
   const canonicalSlug = city?.slug ?? rawTrimmed;
   const title = `Фестивали в ${cityName} | Festivo`;
@@ -96,7 +96,7 @@ export default async function CityLandingPage({
     permanentRedirect(cityHref(city.slug));
   }
 
-  const cityName = formatSettlementDisplayName(city.name_bg, city.is_village) ?? city.name_bg;
+  const cityName = festivalSettlementDisplayText(city.name_bg, city.is_village) ?? city.name_bg;
   const citySlug = city.slug;
 
   const parsedFilters = parseFilters(resolvedSearchParams);

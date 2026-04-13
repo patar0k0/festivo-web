@@ -1,7 +1,7 @@
 import { maxIsoDate, minIsoDate, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { primaryFestivalDate } from "@/lib/festival/listingDates";
-import { formatSettlementDisplayName, festivalCityLabel } from "@/lib/settlements/formatDisplayName";
-import { festivalSettlementDisplayText } from "@/lib/settlements/festivalCityText";
+import { festivalCityLabel, festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
 import { Festival } from "@/lib/types";
 import { getFestivalStartInstant } from "@/lib/notifications/time";
 
@@ -91,13 +91,13 @@ function organizerJsonLdBlocks(
 }
 
 function addressLocality(festival: Festival): string | undefined {
-  const raw = festivalSettlementDisplayText({
+  const raw = festivalSettlementSourceText({
     cityRelation: festival.cities ?? null,
     city_name_display: festival.city_name_display,
     city_guess: (festival as Festival & { city_guess?: string | null }).city_guess ?? null,
   });
   if (!raw?.trim()) return undefined;
-  return formatSettlementDisplayName(raw, festival.cities?.is_village ?? undefined) ?? raw.trim();
+  return festivalSettlementDisplayText(raw, festival.cities?.is_village ?? undefined) ?? raw.trim();
 }
 
 function placeName(festival: Festival): string | undefined {

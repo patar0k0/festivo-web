@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fixFestivalText } from "@/lib/queries";
 import type { Festival } from "@/lib/types";
-import { festivalCityLabel, formatSettlementDisplayName } from "@/lib/settlements/formatDisplayName";
+import { festivalCityLabel, festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
 
 const FESTIVAL_ADMIN_LINK_SELECT =
   "id,title,slug,start_date,end_date,status,city,city_id,cities(name_bg,slug,is_village)";
@@ -56,7 +56,7 @@ function pendingCityLabel(row: {
   city_row: { name_bg: string | null; slug: string | null; is_village: boolean | null } | null;
 }): string {
   const nested = row.city_row;
-  const formatted = formatSettlementDisplayName(nested?.name_bg ?? null, nested?.is_village ?? null);
+  const formatted = festivalSettlementDisplayText(nested?.name_bg ?? null, nested?.is_village ?? null);
   return formatted?.trim() || "—";
 }
 

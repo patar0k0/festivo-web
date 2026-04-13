@@ -43,6 +43,18 @@ const REMINDER_BLOCK_ID = "festival-reminder-block";
 
 const POST_LOGIN_ACTIONS = new Set(["add_festival", "add_item", "set_reminder"]);
 
+const PLAN_ACTIONS_STORAGE_KEY = "plan_actions";
+
+function parseStoredPlanActions(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((a): a is string => typeof a === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 function isReminderTypeParam(value: string | null): value is ReminderType {
   return value === "24h" || value === "same_day_09" || value === "none";
 }
@@ -201,7 +213,6 @@ export default function FestivalDetailClient({
   const [reminderPending, setReminderPending] = useState(false);
   const [reminderFeedback, setReminderFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const reminderFeedbackTimerRef = useRef<number | null>(null);
-  const postLoginPlanActionConsumedRef = useRef(false);
   const {
     isAuthenticated,
     festivalIds,
@@ -386,80 +397,99 @@ export default function FestivalDetailClient({
   }, [highlightId]);
 
   useEffect(() => {
-    if (!planActionParam) {
-      postLoginPlanActionConsumedRef.current = false;
-    }
-  }, [planActionParam]);
-
-  useEffect(() => {
     if (!isAuthenticated || !planActionParam || !POST_LOGIN_ACTIONS.has(planActionParam)) return;
-    if (postLoginPlanActionConsumedRef.current) return;
 
-    postLoginPlanActionConsumedRef.current = true;
+    const actionKey = `${planActionParam}:${planIdParam ?? ""}:${planReminderTypeParam ?? ""}`;
+    let actions: string[] = [];
+    try {
+      actions = parseStoredPlanActions(sessionStorage.getItem(PLAN_ACTIONS_STORAGE_KEY));
+    } catch {
+      /* ignore */
+    }
+    if (actions.includes(actionKey)) return;
+
+    // `plan_actions`: push synchronously before any `await` so Strict Mode’s remounted effect
+    // sees the key and returns without double-running the async work.
+    try {
+      const next = [...actions];
+      if (!next.includes(actionKey)) {
+        next.push(actionKey);
+        sessionStorage.setItem(PLAN_ACTIONS_STORAGE_KEY, JSON.stringify(next));
+      }
+    } catch {
+      /* ignore */
+    }
 
     void (async () => {
-      const stateRes = await fetch("/api/plan/state", { credentials: "include", cache: "no-store" });
-      let festivalIdSet = new Set<string>();
-      let scheduleIdSet = new Set<string>();
-      if (stateRes.ok) {
-        const p = (await stateRes.json()) as { festivalIds?: string[]; scheduleItemIds?: string[] };
-        festivalIdSet = new Set((p.festivalIds ?? []).map(String));
-        scheduleIdSet = new Set((p.scheduleItemIds ?? []).map(String));
-      }
-
-      const cleanUrl = () => {
-        router.replace(pathname);
-      };
-
-      if (planActionParam === "add_festival" && planIdParam && String(planIdParam) === String(festival.id)) {
-        if (!festivalIdSet.has(String(festival.id))) {
-          await toggleFestivalPlan(String(festival.id));
-          show("Фестивалът е добавен в плана");
-        } else {
-          show("Вече е в плана ти");
+      try {
+        const stateRes = await fetch("/api/plan/state", { credentials: "include", cache: "no-store" });
+        let festivalIdSet = new Set<string>();
+        let scheduleIdSet = new Set<string>();
+        if (stateRes.ok) {
+          const p = (await stateRes.json()) as { festivalIds?: string[]; scheduleItemIds?: string[] };
+          festivalIdSet = new Set((p.festivalIds ?? []).map(String));
+          scheduleIdSet = new Set((p.scheduleItemIds ?? []).map(String));
         }
+
+        const cleanUrl = () => {
+          router.replace(pathname);
+          window.setTimeout(() => {
+            try {
+              const raw = sessionStorage.getItem(PLAN_ACTIONS_STORAGE_KEY);
+              const list = parseStoredPlanActions(raw);
+              const updated = list.filter((a) => a !== actionKey);
+              sessionStorage.setItem(PLAN_ACTIONS_STORAGE_KEY, JSON.stringify(updated));
+            } catch {
+              /* ignore */
+            }
+          }, 2000);
+        };
+
+        if (planActionParam === "add_festival" && planIdParam && String(planIdParam) === String(festival.id)) {
+          if (!festivalIdSet.has(String(festival.id))) {
+            await toggleFestivalPlan(String(festival.id));
+            show("Фестивалът е добавен в плана");
+          } else {
+            show("Вече е в плана ти");
+          }
+        } else if (planActionParam === "add_item" && planIdParam) {
+          const found = scheduleItems.find((i) => String(i.id) === String(planIdParam));
+          if (found) {
+            if (!scheduleIdSet.has(String(planIdParam))) {
+              await toggleScheduleItem(String(planIdParam));
+              show("Събитието е добавено в плана");
+              setHighlightId(String(planIdParam));
+            } else {
+              show("Вече е в плана ти");
+            }
+          }
+        } else if (
+          planActionParam === "set_reminder" &&
+          planReminderTypeParam &&
+          isReminderTypeParam(planReminderTypeParam)
+        ) {
+          const result = await setFestivalReminder(String(festival.id), planReminderTypeParam);
+          if (result.ok) {
+            show(planReminderSuccessCopy(planReminderTypeParam));
+          } else {
+            show(result.error ?? "Не успяхме да запазим напомнянето.");
+          }
+        }
+
         await refreshPlanState();
         cleanUrl();
-        return;
-      }
-
-      if (planActionParam === "add_item" && planIdParam) {
-        const found = scheduleItems.find((i) => String(i.id) === String(planIdParam));
-        if (!found) {
-          await refreshPlanState();
-          cleanUrl();
-          return;
+      } catch (err) {
+        console.error("post-login action failed", err);
+        try {
+          const raw = sessionStorage.getItem(PLAN_ACTIONS_STORAGE_KEY);
+          const actions = parseStoredPlanActions(raw);
+          const updated = actions.filter((a) => a !== actionKey);
+          sessionStorage.setItem(PLAN_ACTIONS_STORAGE_KEY, JSON.stringify(updated));
+        } catch {
+          /* ignore */
         }
-        if (!scheduleIdSet.has(String(planIdParam))) {
-          await toggleScheduleItem(String(planIdParam));
-          show("Събитието е добавено в плана");
-          setHighlightId(String(planIdParam));
-        } else {
-          show("Вече е в плана ти");
-        }
-        await refreshPlanState();
-        cleanUrl();
-        return;
+        show("Грешка. Опитай отново.");
       }
-
-      if (
-        planActionParam === "set_reminder" &&
-        planReminderTypeParam &&
-        isReminderTypeParam(planReminderTypeParam)
-      ) {
-        const result = await setFestivalReminder(String(festival.id), planReminderTypeParam);
-        if (result.ok) {
-          show(planReminderSuccessCopy(planReminderTypeParam));
-        } else {
-          show(result.error ?? "Не успяхме да запазим напомнянето.");
-        }
-        await refreshPlanState();
-        cleanUrl();
-        return;
-      }
-
-      await refreshPlanState();
-      cleanUrl();
     })();
   }, [
     isAuthenticated,

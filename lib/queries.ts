@@ -3,7 +3,7 @@ import { cache } from "react";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { Filters, Festival, FestivalDay, FestivalMedia, FestivalScheduleItem, OrganizerProfile, PaginatedResult } from "@/lib/types";
+import { Filters, Festival, FestivalDay, FestivalMediaItem, FestivalScheduleItem, OrganizerProfile, PaginatedResult } from "@/lib/types";
 import { withDefaultFilters } from "@/lib/filters";
 import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
 import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
@@ -468,7 +468,7 @@ export async function getFestivalDetail(
   slug: string
 ): Promise<{
   festival: Festival;
-  media: FestivalMedia[];
+  media: FestivalMediaItem[];
   days: FestivalDay[];
   scheduleItems: FestivalScheduleItem[];
 } | null> {
@@ -485,7 +485,7 @@ export async function getFestivalDetail(
       .select("id, festival_id, url, type, caption, sort_order, is_hero")
       .eq("festival_id", festival.id)
       .order("sort_order", { ascending: true })
-      .returns<FestivalMedia[]>(),
+      .returns<FestivalMediaItem[]>(),
     supabase
       .from("festival_days")
       .select("id, festival_id, date, title")

@@ -1,7 +1,7 @@
-import type { Festival, FestivalMedia } from "@/lib/types";
+import type { Festival, FestivalMediaItem } from "@/lib/types";
 
 type FestivalWithMedia = Festival & {
-  festival_media?: Array<Partial<FestivalMedia> & { is_primary?: boolean | null }> | null;
+  festival_media?: Array<Partial<FestivalMediaItem> & { is_primary?: boolean | null }> | null;
 };
 
 function normalizeImageUrl(value?: string | null): string | null {

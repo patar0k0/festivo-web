@@ -59,10 +59,10 @@ export type Festival = {
     slug?: string | null;
     sort_order?: number | null;
   }> | null;
-  festival_media?: Array<Partial<FestivalMedia> & { is_primary?: boolean | null }> | null;
+  festival_media?: Array<Partial<FestivalMediaItem> & { is_primary?: boolean | null }> | null;
 };
 
-export type FestivalMedia = {
+export type FestivalMediaItem = {
   id: string | number;
   festival_id: string | number;
   url: string;

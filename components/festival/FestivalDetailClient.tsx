@@ -31,7 +31,7 @@ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
 import type { ReminderType } from "@/lib/plan/server";
 import type { AccommodationOffer } from "@/lib/accommodation/types";
-import type { Festival, FestivalDay, FestivalMedia as FestivalMediaRow, FestivalScheduleItem } from "@/lib/types";
+import type { Festival, FestivalDay, FestivalMediaItem, FestivalScheduleItem } from "@/lib/types";
 import { formatFestivalDateLineLongBg, primaryFestivalDate } from "@/lib/festival/listingDates";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { formatScheduleTimeRange, sortByStartTimeLocale } from "@/lib/festival/festivalTimeFields";
@@ -43,7 +43,7 @@ const REMINDER_BLOCK_ID = "festival-reminder-block";
 
 type Props = {
   festival: Festival;
-  media: FestivalMediaRow[];
+  media: FestivalMediaItem[];
   days: FestivalDay[];
   scheduleItems: FestivalScheduleItem[];
   mapHref: string | null;

@@ -256,6 +256,7 @@ export default function FestivalEditForm({
   });
   const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [findingCoords, setFindingCoords] = useState(false);
   const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
   const mediaSnapshot = JSON.stringify(initialMedia.map((m) => ({ id: m.id, url: m.url, type: m.type, is_hero: m.is_hero ?? null })));
 
@@ -622,6 +623,50 @@ export default function FestivalEditForm({
 
     setMessage("");
     setError(validation.message);
+  };
+
+  const onFindCoords = async () => {
+    const city = form.city.trim();
+    if (!city) {
+      setMessage("");
+      setError("Попълнете населено място, за да търсите координати.");
+      return;
+    }
+
+    setFindingCoords(true);
+    setMessage("");
+    setError("");
+    try {
+      const response = await fetch("/api/admin/geocode", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location_name: form.location_name || null,
+          city,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; lat?: number | null; lng?: number | null; error?: string }
+        | null;
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? "Неуспешно търсене на координати.");
+      }
+
+      if (typeof payload.lat === "number" && typeof payload.lng === "number") {
+        updateField("latitude", String(payload.lat));
+        updateField("longitude", String(payload.lng));
+        setMessage("Координатите са намерени.");
+      } else {
+        setMessage("Не открих координати за тази локация.");
+      }
+    } catch (geoError) {
+      setError(geoError instanceof Error ? geoError.message : "Грешка при търсене на координати.");
+    } finally {
+      setFindingCoords(false);
+    }
   };
 
   const onSaveProgramDraft = async () => {
@@ -1054,9 +1099,19 @@ export default function FestivalEditForm({
             <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
         </AdminFieldGrid>
-        <button type="button" onClick={onValidateCoords} className="mt-2 rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]">
-          Validate coords
-        </button>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" onClick={onValidateCoords} className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]">
+            Validate coords
+          </button>
+          <button
+            type="button"
+            onClick={onFindCoords}
+            disabled={findingCoords || saving || Boolean(actionPending)}
+            className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+          >
+            {findingCoords ? "Търсене..." : "Намери координати"}
+          </button>
+        </div>
       </AdminFieldSection>
 
       <AdminFieldSection title={ADMIN_ENTITY_SECTION.organizer.title} variant={ADMIN_ENTITY_SECTION.organizer.variant}>

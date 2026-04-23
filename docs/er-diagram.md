@@ -35,6 +35,8 @@ erDiagram
     uuid submitted_by_user_id FK
     text submission_source
     text source_url
+    text place_id
+    text geocode_provider
     date start_date
     date end_date
     time start_time
@@ -61,6 +63,8 @@ erDiagram
     time end_time
     jsonb occurrence_dates
     text source_url
+    text place_id
+    text geocode_provider
     text source_type
     text status
     boolean is_verified

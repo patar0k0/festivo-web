@@ -486,6 +486,7 @@ export default function PendingFestivalEditForm({
     tags_guess: normalizeTagsGuess(pendingFestival.tags_guess),
   });
   const [saving, setSaving] = useState(false);
+  const [findingCoords, setFindingCoords] = useState(false);
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
   const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
   const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
@@ -840,6 +841,52 @@ export default function PendingFestivalEditForm({
       setError(saveError instanceof Error ? saveError.message : "Unexpected save error.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const onFindCoords = async () => {
+    if (saving || runningAction || findingCoords) return;
+
+    const city = form.city_id.trim();
+    if (!city) {
+      setMessage("");
+      setError("Попълнете населено място, за да търсите координати.");
+      return;
+    }
+
+    setFindingCoords(true);
+    setMessage("");
+    setError("");
+    try {
+      const response = await fetch("/api/admin/geocode", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          location_name: form.venue_name.trim() || null,
+          city,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; lat?: number | null; lng?: number | null; error?: string }
+        | null;
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? "Неуспешно търсене на координати.");
+      }
+
+      if (typeof payload.lat === "number" && typeof payload.lng === "number") {
+        updateField("latitude", String(payload.lat));
+        updateField("longitude", String(payload.lng));
+        setMessage("Координатите са намерени.");
+      } else {
+        setMessage("Не открих координати за тази локация.");
+      }
+    } catch (geoError) {
+      setError(geoError instanceof Error ? geoError.message : "Грешка при търсене на координати.");
+    } finally {
+      setFindingCoords(false);
     }
   };
 
@@ -1424,6 +1471,16 @@ export default function PendingFestivalEditForm({
               <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
             </label>
           </AdminFieldGrid>
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={onFindCoords}
+              disabled={findingCoords || saving || Boolean(runningAction)}
+              className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+            >
+              {findingCoords ? "Търсене..." : "Намери координати"}
+            </button>
+          </div>
         </AdminFieldSection>
 
         <AdminFieldSection

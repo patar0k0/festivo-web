@@ -107,6 +107,7 @@ Auth UX includes signup/login and password recovery: `/signup` creates email+pas
 3. **Admin moderation of pending record**
    - `/admin/pending-festivals`: lists only `status=pending`.
    - `/admin/pending-festivals/[id]`: full record editing; may show last linked `ingest_jobs` status, finish time, and `fb_browser_context`. Optional вЂњfilled fieldsвЂќ summary uses `lib/admin/pendingFestivalQuality.ts`.
+   - Admin manual coord helper: `POST /api/admin/geocode` (admin-gated) normalizes BG location/city text and returns lat/lng (Google-first geocoding with OSM fallback).
    - Save route (`PATCH /admin/api/pending-festivals/[id]`) updates pending core fields.
    - Hero image import from URL: `PATCH /admin/api/pending-festivals/[id]/hero-image` (server-side rehost via `lib/admin/rehostHeroImageFromUrl.ts`).
    - Extra gallery images + optional video (YouTube/Facebook page URL): pending uses `POST/DELETE /admin/api/pending-festivals/[id]/gallery-image` and `PUT /admin/api/pending-festivals/[id]/video` (also persisted via `PATCH` save on `gallery_image_urls` / `video_url`); published festivals use `GET/POST /admin/api/festivals/[id]/media`, `DELETE /admin/api/festivals/[id]/media/[mediaId]`, and `PUT /admin/api/festivals/[id]/media/video` (writes **`festivals.video_url`**, not `festival_media`). Approve copies pending gallery images into `festival_media` and copies `video_url` onto the new `festivals` row. Admin deletes of gallery rows or pending gallery URLs remove the corresponding object from the **`festival-hero-images`** bucket (env `SUPABASE_HERO_IMAGES_BUCKET`) when the stored URL is this project’s public Storage URL (`/storage/v1/object/public/<bucket>/…`); external gallery URLs are not deleted from Storage.
@@ -117,6 +118,7 @@ Auth UX includes signup/login and password recovery: `/signup` creates email+pas
      - resolves city input to canonical `cities.id`
      - enforces start date + slug/source_url conflict checks
      - inserts a new `festivals` row (`status=verified`, `is_verified=true`)
+     - carries geocode metadata from pending to published (`place_id`, `geocode_provider`)
      - copies gallery / video, then applies **`pending_festivals.program_draft`** into **`festival_days`** + **`festival_schedule_items`** (replace semantics; failure rolls back the new `festivals` row like `festival_media` failures)
      - marks pending row `approved`
      - rollback: deletes inserted festival if pending status update fails
@@ -157,6 +159,8 @@ Admin festival research (`POST /admin/api/research-festival`, UI `/admin/researc
 3. **Extract:** For each ranked URL, the server fetches page text (`fetchSourceDocument`) and runs **Gemini structured JSON** extraction (`lib/admin/research/gemini-extract.ts`) — evidence-only, unknown → null.
 4. **Validate:** `lib/admin/research/pipeline-validate.ts` enforces date sanity, title length, and clears inconsistent data with warnings.
 5. **Output:** Normalized `ResearchFestivalResult` with `best_guess` (including `organizers[]` plus legacy `organizer`), optional structured **`program_draft`** when sources list a schedule, `sources`, `evidence`, `confidence`, `warnings` (no raw model text in the API response).
+
+`POST /admin/api/research-festival/create-pending` additionally normalizes location/city/address text and geocodes with **Google Geocoding first** (when API key is configured) and **OSM Nominatim fallback**. Geocode failures are non-blocking and keep `latitude`/`longitude`/`place_id`/`geocode_provider` as null.
 
 **Configuration:** `GEMINI_API_KEY` (or `GOOGLE_AI_API_KEY`); optional `GEMINI_RESEARCH_MODEL` (default `gemini-2.0-flash`), `GEMINI_RESEARCH_TIMEOUT_MS`.
 

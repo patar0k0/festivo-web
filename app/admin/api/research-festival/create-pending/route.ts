@@ -12,6 +12,8 @@ import {
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 import { compactProgramDraft, parseProgramDraftUnknown, programDraftHasContent } from "@/lib/festival/programDraft";
+import { normalizeBgLocation } from "@/lib/location/normalizeBgLocation";
+import { geocodeLocation } from "@/lib/location/geocodeLocation";
 import type { ResearchBestGuess, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
 import type { PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 
@@ -85,6 +87,14 @@ function sanitizeSourceUrls(input: unknown): string[] {
   return input
     .map((entry) => sanitizeNullableString(entry))
     .filter((entry): entry is string => Boolean(entry));
+}
+
+function buildGeocodeQuery(params: { locationName: string | null; city: string | null; address: string | null }): string | null {
+  const { locationName, city, address } = params;
+  if (!city) return null;
+  if (locationName) return `${locationName}, ${city}, България`;
+  if (address) return `${address}, ${city}, България`;
+  return null;
 }
 
 async function resolveHeroImageFieldForInsert(heroRaw: string | null): Promise<{ patch: Record<string, unknown> } | { error: string }> {
@@ -169,6 +179,8 @@ async function insertPendingWithFallback(ctx: AdminContext, payload: Record<stri
     "city_name_display",
     "description_short",
     "program_draft",
+    "place_id",
+    "geocode_provider",
   ]);
 
   for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -246,9 +258,16 @@ export async function POST(request: Request) {
 
     const aiTitle = sanitizeNullableString(ai.title) ?? "Untitled festival";
     const aiCategory = sanitizeNullableString(ai.category);
-    const aiCityText = sanitizeNullableString(ai.city);
-    const aiVenue = sanitizeNullableString(ai.location_name);
+    const aiCityText = normalizeBgLocation(sanitizeNullableString(ai.city));
+    const aiVenue = normalizeBgLocation(sanitizeNullableString(ai.location_name));
+    const aiAddress = normalizeBgLocation(sanitizeNullableString(ai.address));
     const aiSlugGuess = sanitizeNullableString(ai.slug);
+    const aiGeocodeQuery = buildGeocodeQuery({
+      locationName: aiVenue,
+      city: aiCityText,
+      address: aiAddress,
+    });
+    const aiGeo = aiGeocodeQuery ? await geocodeLocation(aiGeocodeQuery) : null;
 
     let aiProgramDraftInsert: unknown = null;
     if (ai.program_draft != null) {
@@ -273,7 +292,11 @@ export async function POST(request: Request) {
       city_name_display: aiCityText,
       location_name: aiVenue,
       location_guess: aiVenue,
-      address: sanitizeNullableString(ai.address),
+      address: aiAddress,
+      latitude: aiGeo?.lat ?? null,
+      longitude: aiGeo?.lng ?? null,
+      place_id: aiGeo?.placeId ?? null,
+      geocode_provider: aiGeo?.provider ?? null,
       organizer_entries: orgEntriesAi,
       organizer_name: primaryNameFromEntries(orgEntriesAi, sanitizeNullableString(ai.organizer_name)),
       website_url: sanitizeNullableString(ai.website_url),
@@ -366,8 +389,15 @@ export async function POST(request: Request) {
   const orgEntriesResearch = buildOrganizerEntriesFromResearch(finalValues);
 
   const resolvedTitle = finalValues.title ?? normalized.query;
-  const cityText = resolveCityTextForPending(finalValues, normalized);
-  const venueText = resolveVenueTextForPending(finalValues, normalized);
+  const cityText = normalizeBgLocation(resolveCityTextForPending(finalValues, normalized));
+  const venueText = normalizeBgLocation(resolveVenueTextForPending(finalValues, normalized));
+  const addressText = normalizeBgLocation(sanitizeNullableString(finalValues.address));
+  const geocodeQuery = buildGeocodeQuery({
+    locationName: venueText,
+    city: cityText,
+    address: addressText,
+  });
+  const geo = geocodeQuery ? await geocodeLocation(geocodeQuery) : null;
   const categoryText = sanitizeNullableString(finalValues.category);
 
   const sharedInsertPayload: Record<string, unknown> = {
@@ -393,7 +423,11 @@ export async function POST(request: Request) {
     facebook_url: sanitizeNullableString(finalValues.facebook_url),
     instagram_url: sanitizeNullableString(finalValues.instagram_url),
     ticket_url: sanitizeNullableString(finalValues.ticket_url),
-    address: sanitizeNullableString(finalValues.address),
+    address: addressText,
+    latitude: geo?.lat ?? null,
+    longitude: geo?.lng ?? null,
+    place_id: geo?.placeId ?? null,
+    geocode_provider: geo?.provider ?? null,
     category: categoryText,
     category_guess: categoryText,
     source_primary_url: sourcePrimaryUrl,

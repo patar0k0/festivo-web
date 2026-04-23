@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { parseISO } from "date-fns";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
@@ -45,7 +45,16 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
             >
               <p className="text-base font-semibold text-[#0c0e14]">{festival.title}</p>
               <p className="mt-1 text-sm text-black/60">
-                {[festivalCityLabel(festival, "").trim(), formatFestivalDateLineShort(festival)].filter(Boolean).join(" · ")}
+                <span>
+                  {[festivalLocationPrimary(festival, "").trim(), formatFestivalDateLineShort(festival)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                {festivalLocationSecondary(festival) ? (
+                  <span className="mt-0.5 block text-[11px] text-black/50">
+                    {festivalLocationSecondary(festival)}
+                  </span>
+                ) : null}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {temporalChip ? (

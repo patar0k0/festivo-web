@@ -1,7 +1,7 @@
 import EventCard from "@/components/ui/EventCard";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 
@@ -10,7 +10,8 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
   return (
     <EventCard
       title={festival.title}
-      city={festivalCityLabel(festival, "")}
+      city={festivalLocationPrimary(festival, "")}
+      citySecondary={festivalLocationSecondary(festival)}
       category={festival.category}
       imageUrl={getFestivalHeroImage(festival)}
       startDate={festival.start_date}

@@ -28,6 +28,8 @@ const BADGE_MONTH_BG: Record<number, string> = {
 type EventCardProps = {
   title: string;
   city?: string | null;
+  /** Малък втори ред под/до локацията: тип населено място • област. */
+  citySecondary?: string | null;
   category?: string | null;
   imageUrl?: string | null;
   startDate?: string | null;
@@ -91,6 +93,7 @@ function getUrgencyTag(startDate?: string | null) {
 export default function EventCard({
   title,
   city,
+  citySecondary,
   category,
   imageUrl,
   startDate,
@@ -108,7 +111,8 @@ export default function EventCard({
 }: EventCardProps) {
   const badge = getDateBadge(startDate);
   const dateText = dateLine?.trim() ? dateLine : formatContinuousFestivalRangeBg(startDate, endDate);
-  const locationText = city?.trim() ? city.trim() : "";
+  const locationPrimary = city?.trim() ? city.trim() : "";
+  const locationSub = citySecondary?.trim() ? citySecondary.trim() : "";
   const snippet = description?.trim();
   const categoryText = categoryLabel(category);
   const weekendTag = getWeekendTag(startDate);
@@ -201,9 +205,18 @@ export default function EventCard({
 
       <CardContent className="flex flex-1 flex-col p-5">
         <div className="space-y-2">
-          <p className="text-sm text-black/55">
-            {locationText ? `${locationText} • ${dateText}` : dateText}
-          </p>
+          <div className="text-sm text-black/55">
+            {locationPrimary ? (
+              <>
+                <p className="text-black/70">
+                  {locationPrimary} • {dateText}
+                </p>
+                {locationSub ? <p className="mt-0.5 text-xs text-black/45">{locationSub}</p> : null}
+              </>
+            ) : (
+              <p>{dateText}</p>
+            )}
+          </div>
           <h3 className="text-xl font-semibold tracking-tight text-[#0c0e14]">
             {detailsHref ? (
               <Link

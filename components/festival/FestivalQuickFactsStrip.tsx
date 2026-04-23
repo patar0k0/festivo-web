@@ -1,6 +1,6 @@
 import { pub } from "@/lib/public-ui/styles";
 
-type Segment = { key: string; label: string; value: string };
+type Segment = { key: string; label: string; value: string; valueSub?: string | null };
 
 type Props = {
   segments: Segment[];
@@ -23,7 +23,12 @@ export default function FestivalQuickFactsStrip({ segments }: Props) {
               </span>
             ) : null}
             <span className="shrink-0 text-black/60">{seg.label}</span>
-            <span className="min-w-0 font-semibold text-black/90">{seg.value}</span>
+            <span className="inline-flex min-w-0 flex-col gap-0.5">
+              <span className="min-w-0 font-semibold text-black/90">{seg.value}</span>
+              {seg.valueSub?.trim() ? (
+                <span className="min-w-0 text-[11px] font-normal leading-snug text-black/50">{seg.valueSub.trim()}</span>
+              ) : null}
+            </span>
           </span>
         ))}
       </div>

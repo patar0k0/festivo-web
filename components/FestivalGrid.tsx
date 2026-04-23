@@ -4,7 +4,7 @@ import { format, parseISO } from "date-fns";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { formatFestivalDateLineShort, primaryFestivalDate } from "@/lib/festival/listingDates";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
 import { categoryLabel } from "@/lib/festival/categoryLabel";
 import { Festival } from "@/lib/types";
 
@@ -49,7 +49,16 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
             <div className="space-y-3 p-5">
               <div className="text-[17px] font-semibold tracking-[-0.2px]">{festival.title}</div>
               <div className="text-sm text-[color:var(--muted)]">
-                {[festivalCityLabel(festival, "").trim(), formatFestivalDateLineShort(festival)].filter(Boolean).join(" · ")}
+                <div>
+                  {[festivalLocationPrimary(festival, "").trim(), formatFestivalDateLineShort(festival)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+                {festivalLocationSecondary(festival) ? (
+                  <div className="mt-0.5 text-xs text-[color:var(--muted)]/80">
+                    {festivalLocationSecondary(festival)}
+                  </div>
+                ) : null}
               </div>
               <div className="flex flex-wrap gap-2">
                 {temporalChip ? (

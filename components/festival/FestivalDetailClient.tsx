@@ -21,7 +21,7 @@ import FestivalQuickFactsStrip from "@/components/festival/FestivalQuickFactsStr
 import FestivalAppCta from "@/components/festival/FestivalAppCta";
 import FestivalAccommodationSection from "@/components/festival/FestivalAccommodationSection";
 import FestivalNearbyBookingCard from "@/components/festival/FestivalNearbyBookingCard";
-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
 import {
   formatPublicFestivalLocationSummary,
   getCompactMetaLocationBeyondCity,
@@ -315,15 +315,17 @@ export default function FestivalDetailClient({
   const showPriceRange = Boolean(priceRange) && !showFreeBadge;
   const showDescriptionSection = Boolean(descriptionText) || tags.length > 0 || showPriceRange || showFreeBadge;
   const priceInQuickFactsStrip = showFreeBadge || showPriceRange;
-  const cityName = festivalCityLabel(festival, "");
+  const cityPrimary = festivalLocationPrimary(festival, "");
+  const citySecondaryLine = festivalLocationSecondary(festival);
   const locationSummary = formatPublicFestivalLocationSummary(festival);
   const locationBeyondCity =
     locationSummary &&
-    (!cityName || normalizeFestivalLocationText(locationSummary) !== normalizeFestivalLocationText(cityName))
+    (!cityPrimary ||
+      normalizeFestivalLocationText(locationSummary) !== normalizeFestivalLocationText(cityPrimary))
       ? locationSummary
       : "";
-  const compactLocationBeyondCity = getCompactMetaLocationBeyondCity(festival, cityName);
-  const cityOrLocationText = [cityName, compactLocationBeyondCity].filter(Boolean).join(" · ");
+  const compactLocationBeyondCity = getCompactMetaLocationBeyondCity(festival, cityPrimary);
+  const cityOrLocationText = [cityPrimary, compactLocationBeyondCity].filter(Boolean).join(" · ");
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
   const mediaItems = useMemo<MediaItem[]>(
     () => [
@@ -339,20 +341,26 @@ export default function FestivalDetailClient({
   const icsHref = `/festival/${festival.slug}/ics`;
   const timeLine = earliestScheduleTime(scheduleItems);
   const quickFactSegments = useMemo(() => {
-    const segments: { key: string; label: string; value: string }[] = [];
-    const whereValue = [cityName, compactLocationBeyondCity].filter(Boolean).join(" · ");
-    if (whereValue) segments.push({ key: "where", label: "Къде", value: whereValue });
+    const segments: { key: string; label: string; value: string; valueSub?: string | null }[] = [];
+    const whereValue = [cityPrimary, compactLocationBeyondCity].filter(Boolean).join(" · ");
+    if (whereValue)
+      segments.push({
+        key: "where",
+        label: "Къде",
+        value: whereValue,
+        valueSub: citySecondaryLine,
+      });
     if (formattedDateRange) segments.push({ key: "date", label: "Дата", value: formattedDateRange });
     if (timeLine) segments.push({ key: "time", label: "Час", value: `от ${timeLine}` });
     if (showFreeBadge) segments.push({ key: "price", label: "Вход", value: "Безплатно" });
     else if (showPriceRange) segments.push({ key: "price", label: "Цена", value: priceRange });
     return segments;
-  }, [cityName, compactLocationBeyondCity, formattedDateRange, timeLine, showFreeBadge, showPriceRange, priceRange]);
+  }, [cityPrimary, citySecondaryLine, compactLocationBeyondCity, formattedDateRange, timeLine, showFreeBadge, showPriceRange, priceRange]);
 
   const displayOrganizers = buildDisplayOrganizers(festival);
   const showOrganizer = displayOrganizers.length > 0;
   const showInfoSection = Boolean(formattedDateRange || locationSummary || showOrganizer);
-  const showMapSection = Boolean(mapEmbedSrc && mapHref && (cityName || locationSummary));
+  const showMapSection = Boolean(mapEmbedSrc && mapHref && (cityPrimary || locationSummary));
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
   const nearbyBookingPlace = cityOrLocationText.trim();
   const mapLocationBlurb = locationBeyondCity || null;
@@ -827,7 +835,7 @@ export default function FestivalDetailClient({
           {relatedFestivals.length ? (
             <section className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className={pub.sectionTitle}>Още фестивали в {cityName || "региона"}</h2>
+                <h2 className={pub.sectionTitle}>Още фестивали в {cityPrimary || "региона"}</h2>
                 <div className="flex flex-wrap gap-3 text-sm font-medium text-black/90">
                   {citySlug ? (
                     <Link
@@ -852,7 +860,8 @@ export default function FestivalDetailClient({
                   <Link key={item.slug} href={`/festivals/${item.slug}`} className="block">
                     <EventCard
                       title={item.title}
-                      city={festivalCityLabel(item, "")}
+                      city={festivalLocationPrimary(item, "")}
+                      citySecondary={festivalLocationSecondary(item)}
                       category={item.category}
                       imageUrl={getFestivalHeroImage(item)}
                       startDate={primaryFestivalDate(item)}
@@ -1112,18 +1121,21 @@ export default function FestivalDetailClient({
             <section className={pub.railCardPlain}>
               <h2 className={pub.sectionTitleMd}>Карта</h2>
               <div className="mt-2 space-y-1 text-sm leading-relaxed text-black/80">
-                {citySlug && cityName ? (
+                {citySlug && cityPrimary ? (
                   <Link
                     href={cityHref(citySlug)}
                     className="inline-block font-medium text-black/75 underline decoration-black/30 underline-offset-2 hover:text-black"
                   >
-                    {cityName}
+                    {cityPrimary}
                   </Link>
-                ) : cityName ? (
-                  <p>{cityName}</p>
+                ) : cityPrimary ? (
+                  <p>{cityPrimary}</p>
+                ) : null}
+                {citySecondaryLine ? (
+                  <p className="text-xs text-black/55">{citySecondaryLine}</p>
                 ) : null}
                 {mapLocationBlurb ? (
-                  <p className={cityName ? "text-black/60" : "font-medium text-black/80"}>{mapLocationBlurb}</p>
+                  <p className={cityPrimary ? "text-black/60" : "font-medium text-black/80"}>{mapLocationBlurb}</p>
                 ) : null}
               </div>
               <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.08]">

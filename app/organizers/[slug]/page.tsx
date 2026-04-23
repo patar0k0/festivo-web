@@ -3,7 +3,11 @@ import Link from "next/link";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
-import { festivalCityLabel, organizerPageLocationLabel } from "@/lib/settlements/formatDisplayName";
+import {
+  festivalLocationPrimary,
+  festivalLocationSecondary,
+  organizerPageLocationLabel,
+} from "@/lib/settlements/formatDisplayName";
 import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import OrganizerProfileAbout from "@/components/organizers/OrganizerProfileAbout";
@@ -337,7 +341,8 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                           <EventCard
                             key={festival.id}
                             title={festival.title}
-                            city={festivalCityLabel(festival, "")}
+                            city={festivalLocationPrimary(festival, "")}
+                            citySecondary={festivalLocationSecondary(festival)}
                             category={festival.category}
                             imageUrl={getFestivalHeroImage(festival)}
                             startDate={festival.start_date}
@@ -362,7 +367,8 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                           <EventCard
                             key={festival.id}
                             title={festival.title}
-                            city={festivalCityLabel(festival, "")}
+                            city={festivalLocationPrimary(festival, "")}
+                            citySecondary={festivalLocationSecondary(festival)}
                             category={festival.category}
                             imageUrl={getFestivalHeroImage(festival)}
                             startDate={festival.start_date}

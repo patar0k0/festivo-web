@@ -12,7 +12,7 @@ import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategorie
 import { listFestivals, listHomeCitySelectOptions } from "@/lib/festivals";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { getBaseUrl, listMeta } from "@/lib/seo";
-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
@@ -159,7 +159,8 @@ export default async function FestivalsPage({ searchParams }: { searchParams: Pa
                     <EventCard
                       key={festival.slug}
                       title={festival.title}
-                      city={festivalCityLabel(festival, "")}
+                      city={festivalLocationPrimary(festival, "")}
+                      citySecondary={festivalLocationSecondary(festival)}
                       category={festival.category}
                       imageUrl={getFestivalHeroImage(festival)}
                       startDate={festival.start_date}

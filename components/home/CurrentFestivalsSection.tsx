@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cn } from "@/components/ui/cn";
 import EventCard from "@/components/ui/EventCard";
 import { pub } from "@/lib/public-ui/styles";
-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { Festival } from "@/lib/types";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
@@ -45,7 +45,8 @@ export default function CurrentFestivalsSection({ currentFestivals }: Props) {
           <EventCard
             key={festival.slug}
             title={festival.title}
-            city={festivalCityLabel(festival, "")}
+            city={festivalLocationPrimary(festival, "")}
+            citySecondary={festivalLocationSecondary(festival)}
             category={festival.category}
             imageUrl={getFestivalHeroImage(festival)}
             startDate={festival.start_date}

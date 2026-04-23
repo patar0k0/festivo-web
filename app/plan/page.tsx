@@ -58,7 +58,7 @@ function mapPlanFestivalRow(row: {
     slug: row.slug,
     title: row.title,
     city: joined?.name_bg?.trim()
-      ? festivalSettlementDisplayText(joined.name_bg, joined.is_village ?? false)
+      ? festivalSettlementDisplayText(joined.name_bg, joined.is_village)
       : null,
     start_date: row.start_date,
     end_date: row.end_date,

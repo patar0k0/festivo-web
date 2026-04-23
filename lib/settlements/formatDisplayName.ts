@@ -1,66 +1,62 @@
 import type { Festival } from "@/lib/types";
-import { fixMojibakeBG } from "@/lib/text/fixMojibake";
+import {
+  formatSettlementLocationLines,
+  type SettlementLocationLines,
+} from "@/lib/settlements/formatLocation";
+import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
 
-/** Премахва типични представки в началото (за сравнение / нормализация). */
-export function stripBulgarianSettlementPrefix(name: string): string {
-  // Изискваме „с.“ с точка и интервал (или „село “), за да не „сваляме“ първата буква на „Стара Загора“
-  // при case-insensitive съвпадение със съкращението „с.“.
-  return name.trim().replace(/^(?:гр\.\s*|град\s+|с\.\s*|село\s+)/iu, "").trim();
-}
-
-/**
- * Единен етикет за населено място: село → „с. {name_bg}“, град → „гр. {name_bg}“.
- * При `is_village == null` без префикс (само нормализирано име).
- */
-export function festivalSettlementDisplayText(
-  name_bg: string | null | undefined,
-  is_village: boolean | null | undefined,
-): string | null {
-  if (name_bg == null || !String(name_bg).trim()) {
-    return null;
-  }
-
-  const trimmed = fixMojibakeBG(String(name_bg).trim());
-
-  if (is_village === true) {
-    if (/^(?:с\.\s+|село\s+)/iu.test(trimmed)) {
-      return trimmed;
-    }
-    const base = stripBulgarianSettlementPrefix(trimmed);
-    return base ? `с. ${base}` : trimmed;
-  }
-
-  if (is_village === false) {
-    if (/^(?:гр\.\s+|град\s+)/iu.test(trimmed)) {
-      return trimmed;
-    }
-    const base = stripBulgarianSettlementPrefix(trimmed);
-    return base ? `гр. ${base}` : trimmed;
-  }
-
-  return trimmed;
-}
+/** @deprecated Prefer importing from `@/lib/settlements/formatLocation`. */
+export { stripBulgarianSettlementPrefix } from "@/lib/settlements/formatLocation";
 
 type FestivalCityLabelInput = Pick<Festival, "city_name_display" | "cities"> & {
   city_guess?: string | null;
 };
 
-/** Публичен етикет: само `cities` или модерирани/AI полета — без legacy `festivals.city`. */
+export function getFestivalLocationLines(
+  festival: FestivalCityLabelInput,
+  fallback = "България",
+): SettlementLocationLines {
+  const rawLine = festivalSettlementSourceText({
+    cityRelation: festival.cities ?? null,
+    city_name_display: festival.city_name_display,
+    city_guess: festival.city_guess ?? null,
+  });
+  const lines = formatSettlementLocationLines(rawLine, festival.cities?.is_village);
+  if (lines?.primary.trim()) return lines;
+  const fb = fallback.trim();
+  if (!fb) return { primary: "", secondary: null, geoLine: "" };
+  return { primary: fb, secondary: null, geoLine: fb };
+}
+
+/**
+ * Единен низ за имейли, ICS, стари места: „Име, тип • обл. …“.
+ */
+export function festivalSettlementDisplayText(
+  name_bg: string | null | undefined,
+  is_village: boolean | null | undefined,
+): string | null {
+  const lines = formatSettlementLocationLines(name_bg, is_village);
+  return lines?.geoLine ?? null;
+}
+
+/** Пълен ред за карти и контекст (както преди `festivalCityLabel`). */
 export function festivalCityLabel(festival: FestivalCityLabelInput, fallback = "България"): string {
-  const rel = festival.cities;
-  if (rel?.name_bg?.trim()) {
-    const formatted = festivalSettlementDisplayText(rel.name_bg, rel.is_village ?? false);
-    if (formatted?.trim()) return formatted.trim();
-  }
-  const moderated = festival.city_name_display?.trim();
-  if (moderated) {
-    return festivalSettlementDisplayText(moderated, undefined) ?? moderated;
-  }
-  const guess = festival.city_guess?.trim();
-  if (guess) {
-    return festivalSettlementDisplayText(guess, undefined) ?? guess;
-  }
-  return fallback;
+  return getFestivalLocationLines(festival, fallback).geoLine;
+}
+
+/** Само чистото име за основен ред в UI. */
+export function festivalLocationPrimary(festival: FestivalCityLabelInput, fallback = "България"): string {
+  return getFestivalLocationLines(festival, fallback).primary;
+}
+
+/** Вторичен ред: тип населено място • област (ако е известна от текста). */
+export function festivalLocationSecondary(festival: FestivalCityLabelInput): string | null {
+  const rawLine = festivalSettlementSourceText({
+    cityRelation: festival.cities ?? null,
+    city_name_display: festival.city_name_display,
+    city_guess: festival.city_guess ?? null,
+  });
+  return formatSettlementLocationLines(rawLine, festival.cities?.is_village)?.secondary ?? null;
 }
 
 /**
@@ -71,13 +67,13 @@ export function organizerPageLocationLabel(
   organizerCities: { name_bg?: string | null; is_village?: boolean | null } | null | undefined,
   festivals: FestivalCityLabelInput[],
 ): string | null {
-  const primary = festivalSettlementDisplayText(
+  const ocLines = formatSettlementLocationLines(
     organizerCities?.name_bg ?? null,
     organizerCities?.is_village ?? undefined,
   );
-  if (primary?.trim()) return primary.trim();
+  if (ocLines?.geoLine.trim()) return ocLines.geoLine.trim();
   for (const festival of festivals) {
-    const line = festivalCityLabel(festival, "").trim();
+    const line = getFestivalLocationLines(festival, "").geoLine.trim();
     if (line) return line;
   }
   return null;

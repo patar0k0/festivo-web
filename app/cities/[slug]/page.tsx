@@ -9,7 +9,8 @@ import { cityHref } from "@/lib/cities";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
-import { festivalCityLabel, festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+import { formatSettlementLocationLines } from "@/lib/settlements/formatLocation";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { getBaseUrl } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -61,12 +62,12 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const { city, rawTrimmed } = await resolveCityByParam(slug);
+  const cityLines = city != null ? formatSettlementLocationLines(city.name_bg, city.is_village) : null;
   const cityName =
-    city != null
-      ? festivalSettlementDisplayText(city.name_bg, city.is_village) ?? city.name_bg
-      : rawTrimmed;
+    city != null ? (cityLines?.geoLine ?? city.name_bg) : rawTrimmed;
+  const cityTitlePrimary = city != null ? (cityLines?.primary ?? city.name_bg) : rawTrimmed;
   const canonicalSlug = city?.slug ?? rawTrimmed;
-  const title = `Фестивали в ${cityName} | Festivo`;
+  const title = `Фестивали в ${cityTitlePrimary} | Festivo`;
   const description = `Открий предстоящи фестивали и събития в ${cityName}. Запази в план и получавай напомняния.`;
 
   return {
@@ -96,7 +97,9 @@ export default async function CityLandingPage({
     permanentRedirect(cityHref(city.slug));
   }
 
-  const cityName = festivalSettlementDisplayText(city.name_bg, city.is_village) ?? city.name_bg;
+  const cityLines = formatSettlementLocationLines(city.name_bg, city.is_village);
+  const cityName = cityLines?.primary ?? city.name_bg;
+  const citySubline = cityLines?.secondary;
   const citySlug = city.slug;
 
   const parsedFilters = parseFilters(resolvedSearchParams);
@@ -164,8 +167,11 @@ export default async function CityLandingPage({
             <section className={cn(pub.panelHero, "p-6 md:p-8")}>
               <p className={pub.eyebrowMuted}>Градска страница</p>
               <h1 className={cn(pub.pageTitle, "mt-2")}>Фестивали в {cityName}</h1>
+              {citySubline ? (
+                <p className="mt-1 text-sm text-black/50">{citySubline}</p>
+              ) : null}
               <p className={cn(pub.body, "mt-3 max-w-2xl text-black/60")}>
-                Безплатни събития, дати и програма. Открий предстоящи фестивали и събития в {cityName}. Запази в план и получавай напомняния.
+                Безплатни събития, дати и програма. Открий предстоящи фестивали и събития в {cityLines?.geoLine ?? city.name_bg}. Запази в план и получавай напомняния.
               </p>
 
               <div className="mt-5 flex flex-wrap gap-2">
@@ -230,7 +236,8 @@ export default async function CityLandingPage({
                       <EventCard
                         key={festival.slug}
                         title={festival.title}
-                        city={festivalCityLabel(festival, "")}
+                        city={festivalLocationPrimary(festival, "")}
+                        citySecondary={festivalLocationSecondary(festival)}
                         category={festival.category}
                         imageUrl={getFestivalHeroImage(festival)}
                         startDate={festival.start_date}

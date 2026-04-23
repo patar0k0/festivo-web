@@ -122,8 +122,8 @@ function heuristicSettlementType(city: string | null, locationName: string | nul
   if (!combined) return null;
 
   const lower = combined.toLocaleLowerCase("bg-BG");
-  for (const [place, st] of Object.entries(KNOWN_SETTLEMENT)) {
-    if (lower.includes(place)) return st;
+  for (const [place, kind] of Object.entries(KNOWN_SETTLEMENT)) {
+    if (lower.includes(place)) return kind;
   }
 
   if (/\bк\.к\./i.test(combined)) return "resort";
@@ -137,16 +137,23 @@ function heuristicSettlementType(city: string | null, locationName: string | nul
   return null;
 }
 
+type GeminiSettlementRequestPayload = {
+  source: string | null;
+  city: string | null;
+  location_name: string | null;
+};
+
+function geminiSettlementRequestPayload(
+  city: string | null,
+  locationName: string | null,
+): GeminiSettlementRequestPayload {
+  const source = city || locationName;
+  return { source, city, location_name: locationName };
+}
+
+/** Call only when `isGeminiConfigured()` is true — at most one API call per row. */
 async function inferSettlementViaGemini(city: string | null, locationName: string | null): Promise<FestivalSettlementType | null> {
-  if (!isGeminiConfigured()) {
-    return null;
-  }
-  const sourceText = city || locationName;
-  const userText = JSON.stringify({
-    source: sourceText,
-    city: city ?? null,
-    location_name: locationName ?? null,
-  });
+  const userText = JSON.stringify(geminiSettlementRequestPayload(city, locationName));
   try {
     const row = await geminiExtractJson<{ settlement_type: FestivalSettlementType | null }>({
       systemInstruction: GEMINI_SYSTEM,
@@ -158,6 +165,28 @@ async function inferSettlementViaGemini(city: string | null, locationName: strin
     console.error("[backfill-settlement-type] Gemini error:", e instanceof Error ? e.message : e);
     return null;
   }
+}
+
+type BackfillSettlement = FestivalSettlementType | "unknown";
+type BackfillInferenceVia = "heuristic" | "gemini" | "fallback-unknown";
+
+async function resolveSettlementType(
+  fromHeuristic: FestivalSettlementType | null,
+  city: string | null,
+  locationName: string | null,
+  geminiReady: boolean,
+): Promise<{ settlement: BackfillSettlement; via: BackfillInferenceVia }> {
+  if (fromHeuristic !== null) {
+    return { settlement: fromHeuristic, via: "heuristic" };
+  }
+  if (!geminiReady) {
+    return { settlement: "unknown", via: "fallback-unknown" };
+  }
+  const fromGemini = await inferSettlementViaGemini(city, locationName);
+  if (fromGemini !== null) {
+    return { settlement: fromGemini, via: "gemini" };
+  }
+  return { settlement: "unknown", via: "fallback-unknown" };
 }
 
 async function main(): Promise<void> {
@@ -188,28 +217,19 @@ async function main(): Promise<void> {
       const loc = row.location_name;
       const locationName = typeof loc === "string" && loc.trim() ? loc : null;
 
-      let st = heuristicSettlementType(city, locationName);
-      let inferenceVia: "heuristic" | "gemini" | "fallback-unknown";
-      const calledGemini = Boolean(!st && isGeminiConfigured());
-
-      if (st) {
-        inferenceVia = "heuristic";
-      } else {
-        if (calledGemini) {
-          st = await inferSettlementViaGemini(city, locationName);
-        }
-        if (st) {
-          inferenceVia = "gemini";
-        } else {
-          st = "unknown";
-          inferenceVia = "fallback-unknown";
-          console.log(`[backfill-settlement-type] fallback unknown applied id=${id}`);
-        }
-      }
+      const geminiReady = isGeminiConfigured();
+      const heuristicSt = heuristicSettlementType(city, locationName);
+      const { settlement, via: inferenceVia } = await resolveSettlementType(
+        heuristicSt,
+        city,
+        locationName,
+        geminiReady,
+      );
+      const throttleMs = heuristicSt === null && geminiReady ? BETWEEN_GEMINI_MS : BETWEEN_ROWS_MS;
 
       const { data: updated, error: upErr } = await supabase
         .from("festivals")
-        .update({ settlement_type: st })
+        .update({ settlement_type: settlement })
         .eq("id", id)
         .is("settlement_type", null)
         .select("id");
@@ -220,18 +240,14 @@ async function main(): Promise<void> {
       }
 
       if (updated?.length) {
-        if (inferenceVia === "heuristic") {
-          console.log(`[backfill-settlement-type] updated id=${id} via=heuristic settlement_type=${st}`);
-        } else if (inferenceVia === "gemini") {
-          console.log(`[backfill-settlement-type] updated id=${id} via=gemini settlement_type=${st}`);
-        } else {
-          console.log(`[backfill-settlement-type] updated id=${id} via=fallback-unknown settlement_type=${st}`);
-        }
+        console.log(
+          `[backfill-settlement-type] updated id=${id} via=${inferenceVia} settlement_type=${settlement}`,
+        );
       } else {
         console.log(`[backfill-settlement-type] skipped update (already set?) id=${id}`);
       }
 
-      await sleep(calledGemini ? BETWEEN_GEMINI_MS : BETWEEN_ROWS_MS);
+      await sleep(throttleMs);
     }
   }
 }

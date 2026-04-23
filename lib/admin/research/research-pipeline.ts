@@ -17,6 +17,7 @@ import type {
   ResearchDateCandidate,
   ResearchSource,
 } from "@/lib/admin/research/types";
+import { normalizeFestivalSettlementType } from "@/lib/settlements/settlementType";
 
 function str(v: unknown): string | null {
   if (typeof v !== "string") return null;
@@ -68,6 +69,14 @@ function mergeExtractions(
     if (mergedOrganizerNames.some((x) => x.toLocaleLowerCase("bg-BG") === value.toLocaleLowerCase("bg-BG"))) return;
     mergedOrganizerNames.push(value);
   };
+  const mergedSettlementType = (() => {
+    for (const row of sorted) {
+      const t = normalizeFestivalSettlementType(row.ex.settlement_type);
+      if (t) return t;
+    }
+    return null;
+  })();
+
   for (const row of sorted) {
     const ex = row.ex;
     if (Array.isArray(ex.organizer_names)) {
@@ -117,6 +126,7 @@ function mergeExtractions(
       return null;
     })(),
     category: str(pickFirst("category")),
+    settlement_type: mergedSettlementType,
     tags: (() => {
       const seen = new Set<string>();
       const out: string[] = [];
@@ -324,6 +334,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
         tags: [],
         is_free: null,
         program_draft: null,
+        settlement_type: null,
       },
       candidates: { titles: [], dates: [], cities: [], locations: [], organizers: [] },
       sources: [],
@@ -390,6 +401,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
         address: null,
         category: null,
         program_draft: null,
+        settlement_type: null,
       },
       candidates: { titles: [], dates: [], cities: [], locations: [], organizers: [] },
       sources,
@@ -444,6 +456,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
       address: str(merged.address),
       category: str(merged.category),
       program_draft: programDraftMerged,
+      settlement_type: normalizeFestivalSettlementType(merged.settlement_type),
     },
     candidates,
     sources,
@@ -475,6 +488,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
     tags: Array.isArray(merged.tags) ? merged.tags : [],
     is_free: merged.is_free,
     program_draft: programDraftMerged,
+    settlement_type: normalizeFestivalSettlementType(merged.settlement_type),
   };
 
   const validated = validatePipelineResult(raw);

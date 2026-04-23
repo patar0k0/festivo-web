@@ -1,3 +1,5 @@
+import type { FestivalSettlementType } from "@/lib/settlements/settlementType";
+
 export const CANONICAL_FESTIVAL_FIELDS = [
   "title",
   "slug",
@@ -15,6 +17,7 @@ export const CANONICAL_FESTIVAL_FIELDS = [
   "start_time",
   "end_time",
   "organizer_name",
+  "settlement_type",
   "hero_image",
   "website_url",
   "ticket_url",
@@ -49,6 +52,7 @@ export type CanonicalFestivalPayload = {
   start_time: string | null;
   end_time: string | null;
   organizer_name: string | null;
+  settlement_type?: FestivalSettlementType | null;
   /** When set, takes precedence over legacy single organizer_name for moderation/publish. */
   organizer_entries?: PendingOrganizerEntryPayload[] | null;
   hero_image: string | null;
@@ -77,6 +81,7 @@ export type CanonicalFestivalPatchPayload = {
   start_time?: string | null;
   end_time?: string | null;
   organizer_name?: string | null;
+  settlement_type?: FestivalSettlementType | null;
   organizer_entries?: PendingOrganizerEntryPayload[] | null;
   hero_image?: string | null;
   website_url?: string | null;

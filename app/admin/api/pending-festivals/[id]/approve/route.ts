@@ -30,6 +30,7 @@ import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { formatBgDateFromIso } from "@/lib/email/formatBg";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
 import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { normalizeFestivalSettlementType } from "@/lib/settlements/settlementType";
 import { ensureFestivalHasImage } from "@/lib/festival/ensureFestivalHasImage";
 
 type CityRow = {
@@ -652,7 +653,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const cityDisplay =
-      festivalSettlementDisplayText(cityById.name_bg, cityById.is_village ?? undefined) ??
+      festivalSettlementDisplayText(
+        cityById.name_bg,
+        cityById.is_village ?? undefined,
+        normalizeFestivalSettlementType(canonicalApproved.settlement_type),
+      ) ??
       pending.city_name_display?.trim() ??
       null;
 

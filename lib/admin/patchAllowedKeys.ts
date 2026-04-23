@@ -25,6 +25,7 @@ export const FESTIVAL_PATCH_ALLOWED_KEYS = [
   "tags",
   "city_id",
   "city_name_display",
+  "settlement_type",
   "city",
   "venue_name",
   "location_name",

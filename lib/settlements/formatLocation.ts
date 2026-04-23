@@ -1,4 +1,5 @@
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
+import type { FestivalSettlementType } from "@/lib/settlements/settlementType";
 
 export type ParsedSettlementPrefixKind = "city" | "village" | "resort" | "unknown";
 
@@ -82,7 +83,7 @@ function settlementKindToBgLabel(kind: ParsedSettlementPrefixKind): string | nul
     case "city":
       return "град";
     case "resort":
-      return "курортен комплекс";
+      return "курорт";
     default:
       return null;
   }
@@ -107,6 +108,7 @@ function buildSecondaryLine(kind: ParsedSettlementPrefixKind, region: string | n
 export function formatSettlementLocationLines(
   rawLine: string | null | undefined,
   isVillage: boolean | null | undefined,
+  settlementType?: FestivalSettlementType | null,
 ): SettlementLocationLines | null {
   if (rawLine == null || !String(rawLine).trim()) return null;
 
@@ -122,7 +124,10 @@ export function formatSettlementLocationLines(
   const cleanPrimary = nameWithoutPrefix.trim() || firstSeg.trim();
   if (!cleanPrimary) return null;
 
-  const resolvedKind = resolveSettlementKind(isVillage, prefixKind);
+  const resolvedKind: ParsedSettlementPrefixKind =
+    settlementType === "city" || settlementType === "village" || settlementType === "resort"
+      ? settlementType
+      : resolveSettlementKind(isVillage, prefixKind);
   const secondary = buildSecondaryLine(resolvedKind, regionFromText);
   const geoLine = secondary ? `${cleanPrimary}, ${secondary}` : cleanPrimary;
 

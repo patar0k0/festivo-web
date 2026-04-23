@@ -6,6 +6,7 @@ import { getOptionalUser } from "@/lib/authUser";
 import { cn } from "@/lib/utils";
 import { getPlanEntriesByUser, getPlanStateByUser } from "@/lib/plan/server";
 import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { normalizeFestivalSettlementType } from "@/lib/settlements/settlementType";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { FestivalDateFields } from "@/lib/festival/listingDates";
 import { festivalEffectiveCalendarBounds, getFestivalTemporalState } from "@/lib/festival/temporal";
@@ -44,6 +45,7 @@ function mapPlanFestivalRow(row: {
     sort_order?: number | null;
     is_hero?: boolean | null;
   }> | null;
+  settlement_type?: string | null;
   cities: { name_bg?: string | null; is_village?: boolean | null } | null | undefined | Array<{
     name_bg?: string | null;
     is_village?: boolean | null;
@@ -51,6 +53,7 @@ function mapPlanFestivalRow(row: {
 }) {
   const rawJoin = row.cities as { name_bg?: string | null; is_village?: boolean | null } | null | undefined;
   const joined = Array.isArray(rawJoin) ? rawJoin[0] : rawJoin;
+  const st = normalizeFestivalSettlementType(row.settlement_type);
   const rawMedia = row.festival_media;
   const festival_media = Array.isArray(rawMedia) ? rawMedia : null;
   return {
@@ -58,7 +61,7 @@ function mapPlanFestivalRow(row: {
     slug: row.slug,
     title: row.title,
     city: joined?.name_bg?.trim()
-      ? festivalSettlementDisplayText(joined.name_bg, joined.is_village)
+      ? festivalSettlementDisplayText(joined.name_bg, joined.is_village, st)
       : null,
     start_date: row.start_date,
     end_date: row.end_date,
@@ -120,7 +123,7 @@ export default async function PlanPage() {
     const { data: festivalRows } = await supabase
       .from("festivals")
       .select(
-        "id,slug,title,start_date,end_date,occurrence_dates,start_time,end_time,hero_image,image_url,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,is_village)"
+        "id,slug,title,settlement_type,start_date,end_date,occurrence_dates,start_time,end_time,hero_image,image_url,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,is_village)"
       )
       .in("id", festivalIds);
 

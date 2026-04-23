@@ -1,4 +1,5 @@
 import { geminiExtractJson } from "@/lib/admin/research/gemini-provider";
+import type { FestivalSettlementType } from "@/lib/settlements/settlementType";
 
 export type GeminiProgramDayRaw = {
   date: string | null;
@@ -20,6 +21,8 @@ export type GeminiRawExtraction = {
   start_time: string | null;
   end_time: string | null;
   city: string | null;
+  /** When the text clearly indicates град / село / курорт (к.к.); null if not confident. */
+  settlement_type: FestivalSettlementType | null;
   location_name: string | null;
   address: string | null;
   organizer_name: string | null;
@@ -50,6 +53,7 @@ const EXTRACTION_SCHEMA = {
     start_time: { type: "string", nullable: true },
     end_time: { type: "string", nullable: true },
     city: { type: "string", nullable: true },
+    settlement_type: { type: "string", enum: ["city", "village", "resort"], nullable: true },
     location_name: { type: "string", nullable: true },
     address: { type: "string", nullable: true },
     organizer_name: { type: "string", nullable: true },
@@ -105,6 +109,7 @@ const EXTRACTION_SCHEMA = {
     "start_time",
     "end_time",
     "city",
+    "settlement_type",
     "location_name",
     "address",
     "organizer_name",
@@ -132,7 +137,8 @@ const SYSTEM = `Ти извличаш структурирани данни за
 - Ако има няколко отделни организатора, попълни organizer_names с всеки поотделно; organizer_name може да е първият или null.
 - URL полета: само ако се появяват като връзки или ясно в текста; иначе null.
 - is_free: true само ако текстъе изрично сочи безплатно/вход свободен; иначе null или false ако има такса.
-- program: попълни само ако в текста има ясна програма по дни (часове + заглавия/артисти). Поле program.days: масив от дни с date (YYYY-MM-DD) и items с title; start_time/end_time като HH:mm само ако са изрично в текста; stage/description само от текста. Ако няма структурирана програма → program=null.`;
+- program: попълни само ако в текста има ясна програма по дни (часове + заглавия/артисти). Поле program.days: масив от дни с date (YYYY-MM-DD) и items с title; start_time/end_time като HH:mm само ако са изрично в текста; stage/description само от текста. Ако няма структурирана програма → program=null.
+- settlement_type: попълни САМО ако типът на населеното място е ясен от текста — city за „град“/гр.; village за „село“/с.; resort за „курорт“, „к.к.“, курортен комплекс. Ако не си сигурен → null. Не гадай.`;
 
 export async function extractFestivalFieldsFromEvidence(input: {
   userQuery: string;
@@ -154,6 +160,7 @@ export async function extractFestivalFieldsFromEvidence(input: {
   const withProgram = (row: GeminiRawExtraction): GeminiRawExtraction => ({
     ...row,
     program: row.program ?? null,
+    settlement_type: row.settlement_type ?? null,
   });
 
   try {

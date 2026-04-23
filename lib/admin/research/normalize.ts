@@ -2,6 +2,7 @@ import type { ResearchConfidenceLevel, ResearchDateCandidate, ResearchFestivalRe
 import { compactProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
 import type { SourceAuthorityTier } from "@/lib/admin/research/source-ranking";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
+import { normalizeFestivalSettlementType } from "@/lib/settlements/settlementType";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -226,6 +227,7 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     address: normalizeText(rawBestGuess.address),
     category: normalizeText(rawBestGuess.category),
     program_draft: normalizeProgramDraftGuess((rawBestGuess as { program_draft?: unknown }).program_draft),
+    settlement_type: normalizeFestivalSettlementType((rawBestGuess as { settlement_type?: unknown }).settlement_type),
   };
 
   const normalized: ResearchFestivalResult = {
@@ -309,6 +311,7 @@ export function normalizeResearchResult(raw: ResearchFestivalResult): ResearchFe
     tags: bestGuess.tags,
     is_free: bestGuess.is_free,
     program_draft: bestGuess.program_draft ?? null,
+    settlement_type: bestGuess.settlement_type ?? null,
   };
 
   return normalized;

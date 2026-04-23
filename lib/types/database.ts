@@ -26,6 +26,7 @@ export type Database = {
           description: string
           city: string
           city_id: number | null
+          settlement_type: string | null
           address: string | null
           start_date: string
           end_date: string | null
@@ -55,6 +56,7 @@ export type Database = {
           description: string
           city: string
           city_id?: number | null
+          settlement_type?: string | null
           address?: string | null
           start_date: string
           end_date?: string | null
@@ -84,6 +86,7 @@ export type Database = {
           description?: string
           city?: string
           city_id?: number | null
+          settlement_type?: string | null
           address?: string | null
           start_date?: string
           end_date?: string | null

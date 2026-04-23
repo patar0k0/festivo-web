@@ -175,18 +175,18 @@ async function resolveSettlementType(
   city: string | null,
   locationName: string | null,
   geminiReady: boolean,
-): Promise<{ settlement: BackfillSettlement; via: BackfillInferenceVia }> {
+): Promise<{ settlement: BackfillSettlement; via: BackfillInferenceVia; geminiCalled: boolean }> {
   if (fromHeuristic !== null) {
-    return { settlement: fromHeuristic, via: "heuristic" };
+    return { settlement: fromHeuristic, via: "heuristic", geminiCalled: false };
   }
   if (!geminiReady) {
-    return { settlement: "unknown", via: "fallback-unknown" };
+    return { settlement: "unknown", via: "fallback-unknown", geminiCalled: false };
   }
   const fromGemini = await inferSettlementViaGemini(city, locationName);
   if (fromGemini !== null) {
-    return { settlement: fromGemini, via: "gemini" };
+    return { settlement: fromGemini, via: "gemini", geminiCalled: true };
   }
-  return { settlement: "unknown", via: "fallback-unknown" };
+  return { settlement: "unknown", via: "fallback-unknown", geminiCalled: true };
 }
 
 async function main(): Promise<void> {
@@ -218,14 +218,13 @@ async function main(): Promise<void> {
       const locationName = typeof loc === "string" && loc.trim() ? loc : null;
 
       const geminiReady = isGeminiConfigured();
-      const heuristicSt = heuristicSettlementType(city, locationName);
-      const { settlement, via: inferenceVia } = await resolveSettlementType(
-        heuristicSt,
+      const { settlement, via: inferenceVia, geminiCalled } = await resolveSettlementType(
+        heuristicSettlementType(city, locationName),
         city,
         locationName,
         geminiReady,
       );
-      const throttleMs = heuristicSt === null && geminiReady ? BETWEEN_GEMINI_MS : BETWEEN_ROWS_MS;
+      const throttleMs = geminiCalled ? BETWEEN_GEMINI_MS : BETWEEN_ROWS_MS;
 
       const { data: updated, error: upErr } = await supabase
         .from("festivals")
@@ -239,13 +238,9 @@ async function main(): Promise<void> {
         throw upErr;
       }
 
-      if (updated?.length) {
-        console.log(
-          `[backfill-settlement-type] updated id=${id} via=${inferenceVia} settlement_type=${settlement}`,
-        );
-      } else {
-        console.log(`[backfill-settlement-type] skipped update (already set?) id=${id}`);
-      }
+      console.log(
+        `[backfill-settlement-type] id=${id} via=${inferenceVia} settlement_type=${settlement} updated=${Boolean(updated?.length)}`,
+      );
 
       await sleep(throttleMs);
     }

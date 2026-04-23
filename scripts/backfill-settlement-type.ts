@@ -87,6 +87,24 @@ const SETTLEMENT_SCHEMA = {
   required: ["settlement_type"],
 } as const;
 
+const SETTLEMENT_RESPONSE_SCHEMA = { ...SETTLEMENT_SCHEMA } as Record<string, unknown>;
+
+const HEURISTIC_RULES: ReadonlyArray<{
+  test: (lower: string, combined: string) => boolean;
+  value: FestivalSettlementType;
+}> = [
+  ...Object.entries(KNOWN_SETTLEMENT).map(([place, value]) => ({
+    test: (lower: string, _combined: string) => lower.includes(place),
+    value,
+  })),
+  { test: (_lower, combined) => /\bк\.к\./i.test(combined), value: "resort" },
+  { test: (_lower, combined) => /\bгр\./i.test(combined), value: "city" },
+  { test: (_lower, combined) => /\bс\./i.test(combined), value: "village" },
+  { test: (lower, _combined) => lower.includes("курорт"), value: "resort" },
+  { test: (lower, _combined) => lower.includes("град"), value: "city" },
+  { test: (lower, _combined) => lower.includes("село"), value: "village" },
+];
+
 const GEMINI_SYSTEM = `Ти класифицираш типа на българско населено място по подадени полета (град/локация от фестивален запис).
 Върни JSON с поле settlement_type: "city" за град, "village" за село, "resort" за курорт или курортен комплекс (к.к.).
 Ако няма достатъчно сигурност — settlement_type: null. Не измисляй.`;
@@ -122,18 +140,9 @@ function heuristicSettlementType(city: string | null, locationName: string | nul
   if (!combined) return null;
 
   const lower = combined.toLocaleLowerCase("bg-BG");
-  for (const [place, kind] of Object.entries(KNOWN_SETTLEMENT)) {
-    if (lower.includes(place)) return kind;
+  for (const rule of HEURISTIC_RULES) {
+    if (rule.test(lower, combined)) return rule.value;
   }
-
-  if (/\bк\.к\./i.test(combined)) return "resort";
-  if (/\bгр\./i.test(combined)) return "city";
-  if (/\bс\./i.test(combined)) return "village";
-
-  if (lower.includes("курорт")) return "resort";
-  if (lower.includes("град")) return "city";
-  if (lower.includes("село")) return "village";
-
   return null;
 }
 
@@ -153,12 +162,13 @@ function geminiSettlementRequestPayload(
 
 /** Call only when `isGeminiConfigured()` is true — at most one API call per row. */
 async function inferSettlementViaGemini(city: string | null, locationName: string | null): Promise<FestivalSettlementType | null> {
-  const userText = JSON.stringify(geminiSettlementRequestPayload(city, locationName));
+  const payload = geminiSettlementRequestPayload(city, locationName);
+  const userText = JSON.stringify(payload);
   try {
     const row = await geminiExtractJson<{ settlement_type: FestivalSettlementType | null }>({
       systemInstruction: GEMINI_SYSTEM,
       userText,
-      responseSchema: { ...SETTLEMENT_SCHEMA } as Record<string, unknown>,
+      responseSchema: SETTLEMENT_RESPONSE_SCHEMA,
     });
     return normalizeFestivalSettlementType(row.settlement_type);
   } catch (e) {
@@ -170,23 +180,41 @@ async function inferSettlementViaGemini(city: string | null, locationName: strin
 type BackfillSettlement = FestivalSettlementType | "unknown";
 type BackfillInferenceVia = "heuristic" | "gemini" | "fallback-unknown";
 
+type ResolveSettlementResult = {
+  settlement: BackfillSettlement;
+  via: BackfillInferenceVia;
+  geminiCalled: boolean;
+};
+
 async function resolveSettlementType(
   fromHeuristic: FestivalSettlementType | null,
   city: string | null,
   locationName: string | null,
   geminiReady: boolean,
-): Promise<{ settlement: BackfillSettlement; via: BackfillInferenceVia; geminiCalled: boolean }> {
+): Promise<ResolveSettlementResult> {
+  let settlement: BackfillSettlement;
+  let via: BackfillInferenceVia;
+  let geminiCalled = false;
+
   if (fromHeuristic !== null) {
-    return { settlement: fromHeuristic, via: "heuristic", geminiCalled: false };
+    settlement = fromHeuristic;
+    via = "heuristic";
+  } else if (!geminiReady) {
+    settlement = "unknown";
+    via = "fallback-unknown";
+  } else {
+    geminiCalled = true;
+    const fromGemini = await inferSettlementViaGemini(city, locationName);
+    if (fromGemini !== null) {
+      settlement = fromGemini;
+      via = "gemini";
+    } else {
+      settlement = "unknown";
+      via = "fallback-unknown";
+    }
   }
-  if (!geminiReady) {
-    return { settlement: "unknown", via: "fallback-unknown", geminiCalled: false };
-  }
-  const fromGemini = await inferSettlementViaGemini(city, locationName);
-  if (fromGemini !== null) {
-    return { settlement: fromGemini, via: "gemini", geminiCalled: true };
-  }
-  return { settlement: "unknown", via: "fallback-unknown", geminiCalled: true };
+
+  return { settlement, via, geminiCalled };
 }
 
 async function main(): Promise<void> {
@@ -224,7 +252,6 @@ async function main(): Promise<void> {
         locationName,
         geminiReady,
       );
-      const throttleMs = geminiCalled ? BETWEEN_GEMINI_MS : BETWEEN_ROWS_MS;
 
       const { data: updated, error: upErr } = await supabase
         .from("festivals")
@@ -242,7 +269,7 @@ async function main(): Promise<void> {
         `[backfill-settlement-type] id=${id} via=${inferenceVia} settlement_type=${settlement} updated=${Boolean(updated?.length)}`,
       );
 
-      await sleep(throttleMs);
+      await sleep(geminiCalled ? BETWEEN_GEMINI_MS : BETWEEN_ROWS_MS);
     }
   }
 }

@@ -130,6 +130,10 @@ function heuristicSettlementType(city: string | null, locationName: string | nul
   if (/\bгр\./i.test(combined)) return "city";
   if (/\bс\./i.test(combined)) return "village";
 
+  if (lower.includes("курорт")) return "resort";
+  if (lower.includes("град")) return "city";
+  if (lower.includes("село")) return "village";
+
   return null;
 }
 
@@ -137,7 +141,9 @@ async function inferSettlementViaGemini(city: string | null, locationName: strin
   if (!isGeminiConfigured()) {
     return null;
   }
+  const sourceText = city || locationName;
   const userText = JSON.stringify({
+    source: sourceText,
     city: city ?? null,
     location_name: locationName ?? null,
   });
@@ -183,15 +189,22 @@ async function main(): Promise<void> {
       const locationName = typeof loc === "string" && loc.trim() ? loc : null;
 
       let st = heuristicSettlementType(city, locationName);
-      const attemptedGemini = !st && isGeminiConfigured();
-      if (!st) {
-        st = await inferSettlementViaGemini(city, locationName);
-      }
+      let inferenceVia: "heuristic" | "gemini" | "fallback-unknown";
+      const calledGemini = Boolean(!st && isGeminiConfigured());
 
-      if (!st) {
-        console.log(`[backfill-settlement-type] skip (no inference) id=${id}`);
-        await sleep(attemptedGemini ? BETWEEN_GEMINI_MS : BETWEEN_ROWS_MS);
-        continue;
+      if (st) {
+        inferenceVia = "heuristic";
+      } else {
+        if (calledGemini) {
+          st = await inferSettlementViaGemini(city, locationName);
+        }
+        if (st) {
+          inferenceVia = "gemini";
+        } else {
+          st = "unknown";
+          inferenceVia = "fallback-unknown";
+          console.log(`[backfill-settlement-type] fallback unknown applied id=${id}`);
+        }
       }
 
       const { data: updated, error: upErr } = await supabase
@@ -207,12 +220,18 @@ async function main(): Promise<void> {
       }
 
       if (updated?.length) {
-        console.log(`[backfill-settlement-type] updated id=${id} settlement_type=${st}`);
+        if (inferenceVia === "heuristic") {
+          console.log(`[backfill-settlement-type] updated id=${id} via=heuristic settlement_type=${st}`);
+        } else if (inferenceVia === "gemini") {
+          console.log(`[backfill-settlement-type] updated id=${id} via=gemini settlement_type=${st}`);
+        } else {
+          console.log(`[backfill-settlement-type] updated id=${id} via=fallback-unknown settlement_type=${st}`);
+        }
       } else {
         console.log(`[backfill-settlement-type] skipped update (already set?) id=${id}`);
       }
 
-      await sleep(attemptedGemini ? BETWEEN_GEMINI_MS : BETWEEN_ROWS_MS);
+      await sleep(calledGemini ? BETWEEN_GEMINI_MS : BETWEEN_ROWS_MS);
     }
   }
 }

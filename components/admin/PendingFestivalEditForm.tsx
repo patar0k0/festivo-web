@@ -43,6 +43,8 @@ import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText
 import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
 import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
 import { compactProgramDraft, emptyProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
+import { decodePlusCode } from "@/lib/location/decodePlusCode";
+import { toast } from "sonner";
 
 export type PendingFestivalRecord = {
   id: string;
@@ -487,6 +489,7 @@ export default function PendingFestivalEditForm({
   });
   const [saving, setSaving] = useState(false);
   const [findingCoords, setFindingCoords] = useState(false);
+  const [plusCodeInput, setPlusCodeInput] = useState("");
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
   const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
   const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
@@ -846,6 +849,21 @@ export default function PendingFestivalEditForm({
 
   const onFindCoords = async () => {
     if (saving || runningAction || findingCoords) return;
+
+    const plusTrimmed = plusCodeInput.trim();
+    if (plusTrimmed) {
+      const decoded = decodePlusCode(plusTrimmed);
+      if (!decoded) {
+        setMessage("");
+        toast.error("Невалиден Plus Code.");
+        return;
+      }
+      updateField("latitude", String(decoded.lat));
+      updateField("longitude", String(decoded.lng));
+      setError("");
+      setMessage("Координатите са попълнени от Plus Code.");
+      return;
+    }
 
     const city = form.city_id.trim();
     if (!city) {
@@ -1461,6 +1479,15 @@ export default function PendingFestivalEditForm({
             <label className="md:col-span-2">
               <AdminFieldLabel field="address" />
               <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
+            </label>
+            <label className="md:col-span-2">
+              <AdminFieldLabel field="plusCode" />
+              <input
+                value={plusCodeInput}
+                onChange={(e) => setPlusCodeInput(e.target.value)}
+                placeholder="напр. 8FVCGGGC+GG"
+                className={ADMIN_ENTITY_CONTROL_CLASS}
+              />
             </label>
             <label>
               <AdminFieldLabel field="latitude" />

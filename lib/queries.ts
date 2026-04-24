@@ -565,6 +565,13 @@ export async function getFestivalDetail(
     }
   }
 
+  if (usedProgramDraftFallback) {
+    console.warn("[program-fallback]", {
+      festivalId: festival.id,
+      reason: "no schedule items, using program_draft",
+    });
+  }
+
   console.info("[program-load]", {
     schedule_from_rows: fixedScheduleItems.length,
     has_program_draft: festival.program_draft != null,

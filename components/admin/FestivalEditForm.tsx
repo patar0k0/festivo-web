@@ -757,19 +757,24 @@ export default function FestivalEditForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ program_draft: payload }),
       });
-      const resBody = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
-      if (!response.ok) {
-        throw new Error(
-          (resBody && typeof resBody === "object" && resBody.error) ||
-            (await readErrorMessage(response, "Грешка при запис")),
-        );
-      }
-      if (!resBody || resBody.ok !== true) {
-        toast.error("Няма записани промени");
+      const resBody = (await response.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; savedItemsCount?: number }
+        | null;
+      if (!response.ok || !resBody?.ok) {
+        toast.error(resBody?.error || "Грешка при запис");
         return;
       }
-      console.info("[program-save] saved", payload);
-      toast.success("Програмата е записана");
+
+      if (!resBody?.savedItemsCount && payload !== null) {
+        toast.warning("Няма записани елементи в програмата");
+        return;
+      }
+
+      console.info("[program-save] saved", {
+        festivalId: festival.id,
+        savedItemsCount: resBody?.savedItemsCount,
+      });
+      toast.success("Запазено");
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Грешка при запис");

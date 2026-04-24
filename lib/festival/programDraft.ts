@@ -173,9 +173,23 @@ export function compactProgramDraft(draft: ProgramDraft): ProgramDraft {
   return { version: draft.version ?? PROGRAM_DRAFT_VERSION, days };
 }
 
+export function hasPublishableContent(draft: ProgramDraft | null): boolean {
+  if (!draft?.days?.length) return false;
+
+  for (const day of draft.days) {
+    for (const item of day.items || []) {
+      if (item.title && item.title.trim().length > 0) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 export function programDraftHasContent(draft: ProgramDraft | null | undefined): boolean {
   if (!draft?.days?.length) return false;
-  return draft.days.some((d) => d.items.length > 0);
+  return hasPublishableContent(compactProgramDraft(draft));
 }
 
 /**
@@ -185,7 +199,11 @@ export function programDraftHasContent(draft: ProgramDraft | null | undefined): 
 export function programDraftToPublishPayload(draft: ProgramDraft | null | undefined): ProgramDraft | null {
   if (!draft?.days?.length) return null;
   const compacted = compactProgramDraft(draft);
-  return programDraftHasContent(compacted) ? compacted : null;
+  if (!hasPublishableContent(compacted)) {
+    return null;
+  }
+
+  return compacted;
 }
 
 /** Build public detail schedule from stored JSON when `festival_schedule_items` are empty (e.g. RLS gaps). */
@@ -579,8 +597,10 @@ export async function replaceFestivalScheduleFromProgramDraft(
   }
 
   if (itemRows.length === 0) {
-    const newDayIds = insertedDays.map((r) => r.id as string);
-    await admin.from("festival_days").delete().in("id", newDayIds);
+    const { error: delEmptyErr } = await admin.from("festival_days").delete().eq("festival_id", festivalId);
+    if (delEmptyErr) {
+      throw new Error(`festival_days delete (empty program) failed: ${delEmptyErr.message}`);
+    }
     return;
   }
 

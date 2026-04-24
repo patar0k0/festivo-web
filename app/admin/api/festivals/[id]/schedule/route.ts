@@ -129,7 +129,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     console.error("[admin/audit] festival.schedule_updated failed", { message });
   }
 
-  console.info("[program-save] saved", { festivalId: id, payload: draft ?? null });
+  const savedItemsCount = draft
+    ? draft.days.reduce((n, d) => n + d.items.length, 0)
+    : 0;
 
-  return NextResponse.json({ ok: true });
+  console.info("[program-save] saved", { festivalId: id, savedItemsCount, payload: draft ?? null });
+
+  return NextResponse.json({ ok: true, savedItemsCount });
 }

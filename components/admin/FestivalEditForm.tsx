@@ -314,6 +314,7 @@ export default function FestivalEditForm({
   const galleryFileRef = useRef<HTMLInputElement | null>(null);
   const heroFileInputRef = useRef<HTMLInputElement | null>(null);
   const programEditorRef = useRef<ProgramDraftEditorHandle | null>(null);
+  const resolvedPlaceRef = useRef<string | null>(null);
   const [galleryImportUrl, setGalleryImportUrl] = useState("");
   const [heroPreviewError, setHeroPreviewError] = useState(false);
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
@@ -380,27 +381,29 @@ export default function FestivalEditForm({
   };
 
   useEffect(() => {
-    const placeId = form.place_id.trim();
+    const placeId = form.place_id?.trim() ?? "";
+    const lat = parseFloat(form.latitude || "");
+    const lng = parseFloat(form.longitude || "");
+    const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
     if (!placeId) return;
-    const hasLat = form.latitude.trim() !== "" && Number.isFinite(Number(form.latitude));
-    const hasLng = form.longitude.trim() !== "" && Number.isFinite(Number(form.longitude));
-    if (hasLat || hasLng) return;
+    if (hasValidCoords) return;
+    if (resolvedPlaceRef.current === placeId) return;
+
+    resolvedPlaceRef.current = placeId;
 
     let cancelled = false;
     void resolveCoordsFromPlaceId(placeId).then((coords) => {
-      if (cancelled) return;
-      if (!coords) return;
+      if (cancelled || !coords) return;
       setForm((prev) => {
-        if (prev.place_id.trim() !== placeId) return prev;
-        const okLat = prev.latitude.trim() !== "" && Number.isFinite(Number(prev.latitude));
-        const okLng = prev.longitude.trim() !== "" && Number.isFinite(Number(prev.longitude));
-        if (okLat || okLng) return prev;
+        if (prev.place_id?.trim() !== placeId) return prev;
         return { ...prev, latitude: coords.lat.toFixed(6), longitude: coords.lng.toFixed(6) };
       });
       console.info("[coords] resolved from place_id", coords);
     });
     return () => {
       cancelled = true;
+      resolvedPlaceRef.current = null;
     };
   }, [form.place_id, form.latitude, form.longitude]);
 

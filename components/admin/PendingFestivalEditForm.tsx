@@ -44,6 +44,7 @@ import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
 import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
 import { compactProgramDraft, emptyProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
 import { decodePlusCode } from "@/lib/location/decodePlusCode";
+import { parseGoogleMapsUrl } from "@/lib/location/parseGoogleMapsUrl";
 import { toast } from "sonner";
 
 export type PendingFestivalRecord = {
@@ -489,6 +490,7 @@ export default function PendingFestivalEditForm({
   });
   const [saving, setSaving] = useState(false);
   const [findingCoords, setFindingCoords] = useState(false);
+  const [mapsUrlInput, setMapsUrlInput] = useState("");
   const [plusCodeInput, setPlusCodeInput] = useState("");
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
   const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
@@ -849,6 +851,23 @@ export default function PendingFestivalEditForm({
 
   const onFindCoords = async () => {
     if (saving || runningAction || findingCoords) return;
+
+    const mapsTrimmed = mapsUrlInput.trim();
+    if (mapsTrimmed) {
+      const parsed = parseGoogleMapsUrl(mapsTrimmed);
+      if (!parsed) {
+        setMessage("");
+        toast.error("Невалиден Google Maps линк");
+        return;
+      }
+      updateField("latitude", String(parsed.lat));
+      updateField("longitude", String(parsed.lng));
+      setMapsUrlInput("");
+      setError("");
+      setMessage("Координатите са попълнени от Google Maps линк.");
+      console.info("[maps-url] parsed", { lat: parsed.lat, lng: parsed.lng });
+      return;
+    }
 
     const plusTrimmed = plusCodeInput.trim();
     if (plusTrimmed) {
@@ -1486,6 +1505,15 @@ export default function PendingFestivalEditForm({
                 value={plusCodeInput}
                 onChange={(e) => setPlusCodeInput(e.target.value)}
                 placeholder="напр. 8FVCGGGC+GG"
+                className={ADMIN_ENTITY_CONTROL_CLASS}
+              />
+            </label>
+            <label className="md:col-span-2">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Google Maps URL</span>
+              <input
+                value={mapsUrlInput}
+                onChange={(e) => setMapsUrlInput(e.target.value)}
+                placeholder="https://www.google.com/maps/place/…/@lat,lng,…"
                 className={ADMIN_ENTITY_CONTROL_CLASS}
               />
             </label>

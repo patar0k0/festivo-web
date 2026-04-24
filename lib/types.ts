@@ -28,6 +28,8 @@ export type Festival = {
   lng?: number | null;
   latitude?: number | null;
   longitude?: number | null;
+  /** Google Maps place_id for exact POI links when coordinates are ambiguous. */
+  place_id?: string | null;
   ticket_url?: string | null;
   price_range?: string | null;
   /** External YouTube/Facebook page URL for optional embedded video (not gallery media). */

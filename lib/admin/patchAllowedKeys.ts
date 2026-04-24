@@ -34,6 +34,7 @@ export const FESTIVAL_PATCH_ALLOWED_KEYS = [
   "lat",
   "longitude",
   "lng",
+  "place_id",
   "start_date",
   "end_date",
   "start_time",

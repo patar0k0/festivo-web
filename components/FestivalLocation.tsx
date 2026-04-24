@@ -1,6 +1,7 @@
 import { formatPublicFestivalLocationSummary } from "@/lib/festival/publicLocationDisplay";
 import { getFestivalLocationLines } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
+import { buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
 
 export default function FestivalLocation({ festival }: { festival: Festival }) {
   const summary = formatPublicFestivalLocationSummary(festival);
@@ -9,7 +10,12 @@ export default function FestivalLocation({ festival }: { festival: Festival }) {
   const citySub = loc.secondary?.trim() ?? "";
   if (!summary && !cityPrimary && !festival.city_name_display) return null;
   const display = [summary, loc.geoLine.trim() || cityPrimary].filter(Boolean).join(", ");
-  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(display)}`;
+  const mapUrl =
+    buildGoogleMapsUrl({
+      place_id: festival.place_id,
+      lat: festival.latitude ?? festival.lat,
+      lng: festival.longitude ?? festival.lng,
+    }) ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(display)}`;
 
   return (
     <section className="space-y-4">

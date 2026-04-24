@@ -360,7 +360,13 @@ export default function FestivalDetailClient({
   const displayOrganizers = buildDisplayOrganizers(festival);
   const showOrganizer = displayOrganizers.length > 0;
   const showInfoSection = Boolean(formattedDateRange || locationSummary || showOrganizer);
-  const showMapSection = Boolean(mapEmbedSrc && mapHref && (cityPrimary || locationSummary));
+  const showMapSection = Boolean(
+    mapEmbedSrc &&
+      mapHref &&
+      (cityPrimary ||
+        locationSummary ||
+        (typeof festival.place_id === "string" && festival.place_id.trim().length > 0)),
+  );
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
   const nearbyBookingPlace = cityOrLocationText.trim();
   const mapLocationBlurb = locationBeyondCity || null;

@@ -15,6 +15,7 @@ import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
+import { buildGoogleMapsEmbedSrc, buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
 
 /** Match `/organizers/[slug]`: avoid caching a stale `notFound()` / partial payload across soft navigation and ISR. */
 export const dynamic = "force-dynamic";
@@ -78,16 +79,25 @@ export default async function Page({
   });
   const citySlug = data.festival.cities?.slug?.trim() || null;
   const cityFilterValue = citySlug;
+  const mapLat = data.festival.latitude ?? data.festival.lat;
+  const mapLng = data.festival.longitude ?? data.festival.lng;
   const mapQuery =
-    data.festival.latitude != null && data.festival.longitude != null
-      ? `${data.festival.latitude},${data.festival.longitude}`
+    mapLat != null && mapLng != null && Number.isFinite(Number(mapLat)) && Number.isFinite(Number(mapLng))
+      ? `${mapLat},${mapLng}`
       : null;
-  const mapHref = mapQuery
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
-    : null;
-  const mapEmbedSrc = mapQuery
-    ? `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed`
-    : null;
+  const mapHref =
+    buildGoogleMapsUrl({
+      place_id: data.festival.place_id,
+      lat: mapLat ?? undefined,
+      lng: mapLng ?? undefined,
+    }) ??
+    (mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : null);
+  const mapEmbedSrc =
+    buildGoogleMapsEmbedSrc({
+      place_id: data.festival.place_id,
+      lat: mapLat ?? undefined,
+      lng: mapLng ?? undefined,
+    }) ?? (mapQuery ? `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed` : null);
   const calendarMonth = data.festival.start_date ? format(parseISO(data.festival.start_date), "yyyy-MM") : null;
 
   const [relatedResponse, adminSession, accommodationOffers, bookingClicks30d] = await Promise.all([

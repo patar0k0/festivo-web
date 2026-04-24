@@ -76,6 +76,8 @@ export type CanonicalFestivalPatchPayload = {
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  /** Google Maps place_id for exact POI links (from Maps URL or geocode). */
+  place_id?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   start_time?: string | null;

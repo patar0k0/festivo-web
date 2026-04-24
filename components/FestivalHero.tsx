@@ -11,11 +11,18 @@ import { Festival } from "@/lib/types";
 import OpenInAppButton from "@/components/OpenInAppButton";
 import QRCodeBlock from "@/components/QRCodeBlock";
 import { festivalDeepLink } from "@/lib/deepLink";
+import { buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
 
 export default function FestivalHero({ festival }: { festival: Festival }) {
   const deepLink = festivalDeepLink(festival.slug);
   const heroImage = getFestivalHeroImage(festival);
   const mapsQuery = [formatPublicFestivalLocationSummary(festival), festivalCityLabel(festival, "")].filter(Boolean).join(", ");
+  const mapsHref =
+    buildGoogleMapsUrl({
+      place_id: festival.place_id,
+      lat: festival.latitude ?? festival.lat,
+      lng: festival.longitude ?? festival.lng,
+    }) ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`;
   return (
     <section className="relative overflow-hidden rounded-3xl border border-ink/10 bg-ink/80">
       <div className="absolute inset-0">
@@ -48,7 +55,7 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
           <div className="flex flex-wrap items-center gap-4">
             <OpenInAppButton deepLink={deepLink} />
             <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
+              href={mapsHref}
               className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
               target="_blank"
               rel="noreferrer"

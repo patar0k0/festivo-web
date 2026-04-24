@@ -174,6 +174,10 @@ export function canonicalPatchFromUnknown(raw: unknown): PatchValidationResult {
     canonical.longitude = longitude;
   }
 
+  if (hasSourceValue(body, "place_id")) {
+    canonical.place_id = normalizeText(sourceValue(body, "place_id"));
+  }
+
   if (hasSourceValue(body, "start_date")) canonical.start_date = normalizeText(sourceValue(body, "start_date"));
   if (hasSourceValue(body, "end_date")) canonical.end_date = normalizeText(sourceValue(body, "end_date"));
   if (hasSourceValue(body, "start_time")) {

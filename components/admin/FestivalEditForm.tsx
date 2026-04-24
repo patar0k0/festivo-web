@@ -39,6 +39,9 @@ import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
 import AdminDateTimeLocalInput from "@/components/admin/inputs/AdminDateTimeLocalInput";
 import { compactProgramDraft, emptyProgramDraft, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
 import { parseGoogleMapsUrl } from "@/lib/location/parseGoogleMapsUrl";
+import { extractPlaceIdFromGoogleMapsUrl } from "@/lib/location/extractPlaceIdFromGoogleMapsUrl";
+import { buildGoogleMapsEmbedSrc } from "@/lib/location/buildGoogleMapsUrl";
+import { isFarFromCity } from "@/lib/location/isFarFromCity";
 import { toast } from "sonner";
 
 type FestivalRecord = {
@@ -80,6 +83,7 @@ type FestivalRecord = {
   promotion_expires_at?: string | null;
   promotion_rank?: number | null;
   video_url?: string | null;
+  place_id?: string | null;
   [key: string]: unknown;
 };
 
@@ -229,6 +233,7 @@ export default function FestivalEditForm({
     price_range: festival.price_range ?? "",
     latitude: festival.lat?.toString() ?? "",
     longitude: festival.lng?.toString() ?? "",
+    place_id: typeof festival.place_id === "string" ? festival.place_id : "",
     is_free: festival.is_free ?? false,
     is_verified: festival.is_verified ?? false,
     status: festival.status,
@@ -610,9 +615,33 @@ export default function FestivalEditForm({
     toast.error(validation.message);
   };
 
+  const warnIfCoordsFarFromSelectedCity = async (lat: number, lng: number) => {
+    const city = form.city.trim();
+    if (!city || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    try {
+      const response = await fetch("/api/admin/geocode", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location_name: city, city }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; lat?: number | null; lng?: number | null }
+        | null;
+      if (!response.ok || !payload?.ok) return;
+      if (typeof payload.lat !== "number" || typeof payload.lng !== "number") return;
+      if (isFarFromCity(lat, lng, payload.lat, payload.lng)) {
+        toast.warning("Координатите изглеждат далеч от избрания град");
+      }
+    } catch {
+      // ignore reference lookup failures
+    }
+  };
+
   const onFindCoords = async () => {
     if (findingCoords || saving || actionPending) return;
 
+    let mapsFailed = false;
     const trimmed = mapsUrlInput.trim();
 
     if (trimmed) {
@@ -632,22 +661,27 @@ export default function FestivalEditForm({
             });
           }
 
-          updateField("latitude", String(coords.lat));
-          updateField("longitude", String(coords.lng));
+          const lat = coords.lat.toFixed(6);
+          const lng = coords.lng.toFixed(6);
+          updateField("latitude", lat);
+          updateField("longitude", lng);
+
+          const placeId = extractPlaceIdFromGoogleMapsUrl(trimmed);
+          if (placeId) {
+            updateField("place_id", placeId);
+            console.info("[maps] extracted place_id", placeId);
+          }
 
           console.info("[coords] source=maps-url", coords);
           toast.success("Координатите са извлечени от Google Maps линка");
+          await warnIfCoordsFarFromSelectedCity(Number(lat), Number(lng));
 
           return;
-        } else {
-          toast.error("Не можахме да извлечем координати от линка");
         }
-      } catch (e) {
-        if (e instanceof Error && e.message === "short-link") {
-          toast.error("Отвори линка и копирай пълния Google Maps URL");
-        } else {
-          toast.error("Невалиден Google Maps линк");
-        }
+
+        mapsFailed = true;
+      } catch {
+        mapsFailed = true;
       }
     }
 
@@ -669,8 +703,8 @@ export default function FestivalEditForm({
         }),
       });
 
-      const payload = (await response.json().catch(() => null)) as
-        | { ok?: boolean; lat?: number | null; lng?: number | null; error?: string }
+        const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; lat?: number | null; lng?: number | null; place_id?: string | null; error?: string }
         | null;
 
       if (!response.ok || !payload?.ok) {
@@ -678,16 +712,28 @@ export default function FestivalEditForm({
       }
 
       if (typeof payload.lat === "number" && typeof payload.lng === "number") {
+        const lat = payload.lat.toFixed(6);
+        const lng = payload.lng.toFixed(6);
+        updateField("latitude", lat);
+        updateField("longitude", lng);
+        const geoPlace =
+          typeof payload.place_id === "string" && payload.place_id.trim() ? payload.place_id.trim() : "";
+        updateField("place_id", geoPlace);
         const coords = { lat: payload.lat, lng: payload.lng };
-        updateField("latitude", String(payload.lat));
-        updateField("longitude", String(payload.lng));
-        console.info("[coords] source=geocode", coords);
         toast.success("Координатите са намерени");
+        console.info("[coords] source=geocode", coords);
+        await warnIfCoordsFarFromSelectedCity(Number(lat), Number(lng));
+      } else if (mapsFailed) {
+        toast.error("Не можахме да извлечем координати от линка");
       } else {
         toast.error("Не открихме координати за тази локация");
       }
-    } catch (geoError) {
-      toast.error(geoError instanceof Error ? geoError.message : "Грешка при търсене на координати.");
+    } catch {
+      if (mapsFailed) {
+        toast.error("Не можахме да извлечем координати от линка");
+      } else {
+        toast.error("Неуспешно намиране на координати");
+      }
     } finally {
       setFindingCoords(false);
     }
@@ -811,6 +857,7 @@ export default function FestivalEditForm({
           address: form.address || null,
           latitude: form.latitude ? Number(form.latitude) : null,
           longitude: form.longitude ? Number(form.longitude) : null,
+          place_id: form.place_id.trim() || null,
           start_date: mergedDates.start_date,
           end_date: mergedDates.end_date,
           start_time: form.start_time.trim() || null,
@@ -1118,6 +1165,21 @@ export default function FestivalEditForm({
             <AdminFieldLabel field="longitude" />
             <input value={form.longitude} onChange={(e) => updateField("longitude", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
           </label>
+          {(() => {
+            const mapEmbedPreview = buildGoogleMapsEmbedSrc({
+              place_id: form.place_id.trim() || null,
+              lat: form.latitude,
+              lng: form.longitude,
+            });
+            return mapEmbedPreview ? (
+              <iframe
+                title="Преглед на картата"
+                className="mt-3 w-full h-[220px] rounded-xl border md:col-span-2"
+                src={mapEmbedPreview}
+                loading="lazy"
+              />
+            ) : null;
+          })()}
         </AdminFieldGrid>
         <div className="mt-2 flex flex-wrap gap-2">
           <button type="button" onClick={onValidateCoords} className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em]">

@@ -234,6 +234,7 @@ export function pendingPatchFromCanonicalPartial(fields: CanonicalFestivalPatchP
   if ("address" in fields) patch.address = fields.address;
   if ("latitude" in fields) patch.latitude = fields.latitude;
   if ("longitude" in fields) patch.longitude = fields.longitude;
+  if ("place_id" in fields) patch.place_id = fields.place_id;
   if ("start_date" in fields) patch.start_date = fields.start_date;
   if ("end_date" in fields) patch.end_date = fields.end_date;
   if ("start_time" in fields) patch.start_time = fields.start_time;
@@ -286,6 +287,7 @@ export function festivalPatchFromCanonicalPartial(fields: CanonicalFestivalPatch
   if ("tags" in fields) patch.tags = fields.tags;
   if ("latitude" in fields) patch.lat = fields.latitude;
   if ("longitude" in fields) patch.lng = fields.longitude;
+  if ("place_id" in fields) patch.place_id = fields.place_id;
   if ("status" in fields) patch.status = fields.status;
   if ("settlement_type" in fields) patch.settlement_type = fields.settlement_type ?? null;
 

@@ -34,10 +34,10 @@ import {
 import { getListingShortFromEvidenceJson } from "@/lib/admin/festivalListingShort";
 import { ADMIN_FIELD_LABEL, getAdminFieldLabel } from "@/lib/admin/entitySchema";
 import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
-import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
+import ProgramDraftEditor, { type ProgramDraftEditorHandle } from "@/components/admin/ProgramDraftEditor";
 import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
 import AdminDateTimeLocalInput from "@/components/admin/inputs/AdminDateTimeLocalInput";
-import { compactProgramDraft, emptyProgramDraft, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
+import { emptyProgramDraft, programDraftToPublishPayload, type ProgramDraft } from "@/lib/festival/programDraft";
 import { parseGoogleMapsUrl } from "@/lib/location/parseGoogleMapsUrl";
 import { extractPlaceIdFromGoogleMapsUrl } from "@/lib/location/extractPlaceIdFromGoogleMapsUrl";
 import { buildGoogleMapsEmbedSrc } from "@/lib/location/buildGoogleMapsUrl";
@@ -312,6 +312,7 @@ export default function FestivalEditForm({
   const [videoBusy, setVideoBusy] = useState(false);
   const galleryFileRef = useRef<HTMLInputElement | null>(null);
   const heroFileInputRef = useRef<HTMLInputElement | null>(null);
+  const programEditorRef = useRef<ProgramDraftEditorHandle | null>(null);
   const [galleryImportUrl, setGalleryImportUrl] = useState("");
   const [heroPreviewError, setHeroPreviewError] = useState(false);
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
@@ -641,6 +642,7 @@ export default function FestivalEditForm({
   const onFindCoords = async () => {
     if (findingCoords || saving || actionPending) return;
 
+    let placeIdFromMaps: string | null = null;
     let mapsFailed = false;
     const trimmed = mapsUrlInput.trim();
 
@@ -661,16 +663,16 @@ export default function FestivalEditForm({
             });
           }
 
+          placeIdFromMaps = extractPlaceIdFromGoogleMapsUrl(trimmed);
+          if (placeIdFromMaps) {
+            updateField("place_id", placeIdFromMaps);
+            console.info("[maps] extracted place_id", placeIdFromMaps);
+          }
+
           const lat = coords.lat.toFixed(6);
           const lng = coords.lng.toFixed(6);
           updateField("latitude", lat);
           updateField("longitude", lng);
-
-          const placeId = extractPlaceIdFromGoogleMapsUrl(trimmed);
-          if (placeId) {
-            updateField("place_id", placeId);
-            console.info("[maps] extracted place_id", placeId);
-          }
 
           console.info("[coords] source=maps-url", coords);
           toast.success("Координатите са извлечени от Google Maps линка");
@@ -716,9 +718,13 @@ export default function FestivalEditForm({
         const lng = payload.lng.toFixed(6);
         updateField("latitude", lat);
         updateField("longitude", lng);
-        const geoPlace =
-          typeof payload.place_id === "string" && payload.place_id.trim() ? payload.place_id.trim() : "";
-        updateField("place_id", geoPlace);
+        if (!placeIdFromMaps) {
+          const geoPlaceId =
+            typeof payload.place_id === "string" && payload.place_id.trim() ? payload.place_id.trim() : null;
+          if (geoPlaceId) {
+            updateField("place_id", geoPlaceId);
+          }
+        }
         const coords = { lat: payload.lat, lng: payload.lng };
         toast.success("Координатите са намерени");
         console.info("[coords] source=geocode", coords);
@@ -742,21 +748,31 @@ export default function FestivalEditForm({
   const onSaveProgramDraft = async () => {
     setProgramDraftSaving(true);
     try {
+      const latest = programEditorRef.current?.getSnapshot() ?? programDraft;
+      const payload = programDraftToPublishPayload(latest);
+      console.info("[program-save] payload", payload);
       const response = await fetch(`/admin/api/festivals/${festival.id}/schedule`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          program_draft: programDraftHasContent(programDraft) ? compactProgramDraft(programDraft) : null,
-        }),
+        body: JSON.stringify({ program_draft: payload }),
       });
+      const resBody = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, "Програмата не беше записана."));
+        throw new Error(
+          (resBody && typeof resBody === "object" && resBody.error) ||
+            (await readErrorMessage(response, "Грешка при запис")),
+        );
       }
-      toast.success("Програмата е записана.");
+      if (!resBody || resBody.ok !== true) {
+        toast.error("Няма записани промени");
+        return;
+      }
+      console.info("[program-save] saved", payload);
+      toast.success("Програмата е записана");
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Грешка при запис на програмата.");
+      toast.error(e instanceof Error ? e.message : "Грешка при запис");
     } finally {
       setProgramDraftSaving(false);
     }
@@ -1114,7 +1130,7 @@ export default function FestivalEditForm({
         description="Публично разписание по часове (сцени и събития). При запис в каталога се записва като отделни дни и точки в програмата."
         variant="default"
       >
-        <ProgramDraftEditor value={programDraft} onChange={setProgramDraft} />
+        <ProgramDraftEditor ref={programEditorRef} value={programDraft} onChange={setProgramDraft} />
         <div className="mt-3">
           <button
             type="button"

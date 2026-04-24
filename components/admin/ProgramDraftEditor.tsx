@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import {
   isScheduleTimeOrderInvalid,
@@ -67,12 +67,27 @@ type Props = {
   datePlaceholder?: string;
 };
 
-export default function ProgramDraftEditor({ value, onChange, datePlaceholder = "Дата" }: Props) {
+export type ProgramDraftEditorHandle = {
+  /** Current draft from editor blocks (same as last onChange, but safe to call right before save). */
+  getSnapshot: () => ProgramDraft;
+};
+
+const ProgramDraftEditor = forwardRef<ProgramDraftEditorHandle, Props>(function ProgramDraftEditor(
+  { value, onChange, datePlaceholder = "Дата" },
+  ref,
+) {
   const baseDraft = value && value.days ? value : emptyProgramDraft();
   const [blocks, setBlocks] = useState<ProgramEditorDayBlock[]>(() => programDraftToEditorDayBlocks(baseDraft));
   const lastEmittedRef = useRef<string>(serializeDraft(baseDraft));
   const blocksRef = useRef(blocks);
   blocksRef.current = blocks;
+
+  useImperativeHandle(ref, () => ({
+    getSnapshot: () =>
+      blocksRef.current.length
+        ? programDraftFromEditorDayBlocks(blocksRef.current.map((b) => ({ ...b, items: sortByStartTime(b.items) })))
+        : emptyProgramDraft(),
+  }));
 
   useEffect(() => {
     const incoming = serializeDraft(value ?? emptyProgramDraft());
@@ -313,4 +328,6 @@ export default function ProgramDraftEditor({ value, onChange, datePlaceholder = 
       </ul>
     </div>
   );
-}
+});
+
+export default ProgramDraftEditor;

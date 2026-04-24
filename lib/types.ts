@@ -37,6 +37,8 @@ export type Festival = {
   website_url?: string | null;
   source_url?: string | null;
   source_type?: string | null;
+  /** Last admin-saved program (JSON). May mirror `festival_days` + `festival_schedule_items`. */
+  program_draft?: unknown;
   tags?: string[] | null;
   status?: string | null;
   promotion_status?: "normal" | "promoted" | null;

@@ -13,6 +13,7 @@ import { buildFestivalsTagOrFilter } from "@/lib/festivals/buildFestivalsTagOrFi
 import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { compareFestivalsForListing, sortFestivalsForListing } from "@/lib/festival/sorting";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
+import { parseProgramDraftUnknown, programDraftToDetailSchedule } from "@/lib/festival/programDraft";
 
 export const FESTIVAL_SELECT_MIN =
   "id,title,slug,city_id,settlement_type,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
@@ -51,7 +52,7 @@ export function normalizePublicFestivalSlugParam(raw: string): string {
 }
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,settlement_type,location_name,address,organizer_id,organizer_name,lat,lng,place_id,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,settlement_type,location_name,address,organizer_id,organizer_name,lat,lng,place_id,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,program_draft,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
 
 const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -475,6 +476,7 @@ export async function getFestivalDetail(
   media: FestivalMediaItem[];
   days: FestivalDay[];
   scheduleItems: FestivalScheduleItem[];
+  usedProgramDraftFallback: boolean;
 } | null> {
   const supabase = supabaseServer();
   if (!supabase) {
@@ -540,11 +542,41 @@ export async function getFestivalDetail(
     description: item.description ? fixMojibakeBG(item.description) : item.description,
   }));
 
+  let outDays = fixedDays;
+  let outSchedule = fixedScheduleItems;
+  let usedProgramDraftFallback = false;
+  if (fixedScheduleItems.length === 0 && festival.program_draft != null) {
+    const parsed = parseProgramDraftUnknown(festival.program_draft);
+    if (parsed.ok) {
+      const fromDraft = programDraftToDetailSchedule(parsed.value, festival.id);
+      if (fromDraft.scheduleItems.length > 0) {
+        outDays = fromDraft.days.map((day) => ({
+          ...day,
+          title: day.title ? fixMojibakeBG(day.title) : day.title,
+        }));
+        outSchedule = fromDraft.scheduleItems.map((item) => ({
+          ...item,
+          title: fixMojibakeBG(item.title),
+          stage: item.stage ? fixMojibakeBG(item.stage) : item.stage,
+          description: item.description ? fixMojibakeBG(item.description) : item.description,
+        }));
+        usedProgramDraftFallback = true;
+      }
+    }
+  }
+
+  console.info("[program-load]", {
+    schedule_from_rows: fixedScheduleItems.length,
+    has_program_draft: festival.program_draft != null,
+    used_program_draft_fallback: usedProgramDraftFallback,
+  });
+
   return {
     festival,
     media: fixedMedia,
-    days: fixedDays,
-    scheduleItems: fixedScheduleItems,
+    days: outDays,
+    scheduleItems: outSchedule,
+    usedProgramDraftFallback,
   };
 }
 

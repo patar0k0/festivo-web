@@ -80,6 +80,8 @@ type Props = {
   adminEditHref?: string | null;
   /** Booking outbound interest (last 30d); server-derived from outbound_clicks. */
   showTravelPopularLabel?: boolean;
+  /** When false, schedule rows are shown from `program_draft` fallback — hide per-item plan actions. */
+  programItemPlanActions?: boolean;
 };
 
 type GroupedDay = {
@@ -204,6 +206,7 @@ export default function FestivalDetailClient({
   accommodationOffers,
   adminEditHref,
   showTravelPopularLabel = false,
+  programItemPlanActions = true,
 }: Props) {
   const groupedDays = useMemo(() => getGroupedDays(days, scheduleItems), [days, scheduleItems]);
   const sortedScheduleItems = useMemo(() => sortScheduleItems(scheduleItems), [scheduleItems]);
@@ -716,9 +719,15 @@ export default function FestivalDetailClient({
             </h2>
             {hasProgramContent ? (
               <>
-                <p className="mt-2 text-sm leading-relaxed text-black/60">
-                  Отделните часове добавяш към личния си план с бутона под всеки ред. Това е различно от напомнянето за целия фестивал — то се настройва от панела встрани.
-                </p>
+                {programItemPlanActions ? (
+                  <p className="mt-2 text-sm leading-relaxed text-black/60">
+                    Отделните часове добавяш към личния си план с бутона под всеки ред. Това е различно от напомнянето за целия фестивал — то се настройва от панела встрани.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm leading-relaxed text-black/60">
+                    Показваме запазена програма от администрацията, докато пълното публикувано разписание не е заредено в каталога.
+                  </p>
+                )}
                 <div className="mt-4 flex flex-wrap gap-2">
                   {groupedDays.map((day) => (
                     <button
@@ -767,40 +776,42 @@ export default function FestivalDetailClient({
                                   ) : null}
                                 </div>
                               </div>
-                              {isAdded ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    void toggleScheduleItem(itemId);
-                                  }}
-                                  className={cn(
-                                    "group shrink-0 text-sm font-medium text-[#7c2d12]",
-                                    pub.focusRing,
-                                  )}
-                                >
-                                  <span className="group-hover:hidden">{"\u2713"} В плана</span>
-                                  <span className="hidden text-black/60 group-hover:inline">Премахни</span>
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (!isAuthenticated) {
-                                      redirectToLoginForPlanAction({ action: "add_item", id: itemId });
-                                      return;
-                                    }
-                                    void toggleScheduleItem(itemId);
-                                    show(`Добавено: ${item.title}`);
-                                    setHighlightId(itemId);
-                                  }}
-                                  className={cn(
-                                    "shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm transition-all hover:bg-black/5 active:scale-95",
-                                    pub.focusRing,
-                                  )}
-                                >
-                                  + Добави в план
-                                </button>
-                              )}
+                              {programItemPlanActions ? (
+                                isAdded ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void toggleScheduleItem(itemId);
+                                    }}
+                                    className={cn(
+                                      "group shrink-0 text-sm font-medium text-[#7c2d12]",
+                                      pub.focusRing,
+                                    )}
+                                  >
+                                    <span className="group-hover:hidden">{"\u2713"} В плана</span>
+                                    <span className="hidden text-black/60 group-hover:inline">Премахни</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!isAuthenticated) {
+                                        redirectToLoginForPlanAction({ action: "add_item", id: itemId });
+                                        return;
+                                      }
+                                      void toggleScheduleItem(itemId);
+                                      show(`Добавено: ${item.title}`);
+                                      setHighlightId(itemId);
+                                    }}
+                                    className={cn(
+                                      "shrink-0 rounded-full border border-black/10 px-4 py-2 text-sm transition-all hover:bg-black/5 active:scale-95",
+                                      pub.focusRing,
+                                    )}
+                                  >
+                                    + Добави в план
+                                  </button>
+                                )
+                              ) : null}
                             </div>
                           </div>
                         </article>

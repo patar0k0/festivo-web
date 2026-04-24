@@ -138,6 +138,7 @@ export default async function Page({
             accommodationOffers={accommodationOffers}
             adminEditHref={adminEditHref}
             showTravelPopularLabel={showTravelPopularLabel}
+            programItemPlanActions={!data.usedProgramDraftFallback}
           />
         </Container>
       </Section>

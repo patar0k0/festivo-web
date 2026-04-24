@@ -11,7 +11,7 @@ import {
 } from "@/lib/admin/research/pendingCreateHandoff";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
-import { compactProgramDraft, parseProgramDraftUnknown, programDraftHasContent } from "@/lib/festival/programDraft";
+import { parseProgramDraftUnknown, programDraftToPublishPayload } from "@/lib/festival/programDraft";
 import { normalizeBgLocation } from "@/lib/location/normalizeBgLocation";
 import { geocodeLocation } from "@/lib/location/geocodeLocation";
 import type { ResearchBestGuess, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
@@ -275,7 +275,7 @@ export async function POST(request: Request) {
       if (!pd.ok) {
         return NextResponse.json({ error: `program_draft: ${pd.error}` }, { status: 400 });
       }
-      aiProgramDraftInsert = programDraftHasContent(pd.value) ? compactProgramDraft(pd.value) : null;
+      aiProgramDraftInsert = programDraftToPublishPayload(pd.value);
     }
 
     const insertPayload: Record<string, unknown> = {
@@ -377,7 +377,7 @@ export async function POST(request: Request) {
     if (!pd.ok) {
       return NextResponse.json({ error: `program_draft: ${pd.error}` }, { status: 400 });
     }
-    programDraftForInsert = programDraftHasContent(pd.value) ? compactProgramDraft(pd.value) : null;
+    programDraftForInsert = programDraftToPublishPayload(pd.value);
   }
 
   const heroResolvedLegacy = await resolveHeroImageFieldForInsert(sanitizeNullableString(finalValues.hero_image));

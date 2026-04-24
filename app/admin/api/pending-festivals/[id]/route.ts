@@ -7,7 +7,7 @@ import { pendingPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { mergeOccurrenceDatesWithRange } from "@/lib/festival/occurrenceDates";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 import { logAdminAction } from "@/lib/admin/audit-log";
-import { compactProgramDraft, parseProgramDraftUnknown, programDraftHasContent } from "@/lib/festival/programDraft";
+import { parseProgramDraftUnknown, programDraftToPublishPayload } from "@/lib/festival/programDraft";
 
 const EXTRA_EDITABLE_FIELDS = [
   "description_clean",
@@ -177,7 +177,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         if (!parsed.ok) {
           return NextResponse.json({ error: parsed.error }, { status: 400 });
         }
-        patch.program_draft = programDraftHasContent(parsed.value) ? compactProgramDraft(parsed.value) : null;
+        patch.program_draft = programDraftToPublishPayload(parsed.value);
       }
     }
 

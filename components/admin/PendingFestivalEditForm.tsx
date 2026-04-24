@@ -42,7 +42,14 @@ import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSu
 import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
 import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
 import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
-import { compactProgramDraft, emptyProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
+import {
+  compactProgramDraft,
+  emptyProgramDraft,
+  parseProgramDraftUnknown,
+  programDraftToPublishPayload,
+  programDraftHasContent,
+  type ProgramDraft,
+} from "@/lib/festival/programDraft";
 import { parseGoogleMapsUrl } from "@/lib/location/parseGoogleMapsUrl";
 import { extractPlaceIdFromGoogleMapsUrl } from "@/lib/location/extractPlaceIdFromGoogleMapsUrl";
 import { buildGoogleMapsEmbedSrc } from "@/lib/location/buildGoogleMapsUrl";
@@ -832,7 +839,7 @@ export default function PendingFestivalEditForm({
           tags: form.tags,
           video_url: videoUrlExtra.trim() || null,
           gallery_image_urls: galleryUrls,
-          program_draft: programDraftHasContent(programDraft) ? compactProgramDraft(programDraft) : null,
+          program_draft: programDraftToPublishPayload(programDraft),
         }),
       });
 
@@ -875,6 +882,7 @@ export default function PendingFestivalEditForm({
   const onFindCoords = async () => {
     if (saving || runningAction || findingCoords) return;
 
+    let placeIdFromMaps: string | null = null;
     let mapsFailed = false;
     const trimmed = mapsUrlInput.trim();
 
@@ -895,16 +903,16 @@ export default function PendingFestivalEditForm({
             });
           }
 
+          placeIdFromMaps = extractPlaceIdFromGoogleMapsUrl(trimmed);
+          if (placeIdFromMaps) {
+            updateField("place_id", placeIdFromMaps);
+            console.info("[maps] extracted place_id", placeIdFromMaps);
+          }
+
           const lat = coords.lat.toFixed(6);
           const lng = coords.lng.toFixed(6);
           updateField("latitude", lat);
           updateField("longitude", lng);
-
-          const placeId = extractPlaceIdFromGoogleMapsUrl(trimmed);
-          if (placeId) {
-            updateField("place_id", placeId);
-            console.info("[maps] extracted place_id", placeId);
-          }
 
           console.info("[coords] source=maps-url", coords);
           toast.success("Координатите са извлечени от Google Maps линка");
@@ -950,9 +958,13 @@ export default function PendingFestivalEditForm({
         const lng = payload.lng.toFixed(6);
         updateField("latitude", lat);
         updateField("longitude", lng);
-        const geoPlace =
-          typeof payload.place_id === "string" && payload.place_id.trim() ? payload.place_id.trim() : "";
-        updateField("place_id", geoPlace);
+        if (!placeIdFromMaps) {
+          const geoPlaceId =
+            typeof payload.place_id === "string" && payload.place_id.trim() ? payload.place_id.trim() : null;
+          if (geoPlaceId) {
+            updateField("place_id", geoPlaceId);
+          }
+        }
         const coords = { lat: payload.lat, lng: payload.lng };
         toast.success("Координатите са намерени");
         console.info("[coords] source=geocode", coords);

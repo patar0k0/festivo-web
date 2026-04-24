@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { FestivalDay, FestivalScheduleItem } from "@/lib/types";
 import {
   normalizeScheduleItemTimePair,
   parseHmInputToDbTime,
@@ -175,6 +176,50 @@ export function compactProgramDraft(draft: ProgramDraft): ProgramDraft {
 export function programDraftHasContent(draft: ProgramDraft | null | undefined): boolean {
   if (!draft?.days?.length) return false;
   return draft.days.some((d) => d.items.length > 0);
+}
+
+/**
+ * What we actually persist: compact strips empty titles, invalid dates, etc.
+ * Use this (not raw `programDraftHasContent` alone) to decide the saved payload, client and server.
+ */
+export function programDraftToPublishPayload(draft: ProgramDraft | null | undefined): ProgramDraft | null {
+  if (!draft?.days?.length) return null;
+  const compacted = compactProgramDraft(draft);
+  return programDraftHasContent(compacted) ? compacted : null;
+}
+
+/** Build public detail schedule from stored JSON when `festival_schedule_items` are empty (e.g. RLS gaps). */
+export function programDraftToDetailSchedule(draft: ProgramDraft, festivalId: string | number): {
+  days: FestivalDay[];
+  scheduleItems: FestivalScheduleItem[];
+} {
+  const c = programDraftToPublishPayload(draft);
+  if (!c) return { days: [], scheduleItems: [] };
+  const outDays: FestivalDay[] = [];
+  const outItems: FestivalScheduleItem[] = [];
+  for (const d of c.days) {
+    const dateKey = d.date.slice(0, 10);
+    const dayId = `pd-fb-${String(festivalId)}-${dateKey}`;
+    outDays.push({
+      id: dayId,
+      festival_id: festivalId,
+      date: d.date,
+      title: d.title ?? null,
+    });
+    d.items.forEach((it, idx) => {
+      outItems.push({
+        id: `pd-fbi-${String(festivalId)}-${dateKey}-${idx}`,
+        day_id: dayId,
+        start_time: it.start_time ?? null,
+        end_time: it.end_time ?? null,
+        stage: it.stage ?? null,
+        title: it.title,
+        description: it.description ?? null,
+        sort_order: it.sort_order ?? idx,
+      });
+    });
+  }
+  return { days: outDays, scheduleItems: outItems };
 }
 
 function cloneProgramDraft(d: ProgramDraft): ProgramDraft {
@@ -534,6 +579,8 @@ export async function replaceFestivalScheduleFromProgramDraft(
   }
 
   if (itemRows.length === 0) {
+    const newDayIds = insertedDays.map((r) => r.id as string);
+    await admin.from("festival_days").delete().in("id", newDayIds);
     return;
   }
 

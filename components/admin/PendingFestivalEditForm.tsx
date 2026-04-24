@@ -54,6 +54,7 @@ import { parseGoogleMapsUrl } from "@/lib/location/parseGoogleMapsUrl";
 import { extractPlaceIdFromGoogleMapsUrl } from "@/lib/location/extractPlaceIdFromGoogleMapsUrl";
 import { buildGoogleMapsEmbedSrc } from "@/lib/location/buildGoogleMapsUrl";
 import { isFarFromCity } from "@/lib/location/isFarFromCity";
+import { resolveCoordsFromPlaceId } from "@/lib/location/resolveCoordsFromPlaceId";
 import { toast } from "sonner";
 
 export type PendingFestivalRecord = {
@@ -720,6 +721,31 @@ export default function PendingFestivalEditForm({
     }
     setForm((prev) => ({ ...prev, [key]: value }));
   };
+
+  useEffect(() => {
+    const placeId = form.place_id.trim();
+    if (!placeId) return;
+    const hasLat = form.latitude.trim() !== "" && Number.isFinite(Number(form.latitude));
+    const hasLng = form.longitude.trim() !== "" && Number.isFinite(Number(form.longitude));
+    if (hasLat || hasLng) return;
+
+    let cancelled = false;
+    void resolveCoordsFromPlaceId(placeId).then((coords) => {
+      if (cancelled) return;
+      if (!coords) return;
+      setForm((prev) => {
+        if (prev.place_id.trim() !== placeId) return prev;
+        const okLat = prev.latitude.trim() !== "" && Number.isFinite(Number(prev.latitude));
+        const okLng = prev.longitude.trim() !== "" && Number.isFinite(Number(prev.longitude));
+        if (okLat || okLng) return prev;
+        return { ...prev, latitude: coords.lat.toFixed(6), longitude: coords.lng.toFixed(6) };
+      });
+      console.info("[coords] resolved from place_id", coords);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.place_id, form.latitude, form.longitude]);
 
   const applySuggestion = (field: SuggestionField, value: string | string[]) => {
     let applied = false;
@@ -1561,7 +1587,6 @@ export default function PendingFestivalEditForm({
             </label>
             {(() => {
               const mapEmbedPreview = buildGoogleMapsEmbedSrc({
-                place_id: form.place_id.trim() || null,
                 lat: form.latitude,
                 lng: form.longitude,
               });

@@ -15,7 +15,11 @@ import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
-import { buildGoogleMapsEmbedSrc, buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
+import {
+  buildGoogleMapsEmbedSrc,
+  buildGoogleMapsUrl,
+  DEFAULT_GOOGLE_MAPS_HREF,
+} from "@/lib/location/buildGoogleMapsUrl";
 
 /** Match `/organizers/[slug]`: avoid caching a stale `notFound()` / partial payload across soft navigation and ISR. */
 export const dynamic = "force-dynamic";
@@ -85,19 +89,24 @@ export default async function Page({
     mapLat != null && mapLng != null && Number.isFinite(Number(mapLat)) && Number.isFinite(Number(mapLng))
       ? `${mapLat},${mapLng}`
       : null;
-  const mapHref =
-    buildGoogleMapsUrl({
-      place_id: data.festival.place_id,
+  const mapHref = (() => {
+    const built = buildGoogleMapsUrl({
+      placeId: data.festival.place_id,
       lat: mapLat ?? undefined,
       lng: mapLng ?? undefined,
-    }) ??
-    (mapQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}` : null);
+    });
+    if (built !== DEFAULT_GOOGLE_MAPS_HREF) return built;
+    if (mapQuery) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
+    }
+    return null;
+  })();
+  const mapEmbedRaw = buildGoogleMapsEmbedSrc({
+    lat: mapLat ?? undefined,
+    lng: mapLng ?? undefined,
+  });
   const mapEmbedSrc =
-    buildGoogleMapsEmbedSrc({
-      place_id: data.festival.place_id,
-      lat: mapLat ?? undefined,
-      lng: mapLng ?? undefined,
-    }) ?? (mapQuery ? `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed` : null);
+    mapEmbedRaw || (mapQuery ? `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed` : null);
   const calendarMonth = data.festival.start_date ? format(parseISO(data.festival.start_date), "yyyy-MM") : null;
 
   const [relatedResponse, adminSession, accommodationOffers, bookingClicks30d] = await Promise.all([

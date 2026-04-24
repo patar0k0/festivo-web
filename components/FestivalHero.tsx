@@ -11,18 +11,21 @@ import { Festival } from "@/lib/types";
 import OpenInAppButton from "@/components/OpenInAppButton";
 import QRCodeBlock from "@/components/QRCodeBlock";
 import { festivalDeepLink } from "@/lib/deepLink";
-import { buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
+import { buildGoogleMapsUrl, DEFAULT_GOOGLE_MAPS_HREF } from "@/lib/location/buildGoogleMapsUrl";
 
 export default function FestivalHero({ festival }: { festival: Festival }) {
   const deepLink = festivalDeepLink(festival.slug);
   const heroImage = getFestivalHeroImage(festival);
   const mapsQuery = [formatPublicFestivalLocationSummary(festival), festivalCityLabel(festival, "")].filter(Boolean).join(", ");
+  const mapBuilt = buildGoogleMapsUrl({
+    placeId: festival.place_id,
+    lat: festival.latitude ?? festival.lat ?? undefined,
+    lng: festival.longitude ?? festival.lng ?? undefined,
+  });
   const mapsHref =
-    buildGoogleMapsUrl({
-      place_id: festival.place_id,
-      lat: festival.latitude ?? festival.lat,
-      lng: festival.longitude ?? festival.lng,
-    }) ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`;
+    mapBuilt === DEFAULT_GOOGLE_MAPS_HREF && mapsQuery
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`
+      : mapBuilt;
   return (
     <section className="relative overflow-hidden rounded-3xl border border-ink/10 bg-ink/80">
       <div className="absolute inset-0">

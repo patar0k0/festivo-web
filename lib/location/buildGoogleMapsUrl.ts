@@ -1,35 +1,57 @@
-export function buildGoogleMapsUrl(f: {
-  place_id?: string | null;
-  lat?: number | string | null;
-  lng?: number | string | null;
-}) {
-  const placeId = typeof f.place_id === "string" ? f.place_id.trim() : "";
-  if (placeId) {
-    return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
-  }
+const DEFAULT_GOOGLE_MAPS_HREF = "https://www.google.com/maps" as const;
 
-  if (f.lat && f.lng) {
-    return `https://www.google.com/maps?q=${f.lat},${f.lng}`;
-  }
+export { DEFAULT_GOOGLE_MAPS_HREF };
 
-  return null;
+function toFinite(n: number | string | null | undefined): number | undefined {
+  if (n == null) return undefined;
+  if (typeof n === "string" && n.trim() === "") return undefined;
+  const v = Number(n);
+  return Number.isFinite(v) ? v : undefined;
 }
 
-/** Embed iframe `src` — prefers `place_id` when present so the preview matches the POI. */
-export function buildGoogleMapsEmbedSrc(f: {
-  place_id?: string | null;
+export function buildGoogleMapsUrl({
+  lat,
+  lng,
+  placeId,
+}: {
   lat?: number | string | null;
   lng?: number | string | null;
-}): string | null {
-  const pid = typeof f.place_id === "string" ? f.place_id.trim() : "";
+  placeId?: string | null;
+}): string {
+  const pid = (placeId ?? "").trim();
   if (pid) {
-    return `https://maps.google.com/maps?q=place_id:${encodeURIComponent(pid)}&z=15&output=embed`;
+    return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(
+      pid
+    )}`;
   }
 
-  if (f.lat != null && f.lng != null && String(f.lat).trim() !== "" && String(f.lng).trim() !== "") {
-    const q = `${f.lat},${f.lng}`;
-    return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=15&output=embed`;
+  const la = toFinite(lat);
+  const lo = toFinite(lng);
+  if (la != null && lo != null) {
+    return `https://www.google.com/maps/search/?api=1&query=${la},${lo}`;
   }
 
-  return null;
+  return DEFAULT_GOOGLE_MAPS_HREF;
+}
+
+/** Embeds use coordinates only. place_id is not used (reliable embed URLs need a Maps API key). */
+export function buildGoogleMapsEmbedSrc({
+  lat,
+  lng,
+}: {
+  lat?: number | string | null;
+  lng?: number | string | null;
+}): string {
+  const nLat =
+    lat == null || (typeof lat === "string" && lat.trim() === "") ? Number.NaN : Number(lat);
+  const nLng =
+    lng == null || (typeof lng === "string" && lng.trim() === "") ? Number.NaN : Number(lng);
+  const validLat = Number.isFinite(nLat) ? nLat : null;
+  const validLng = Number.isFinite(nLng) ? nLng : null;
+
+  if (validLat != null && validLng != null) {
+    return `https://www.google.com/maps?q=${validLat},${validLng}&z=15&output=embed`;
+  }
+
+  return "";
 }

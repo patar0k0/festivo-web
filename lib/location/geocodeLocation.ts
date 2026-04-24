@@ -119,3 +119,52 @@ export async function geocodeLocation(query: string | null | undefined): Promise
 
   return geocodeWithOsm(trimmed);
 }
+
+/** Resolves a Google `place_id` to coordinates. Requires `GOOGLE_GEOCODING_API_KEY` (or `GOOGLE_MAPS_API_KEY`). */
+export async function geocodeByPlaceId(placeId: string | null | undefined): Promise<GeocodeLocationResult | null> {
+  if (typeof placeId !== "string") return null;
+  const trimmed = placeId.trim();
+  if (!trimmed) return null;
+
+  const apiKey = getGoogleApiKey();
+  if (!apiKey) return null;
+
+  const params = new URLSearchParams({
+    place_id: trimmed,
+    language: "bg",
+    key: apiKey,
+  });
+
+  try {
+    const response = await fetch(`${GOOGLE_GEOCODE_URL}?${params.toString()}`);
+    if (!response.ok) return null;
+
+    const payload = (await response.json().catch(() => null)) as
+      | {
+          status?: string;
+          results?: Array<{
+            place_id?: string;
+            geometry?: { location?: { lat?: unknown; lng?: unknown } };
+          }>;
+        }
+      | null;
+
+    if (!payload || payload.status !== "OK" || !Array.isArray(payload.results) || payload.results.length === 0) {
+      return null;
+    }
+
+    const first = payload.results[0];
+    const lat = asFiniteNumber(first?.geometry?.location?.lat);
+    const lng = asFiniteNumber(first?.geometry?.location?.lng);
+    if (lat === null || lng === null) return null;
+
+    return {
+      lat,
+      lng,
+      placeId: typeof first.place_id === "string" && first.place_id.trim() ? first.place_id.trim() : trimmed,
+      provider: "google",
+    };
+  } catch {
+    return null;
+  }
+}

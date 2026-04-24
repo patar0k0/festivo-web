@@ -42,6 +42,7 @@ import { parseGoogleMapsUrl } from "@/lib/location/parseGoogleMapsUrl";
 import { extractPlaceIdFromGoogleMapsUrl } from "@/lib/location/extractPlaceIdFromGoogleMapsUrl";
 import { buildGoogleMapsEmbedSrc } from "@/lib/location/buildGoogleMapsUrl";
 import { isFarFromCity } from "@/lib/location/isFarFromCity";
+import { resolveCoordsFromPlaceId } from "@/lib/location/resolveCoordsFromPlaceId";
 import { toast } from "sonner";
 
 type FestivalRecord = {
@@ -318,7 +319,10 @@ export default function FestivalEditForm({
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
   const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(festival.occurrence_dates) ?? []);
   const [programDraft, setProgramDraft] = useState<ProgramDraft>(() => initialProgramDraft ?? emptyProgramDraft());
-  const [programDraftSaving, setProgramDraftSaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const initialDraftRef = useRef<string | null>(
+    JSON.stringify(programDraftToPublishPayload(initialProgramDraft ?? emptyProgramDraft())),
+  );
   const router = useRouter();
 
   useEffect(() => {
@@ -331,7 +335,9 @@ export default function FestivalEditForm({
 
   const initialProgramDraftKey = JSON.stringify(initialProgramDraft ?? null);
   useEffect(() => {
-    setProgramDraft(initialProgramDraft ?? emptyProgramDraft());
+    const next = initialProgramDraft ?? emptyProgramDraft();
+    setProgramDraft(next);
+    initialDraftRef.current = JSON.stringify(programDraftToPublishPayload(next));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `initialProgramDraftKey` tracks `initialProgramDraft` without unstable object identity
   }, [festival.id, initialProgramDraftKey]);
 
@@ -372,6 +378,31 @@ export default function FestivalEditForm({
   const updateField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
+
+  useEffect(() => {
+    const placeId = form.place_id.trim();
+    if (!placeId) return;
+    const hasLat = form.latitude.trim() !== "" && Number.isFinite(Number(form.latitude));
+    const hasLng = form.longitude.trim() !== "" && Number.isFinite(Number(form.longitude));
+    if (hasLat || hasLng) return;
+
+    let cancelled = false;
+    void resolveCoordsFromPlaceId(placeId).then((coords) => {
+      if (cancelled) return;
+      if (!coords) return;
+      setForm((prev) => {
+        if (prev.place_id.trim() !== placeId) return prev;
+        const okLat = prev.latitude.trim() !== "" && Number.isFinite(Number(prev.latitude));
+        const okLng = prev.longitude.trim() !== "" && Number.isFinite(Number(prev.longitude));
+        if (okLat || okLng) return prev;
+        return { ...prev, latitude: coords.lat.toFixed(6), longitude: coords.lng.toFixed(6) };
+      });
+      console.info("[coords] resolved from place_id", coords);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.place_id, form.latitude, form.longitude]);
 
   const updateOrganizerIds = (organizerIds: string[]) => {
     const uniqueOrganizerIds = organizerIds.filter((id, index) => organizerIds.indexOf(id) === index);
@@ -746,16 +777,24 @@ export default function FestivalEditForm({
   };
 
   const onSaveProgramDraft = async () => {
-    setProgramDraftSaving(true);
+    if (isSaving) return;
+
+    const latest = programEditorRef.current?.getSnapshot() ?? programDraft;
+    const normalized = programDraftToPublishPayload(latest);
+    const normalizedString = JSON.stringify(normalized);
+    if (normalizedString === initialDraftRef.current) {
+      toast("Няма промени");
+      return;
+    }
+
+    setIsSaving(true);
     try {
-      const latest = programEditorRef.current?.getSnapshot() ?? programDraft;
-      const payload = programDraftToPublishPayload(latest);
-      console.info("[program-save] payload", payload);
+      console.info("[program-save] payload", normalized);
       const response = await fetch(`/admin/api/festivals/${festival.id}/schedule`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ program_draft: payload }),
+        body: JSON.stringify({ program_draft: normalized }),
       });
       const resBody = (await response.json().catch(() => null)) as
         | { ok?: boolean; error?: string; savedItemsCount?: number }
@@ -765,11 +804,12 @@ export default function FestivalEditForm({
         return;
       }
 
-      if (!resBody?.savedItemsCount && payload !== null) {
+      if (!resBody?.savedItemsCount && normalized !== null) {
         toast.warning("Няма записани елементи в програмата");
         return;
       }
 
+      initialDraftRef.current = normalizedString;
       console.info("[program-save] saved", {
         festivalId: festival.id,
         savedItemsCount: resBody?.savedItemsCount,
@@ -779,7 +819,7 @@ export default function FestivalEditForm({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Грешка при запис");
     } finally {
-      setProgramDraftSaving(false);
+      setIsSaving(false);
     }
   };
 
@@ -1140,10 +1180,10 @@ export default function FestivalEditForm({
           <button
             type="button"
             onClick={onSaveProgramDraft}
-            disabled={programDraftSaving || Boolean(actionPending) || saving}
+            disabled={isSaving || Boolean(actionPending) || saving}
             className="rounded-lg border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
           >
-            {programDraftSaving ? "Запис…" : "Запази програмата"}
+            {isSaving ? "Запис..." : "Запази"}
           </button>
         </div>
       </AdminFieldSection>
@@ -1188,7 +1228,6 @@ export default function FestivalEditForm({
           </label>
           {(() => {
             const mapEmbedPreview = buildGoogleMapsEmbedSrc({
-              place_id: form.place_id.trim() || null,
               lat: form.latitude,
               lng: form.longitude,
             });

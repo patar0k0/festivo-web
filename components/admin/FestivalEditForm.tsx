@@ -635,19 +635,28 @@ export default function FestivalEditForm({
 
     const mapsTrimmed = mapsUrlInput.trim();
     if (mapsTrimmed) {
-      const parsed = parseGoogleMapsUrl(mapsTrimmed);
-      if (!parsed) {
+      try {
+        const coords = parseGoogleMapsUrl(mapsTrimmed);
+
+        if (coords) {
+          updateField("latitude", String(coords.lat));
+          updateField("longitude", String(coords.lng));
+          setError("");
+          setMessage("Координатите са попълнени от Google Maps линк.");
+          console.info("[maps-url] parsed", { lat: coords.lat, lng: coords.lng });
+          return;
+        }
+
         setMessage("");
-        toast.error("Невалиден Google Maps линк");
-        return;
+        toast.error("Не можахме да извлечем координати от линка");
+      } catch (e) {
+        setMessage("");
+        if (e instanceof Error && e.message === "short-link") {
+          toast.error("Отвори линка и копирай пълния Google Maps URL");
+        } else {
+          toast.error("Невалиден Google Maps линк");
+        }
       }
-      updateField("latitude", String(parsed.lat));
-      updateField("longitude", String(parsed.lng));
-      setMapsUrlInput("");
-      setError("");
-      setMessage("Координатите са попълнени от Google Maps линк.");
-      console.info("[maps-url] parsed", { lat: parsed.lat, lng: parsed.lng });
-      return;
     }
 
     const plusTrimmed = plusCodeInput.trim();

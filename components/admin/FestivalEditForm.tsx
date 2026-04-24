@@ -38,7 +38,6 @@ import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
 import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
 import AdminDateTimeLocalInput from "@/components/admin/inputs/AdminDateTimeLocalInput";
 import { compactProgramDraft, emptyProgramDraft, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
-import { decodePlusCode } from "@/lib/location/decodePlusCode";
 import { parseGoogleMapsUrl } from "@/lib/location/parseGoogleMapsUrl";
 import { toast } from "sonner";
 
@@ -243,7 +242,6 @@ export default function FestivalEditForm({
   });
   const isPromotionEnabled = form.promotion_status === "promoted";
 
-  const [message, setMessage] = useState<string>("");
   const [organizerOptions, setOrganizerOptions] = useState<OrganizerOption[]>(organizers);
   const [organizerSearch, setOrganizerSearch] = useState("");
   const [pendingOrganizerId, setPendingOrganizerId] = useState("");
@@ -257,11 +255,9 @@ export default function FestivalEditForm({
     facebook_url: "",
     instagram_url: "",
   });
-  const [error, setError] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [findingCoords, setFindingCoords] = useState(false);
   const [mapsUrlInput, setMapsUrlInput] = useState("");
-  const [plusCodeInput, setPlusCodeInput] = useState("");
   const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
   const mediaSnapshot = JSON.stringify(initialMedia.map((m) => ({ id: m.id, url: m.url, type: m.type, is_hero: m.is_hero ?? null })));
 
@@ -317,8 +313,6 @@ export default function FestivalEditForm({
   const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(festival.occurrence_dates) ?? []);
   const [programDraft, setProgramDraft] = useState<ProgramDraft>(() => initialProgramDraft ?? emptyProgramDraft());
   const [programDraftSaving, setProgramDraftSaving] = useState(false);
-  const [programDraftMessage, setProgramDraftMessage] = useState("");
-  const [programDraftError, setProgramDraftError] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -430,17 +424,15 @@ export default function FestivalEditForm({
 
     const url = sourceUrl.trim();
     if (!url) {
-      setError("Поставете валиден URL на изображение.");
+      toast.error("Поставете валиден URL на изображение.");
       return;
     }
     if (!/^https?:\/\//i.test(url)) {
-      setError("URL трябва да започва с http:// или https://.");
+      toast.error("URL трябва да започва с http:// или https://.");
       return;
     }
 
     setImportingHeroFromUrl(true);
-    setMessage("");
-    setError("");
 
     try {
       const response = await fetch(`/admin/api/festivals/${festival.id}/hero-image`, {
@@ -460,10 +452,10 @@ export default function FestivalEditForm({
       if (imported) {
         updateField("hero_image", imported);
       }
-      setMessage("Главното изображение е обновено.");
+      toast.success("Главното изображение е обновено.");
       router.refresh();
     } catch (importErr) {
-      setError(importErr instanceof Error ? importErr.message : "Възникна грешка при импорт.");
+      toast.error(importErr instanceof Error ? importErr.message : "Възникна грешка при импорт.");
     } finally {
       setImportingHeroFromUrl(false);
     }
@@ -476,12 +468,10 @@ export default function FestivalEditForm({
   const uploadHeroImageFile = async (file: File) => {
     if (galleryOpsBusy || saving || actionPending || importingHeroFromUrl) return;
     if (!heroHasImage && galleryImageCount >= mediaLimits.gallery) {
-      setError("Лимитът за галерия е достигнат. Използвайте полето за URL или ъпгрейд към VIP за повече снимки.");
+      toast.error("Лимитът за галерия е достигнат. Използвайте полето за URL или ъпгрейд към VIP за повече снимки.");
       return;
     }
     setGalleryBusy(true);
-    setMessage("");
-    setError("");
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -492,7 +482,7 @@ export default function FestivalEditForm({
       }
       await commitHeroFromUrl(payload.row.url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Грешка при качване.");
+      toast.error(e instanceof Error ? e.message : "Грешка при качване.");
     } finally {
       setGalleryBusy(false);
     }
@@ -501,19 +491,17 @@ export default function FestivalEditForm({
   const importGalleryImageFromUrl = async () => {
     const url = galleryImportUrl.trim();
     if (!url) {
-      setError("Поставете валиден URL на изображение.");
+      toast.error("Поставете валиден URL на изображение.");
       return;
     }
     if (!/^https?:\/\//i.test(url)) {
-      setError("URL трябва да започва с http:// или https://.");
+      toast.error("URL трябва да започва с http:// или https://.");
       return;
     }
     if (galleryOpsBusy || saving || actionPending || importingHeroFromUrl) return;
     if (galleryAtLimit) return;
 
     setImportingGalleryFromUrl(true);
-    setMessage("");
-    setError("");
     try {
       const res = await fetch(`/admin/api/festivals/${festival.id}/media`, {
         method: "POST",
@@ -526,10 +514,10 @@ export default function FestivalEditForm({
         throw new Error(payload?.error ?? "Импортът в галерията не бе успешен.");
       }
       setGalleryImportUrl("");
-      setMessage("Снимката е добавена към галерията.");
+      toast.success("Снимката е добавена към галерията.");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Грешка при импорт в галерията.");
+      toast.error(e instanceof Error ? e.message : "Грешка при импорт в галерията.");
     } finally {
       setImportingGalleryFromUrl(false);
     }
@@ -538,8 +526,6 @@ export default function FestivalEditForm({
   const uploadGalleryImage = async (file: File) => {
     if (galleryOpsBusy || saving || actionPending) return;
     setGalleryBusy(true);
-    setMessage("");
-    setError("");
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -548,10 +534,10 @@ export default function FestivalEditForm({
       if (!res.ok || !payload?.ok || !payload.row) {
         throw new Error(payload?.error ?? "Качването на снимка не бе успешно.");
       }
-      setMessage("Снимката е добавена към галерията.");
+      toast.success("Снимката е добавена към галерията.");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Грешка при качване.");
+      toast.error(e instanceof Error ? e.message : "Грешка при качване.");
     } finally {
       setGalleryBusy(false);
     }
@@ -560,8 +546,6 @@ export default function FestivalEditForm({
   const removeGalleryImage = async (mediaId: string, imageUrl: string) => {
     if (galleryOpsBusy || saving || actionPending) return;
     setGalleryBusy(true);
-    setMessage("");
-    setError("");
     try {
       const res = await fetch(`/admin/api/festivals/${festival.id}/media/${encodeURIComponent(mediaId)}`, {
         method: "DELETE",
@@ -571,14 +555,14 @@ export default function FestivalEditForm({
       if (!res.ok || !payload?.ok) {
         throw new Error(payload?.error ?? "Премахването не бе успешно.");
       }
-      setMessage("Снимката е премахната от галерията.");
+      toast.success("Снимката е премахната от галерията.");
       const removedUrl = imageUrl.trim();
       if (removedUrl && form.hero_image.trim() === removedUrl) {
         updateField("hero_image", "");
       }
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Грешка при премахване.");
+      toast.error(e instanceof Error ? e.message : "Грешка при премахване.");
     } finally {
       setGalleryBusy(false);
     }
@@ -589,12 +573,10 @@ export default function FestivalEditForm({
     const raw = overrideUrl !== undefined ? overrideUrl : videoUrl;
     const trimmed = raw.trim();
     if (trimmed && !isSupportedVideoPageUrl(trimmed)) {
-      setError("Видео линкът трябва да е публичен YouTube или Facebook адрес.");
+      toast.error("Видео линкът трябва да е публичен YouTube или Facebook адрес.");
       return;
     }
     setVideoBusy(true);
-    setMessage("");
-    setError("");
     try {
       const res = await fetch(`/admin/api/festivals/${festival.id}/media/video`, {
         method: "PUT",
@@ -609,10 +591,10 @@ export default function FestivalEditForm({
       if (overrideUrl !== undefined) {
         setVideoUrl(trimmed);
       }
-      setMessage(trimmed ? "Видео линкът е записан." : "Видео линкът е изчистен.");
+      toast.success(trimmed ? "Видео линкът е записан." : "Видео линкът е изчистен.");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Грешка при запис на видео.");
+      toast.error(e instanceof Error ? e.message : "Грешка при запис на видео.");
     } finally {
       setVideoBusy(false);
     }
@@ -621,36 +603,46 @@ export default function FestivalEditForm({
   const onValidateCoords = () => {
     const validation = validateCoords(form.latitude, form.longitude);
     if (validation.valid) {
-      setError("");
-      setMessage(validation.message);
+      toast.success(validation.message);
       return;
     }
 
-    setMessage("");
-    setError(validation.message);
+    toast.error(validation.message);
   };
 
   const onFindCoords = async () => {
     if (findingCoords || saving || actionPending) return;
 
-    const mapsTrimmed = mapsUrlInput.trim();
-    if (mapsTrimmed) {
+    const trimmed = mapsUrlInput.trim();
+
+    if (trimmed) {
       try {
-        const coords = parseGoogleMapsUrl(mapsTrimmed);
+        const coords = parseGoogleMapsUrl(trimmed);
 
         if (coords) {
+          const latitude = form.latitude;
+          const longitude = form.longitude;
+          const hasExisting =
+            Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+
+          if (hasExisting) {
+            console.warn("[maps-url] overriding existing coords", {
+              old: { latitude, longitude },
+              new: coords,
+            });
+          }
+
           updateField("latitude", String(coords.lat));
           updateField("longitude", String(coords.lng));
-          setError("");
-          setMessage("Координатите са попълнени от Google Maps линк.");
-          console.info("[maps-url] parsed", { lat: coords.lat, lng: coords.lng });
-          return;
-        }
 
-        setMessage("");
-        toast.error("Не можахме да извлечем координати от линка");
+          console.info("[coords] source=maps-url", coords);
+          toast.success("Координатите са извлечени от Google Maps линка");
+
+          return;
+        } else {
+          toast.error("Не можахме да извлечем координати от линка");
+        }
       } catch (e) {
-        setMessage("");
         if (e instanceof Error && e.message === "short-link") {
           toast.error("Отвори линка и копирай пълния Google Maps URL");
         } else {
@@ -659,31 +651,13 @@ export default function FestivalEditForm({
       }
     }
 
-    const plusTrimmed = plusCodeInput.trim();
-    if (plusTrimmed) {
-      const decoded = decodePlusCode(plusTrimmed);
-      if (!decoded) {
-        setMessage("");
-        toast.error("Невалиден Plus Code.");
-        return;
-      }
-      updateField("latitude", String(decoded.lat));
-      updateField("longitude", String(decoded.lng));
-      setError("");
-      setMessage("Координатите са попълнени от Plus Code.");
-      return;
-    }
-
     const city = form.city.trim();
     if (!city) {
-      setMessage("");
-      setError("Попълнете населено място, за да търсите координати.");
+      toast.error("Попълнете населено място, за да търсите координати.");
       return;
     }
 
     setFindingCoords(true);
-    setMessage("");
-    setError("");
     try {
       const response = await fetch("/api/admin/geocode", {
         method: "POST",
@@ -704,22 +678,22 @@ export default function FestivalEditForm({
       }
 
       if (typeof payload.lat === "number" && typeof payload.lng === "number") {
+        const coords = { lat: payload.lat, lng: payload.lng };
         updateField("latitude", String(payload.lat));
         updateField("longitude", String(payload.lng));
-        setMessage("Координатите са намерени.");
+        console.info("[coords] source=geocode", coords);
+        toast.success("Координатите са намерени");
       } else {
-        setMessage("Не открих координати за тази локация.");
+        toast.error("Не открихме координати за тази локация");
       }
     } catch (geoError) {
-      setError(geoError instanceof Error ? geoError.message : "Грешка при търсене на координати.");
+      toast.error(geoError instanceof Error ? geoError.message : "Грешка при търсене на координати.");
     } finally {
       setFindingCoords(false);
     }
   };
 
   const onSaveProgramDraft = async () => {
-    setProgramDraftMessage("");
-    setProgramDraftError("");
     setProgramDraftSaving(true);
     try {
       const response = await fetch(`/admin/api/festivals/${festival.id}/schedule`, {
@@ -733,21 +707,18 @@ export default function FestivalEditForm({
       if (!response.ok) {
         throw new Error(await readErrorMessage(response, "Програмата не беше записана."));
       }
-      setProgramDraftMessage("Програмата е записана.");
+      toast.success("Програмата е записана.");
       router.refresh();
     } catch (e) {
-      setProgramDraftError(e instanceof Error ? e.message : "Грешка при запис на програмата.");
+      toast.error(e instanceof Error ? e.message : "Грешка при запис на програмата.");
     } finally {
       setProgramDraftSaving(false);
     }
   };
 
   const onCreateOrganizer = async () => {
-    setMessage("");
-    setError("");
-
     if (!newOrganizer.name.trim()) {
-      setError("Името на организатора е задължително.");
+      toast.error("Името на организатора е задължително.");
       return;
     }
 
@@ -789,9 +760,9 @@ export default function FestivalEditForm({
         instagram_url: "",
       });
 
-      setMessage("Организаторът е създаден успешно.");
+      toast.success("Организаторът е създаден успешно.");
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Възникна грешка.");
+      toast.error(createError instanceof Error ? createError.message : "Възникна грешка.");
     } finally {
       setCreatingOrganizer(false);
     }
@@ -799,12 +770,10 @@ export default function FestivalEditForm({
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setMessage("");
-    setError("");
 
     const validation = validateCoords(form.latitude, form.longitude);
     if (!validation.valid) {
-      setError(validation.message);
+      toast.error(validation.message);
       return;
     }
 
@@ -889,10 +858,10 @@ export default function FestivalEditForm({
       updateField("end_date", mergedDates.end_date ?? "");
       setOccurrenceDays(normalizeOccurrenceDatesInput(mergedDates.occurrence_dates) ?? []);
 
-      setMessage("Промените са записани успешно.");
+      toast.success("Запазено");
       router.refresh();
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Възникна грешка.");
+    } catch {
+      toast.error("Грешка при запис");
     } finally {
       setSaving(false);
     }
@@ -901,8 +870,6 @@ export default function FestivalEditForm({
   const runArchiveAction = async (action: "archive" | "restore") => {
     if (saving || actionPending) return;
 
-    setMessage("");
-    setError("");
     setActionPending(action);
 
     try {
@@ -918,10 +885,10 @@ export default function FestivalEditForm({
       }
 
       updateField("status", action === "archive" ? "archived" : "verified");
-      setMessage(action === "archive" ? "Фестивалът е архивиран." : "Фестивалът е възстановен.");
+      toast.success(action === "archive" ? "Фестивалът е архивиран." : "Фестивалът е възстановен.");
       router.refresh();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Възникна грешка.");
+      toast.error(submitError instanceof Error ? submitError.message : "Възникна грешка.");
     } finally {
       setActionPending(null);
     }
@@ -933,8 +900,6 @@ export default function FestivalEditForm({
     const confirmed = window.confirm("Сигурни ли сте, че искате да изтриете този фестивал? Това действие е необратимо.");
     if (!confirmed) return;
 
-    setMessage("");
-    setError("");
     setActionPending("delete");
 
     try {
@@ -950,7 +915,7 @@ export default function FestivalEditForm({
       router.push("/admin/festivals?deleted=1");
       router.refresh();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Възникна грешка.");
+      toast.error(submitError instanceof Error ? submitError.message : "Възникна грешка.");
     } finally {
       setActionPending(null);
     }
@@ -1103,8 +1068,6 @@ export default function FestivalEditForm({
         variant="default"
       >
         <ProgramDraftEditor value={programDraft} onChange={setProgramDraft} />
-        {programDraftError ? <p className="mt-2 text-sm text-[#b13a1a]">{programDraftError}</p> : null}
-        {programDraftMessage ? <p className="mt-2 text-sm text-[#0e7a45]">{programDraftMessage}</p> : null}
         <div className="mt-3">
           <button
             type="button"
@@ -1137,15 +1100,6 @@ export default function FestivalEditForm({
           <label className="md:col-span-2">
             <AdminFieldLabel field="address" />
             <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
-          </label>
-          <label className="md:col-span-2">
-            <AdminFieldLabel field="plusCode" />
-            <input
-              value={plusCodeInput}
-              onChange={(e) => setPlusCodeInput(e.target.value)}
-              placeholder="напр. 8FVCGGGC+GG"
-              className={ADMIN_ENTITY_CONTROL_CLASS}
-            />
           </label>
           <label className="md:col-span-2">
             <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Google Maps URL</span>
@@ -1594,9 +1548,6 @@ export default function FestivalEditForm({
           </div>
         </details>
       ) : null}
-
-      {message ? <p className="rounded-lg bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">{message}</p> : null}
-      {error ? <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.08] bg-white/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1200px] items-center justify-end gap-2 px-4 py-2.5 md:px-6">

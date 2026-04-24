@@ -2,13 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
-import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
 import {
-  dbTimeToHmInput,
   isScheduleTimeOrderInvalid,
   parseHmInputToDbTime,
   sortByStartTime,
 } from "@/lib/festival/festivalTimeFields";
+import { ADMIN_NATIVE_TIME_INPUT_CLASS } from "@/lib/admin/adminNativeDateTimeClasses";
 import {
   compactProgramDraft,
   emptyProgramDraft,
@@ -19,6 +18,16 @@ import {
   type ProgramEditorItemRow,
 } from "@/lib/festival/programDraft";
 import { ADMIN_ENTITY_CONTROL_CLASS } from "@/components/admin/entity";
+
+function safeTimeValue(value: string | null | undefined): string {
+  if (!value) return "";
+
+  // accept HH:mm or HH:mm:ss
+  const match = value.match(/^(\d{2}):(\d{2})/);
+  if (!match) return "";
+
+  return `${match[1]}:${match[2]}`;
+}
 
 function newId(): string {
   return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -202,9 +211,10 @@ export default function ProgramDraftEditor({ value, onChange, datePlaceholder = 
 
             <ul className="space-y-3">
               {block.items.map((row) => {
-                const startHm = dbTimeToHmInput(row.start_time);
-                const endHm = dbTimeToHmInput(row.end_time);
-                const orderInvalid = isScheduleTimeOrderInvalid(row.start_time, row.end_time);
+                const orderInvalid = isScheduleTimeOrderInvalid(
+                  parseHmInputToDbTime(row.start_time ?? "") ?? row.start_time,
+                  parseHmInputToDbTime(row.end_time ?? "") ?? row.end_time,
+                );
 
                 return (
                   <li key={row.id} className="rounded-lg border border-black/[0.06] bg-black/[0.02] p-2.5">
@@ -212,19 +222,27 @@ export default function ProgramDraftEditor({ value, onChange, datePlaceholder = 
                       <div className="flex flex-wrap items-end gap-2 md:col-span-3">
                         <label className="w-[7rem] shrink-0">
                           <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">Начало</span>
-                          <AdminTimeInput
-                            value={startHm}
-                            onChange={(e) => updateItem(block.id, row.id, { start_time: parseHmInputToDbTime(e.target.value) })}
-                            className="mt-1 !w-[7rem] shrink-0 tabular-nums"
+                          <input
+                            type="time"
+                            step={60}
+                            value={safeTimeValue(row.start_time)}
+                            onChange={(e) =>
+                              updateItem(block.id, row.id, { start_time: e.target.value || null })
+                            }
+                            className={`${ADMIN_NATIVE_TIME_INPUT_CLASS} mt-1 !w-[7rem] shrink-0 tabular-nums`}
                             aria-label="Начало"
                           />
                         </label>
                         <label className="w-[7rem] shrink-0">
                           <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/40">Край</span>
-                          <AdminTimeInput
-                            value={endHm}
-                            onChange={(e) => updateItem(block.id, row.id, { end_time: parseHmInputToDbTime(e.target.value) })}
-                            className="mt-1 !w-[7rem] shrink-0 tabular-nums"
+                          <input
+                            type="time"
+                            step={60}
+                            value={safeTimeValue(row.end_time)}
+                            onChange={(e) =>
+                              updateItem(block.id, row.id, { end_time: e.target.value || null })
+                            }
+                            className={`${ADMIN_NATIVE_TIME_INPUT_CLASS} mt-1 !w-[7rem] shrink-0 tabular-nums`}
                             aria-label="Край"
                           />
                         </label>

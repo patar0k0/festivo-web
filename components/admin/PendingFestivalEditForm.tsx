@@ -43,7 +43,6 @@ import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText
 import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
 import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
 import { compactProgramDraft, emptyProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
-import { decodePlusCode } from "@/lib/location/decodePlusCode";
 import { parseGoogleMapsUrl } from "@/lib/location/parseGoogleMapsUrl";
 import { toast } from "sonner";
 
@@ -491,7 +490,6 @@ export default function PendingFestivalEditForm({
   const [saving, setSaving] = useState(false);
   const [findingCoords, setFindingCoords] = useState(false);
   const [mapsUrlInput, setMapsUrlInput] = useState("");
-  const [plusCodeInput, setPlusCodeInput] = useState("");
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
   const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
   const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
@@ -529,8 +527,6 @@ export default function PendingFestivalEditForm({
   const galleryOpsBusy = extraGalleryBusy || importingGalleryFromUrl;
   const [programDraft, setProgramDraft] = useState<ProgramDraft>(() => programDraftStateFromPending(pendingFestival.program_draft));
   const [extraVideoBusy, setExtraVideoBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
   const [safeApplySummary, setSafeApplySummary] = useState<{ appliedFields: string[]; skippedUnchangedOrMissing: string[] } | null>(null);
   const lastIngestSummary = formatLastIngestLine(lastIngestJobMeta);
 
@@ -603,7 +599,6 @@ export default function PendingFestivalEditForm({
     const name = newOrganizerName.trim();
     if (!name || creatingOrganizer) return;
     setCreatingOrganizer(true);
-    setError("");
     try {
       const slug = transliteratedSlug(name);
       const response = await fetch("/admin/api/organizers", {
@@ -621,9 +616,10 @@ export default function PendingFestivalEditForm({
         setOrganizerOptions((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, "bg")));
         setOrganizerEntries((prev) => [...prev, { organizer_id: created.id, name: created.name }]);
         setNewOrganizerName("");
+        toast.success("Организаторът е създаден успешно.");
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Грешка при създаване на организатор.");
+      toast.error(e instanceof Error ? e.message : "Грешка при създаване на организатор.");
     } finally {
       setCreatingOrganizer(false);
     }
@@ -772,13 +768,11 @@ export default function PendingFestivalEditForm({
     if (saving || runningAction) return;
 
     setSaving(true);
-    setMessage("");
-    setError("");
 
     const coordsValidation = validateCoords(form.latitude, form.longitude);
     if (!coordsValidation.valid) {
       setSaving(false);
-      setError(coordsValidation.message);
+      toast.error(coordsValidation.message);
       return;
     }
 
@@ -840,10 +834,10 @@ export default function PendingFestivalEditForm({
         throw new Error(await readErrorMessage(response, "Failed to save pending festival."));
       }
 
-      setMessage("Changes saved.");
+      toast.success("Запазено");
       router.refresh();
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Unexpected save error.");
+    } catch {
+      toast.error("Грешка при запис");
     } finally {
       setSaving(false);
     }
@@ -852,24 +846,36 @@ export default function PendingFestivalEditForm({
   const onFindCoords = async () => {
     if (saving || runningAction || findingCoords) return;
 
-    const mapsTrimmed = mapsUrlInput.trim();
-    if (mapsTrimmed) {
+    const trimmed = mapsUrlInput.trim();
+
+    if (trimmed) {
       try {
-        const coords = parseGoogleMapsUrl(mapsTrimmed);
+        const coords = parseGoogleMapsUrl(trimmed);
 
         if (coords) {
+          const latitude = form.latitude;
+          const longitude = form.longitude;
+          const hasExisting =
+            Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+
+          if (hasExisting) {
+            console.warn("[maps-url] overriding existing coords", {
+              old: { latitude, longitude },
+              new: coords,
+            });
+          }
+
           updateField("latitude", String(coords.lat));
           updateField("longitude", String(coords.lng));
-          setError("");
-          setMessage("Координатите са попълнени от Google Maps линк.");
-          console.info("[maps-url] parsed", { lat: coords.lat, lng: coords.lng });
-          return;
-        }
 
-        setMessage("");
-        toast.error("Не можахме да извлечем координати от линка");
+          console.info("[coords] source=maps-url", coords);
+          toast.success("Координатите са извлечени от Google Maps линка");
+
+          return;
+        } else {
+          toast.error("Не можахме да извлечем координати от линка");
+        }
       } catch (e) {
-        setMessage("");
         if (e instanceof Error && e.message === "short-link") {
           toast.error("Отвори линка и копирай пълния Google Maps URL");
         } else {
@@ -878,31 +884,13 @@ export default function PendingFestivalEditForm({
       }
     }
 
-    const plusTrimmed = plusCodeInput.trim();
-    if (plusTrimmed) {
-      const decoded = decodePlusCode(plusTrimmed);
-      if (!decoded) {
-        setMessage("");
-        toast.error("Невалиден Plus Code.");
-        return;
-      }
-      updateField("latitude", String(decoded.lat));
-      updateField("longitude", String(decoded.lng));
-      setError("");
-      setMessage("Координатите са попълнени от Plus Code.");
-      return;
-    }
-
     const city = form.city_id.trim();
     if (!city) {
-      setMessage("");
-      setError("Попълнете населено място, за да търсите координати.");
+      toast.error("Попълнете населено място, за да търсите координати.");
       return;
     }
 
     setFindingCoords(true);
-    setMessage("");
-    setError("");
     try {
       const response = await fetch("/api/admin/geocode", {
         method: "POST",
@@ -923,14 +911,16 @@ export default function PendingFestivalEditForm({
       }
 
       if (typeof payload.lat === "number" && typeof payload.lng === "number") {
+        const coords = { lat: payload.lat, lng: payload.lng };
         updateField("latitude", String(payload.lat));
         updateField("longitude", String(payload.lng));
-        setMessage("Координатите са намерени.");
+        console.info("[coords] source=geocode", coords);
+        toast.success("Координатите са намерени");
       } else {
-        setMessage("Не открих координати за тази локация.");
+        toast.error("Не открихме координати за тази локация");
       }
     } catch (geoError) {
-      setError(geoError instanceof Error ? geoError.message : "Грешка при търсене на координати.");
+      toast.error(geoError instanceof Error ? geoError.message : "Грешка при търсене на координати.");
     } finally {
       setFindingCoords(false);
     }
@@ -940,8 +930,6 @@ export default function PendingFestivalEditForm({
     if (saving || runningAction) return;
 
     setRunningAction(action);
-    setMessage("");
-    setError("");
 
     try {
       const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/${action}`, {
@@ -968,7 +956,7 @@ export default function PendingFestivalEditForm({
         const festivalId = payload.festival_id;
         const redirectTo = payload.redirect_to;
 
-        setMessage(festivalId ? `Festival published (id: ${festivalId}). Redirecting…` : "Festival published. Redirecting…");
+        toast.success(festivalId ? `Фестивалът е публикуван (id: ${festivalId}). Пренасочване…` : "Фестивалът е публикуван. Пренасочване…");
 
         if (redirectTo) {
           setTimeout(() => {
@@ -986,11 +974,12 @@ export default function PendingFestivalEditForm({
         }, 500);
         return;
       } else {
+        toast.success("Черновата е отхвърлена.");
         router.push("/admin/pending-festivals?rejected=1");
       }
       router.refresh();
     } catch (decisionError) {
-      setError(decisionError instanceof Error ? decisionError.message : "Unexpected action error.");
+      toast.error(decisionError instanceof Error ? decisionError.message : "Unexpected action error.");
     } finally {
       setRunningAction(null);
     }
@@ -999,24 +988,22 @@ export default function PendingFestivalEditForm({
   const uploadHeroImage = async () => {
     if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     if (!heroHasImage && galleryImageCount >= mediaLimits.gallery) {
-      setError("Лимитът за галерия е достигнат. Използвайте полето за URL или ъпгрейд към VIP за повече снимки.");
+      toast.error("Лимитът за галерия е достигнат. Използвайте полето за URL или ъпгрейд към VIP за повече снимки.");
       return;
     }
 
     const selectedFile = fileInputRef.current?.files?.[0] ?? null;
     if (!selectedFile) {
-      setError("Select an image file before uploading.");
+      toast.error("Select an image file before uploading.");
       return;
     }
 
     if (!selectedFile.type.toLowerCase().startsWith("image/")) {
-      setError("Only image files are allowed.");
+      toast.error("Only image files are allowed.");
       return;
     }
 
     setUploadingHeroImage(true);
-    setMessage("");
-    setError("");
 
     try {
       const formData = new FormData();
@@ -1037,14 +1024,14 @@ export default function PendingFestivalEditForm({
       const uploadedHeroImage = typeof payload.hero_image === "string" ? payload.hero_image : "";
       updateField("hero_image", uploadedHeroImage);
       setHeroImageSourceState(typeof payload.hero_image_source === "string" ? payload.hero_image_source : "manual_upload");
-      setMessage("Hero image uploaded successfully.");
+      toast.success("Hero image uploaded successfully.");
       router.refresh();
 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "Unexpected hero image upload error.");
+      toast.error(uploadError instanceof Error ? uploadError.message : "Unexpected hero image upload error.");
     } finally {
       setUploadingHeroImage(false);
     }
@@ -1052,8 +1039,6 @@ export default function PendingFestivalEditForm({
 
   const runHeroImportFromUrl = async (url: string, successMessage: string) => {
     setImportingHeroFromUrl(true);
-    setMessage("");
-    setError("");
 
     try {
       const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/hero-image`, {
@@ -1072,10 +1057,10 @@ export default function PendingFestivalEditForm({
       const importedHeroImage = typeof payload.hero_image === "string" ? payload.hero_image : "";
       updateField("hero_image", importedHeroImage);
       setHeroImageSourceState(typeof payload.hero_image_source === "string" ? payload.hero_image_source : "url_import");
-      setMessage(successMessage);
+      toast.success(successMessage);
       router.refresh();
     } catch (importUrlError) {
-      setError(importUrlError instanceof Error ? importUrlError.message : "Unexpected hero image import error.");
+      toast.error(importUrlError instanceof Error ? importUrlError.message : "Unexpected hero image import error.");
     } finally {
       setImportingHeroFromUrl(false);
     }
@@ -1084,17 +1069,17 @@ export default function PendingFestivalEditForm({
   const importHeroImageFromUrl = async () => {
     if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     if (galleryAtLimit && !heroHasImage) {
-      setError("Лимитът за снимки е достигнат (включително главното изображение). VIP планът увеличава лимита.");
+      toast.error("Лимитът за снимки е достигнат (включително главното изображение). VIP планът увеличава лимита.");
       return;
     }
 
     const url = form.hero_image.trim();
     if (!url) {
-      setError("Paste an image URL in the Hero image field first.");
+      toast.error("Paste an image URL in the Hero image field first.");
       return;
     }
     if (!/^https?:\/\//i.test(url)) {
-      setError("Hero image URL must start with http:// or https://.");
+      toast.error("Hero image URL must start with http:// or https://.");
       return;
     }
 
@@ -1104,16 +1089,16 @@ export default function PendingFestivalEditForm({
   const importHeroImageFromIngestOriginal = async () => {
     if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     if (galleryAtLimit && !heroHasImage) {
-      setError("Лимитът за снимки е достигнат (включително главното изображение). VIP планът увеличава лимита.");
+      toast.error("Лимитът за снимки е достигнат (включително главното изображение). VIP планът увеличава лимита.");
       return;
     }
 
     if (!ingestOriginalHeroUrl) {
-      setError("Няма записан Original URL от ingest.");
+      toast.error("Няма записан Original URL от ingest.");
       return;
     }
     if (!/^https?:\/\//i.test(ingestOriginalHeroUrl)) {
-      setError("Original URL трябва да започва с http:// или https://.");
+      toast.error("Original URL трябва да започва с http:// или https://.");
       return;
     }
 
@@ -1126,13 +1111,11 @@ export default function PendingFestivalEditForm({
   const removeHeroImage = async () => {
     if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     if (!form.hero_image.trim()) {
-      setError("There is no hero image to remove.");
+      toast.error("There is no hero image to remove.");
       return;
     }
 
     setRemovingHeroImage(true);
-    setMessage("");
-    setError("");
 
     try {
       const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/hero-image`, {
@@ -1147,10 +1130,10 @@ export default function PendingFestivalEditForm({
 
       updateField("hero_image", "");
       setHeroImageSourceState(null);
-      setMessage("Hero image removed.");
+      toast.success("Hero image removed.");
       router.refresh();
     } catch (removeError) {
-      setError(removeError instanceof Error ? removeError.message : "Unexpected hero image remove error.");
+      toast.error(removeError instanceof Error ? removeError.message : "Unexpected hero image remove error.");
     } finally {
       setRemovingHeroImage(false);
     }
@@ -1159,19 +1142,17 @@ export default function PendingFestivalEditForm({
   const importPendingGalleryImageFromUrl = async () => {
     const url = galleryImportUrl.trim();
     if (!url) {
-      setError("Поставете валиден URL на изображение.");
+      toast.error("Поставете валиден URL на изображение.");
       return;
     }
     if (!/^https?:\/\//i.test(url)) {
-      setError("URL трябва да започва с http:// или https://.");
+      toast.error("URL трябва да започва с http:// или https://.");
       return;
     }
     if (saving || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     if (galleryAtLimit) return;
 
     setImportingGalleryFromUrl(true);
-    setMessage("");
-    setError("");
     try {
       const res = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/gallery-image`, {
         method: "POST",
@@ -1185,10 +1166,10 @@ export default function PendingFestivalEditForm({
       }
       setGalleryUrls(payload.gallery_image_urls);
       setGalleryImportUrl("");
-      setMessage("Снимката е добавена към галерията.");
+      toast.success("Снимката е добавена към галерията.");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Грешка при импорт в галерията.");
+      toast.error(e instanceof Error ? e.message : "Грешка при импорт в галерията.");
     } finally {
       setImportingGalleryFromUrl(false);
     }
@@ -1197,8 +1178,6 @@ export default function PendingFestivalEditForm({
   const uploadPendingGalleryImage = async (file: File) => {
     if (saving || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     setExtraGalleryBusy(true);
-    setMessage("");
-    setError("");
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -1212,10 +1191,10 @@ export default function PendingFestivalEditForm({
         throw new Error(payload?.error ?? "Качването в галерията не бе успешно.");
       }
       setGalleryUrls(payload.gallery_image_urls);
-      setMessage("Снимката е добавена към галерията.");
+      toast.success("Снимката е добавена към галерията.");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Грешка при качване в галерията.");
+      toast.error(e instanceof Error ? e.message : "Грешка при качване в галерията.");
     } finally {
       setExtraGalleryBusy(false);
     }
@@ -1224,8 +1203,6 @@ export default function PendingFestivalEditForm({
   const removePendingGalleryUrl = async (url: string) => {
     if (saving || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     setExtraGalleryBusy(true);
-    setMessage("");
-    setError("");
     try {
       const res = await fetch(
         `/admin/api/pending-festivals/${pendingFestival.id}/gallery-image?url=${encodeURIComponent(url)}`,
@@ -1239,10 +1216,10 @@ export default function PendingFestivalEditForm({
       if (form.hero_image.trim() === url.trim()) {
         updateField("hero_image", "");
       }
-      setMessage("Снимката е премахната от галерията.");
+      toast.success("Снимката е премахната от галерията.");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Грешка при премахване от галерията.");
+      toast.error(e instanceof Error ? e.message : "Грешка при премахване от галерията.");
     } finally {
       setExtraGalleryBusy(false);
     }
@@ -1253,12 +1230,10 @@ export default function PendingFestivalEditForm({
     const raw = overrideUrl !== undefined ? overrideUrl : videoUrlExtra;
     const trimmed = raw.trim();
     if (trimmed && !isSupportedVideoPageUrl(trimmed)) {
-      setError("Видео линкът трябва да е публичен YouTube или Facebook адрес.");
+      toast.error("Видео линкът трябва да е публичен YouTube или Facebook адрес.");
       return;
     }
     setExtraVideoBusy(true);
-    setMessage("");
-    setError("");
     try {
       const res = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/video`, {
         method: "PUT",
@@ -1273,10 +1248,10 @@ export default function PendingFestivalEditForm({
       if (overrideUrl !== undefined) {
         setVideoUrlExtra(trimmed);
       }
-      setMessage(trimmed ? "Видео линкът е записан." : "Видео линкът е изчистен.");
+      toast.success(trimmed ? "Видео линкът е записан." : "Видео линкът е изчистен.");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Грешка при запис на видео.");
+      toast.error(e instanceof Error ? e.message : "Грешка при запис на видео.");
     } finally {
       setExtraVideoBusy(false);
     }
@@ -1507,15 +1482,6 @@ export default function PendingFestivalEditForm({
             <label className="md:col-span-2">
               <AdminFieldLabel field="address" />
               <input value={form.address} onChange={(e) => updateField("address", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
-            </label>
-            <label className="md:col-span-2">
-              <AdminFieldLabel field="plusCode" />
-              <input
-                value={plusCodeInput}
-                onChange={(e) => setPlusCodeInput(e.target.value)}
-                placeholder="напр. 8FVCGGGC+GG"
-                className={ADMIN_ENTITY_CONTROL_CLASS}
-              />
             </label>
             <label className="md:col-span-2">
               <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Google Maps URL</span>
@@ -2323,9 +2289,6 @@ export default function PendingFestivalEditForm({
           </div>
 
         </div>
-
-      {message ? <p className="rounded-lg bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">{message}</p> : null}
-      {error ? <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.08] bg-white/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1200px] items-center justify-end gap-2 px-4 py-2.5 md:px-6">

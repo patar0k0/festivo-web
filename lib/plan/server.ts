@@ -1,6 +1,5 @@
 import { type SupabaseClient, type User } from "@supabase/supabase-js";
 import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
-import { normalizeFestivalSettlementType } from "@/lib/settlements/settlementType";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -60,7 +59,6 @@ type FestivalRow = {
   id: string | number;
   slug: string;
   title: string;
-  settlement_type?: string | null;
   cities?: CityJoinRow | CityJoinRow[] | null;
 };
 
@@ -211,7 +209,7 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
 
   const { data: festivalRows } = await db
     .from("festivals")
-    .select("id,slug,title,settlement_type,cities:cities!left(name_bg,is_village)")
+    .select("id,slug,title,cities:cities!left(name_bg,is_village)")
     .in("id", festivalIds)
     .returns<FestivalRow[]>();
 
@@ -228,11 +226,7 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
     const joined = normalizePlanCityJoin(festival.cities);
     const cityLabel =
       joined?.name_bg?.trim() != null && joined.name_bg.trim() !== ""
-        ? festivalSettlementDisplayText(
-            joined.name_bg,
-            joined.is_village,
-            normalizeFestivalSettlementType(festival.settlement_type),
-          )
+        ? festivalSettlementDisplayText(joined.name_bg, joined.is_village)
         : null;
     entries.push({
       scheduleItemId: String(schedule.id),

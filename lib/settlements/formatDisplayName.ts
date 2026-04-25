@@ -1,15 +1,11 @@
 import type { Festival } from "@/lib/types";
-import {
-  formatSettlementLocationLines,
-  type SettlementLocationLines,
-} from "@/lib/settlements/formatLocation";
+import { formatSettlementLocationLines, type SettlementLocationLines } from "@/lib/settlements/formatLocation";
 import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
-import type { FestivalSettlementType } from "@/lib/settlements/settlementType";
 
 /** @deprecated Prefer importing from `@/lib/settlements/formatLocation`. */
 export { stripBulgarianSettlementPrefix } from "@/lib/settlements/formatLocation";
 
-type FestivalCityLabelInput = Pick<Festival, "city_name_display" | "cities" | "settlement_type"> & {
+type FestivalCityLabelInput = Pick<Festival, "city_name_display" | "cities"> & {
   city_guess?: string | null;
 };
 
@@ -22,7 +18,7 @@ export function getFestivalLocationLines(
     city_name_display: festival.city_name_display,
     city_guess: festival.city_guess ?? null,
   });
-  const lines = formatSettlementLocationLines(rawLine, festival.cities?.is_village, festival.settlement_type ?? null);
+  const lines = formatSettlementLocationLines(rawLine, festival.cities?.is_village);
   if (lines?.primary.trim()) return lines;
   const fb = fallback.trim();
   if (!fb) return { primary: "", secondary: null, geoLine: "" };
@@ -31,13 +27,13 @@ export function getFestivalLocationLines(
 
 /**
  * Единен низ за имейли, ICS, стари места: „Име, тип • обл. …“.
+ * Типът идва само от `cities.is_village`.
  */
 export function festivalSettlementDisplayText(
   name_bg: string | null | undefined,
   is_village: boolean | null | undefined,
-  settlement_type?: FestivalSettlementType | null,
 ): string | null {
-  const lines = formatSettlementLocationLines(name_bg, is_village, settlement_type ?? null);
+  const lines = formatSettlementLocationLines(name_bg, is_village);
   return lines?.geoLine ?? null;
 }
 
@@ -58,7 +54,7 @@ export function festivalLocationSecondary(festival: FestivalCityLabelInput): str
     city_name_display: festival.city_name_display,
     city_guess: festival.city_guess ?? null,
   });
-  return formatSettlementLocationLines(rawLine, festival.cities?.is_village, festival.settlement_type ?? null)?.secondary ?? null;
+  return formatSettlementLocationLines(rawLine, festival.cities?.is_village)?.secondary ?? null;
 }
 
 /**

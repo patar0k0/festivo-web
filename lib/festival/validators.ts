@@ -6,7 +6,6 @@ import {
 import { parseOrganizerEntriesJson } from "@/lib/admin/pendingOrganizerEntries";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
-import { normalizeFestivalSettlementType } from "@/lib/settlements/settlementType";
 
 export type ValidationResult =
   | { ok: true; data: CanonicalFestivalPayload }
@@ -116,7 +115,6 @@ export function canonicalFromUnknown(raw: unknown): ValidationResult {
     start_time: timePair.start_time,
     end_time: timePair.end_time,
     organizer_name: normalizeText(sourceValue(body, "organizer_name")),
-    settlement_type: normalizeFestivalSettlementType(sourceValue(body, "settlement_type")),
     hero_image: normalizeText(sourceValue(body, "hero_image", ["image_url"])),
     website_url: normalizeText(sourceValue(body, "website_url")),
     ticket_url: normalizeText(sourceValue(body, "ticket_url")),
@@ -192,9 +190,6 @@ export function canonicalPatchFromUnknown(raw: unknown): PatchValidationResult {
     canonical.end_time = pair.end_time;
   }
   if (hasSourceValue(body, "organizer_name")) canonical.organizer_name = normalizeText(sourceValue(body, "organizer_name"));
-  if (hasSourceValue(body, "settlement_type")) {
-    canonical.settlement_type = normalizeFestivalSettlementType(sourceValue(body, "settlement_type"));
-  }
   if (hasSourceValue(body, "hero_image", ["image_url"])) {
     canonical.hero_image = normalizeText(sourceValue(body, "hero_image", ["image_url"]));
   }

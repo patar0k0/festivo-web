@@ -3,7 +3,6 @@ import type { CanonicalFestivalPatchPayload, CanonicalFestivalPayload } from "@/
 import { pendingRowToOrganizerEntries, primaryOrganizerDisplayName } from "@/lib/admin/pendingOrganizerEntries";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
-import { normalizeFestivalSettlementType, type FestivalSettlementType } from "@/lib/settlements/settlementType";
 
 type PendingFestivalRowLike = {
   title: string;
@@ -35,7 +34,6 @@ type PendingFestivalRowLike = {
   city_name?: string | null;
   city_guess?: string | null;
   evidence_json?: unknown;
-  settlement_type?: unknown;
   cityRelation?: {
     name_bg?: string | null;
     slug?: string | null;
@@ -68,21 +66,6 @@ function normalizeTags(value: unknown): string[] {
   }
 
   return [];
-}
-
-function settlementTypeFromPendingEvidence(evidence_json: unknown): FestivalSettlementType | null {
-  if (!evidence_json || typeof evidence_json !== "object" || Array.isArray(evidence_json)) return null;
-  const o = evidence_json as Record<string, unknown>;
-  const finalV = o.final_values;
-  const best = o.best_guess;
-  if (finalV && typeof finalV === "object" && !Array.isArray(finalV)) {
-    const t = normalizeFestivalSettlementType((finalV as Record<string, unknown>).settlement_type);
-    if (t) return t;
-  }
-  if (best && typeof best === "object" && !Array.isArray(best)) {
-    return normalizeFestivalSettlementType((best as Record<string, unknown>).settlement_type);
-  }
-  return null;
 }
 
 function cityDisplayFallback(row: PendingFestivalRowLike | FestivalRowLike): string | null {
@@ -128,8 +111,6 @@ export function canonicalFromPending(row: PendingFestivalRowLike): CanonicalFest
     end_time: row.end_time ?? null,
     organizer_name: organizerDisplay,
     organizer_entries: organizerEntriesPayload,
-    settlement_type:
-      normalizeFestivalSettlementType(row.settlement_type) ?? settlementTypeFromPendingEvidence(row.evidence_json),
     hero_image: normalizeText(row.hero_image),
     website_url: normalizeText(row.website_url),
     ticket_url: normalizeText(row.ticket_url),
@@ -158,7 +139,6 @@ export function canonicalFromFestival(row: FestivalRowLike): CanonicalFestivalPa
     start_time: row.start_time ?? null,
     end_time: row.end_time ?? null,
     organizer_name: normalizeText(row.organizer_name),
-    settlement_type: normalizeFestivalSettlementType(row.settlement_type),
     hero_image: normalizeText(row.hero_image) ?? normalizeText(row.image_url),
     website_url: normalizeText(row.website_url),
     ticket_url: normalizeText(row.ticket_url),
@@ -219,7 +199,6 @@ export function festivalPatchFromCanonical(fields: CanonicalFestivalPayload): Re
     lat: fields.latitude,
     lng: fields.longitude,
     status: fields.status,
-    settlement_type: fields.settlement_type ?? null,
   };
 }
 
@@ -289,7 +268,6 @@ export function festivalPatchFromCanonicalPartial(fields: CanonicalFestivalPatch
   if ("longitude" in fields) patch.lng = fields.longitude;
   if ("place_id" in fields) patch.place_id = fields.place_id;
   if ("status" in fields) patch.status = fields.status;
-  if ("settlement_type" in fields) patch.settlement_type = fields.settlement_type ?? null;
 
   return patch;
 }

@@ -1,6 +1,5 @@
 import type { SourceAuthorityTier } from "@/lib/admin/research/source-ranking";
 import type { ProgramDraft } from "@/lib/festival/programDraft";
-import type { FestivalSettlementType } from "@/lib/settlements/settlementType";
 
 export type ResearchConfidenceLevel = "high" | "medium" | "low";
 export type ResearchLanguageSignal = "bg" | "mixed" | "non_bg";
@@ -80,8 +79,6 @@ export type ResearchBestGuess = {
   category?: string | null;
   /** Structured program draft when research or ingestion extracted a schedule. */
   program_draft?: ProgramDraft | null;
-  /** Extracted settlement class when evidence is explicit (град / село / курорт); otherwise null. */
-  settlement_type?: FestivalSettlementType | null;
 };
 
 export type ResearchConfidence = {
@@ -137,7 +134,6 @@ export type ResearchFestivalResult = {
   tags?: string[];
   is_free?: boolean | null;
   program_draft?: ProgramDraft | null;
-  settlement_type?: FestivalSettlementType | null;
 };
 
 export type ResearchFestivalRequest = {

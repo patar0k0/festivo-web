@@ -1,7 +1,4 @@
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
-import type { FestivalSettlementType } from "@/lib/settlements/settlementType";
-
-export type ParsedSettlementPrefixKind = "city" | "village" | "resort" | "unknown";
 
 /** Премахва типични представки в началото (за сравнение / нормализация). */
 export function stripBulgarianSettlementPrefix(name: string): string {
@@ -12,30 +9,6 @@ export function stripBulgarianSettlementPrefix(name: string): string {
       "",
     )
     .trim();
-}
-
-function stripResortPrefix(name: string): string {
-  return name
-    .trim()
-    .replace(/^(?:к\.к\.\s*|к\.к\s+|кк\s+|курортен\s+комплекс\s+)/iu, "")
-    .trim();
-}
-
-export function detectSettlementPrefixKind(trimmedLine: string): {
-  kind: ParsedSettlementPrefixKind;
-  nameWithoutPrefix: string;
-} {
-  const t = trimmedLine.trim();
-  if (/^(?:к\.к\.|к\.к\b|кк\b|курортен\s+комплекс)/iu.test(t)) {
-    return { kind: "resort", nameWithoutPrefix: stripResortPrefix(t) };
-  }
-  if (/^(?:с\.|село\s+)/iu.test(t)) {
-    return { kind: "village", nameWithoutPrefix: stripBulgarianSettlementPrefix(t) };
-  }
-  if (/^(?:гр\.|град\s+)/iu.test(t)) {
-    return { kind: "city", nameWithoutPrefix: stripBulgarianSettlementPrefix(t) };
-  }
-  return { kind: "unknown", nameWithoutPrefix: stripBulgarianSettlementPrefix(t) };
 }
 
 function normalizeRegionFragment(fragment: string): string {
@@ -67,26 +40,19 @@ export function extractOblastTailFromCommaParts(parts: string[]): string | null 
   return norm || null;
 }
 
+/**
+ * Един източник: `cities.is_village` → city/village label; unknown → no label.
+ */
 export function resolveSettlementKind(
-  dbIsVillage: boolean | null | undefined,
-  parsed: ParsedSettlementPrefixKind,
-): ParsedSettlementPrefixKind {
-  if (dbIsVillage === true) return "village";
-  if (dbIsVillage === false) return "city";
-  return parsed;
+  isVillage: boolean | null | undefined,
+): "city" | "village" | null {
+  if (isVillage === true) return "village";
+  if (isVillage === false) return "city";
+  return null;
 }
 
-function settlementKindToBgLabel(kind: ParsedSettlementPrefixKind): string | null {
-  switch (kind) {
-    case "village":
-      return "село";
-    case "city":
-      return "град";
-    case "resort":
-      return "курорт";
-    default:
-      return null;
-  }
+function settlementKindToBgLabel(kind: "city" | "village"): string {
+  return kind === "village" ? "село" : "град";
 }
 
 export type SettlementLocationLines = {
@@ -95,8 +61,8 @@ export type SettlementLocationLines = {
   geoLine: string;
 };
 
-function buildSecondaryLine(kind: ParsedSettlementPrefixKind, region: string | null): string | null {
-  const typeLabel = settlementKindToBgLabel(kind);
+function buildSecondaryLine(kind: "city" | "village" | null, region: string | null): string | null {
+  const typeLabel = kind != null ? settlementKindToBgLabel(kind) : null;
   const bits = [typeLabel, region].filter(Boolean) as string[];
   if (!bits.length) return null;
   return bits.join(" • ");
@@ -104,11 +70,11 @@ function buildSecondaryLine(kind: ParsedSettlementPrefixKind, region: string | n
 
 /**
  * Единна логика: чисто име, вторичен ред (тип + област), и ред за карти/ICS.
+ * Типът идва само от `cities.is_village` (`resolveSettlementKind`); без извод от представки.
  */
 export function formatSettlementLocationLines(
   rawLine: string | null | undefined,
   isVillage: boolean | null | undefined,
-  settlementType?: FestivalSettlementType | null,
 ): SettlementLocationLines | null {
   if (rawLine == null || !String(rawLine).trim()) return null;
 
@@ -120,15 +86,11 @@ export function formatSettlementLocationLines(
   const firstSeg = commaParts[0] ?? fixed;
   const regionFromText = extractOblastTailFromCommaParts(commaParts);
 
-  const { kind: prefixKind, nameWithoutPrefix } = detectSettlementPrefixKind(firstSeg);
-  const cleanPrimary = nameWithoutPrefix.trim() || firstSeg.trim();
+  const cleanPrimary = stripBulgarianSettlementPrefix(firstSeg).trim() || firstSeg.trim();
   if (!cleanPrimary) return null;
 
-  const resolvedKind: ParsedSettlementPrefixKind =
-    settlementType === "city" || settlementType === "village" || settlementType === "resort"
-      ? settlementType
-      : resolveSettlementKind(isVillage, prefixKind);
-  const secondary = buildSecondaryLine(resolvedKind, regionFromText);
+  const resolvedFromData = resolveSettlementKind(isVillage);
+  const secondary = buildSecondaryLine(resolvedFromData, regionFromText);
   const geoLine = secondary ? `${cleanPrimary}, ${secondary}` : cleanPrimary;
 
   return { primary: cleanPrimary, secondary, geoLine };

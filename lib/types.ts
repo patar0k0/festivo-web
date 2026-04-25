@@ -1,5 +1,3 @@
-import type { FestivalSettlementType } from "@/lib/settlements/settlementType";
-
 export type Festival = {
   id: string | number;
   slug: string;
@@ -45,8 +43,6 @@ export type Festival = {
   promotion_started_at?: string | null;
   promotion_expires_at?: string | null;
   promotion_rank?: number | null;
-  /** When set on `festivals`, overrides inferred гр./с./к.к. label in location display. */
-  settlement_type?: FestivalSettlementType | null;
   cities?: {
     name_bg?: string | null;
     slug?: string | null;

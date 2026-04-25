@@ -43,7 +43,6 @@ const EMPTY_FINAL_VALUES: EditableFinalValues = {
   tags: [],
   is_free: null,
   program_draft: null,
-  settlement_type: null,
 };
 
 type AiEditableStringField =

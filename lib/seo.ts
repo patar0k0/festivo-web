@@ -98,7 +98,7 @@ function addressLocality(festival: Festival): string | undefined {
   });
   if (!raw?.trim()) return undefined;
   return (
-    festivalSettlementDisplayText(raw, festival.cities?.is_village ?? undefined, festival.settlement_type ?? null) ??
+    festivalSettlementDisplayText(raw, festival.cities?.is_village ?? undefined) ??
     raw.trim()
   );
 }

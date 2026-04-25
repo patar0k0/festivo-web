@@ -5,7 +5,6 @@ import { TZ } from "@/lib/notifications/time";
 import { getBaseUrl } from "@/lib/seo";
 import { formatScheduleHm } from "@/lib/festival/festivalTimeFields";
 import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
-import { normalizeFestivalSettlementType } from "@/lib/settlements/settlementType";
 
 import {
   dedupeKeyReminderOneDayBefore,
@@ -22,14 +21,13 @@ import { enqueueEmailJob } from "./enqueueEmail";
 import { resolveAuthUserEmail } from "./resolveAuthUserEmail";
 
 const FESTIVAL_REMINDER_SELECT =
-  "id,title,slug,city_id,settlement_type,start_date,start_time,location_name,address,cities:cities!left(name_bg,slug,is_village)";
+  "id,title,slug,city_id,start_date,start_time,location_name,address,cities:cities!left(name_bg,slug,is_village)";
 
 export type FestivalRowForReminderEmail = {
   id: string;
   title: string | null;
   slug: string | null;
   city_id: number | null;
-  settlement_type?: string | null;
   start_date: string | null;
   start_time: string | null;
   location_name: string | null;
@@ -81,7 +79,7 @@ function locationSummaryFromFestival(row: FestivalRowForReminderEmail): string |
 function cityDisplayFromFestival(row: FestivalRowForReminderEmail): string | null {
   const c = normalizeCityJoin(row.cities);
   if (c?.name_bg?.trim()) {
-    return festivalSettlementDisplayText(c.name_bg, c.is_village, normalizeFestivalSettlementType(row.settlement_type));
+    return festivalSettlementDisplayText(c.name_bg, c.is_village);
   }
   return null;
 }

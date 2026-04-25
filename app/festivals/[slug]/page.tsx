@@ -15,7 +15,7 @@ import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
-import { buildGoogleMapsEmbedSrc, buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
+import { buildGoogleMapsEmbedSrc, buildGoogleMapsUrlMeta } from "@/lib/location/buildGoogleMapsUrl";
 
 /** Match `/organizers/[slug]`: avoid caching a stale `notFound()` / partial payload across soft navigation and ISR. */
 export const dynamic = "force-dynamic";
@@ -85,7 +85,7 @@ export default async function Page({
     mapLat != null && mapLng != null && Number.isFinite(Number(mapLat)) && Number.isFinite(Number(mapLng))
       ? `${mapLat},${mapLng}`
       : null;
-  const mapHref = buildGoogleMapsUrl({
+  const { url: mapHref, branch: mapLinkBranch } = buildGoogleMapsUrlMeta({
     placeId: data.festival.place_id,
     lat: mapLat ?? undefined,
     lng: mapLng ?? undefined,
@@ -129,6 +129,7 @@ export default async function Page({
             days={data.days}
             scheduleItems={data.scheduleItems}
             mapHref={mapHref}
+            mapLinkBranch={mapLinkBranch}
             mapEmbedSrc={mapEmbedSrc}
             citySlug={citySlug}
             calendarMonth={calendarMonth}

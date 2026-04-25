@@ -164,11 +164,24 @@ export function parseProgramDraftUnknown(input: unknown): { ok: true; value: Pro
 /** Strip empty days / items for storage. */
 export function compactProgramDraft(draft: ProgramDraft): ProgramDraft {
   const days = draft.days
-    .map((d) => ({
-      date: d.date,
-      title: d.title?.trim() ? d.title.trim() : null,
-      items: sortProgramDraftItemsByStartTime(d.items.filter((it) => it.title.trim().length > 0)),
-    }))
+    .map((d) => {
+      const items = d.items
+        .map((it) => {
+          const rawTitle = it.title?.trim() ?? "";
+          const desc = it.description?.trim() ?? "";
+          const fallbackTitle = desc ? desc.slice(0, 60) : "";
+          const title = rawTitle || fallbackTitle;
+          if (!title) return null;
+          console.info("[program] normalized item", { rawTitle, fallbackTitle, finalTitle: title });
+          return { ...it, title };
+        })
+        .filter((it): it is ProgramDraftItem => it !== null);
+      return {
+        date: d.date,
+        title: d.title?.trim() ? d.title.trim() : null,
+        items: sortProgramDraftItemsByStartTime(items),
+      };
+    })
     .filter((d) => isValidIsoDate(d.date));
   return { version: draft.version ?? PROGRAM_DRAFT_VERSION, days };
 }
@@ -359,7 +372,10 @@ export function programDraftFromEditorDayBlocks(blocks: ProgramEditorDayBlock[])
     if (dt) titleByDate.set(d, dt);
 
     for (const row of block.items) {
-      const title = row.title.trim();
+      const rawTitle = row.title?.trim() ?? "";
+      const desc = row.description?.trim() ? row.description.trim() : "";
+      const fallbackTitle = desc ? desc.slice(0, 60) : "";
+      const title = rawTitle || fallbackTitle;
       if (!title) continue;
       const pair = normalizeScheduleItemTimePair(
         parseHmInputToDbTime(row.start_time),

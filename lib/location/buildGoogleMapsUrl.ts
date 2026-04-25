@@ -20,9 +20,7 @@ export function buildGoogleMapsUrl({
 }): string {
   const pid = (placeId ?? "").trim();
   if (pid) {
-    return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${encodeURIComponent(
-      pid
-    )}`;
+    return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(pid)}`;
   }
 
   const la = toFinite(lat);

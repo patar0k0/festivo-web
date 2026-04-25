@@ -1,6 +1,7 @@
 import "server-only";
 
 import { type SupabaseClient } from "@supabase/supabase-js";
+import { applySettlementTypeInferenceForResolvedCity } from "@/lib/settlements/applySettlementTypeInference";
 import { slugify } from "@/lib/utils";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -104,15 +105,18 @@ export async function resolveOrCreateCity(input: string) {
     if (shouldRepairCityName(cityBySlug, displayName)) {
       const repairedCity = await updateCityName(adminClient, cityBySlug.id, displayName);
       if (repairedCity) {
+        await applySettlementTypeInferenceForResolvedCity(repairedCity.id, displayName);
         return { city: repairedCity, created: false, normalizedInput, displayName, slug };
       }
     }
 
+    await applySettlementTypeInferenceForResolvedCity(cityBySlug.id, displayName);
     return { city: cityBySlug, created: false, normalizedInput, displayName, slug };
   }
 
   const cityByName = await findCityByName(adminClient, displayName);
   if (cityByName) {
+    await applySettlementTypeInferenceForResolvedCity(cityByName.id, displayName);
     return { city: cityByName, created: false, normalizedInput, displayName, slug };
   }
 
@@ -126,6 +130,7 @@ export async function resolveOrCreateCity(input: string) {
     .maybeSingle();
 
   if (!insertError && inserted) {
+    await applySettlementTypeInferenceForResolvedCity((inserted as CityRow).id, displayName);
     return { city: inserted as CityRow, created: true, normalizedInput, displayName, slug };
   }
 
@@ -135,10 +140,12 @@ export async function resolveOrCreateCity(input: string) {
       if (shouldRepairCityName(cityAfterConflict, displayName)) {
         const repairedCity = await updateCityName(adminClient, cityAfterConflict.id, displayName);
         if (repairedCity) {
+          await applySettlementTypeInferenceForResolvedCity(repairedCity.id, displayName);
           return { city: repairedCity, created: false, normalizedInput, displayName, slug };
         }
       }
 
+      await applySettlementTypeInferenceForResolvedCity(cityAfterConflict.id, displayName);
       return { city: cityAfterConflict, created: false, normalizedInput, displayName, slug };
     }
   }

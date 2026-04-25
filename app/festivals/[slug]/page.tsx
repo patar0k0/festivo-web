@@ -15,11 +15,7 @@ import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
-import {
-  buildGoogleMapsEmbedSrc,
-  buildGoogleMapsUrl,
-  DEFAULT_GOOGLE_MAPS_HREF,
-} from "@/lib/location/buildGoogleMapsUrl";
+import { buildGoogleMapsEmbedSrc, buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
 
 /** Match `/organizers/[slug]`: avoid caching a stale `notFound()` / partial payload across soft navigation and ISR. */
 export const dynamic = "force-dynamic";
@@ -89,18 +85,37 @@ export default async function Page({
     mapLat != null && mapLng != null && Number.isFinite(Number(mapLat)) && Number.isFinite(Number(mapLng))
       ? `${mapLat},${mapLng}`
       : null;
-  const mapHref = (() => {
-    const built = buildGoogleMapsUrl({
-      placeId: data.festival.place_id,
-      lat: mapLat ?? undefined,
-      lng: mapLng ?? undefined,
-    });
-    if (built !== DEFAULT_GOOGLE_MAPS_HREF) return built;
-    if (mapQuery) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
-    }
-    return null;
-  })();
+  const mapHref = buildGoogleMapsUrl({
+    placeId: data.festival.place_id,
+    lat: mapLat ?? undefined,
+    lng: mapLng ?? undefined,
+  });
+  // #region agent log
+  {
+    const city = data.festival.cities?.name_bg ?? data.festival.city_name_display ?? null;
+    const locationName = data.festival.venue_name ?? data.festival.location_name ?? null;
+    void fetch("http://127.0.0.1:7623/ingest/bc8b4488-04a6-48d3-8da7-51e0d37fa3c8", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a187c0" },
+      body: JSON.stringify({
+        sessionId: "a187c0",
+        location: "app/festivals/[slug]/page.tsx:mapHref",
+        message: "[maps-debug] server + [maps-debug-url]",
+        data: {
+          hypothesisId: "H1",
+          placeId: (data.festival.place_id ?? "").toString().slice(0, 64),
+          lat: mapLat,
+          lng: mapLng,
+          locationName,
+          city,
+          mapHref,
+        },
+        timestamp: Date.now(),
+        runId: "post-fix",
+      }),
+    }).catch(() => {});
+  }
+  // #endregion
   const mapEmbedRaw = buildGoogleMapsEmbedSrc({
     lat: mapLat ?? undefined,
     lng: mapLng ?? undefined,

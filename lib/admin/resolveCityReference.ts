@@ -2,6 +2,7 @@ import "server-only";
 
 import { type SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { applySettlementTypeInferenceForResolvedCity } from "@/lib/settlements/applySettlementTypeInference";
 import { normalizeSettlementInput } from "@/lib/settlements/normalizeSettlementInput";
 
 export { normalizeSettlementInput };
@@ -137,35 +138,43 @@ export async function resolveOrCreateCityReference(client: SupabaseClient, input
     return null;
   }
 
+  let result: { city: ResolvedCity; created: boolean } | null = null;
+
   const resolved = await resolveCityReference(client, normalizedInput);
   if (resolved) {
-    return { city: resolved, created: false };
+    result = { city: resolved, created: false };
+  } else {
+    const existingByName = await findCityByExactName(client, normalizedInput);
+    if (existingByName) {
+      result = { city: existingByName, created: false };
+    } else {
+      const adminClient = createSupabaseAdmin();
+
+      const resolvedViaAdmin = await resolveCityReference(adminClient, normalizedInput);
+      if (resolvedViaAdmin) {
+        result = { city: resolvedViaAdmin, created: false };
+      } else {
+        const existingByNameViaAdmin = await findCityByExactName(adminClient, normalizedInput);
+        if (existingByNameViaAdmin) {
+          result = { city: existingByNameViaAdmin, created: false };
+        } else {
+          const baseSlug = citySlugFromName(normalizedInput);
+          const slug = await pickAvailableSlug(adminClient, baseSlug);
+
+          const inserted = await adminClient.from("cities").insert({ name_bg: normalizedInput, slug }).select("id,slug,name_bg").single();
+          if (inserted.error) {
+            throw new Error(`City insert failed: ${inserted.error.message}`);
+          }
+
+          result = { city: inserted.data as ResolvedCity, created: true };
+        }
+      }
+    }
   }
 
-  const existingByName = await findCityByExactName(client, normalizedInput);
-  if (existingByName) {
-    return { city: existingByName, created: false };
+  if (result) {
+    await applySettlementTypeInferenceForResolvedCity(result.city.id, result.city.name_bg);
   }
 
-  const adminClient = createSupabaseAdmin();
-
-  const resolvedViaAdmin = await resolveCityReference(adminClient, normalizedInput);
-  if (resolvedViaAdmin) {
-    return { city: resolvedViaAdmin, created: false };
-  }
-
-  const existingByNameViaAdmin = await findCityByExactName(adminClient, normalizedInput);
-  if (existingByNameViaAdmin) {
-    return { city: existingByNameViaAdmin, created: false };
-  }
-
-  const baseSlug = citySlugFromName(normalizedInput);
-  const slug = await pickAvailableSlug(adminClient, baseSlug);
-
-  const inserted = await adminClient.from("cities").insert({ name_bg: normalizedInput, slug }).select("id,slug,name_bg").single();
-  if (inserted.error) {
-    throw new Error(`City insert failed: ${inserted.error.message}`);
-  }
-
-  return { city: inserted.data as ResolvedCity, created: true };
+  return result;
 }

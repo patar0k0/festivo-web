@@ -213,6 +213,38 @@ export default function FestivalDetailClient({
   const [activeDayId, setActiveDayId] = useState(groupedDays[0]?.id ?? "");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  // #region agent log
+  useEffect(() => {
+    const placeId = festival.place_id;
+    const lat = festival.latitude ?? festival.lat;
+    const lng = festival.longitude ?? festival.lng;
+    const locationName = festival.venue_name ?? festival.location_name ?? null;
+    const city = festival.cities?.name_bg ?? festival.city_name_display ?? null;
+    console.log("[maps-debug]", { placeId, lat, lng, locationName, city });
+    console.log("[maps-debug-url]", mapHref);
+    void fetch("http://127.0.0.1:7623/ingest/bc8b4488-04a6-48d3-8da7-51e0d37fa3c8", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a187c0" },
+      body: JSON.stringify({
+        sessionId: "a187c0",
+        location: "FestivalDetailClient.tsx:useEffect[maps]",
+        message: "[maps-debug] client props",
+        data: {
+          hypothesisId: "H1",
+          festivalId: String(festival.id),
+          placeId: placeId != null ? String(placeId).slice(0, 64) : null,
+          lat,
+          lng,
+          locationName,
+          city,
+          mapHref,
+        },
+        timestamp: Date.now(),
+        runId: "post-fix",
+      }),
+    }).catch(() => {});
+  }, [festival, mapHref]);
+  // #endregion
   const [reminderPending, setReminderPending] = useState(false);
   const [reminderFeedback, setReminderFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const reminderFeedbackTimerRef = useRef<number | null>(null);
@@ -364,8 +396,7 @@ export default function FestivalDetailClient({
   const showOrganizer = displayOrganizers.length > 0;
   const showInfoSection = Boolean(formattedDateRange || locationSummary || showOrganizer);
   const showMapSection = Boolean(
-    mapEmbedSrc &&
-      mapHref &&
+    (mapEmbedSrc || mapHref) &&
       (cityPrimary ||
         locationSummary ||
         (typeof festival.place_id === "string" && festival.place_id.trim().length > 0)),
@@ -1155,15 +1186,17 @@ export default function FestivalDetailClient({
                   <p className={cityPrimary ? "text-black/60" : "font-medium text-black/80"}>{mapLocationBlurb}</p>
                 ) : null}
               </div>
-              <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.08]">
-                <iframe
-                  title={`Карта: ${festival.title}`}
-                  src={mapEmbedSrc ?? undefined}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className="h-56 w-full border-0"
-                />
-              </div>
+              {mapEmbedSrc ? (
+                <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.08]">
+                  <iframe
+                    title={`Карта: ${festival.title}`}
+                    src={mapEmbedSrc}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="h-56 w-full border-0"
+                  />
+                </div>
+              ) : null}
               {mapHref ? (
                 <a
                   href={outboundClickHref({

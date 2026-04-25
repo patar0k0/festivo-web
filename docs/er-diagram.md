@@ -13,6 +13,12 @@ erDiagram
     boolean is_village
   }
 
+  settlement_unknowns {
+    uuid id PK
+    text name
+    timestamptz created_at
+  }
+
   ingest_jobs {
     uuid id PK
     text source_url UK

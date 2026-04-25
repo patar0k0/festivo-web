@@ -18,6 +18,20 @@ export type Database = {
           is_village?: boolean
         }
       }
+      settlement_unknowns: {
+        Row: {
+          id: string
+          name: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          name?: string
+        }
+      }
       festivals: {
         Row: {
           id: string

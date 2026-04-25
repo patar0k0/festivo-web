@@ -1,31 +1,21 @@
 import FallbackImage from "@/components/ui/FallbackImage";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
-import { formatPublicFestivalLocationSummary } from "@/lib/festival/publicLocationDisplay";
-import {
-  festivalCityLabel,
-  festivalLocationPrimary,
-  festivalLocationSecondary,
-} from "@/lib/settlements/formatDisplayName";
+import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
 import { Festival } from "@/lib/types";
 import OpenInAppButton from "@/components/OpenInAppButton";
 import QRCodeBlock from "@/components/QRCodeBlock";
 import { festivalDeepLink } from "@/lib/deepLink";
-import { buildGoogleMapsUrl, DEFAULT_GOOGLE_MAPS_HREF } from "@/lib/location/buildGoogleMapsUrl";
+import { buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
 
 export default function FestivalHero({ festival }: { festival: Festival }) {
   const deepLink = festivalDeepLink(festival.slug);
   const heroImage = getFestivalHeroImage(festival);
-  const mapsQuery = [formatPublicFestivalLocationSummary(festival), festivalCityLabel(festival, "")].filter(Boolean).join(", ");
-  const mapBuilt = buildGoogleMapsUrl({
+  const mapsHref = buildGoogleMapsUrl({
     placeId: festival.place_id,
     lat: festival.latitude ?? festival.lat ?? undefined,
     lng: festival.longitude ?? festival.lng ?? undefined,
   });
-  const mapsHref =
-    mapBuilt === DEFAULT_GOOGLE_MAPS_HREF && mapsQuery
-      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`
-      : mapBuilt;
   return (
     <section className="relative overflow-hidden rounded-3xl border border-ink/10 bg-ink/80">
       <div className="absolute inset-0">
@@ -57,14 +47,16 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
           {festival.is_free && <span className="badge bg-white/90 text-ink">Free</span>}
           <div className="flex flex-wrap items-center gap-4">
             <OpenInAppButton deepLink={deepLink} />
-            <a
-              href={mapsHref}
-              className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Directions
-            </a>
+            {mapsHref ? (
+              <a
+                href={mapsHref}
+                className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Directions
+              </a>
+            ) : null}
             <a
               href={`/festival/${festival.slug}/ics`}
               className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"

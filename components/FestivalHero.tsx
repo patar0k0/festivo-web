@@ -13,8 +13,8 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
   const heroImage = getFestivalHeroImage(festival);
   const mapsHref = buildGoogleMapsUrl({
     placeId: festival.place_id,
-    lat: festival.latitude ?? festival.lat ?? undefined,
-    lng: festival.longitude ?? festival.lng ?? undefined,
+    latitude: festival.latitude ?? festival.lat ?? undefined,
+    longitude: festival.longitude ?? festival.lng ?? undefined,
   });
   return (
     <section className="relative overflow-hidden rounded-3xl border border-ink/10 bg-ink/80">

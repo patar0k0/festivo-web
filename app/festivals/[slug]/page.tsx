@@ -15,7 +15,7 @@ import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
-import { buildGoogleMapsEmbedSrc, buildGoogleMapsUrlMeta } from "@/lib/location/buildGoogleMapsUrl";
+import { buildGoogleMapsEmbedSrc, buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
 
 /** Match `/organizers/[slug]`: avoid caching a stale `notFound()` / partial payload across soft navigation and ISR. */
 export const dynamic = "force-dynamic";
@@ -81,21 +81,16 @@ export default async function Page({
   const cityFilterValue = citySlug;
   const mapLat = data.festival.latitude ?? data.festival.lat;
   const mapLng = data.festival.longitude ?? data.festival.lng;
-  const mapQuery =
-    mapLat != null && mapLng != null && Number.isFinite(Number(mapLat)) && Number.isFinite(Number(mapLng))
-      ? `${mapLat},${mapLng}`
-      : null;
-  const { url: mapHref, branch: mapLinkBranch } = buildGoogleMapsUrlMeta({
+  const mapHref = buildGoogleMapsUrl({
     placeId: data.festival.place_id,
-    lat: mapLat ?? undefined,
-    lng: mapLng ?? undefined,
+    latitude: mapLat ?? undefined,
+    longitude: mapLng ?? undefined,
   });
   const mapEmbedRaw = buildGoogleMapsEmbedSrc({
     lat: mapLat ?? undefined,
     lng: mapLng ?? undefined,
   });
-  const mapEmbedSrc =
-    mapEmbedRaw || (mapQuery ? `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed` : null);
+  const mapEmbedSrc = mapEmbedRaw || null;
   const calendarMonth = data.festival.start_date ? format(parseISO(data.festival.start_date), "yyyy-MM") : null;
 
   const [relatedResponse, adminSession, accommodationOffers, bookingClicks30d] = await Promise.all([
@@ -129,7 +124,6 @@ export default async function Page({
             days={data.days}
             scheduleItems={data.scheduleItems}
             mapHref={mapHref}
-            mapLinkBranch={mapLinkBranch}
             mapEmbedSrc={mapEmbedSrc}
             citySlug={citySlug}
             calendarMonth={calendarMonth}

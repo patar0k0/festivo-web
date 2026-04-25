@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import type { ReminderType } from "@/lib/plan/server";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
-import { logGoogleMapsOpenDebug, type GoogleMapsUrlBranch } from "@/lib/location/buildGoogleMapsUrl";
+import { logGoogleMapsOpenDebug } from "@/lib/location/buildGoogleMapsUrl";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";
 
 type HeroProps = {
@@ -77,14 +77,13 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId, o
 type RailProps = {
   festivalId: string;
   mapHref: string | null;
-  mapLinkBranch: GoogleMapsUrlBranch;
   onGuestPlanClick?: () => void;
 };
 
 /**
  * Rail: planning + navigation only (reminder timing lives in the same aside card below).
  */
-export function FestivalRailActionBar({ festivalId, mapHref, mapLinkBranch, onGuestPlanClick }: RailProps) {
+export function FestivalRailActionBar({ festivalId, mapHref, onGuestPlanClick }: RailProps) {
   const { isAuthenticated, requireAuthForPlan, toggleFestivalPlan, festivalIds } = usePlanState();
   const [planBusy, setPlanBusy] = useState(false);
 
@@ -137,7 +136,7 @@ export function FestivalRailActionBar({ festivalId, mapHref, mapLinkBranch, onGu
           target="_blank"
           rel="noreferrer"
           className={navClass}
-          onClick={() => logGoogleMapsOpenDebug(mapHref, mapLinkBranch)}
+          onClick={() => logGoogleMapsOpenDebug(mapHref)}
         >
           Отвори в Google Maps
         </a>

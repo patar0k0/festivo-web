@@ -38,7 +38,7 @@ import { formatScheduleTimeRange, sortByStartTime } from "@/lib/festival/festiva
 import { FESTIVAL_PROGRAM_SECTION_ID } from "@/lib/festival/programmeAnchor";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
-import { logGoogleMapsOpenDebug, type GoogleMapsUrlBranch } from "@/lib/location/buildGoogleMapsUrl";
+import { logGoogleMapsOpenDebug } from "@/lib/location/buildGoogleMapsUrl";
 
 const REMINDER_BLOCK_ID = "festival-reminder-block";
 
@@ -72,8 +72,6 @@ type Props = {
   days: FestivalDay[];
   scheduleItems: FestivalScheduleItem[];
   mapHref: string | null;
-  /** TEMPORARY: branch used for `mapHref` (A place_id, B coords, C none) — maps debug. */
-  mapLinkBranch: GoogleMapsUrlBranch;
   mapEmbedSrc: string | null;
   citySlug: string | null;
   calendarMonth: string | null;
@@ -202,7 +200,6 @@ export default function FestivalDetailClient({
   days,
   scheduleItems,
   mapHref,
-  mapLinkBranch,
   mapEmbedSrc,
   citySlug,
   calendarMonth,
@@ -367,12 +364,7 @@ export default function FestivalDetailClient({
   const displayOrganizers = buildDisplayOrganizers(festival);
   const showOrganizer = displayOrganizers.length > 0;
   const showInfoSection = Boolean(formattedDateRange || locationSummary || showOrganizer);
-  const showMapSection = Boolean(
-    (mapEmbedSrc || mapHref) &&
-      (cityPrimary ||
-        locationSummary ||
-        (typeof festival.place_id === "string" && festival.place_id.trim().length > 0)),
-  );
+  const showMapSection = Boolean(mapEmbedSrc || mapHref);
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
   const nearbyBookingPlace = cityOrLocationText.trim();
   const mapLocationBlurb = locationBeyondCity || null;
@@ -915,7 +907,6 @@ export default function FestivalDetailClient({
               <FestivalRailActionBar
                 festivalId={String(festival.id)}
                 mapHref={mapHref}
-                mapLinkBranch={mapLinkBranch}
                 onGuestPlanClick={() =>
                   redirectToLoginForPlanAction({ action: "add_festival", id: String(festival.id) })
                 }
@@ -1180,7 +1171,7 @@ export default function FestivalDetailClient({
                   })}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() => logGoogleMapsOpenDebug(mapHref, mapLinkBranch)}
+                  onClick={() => logGoogleMapsOpenDebug(mapHref)}
                   className="mt-3 inline-flex text-xs font-semibold uppercase tracking-[0.12em] text-black/90 underline decoration-black/25 underline-offset-2 transition-all duration-150 hover:decoration-black/40 hover:opacity-90 active:scale-[0.98]"
                 >
                   Отвори в Google Maps

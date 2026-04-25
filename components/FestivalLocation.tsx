@@ -11,8 +11,8 @@ export default function FestivalLocation({ festival }: { festival: Festival }) {
   if (!summary && !cityPrimary && !festival.city_name_display) return null;
   const mapUrl = buildGoogleMapsUrl({
     placeId: festival.place_id,
-    lat: festival.latitude ?? festival.lat ?? undefined,
-    lng: festival.longitude ?? festival.lng ?? undefined,
+    latitude: festival.latitude ?? festival.lat ?? undefined,
+    longitude: festival.longitude ?? festival.lng ?? undefined,
   });
 
   return (

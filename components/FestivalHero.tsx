@@ -1,7 +1,7 @@
 import FallbackImage from "@/components/ui/FallbackImage";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
-import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
 import { Festival } from "@/lib/types";
 import OpenInAppButton from "@/components/OpenInAppButton";
 import QRCodeBlock from "@/components/QRCodeBlock";
@@ -33,15 +33,10 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
         <div className="space-y-4">
           <div className="text-xs uppercase tracking-[0.3em] text-white/70">
             <p>
-              {[festivalLocationPrimary(festival, "").trim(), formatFestivalDateLineShort(festival)]
+              {[getFestivalListingCityPrimary(festival).trim(), formatFestivalDateLineShort(festival)]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
-            {festivalLocationSecondary(festival) ? (
-              <p className="mt-1 normal-case tracking-normal text-[11px] text-white/60">
-                {festivalLocationSecondary(festival)}
-              </p>
-            ) : null}
           </div>
           <h1 className="text-3xl font-semibold md:text-5xl">{festival.title}</h1>
           {festival.is_free && <span className="badge bg-white/90 text-ink">Free</span>}

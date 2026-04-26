@@ -5,8 +5,9 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Filters, Festival, FestivalDay, FestivalMediaItem, FestivalScheduleItem, OrganizerProfile, PaginatedResult } from "@/lib/types";
 import { withDefaultFilters } from "@/lib/filters";
-import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
 import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
+import { formatSettlementLocationLines } from "@/lib/settlements/formatLocation";
+import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { buildFestivalsTagOrFilter } from "@/lib/festivals/buildFestivalsTagOrFilter";
 import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
@@ -347,7 +348,8 @@ export function fixFestivalText(festival: Festival): Festival {
       city_name_display: festival.city_name_display,
       city_guess: (festival as Festival & { city_guess?: string | null }).city_guess ?? null,
     }) ?? null;
-  const city_name_display = festivalSettlementDisplayText(rawLine, settlementKind);
+  const lines = formatSettlementLocationLines(rawLine, settlementKind);
+  const city_name_display = lines?.primary ? fixMojibakeBG(lines.primary) : null;
 
   const occurrenceNorm = normalizeOccurrenceDatesInput((festival as Festival & { occurrence_dates?: unknown }).occurrence_dates);
 
@@ -661,7 +663,7 @@ export async function getCityLinks(): Promise<Array<{ name: string; slug: string
       Boolean(row.name_bg && row.slug),
     )
     .map((row) => ({
-      name: festivalSettlementDisplayText(row.name_bg, row.is_village) ?? fixMojibakeBG(row.name_bg),
+      name: getCityLabel({ name_bg: fixMojibakeBG(row.name_bg) }),
       slug: row.slug,
     }));
 }
@@ -703,8 +705,9 @@ export async function getHomeCitySelectOptions(): Promise<
     const slug = joined?.slug?.trim();
     if (!joined || !slug) continue;
 
-    const name =
-      festivalSettlementDisplayText(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg ?? slug);
+    const name = getCityLabel({
+      name_bg: fixMojibakeBG(joined.name_bg ?? slug),
+    });
     map.set(slug, { name, slug });
   }
 
@@ -825,7 +828,10 @@ export async function getOrganizerWithFestivals(
     cities,
     name: fixMojibakeBG(organizer.name),
     description: organizer.description ? fixMojibakeBG(organizer.description) : organizer.description,
-    city_name_display: festivalSettlementDisplayText(cities?.name_bg ?? null, cities?.is_village),
+    city_name_display: (() => {
+      const clines = formatSettlementLocationLines(cities?.name_bg ?? null, cities?.is_village);
+      return clines?.primary ? fixMojibakeBG(clines.primary) : null;
+    })(),
   };
 
   const { data: links, error: linksError } = await db

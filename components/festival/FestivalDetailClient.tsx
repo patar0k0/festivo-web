@@ -22,6 +22,7 @@ import FestivalAppCta from "@/components/festival/FestivalAppCta";
 import FestivalAccommodationSection from "@/components/festival/FestivalAccommodationSection";
 import FestivalNearbyBookingCard from "@/components/festival/FestivalNearbyBookingCard";
 import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
 import {
   formatPublicFestivalLocationSummary,
   getCompactMetaLocationBeyondCity,
@@ -872,8 +873,7 @@ export default function FestivalDetailClient({
                   <Link key={item.slug} href={`/festivals/${item.slug}`} className="block">
                     <EventCard
                       title={item.title}
-                      city={festivalLocationPrimary(item, "")}
-                      citySecondary={festivalLocationSecondary(item)}
+                      city={getFestivalListingCityPrimary(item)}
                       category={item.category}
                       imageUrl={getFestivalHeroImage(item)}
                       startDate={primaryFestivalDate(item)}

@@ -3,7 +3,7 @@ import { bookingAccommodationProvider } from "@/lib/accommodation/providers/book
 import { mockAccommodationProvider } from "@/lib/accommodation/providers/mock";
 import type { AccommodationProvider } from "@/lib/accommodation/provider";
 import type { AccommodationFetchContext, AccommodationOffer } from "@/lib/accommodation/types";
-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
 
 function resolveProviders(): AccommodationProvider[] {
   const list: AccommodationProvider[] = [];
@@ -29,7 +29,7 @@ function toContext(festival: Festival): AccommodationFetchContext {
     title: festival.title,
     latitude: festival.latitude ?? festival.lat ?? null,
     longitude: festival.longitude ?? festival.lng ?? null,
-    cityLabel: festivalCityLabel(festival, "") || null,
+    cityLabel: getFestivalListingCityPrimary(festival) || null,
     address: festival.address?.trim() || null,
   };
 }

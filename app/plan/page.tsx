@@ -5,7 +5,8 @@ import { pub } from "@/lib/public-ui/styles";
 import { getOptionalUser } from "@/lib/authUser";
 import { cn } from "@/lib/utils";
 import { getPlanEntriesByUser, getPlanStateByUser } from "@/lib/plan/server";
-import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { getCityLabel } from "@/lib/settlements/getCityLabel";
+import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { FestivalDateFields } from "@/lib/festival/listingDates";
 import { festivalEffectiveCalendarBounds, getFestivalTemporalState } from "@/lib/festival/temporal";
@@ -57,9 +58,7 @@ function mapPlanFestivalRow(row: {
     id: String(row.id),
     slug: row.slug,
     title: row.title,
-    city: joined?.name_bg?.trim()
-      ? festivalSettlementDisplayText(joined.name_bg, joined.is_village)
-      : null,
+    city: joined?.name_bg?.trim() ? getCityLabel({ name_bg: fixMojibakeBG(joined.name_bg) }) : null,
     start_date: row.start_date,
     end_date: row.end_date,
     occurrence_dates: row.occurrence_dates ?? null,

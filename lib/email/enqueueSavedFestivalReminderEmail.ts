@@ -4,7 +4,8 @@ import type { NotificationJobRow } from "@/lib/notifications/types";
 import { TZ } from "@/lib/notifications/time";
 import { getBaseUrl } from "@/lib/seo";
 import { formatScheduleHm } from "@/lib/festival/festivalTimeFields";
-import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { getCityLabel } from "@/lib/settlements/getCityLabel";
+import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 
 import {
   dedupeKeyReminderOneDayBefore,
@@ -79,7 +80,7 @@ function locationSummaryFromFestival(row: FestivalRowForReminderEmail): string |
 function cityDisplayFromFestival(row: FestivalRowForReminderEmail): string | null {
   const c = normalizeCityJoin(row.cities);
   if (c?.name_bg?.trim()) {
-    return festivalSettlementDisplayText(c.name_bg, c.is_village);
+    return getCityLabel({ name_bg: fixMojibakeBG(c.name_bg) });
   }
   return null;
 }

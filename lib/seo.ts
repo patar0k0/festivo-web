@@ -1,6 +1,6 @@
 import { maxIsoDate, minIsoDate, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { primaryFestivalDate } from "@/lib/festival/listingDates";
-import { festivalCityLabel, festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { festivalLocationPrimary, festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
 import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
 import { Festival } from "@/lib/types";
 import { getFestivalStartInstant } from "@/lib/notifications/time";
@@ -23,7 +23,7 @@ export function festivalShareImageUrl(festival: Festival): string | undefined {
 }
 
 export function festivalMeta(festival: Festival) {
-  const place = festivalCityLabel(festival, "България");
+  const place = festivalLocationPrimary(festival, "България");
   const title = `${festival.title} · ${place}`;
   const desc = festival.description?.trim();
   const description = desc ? desc.slice(0, 160) : undefined;

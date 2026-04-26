@@ -9,7 +9,7 @@ import { cityHref } from "@/lib/cities";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
-import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
 import { formatSettlementLocationLines } from "@/lib/settlements/formatLocation";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { getBaseUrl } from "@/lib/seo";
@@ -236,8 +236,7 @@ export default async function CityLandingPage({
                       <EventCard
                         key={festival.slug}
                         title={festival.title}
-                        city={festivalLocationPrimary(festival, "")}
-                        citySecondary={festivalLocationSecondary(festival)}
+                        city={getFestivalListingCityPrimary(festival)}
                         category={festival.category}
                         imageUrl={getFestivalHeroImage(festival)}
                         startDate={festival.start_date}

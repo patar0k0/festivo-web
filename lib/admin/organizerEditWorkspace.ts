@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fixFestivalText } from "@/lib/queries";
 import type { Festival } from "@/lib/types";
-import { festivalCityLabel, festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { getCityLabel, getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
+import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 
 const FESTIVAL_ADMIN_LINK_SELECT =
   "id,title,slug,start_date,end_date,status,city,city_id,cities(name_bg,slug,is_village)";
@@ -56,8 +57,8 @@ function pendingCityLabel(row: {
   city_row: { name_bg: string | null; slug: string | null; is_village: boolean | null } | null;
 }): string {
   const nested = row.city_row;
-  const formatted = festivalSettlementDisplayText(nested?.name_bg ?? null, nested?.is_village ?? null);
-  return formatted?.trim() || "—";
+  const nb = nested?.name_bg?.trim();
+  return nb ? getCityLabel({ name_bg: fixMojibakeBG(nb) }) : "—";
 }
 
 export async function loadOrganizerEditWorkspace(
@@ -144,7 +145,10 @@ export async function loadOrganizerEditWorkspace(
         start_date: f.start_date ?? null,
         end_date: f.end_date ?? null,
         status: f.status ?? null,
-        cityLabel: festivalCityLabel(f, "—"),
+        cityLabel: (() => {
+          const p = getFestivalListingCityPrimary(f).trim();
+          return p || "—";
+        })(),
       }));
     }
   }

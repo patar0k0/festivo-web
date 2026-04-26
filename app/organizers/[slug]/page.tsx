@@ -3,11 +3,8 @@ import Link from "next/link";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
-import {
-  festivalLocationPrimary,
-  festivalLocationSecondary,
-  organizerPageLocationLabel,
-} from "@/lib/settlements/formatDisplayName";
+import { organizerPageLocationLabel } from "@/lib/settlements/formatDisplayName";
+import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
 import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import OrganizerProfileAbout from "@/components/organizers/OrganizerProfileAbout";
@@ -341,8 +338,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                           <EventCard
                             key={festival.id}
                             title={festival.title}
-                            city={festivalLocationPrimary(festival, "")}
-                            citySecondary={festivalLocationSecondary(festival)}
+                            city={getFestivalListingCityPrimary(festival)}
                             category={festival.category}
                             imageUrl={getFestivalHeroImage(festival)}
                             startDate={festival.start_date}
@@ -367,8 +363,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                           <EventCard
                             key={festival.id}
                             title={festival.title}
-                            city={festivalLocationPrimary(festival, "")}
-                            citySecondary={festivalLocationSecondary(festival)}
+                            city={getFestivalListingCityPrimary(festival)}
                             category={festival.category}
                             imageUrl={getFestivalHeroImage(festival)}
                             startDate={festival.start_date}

@@ -29,7 +29,8 @@ import { absoluteSiteUrl } from "@/lib/email/emailUrls";
 import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { formatBgDateFromIso } from "@/lib/email/formatBg";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
-import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { getCityLabel } from "@/lib/settlements/getCityLabel";
+import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { ensureFestivalHasImage } from "@/lib/festival/ensureFestivalHasImage";
 
 type CityRow = {
@@ -652,9 +653,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const cityDisplay =
-      festivalSettlementDisplayText(cityById.name_bg, cityById.is_village ?? undefined) ??
-      pending.city_name_display?.trim() ??
-      null;
+      cityById.name_bg?.trim() != null && cityById.name_bg.trim() !== ""
+        ? getCityLabel({ name_bg: fixMojibakeBG(cityById.name_bg) })
+        : pending.city_name_display?.trim() ?? null;
 
     if (pending.submission_source === "organizer_portal" && pending.submitted_by_user_id) {
       try {

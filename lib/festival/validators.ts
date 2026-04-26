@@ -176,6 +176,14 @@ export function canonicalPatchFromUnknown(raw: unknown): PatchValidationResult {
     canonical.place_id = normalizeText(sourceValue(body, "place_id"));
   }
 
+  if (hasSourceValue(body, "coords_override")) {
+    const raw = sourceValue(body, "coords_override");
+    if (raw !== null && typeof raw !== "boolean") {
+      return { ok: false, error: "coords_override must be a boolean" };
+    }
+    canonical.coords_override = raw === null ? null : raw;
+  }
+
   if (hasSourceValue(body, "start_date")) canonical.start_date = normalizeText(sourceValue(body, "start_date"));
   if (hasSourceValue(body, "end_date")) canonical.end_date = normalizeText(sourceValue(body, "end_date"));
   if (hasSourceValue(body, "start_time")) {

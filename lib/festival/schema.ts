@@ -87,4 +87,6 @@ export type CanonicalFestivalPatchPayload = {
   source_url?: string | null;
   source_type?: string | null;
   status?: string | null;
+  /** When true, stored lat/lng are treated as manual and win over cache / geocode. */
+  coords_override?: boolean | null;
 };

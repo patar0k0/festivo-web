@@ -28,6 +28,8 @@ export type Festival = {
   longitude?: number | null;
   /** Google Maps place_id for exact POI links when coordinates are ambiguous. */
   place_id?: string | null;
+  /** Admin manual pin: when true, lat/lng must not be replaced by ingest or geocode resolution. */
+  coords_override?: boolean | null;
   ticket_url?: string | null;
   price_range?: string | null;
   /** External YouTube/Facebook page URL for optional embedded video (not gallery media). */

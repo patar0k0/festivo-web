@@ -54,6 +54,7 @@ erDiagram
     text source_url
     text place_id
     text geocode_provider
+    boolean coords_override
     date start_date
     date end_date
     time start_time
@@ -82,6 +83,7 @@ erDiagram
     text source_url
     text place_id
     text geocode_provider
+    boolean coords_override
     text source_type
     text status
     boolean is_verified

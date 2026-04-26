@@ -104,7 +104,16 @@ export async function resolveEventCoordinates(params: {
   if (params.coordsOverride === true) {
     const lat = asFiniteCoord(params.existingLat);
     const lng = asFiniteCoord(params.existingLng);
-    if (lat !== null && lng !== null && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+    if (
+      lat !== null &&
+      lng !== null &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180
+    ) {
       console.info("[coords] manual_override_skip_resolve");
       return {
         lat,

@@ -53,6 +53,7 @@ export type Database = {
           is_verified: boolean
           lat: number | null
           lng: number | null
+          coords_override: boolean | null
           website_url: string | null
           ticket_url: string | null
           price_range: string | null
@@ -82,6 +83,7 @@ export type Database = {
           is_verified: boolean
           lat?: number | null
           lng?: number | null
+          coords_override?: boolean
           website_url?: string | null
           ticket_url?: string | null
           price_range?: string | null
@@ -111,6 +113,7 @@ export type Database = {
           is_verified?: boolean
           lat?: number | null
           lng?: number | null
+          coords_override?: boolean
           website_url?: string | null
           ticket_url?: string | null
           price_range?: string | null
@@ -756,6 +759,20 @@ export type Database = {
           error_message?: string | null
           created_at?: string
           updated_at?: string | null
+        }
+      }
+      /** Partial row shape; extend when regenerating from Supabase. */
+      pending_festivals: {
+        Row: {
+          id: string
+          coords_override: boolean | null
+        }
+        Insert: {
+          id?: string
+          coords_override?: boolean | null
+        }
+        Update: {
+          coords_override?: boolean | null
         }
       }
       user_roles: {

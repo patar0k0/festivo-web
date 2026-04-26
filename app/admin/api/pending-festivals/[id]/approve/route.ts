@@ -89,10 +89,11 @@ type PendingFestivalRow = {
   submission_source?: string | null;
   city_name_display?: string | null;
   city_guess?: string | null;
+  coords_override?: boolean | null;
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,description_short,category,city_id,location_name,address,latitude,longitude,place_id,geocode_provider,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls,program_draft,submitted_by_user_id,submission_source,city_name_display,city_guess";
+  "id,title,slug,description,description_short,category,city_id,location_name,address,latitude,longitude,coords_override,place_id,geocode_provider,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls,program_draft,submitted_by_user_id,submission_source,city_name_display,city_guess";
 
 async function resolveOrganizerIdsForPublish(
   adminSupabase: SupabaseClient,
@@ -549,6 +550,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       video_url: videoUrlForPublish,
       place_id: pending.place_id,
       geocode_provider: pending.geocode_provider,
+      coords_override: pending.coords_override === true,
     };
 
     console.info(`[pending-approve] pending_id=${id} festivals insert payload keys=${Object.keys(insertPayload).join(",")}`);

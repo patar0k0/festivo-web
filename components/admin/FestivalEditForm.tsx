@@ -86,6 +86,7 @@ type FestivalRecord = {
   promotion_rank?: number | null;
   video_url?: string | null;
   place_id?: string | null;
+  coords_override?: boolean | null;
   [key: string]: unknown;
 };
 
@@ -246,7 +247,7 @@ export default function FestivalEditForm({
     promotion_started_at: asDatetimeLocalInput(festival.promotion_started_at),
     promotion_expires_at: asDatetimeLocalInput(festival.promotion_expires_at),
     promotion_rank: festival.promotion_rank != null ? String(festival.promotion_rank) : "0",
-    coords_override: false,
+    coords_override: festival.coords_override ?? false,
   });
   const isPromotionEnabled = form.promotion_status === "promoted";
 
@@ -964,6 +965,7 @@ export default function FestivalEditForm({
           promotion_started_at: form.promotion_started_at || null,
           promotion_expires_at: form.promotion_expires_at || null,
           promotion_rank: form.promotion_rank.trim() === "" ? null : Number(form.promotion_rank),
+          coords_override: form.coords_override,
         }),
       });
 
@@ -1241,7 +1243,7 @@ export default function FestivalEditForm({
               className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </label>
-          {form.coords_override ? (
+          {festival.coords_override === true || form.coords_override ? (
             <div className="md:col-span-2 flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-amber-200/80 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-900/90">
                 Ръчно зададена локация

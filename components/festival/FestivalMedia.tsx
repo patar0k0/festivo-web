@@ -1,15 +1,46 @@
 "use client";
 
 import { useState } from "react";
+
 import { MediaLightbox, type MediaItem } from "@/components/ui/MediaLightbox";
+import { getEmbedUrl, getYouTubeVideoId } from "@/lib/media/getEmbedUrl";
 
 type Props = {
   items: MediaItem[];
 };
 
-function getYouTubeId(url: string): string | null {
-  const match = url.match(/youtube\.com.*v=([^&]+)/) || url.match(/youtu\.be\/([^?]+)/);
-  return match ? match[1] : null;
+function VideoThumb({ url, compact }: { url: string; compact?: boolean }) {
+  const playOverlay = compact ? (
+    <div className="absolute inset-0 flex items-center justify-center text-xs text-white">▶</div>
+  ) : (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-2xl">▶</div>
+    </div>
+  );
+  const ytId = getYouTubeVideoId(url);
+  if (ytId) {
+    const thumbnail = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element -- YouTube thumbnail is external runtime URL. */}
+        <img src={thumbnail} alt="" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-black/30 transition group-hover:bg-black/40" />
+        {playOverlay}
+      </>
+    );
+  }
+  if (getEmbedUrl(url)) {
+    return (
+      <>
+        <div className="h-full w-full bg-neutral-900" />
+        <div className="absolute inset-0 bg-black/30 transition group-hover:bg-black/40" />
+        {playOverlay}
+      </>
+    );
+  }
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-neutral-800 text-xs text-white/80">Видео</div>
+  );
 }
 
 export function FestivalMedia({ items }: Props) {
@@ -30,23 +61,9 @@ export function FestivalMedia({ items }: Props) {
           // eslint-disable-next-line @next/next/no-img-element -- Runtime media URLs are external/user-provided.
           <img src={active.url} alt="" className="h-full w-full object-cover" />
         ) : (
-          (() => {
-            const id = getYouTubeId(active.url);
-            if (!id) return null;
-
-            const thumbnail = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
-
-            return (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element -- YouTube thumbnail is external runtime URL. */}
-                <img src={thumbnail} alt="" className="h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-black/30 transition group-hover:bg-black/40" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-2xl">▶</div>
-                </div>
-              </>
-            );
-          })()
+          <div className="relative h-full w-full">
+            <VideoThumb url={active.url} />
+          </div>
         )}
 
         {items.length > 1 ? (
@@ -73,21 +90,14 @@ export function FestivalMedia({ items }: Props) {
               );
             }
 
-            const id = getYouTubeId(item.url);
-            if (!id) return null;
-
-            const thumbnail = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
-
             return (
               <button
                 key={item.url}
                 onClick={() => setActiveIndex(i)}
-                className="relative h-14 w-20 overflow-hidden rounded-md"
+                className="group relative h-14 w-20 overflow-hidden rounded-md"
                 aria-label={`Видео превю ${i + 1}`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- YouTube thumbnail is external runtime URL. */}
-                <img src={thumbnail} alt="" className="h-full w-full object-cover" />
-                <div className="absolute inset-0 flex items-center justify-center text-xs text-white">▶</div>
+                <VideoThumb url={item.url} compact />
               </button>
             );
           })}

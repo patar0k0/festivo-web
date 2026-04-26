@@ -90,11 +90,44 @@ function sanitizeSourceUrls(input: unknown): string[] {
     .filter((entry): entry is string => Boolean(entry));
 }
 
+function pickManualCoordsOverride(payload: unknown): {
+  coordsOverride: boolean;
+  existingLat: number | null;
+  existingLng: number | null;
+} {
+  if (!payload || typeof payload !== "object") {
+    return { coordsOverride: false, existingLat: null, existingLng: null };
+  }
+  const v = payload as Record<string, unknown>;
+  if (v.coords_override !== true) {
+    return { coordsOverride: false, existingLat: null, existingLng: null };
+  }
+  const lat =
+    typeof v.latitude === "number"
+      ? v.latitude
+      : typeof v.latitude === "string"
+        ? Number(v.latitude)
+        : NaN;
+  const lng =
+    typeof v.longitude === "number"
+      ? v.longitude
+      : typeof v.longitude === "string"
+        ? Number(v.longitude)
+        : NaN;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { coordsOverride: false, existingLat: null, existingLng: null };
+  }
+  return { coordsOverride: true, existingLat: lat, existingLng: lng };
+}
+
 async function resolveInsertCoordinates(params: {
   placeId: string | null;
   locationLine: string | null;
   cityName: string | null;
   logContext: string;
+  coordsOverride?: boolean;
+  existingLat?: number | null;
+  existingLng?: number | null;
 }): Promise<{
   latitude: number | null;
   longitude: number | null;
@@ -105,6 +138,9 @@ async function resolveInsertCoordinates(params: {
     placeId: params.placeId,
     locationName: params.locationLine,
     cityName: params.cityName,
+    coordsOverride: params.coordsOverride,
+    existingLat: params.existingLat,
+    existingLng: params.existingLng,
   });
 
   if (coords && validateCoordinates(coords, undefined)) {
@@ -293,11 +329,15 @@ export async function POST(request: Request) {
     const aiSlugGuess = sanitizeNullableString(ai.slug);
     const aiLocationLine = aiVenue ?? aiAddress ?? null;
     const aiPlaceId = sanitizeNullableString((ai as { place_id?: unknown }).place_id);
+    const manualAi = pickManualCoordsOverride(ai);
     const aiGeoFields = await resolveInsertCoordinates({
       placeId: aiPlaceId,
       locationLine: aiLocationLine,
       cityName: aiCityText,
       logContext: "research-ai",
+      coordsOverride: manualAi.coordsOverride,
+      existingLat: manualAi.existingLat,
+      existingLng: manualAi.existingLng,
     });
 
     let aiProgramDraftInsert: unknown = null;
@@ -425,11 +465,15 @@ export async function POST(request: Request) {
   const addressText = normalizeBgLocation(sanitizeNullableString(finalValues.address));
   const locationLine = venueText ?? addressText ?? null;
   const researchPlaceId = sanitizeNullableString((finalValues as { place_id?: unknown }).place_id);
+  const manualResearch = pickManualCoordsOverride(finalValues);
   const geoFields = await resolveInsertCoordinates({
     placeId: researchPlaceId,
     locationLine,
     cityName: cityText,
     logContext: "research-web",
+    coordsOverride: manualResearch.coordsOverride,
+    existingLat: manualResearch.existingLat,
+    existingLng: manualResearch.existingLng,
   });
   const categoryText = sanitizeNullableString(finalValues.category);
 

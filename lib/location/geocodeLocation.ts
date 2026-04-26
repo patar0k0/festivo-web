@@ -1,4 +1,4 @@
-export type GeocodeProvider = "google" | "osm" | "cache";
+export type GeocodeProvider = "google" | "osm" | "cache" | "manual";
 
 export type GeocodeLocationResult = {
   lat: number;

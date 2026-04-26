@@ -42,6 +42,8 @@ import { parseGoogleMapsUrl } from "@/lib/location/parseGoogleMapsUrl";
 import { extractPlaceIdFromGoogleMapsUrl } from "@/lib/location/extractPlaceIdFromGoogleMapsUrl";
 import { buildGoogleMapsEmbedSrc } from "@/lib/location/buildGoogleMapsUrl";
 import { resolveCoordsFromPlaceId } from "@/lib/location/resolveCoordsFromPlaceId";
+import { normalizeLocationKey } from "@/lib/location/normalizeLocationKey";
+import { MapPickerModal } from "@/components/admin/MapPicker";
 import { toast } from "sonner";
 
 type FestivalRecord = {
@@ -244,6 +246,7 @@ export default function FestivalEditForm({
     promotion_started_at: asDatetimeLocalInput(festival.promotion_started_at),
     promotion_expires_at: asDatetimeLocalInput(festival.promotion_expires_at),
     promotion_rank: festival.promotion_rank != null ? String(festival.promotion_rank) : "0",
+    coords_override: false,
   });
   const isPromotionEnabled = form.promotion_status === "promoted";
 
@@ -262,6 +265,7 @@ export default function FestivalEditForm({
   });
   const [saving, setSaving] = useState(false);
   const [findingCoords, setFindingCoords] = useState(false);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [mapsUrlInput, setMapsUrlInput] = useState("");
   const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
   const mediaSnapshot = JSON.stringify(initialMedia.map((m) => ({ id: m.id, url: m.url, type: m.type, is_hero: m.is_hero ?? null })));
@@ -380,6 +384,8 @@ export default function FestivalEditForm({
   };
 
   useEffect(() => {
+    if (form.coords_override) return;
+
     const placeId = form.place_id?.trim() ?? "";
     const lat = parseFloat(form.latitude || "");
     const lng = parseFloat(form.longitude || "");
@@ -404,7 +410,7 @@ export default function FestivalEditForm({
       cancelled = true;
       resolvedPlaceRef.current = null;
     };
-  }, [form.place_id, form.latitude, form.longitude]);
+  }, [form.coords_override, form.place_id, form.latitude, form.longitude]);
 
   const updateOrganizerIds = (organizerIds: string[]) => {
     const uniqueOrganizerIds = organizerIds.filter((id, index) => organizerIds.indexOf(id) === index);
@@ -649,8 +655,43 @@ export default function FestivalEditForm({
     toast.error(validation.message);
   };
 
+  const onConfirmMapPicker = (coords: { lat: number; lng: number }) => {
+    const locName = form.location_name.trim();
+    const cityName = form.city.trim();
+    updateField("latitude", coords.lat.toFixed(6));
+    updateField("longitude", coords.lng.toFixed(6));
+    updateField("coords_override", true);
+    setMapPickerOpen(false);
+    const key = normalizeLocationKey(locName || null, cityName || null);
+    if (key) {
+      void fetch("/admin/api/location-cache", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key,
+          location_name: locName || null,
+          city_name: cityName || null,
+          lat: coords.lat,
+          lng: coords.lng,
+          score: 100,
+        }),
+      })
+        .then(async (res) => {
+          if (!res.ok) console.warn("[location-cache]", await res.text());
+        })
+        .catch((e) => console.warn("[location-cache]", e));
+    }
+    toast.success("Координатите са зададени от картата.");
+  };
+
   const onFindCoords = async () => {
     if (findingCoords || saving || actionPending) return;
+
+    if (form.coords_override) {
+      toast.error("Ръчно зададените координати са активни. Изключете ръчния режим, за да търсите отново.");
+      return;
+    }
 
     let placeIdFromMaps: string | null = null;
     let mapsFailed = false;
@@ -683,6 +724,7 @@ export default function FestivalEditForm({
           const lng = coords.lng.toFixed(6);
           updateField("latitude", lat);
           updateField("longitude", lng);
+          updateField("coords_override", false);
 
           console.info("[coords] source=maps-url", coords);
           toast.success("Координатите са извлечени от Google Maps линка");
@@ -737,6 +779,7 @@ export default function FestivalEditForm({
             updateField("place_id", geoPlaceId);
           }
         }
+        updateField("coords_override", false);
         const coords = { lat: payload.lat, lng: payload.lng };
         toast.success("Координатите са намерени");
         console.info("[coords] source=geocode", coords);
@@ -1198,6 +1241,20 @@ export default function FestivalEditForm({
               className={ADMIN_ENTITY_CONTROL_CLASS}
             />
           </label>
+          {form.coords_override ? (
+            <div className="md:col-span-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-amber-200/80 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-900/90">
+                Ръчно зададена локация
+              </span>
+              <button
+                type="button"
+                onClick={() => updateField("coords_override", false)}
+                className="text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55 underline decoration-black/25 hover:text-black/80"
+              >
+                Изключи ръчния режим
+              </button>
+            </div>
+          ) : null}
           <label>
             <AdminFieldLabel field="latitude" />
             <input value={form.latitude} onChange={(e) => updateField("latitude", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
@@ -1227,6 +1284,14 @@ export default function FestivalEditForm({
           </button>
           <button
             type="button"
+            onClick={() => setMapPickerOpen(true)}
+            disabled={saving || Boolean(actionPending)}
+            className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
+          >
+            Избери от карта
+          </button>
+          <button
+            type="button"
             onClick={onFindCoords}
             disabled={findingCoords || saving || Boolean(actionPending)}
             className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
@@ -1235,6 +1300,14 @@ export default function FestivalEditForm({
           </button>
         </div>
       </AdminFieldSection>
+
+      <MapPickerModal
+        open={mapPickerOpen}
+        onClose={() => setMapPickerOpen(false)}
+        initialLat={form.latitude ? Number(form.latitude) : null}
+        initialLng={form.longitude ? Number(form.longitude) : null}
+        onConfirm={onConfirmMapPicker}
+      />
 
       <AdminFieldSection title={ADMIN_ENTITY_SECTION.organizer.title} variant={ADMIN_ENTITY_SECTION.organizer.variant}>
         <AdminFieldGrid>

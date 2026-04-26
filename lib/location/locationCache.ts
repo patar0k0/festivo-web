@@ -38,8 +38,12 @@ export async function saveLocationCache(params: {
   lat: number;
   lng: number;
   score: number;
+  /** When true, upsert updates an existing row (e.g. admin manual pin at max confidence). */
+  replaceExisting?: boolean;
 }): Promise<boolean> {
-  if (params.score < 60 || !params.key) return false;
+  const replace = params.replaceExisting === true;
+  if (!params.key) return false;
+  if (params.score < 60) return false;
 
   const admin = supabaseAdmin();
   if (!admin) return false;
@@ -55,7 +59,7 @@ export async function saveLocationCache(params: {
         longitude: params.lng,
         confidence_score: params.score,
       },
-      { onConflict: "normalized_key", ignoreDuplicates: true },
+      { onConflict: "normalized_key", ignoreDuplicates: !replace },
     )
     .select("id")
     .maybeSingle();

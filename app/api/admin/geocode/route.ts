@@ -8,12 +8,24 @@ type GeocodeBody = {
   location_name?: unknown;
   city?: unknown;
   place_id?: unknown;
+  coords_override?: unknown;
+  existing_lat?: unknown;
+  existing_lng?: unknown;
 };
 
 function asOptionalString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
 }
 
 /** `GET /api/admin/geocode?place_id=...` — admin-only; returns lat/lng for a Google place_id. */
@@ -53,11 +65,17 @@ export async function POST(request: Request) {
   const locationName = normalizeBgLocation(asOptionalString(body?.location_name));
   const city = normalizeBgLocation(asOptionalString(body?.city));
   const placeId = asOptionalString(body?.place_id);
+  const coordsOverride = body?.coords_override === true;
+  const existingLat = asFiniteNumber(body?.existing_lat);
+  const existingLng = asFiniteNumber(body?.existing_lng);
 
   const resolved = await resolveEventCoordinates({
     placeId,
     locationName,
     cityName: city,
+    coordsOverride: coordsOverride && existingLat !== null && existingLng !== null,
+    existingLat,
+    existingLng,
   });
 
   return NextResponse.json({

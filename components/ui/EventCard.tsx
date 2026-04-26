@@ -7,6 +7,7 @@ import { cn } from "@/components/ui/cn";
 import { pub } from "@/lib/public-ui/styles";
 import { formatContinuousFestivalRangeBg } from "@/lib/festival/listingDates";
 import { categoryLabel } from "@/lib/festival/categoryLabel";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 
 /** Кратко име на месец за оранжева значка (3–4 знака). */
@@ -124,6 +125,7 @@ export default function EventCard({
     start_time: startTime ?? null,
     end_time: endTime ?? null,
   });
+  const isPast = isFestivalPast({ start_date: startDate, end_date: endDate });
   const temporalLabel = temporalState === "past" ? "Отминал" : temporalState === "ongoing" ? "Текущ" : null;
 
   return (
@@ -198,8 +200,12 @@ export default function EventCard({
           <div className="text-base font-bold leading-none">{badge.day}</div>
         </div>
 
-        {festivalId != null ? (
-          <FestivalCardSaveOverlay festivalId={String(festivalId)} className="absolute right-3 top-3 z-10" />
+        {festivalId != null && !isPast ? (
+          <FestivalCardSaveOverlay
+            festivalId={String(festivalId)}
+            festival={{ start_date: startDate, end_date: endDate }}
+            className="absolute right-3 top-3 z-10"
+          />
         ) : null}
       </div>
 

@@ -393,7 +393,7 @@ export default function FestivalDetailClient({
   }, [highlightId]);
 
   useEffect(() => {
-    if (!isAuthenticated || !planActionParam || !POST_LOGIN_ACTIONS.has(planActionParam)) return;
+    if (!isAuthenticated || !planActionParam || !POST_LOGIN_ACTIONS.has(planActionParam) || isPast) return;
 
     const actionKey = `${planActionParam}:${planIdParam ?? ""}:${planReminderTypeParam ?? ""}`;
     let actions: string[] = [];
@@ -501,6 +501,7 @@ export default function FestivalDetailClient({
     toggleScheduleItem,
     setFestivalReminder,
     refreshPlanState,
+    isPast,
   ]);
 
   const clearPlan = async () => {
@@ -622,6 +623,7 @@ export default function FestivalDetailClient({
             icsHref={icsHref}
             reminderAnchorId={REMINDER_BLOCK_ID}
             showReminderAction={!isPast}
+            showCalendarAction={!isPast}
             onGuestReminderClick={() =>
               redirectToLoginForPlanAction({ action: "set_reminder", type: "24h" })
             }
@@ -759,7 +761,7 @@ export default function FestivalDetailClient({
                                   ) : null}
                                 </div>
                               </div>
-                              {programItemPlanActions ? (
+                              {programItemPlanActions && !isPast ? (
                                 isAdded ? (
                                   <button
                                     type="button"

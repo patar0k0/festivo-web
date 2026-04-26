@@ -150,6 +150,7 @@ export default function MapView({
             <div className="mt-2">
               <PlanFestivalBookmark
                 festivalId={String(selectedFestival.id)}
+                festival={selectedFestival}
                 programmeHref={festivalProgrammeHref(`/festivals/${selectedFestival.slug}`)}
               />
             </div>

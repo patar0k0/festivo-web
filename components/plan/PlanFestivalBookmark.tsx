@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { SyntheticEvent, useState } from "react";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import type { ReminderType } from "@/lib/plan/server";
 
 type PlanFestivalBookmarkProps = {
   festivalId: string;
+  festival?: { start_date?: string | null; end_date?: string | null } | null;
   /** Link to festival detail programme block (`#festival-program`). */
   programmeHref?: string | null;
   compact?: boolean;
@@ -42,6 +44,7 @@ function HeartIcon({ filled }: { filled: boolean }) {
 
 export default function PlanFestivalBookmark({
   festivalId,
+  festival,
   programmeHref,
   compact = true,
   showProgrammeLink = true,
@@ -63,6 +66,7 @@ export default function PlanFestivalBookmark({
   const [error, setError] = useState<string | null>(null);
 
   const saved = isFestivalInPlan(festivalId);
+  const isPast = isFestivalPast(festival ?? {});
   const reminder = reminderTypeByFestivalId[String(festivalId)] ?? "none";
   const programmeLink = showProgrammeLink && programmeHref ? programmeHref : null;
 
@@ -107,6 +111,7 @@ export default function PlanFestivalBookmark({
   };
 
   if (variant === "icon") {
+    if (isPast) return null;
     return (
       <button
         type="button"
@@ -130,21 +135,25 @@ export default function PlanFestivalBookmark({
   return (
     <div className={`space-y-2 ${compact ? "" : "mt-3"}`} onClick={(event) => event.stopPropagation()}>
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={(event) => {
-            stopEvent(event);
-            void toggleSaved();
-          }}
-          disabled={loading}
-          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
-            saved
-              ? "border-[#0c0e14] bg-[#0c0e14] text-white"
-              : "border-black/[0.1] bg-white text-[#0c0e14] hover:bg-[#f7f6f3]"
-          } disabled:cursor-not-allowed disabled:opacity-45`}
-        >
-          {loading ? "…" : saved ? "Запазено" : "Запази"}
-        </button>
+        {!isPast ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              stopEvent(event);
+              void toggleSaved();
+            }}
+            disabled={loading}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 ${
+              saved
+                ? "border-[#0c0e14] bg-[#0c0e14] text-white"
+                : "border-black/[0.1] bg-white text-[#0c0e14] hover:bg-[#f7f6f3]"
+            } disabled:cursor-not-allowed disabled:opacity-45`}
+          >
+            {loading ? "…" : saved ? "Запазено" : "Запази"}
+          </button>
+        ) : (
+          <span className="text-xs text-black/55">Събитието е приключило</span>
+        )}
 
         {programmeLink ? (
           <Link
@@ -156,7 +165,7 @@ export default function PlanFestivalBookmark({
           </Link>
         ) : null}
 
-        {showReminder ? (
+        {showReminder && !isPast ? (
           <label className="text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
             Напомняне
             <select

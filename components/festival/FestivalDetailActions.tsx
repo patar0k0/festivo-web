@@ -11,6 +11,7 @@ type HeroProps = {
   icsHref: string;
   reminderAnchorId: string;
   showReminderAction?: boolean;
+  showCalendarAction?: boolean;
   /** When set, guests call this instead of context-only auth hint (e.g. open login modal). */
   onGuestReminderClick?: () => void;
 };
@@ -23,6 +24,7 @@ export function FestivalHeroActionBar({
   icsHref,
   reminderAnchorId,
   showReminderAction = true,
+  showCalendarAction = true,
   onGuestReminderClick,
 }: HeroProps) {
   const { isAuthenticated, requireAuthForPlan, reminderTypeByFestivalId, setFestivalReminder } = usePlanState();
@@ -74,9 +76,11 @@ export function FestivalHeroActionBar({
             {primaryReminderLabel}
           </button>
         ) : null}
-        <a href={icsHref} className={secondaryClass}>
-          Добави в календара
-        </a>
+        {showCalendarAction ? (
+          <a href={icsHref} className={secondaryClass}>
+            Добави в календара
+          </a>
+        ) : null}
       </div>
       {showReminderAction ? <p className="text-xs leading-relaxed text-black/60">{heroReminderHelper}</p> : null}
     </div>

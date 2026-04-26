@@ -6,10 +6,12 @@ import { Festival } from "@/lib/types";
 import OpenInAppButton from "@/components/OpenInAppButton";
 import QRCodeBlock from "@/components/QRCodeBlock";
 import { festivalDeepLink } from "@/lib/deepLink";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
 
 export default function FestivalHero({ festival }: { festival: Festival }) {
   const deepLink = festivalDeepLink(festival.slug);
+  const isPast = isFestivalPast(festival);
   const heroImage = getFestivalHeroImage(festival);
   const mapsHref = buildGoogleMapsUrl({
     placeId: festival.place_id,
@@ -52,12 +54,14 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
                 Directions
               </a>
             ) : null}
-            <a
-              href={`/festival/${festival.slug}/ics`}
-              className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-            >
-              Add to calendar
-            </a>
+            {!isPast ? (
+              <a
+                href={`/festival/${festival.slug}/ics`}
+                className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+              >
+                Add to calendar
+              </a>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-col gap-4">

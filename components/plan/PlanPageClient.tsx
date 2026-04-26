@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import type { FestivalDateFields } from "@/lib/festival/listingDates";
 import { festivalEffectiveCalendarBounds, getFestivalTemporalState } from "@/lib/festival/temporal";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
@@ -353,9 +354,13 @@ function SavedFestivalPlanCard({
           </div>
         </div>
 
-        <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-          <ReminderMenu value={reminder} onChange={onReminderChange} />
-        </div>
+        {!isPast ? (
+          <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <ReminderMenu value={reminder} onChange={onReminderChange} />
+          </div>
+        ) : (
+          <p className="text-sm text-black/55">Събитието е приключило</p>
+        )}
 
         <div className="flex flex-row flex-wrap items-center gap-2">
           <button
@@ -368,7 +373,7 @@ function SavedFestivalPlanCard({
           >
             Виж фестивала
           </button>
-          {inPlan ? (
+          {!isPast ? (inPlan ? (
             <button
               type="button"
               onClick={(e) => {
@@ -392,7 +397,7 @@ function SavedFestivalPlanCard({
             >
               + Добави
             </button>
-          )}
+          )) : null}
         </div>
       </div>
     </article>
@@ -558,6 +563,7 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
           <div className="mt-4 space-y-3">
             {festivalEntries.length ? (
             festivalEntries.map((festival, festivalIndex) => {
+              const isPast = isFestivalPast(festival);
               const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
               const planToggleBusy = planToggleBusyIds.has(festival.id);
               const temporalBadge = getTemporalBadge(festival);
@@ -567,7 +573,7 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
                   key={festival.id}
                   festival={festival}
                   festivalIndex={festivalIndex}
-                  isPast={false}
+                  isPast={isPast}
                   reminder={reminder}
                   planToggleBusy={planToggleBusy}
                   isNextUpcoming={isNextUpcoming}
@@ -610,6 +616,7 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
               <p className="mt-1 text-sm text-black/60">Фестивали, които вече са приключили.</p>
               <div className="mt-4 space-y-3">
                 {pastFestivalEntries.map((festival, festivalIndex) => {
+                  const isPast = isFestivalPast(festival);
                   const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
                   const planToggleBusy = planToggleBusyIds.has(festival.id);
                   return (
@@ -617,7 +624,7 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
                       key={festival.id}
                       festival={festival}
                       festivalIndex={festivalIndex}
-                      isPast
+                      isPast={isPast}
                       reminder={reminder}
                       planToggleBusy={planToggleBusy}
                       isNextUpcoming={false}

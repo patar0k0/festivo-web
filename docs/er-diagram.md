@@ -19,6 +19,17 @@ erDiagram
     timestamptz created_at
   }
 
+  location_cache {
+    uuid id PK
+    text normalized_key UK
+    text location_name
+    text city_name
+    float latitude
+    float longitude
+    int confidence_score
+    timestamptz created_at
+  }
+
   ingest_jobs {
     uuid id PK
     text source_url UK

@@ -5,6 +5,9 @@ export type GeocodeLocationResult = {
   lng: number;
   placeId: string | null;
   provider: GeocodeProvider;
+  /** Short label when the provider returns one (e.g. OSM `name`). */
+  name?: string | null;
+  formattedAddress?: string | null;
 };
 
 const GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
@@ -43,6 +46,7 @@ async function geocodeWithGoogle(query: string): Promise<GeocodeLocationResult |
           status?: string;
           results?: Array<{
             place_id?: string;
+            formatted_address?: string;
             geometry?: { location?: { lat?: unknown; lng?: unknown } };
           }>;
         }
@@ -57,11 +61,17 @@ async function geocodeWithGoogle(query: string): Promise<GeocodeLocationResult |
     const lng = asFiniteNumber(first?.geometry?.location?.lng);
     if (lat === null || lng === null) return null;
 
+    const formattedAddress =
+      typeof first.formatted_address === "string" && first.formatted_address.trim()
+        ? first.formatted_address.trim()
+        : null;
+
     return {
       lat,
       lng,
       placeId: typeof first.place_id === "string" && first.place_id.trim() ? first.place_id.trim() : null,
       provider: "google",
+      formattedAddress,
     };
   } catch {
     return null;
@@ -86,7 +96,7 @@ async function geocodeWithOsm(query: string): Promise<GeocodeLocationResult | nu
     if (!response.ok) return null;
 
     const payload = (await response.json().catch(() => null)) as
-      | Array<{ lat?: unknown; lon?: unknown; osm_id?: unknown }>
+      | Array<{ lat?: unknown; lon?: unknown; osm_id?: unknown; display_name?: string; name?: string }>
       | null;
 
     if (!Array.isArray(payload) || payload.length === 0) return null;
@@ -97,11 +107,18 @@ async function geocodeWithOsm(query: string): Promise<GeocodeLocationResult | nu
     if (lat === null || lng === null) return null;
 
     const osmId = first.osm_id;
+    const displayName =
+      typeof first.display_name === "string" && first.display_name.trim() ? first.display_name.trim() : null;
+    const shortName =
+      typeof first.name === "string" && first.name.trim() ? first.name.trim() : null;
+
     return {
       lat,
       lng,
       placeId: typeof osmId === "string" ? osmId : typeof osmId === "number" ? String(osmId) : null,
       provider: "osm",
+      name: shortName,
+      formattedAddress: displayName,
     };
   } catch {
     return null;
@@ -144,6 +161,7 @@ export async function geocodeByPlaceId(placeId: string | null | undefined): Prom
           status?: string;
           results?: Array<{
             place_id?: string;
+            formatted_address?: string;
             geometry?: { location?: { lat?: unknown; lng?: unknown } };
           }>;
         }
@@ -158,11 +176,17 @@ export async function geocodeByPlaceId(placeId: string | null | undefined): Prom
     const lng = asFiniteNumber(first?.geometry?.location?.lng);
     if (lat === null || lng === null) return null;
 
+    const formattedAddress =
+      typeof first.formatted_address === "string" && first.formatted_address.trim()
+        ? first.formatted_address.trim()
+        : null;
+
     return {
       lat,
       lng,
       placeId: typeof first.place_id === "string" && first.place_id.trim() ? first.place_id.trim() : trimmed,
       provider: "google",
+      formattedAddress,
     };
   } catch {
     return null;

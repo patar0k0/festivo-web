@@ -1,4 +1,6 @@
 import { geocodeByPlaceId, geocodeLocation, type GeocodeLocationResult } from "@/lib/location/geocodeLocation";
+import { scoreGeocodeResult, type GeocodeMeta } from "@/lib/location/scoreGeocodeResult";
+import { shouldAcceptCoordinates } from "@/lib/location/shouldAcceptCoordinates";
 
 export type EventCoordsSource = "place_id" | "venue+city" | "venue_only";
 
@@ -6,6 +8,48 @@ export type ResolvedEventCoordinates = GeocodeLocationResult & { source: EventCo
 
 async function geocodeByQuery(query: string | null | undefined): Promise<GeocodeLocationResult | null> {
   return geocodeLocation(query);
+}
+
+function geocodeMeta(
+  source: EventCoordsSource,
+  query: string,
+  geocodeResult: GeocodeLocationResult,
+): GeocodeMeta {
+  const nameTrim = typeof geocodeResult.name === "string" ? geocodeResult.name.trim() : "";
+  const formattedTrim =
+    typeof geocodeResult.formattedAddress === "string" ? geocodeResult.formattedAddress.trim() : "";
+  const label = nameTrim || formattedTrim || undefined;
+  return {
+    source,
+    query,
+    resultName: label,
+    resultAddress: formattedTrim || undefined,
+  };
+}
+
+function gateGeocode(
+  source: EventCoordsSource,
+  query: string,
+  geocodeResult: GeocodeLocationResult | null,
+): ResolvedEventCoordinates | null {
+  if (!geocodeResult) return null;
+
+  const meta = geocodeMeta(source, query, geocodeResult);
+  const score = scoreGeocodeResult(meta);
+
+  console.info("[coords] score", {
+    score,
+    source,
+    query,
+    result: geocodeResult.name ?? geocodeResult.formattedAddress,
+  });
+
+  if (!shouldAcceptCoordinates(meta)) {
+    console.warn("[coords] rejected_low_confidence", meta);
+    return null;
+  }
+
+  return { ...geocodeResult, source };
 }
 
 /**
@@ -19,23 +63,29 @@ export async function resolveEventCoordinates(params: {
 }): Promise<ResolvedEventCoordinates | null> {
   const { locationName, cityName, placeId } = params;
 
-  if (placeId && String(placeId).trim()) {
-    const coords = await geocodeByPlaceId(placeId);
-    if (coords) return { ...coords, source: "place_id" };
-  }
-
   const venue = typeof locationName === "string" ? locationName.trim() : "";
   const city = typeof cityName === "string" ? cityName.trim() : "";
+
+  if (placeId && String(placeId).trim()) {
+    const trimmedPlaceId = String(placeId).trim();
+    const coords = await geocodeByPlaceId(trimmedPlaceId);
+    if (coords) {
+      const queryForScore = [venue, city].filter(Boolean).join(", ") || trimmedPlaceId;
+      return gateGeocode("place_id", queryForScore, coords);
+    }
+  }
 
   if (venue && city) {
     const query = `${venue}, ${city}, България`;
     const coords = await geocodeByQuery(query);
-    if (coords) return { ...coords, source: "venue+city" };
+    const resolved = gateGeocode("venue+city", query, coords);
+    if (resolved) return resolved;
   }
 
   if (venue) {
     const coords = await geocodeByQuery(venue);
-    if (coords) return { ...coords, source: "venue_only" };
+    const resolved = gateGeocode("venue_only", venue, coords);
+    if (resolved) return resolved;
   }
 
   return null;

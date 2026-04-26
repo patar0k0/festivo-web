@@ -9,7 +9,7 @@ import { cityHref } from "@/lib/cities";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { listFestivals } from "@/lib/festivals";
-import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
+import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { formatSettlementLocationLines } from "@/lib/settlements/formatLocation";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { getBaseUrl } from "@/lib/seo";
@@ -97,9 +97,7 @@ export default async function CityLandingPage({
     permanentRedirect(cityHref(city.slug));
   }
 
-  const cityLines = formatSettlementLocationLines(city.name_bg, city.is_village);
-  const cityName = cityLines?.primary ?? city.name_bg;
-  const citySubline = cityLines?.secondary;
+  const cityName = city.name_bg.trim();
   const citySlug = city.slug;
 
   const parsedFilters = parseFilters(resolvedSearchParams);
@@ -167,11 +165,8 @@ export default async function CityLandingPage({
             <section className={cn(pub.panelHero, "p-6 md:p-8")}>
               <p className={pub.eyebrowMuted}>Градска страница</p>
               <h1 className={cn(pub.pageTitle, "mt-2")}>Фестивали в {cityName}</h1>
-              {citySubline ? (
-                <p className="mt-1 text-sm text-black/50">{citySubline}</p>
-              ) : null}
               <p className={cn(pub.body, "mt-3 max-w-2xl text-black/60")}>
-                Безплатни събития, дати и програма. Открий предстоящи фестивали и събития в {cityLines?.geoLine ?? city.name_bg}. Запази в план и получавай напомняния.
+                Безплатни събития, дати и програма. Открий предстоящи фестивали и събития в {cityName}. Запази в план и получавай напомняния.
               </p>
 
               <div className="mt-5 flex flex-wrap gap-2">
@@ -236,7 +231,7 @@ export default async function CityLandingPage({
                       <EventCard
                         key={festival.slug}
                         title={festival.title}
-                        city={getFestivalListingCityPrimary(festival)}
+                        city={getFestivalLocationDisplay(festival).city ?? ""}
                         category={festival.category}
                         imageUrl={getFestivalHeroImage(festival)}
                         startDate={festival.start_date}

@@ -1,7 +1,7 @@
 import FallbackImage from "@/components/ui/FallbackImage";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
-import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
+import { formatFestivalLocationUiLine } from "@/lib/location/getFestivalLocationDisplay";
 import { Festival } from "@/lib/types";
 import OpenInAppButton from "@/components/OpenInAppButton";
 import QRCodeBlock from "@/components/QRCodeBlock";
@@ -33,7 +33,7 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
         <div className="space-y-4">
           <div className="text-xs uppercase tracking-[0.3em] text-white/70">
             <p>
-              {[getFestivalListingCityPrimary(festival).trim(), formatFestivalDateLineShort(festival)]
+              {[formatFestivalLocationUiLine(festival).trim(), formatFestivalDateLineShort(festival)]
                 .filter(Boolean)
                 .join(" · ")}
             </p>

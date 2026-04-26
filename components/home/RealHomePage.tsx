@@ -4,7 +4,7 @@ import { cn } from "@/components/ui/cn";
 import EventCard from "@/components/ui/EventCard";
 import Section from "@/components/ui/Section";
 import { pub } from "@/lib/public-ui/styles";
-import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
+import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import type { HomePageViewProps } from "@/lib/home/loadHomePageData";
 import { Festival } from "@/lib/types";
@@ -65,7 +65,7 @@ function EventsSection({
             <EventCard
               key={festival.slug}
               title={festival.title}
-              city={getFestivalListingCityPrimary(festival)}
+              city={getFestivalLocationDisplay(festival).city ?? ""}
               category={festival.category}
               imageUrl={getFestivalHeroImage(festival)}
               startDate={festival.start_date}

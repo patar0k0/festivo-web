@@ -6,7 +6,7 @@ import EventCard from "@/components/ui/EventCard";
 import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
-import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
+import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { Festival } from "@/lib/types";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 
@@ -56,7 +56,7 @@ export default function MapResultsList({
           >
             <EventCard
               title={festival.title}
-              city={getFestivalListingCityPrimary(festival)}
+              city={getFestivalLocationDisplay(festival).city ?? ""}
               category={festival.category}
               imageUrl={getFestivalHeroImage(festival)}
               startDate={festival.start_date}

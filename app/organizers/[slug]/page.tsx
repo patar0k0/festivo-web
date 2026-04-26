@@ -3,8 +3,7 @@ import Link from "next/link";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
-import { organizerPageLocationLabel } from "@/lib/settlements/formatDisplayName";
-import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
+import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import OrganizerProfileAbout from "@/components/organizers/OrganizerProfileAbout";
@@ -103,7 +102,10 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
   const { organizer, festivals } = data;
   const organizerInitials = organizerInitialsFromName(organizer.name);
 
-  const locationLabel = organizerPageLocationLabel(organizer.cities, festivals);
+  const locationLabel =
+    organizer.cities?.name_bg?.trim() ||
+    festivals.map((f) => getFestivalLocationDisplay(f).city).find((c) => Boolean(c?.trim())) ||
+    null;
 
   const email = organizer.email?.trim() || null;
   const phone = organizer.phone?.trim() || null;
@@ -338,7 +340,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                           <EventCard
                             key={festival.id}
                             title={festival.title}
-                            city={getFestivalListingCityPrimary(festival)}
+                            city={getFestivalLocationDisplay(festival).city ?? ""}
                             category={festival.category}
                             imageUrl={getFestivalHeroImage(festival)}
                             startDate={festival.start_date}
@@ -363,7 +365,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                           <EventCard
                             key={festival.id}
                             title={festival.title}
-                            city={getFestivalListingCityPrimary(festival)}
+                            city={getFestivalLocationDisplay(festival).city ?? ""}
                             category={festival.category}
                             imageUrl={getFestivalHeroImage(festival)}
                             startDate={festival.start_date}

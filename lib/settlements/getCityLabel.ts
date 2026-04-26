@@ -1,5 +1,4 @@
-import { festivalLocationPrimary } from "@/lib/settlements/formatDisplayName";
-import { fixMojibakeBG } from "@/lib/text/fixMojibake";
+import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import type { Festival } from "@/lib/types";
 
 export function getCityLabel(city: { name_bg: string }) {
@@ -12,9 +11,7 @@ export function getCitySelectLabel(city: { name_bg: string; region_bg?: string |
   return r ? `${city.name_bg} — ${r}` : city.name_bg;
 }
 
-/** Cards / listings: canonical `cities.name_bg` when joined; else legacy primary line. */
+/** Cards / listings: `cities.name_bg` only (see `getFestivalLocationDisplay`). */
 export function getFestivalListingCityPrimary(festival: Festival): string {
-  const nb = festival.cities?.name_bg?.trim();
-  if (nb) return fixMojibakeBG(nb);
-  return festivalLocationPrimary(festival, "");
+  return getFestivalLocationDisplay(festival).city ?? "";
 }

@@ -57,22 +57,3 @@ export function festivalLocationSecondary(festival: FestivalCityLabelInput): str
   return formatSettlementLocationLines(rawLine, festival.cities?.is_village)?.secondary ?? null;
 }
 
-/**
- * Етикет за населено място на публичната страница на организатор:
- * първо канонично име от `cities`, после първият фестивал с наличен етикет.
- */
-export function organizerPageLocationLabel(
-  organizerCities: { name_bg?: string | null; is_village?: boolean | null } | null | undefined,
-  festivals: FestivalCityLabelInput[],
-): string | null {
-  const ocLines = formatSettlementLocationLines(
-    organizerCities?.name_bg ?? null,
-    organizerCities?.is_village ?? undefined,
-  );
-  if (ocLines?.geoLine.trim()) return ocLines.geoLine.trim();
-  for (const festival of festivals) {
-    const line = getFestivalLocationLines(festival, "").geoLine.trim();
-    if (line) return line;
-  }
-  return null;
-}

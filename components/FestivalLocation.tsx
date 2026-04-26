@@ -1,14 +1,10 @@
-import { formatPublicFestivalLocationSummary } from "@/lib/festival/publicLocationDisplay";
-import { getFestivalLocationLines } from "@/lib/settlements/formatDisplayName";
+import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { Festival } from "@/lib/types";
 import { buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
 
 export default function FestivalLocation({ festival }: { festival: Festival }) {
-  const summary = formatPublicFestivalLocationSummary(festival);
-  const loc = getFestivalLocationLines(festival, "");
-  const cityPrimary = loc.primary.trim();
-  const citySub = loc.secondary?.trim() ?? "";
-  if (!summary && !cityPrimary && !festival.city_name_display) return null;
+  const loc = getFestivalLocationDisplay(festival);
+  if (!loc.title && !loc.city) return null;
   const mapUrl = buildGoogleMapsUrl({
     placeId: festival.place_id,
     latitude: festival.latitude ?? festival.lat ?? undefined,
@@ -20,14 +16,9 @@ export default function FestivalLocation({ festival }: { festival: Festival }) {
       <h2 className="text-xl font-semibold">Къде</h2>
       <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-2xl border border-ink/10 bg-white/70 p-5">
-          <div className="text-sm text-muted">
-            {summary ? <p>{summary}</p> : null}
-            {cityPrimary ? (
-              <>
-                <p className={summary ? "mt-2 font-medium text-ink/90" : ""}>{cityPrimary}</p>
-                {citySub ? <p className="mt-0.5 text-xs text-muted">{citySub}</p> : null}
-              </>
-            ) : null}
+          <div className="space-y-1 text-sm text-muted">
+            {loc.title ? <p className="font-medium text-ink/90">{loc.title}</p> : null}
+            {loc.city ? <p className={loc.title ? "text-muted" : "font-medium text-ink/90"}>{loc.city}</p> : null}
           </div>
           {mapUrl ? (
             <a

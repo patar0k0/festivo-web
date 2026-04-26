@@ -7,7 +7,7 @@ import L from "leaflet";
 import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
 import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
-import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
+import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { Festival } from "@/lib/types";
 
 type FocusCoords = {
@@ -82,7 +82,11 @@ export default function MapView({
     );
   }
 
-  const center = [festivals[0].lat ?? DEFAULT_CENTER[0], festivals[0].lng ?? DEFAULT_CENTER[1]] as [number, number];
+  const first = festivals[0];
+  const center = [
+    Number(first.latitude ?? first.lat ?? DEFAULT_CENTER[0]),
+    Number(first.longitude ?? first.lng ?? DEFAULT_CENTER[1]),
+  ] as [number, number];
 
   return (
     <div className="relative h-full min-h-[360px] overflow-hidden rounded-xl">
@@ -93,7 +97,10 @@ export default function MapView({
         {festivals.map((festival) => (
           <Marker
             key={festival.id}
-            position={[festival.lat ?? 0, festival.lng ?? 0]}
+            position={[
+              Number(festival.latitude ?? festival.lat ?? 0),
+              Number(festival.longitude ?? festival.lng ?? 0),
+            ]}
             icon={icon}
             eventHandlers={{
               click: () => onSelectFestival(festival),
@@ -102,7 +109,7 @@ export default function MapView({
             <Popup>
               <div className="space-y-1">
                 <p className="text-sm font-semibold">{festival.title}</p>
-                <p className="text-xs text-muted">{getFestivalListingCityPrimary(festival)}</p>
+                <p className="text-xs text-muted">{getFestivalLocationDisplay(festival).city ?? ""}</p>
                 <p className="text-xs text-muted">{formatFestivalDateLineShort(festival)}</p>
                 <Link href={`/festivals/${festival.slug}`} className="text-xs font-semibold text-ink">
                   Виж
@@ -132,7 +139,7 @@ export default function MapView({
         <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[500]">
           <div className="pointer-events-auto rounded-xl border border-black/[0.08] bg-white/95 p-3 shadow-[0_2px_0_rgba(12,14,20,0.06),0_14px_30px_rgba(12,14,20,0.16)] backdrop-blur">
             <p className="text-sm font-semibold text-[#0c0e14]">{selectedFestival.title}</p>
-            <p className="mt-0.5 text-xs text-black/60">{getFestivalListingCityPrimary(selectedFestival)}</p>
+            <p className="mt-0.5 text-xs text-black/60">{getFestivalLocationDisplay(selectedFestival).city ?? ""}</p>
             <p className="text-xs text-black/55">{formatFestivalDateLineShort(selectedFestival)}</p>
             <Link
               href={`/festivals/${selectedFestival.slug}`}

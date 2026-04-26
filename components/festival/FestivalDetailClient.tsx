@@ -21,13 +21,7 @@ import FestivalQuickFactsStrip from "@/components/festival/FestivalQuickFactsStr
 import FestivalAppCta from "@/components/festival/FestivalAppCta";
 import FestivalAccommodationSection from "@/components/festival/FestivalAccommodationSection";
 import FestivalNearbyBookingCard from "@/components/festival/FestivalNearbyBookingCard";
-import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
-import { getFestivalListingCityPrimary } from "@/lib/settlements/getCityLabel";
-import {
-  formatPublicFestivalLocationSummary,
-  getCompactMetaLocationBeyondCity,
-  normalizeFestivalLocationText,
-} from "@/lib/festival/publicLocationDisplay";
+import { formatFestivalLocationUiLine, getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
 import type { ReminderType } from "@/lib/plan/server";
@@ -320,17 +314,8 @@ export default function FestivalDetailClient({
   const showPriceRange = Boolean(priceRange) && !showFreeBadge;
   const showDescriptionSection = Boolean(descriptionText) || tags.length > 0 || showPriceRange || showFreeBadge;
   const priceInQuickFactsStrip = showFreeBadge || showPriceRange;
-  const cityPrimary = festivalLocationPrimary(festival, "");
-  const citySecondaryLine = festivalLocationSecondary(festival);
-  const locationSummary = formatPublicFestivalLocationSummary(festival);
-  const locationBeyondCity =
-    locationSummary &&
-    (!cityPrimary ||
-      normalizeFestivalLocationText(locationSummary) !== normalizeFestivalLocationText(cityPrimary))
-      ? locationSummary
-      : "";
-  const compactLocationBeyondCity = getCompactMetaLocationBeyondCity(festival, cityPrimary);
-  const cityOrLocationText = [cityPrimary, compactLocationBeyondCity].filter(Boolean).join(" · ");
+  const locDisplay = getFestivalLocationDisplay(festival);
+  const locationUiLine = formatFestivalLocationUiLine(festival);
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
   const mediaItems = useMemo<MediaItem[]>(
     () => [
@@ -347,28 +332,27 @@ export default function FestivalDetailClient({
   const timeLine = earliestScheduleTime(scheduleItems);
   const quickFactSegments = useMemo(() => {
     const segments: { key: string; label: string; value: string; valueSub?: string | null }[] = [];
-    const whereValue = [cityPrimary, compactLocationBeyondCity].filter(Boolean).join(" · ");
+    const whereValue = locationUiLine.trim();
     if (whereValue)
       segments.push({
         key: "where",
         label: "Къде",
         value: whereValue,
-        valueSub: citySecondaryLine,
+        valueSub: null,
       });
     if (formattedDateRange) segments.push({ key: "date", label: "Дата", value: formattedDateRange });
     if (timeLine) segments.push({ key: "time", label: "Час", value: `от ${timeLine}` });
     if (showFreeBadge) segments.push({ key: "price", label: "Вход", value: "Безплатно" });
     else if (showPriceRange) segments.push({ key: "price", label: "Цена", value: priceRange });
     return segments;
-  }, [cityPrimary, citySecondaryLine, compactLocationBeyondCity, formattedDateRange, timeLine, showFreeBadge, showPriceRange, priceRange]);
+  }, [locationUiLine, formattedDateRange, timeLine, showFreeBadge, showPriceRange, priceRange]);
 
   const displayOrganizers = buildDisplayOrganizers(festival);
   const showOrganizer = displayOrganizers.length > 0;
-  const showInfoSection = Boolean(formattedDateRange || locationSummary || showOrganizer);
+  const showInfoSection = Boolean(formattedDateRange || locDisplay.title || locDisplay.city || showOrganizer);
   const showMapSection = Boolean(mapEmbedSrc || mapHref);
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
-  const nearbyBookingPlace = cityOrLocationText.trim();
-  const mapLocationBlurb = locationBeyondCity || null;
+  const nearbyBookingPlace = locationUiLine.trim();
   const showNearbyBookingCard = Boolean(nearbyBookingPlace && festival.start_date?.trim());
   const reminderOptions: Array<{ value: ReminderType; label: string; helper: string }> = [
     { value: "24h", label: "1 ден по-рано", helper: "Най-често избирано" },
@@ -594,7 +578,9 @@ export default function FestivalDetailClient({
               </div>
               <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/90 sm:text-[11px]">
                 {formattedDateRange ? <span className="rounded-full bg-black/40 px-2.5 py-0.5">{formattedDateRange}</span> : null}
-                {cityOrLocationText ? <span className="rounded-full bg-black/40 px-2.5 py-0.5">{cityOrLocationText}</span> : null}
+                {locationUiLine.trim() ? (
+                  <span className="rounded-full bg-black/40 px-2.5 py-0.5">{locationUiLine.trim()}</span>
+                ) : null}
                 {categoryText ? <span className="rounded-full bg-black/40 px-2.5 py-0.5">{categoryText}</span> : null}
                 {showFreeBadge ? <span className="rounded-full bg-[#0f8a4d]/70 px-2.5 py-0.5 text-white">Безплатен вход</span> : null}
                 {hasActivePromotion(festival) ? (
@@ -848,7 +834,7 @@ export default function FestivalDetailClient({
           {relatedFestivals.length ? (
             <section className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className={pub.sectionTitle}>Още фестивали в {cityPrimary || "региона"}</h2>
+                <h2 className={pub.sectionTitle}>Още фестивали в {locDisplay.city || "региона"}</h2>
                 <div className="flex flex-wrap gap-3 text-sm font-medium text-black/90">
                   {citySlug ? (
                     <Link
@@ -873,7 +859,7 @@ export default function FestivalDetailClient({
                   <Link key={item.slug} href={`/festivals/${item.slug}`} className="block">
                     <EventCard
                       title={item.title}
-                      city={getFestivalListingCityPrimary(item)}
+                      city={getFestivalLocationDisplay(item).city ?? ""}
                       category={item.category}
                       imageUrl={getFestivalHeroImage(item)}
                       startDate={primaryFestivalDate(item)}
@@ -1082,10 +1068,13 @@ export default function FestivalDetailClient({
                     <dd className="mt-1 leading-relaxed text-black/80">{formattedDateRange}</dd>
                   </div>
                 ) : null}
-                {locationSummary ? (
+                {locDisplay.title || locDisplay.city ? (
                   <div>
                     <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">Локация</dt>
-                    <dd className="mt-1 leading-relaxed text-black/80">{locationSummary}</dd>
+                    <dd className="mt-1 space-y-1 leading-relaxed text-black/80">
+                      {locDisplay.title ? <div>{locDisplay.title}</div> : null}
+                      {locDisplay.city ? <div>{locDisplay.city}</div> : null}
+                    </dd>
                   </div>
                 ) : null}
                 {showOrganizer ? (
@@ -1133,21 +1122,18 @@ export default function FestivalDetailClient({
             <section className={pub.railCardPlain}>
               <h2 className={pub.sectionTitleMd}>Карта</h2>
               <div className="mt-2 space-y-1 text-sm leading-relaxed text-black/80">
-                {citySlug && cityPrimary ? (
-                  <Link
-                    href={cityHref(citySlug)}
-                    className="inline-block font-medium text-black/75 underline decoration-black/30 underline-offset-2 hover:text-black"
-                  >
-                    {cityPrimary}
-                  </Link>
-                ) : cityPrimary ? (
-                  <p>{cityPrimary}</p>
-                ) : null}
-                {citySecondaryLine ? (
-                  <p className="text-xs text-black/55">{citySecondaryLine}</p>
-                ) : null}
-                {mapLocationBlurb ? (
-                  <p className={cityPrimary ? "text-black/60" : "font-medium text-black/80"}>{mapLocationBlurb}</p>
+                {locDisplay.title ? <div>{locDisplay.title}</div> : null}
+                {locDisplay.city ? (
+                  citySlug ? (
+                    <Link
+                      href={cityHref(citySlug)}
+                      className="inline-block font-medium text-black/75 underline decoration-black/30 underline-offset-2 hover:text-black"
+                    >
+                      {locDisplay.city}
+                    </Link>
+                  ) : (
+                    <p>{locDisplay.city}</p>
+                  )
                 ) : null}
               </div>
               {mapEmbedSrc ? (

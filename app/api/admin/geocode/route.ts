@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { normalizeBgLocation } from "@/lib/location/normalizeBgLocation";
-import { geocodeByPlaceId, geocodeLocation } from "@/lib/location/geocodeLocation";
+import { geocodeByPlaceId } from "@/lib/location/geocodeLocation";
+import { resolveEventCoordinates } from "@/lib/location/resolveEventCoordinates";
 
 type GeocodeBody = {
   location_name?: unknown;
   city?: unknown;
+  place_id?: unknown;
 };
 
 function asOptionalString(value: unknown): string | null {
@@ -50,19 +52,20 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as GeocodeBody | null;
   const locationName = normalizeBgLocation(asOptionalString(body?.location_name));
   const city = normalizeBgLocation(asOptionalString(body?.city));
+  const placeId = asOptionalString(body?.place_id);
 
-  if (!city) {
-    return NextResponse.json({ ok: true, lat: null, lng: null, place_id: null, provider: null });
-  }
-
-  const query = locationName ? `${locationName}, ${city}, България` : null;
-  const geo = query ? await geocodeLocation(query) : null;
+  const resolved = await resolveEventCoordinates({
+    placeId,
+    locationName,
+    cityName: city,
+  });
 
   return NextResponse.json({
     ok: true,
-    lat: geo?.lat ?? null,
-    lng: geo?.lng ?? null,
-    place_id: geo?.placeId ?? null,
-    provider: geo?.provider ?? null,
+    lat: resolved?.lat ?? null,
+    lng: resolved?.lng ?? null,
+    place_id: resolved?.placeId ?? null,
+    provider: resolved?.provider ?? null,
+    coords_source: resolved?.source ?? null,
   });
 }

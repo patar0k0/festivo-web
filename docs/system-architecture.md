@@ -160,7 +160,7 @@ Admin festival research (`POST /admin/api/research-festival`, UI `/admin/researc
 4. **Validate:** `lib/admin/research/pipeline-validate.ts` enforces date sanity, title length, and clears inconsistent data with warnings.
 5. **Output:** Normalized `ResearchFestivalResult` with `best_guess` (including `organizers[]` plus legacy `organizer`), optional structured **`program_draft`** when sources list a schedule, `sources`, `evidence`, `confidence`, `warnings` (no raw model text in the API response).
 
-`POST /admin/api/research-festival/create-pending` additionally normalizes location/city/address text and geocodes with **Google Geocoding first** (when API key is configured) and **OSM Nominatim fallback**. Geocode failures are non-blocking and keep `latitude`/`longitude`/`place_id`/`geocode_provider` as null.
+`POST /admin/api/research-festival/create-pending` normalizes location/city/address text, then resolves coordinates via `lib/location/resolveEventCoordinates.ts`: **Google `place_id` first** (when present and the API key is configured), then **venue + city**, then **venue/address line only** — **never** a city-only geocode (no city-center fallback). Results pass `lib/location/validateCoordinates.ts` (finite lat/lng; optional distance vs city center when callers supply reference coords). Uncertain resolution leaves `latitude`/`longitude`/`place_id`/`geocode_provider` null. Admin `POST /api/admin/geocode` uses the same resolver (optional `place_id` in the body).
 
 **Configuration:** `GEMINI_API_KEY` (or `GOOGLE_AI_API_KEY`); optional `GEMINI_RESEARCH_MODEL` (default `gemini-2.0-flash`), `GEMINI_RESEARCH_TIMEOUT_MS`.
 

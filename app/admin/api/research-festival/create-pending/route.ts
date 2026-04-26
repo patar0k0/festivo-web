@@ -13,7 +13,8 @@ import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 import { parseProgramDraftUnknown, programDraftToPublishPayload } from "@/lib/festival/programDraft";
 import { normalizeBgLocation } from "@/lib/location/normalizeBgLocation";
-import { geocodeLocation } from "@/lib/location/geocodeLocation";
+import { resolveEventCoordinates } from "@/lib/location/resolveEventCoordinates";
+import { validateCoordinates } from "@/lib/location/validateCoordinates";
 import type { ResearchBestGuess, ResearchFestivalResult, ResearchSource } from "@/lib/admin/research/types";
 import type { PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 
@@ -89,12 +90,40 @@ function sanitizeSourceUrls(input: unknown): string[] {
     .filter((entry): entry is string => Boolean(entry));
 }
 
-function buildGeocodeQuery(params: { locationName: string | null; city: string | null; address: string | null }): string | null {
-  const { locationName, city, address } = params;
-  if (!city) return null;
-  if (locationName) return `${locationName}, ${city}, България`;
-  if (address) return `${address}, ${city}, България`;
-  return null;
+async function resolveInsertCoordinates(params: {
+  placeId: string | null;
+  locationLine: string | null;
+  cityName: string | null;
+  logContext: string;
+}): Promise<{
+  latitude: number | null;
+  longitude: number | null;
+  place_id: string | null;
+  geocode_provider: string | null;
+}> {
+  const coords = await resolveEventCoordinates({
+    placeId: params.placeId,
+    locationName: params.locationLine,
+    cityName: params.cityName,
+  });
+
+  if (coords && validateCoordinates(coords, undefined)) {
+    console.info("[coords] accepted", { logContext: params.logContext, coords_source: coords.source });
+    return {
+      latitude: coords.lat,
+      longitude: coords.lng,
+      place_id: coords.placeId,
+      geocode_provider: coords.provider,
+    };
+  }
+
+  console.warn("[coords] rejected", { logContext: params.logContext, coords_source: coords?.source });
+  return {
+    latitude: null,
+    longitude: null,
+    place_id: null,
+    geocode_provider: null,
+  };
 }
 
 async function resolveHeroImageFieldForInsert(heroRaw: string | null): Promise<{ patch: Record<string, unknown> } | { error: string }> {
@@ -262,12 +291,14 @@ export async function POST(request: Request) {
     const aiVenue = normalizeBgLocation(sanitizeNullableString(ai.location_name));
     const aiAddress = normalizeBgLocation(sanitizeNullableString(ai.address));
     const aiSlugGuess = sanitizeNullableString(ai.slug);
-    const aiGeocodeQuery = buildGeocodeQuery({
-      locationName: aiVenue,
-      city: aiCityText,
-      address: aiAddress,
+    const aiLocationLine = aiVenue ?? aiAddress ?? null;
+    const aiPlaceId = sanitizeNullableString((ai as { place_id?: unknown }).place_id);
+    const aiGeoFields = await resolveInsertCoordinates({
+      placeId: aiPlaceId,
+      locationLine: aiLocationLine,
+      cityName: aiCityText,
+      logContext: "research-ai",
     });
-    const aiGeo = aiGeocodeQuery ? await geocodeLocation(aiGeocodeQuery) : null;
 
     let aiProgramDraftInsert: unknown = null;
     if (ai.program_draft != null) {
@@ -293,10 +324,10 @@ export async function POST(request: Request) {
       location_name: aiVenue,
       location_guess: aiVenue,
       address: aiAddress,
-      latitude: aiGeo?.lat ?? null,
-      longitude: aiGeo?.lng ?? null,
-      place_id: aiGeo?.placeId ?? null,
-      geocode_provider: aiGeo?.provider ?? null,
+      latitude: aiGeoFields.latitude,
+      longitude: aiGeoFields.longitude,
+      place_id: aiGeoFields.place_id,
+      geocode_provider: aiGeoFields.geocode_provider,
       organizer_entries: orgEntriesAi,
       organizer_name: primaryNameFromEntries(orgEntriesAi, sanitizeNullableString(ai.organizer_name)),
       website_url: sanitizeNullableString(ai.website_url),
@@ -392,12 +423,14 @@ export async function POST(request: Request) {
   const cityText = normalizeBgLocation(resolveCityTextForPending(finalValues, normalized));
   const venueText = normalizeBgLocation(resolveVenueTextForPending(finalValues, normalized));
   const addressText = normalizeBgLocation(sanitizeNullableString(finalValues.address));
-  const geocodeQuery = buildGeocodeQuery({
-    locationName: venueText,
-    city: cityText,
-    address: addressText,
+  const locationLine = venueText ?? addressText ?? null;
+  const researchPlaceId = sanitizeNullableString((finalValues as { place_id?: unknown }).place_id);
+  const geoFields = await resolveInsertCoordinates({
+    placeId: researchPlaceId,
+    locationLine,
+    cityName: cityText,
+    logContext: "research-web",
   });
-  const geo = geocodeQuery ? await geocodeLocation(geocodeQuery) : null;
   const categoryText = sanitizeNullableString(finalValues.category);
 
   const sharedInsertPayload: Record<string, unknown> = {
@@ -424,10 +457,10 @@ export async function POST(request: Request) {
     instagram_url: sanitizeNullableString(finalValues.instagram_url),
     ticket_url: sanitizeNullableString(finalValues.ticket_url),
     address: addressText,
-    latitude: geo?.lat ?? null,
-    longitude: geo?.lng ?? null,
-    place_id: geo?.placeId ?? null,
-    geocode_provider: geo?.provider ?? null,
+    latitude: geoFields.latitude,
+    longitude: geoFields.longitude,
+    place_id: geoFields.place_id,
+    geocode_provider: geoFields.geocode_provider,
     category: categoryText,
     category_guess: categoryText,
     source_primary_url: sourcePrimaryUrl,

@@ -24,11 +24,11 @@ import FestivalNearbyBookingCard from "@/components/festival/FestivalNearbyBooki
 import { formatFestivalLocationUiLine, getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import type { ReminderType } from "@/lib/plan/server";
 import type { AccommodationOffer } from "@/lib/accommodation/types";
 import type { Festival, FestivalDay, FestivalMediaItem, FestivalScheduleItem } from "@/lib/types";
 import { formatFestivalDateLineLongBg, primaryFestivalDate } from "@/lib/festival/listingDates";
-import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { formatScheduleTimeRange, sortByStartTime } from "@/lib/festival/festivalTimeFields";
 import { FESTIVAL_PROGRAM_SECTION_ID } from "@/lib/festival/programmeAnchor";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";
@@ -326,8 +326,7 @@ export default function FestivalDetailClient({
   );
   const showMediaSection = mediaItems.length >= 1;
   const urgencyLabel = getFestivalUrgencyLabelBg(festival);
-  const temporalState = useMemo(() => getFestivalTemporalState(festival), [festival]);
-  const isPastFestival = temporalState === "past";
+  const isPast = isFestivalPast(festival);
   const icsHref = `/festival/${festival.slug}/ics`;
   const timeLine = earliestScheduleTime(scheduleItems);
   const quickFactSegments = useMemo(() => {
@@ -602,7 +601,7 @@ export default function FestivalDetailClient({
         </div>
 
         <div className="border-t border-black/[0.06] bg-white px-4 py-4 sm:px-6">
-          {isPastFestival ? (
+          {isPast ? (
             <div className="mb-4 rounded-xl border border-black/[0.06] bg-[#faf9f7] px-3.5 py-3 text-sm text-black/60 transition-all duration-200 hover:shadow-md hover:-translate-y-px">
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-black/60">Отминал фестивал</p>
               <p className="mt-1.5 leading-relaxed text-black/80">Това събитие вече е приключило.</p>
@@ -622,10 +621,12 @@ export default function FestivalDetailClient({
             festivalId={String(festival.id)}
             icsHref={icsHref}
             reminderAnchorId={REMINDER_BLOCK_ID}
+            showReminderAction={!isPast}
             onGuestReminderClick={() =>
               redirectToLoginForPlanAction({ action: "set_reminder", type: "24h" })
             }
           />
+          {isPast ? <div className="mt-3 text-sm text-black/60">Събитието е приключило</div> : null}
         </div>
       </section>
 
@@ -881,23 +882,24 @@ export default function FestivalDetailClient({
 
         <aside className="lg:sticky lg:top-[88px] lg:self-start">
           <div className="space-y-4">
-          <section id={REMINDER_BLOCK_ID} className={pub.railCard}>
-            <div className="flex flex-col gap-1">
-              <h2 className={pub.sectionTitleMd}>Напомняне</h2>
-              <p className="text-xs leading-relaxed text-black/60">
-                Настрой напомняне за началото на фестивала, после го добави в личния си план. Двете действия са отделни.
-              </p>
-            </div>
+            {!isPast ? (
+              <section id={REMINDER_BLOCK_ID} className={pub.railCard}>
+                <div className="flex flex-col gap-1">
+                  <h2 className={pub.sectionTitleMd}>Напомняне</h2>
+                  <p className="text-xs leading-relaxed text-black/60">
+                    Настрой напомняне за началото на фестивала, после го добави в личния си план. Двете действия са отделни.
+                  </p>
+                </div>
 
-            <div className="mt-3">
-              <FestivalRailActionBar
-                festivalId={String(festival.id)}
-                mapHref={mapHref}
-                onGuestPlanClick={() =>
-                  redirectToLoginForPlanAction({ action: "add_festival", id: String(festival.id) })
-                }
-              />
-            </div>
+                <div className="mt-3">
+                  <FestivalRailActionBar
+                    festivalId={String(festival.id)}
+                    mapHref={mapHref}
+                    onGuestPlanClick={() =>
+                      redirectToLoginForPlanAction({ action: "add_festival", id: String(festival.id) })
+                    }
+                  />
+                </div>
 
             <div className="mt-4 border-t border-black/[0.06] pt-4">
               <div className="relative">
@@ -1056,7 +1058,8 @@ export default function FestivalDetailClient({
                 )}
               </div>
             </div>
-          </section>
+              </section>
+            ) : null}
 
           {showInfoSection ? (
             <section className={pub.railCardPlain}>

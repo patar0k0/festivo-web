@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { syncReminderJobsForPreference } from "@/lib/notifications/triggers";
 import type { ReminderType } from "@/lib/plan/server";
 
@@ -76,6 +77,31 @@ export async function applyReminderTypeToAllSavedFestivals(
     return { ok: true, festivalCount: 0 };
   }
 
+  let eligibleFestivalIds = festivalIds;
+  if (reminderType !== "none") {
+    const { data: festivalRows, error: festivalError } = await supabase
+      .from("festivals")
+      .select("id,start_date,end_date")
+      .in("id", festivalIds);
+
+    if (festivalError) {
+      return { ok: false, error: festivalError.message };
+    }
+
+    const eligibleSet = new Set(
+      (festivalRows ?? [])
+        .filter((row) =>
+          !isFestivalPast({
+            start_date: (row as { start_date: string | null }).start_date,
+            end_date: (row as { end_date: string | null }).end_date,
+          }),
+        )
+        .map((row) => String((row as { id: string }).id)),
+    );
+
+    eligibleFestivalIds = festivalIds.filter((id) => eligibleSet.has(id));
+  }
+
   if (reminderType === "none") {
     const { error: delErr } = await supabase
       .from("user_plan_reminders")
@@ -96,7 +122,11 @@ export async function applyReminderTypeToAllSavedFestivals(
     return { ok: true, festivalCount: festivalIds.length };
   }
 
-  const upsertPayload = festivalIds.map((festival_id) => ({
+  if (!eligibleFestivalIds.length) {
+    return { ok: true, festivalCount: 0 };
+  }
+
+  const upsertPayload = eligibleFestivalIds.map((festival_id) => ({
     user_id: userId,
     festival_id,
     reminder_type: reminderType,
@@ -110,12 +140,12 @@ export async function applyReminderTypeToAllSavedFestivals(
     return { ok: false, error: upErr.message };
   }
 
-  for (const festivalId of festivalIds) {
+  for (const festivalId of eligibleFestivalIds) {
     const syncResult = await syncReminderJobsForPreference(userId, festivalId, reminderType);
     if (!syncResult.ok) {
       return { ok: false, error: syncResult.error ?? "Failed to sync reminder jobs" };
     }
   }
 
-  return { ok: true, festivalCount: festivalIds.length };
+  return { ok: true, festivalCount: eligibleFestivalIds.length };
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cancelPendingReminderJobs, syncReminderJobsForPreference } from "@/lib/notifications/triggers";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -64,6 +65,24 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ ok: true, inPlan: Boolean(verifyRow) });
+  }
+
+  const { data: festival, error: festivalError } = await supabase
+    .from("festivals")
+    .select("start_date,end_date")
+    .eq("id", festivalId)
+    .maybeSingle<{ start_date: string | null; end_date: string | null }>();
+
+  if (festivalError) {
+    return NextResponse.json({ error: festivalError.message }, { status: 500 });
+  }
+
+  if (!festival) {
+    return NextResponse.json({ error: "Festival not found" }, { status: 404 });
+  }
+
+  if (isFestivalPast(festival)) {
+    return NextResponse.json({ error: "Cannot add past festival to plan" }, { status: 400 });
   }
 
   const { error: insertError } = await supabase.from("user_plan_festivals").insert({

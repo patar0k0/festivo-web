@@ -4,6 +4,7 @@ import type { NotificationJobRow } from "@/lib/notifications/types";
 import { TZ } from "@/lib/notifications/time";
 import { getBaseUrl } from "@/lib/seo";
 import { formatScheduleHm } from "@/lib/festival/festivalTimeFields";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 
@@ -22,7 +23,7 @@ import { enqueueEmailJob } from "./enqueueEmail";
 import { resolveAuthUserEmail } from "./resolveAuthUserEmail";
 
 const FESTIVAL_REMINDER_SELECT =
-  "id,title,slug,city_id,start_date,start_time,location_name,address,cities:cities!left(name_bg,slug,is_village)";
+  "id,title,slug,city_id,start_date,end_date,start_time,location_name,address,cities:cities!left(name_bg,slug,is_village)";
 
 export type FestivalRowForReminderEmail = {
   id: string;
@@ -30,6 +31,7 @@ export type FestivalRowForReminderEmail = {
   slug: string | null;
   city_id: number | null;
   start_date: string | null;
+  end_date: string | null;
   start_time: string | null;
   location_name: string | null;
   address: string | null;
@@ -172,6 +174,10 @@ export async function enqueueSavedFestivalReminderEmailFromJob(
   const fest = festivalById.get(festivalId);
   if (!fest) {
     console.warn("[reminder_email] skip: festival not loaded", { job_id: job.id, festival_id: festivalId });
+    return { status: "skipped", reason: "other" };
+  }
+
+  if (isFestivalPast(fest)) {
     return { status: "skipped", reason: "other" };
   }
 

@@ -10,6 +10,7 @@ type HeroProps = {
   festivalId: string;
   icsHref: string;
   reminderAnchorId: string;
+  showReminderAction?: boolean;
   /** When set, guests call this instead of context-only auth hint (e.g. open login modal). */
   onGuestReminderClick?: () => void;
 };
@@ -17,7 +18,13 @@ type HeroProps = {
 /**
  * Hero / top zone: single primary CTA (reminder) + calendar as secondary.
  */
-export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId, onGuestReminderClick }: HeroProps) {
+export function FestivalHeroActionBar({
+  festivalId,
+  icsHref,
+  reminderAnchorId,
+  showReminderAction = true,
+  onGuestReminderClick,
+}: HeroProps) {
   const { isAuthenticated, requireAuthForPlan, reminderTypeByFestivalId, setFestivalReminder } = usePlanState();
 
   const reminder = reminderTypeByFestivalId[festivalId] ?? "none";
@@ -62,14 +69,16 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId, o
   return (
     <div className="space-y-2">
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start">
-        <button type="button" onClick={() => void onReminderPrimary()} className={primaryClass}>
-          {primaryReminderLabel}
-        </button>
+        {showReminderAction ? (
+          <button type="button" onClick={() => void onReminderPrimary()} className={primaryClass}>
+            {primaryReminderLabel}
+          </button>
+        ) : null}
         <a href={icsHref} className={secondaryClass}>
           Добави в календара
         </a>
       </div>
-      <p className="text-xs leading-relaxed text-black/60">{heroReminderHelper}</p>
+      {showReminderAction ? <p className="text-xs leading-relaxed text-black/60">{heroReminderHelper}</p> : null}
     </div>
   );
 }
@@ -77,13 +86,19 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId, o
 type RailProps = {
   festivalId: string;
   mapHref: string | null;
+  showPlanAction?: boolean;
   onGuestPlanClick?: () => void;
 };
 
 /**
  * Rail: planning + navigation only (reminder timing lives in the same aside card below).
  */
-export function FestivalRailActionBar({ festivalId, mapHref, onGuestPlanClick }: RailProps) {
+export function FestivalRailActionBar({
+  festivalId,
+  mapHref,
+  showPlanAction = true,
+  onGuestPlanClick,
+}: RailProps) {
   const { isAuthenticated, requireAuthForPlan, toggleFestivalPlan, festivalIds } = usePlanState();
   const [planBusy, setPlanBusy] = useState(false);
 
@@ -122,9 +137,11 @@ export function FestivalRailActionBar({ festivalId, mapHref, onGuestPlanClick }:
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={() => void onPlan()} disabled={planBusy} className={planButtonClass}>
-        {festivalInPlan ? "✔ В плана ти" : "Добави в моя план"}
-      </button>
+      {showPlanAction ? (
+        <button type="button" onClick={() => void onPlan()} disabled={planBusy} className={planButtonClass}>
+          {festivalInPlan ? "✔ В плана ти" : "Добави в моя план"}
+        </button>
+      ) : null}
       {mapHref ? (
         <a
           href={outboundClickHref({

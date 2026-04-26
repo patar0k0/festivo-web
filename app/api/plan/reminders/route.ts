@@ -3,6 +3,7 @@ import {
   applyReminderTypeToAllSavedFestivals,
   getSavedReminderTimingSummary,
 } from "@/lib/plan/applyReminderToSavedFestivals";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { ReminderType } from "@/lib/plan/server";
 import { syncReminderJobsForPreference } from "@/lib/notifications/triggers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -67,6 +68,26 @@ export async function POST(request: Request) {
 
   if (!festivalId) {
     return NextResponse.json({ error: "Missing festivalId" }, { status: 400 });
+  }
+
+  if (reminderType !== "none") {
+    const { data: festival, error: festivalError } = await supabase
+      .from("festivals")
+      .select("start_date,end_date")
+      .eq("id", festivalId)
+      .maybeSingle<{ start_date: string | null; end_date: string | null }>();
+
+    if (festivalError) {
+      return NextResponse.json({ error: festivalError.message }, { status: 500 });
+    }
+
+    if (!festival) {
+      return NextResponse.json({ error: "Festival not found" }, { status: 404 });
+    }
+
+    if (isFestivalPast(festival)) {
+      return NextResponse.json({ error: "Cannot set reminder for past festival" }, { status: 400 });
+    }
   }
 
   if (reminderType === "none") {

@@ -27,11 +27,15 @@ export default function FestivalsDiscoverySearch({
 
   const submit = () => {
     const q = value.trim();
-    if (!q) {
-      router.push("/festivals");
-      return;
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (q) {
+      nextParams.set("q", q);
+    } else {
+      nextParams.delete("q");
     }
-    router.push(`/festivals?q=${encodeURIComponent(q)}`);
+    nextParams.delete("page");
+    const nextQuery = nextParams.toString();
+    router.push(`/festivals${nextQuery ? `?${nextQuery}` : ""}`);
   };
 
   return (

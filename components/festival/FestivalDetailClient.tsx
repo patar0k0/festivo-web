@@ -79,6 +79,8 @@ type Props = {
   showTravelPopularLabel?: boolean;
   /** When false, schedule rows are shown from `program_draft` fallback — hide per-item plan actions. */
   programItemPlanActions?: boolean;
+  /** Organizer draft preview: same layout as public page without plan/outbound/app CTAs. */
+  previewMode?: boolean;
 };
 
 type GroupedDay = {
@@ -204,6 +206,7 @@ export default function FestivalDetailClient({
   adminEditHref,
   showTravelPopularLabel = false,
   programItemPlanActions = true,
+  previewMode = false,
 }: Props) {
   const groupedDays = useMemo(() => getGroupedDays(days, scheduleItems), [days, scheduleItems]);
   const sortedScheduleItems = useMemo(() => sortScheduleItems(scheduleItems), [scheduleItems]);
@@ -361,7 +364,9 @@ export default function FestivalDetailClient({
   const showMapSection = Boolean(mapEmbedSrc || mapHref);
   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
   const nearbyBookingPlace = locationUiLine.trim();
-  const showNearbyBookingCard = Boolean(nearbyBookingPlace && festival.start_date?.trim());
+  const showNearbyBookingCard = Boolean(
+    nearbyBookingPlace && festival.start_date?.trim() && !previewMode,
+  );
   const reminderOptions: Array<{ value: ReminderType; label: string; helper: string }> = [
     { value: "24h", label: "1 ден по-рано", helper: "Най-често избирано" },
     { value: "same_day_09", label: "В деня в 09:00", helper: "Сутрин, преди да тръгнеш" },
@@ -402,6 +407,7 @@ export default function FestivalDetailClient({
   }, [highlightId]);
 
   useEffect(() => {
+    if (previewMode) return;
     if (!isAuthenticated || !planActionParam || !POST_LOGIN_ACTIONS.has(planActionParam) || isPast) return;
 
     const actionKey = `${planActionParam}:${planIdParam ?? ""}:${planReminderTypeParam ?? ""}`;
@@ -511,6 +517,7 @@ export default function FestivalDetailClient({
     setFestivalReminder,
     refreshPlanState,
     isPast,
+    previewMode,
   ]);
 
   const clearPlan = async () => {
@@ -627,16 +634,18 @@ export default function FestivalDetailClient({
               </Link>
             </div>
           ) : null}
-          <FestivalHeroActionBar
-            festivalId={String(festival.id)}
-            icsHref={icsHref}
-            reminderAnchorId={REMINDER_BLOCK_ID}
-            showReminderAction={!isPast}
-            showCalendarAction={!isPast}
-            onGuestReminderClick={() =>
-              redirectToLoginForPlanAction({ action: "set_reminder", type: "24h" })
-            }
-          />
+          {!previewMode ? (
+            <FestivalHeroActionBar
+              festivalId={String(festival.id)}
+              icsHref={icsHref}
+              reminderAnchorId={REMINDER_BLOCK_ID}
+              showReminderAction={!isPast}
+              showCalendarAction={!isPast}
+              onGuestReminderClick={() =>
+                redirectToLoginForPlanAction({ action: "set_reminder", type: "24h" })
+              }
+            />
+          ) : null}
           {isPast ? <div className="mt-3 text-sm text-black/60">Събитието е приключило</div> : null}
         </div>
       </section>
@@ -821,20 +830,29 @@ export default function FestivalDetailClient({
                 <p className="text-sm font-medium leading-relaxed text-black/80">Няма публикувана програма за този фестивал.</p>
                 {festival.website_url ? (
                   <p className="mt-3 text-sm leading-relaxed text-black/60">
-                    <a
-                      href={outboundClickHref({
-                        targetUrl: festival.website_url,
-                        festivalId: String(festival.id),
-                        type: "website",
-                        source: "festival_detail",
-                      })}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-semibold text-[#0c0e14] underline-offset-2 hover:underline"
-                    >
-                      Официален сайт
-                    </a>
-                    <span className="text-black/60"> — може да има актуална програма.</span>
+                    {previewMode ? (
+                      <>
+                        <span className="font-semibold text-[#0c0e14]">Официален сайт</span>
+                        <span className="text-black/60"> — може да има актуална програма.</span>
+                      </>
+                    ) : (
+                      <>
+                        <a
+                          href={outboundClickHref({
+                            targetUrl: festival.website_url,
+                            festivalId: String(festival.id),
+                            type: "website",
+                            source: "festival_detail",
+                          })}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold text-[#0c0e14] underline-offset-2 hover:underline"
+                        >
+                          Официален сайт
+                        </a>
+                        <span className="text-black/60"> — може да има актуална програма.</span>
+                      </>
+                    )}
                   </p>
                 ) : null}
               </div>
@@ -893,7 +911,7 @@ export default function FestivalDetailClient({
 
         <aside className="lg:sticky lg:top-[88px] lg:self-start">
           <div className="space-y-4">
-            {!isPast ? (
+            {!isPast && !previewMode ? (
               <section id={REMINDER_BLOCK_ID} className={pub.railCard}>
                 <div className="flex flex-col gap-1">
                   <h2 className={pub.sectionTitleMd}>Напомняне</h2>
@@ -1142,7 +1160,7 @@ export default function FestivalDetailClient({
             </section>
           ) : null}
 
-          <FestivalAppCta slug={festival.slug} />
+          {!previewMode ? <FestivalAppCta slug={festival.slug} /> : null}
 
           <div className="space-y-4 border-t border-black/[0.06] pt-4">
           {showMapSection ? (
@@ -1175,20 +1193,26 @@ export default function FestivalDetailClient({
                 </div>
               ) : null}
               {mapHref ? (
-                <a
-                  href={outboundClickHref({
-                    targetUrl: mapHref,
-                    festivalId: String(festival.id),
-                    type: "maps",
-                    source: "festival_detail",
-                  })}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => logGoogleMapsOpenDebug(mapHref)}
-                  className="mt-3 inline-flex text-xs font-semibold uppercase tracking-[0.12em] text-black/90 underline decoration-black/25 underline-offset-2 transition-all duration-150 hover:decoration-black/40 hover:opacity-90 active:scale-[0.98]"
-                >
-                  Отвори в Google Maps
-                </a>
+                previewMode ? (
+                  <span className="mt-3 inline-flex text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                    Отвори в Google Maps
+                  </span>
+                ) : (
+                  <a
+                    href={outboundClickHref({
+                      targetUrl: mapHref,
+                      festivalId: String(festival.id),
+                      type: "maps",
+                      source: "festival_detail",
+                    })}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => logGoogleMapsOpenDebug(mapHref)}
+                    className="mt-3 inline-flex text-xs font-semibold uppercase tracking-[0.12em] text-black/90 underline decoration-black/25 underline-offset-2 transition-all duration-150 hover:decoration-black/40 hover:opacity-90 active:scale-[0.98]"
+                  >
+                    Отвори в Google Maps
+                  </a>
+                )
               ) : null}
             </section>
           ) : null}
@@ -1213,48 +1237,73 @@ export default function FestivalDetailClient({
               <h2 className={pub.sectionTitleMd}>Полезни връзки</h2>
               <div className="mt-4 flex flex-col gap-2">
                 {festival.website_url ? (
-                  <a
-                    href={outboundClickHref({
-                      targetUrl: festival.website_url,
-                      festivalId: String(festival.id),
-                      type: "website",
-                      source: "festival_detail",
-                    })}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={cn(
-                      "w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-black/90 transition-all duration-150 hover:border-black/20 hover:bg-black/[0.04] active:scale-[0.98]",
-                      pub.focusRing,
-                    )}
-                  >
-                    Официален сайт
-                  </a>
+                  previewMode ? (
+                    <div
+                      className={cn(
+                        "pointer-events-none w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-black/90 opacity-80",
+                      )}
+                    >
+                      Официален сайт
+                    </div>
+                  ) : (
+                    <a
+                      href={outboundClickHref({
+                        targetUrl: festival.website_url,
+                        festivalId: String(festival.id),
+                        type: "website",
+                        source: "festival_detail",
+                      })}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={cn(
+                        "w-full rounded-xl border border-black/[0.08] bg-white px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-black/90 transition-all duration-150 hover:border-black/20 hover:bg-black/[0.04] active:scale-[0.98]",
+                        pub.focusRing,
+                      )}
+                    >
+                      Официален сайт
+                    </a>
+                  )
                 ) : null}
                 {festival.ticket_url ? (
-                  <a
-                    href={outboundClickHref({
-                      targetUrl: festival.ticket_url,
-                      festivalId: String(festival.id),
-                      type: "ticket",
-                      source: "festival_detail",
-                    })}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={cn(
-                      "w-full rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition-all duration-150 active:scale-[0.98]",
-                      pub.focusRing,
-                      showFreeBadge
-                        ? "border-black/[0.08] bg-[#f8f7f3] text-black/60 hover:bg-[#f0ede6] hover:opacity-95"
-                        : "border-black/[0.08] bg-white text-black/90 hover:border-black/20 hover:bg-black/[0.04]",
-                    )}
-                  >
-                    Билети
-                  </a>
+                  previewMode ? (
+                    <div
+                      className={cn(
+                        "pointer-events-none w-full rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition-all duration-150",
+                        showFreeBadge
+                          ? "border-black/[0.08] bg-[#f8f7f3] text-black/60"
+                          : "border-black/[0.08] bg-white text-black/90",
+                      )}
+                    >
+                      Билети
+                    </div>
+                  ) : (
+                    <a
+                      href={outboundClickHref({
+                        targetUrl: festival.ticket_url,
+                        festivalId: String(festival.id),
+                        type: "ticket",
+                        source: "festival_detail",
+                      })}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={cn(
+                        "w-full rounded-xl border px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.16em] transition-all duration-150 active:scale-[0.98]",
+                        pub.focusRing,
+                        showFreeBadge
+                          ? "border-black/[0.08] bg-[#f8f7f3] text-black/60 hover:bg-[#f0ede6] hover:opacity-95"
+                          : "border-black/[0.08] bg-white text-black/90 hover:border-black/20 hover:bg-black/[0.04]",
+                      )}
+                    >
+                      Билети
+                    </a>
+                  )
                 ) : null}
               </div>
             </section>
           ) : null}
-            <FestivalAccommodationSection offers={accommodationOffers} festivalId={String(festival.id)} />
+            {!previewMode ? (
+              <FestivalAccommodationSection offers={accommodationOffers} festivalId={String(festival.id)} />
+            ) : null}
           </div>
           </div>
         </aside>

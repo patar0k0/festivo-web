@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import FestivalDetailClient from "@/components/festival/FestivalDetailClient";
+import Container from "@/components/ui/Container";
+import Section from "@/components/ui/Section";
+import type { Festival } from "@/lib/types";
+import { pub } from "@/lib/public-ui/styles";
 
 type OrgOption = { id: string; name: string; slug: string };
 
@@ -19,21 +24,6 @@ const SECTION_TITLE_CLASS = "text-sm font-semibold text-gray-900 mb-2";
 
 const CARD_CLASS =
   "w-full rounded-2xl border border-gray-100 bg-white px-4 py-6 shadow-sm sm:px-6";
-
-function formatDate(iso: string) {
-  if (!iso) return "";
-  const parts = iso.split("-");
-  if (parts.length !== 3) return iso;
-  const y = Number(parts[0]);
-  const m = Number(parts[1]);
-  const d = Number(parts[2]);
-  if (!y || !m || !d) return iso;
-  return new Date(y, m - 1, d).toLocaleDateString("bg-BG", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
 
 function NewFestivalSubmissionInner() {
   const router = useRouter();
@@ -69,6 +59,66 @@ function NewFestivalSubmissionInner() {
 
   const trimmedHeroImageUrl = heroImageUrl.trim();
   const hasHeroPreview = Boolean(trimmedHeroImageUrl) && !thumbLoadFailed;
+
+  const selectedOrganizer = useMemo(
+    () => orgs.find((o) => o.id === organizerId),
+    [orgs, organizerId],
+  );
+
+  const previewFestival: Festival = useMemo(
+    () => ({
+      id: "preview",
+      slug: "preview",
+      title: title.trim() || "Без заглавие",
+      description: description.trim() || "",
+      location_name: locationName.trim() || null,
+      address: address.trim() || null,
+      cities: city.trim()
+        ? {
+            name_bg: city.trim(),
+            slug: null,
+          }
+        : null,
+      organizer_name: selectedOrganizer?.name ?? "",
+      organizer: selectedOrganizer
+        ? { id: selectedOrganizer.id, name: selectedOrganizer.name, slug: selectedOrganizer.slug }
+        : null,
+      start_date: startDate.trim() || null,
+      end_date: endDate.trim() || null,
+      start_time: startTime.trim() ? `${startTime.trim()}:00` : null,
+      end_time: endTime.trim() ? `${endTime.trim()}:00` : null,
+      hero_image: trimmedHeroImageUrl || null,
+      image_url: trimmedHeroImageUrl || null,
+      category: category.trim() || null,
+      tags: tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+      is_free: isFree,
+      website_url: websiteUrl.trim() || null,
+      ticket_url: ticketUrl.trim() || null,
+    }),
+    [
+      title,
+      description,
+      locationName,
+      address,
+      city,
+      selectedOrganizer,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      trimmedHeroImageUrl,
+      category,
+      tagsInput,
+      isFree,
+      websiteUrl,
+      ticketUrl,
+    ],
+  );
+
+  const previewCalendarMonth = startDate.trim().length >= 7 ? startDate.trim().slice(0, 7) : null;
 
   useEffect(() => {
     setThumbLoadFailed(false);
@@ -199,9 +249,9 @@ function NewFestivalSubmissionInner() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6">
-      {mode === "edit" && (
-        <>
+    <>
+      {mode === "edit" ? (
+        <div className="mx-auto w-full max-w-2xl space-y-6">
           <div className={CARD_CLASS}>
             <Link href="/organizer/dashboard" className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 hover:text-gray-900">
               ← Табло
@@ -402,40 +452,39 @@ function NewFestivalSubmissionInner() {
               <p className="text-center text-xs text-gray-500 sm:text-right">След одобрение можеш да промотираш фестивала си</p>
             </div>
           </form>
-        </>
-      )}
+        </div>
+      ) : null}
 
-      {mode === "preview" && (
-        <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto px-4 sm:px-6">
-          {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 mb-3">{error}</p> : null}
-          <p className="text-xs text-gray-500 mb-3">Това е как ще изглежда фестивалът ти</p>
-          <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-6 shadow-sm">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">{title.trim() || "Без заглавие"}</h2>
-              {city.trim() ? <p className="text-sm text-gray-600">{city.trim()}</p> : null}
-            </div>
-
-            {trimmedHeroImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- arbitrary URL paste (no remotePatterns guarantee)
-              <img
-                src={trimmedHeroImageUrl}
-                alt=""
-                className="w-full h-48 object-cover rounded-lg mb-4"
-              />
-            ) : null}
-
-            {description.trim() ? (
-              <p className="text-sm text-gray-700 whitespace-pre-line mb-4">{description}</p>
-            ) : null}
-
-            <div className="text-sm text-gray-600 space-y-1">
-              {startDate ? <div>Начало: {formatDate(startDate)}</div> : null}
-              {endDate.trim() ? <div>Край: {formatDate(endDate.trim())}</div> : null}
-              {address.trim() ? <div>Адрес: {address.trim()}</div> : null}
-            </div>
+      {mode === "preview" ? (
+        <div className="mx-auto w-full max-w-6xl space-y-6">
+          {error ? (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
+          ) : null}
+          <p className="text-xs text-gray-500">Публичен изглед</p>
+          <div className={pub.page}>
+            <Section className={pub.section}>
+              <Container>
+                <FestivalDetailClient
+                  festival={previewFestival}
+                  media={[]}
+                  days={[]}
+                  scheduleItems={[]}
+                  mapHref={null}
+                  mapEmbedSrc={null}
+                  citySlug={null}
+                  calendarMonth={previewCalendarMonth}
+                  relatedFestivals={[]}
+                  accommodationOffers={[]}
+                  adminEditHref={null}
+                  showTravelPopularLabel={false}
+                  programItemPlanActions={false}
+                  previewMode
+                />
+              </Container>
+            </Section>
           </div>
 
-          <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:justify-end">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row sm:justify-end sm:px-4">
             <button type="button" onClick={() => setMode("edit")} className="rounded-lg border border-gray-300 px-4 py-2 text-sm">
               Редактирай
             </button>
@@ -447,9 +496,9 @@ function NewFestivalSubmissionInner() {
             >
               {busy ? "Изпращане…" : "Изпрати за одобрение"}
             </button>
-          </div>
-        </form>
-      )}
+          </form>
+        </div>
+      ) : null}
 
       {imageMissingModalOpen ? (
         <div
@@ -488,7 +537,7 @@ function NewFestivalSubmissionInner() {
           </div>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }
 

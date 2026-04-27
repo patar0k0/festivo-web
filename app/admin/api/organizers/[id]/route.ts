@@ -4,7 +4,10 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { validateNoUnknownKeys } from "@/lib/api/strictBody";
 import { ORGANIZER_PATCH_ALLOWED_KEYS } from "@/lib/admin/patchAllowedKeys";
 import { logAdminAction } from "@/lib/admin/audit-log";
-import { normalizeImageToLocalStorage } from "@/lib/admin/normalizeImageToLocalStorage";
+import {
+  deleteOrganizerLogoFromStorageIfOwned,
+  normalizeImageToLocalStorage,
+} from "@/lib/admin/normalizeImageToLocalStorage";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -110,6 +113,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
+
+  let previousLogoUrlForStorageCleanup: string | null | undefined;
+  if ("logo_url" in finalPatch) {
+    const { data: existingOrganizer, error: existingError } = await adminClient
+      .from("organizers")
+      .select("logo_url")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 500 });
+    }
+    if (!existingOrganizer) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    previousLogoUrlForStorageCleanup = existingOrganizer.logo_url;
+  }
+
   if (typeof finalPatch.logo_url === "string") {
     try {
       finalPatch.logo_url = await normalizeImageToLocalStorage(finalPatch.logo_url, id);
@@ -146,6 +167,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if ("logo_url" in finalPatch) {
+    const prev = previousLogoUrlForStorageCleanup;
+    const next = finalPatch.logo_url;
+    if (prev && prev !== next) {
+      await deleteOrganizerLogoFromStorageIfOwned(prev);
+    }
+  }
 
   try {
     await logAdminAction({

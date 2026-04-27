@@ -1,11 +1,16 @@
 import { lookup } from "node:dns/promises";
 import { isIPv4, isIPv6 } from "node:net";
+import sharp from "sharp";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 const ORGANIZER_LOGOS_BUCKET = process.env.SUPABASE_ORGANIZER_LOGOS_BUCKET || "organizer-logos";
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 25_000;
 const MAX_REDIRECTS = 5;
+const LOGO_MAX_WIDTH_PX = 512;
+const WEBP_QUALITY = 80;
+/** Versioned object URLs: long cache is safe; URL changes when the file changes. */
+const UPLOAD_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 function normalizeSupabaseProjectUrl(): string | null {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -118,6 +123,25 @@ function isAlreadyOurOrganizerLogoPublicUrl(candidate: string): boolean {
   return parsed.pathname.startsWith(prefix);
 }
 
+function organizerLogoStoragePathFromPublicUrl(publicUrl: string): string | null {
+  const trimmed = publicUrl.trim();
+  if (!trimmed) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  const prefix = `/storage/v1/object/public/${ORGANIZER_LOGOS_BUCKET}/`;
+  if (!parsed.pathname.startsWith(prefix)) return null;
+  const encoded = parsed.pathname.slice(prefix.length);
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return null;
+  }
+}
+
 async function fetchRemoteImage(urlStr: string): Promise<{ buffer: Buffer; contentType: string }> {
   let currentUrl = urlStr;
 
@@ -183,6 +207,43 @@ async function fetchRemoteImage(urlStr: string): Promise<{ buffer: Buffer; conte
   throw new Error("Too many redirects while downloading the image.");
 }
 
+async function rasterizeOrganizerLogoToWebp(buffer: Buffer): Promise<Buffer> {
+  try {
+    return await sharp(buffer)
+      .rotate()
+      .resize(LOGO_MAX_WIDTH_PX, null, { withoutEnlargement: true, fit: "inside" })
+      .webp({ quality: WEBP_QUALITY })
+      .toBuffer();
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "unknown";
+    throw new Error(`Could not process organizer logo image: ${message}`);
+  }
+}
+
+/**
+ * Best-effort removal of a previously stored organizer logo. No-op if the URL is not
+ * an organizer-logo public object for this project. Logs failures; does not throw.
+ */
+export async function deleteOrganizerLogoFromStorageIfOwned(publicUrl: string | null | undefined): Promise<void> {
+  if (!publicUrl?.trim()) return;
+  const trimmed = publicUrl.trim();
+  if (!isAlreadyOurOrganizerLogoPublicUrl(trimmed)) return;
+
+  const objectPath = organizerLogoStoragePathFromPublicUrl(trimmed);
+  if (!objectPath) return;
+
+  try {
+    const supabase = createSupabaseAdmin();
+    const { error } = await supabase.storage.from(ORGANIZER_LOGOS_BUCKET).remove([objectPath]);
+    if (error) {
+      console.error("[organizer-logo] Failed to remove storage object", { objectPath, message: error.message });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown";
+    console.error("[organizer-logo] Failed to remove storage object", { objectPath, message });
+  }
+}
+
 export async function normalizeImageToLocalStorage(url: string, organizerId: string): Promise<string> {
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
@@ -205,12 +266,17 @@ export async function normalizeImageToLocalStorage(url: string, organizerId: str
     throw new Error("Unsupported organizer logo image type.");
   }
 
-  const objectPath = `logos/${organizerId}.${extension}`;
+  const webpBuffer = await rasterizeOrganizerLogoToWebp(buffer);
+  if (!webpBuffer.length) {
+    throw new Error("Processed organizer logo is empty.");
+  }
+
+  const timestamp = Date.now();
+  const objectPath = `logos/${organizerId}-${timestamp}.webp`;
   const supabase = createSupabaseAdmin();
-  const { error: uploadError } = await supabase.storage.from(ORGANIZER_LOGOS_BUCKET).upload(objectPath, buffer, {
-    upsert: true,
-    contentType: contentType.split(";")[0]?.trim() || `image/${extension}`,
-    cacheControl: "3600",
+  const { error: uploadError } = await supabase.storage.from(ORGANIZER_LOGOS_BUCKET).upload(objectPath, webpBuffer, {
+    contentType: "image/webp",
+    cacheControl: UPLOAD_CACHE_CONTROL,
   });
   if (uploadError) {
     throw new Error(`Upload failed: ${uploadError.message}`);

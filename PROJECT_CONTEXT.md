@@ -125,7 +125,7 @@ Database schema: **Supabase** is authoritative; follow queries, types, and `scri
 - Merge behavior moves organizer links in `festival_organizers` (plus compatibility fields `festivals.organizer_id` and `pending_festivals.organizer_id`) to a canonical organizer, backfills missing target profile fields, then marks source organizer inactive (`is_active=false`, `merged_into=target`).
 - Organizer list/public lookups use active organizers by default (`is_active=true`).
 - Organizer edit includes AI enrichment (`/api/admin/research-organizer`) for profile fields (`description`, `logo_url`, official/social URLs, contact data) with admin review before save.
-- Organizer create/edit (`/admin/api/organizers`, `/admin/api/organizers/[id]`) normalizes external `logo_url` values into Supabase Storage (`SUPABASE_ORGANIZER_LOGOS_BUCKET`, default `organizer-logos`) under `logos/{organizerId}.{ext}`; existing local Storage URLs are preserved.
+- Organizer create/edit (`/admin/api/organizers`, `/admin/api/organizers/[id]`) normalizes external `logo_url` values into Supabase Storage (`SUPABASE_ORGANIZER_LOGOS_BUCKET`, default `organizer-logos`) under versioned `logos/{organizerId}-{timestamp}.webp` (resized max width 512px, WebP ~80 quality); existing local Storage URLs are preserved; on admin PATCH, a replaced or cleared previous logo that pointed at this bucket is removed from Storage best-effort.
 - New organizers can be researched and created from `/admin/organizers/research` (linked next to duplicate detection on the organizers list); flow calls the same research API then `POST /admin/api/organizers` and redirects to edit.
 
 ## Organizer portal (user-managed organizers, MVP)

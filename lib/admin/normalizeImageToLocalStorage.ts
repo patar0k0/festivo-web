@@ -12,11 +12,9 @@ const LOGO_MAX_HEIGHT_PX = 512;
 const WEBP_QUALITY = 80;
 /** Versioned object URLs: long cache is safe; URL changes when the file changes. */
 const UPLOAD_CACHE_CONTROL = "public, max-age=31536000, immutable";
-const LOGO_UPLOAD_RATE_LIMIT_WINDOW_MS = 60_000;
-const LOGO_UPLOAD_RATE_LIMIT_MAX_REQUESTS = 10;
+const LOGO_UPLOAD_RATE_LIMIT_MAX_PER_MINUTE = 10;
 
-type LogoUploadRateLimitEntry = { count: number; ts: number };
-const logoUploadRateLimitMap = new Map<string, LogoUploadRateLimitEntry>();
+const logoUploadRateLimitMap = new Map<string, number>();
 
 function normalizeSupabaseProjectUrl(): string | null {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -215,7 +213,9 @@ async function fetchRemoteImage(urlStr: string): Promise<{ buffer: Buffer; conte
 
 async function rasterizeOrganizerLogoToWebp(buffer: Buffer): Promise<Buffer> {
   try {
-    return await sharp(buffer)
+    return await sharp(buffer, {
+      limitInputPixels: 4096 * 4096,
+    })
       .rotate()
       .resize({
         width: LOGO_MAX_WIDTH_PX,
@@ -261,17 +261,11 @@ export async function deleteOrganizerLogoFromStorageIfOwned(
 }
 
 export function takeOrganizerLogoUploadRateLimit(ipKey: string | null | undefined): boolean {
-  const key = ipKey?.trim() || "unknown";
-  const now = Date.now();
-  const entry = logoUploadRateLimitMap.get(key);
-  if (!entry || now - entry.ts > LOGO_UPLOAD_RATE_LIMIT_WINDOW_MS) {
-    logoUploadRateLimitMap.set(key, { count: 1, ts: now });
-    return false;
-  }
-
-  const nextCount = entry.count + 1;
-  logoUploadRateLimitMap.set(key, { count: nextCount, ts: entry.ts });
-  return nextCount > LOGO_UPLOAD_RATE_LIMIT_MAX_REQUESTS;
+  const ip = ipKey?.trim() || "unknown";
+  const key = `${ip}:${Math.floor(Date.now() / 60000)}`;
+  const count = (logoUploadRateLimitMap.get(key) ?? 0) + 1;
+  logoUploadRateLimitMap.set(key, count);
+  return count > LOGO_UPLOAD_RATE_LIMIT_MAX_PER_MINUTE;
 }
 
 export async function normalizeImageToLocalStorage(url: string, organizerId: string): Promise<string> {

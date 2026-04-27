@@ -5,13 +5,10 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeOrganizerName, pickOrganizerSlug } from "@/lib/admin/organizers";
 import { transliteratedSlug } from "@/lib/text/slug";
 import { logAdminAction } from "@/lib/admin/audit-log";
-import {
-  deleteOrganizerLogoFromStorageIfOwned,
-  normalizeImageToLocalStorage,
-  takeOrganizerLogoUploadRateLimit,
-} from "@/lib/admin/normalizeImageToLocalStorage";
+import { normalizeImageToLocalStorage, takeOrganizerLogoUploadRateLimit } from "@/lib/admin/normalizeImageToLocalStorage";
 
 type OrganizerPayload = {
+  id?: string;
   name?: string;
   slug?: string;
   description?: string | null;
@@ -21,19 +18,18 @@ type OrganizerPayload = {
   instagram_url?: string | null;
 };
 
-function getRequestIp(request: Request): string {
-  const requestWithIp = request as Request & { ip?: string | null };
-  const directIp = typeof requestWithIp.ip === "string" ? requestWithIp.ip.trim() : "";
-  if (directIp) return directIp;
+function getRequestIp(req: Request): string {
+  const xff = req.headers.get("x-forwarded-for");
+  const realIp = req.headers.get("x-real-ip");
+  const requestWithIp = req as Request & { ip?: string | null };
 
-  const forwardedFor = request.headers.get("x-forwarded-for") ?? "";
-  const forwardedIp = forwardedFor.split(",")[0]?.trim() ?? "";
-  if (forwardedIp) return forwardedIp;
+  const ip =
+    xff?.split(",")[0]?.trim() ||
+    realIp ||
+    (typeof requestWithIp.ip === "string" ? requestWithIp.ip : undefined) ||
+    "unknown";
 
-  const realIp = request.headers.get("x-real-ip")?.trim() ?? "";
-  if (realIp) return realIp;
-
-  return "unknown";
+  return ip;
 }
 
 export async function GET() {
@@ -62,6 +58,26 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as OrganizerPayload;
+
+  let adminClient: SupabaseClient;
+  try {
+    adminClient = createSupabaseAdmin();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to initialize admin client";
+    console.error("[admin/api/organizers][POST] Admin client initialization failed", { message });
+    return NextResponse.json({ error: "Organizer creation is temporarily unavailable" }, { status: 500 });
+  }
+
+  console.info("[admin/api/organizers][POST] Using service-role client for organizer insert");
+
+  const requestedId = typeof body.id === "string" ? body.id.trim() : "";
+  if (requestedId) {
+    const { data: existing } = await adminClient.from("organizers").select("id").eq("id", requestedId).maybeSingle();
+    if (existing) {
+      return NextResponse.json({ error: "Organizer already exists" }, { status: 409 });
+    }
+  }
+
   const name = normalizeOrganizerName(body.name);
 
   if (!name) {
@@ -82,20 +98,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not generate slug" }, { status: 400 });
   }
 
-  let adminClient: SupabaseClient;
-  try {
-    adminClient = createSupabaseAdmin();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to initialize admin client";
-    console.error("[admin/api/organizers][POST] Admin client initialization failed", { message });
-    return NextResponse.json({ error: "Organizer creation is temporarily unavailable" }, { status: 500 });
-  }
-
-  console.info("[admin/api/organizers][POST] Using service-role client for organizer insert");
-
   const slug = await pickOrganizerSlug(adminClient, slugBase);
 
   const payload = {
+    ...(requestedId ? { id: requestedId } : {}),
     name,
     slug,
     description: normalizeOrganizerName(body.description),
@@ -119,21 +125,6 @@ export async function POST(request: Request) {
   console.info("[admin/api/organizers][POST] Organizer insert succeeded", { organizerId: data.id });
 
   if (data.logo_url) {
-    let previousLogoUrlForStorageCleanup: string | null | undefined;
-    const { data: existingOrganizer, error: existingError } = await adminClient
-      .from("organizers")
-      .select("logo_url")
-      .eq("id", data.id)
-      .maybeSingle();
-    if (existingError) {
-      console.error("[admin/api/organizers][POST] Failed to read existing organizer logo before normalization", {
-        organizerId: data.id,
-        message: existingError.message,
-      });
-    } else {
-      previousLogoUrlForStorageCleanup = existingOrganizer?.logo_url;
-    }
-
     try {
       const normalizedLogoUrl = await normalizeImageToLocalStorage(data.logo_url, data.id);
       if (normalizedLogoUrl !== data.logo_url) {
@@ -147,11 +138,6 @@ export async function POST(request: Request) {
             organizerId: data.id,
             message: logoUpdateError.message,
           });
-        } else if (previousLogoUrlForStorageCleanup && previousLogoUrlForStorageCleanup !== normalizedLogoUrl) {
-          await deleteOrganizerLogoFromStorageIfOwned(
-            previousLogoUrlForStorageCleanup,
-            previousLogoUrlForStorageCleanup,
-          );
         }
       }
     } catch (logoError) {

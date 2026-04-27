@@ -35,19 +35,18 @@ type OrganizerPatchPayload = {
   organizer_rank?: number | null;
 };
 
-function getRequestIp(request: Request): string {
-  const requestWithIp = request as Request & { ip?: string | null };
-  const directIp = typeof requestWithIp.ip === "string" ? requestWithIp.ip.trim() : "";
-  if (directIp) return directIp;
+function getRequestIp(req: Request): string {
+  const xff = req.headers.get("x-forwarded-for");
+  const realIp = req.headers.get("x-real-ip");
+  const requestWithIp = req as Request & { ip?: string | null };
 
-  const forwardedFor = request.headers.get("x-forwarded-for") ?? "";
-  const forwardedIp = forwardedFor.split(",")[0]?.trim() ?? "";
-  if (forwardedIp) return forwardedIp;
+  const ip =
+    xff?.split(",")[0]?.trim() ||
+    realIp ||
+    (typeof requestWithIp.ip === "string" ? requestWithIp.ip : undefined) ||
+    "unknown";
 
-  const realIp = request.headers.get("x-real-ip")?.trim() ?? "";
-  if (realIp) return realIp;
-
-  return "unknown";
+  return ip;
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {

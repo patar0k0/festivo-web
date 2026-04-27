@@ -3,8 +3,11 @@ import { isIPv4, isIPv6 } from "node:net";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-
-const ORGANIZER_LOGOS_BUCKET = process.env.SUPABASE_ORGANIZER_LOGOS_BUCKET || "organizer-logos";
+import {
+  ORGANIZER_LOGOS_BUCKET,
+  organizerLogo,
+  organizerLogoFromValidatedStoragePath,
+} from "@/lib/storage/paths";
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 25_000;
 const MAX_REDIRECTS = 5;
@@ -250,8 +253,11 @@ export async function deleteOrganizerLogoFromStorageIfOwned(
   if (expectedTrimmed && trimmed !== expectedTrimmed) return;
   if (!isAlreadyOurOrganizerLogoPublicUrl(trimmed)) return;
 
-  const objectPath = organizerLogoStoragePathFromPublicUrl(trimmed);
-  if (!objectPath) return;
+  const decodedPath = organizerLogoStoragePathFromPublicUrl(trimmed);
+  if (!decodedPath) return;
+
+  const file = organizerLogoFromValidatedStoragePath(decodedPath);
+  if (!file) return;
 
   try {
     const supabase = createSupabaseAdmin();
@@ -262,7 +268,7 @@ export async function deleteOrganizerLogoFromStorageIfOwned(
       .limit(2);
     if (countError) {
       console.error("[organizer-logo] Failed to verify shared storage object usage", {
-        objectPath,
+        objectPath: file.path,
         message: countError.message,
       });
       return;
@@ -271,13 +277,13 @@ export async function deleteOrganizerLogoFromStorageIfOwned(
       return;
     }
 
-    const { error } = await supabase.storage.from(ORGANIZER_LOGOS_BUCKET).remove([objectPath]);
+    const { error } = await supabase.storage.from(file.bucket).remove([file.path]);
     if (error) {
-      console.error("[organizer-logo] Failed to remove storage object", { objectPath, message: error.message });
+      console.error("[organizer-logo] Failed to remove storage object", { objectPath: file.path, message: error.message });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown";
-    console.error("[organizer-logo] Failed to remove storage object", { objectPath, message });
+    console.error("[organizer-logo] Failed to remove storage object", { objectPath: file.path, message });
   }
 }
 
@@ -328,10 +334,10 @@ export async function normalizeImageToLocalStorage(url: string): Promise<string>
   }
 
   const hash = createHash("sha256").update(webpBuffer).digest("hex");
-  const objectPath = `logos/${hash}.webp`;
+  const file = organizerLogo(hash);
   const supabase = createSupabaseAdmin();
   try {
-    const { error: uploadError } = await supabase.storage.from(ORGANIZER_LOGOS_BUCKET).upload(objectPath, webpBuffer, {
+    const { error: uploadError } = await supabase.storage.from(file.bucket).upload(file.path, webpBuffer, {
       contentType: "image/webp",
       cacheControl: UPLOAD_CACHE_CONTROL,
     });
@@ -346,11 +352,5 @@ export async function normalizeImageToLocalStorage(url: string): Promise<string>
     }
   }
 
-  const { data: publicData } = supabase.storage.from(ORGANIZER_LOGOS_BUCKET).getPublicUrl(objectPath);
-  const publicUrl = publicData?.publicUrl;
-  if (!publicUrl) {
-    throw new Error("Could not get public URL for organizer logo.");
-  }
-
-  return publicUrl;
+  return file.publicUrl;
 }

@@ -237,6 +237,38 @@ Published festivals support the same pattern: `PATCH /admin/api/festivals/[id]/h
 
 
 ## Admin organizers management
+
+### Storage layer (organizer logos)
+
+Organizer logos use a small type-safe storage layer located in:
+
+`lib/storage/paths.ts`
+
+Instead of constructing storage paths manually (e.g. `"logos/${hash}.webp"`), the system uses:
+
+- `organizerLogo(hash)`
+
+This returns a structured object:
+
+- `bucket` – storage bucket name
+- `path` – internal storage path
+- `publicUrl` – fully qualified public URL
+
+#### Why this exists
+
+- Prevents string-based path bugs
+- Centralizes storage structure in one place
+- Makes refactoring safe (change in one file only)
+- Ensures delete/upload logic stays consistent
+
+#### Important constraints
+
+- Never construct storage paths manually
+- Never trust raw URL paths for deletion
+- Always derive paths from hash using the helper (or rebuild via `organizerLogoFromValidatedStoragePath` after verifying the URL belongs to this bucket)
+
+Screens and workflows:
+
 - Admin has dedicated organizer management screens at `/admin/organizers`, `/admin/organizers/[id]`, and duplicate review at `/admin/organizers/duplicates`.
 - Pending approval resolves organizers from `pending_festivals.organizer_entries` (ordered `{ organizer_id?, name }` rows; legacy `organizer_name` / `organizer_id` still supported) to `organizers.id` (exact normalized-name match when only a name is given), auto-creating organizer rows when needed, then writes **all** relation rows to `festival_organizers` in order.
 - Duplicate candidates are conservative-only (exact normalized name, exact slug, exact `facebook_url` when present).

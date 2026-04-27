@@ -75,6 +75,7 @@ erDiagram
     text slug
     bigint city_id FK
     text city
+    text city_slug
     date start_date
     date end_date
     time start_time

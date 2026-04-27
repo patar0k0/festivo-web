@@ -13,7 +13,7 @@ import { Festival } from "@/lib/types";
 export type HomeCityOption = {
   name: string;
   slug: string | null;
-  /** `cities.slug` — стойност за `?city=` на началната страница. */
+  /** Стойност за `?city=` на началната страница; филтрира се по `festivals.city_slug`. */
   filterValue: string;
   /** Брой публикувани фестивали за този `city_id` / slug. */
   publishedFestivalCount: number;
@@ -77,7 +77,7 @@ async function fetchHomeFestivals(params: {
     .limit(limit);
 
   if (params.citySlug) {
-    query = query.eq("cities.slug", params.citySlug);
+    query = query.eq("city_slug", params.citySlug.trim().toLowerCase());
   }
 
   const rangeTo = params.to ?? "2099-12-31";
@@ -202,7 +202,7 @@ async function fetchCurrentFestivals(params: { today: string; citySlug?: string 
     .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
 
   if (citySlug) {
-    query = query.eq("cities.slug", citySlug);
+    query = query.eq("city_slug", citySlug.trim().toLowerCase());
   }
 
   const { data, error } = await query.limit(100).returns<Festival[]>();
@@ -234,8 +234,9 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
       listPublicFestivalCategorySlugs().catch(() => [] as string[]),
     ]);
 
-  const selectedCityName = citySlug
-    ? (citiesResult.find((item) => item.slug === citySlug)?.name ?? null)
+  const cityKey = citySlug?.trim().toLowerCase();
+  const selectedCityName = cityKey
+    ? (citiesResult.find((item) => item.slug?.trim().toLowerCase() === cityKey)?.name ?? null)
     : null;
 
   const chipLinks = buildFestivalsQuickChipLinks(categorySlugs);

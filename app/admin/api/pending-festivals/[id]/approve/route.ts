@@ -32,6 +32,7 @@ import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
 import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { ensureFestivalHasImage } from "@/lib/festival/ensureFestivalHasImage";
+import { slugifyCity } from "@/lib/text/slugifyCity";
 
 type CityRow = {
   id: number;
@@ -530,6 +531,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       occurrence_dates: pending.occurrence_dates ?? null,
       slug: finalSlug,
       city: cityText || null,
+      city_slug: cityText ? slugifyCity(cityText) : null,
       city_id: cityId,
       address: normalizedAddress || null,
       category: canonicalApproved.category ?? "festival",

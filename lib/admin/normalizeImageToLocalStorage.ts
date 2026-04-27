@@ -262,7 +262,15 @@ export async function deleteOrganizerLogoFromStorageIfOwned(
 
 export function takeOrganizerLogoUploadRateLimit(ipKey: string | null | undefined): boolean {
   const ip = ipKey?.trim() || "unknown";
-  const key = `${ip}:${Math.floor(Date.now() / 60000)}`;
+  const nowBucket = Math.floor(Date.now() / 60000);
+  for (const mapKey of logoUploadRateLimitMap.keys()) {
+    const colon = mapKey.lastIndexOf(":");
+    const bucket = colon === -1 ? NaN : Number(mapKey.slice(colon + 1));
+    if (Number.isFinite(bucket) && nowBucket - bucket > 2) {
+      logoUploadRateLimitMap.delete(mapKey);
+    }
+  }
+  const key = `${ip}:${nowBucket}`;
   const count = (logoUploadRateLimitMap.get(key) ?? 0) + 1;
   logoUploadRateLimitMap.set(key, count);
   return count > LOGO_UPLOAD_RATE_LIMIT_MAX_PER_MINUTE;
@@ -285,6 +293,9 @@ export async function normalizeImageToLocalStorage(url: string, organizerId: str
   }
 
   const { buffer, contentType } = await fetchRemoteImage(trimmed);
+  if (buffer.length > 10 * 1024 * 1024) {
+    throw new Error("Image too large");
+  }
   const extension = extensionFromMimeType(contentType);
   if (!extension) {
     throw new Error("Unsupported organizer logo image type.");

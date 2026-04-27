@@ -39,6 +39,7 @@ export type Database = {
           slug: string
           description: string
           city: string
+          city_slug: string | null
           city_id: number | null
           address: string | null
           start_date: string
@@ -69,6 +70,7 @@ export type Database = {
           slug: string
           description: string
           city: string
+          city_slug?: string | null
           city_id?: number | null
           address?: string | null
           start_date: string
@@ -99,6 +101,7 @@ export type Database = {
           slug?: string
           description?: string
           city?: string
+          city_slug?: string | null
           city_id?: number | null
           address?: string | null
           start_date?: string

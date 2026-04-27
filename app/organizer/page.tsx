@@ -1,9 +1,6 @@
 import Link from "next/link";
-import {
-  fetchOrganizerPortalMembershipSummary,
-  getPortalAdminClient,
-  getPortalSessionUser,
-} from "@/lib/organizer/portal";
+import { redirect } from "next/navigation";
+import { fetchOrganizerPortalMembershipSummaryCached, getPortalSessionUser } from "@/lib/organizer/portal";
 import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
 
@@ -21,14 +18,17 @@ export default async function OrganizerEntryPage() {
   const session = await getPortalSessionUser();
   const loggedIn = Boolean(session?.user?.id);
 
-  let summary: Awaited<ReturnType<typeof fetchOrganizerPortalMembershipSummary>> | null = null;
+  let summary: Awaited<ReturnType<typeof fetchOrganizerPortalMembershipSummaryCached>> | null = null;
   if (loggedIn && session?.user?.id) {
     try {
-      const admin = getPortalAdminClient();
-      summary = await fetchOrganizerPortalMembershipSummary(admin, session.user.id);
+      summary = await fetchOrganizerPortalMembershipSummaryCached(session.user.id);
     } catch {
       summary = null;
     }
+  }
+
+  if (loggedIn && summary?.isOrganizerOwner) {
+    redirect("/organizer/dashboard");
   }
 
   const hasActive = (summary?.activeOrganizerIds.length ?? 0) > 0;
@@ -96,18 +96,6 @@ export default async function OrganizerEntryPage() {
                 </Link>
                 <Link href="/signup?next=/organizer" className={cn(pub.btnSecondary, pub.focusRing)}>
                   Регистрация
-                </Link>
-              </>
-            ) : hasActive ? (
-              <>
-                <Link href="/organizer/dashboard" className={cn(pub.btnPrimary, pub.focusRing)}>
-                  Към таблото
-                </Link>
-                <Link href="/organizer/profile/new" className={ctaEmerald}>
-                  Нов организаторски профил
-                </Link>
-                <Link href="/organizer/claim" className={ctaAmber}>
-                  Заявка за съществуващ профил
                 </Link>
               </>
             ) : (

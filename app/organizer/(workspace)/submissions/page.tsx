@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireActiveOrganizerPortalSession } from "@/lib/organizer/portal";
+import { requireOrganizerOwnerPortalSession } from "@/lib/organizer/portal";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export default async function OrganizerSubmissionsPage({
 }: {
   searchParams?: { submitted?: string };
 }) {
-  const gate = await requireActiveOrganizerPortalSession("/organizer/submissions");
+  const gate = await requireOrganizerOwnerPortalSession("/organizer/submissions");
   if (gate.kind === "redirect") {
     redirect(gate.to);
   }

@@ -4,14 +4,14 @@ import OrganizerPendingEditForm from "@/components/organizer/OrganizerPendingEdi
 import {
   assertCanEditOrganizerPending,
   loadPortalPendingFestival,
-  requireActiveOrganizerPortalSession,
+  requireOrganizerOwnerPortalSession,
 } from "@/lib/organizer/portal";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrganizerEditSubmissionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const access = await requireActiveOrganizerPortalSession(`/organizer/submissions/${id}/edit`);
+  const access = await requireOrganizerOwnerPortalSession(`/organizer/submissions/${id}/edit`);
   if (access.kind === "redirect") {
     redirect(access.to);
   }

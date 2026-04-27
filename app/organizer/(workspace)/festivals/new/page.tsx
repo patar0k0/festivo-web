@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import NewFestivalSubmissionClient from "./NewFestivalSubmissionClient";
-import { requireActiveOrganizerPortalSession } from "@/lib/organizer/portal";
+import { requireOrganizerOwnerPortalSession } from "@/lib/organizer/portal";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewFestivalSubmissionPage() {
-  const gate = await requireActiveOrganizerPortalSession("/organizer/festivals/new");
+  const gate = await requireOrganizerOwnerPortalSession("/organizer/festivals/new");
   if (gate.kind === "redirect") {
     redirect(gate.to);
   }

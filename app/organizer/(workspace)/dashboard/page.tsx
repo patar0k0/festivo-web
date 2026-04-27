@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireActiveOrganizerPortalSession } from "@/lib/organizer/portal";
+import { requireOrganizerOwnerPortalSession } from "@/lib/organizer/portal";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrganizerDashboardPage() {
-  const gate = await requireActiveOrganizerPortalSession("/organizer/dashboard");
+  const gate = await requireOrganizerOwnerPortalSession("/organizer/dashboard");
   if (gate.kind === "redirect") {
     redirect(gate.to);
   }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ORGANIZER_PORTAL_LINKS } from "@/lib/organizer/portalNavConfig";
+import { ORGANIZER_PORTAL_LINKS_NON_OWNER, ORGANIZER_PORTAL_LINKS_OWNER } from "@/lib/organizer/portalNavConfig";
 
 function linkActive(pathname: string | null, href: string) {
   if (!pathname) return false;
@@ -14,17 +14,16 @@ function linkActive(pathname: string | null, href: string) {
   return n === h || n.startsWith(`${h}/`);
 }
 
-/**
- * Organizer portal section navigation (balanced density), same links as OrganizerPortalNav.
- */
-export default function OrganizerSidebarNav() {
+/** Organizer workspace sidebar; links depend on active owner membership (server-provided). */
+export default function OrganizerSidebarNav({ isOrganizerOwner }: { isOrganizerOwner: boolean }) {
   const pathname = usePathname();
+  const links = isOrganizerOwner ? ORGANIZER_PORTAL_LINKS_OWNER : ORGANIZER_PORTAL_LINKS_NON_OWNER;
 
   return (
     <nav aria-label="Зона за организатори" className="flex flex-col gap-2">
       <p className="hidden text-[10px] font-semibold uppercase tracking-[0.16em] text-black/40 md:block">Навигация</p>
       <div className="flex flex-wrap gap-2 md:flex-col md:gap-2">
-        {ORGANIZER_PORTAL_LINKS.map((item) => {
+        {links.map((item) => {
           const active = linkActive(pathname, item.href);
           return (
             <Link

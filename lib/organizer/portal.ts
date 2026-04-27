@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
@@ -14,6 +15,13 @@ export type OrganizerMemberRow = {
   approved_at: string | null;
   approved_by: string | null;
 };
+
+/** Portal membership row shape used for role checks (from `organizer_members`). */
+export type OrganizerPortalMembershipRow = { organizer_id: string; status: string; role: string };
+
+export function isOrganizerOwner(memberships: { status: string; role: string }[]): boolean {
+  return memberships.some((m) => m.status === "active" && m.role === "owner");
+}
 
 export async function getPortalSessionUser() {
   const supabase = await createSupabaseServerClient();
@@ -109,6 +117,7 @@ export type OrganizerPortalMembershipSummary = {
   activeOrganizerIds: string[];
   hasPendingMembership: boolean;
   hasRevokedMembership: boolean;
+  isOrganizerOwner: boolean;
 };
 
 export async function fetchOrganizerPortalMembershipSummary(
@@ -117,7 +126,7 @@ export async function fetchOrganizerPortalMembershipSummary(
 ): Promise<OrganizerPortalMembershipSummary> {
   const { data, error } = await admin
     .from("organizer_members")
-    .select("organizer_id,status")
+    .select("organizer_id,status,role")
     .eq("user_id", userId)
     .in("role", [...PORTAL_MEMBER_ROLES]);
 
@@ -125,7 +134,7 @@ export async function fetchOrganizerPortalMembershipSummary(
     throw new Error(error.message);
   }
 
-  const rows = data ?? [];
+  const rows = (data ?? []) as OrganizerPortalMembershipRow[];
   const activeOrganizerIds = [
     ...new Set(
       rows
@@ -136,9 +145,16 @@ export async function fetchOrganizerPortalMembershipSummary(
   ];
   const hasPendingMembership = rows.some((r) => r.status === "pending");
   const hasRevokedMembership = rows.some((r) => r.status === "revoked");
+  const owner = isOrganizerOwner(rows);
 
-  return { activeOrganizerIds, hasPendingMembership, hasRevokedMembership };
+  return { activeOrganizerIds, hasPendingMembership, hasRevokedMembership, isOrganizerOwner: owner };
 }
+
+/** Per-request dedupe for server components and organizer gates. */
+export const fetchOrganizerPortalMembershipSummaryCached = cache(async (userId: string) => {
+  const admin = getPortalAdminClient();
+  return fetchOrganizerPortalMembershipSummary(admin, userId);
+});
 
 export type ActiveOrganizerPortalGate =
   | { kind: "redirect"; to: string }
@@ -164,4 +180,34 @@ export async function requireActiveOrganizerPortalSession(loginNextPath: string)
   }
 
   return { kind: "ok", admin, userId: session.user.id, orgIds };
+}
+
+export async function requireOrganizerOwnerPortalSession(loginNextPath: string): Promise<ActiveOrganizerPortalGate> {
+  const session = await getPortalSessionUser();
+  if (!session?.user?.id) {
+    return { kind: "redirect", to: `/login?next=${encodeURIComponent(loginNextPath)}` };
+  }
+
+  let admin: SupabaseClient;
+  try {
+    admin = getPortalAdminClient();
+  } catch {
+    return { kind: "unavailable" };
+  }
+
+  let summary: OrganizerPortalMembershipSummary;
+  try {
+    summary = await fetchOrganizerPortalMembershipSummaryCached(session.user.id);
+  } catch {
+    return { kind: "unavailable" };
+  }
+
+  if (summary.activeOrganizerIds.length === 0) {
+    return { kind: "redirect", to: "/organizer" };
+  }
+  if (!summary.isOrganizerOwner) {
+    return { kind: "redirect", to: "/organizer" };
+  }
+
+  return { kind: "ok", admin, userId: session.user.id, orgIds: summary.activeOrganizerIds };
 }

@@ -27,8 +27,8 @@ export default function OrganizerSubmissionMonetizationBadge({
   }
 
   if (hasActiveVip(organizer)) {
-    return <span className="inline-block bg-yellow-100 px-2 py-1 text-xs text-yellow-800 rounded">VIP организатор</span>;
+    return <span className="inline-block bg-yellow-100 px-2 py-1 text-xs text-yellow-800 rounded">VIP план активен</span>;
   }
 
-  return <span className="text-xs text-gray-500">Без промоция</span>;
+  return null;
 }

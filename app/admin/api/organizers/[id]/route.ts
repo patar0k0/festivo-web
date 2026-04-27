@@ -161,7 +161,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (typeof finalPatch.logo_url === "string") {
     try {
-      finalPatch.logo_url = await normalizeImageToLocalStorage(finalPatch.logo_url, id);
+      finalPatch.logo_url = await normalizeImageToLocalStorage(finalPatch.logo_url);
     } catch (logoError) {
       const message = logoError instanceof Error ? logoError.message : "unknown";
       console.error("[admin/api/organizers/[id]][PATCH] Organizer logo URL normalization failed", {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
-import { sendEmail } from "@/lib/server/email";
+import { trySendOrganizerClaimRejectedEmail } from "@/lib/server/email";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -22,7 +22,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   const { data: row, error: loadErr } = await admin
     .from("organizer_members")
-    .select("id,organizer_id,user_id,role,status,contact_email")
+    .select("id,organizer_id,user_id,role,status,contact_email,organizer:organizers(name,slug)")
     .eq("id", id)
     .maybeSingle();
 
@@ -33,6 +33,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!row) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  const prevStatus = row.status;
 
   if (row.status !== "pending") {
     return NextResponse.json({ error: "Заявката вече е обработена." }, { status: 409 });
@@ -69,11 +71,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     }
   }
 
+  const org = row.organizer as { name?: string | null; slug?: string | null } | null;
+  const organizerName = org?.name?.trim() || "Организатор";
   const accountEmail = await resolveAuthUserEmail(admin, row.user_id);
   const recipient = accountEmail?.trim() || (typeof row.contact_email === "string" ? row.contact_email.trim() : "");
-  if (recipient) {
-    try {
-      await sendEmail({
+  if (recipient && prevStatus !== "revoked") {
+    await trySendOrganizerClaimRejectedEmail(admin, {
+      memberId: row.id,
+      recipient,
+      recipientUserId: row.user_id,
+      direct: {
         to: recipient,
         subject: "Заявката ти беше отхвърлена",
         html: `
@@ -81,11 +88,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     <p>Заявката ти за организатор беше отхвърлена.</p>
     <p>Можеш да опиташ отново от платформата.</p>
   `,
-      });
-    } catch (e) {
-      console.error("email failed", e);
-    }
-  } else {
+      },
+      queuePayload: { organizerName },
+    });
+  } else if (!recipient) {
     console.warn("[organizer_claim] skip reject email: no recipient", { member_id: row.id });
   }
 

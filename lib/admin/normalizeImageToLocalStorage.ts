@@ -297,7 +297,7 @@ export function takeOrganizerLogoUploadRateLimit(ipKey: string | null | undefine
   return count > LOGO_UPLOAD_RATE_LIMIT_MAX_PER_MINUTE;
 }
 
-export async function normalizeImageToLocalStorage(url: string, _organizerId: string): Promise<string> {
+export async function normalizeImageToLocalStorage(url: string): Promise<string> {
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
   if (isAlreadyOurOrganizerLogoPublicUrl(trimmed)) return trimmed;

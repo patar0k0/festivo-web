@@ -126,7 +126,7 @@ export async function POST(request: Request) {
 
   if (data.logo_url) {
     try {
-      const normalizedLogoUrl = await normalizeImageToLocalStorage(data.logo_url, data.id);
+      const normalizedLogoUrl = await normalizeImageToLocalStorage(data.logo_url);
       if (normalizedLogoUrl !== data.logo_url) {
         const { error: logoUpdateError } = await adminClient
           .from("organizers")

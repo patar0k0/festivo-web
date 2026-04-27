@@ -13,8 +13,8 @@
 | `test` | dev `GET /api/test-email` | query `to` |
 | `organizer-claim-received` | `POST /api/organizer/claims` (след успех) | `contact_email` от заявката |
 | `admin-new-claim` | същият route | `EMAIL_ADMIN` (ако е зададен) |
-| `organizer-claim-approved` | `POST /admin/api/organizer-members/[id]/approve` — **директен** Resend (`lib/server/email.ts`), не `email_jobs` | имейл от Supabase Auth за `user_id`, иначе `contact_email` |
-| `organizer-claim-rejected` | `POST /admin/api/organizer-members/[id]/reject` — **директен** Resend, не `email_jobs` | същото |
+| `organizer-claim-approved` | `POST /admin/api/organizer-members/[id]/approve` — първо директен Resend (`lib/server/email.ts`); при грешка → `email_jobs` с `dedupe_key` от `lib/email/emailDedupeKeys.ts` | имейл от Supabase Auth за `user_id`, иначе `contact_email` |
+| `organizer-claim-rejected` | `POST /admin/api/organizer-members/[id]/reject` — същото (директен → fallback опашка) | същото |
 | `festival-submission-received` | `POST /api/organizer/pending-festivals` | Auth имейл на подателя |
 | `admin-new-submission` | същият route | `EMAIL_ADMIN` (ако е зададен) |
 | `festival-approved` | `POST /admin/api/pending-festivals/[id]/approve` | само при `submission_source=organizer_portal` — Auth имейл на `submitted_by_user_id` |

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
-import { sendEmail } from "@/lib/server/email";
+import { trySendOrganizerClaimApprovedEmail } from "@/lib/server/email";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -33,6 +33,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!row) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  const prevStatus = row.status;
 
   if (row.status !== "pending") {
     return NextResponse.json({ error: "Заявката вече е обработена." }, { status: 409 });
@@ -91,9 +93,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   const org = row.organizer as { name?: string | null; slug?: string | null } | null;
   const organizerSlug = org?.slug?.trim() || null;
+  const organizerName = org?.name?.trim() || "Организатор";
   const accountEmail = await resolveAuthUserEmail(admin, row.user_id);
   const recipient = accountEmail?.trim() || (typeof row.contact_email === "string" ? row.contact_email.trim() : "");
-  if (recipient) {
+  if (recipient && prevStatus !== "active") {
     const base = (
       process.env.NEXT_PUBLIC_BASE_URL ??
       process.env.NEXT_PUBLIC_SITE_URL ??
@@ -101,8 +104,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     ).replace(/\/$/, "");
     const profilePath = organizerSlug ? `/organizers/${organizerSlug}` : "/organizer/dashboard";
     const profileUrl = `${base}${profilePath}`;
-    try {
-      await sendEmail({
+    await trySendOrganizerClaimApprovedEmail(admin, {
+      memberId: row.id,
+      recipient,
+      recipientUserId: row.user_id,
+      direct: {
         to: recipient,
         subject: "Профилът ти е одобрен",
         html: `
@@ -114,11 +120,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       </a>
     </p>
   `,
-      });
-    } catch (e) {
-      console.error("email failed", e);
-    }
-  } else {
+      },
+      queuePayload: {
+        organizerName,
+        organizerSlug,
+        dashboardUrl: profileUrl,
+      },
+    });
+  } else if (!recipient) {
     console.warn("[organizer_claim] skip approve email: no recipient", { member_id: row.id });
   }
 

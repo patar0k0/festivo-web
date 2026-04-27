@@ -149,15 +149,33 @@ export default async function OrganizerSubmissionsPage({
                       {new Date(row.created_at).toLocaleString("bg-BG")}
                     </p>
                     <p className="mt-1 text-xs text-black/50">
-                      {row.status === "pending"
-                        ? "Чака преглед"
-                        : row.status === "approved"
-                          ? "Одобрено"
-                          : row.status === "rejected"
-                            ? "Отхвърлено"
-                            : row.status}
+                      {row.status === "draft"
+                        ? "Чернова (още не е изпратена)"
+                        : row.status === "pending"
+                          ? "Чака преглед"
+                          : row.status === "approved"
+                            ? "Одобрено"
+                            : row.status === "rejected"
+                              ? "Отхвърлено"
+                              : row.status}
                     </p>
                   </div>
+                  {row.status === "draft" ? (
+                    <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:gap-3">
+                      <Link
+                        href={`/organizer/festivals/preview/${row.id}`}
+                        className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] underline"
+                      >
+                        Преглед
+                      </Link>
+                      <Link
+                        href={`/organizer/festivals/new?draft=${encodeURIComponent(row.id)}`}
+                        className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] underline"
+                      >
+                        Продължи
+                      </Link>
+                    </div>
+                  ) : null}
                   {row.status === "pending" ? (
                     <Link
                       href={`/organizer/submissions/${row.id}/edit`}

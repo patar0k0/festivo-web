@@ -97,8 +97,8 @@ export async function loadPortalPendingFestival(admin: SupabaseClient, pendingId
 }
 
 export async function assertCanEditOrganizerPending(admin: SupabaseClient, userId: string, pending: PortalPendingRow) {
-  if (pending.status !== "pending") {
-    return { ok: false as const, error: "Редакция е възможна само за чакащи записи." };
+  if (pending.status !== "pending" && pending.status !== "draft") {
+    return { ok: false as const, error: "Редакция е възможна само за чернови или чакащи записи." };
   }
 
   if (pending.submission_source !== "organizer_portal" || !pending.organizer_id) {

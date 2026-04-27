@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
-import {
-  EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION,
-  EMAIL_JOB_TYPE_FESTIVAL_SUBMISSION_RECEIVED,
-} from "@/lib/email/emailJobTypes";
-import { dedupeKeyAdminNewSubmission, dedupeKeyFestivalSubmissionReceived } from "@/lib/email/emailDedupeKeys";
-import { absoluteSiteUrl } from "@/lib/email/emailUrls";
-import { enqueueAdminEmailJobSafe, enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
-import { formatBgDateFromIso } from "@/lib/email/formatBg";
-import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
+import { enqueueOrganizerPortalSubmissionEmails } from "@/lib/organizer/enqueuePendingFestivalSubmissionEmails";
 import { getPortalAdminClient, getPortalSessionUser, hasActiveOrganizerMembership } from "@/lib/organizer/portal";
 import { slugify } from "@/lib/utils";
 
@@ -34,6 +26,8 @@ type Body = {
   category?: string | null;
   tags?: string[] | string;
   hero_image?: string | null;
+  /** When `"draft"`, creates a persisted preview row without moderation emails. */
+  status?: string;
 };
 
 function optionalTrimmedUrl(value: unknown): string | null {
@@ -113,6 +107,9 @@ export async function POST(request: Request) {
   const categoryRaw = typeof body.category === "string" ? body.category.trim() : "";
   const category = categoryRaw || "festival";
 
+  const wantsDraft = body.status === "draft";
+  const recordStatus = wantsDraft ? ("draft" as const) : ("pending" as const);
+
   const pendingPayload = {
     title,
     slug: null as string | null,
@@ -147,7 +144,7 @@ export async function POST(request: Request) {
     is_free: typeof body.is_free === "boolean" ? body.is_free : true,
     hero_image: optionalTrimmedUrl(body.hero_image),
     tags,
-    status: "pending" as const,
+    status: recordStatus,
     submitted_by_user_id: session.user.id,
     submission_source: "organizer_portal" as const,
   };
@@ -171,48 +168,15 @@ export async function POST(request: Request) {
     console.warn("[api/organizer/pending-festivals] slug update", slugUpdErr.message);
   }
 
-  const submitterEmail = await resolveAuthUserEmail(admin, session.user.id);
-  const startDateDisplay = formatBgDateFromIso(startDate);
-  if (submitterEmail) {
-    void enqueueEmailJobSafe(
-      admin,
-      {
-        type: EMAIL_JOB_TYPE_FESTIVAL_SUBMISSION_RECEIVED,
-        recipientEmail: submitterEmail,
-        recipientUserId: session.user.id,
-        payload: {
-          submissionId: inserted.id,
-          festivalTitle: title,
-          cityDisplay: cityRaw || null,
-          startDateDisplay,
-          submissionsUrl: absoluteSiteUrl("/organizer/submissions"),
-        },
-        dedupeKey: dedupeKeyFestivalSubmissionReceived(inserted.id),
-      },
-      "organizer_portal_submission_user",
-    );
-  } else {
-    console.warn("[email_jobs] skip festival-submission-received: no auth email for submitter", {
-      user_id: session.user.id,
-      pending_id: inserted.id,
+  if (!wantsDraft) {
+    void enqueueOrganizerPortalSubmissionEmails(admin, {
+      pendingId: inserted.id,
+      userId: session.user.id,
+      title,
+      cityDisplay: cityRaw || null,
+      startDate,
     });
   }
-
-  void enqueueAdminEmailJobSafe(
-    admin,
-    {
-      type: EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION,
-      payload: {
-        submissionId: inserted.id,
-        festivalTitle: title,
-        cityDisplay: cityRaw || null,
-        startDateDisplay,
-        reviewUrl: absoluteSiteUrl(`/admin/pending-festivals/${inserted.id}`),
-      },
-      dedupeKey: dedupeKeyAdminNewSubmission(inserted.id),
-    },
-    "organizer_portal_submission_admin",
-  );
 
   return NextResponse.json({ id: inserted.id }, { status: 201 });
 }

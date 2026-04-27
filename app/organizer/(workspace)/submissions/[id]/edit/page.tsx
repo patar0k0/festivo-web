@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import OrganizerPendingEditForm from "@/components/organizer/OrganizerPendingEditForm";
+import { formatBgDateFromIso } from "@/lib/email/formatBg";
+import { hasActivePromotion, hasActiveVip, type OrganizerVipStatusRow } from "@/lib/monetization";
 import {
   assertCanEditOrganizerPending,
   loadPortalPendingFestival,
@@ -43,6 +45,34 @@ export default async function OrganizerEditSubmissionPage({ params }: { params: 
     notFound();
   }
 
+  let organizerVip: OrganizerVipStatusRow | null = null;
+  if (meta.organizer_id) {
+    const { data: orgRow, error: orgErr } = await admin
+      .from("organizers")
+      .select("plan,plan_started_at,plan_expires_at")
+      .eq("id", meta.organizer_id)
+      .maybeSingle();
+    if (orgErr) {
+      throw new Error(orgErr.message);
+    }
+    organizerVip = orgRow;
+  }
+
+  const slugKey = typeof row.slug === "string" && row.slug.trim() ? row.slug.trim() : null;
+  let festivalPromo: { promotion_status?: string | null; promotion_expires_at?: string | null } | null = null;
+  if (meta.status === "approved" && meta.organizer_id && slugKey) {
+    const { data: festRow, error: festErr } = await admin
+      .from("festivals")
+      .select("promotion_status,promotion_expires_at")
+      .eq("organizer_id", meta.organizer_id)
+      .eq("slug", slugKey)
+      .maybeSingle();
+    if (festErr) {
+      throw new Error(festErr.message);
+    }
+    festivalPromo = festRow;
+  }
+
   const cityRel = row.city as { name_bg?: string | null; slug?: string | null } | null;
   const city_label =
     (typeof row.city_name_display === "string" && row.city_name_display.trim()) ||
@@ -60,6 +90,29 @@ export default async function OrganizerEditSubmissionPage({ params }: { params: 
         </Link>
         <h1 className="mt-4 font-[var(--font-display)] text-2xl font-bold">Редакция на подаване</h1>
         <p className="mt-2 text-sm text-black/60">Промените отиват отново в опашката за модерация.</p>
+      </div>
+
+      <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
+        <h3 className="text-sm font-semibold">Промотиране</h3>
+        {festivalPromo && hasActivePromotion(festivalPromo) ? (
+          <div className="mt-2 text-sm text-gray-700">
+            <div>Статус: Промотиран</div>
+            {festivalPromo.promotion_expires_at ? (
+              <div>Активен до: {formatBgDateFromIso(festivalPromo.promotion_expires_at) ?? festivalPromo.promotion_expires_at}</div>
+            ) : null}
+          </div>
+        ) : null}
+        {!(festivalPromo && hasActivePromotion(festivalPromo)) && hasActiveVip(organizerVip) ? (
+          <div className="mt-2 text-sm text-gray-700">
+            <div>VIP план активен</div>
+            {organizerVip?.plan_expires_at ? (
+              <div>До: {formatBgDateFromIso(organizerVip.plan_expires_at) ?? organizerVip.plan_expires_at}</div>
+            ) : null}
+          </div>
+        ) : null}
+        {!(festivalPromo && hasActivePromotion(festivalPromo)) && !hasActiveVip(organizerVip) ? (
+          <div className="mt-2 text-sm text-gray-500">Няма активна промоция</div>
+        ) : null}
       </div>
 
       <OrganizerPendingEditForm

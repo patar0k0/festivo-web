@@ -26,12 +26,15 @@ export default function WorkspaceShell({
   density,
   eyebrow,
   email,
+  headerSummary,
   children,
   sidebar,
 }: {
   density: WorkspaceDensity;
   eyebrow: string;
   email: string | null;
+  /** Optional row under the email (e.g. organizer monetization summary). */
+  headerSummary?: React.ReactNode;
   children: React.ReactNode;
   sidebar: React.ReactNode;
 }) {
@@ -44,6 +47,7 @@ export default function WorkspaceShell({
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/45">{eyebrow}</p>
             <p className="text-sm text-black/60">{email ?? "—"}</p>
+            {headerSummary ? <div className="mt-1.5">{headerSummary}</div> : null}
             <BuildStamp compact />
           </div>
           <div className="flex flex-wrap items-center gap-2">

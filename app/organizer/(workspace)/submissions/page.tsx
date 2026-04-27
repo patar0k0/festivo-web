@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import OrganizerSubmissionMonetizationBadge from "@/components/organizer/OrganizerSubmissionMonetizationBadge";
 import { requireOrganizerOwnerPortalSession } from "@/lib/organizer/portal";
+import type { OrganizerVipStatusRow } from "@/lib/monetization";
+import { ORGANIZER_PORTAL_FESTIVAL_PROMOTION_KEYS, ORGANIZER_PORTAL_ORGANIZER_VIP_FIELDS } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
+
+type OrganizerPortalListRow = OrganizerVipStatusRow & { id: string; name: string | null };
 
 function formatDateRange(start: string | null, end: string | null) {
   if (!start) return "—";
@@ -26,23 +31,68 @@ export default async function OrganizerSubmissionsPage({
   const { admin, orgIds } = gate;
   const showSubmittedOk = searchParams?.submitted === "1";
 
-  const { data: orgRows } =
+  const { data: orgRows, error: orgErr } =
     orgIds.length > 0
-      ? await admin.from("organizers").select("id,name").in("id", orgIds).eq("is_active", true)
-      : { data: [] as { id: string; name: string }[] };
+      ? await admin.from("organizers").select(ORGANIZER_PORTAL_ORGANIZER_VIP_FIELDS).in("id", orgIds).eq("is_active", true)
+      : { data: [] as OrganizerPortalListRow[], error: null as null };
 
-  const orgNameById = new Map((orgRows ?? []).map((o) => [o.id, o.name]));
+  if (orgErr) {
+    throw new Error(orgErr.message);
+  }
 
-  const { data: submissions } =
+  const orgNameById = new Map((orgRows ?? []).map((o) => [o.id, o.name ?? ""]));
+  const orgById = new Map((orgRows ?? []).map((o) => [o.id, o as OrganizerPortalListRow]));
+
+  const { data: submissions, error: subErr } =
     orgIds.length > 0
       ? await admin
           .from("pending_festivals")
-          .select("id,title,status,created_at,submission_source,start_date,end_date,organizer_id")
+          .select("id,title,status,created_at,submission_source,start_date,end_date,organizer_id,slug")
           .in("organizer_id", orgIds)
           .eq("submission_source", "organizer_portal")
           .order("created_at", { ascending: false })
           .limit(80)
-      : { data: [] as { id: string; title: string; status: string; created_at: string; start_date: string | null; end_date: string | null; organizer_id: string | null }[] };
+      : {
+          data: [] as {
+            id: string;
+            title: string;
+            status: string;
+            created_at: string;
+            start_date: string | null;
+            end_date: string | null;
+            organizer_id: string | null;
+            slug: string | null;
+          }[],
+          error: null as null,
+        };
+
+  if (subErr) {
+    throw new Error(subErr.message);
+  }
+
+  const { data: festivalPromoRows, error: festErr } =
+    orgIds.length > 0
+      ? await admin.from("festivals").select(ORGANIZER_PORTAL_FESTIVAL_PROMOTION_KEYS).in("organizer_id", orgIds)
+      : { data: [] as { organizer_id: string | null; slug: string | null; promotion_status: string | null; promotion_expires_at: string | null }[], error: null as null };
+
+  if (festErr) {
+    throw new Error(festErr.message);
+  }
+
+  const promotionByOrganizerSlug = new Map<
+    string,
+    { promotion_status: string | null; promotion_expires_at: string | null }
+  >();
+  for (const row of festivalPromoRows ?? []) {
+    const oid = row.organizer_id;
+    const slug = typeof row.slug === "string" ? row.slug : null;
+    if (oid && slug) {
+      promotionByOrganizerSlug.set(`${oid}|${slug}`, {
+        promotion_status: row.promotion_status,
+        promotion_expires_at: row.promotion_expires_at,
+      });
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -69,39 +119,56 @@ export default async function OrganizerSubmissionsPage({
           </p>
         ) : (
           <ul className="divide-y divide-black/[0.06] text-sm">
-            {(submissions ?? []).map((row) => (
-              <li key={row.id} className="flex flex-col gap-2 py-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-[#0c0e14]">{row.title}</p>
-                  <p className="mt-1 text-xs text-black/55">
-                    <span className="font-medium text-black/70">
-                      {row.organizer_id ? (orgNameById.get(row.organizer_id) ?? "Организатор") : "—"}
-                    </span>
-                    {" · "}
-                    {formatDateRange(row.start_date, row.end_date)}
-                    {" · "}
-                    {new Date(row.created_at).toLocaleString("bg-BG")}
-                  </p>
-                  <p className="mt-1 text-xs text-black/50">
-                    {row.status === "pending"
-                      ? "Чака преглед"
-                      : row.status === "approved"
-                        ? "Одобрено"
-                        : row.status === "rejected"
-                          ? "Отхвърлено"
-                          : row.status}
-                  </p>
-                </div>
-                {row.status === "pending" ? (
-                  <Link
-                    href={`/organizer/submissions/${row.id}/edit`}
-                    className="shrink-0 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] underline"
-                  >
-                    Редакция
-                  </Link>
-                ) : null}
-              </li>
-            ))}
+            {(submissions ?? []).map((row) => {
+              const org = row.organizer_id ? (orgById.get(row.organizer_id) ?? null) : null;
+              const slug = typeof row.slug === "string" && row.slug.trim() ? row.slug.trim() : null;
+              const festivalPromo =
+                row.status === "approved" && row.organizer_id && slug
+                  ? (promotionByOrganizerSlug.get(`${row.organizer_id}|${slug}`) ?? null)
+                  : null;
+
+              return (
+                <li
+                  key={row.id}
+                  className="flex flex-col gap-2 py-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <p className="font-semibold text-[#0c0e14]">{row.title}</p>
+                      <div className="shrink-0 sm:ml-3">
+                        <OrganizerSubmissionMonetizationBadge festival={festivalPromo} organizer={org} />
+                      </div>
+                    </div>
+                    <p className="mt-1 text-xs text-black/55">
+                      <span className="font-medium text-black/70">
+                        {row.organizer_id ? (orgNameById.get(row.organizer_id) ?? "Организатор") : "—"}
+                      </span>
+                      {" · "}
+                      {formatDateRange(row.start_date, row.end_date)}
+                      {" · "}
+                      {new Date(row.created_at).toLocaleString("bg-BG")}
+                    </p>
+                    <p className="mt-1 text-xs text-black/50">
+                      {row.status === "pending"
+                        ? "Чака преглед"
+                        : row.status === "approved"
+                          ? "Одобрено"
+                          : row.status === "rejected"
+                            ? "Отхвърлено"
+                            : row.status}
+                    </p>
+                  </div>
+                  {row.status === "pending" ? (
+                    <Link
+                      href={`/organizer/submissions/${row.id}/edit`}
+                      className="shrink-0 text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] underline"
+                    >
+                      Редакция
+                    </Link>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

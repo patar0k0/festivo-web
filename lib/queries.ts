@@ -22,6 +22,16 @@ export const FESTIVAL_SELECT_MIN =
 export const FESTIVAL_SELECT_ORGANIZER_PROFILE =
   "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug)";
 
+/**
+ * Organizer portal: published `festivals` columns for promotion UI (join submissions by organizer_id + slug).
+ * Does not add schema; only documents the select used by portal pages.
+ */
+export const ORGANIZER_PORTAL_FESTIVAL_PROMOTION_KEYS =
+  "organizer_id,slug,promotion_status,promotion_expires_at";
+
+/** Organizer portal: VIP fields on `organizers` for `hasActiveVip`. */
+export const ORGANIZER_PORTAL_ORGANIZER_VIP_FIELDS = "id,name,plan,plan_started_at,plan_expires_at";
+
 /** Public organizer profile fields (no plan, rank, credits, merge state). */
 // claimed_events_count: included for future public display, not rendered yet
 // No `cities` embed: nested select can fail under anon RLS/embed quirks; city is loaded in a second query.

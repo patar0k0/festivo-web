@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { buildFestivalIcs } from "@/lib/ics";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { getFestivalBySlug, normalizePublicFestivalSlugParam } from "@/lib/queries";
 
 export async function GET(
@@ -11,6 +12,12 @@ export async function GET(
   const festival = await getFestivalBySlug(slug);
   if (!festival) {
     return new Response("Not found", { status: 404 });
+  }
+
+  if (isFestivalPast(festival)) {
+    return new Response("Cannot add past festival to calendar", {
+      status: 400,
+    });
   }
 
   const ics = buildFestivalIcs(festival);

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 type CitySelectClientProps = {
   cities: Array<{ name: string; slug: string | null; filterValue: string }>;
@@ -10,6 +10,8 @@ type CitySelectClientProps = {
   homePath?: string;
   /** Appended after `?city=…` (default `#nearest-festivals` on home). Use `""` for `/festivals`. */
   citySelectNavigateSuffix?: string;
+  /** Keep current query params and only update `city` (useful on `/festivals`). */
+  preserveSearchParams?: boolean;
 };
 
 type MenuPosition = {
@@ -34,6 +36,7 @@ export default function CitySelectClient({
   cities,
   homePath = "/",
   citySelectNavigateSuffix = "#nearest-festivals",
+  preserveSearchParams = false,
 }: CitySelectClientProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -42,6 +45,7 @@ export default function CitySelectClient({
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     setMounted(true);
@@ -104,6 +108,16 @@ export default function CitySelectClient({
   const onSelect = (city: { slug: string | null; filterValue: string }) => {
     const cityParam = city.slug ?? city.filterValue;
     const base = homePath.endsWith("/") && homePath !== "/" ? homePath.slice(0, -1) : homePath;
+    if (preserveSearchParams) {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set("city", cityParam);
+      nextParams.delete("page");
+      const query = nextParams.toString();
+      router.push(`${base}${query ? `?${query}` : ""}${citySelectNavigateSuffix}`);
+      setOpen(false);
+      return;
+    }
+
     router.push(`${base}?city=${encodeURIComponent(cityParam)}${citySelectNavigateSuffix}`);
     setOpen(false);
   };

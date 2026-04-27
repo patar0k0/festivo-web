@@ -25,6 +25,7 @@ export default function FestivalsListingDiscovery({
           cities={cityOptions}
           homePath="/festivals"
           citySelectNavigateSuffix=""
+          preserveSearchParams
         />
       ) : (
         <Link

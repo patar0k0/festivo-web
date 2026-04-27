@@ -17,6 +17,7 @@ import { parseProgramDraftUnknown, programDraftToDetailSchedule } from "@/lib/fe
 
 export const FESTIVAL_SELECT_MIN =
   "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
+const FESTIVAL_SELECT_MIN_CITY_FILTERED = FESTIVAL_SELECT_MIN.replace("cities:cities!left(", "cities:cities!inner(");
 
 /** Festival rows for `/organizers/[slug]`: nested organizer without plan/rank/promotion-credit fields. */
 export const FESTIVAL_SELECT_ORGANIZER_PROFILE =
@@ -399,14 +400,14 @@ export async function getFestivals(
 
   const dateResolution = await resolveFestivalDateFilterIds(supabase, filters, options);
   const filtersForQuery = await withCitySlugsResolvedInFilters(supabase, filters, options);
-  let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN);
+  const selectColumns = filtersForQuery.city?.length ? FESTIVAL_SELECT_MIN_CITY_FILTERED : FESTIVAL_SELECT_MIN;
+  let query = supabase.from("festivals").select(selectColumns);
   query = applyFilters(query, filtersForQuery, options, dateResolution);
   const { data, error } = await query.returns<Festival[]>();
 
   if (error) {
     throw new Error(error.message);
   }
-
   const normalized = (data ?? []).map(fixFestivalText);
   const when = filters.when;
   const scoped =
@@ -609,7 +610,8 @@ export async function getCalendarMonth(month: string, filters: Filters, options?
   };
   const dateResolution = await resolveFestivalDateFilterIds(supabase, monthFilters, options);
   const monthFiltersForQuery = await withCitySlugsResolvedInFilters(supabase, monthFilters, options);
-  let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN);
+  const selectColumns = monthFiltersForQuery.city?.length ? FESTIVAL_SELECT_MIN_CITY_FILTERED : FESTIVAL_SELECT_MIN;
+  let query = supabase.from("festivals").select(selectColumns);
   query = applyFilters(query, monthFiltersForQuery, options, dateResolution);
 
   const { data, error } = await query.returns<Festival[]>();

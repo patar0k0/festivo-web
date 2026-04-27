@@ -23,7 +23,7 @@ import { enqueueEmailJob } from "./enqueueEmail";
 import { resolveAuthUserEmail } from "./resolveAuthUserEmail";
 
 const FESTIVAL_REMINDER_SELECT =
-  "id,title,slug,city_id,start_date,end_date,start_time,location_name,address,cities:cities!left(name_bg,slug,is_village)";
+  "id,title,slug,city_id,start_date,end_date,start_time,location_name,address,cities:cities!festivals_city_id_fkey(name_bg,slug,is_village)";
 
 export type FestivalRowForReminderEmail = {
   id: string;

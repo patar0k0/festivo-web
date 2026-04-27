@@ -14,7 +14,7 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
 
   const { data, error } = await ctx.supabase
     .from("festivals")
-    .select("*,cities:cities!left(id,name_bg,slug)")
+    .select("*,cities:cities!festivals_city_id_fkey(id,name_bg,slug)")
     .eq("id", id)
     .maybeSingle();
 

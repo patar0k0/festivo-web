@@ -209,7 +209,7 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
 
   const { data: festivalRows } = await db
     .from("festivals")
-    .select("id,slug,title,cities:cities!left(name_bg,is_village)")
+    .select("id,slug,title,cities:cities!festivals_city_id_fkey(name_bg,is_village)")
     .in("id", festivalIds)
     .returns<FestivalRow[]>();
 

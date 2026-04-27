@@ -16,12 +16,15 @@ import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { parseProgramDraftUnknown, programDraftToDetailSchedule } from "@/lib/festival/programDraft";
 
 export const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
-const FESTIVAL_SELECT_MIN_CITY_FILTERED = FESTIVAL_SELECT_MIN.replace("cities:cities!left(", "cities:cities!inner(");
+  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
+const FESTIVAL_SELECT_MIN_CITY_FILTERED = FESTIVAL_SELECT_MIN.replace(
+  "cities:cities!festivals_city_id_fkey(",
+  "cities:cities!festivals_city_id_fkey!inner(",
+);
 
 /** Festival rows for `/organizers/[slug]`: nested organizer without plan/rank/promotion-credit fields. */
 export const FESTIVAL_SELECT_ORGANIZER_PROFILE =
-  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug)";
+  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug)";
 
 /** Public organizer profile fields (no plan, rank, credits, merge state). */
 // claimed_events_count: included for future public display, not rendered yet
@@ -53,7 +56,7 @@ export function normalizePublicFestivalSlugParam(raw: string): string {
 }
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,location_name,address,organizer_id,organizer_name,lat,lng,place_id,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,program_draft,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,location_name,address,organizer_id,organizer_name,lat,lng,place_id,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,program_draft,cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
 
 const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -224,6 +227,14 @@ function applyPublicScope<T>(query: T): T {
   const scopedQuery = query as QueryWithOrAndNeq<T>;
   const withOr = scopedQuery.or("status.eq.published,status.eq.verified,is_verified.eq.true") as QueryWithOrAndNeq<T>;
   return withOr.neq("status", "archived") as T;
+}
+
+function getUtcIsoDateToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function applyNotPastPublicListingScope<T extends { gte: (column: string, value: string) => T }>(query: T): T {
+  return query.gte("end_date", getUtcIsoDateToday());
 }
 
 type FilterQuery<T> = {
@@ -403,8 +414,8 @@ export async function getFestivals(
   const selectColumns = filtersForQuery.city?.length ? FESTIVAL_SELECT_MIN_CITY_FILTERED : FESTIVAL_SELECT_MIN;
   let query = supabase.from("festivals").select(selectColumns);
   query = applyFilters(query, filtersForQuery, options, dateResolution);
+  query = applyNotPastPublicListingScope(query);
   const { data, error } = await query.returns<Festival[]>();
-
   if (error) {
     throw new Error(error.message);
   }
@@ -613,6 +624,7 @@ export async function getCalendarMonth(month: string, filters: Filters, options?
   const selectColumns = monthFiltersForQuery.city?.length ? FESTIVAL_SELECT_MIN_CITY_FILTERED : FESTIVAL_SELECT_MIN;
   let query = supabase.from("festivals").select(selectColumns);
   query = applyFilters(query, monthFiltersForQuery, options, dateResolution);
+  query = applyNotPastPublicListingScope(query);
 
   const { data, error } = await query.returns<Festival[]>();
 
@@ -690,12 +702,12 @@ export async function getHomeCitySelectOptions(): Promise<
 
   const { data, error } = await supabase
     .from("festivals")
-    .select("cities:cities!inner(slug,name_bg,is_village)")
+    .select("cities:cities!festivals_city_id_fkey!inner(slug,name_bg,is_village)")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
+    .gte("end_date", getUtcIsoDateToday())
     .not("city_id", "is", null)
     .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
-
   if (error || !data?.length) {
     return [];
   }
@@ -728,6 +740,7 @@ export async function getFestivalSlugs(): Promise<string[]> {
     .select("slug")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
+    .gte("end_date", getUtcIsoDateToday())
     .returns<{ slug: string | null }[]>();
 
   if (error) {
@@ -854,6 +867,7 @@ export async function getOrganizerWithFestivals(
     .eq("organizer_id", organizer.id)
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
+    .gte("end_date", getUtcIsoDateToday())
     .returns<Array<{ id: string }>>();
 
   if (legacyError) {
@@ -878,6 +892,7 @@ export async function getOrganizerWithFestivals(
     .in("id", festivalIds)
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
+    .gte("end_date", getUtcIsoDateToday())
     .returns<Festival[]>();
 
   if (festivalsError) {

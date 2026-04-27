@@ -146,12 +146,11 @@ async function fetchHomePublishedCityOptionsWithCounts(): Promise<HomeCityOption
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("festivals")
-    .select("cities:cities!inner(slug,name_bg,is_village)")
+    .select("cities:cities!festivals_city_id_fkey!inner(slug,name_bg,is_village)")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
     .not("city_id", "is", null)
     .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
-
   if (error) {
     console.error("[loadHomePageData] fetchHomePublishedCityOptionsWithCounts", error);
     throw new Error(`fetchHomePublishedCityOptionsWithCounts: ${error.message}`);

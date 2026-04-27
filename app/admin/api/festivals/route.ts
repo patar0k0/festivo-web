@@ -53,7 +53,7 @@ export async function GET(request: Request) {
     let query = ctx.supabase
       .from("festivals")
       .select(
-        "id,title,city,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,is_free,status,updated_at,source_type,cities:cities!left(id,name_bg,slug)",
+        "id,title,city,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,is_free,status,updated_at,source_type,cities:cities!festivals_city_id_fkey(id,name_bg,slug)",
       )
       .order("updated_at", { ascending: false })
       .limit(200);
@@ -90,7 +90,6 @@ export async function GET(request: Request) {
     }
 
     const { data, error } = await query;
-
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

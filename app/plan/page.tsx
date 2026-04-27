@@ -119,7 +119,7 @@ export default async function PlanPage() {
     const { data: festivalRows } = await supabase
       .from("festivals")
       .select(
-        "id,slug,title,start_date,end_date,occurrence_dates,start_time,end_time,hero_image,image_url,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,is_village)"
+        "id,slug,title,start_date,end_date,occurrence_dates,start_time,end_time,hero_image,image_url,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,is_village)"
       )
       .in("id", festivalIds);
 

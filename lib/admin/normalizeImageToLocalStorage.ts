@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { isIPv4, isIPv6 } from "node:net";
+import { createHash } from "node:crypto";
 import sharp from "sharp";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -146,6 +147,10 @@ function organizerLogoStoragePathFromPublicUrl(publicUrl: string): string | null
   }
 }
 
+function isAlreadyExistsError(err: unknown): boolean {
+  return String(err).toLowerCase().includes("exists");
+}
+
 async function fetchRemoteImage(urlStr: string): Promise<{ buffer: Buffer; contentType: string }> {
   let currentUrl = urlStr;
 
@@ -250,6 +255,22 @@ export async function deleteOrganizerLogoFromStorageIfOwned(
 
   try {
     const supabase = createSupabaseAdmin();
+    const { data: rows, error: countError } = await supabase
+      .from("organizers")
+      .select("id")
+      .eq("logo_url", trimmed)
+      .limit(2);
+    if (countError) {
+      console.error("[organizer-logo] Failed to verify shared storage object usage", {
+        objectPath,
+        message: countError.message,
+      });
+      return;
+    }
+    if ((rows?.length ?? 0) > 1) {
+      return;
+    }
+
     const { error } = await supabase.storage.from(ORGANIZER_LOGOS_BUCKET).remove([objectPath]);
     if (error) {
       console.error("[organizer-logo] Failed to remove storage object", { objectPath, message: error.message });
@@ -276,7 +297,7 @@ export function takeOrganizerLogoUploadRateLimit(ipKey: string | null | undefine
   return count > LOGO_UPLOAD_RATE_LIMIT_MAX_PER_MINUTE;
 }
 
-export async function normalizeImageToLocalStorage(url: string, organizerId: string): Promise<string> {
+export async function normalizeImageToLocalStorage(url: string, _organizerId: string): Promise<string> {
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
   if (isAlreadyOurOrganizerLogoPublicUrl(trimmed)) return trimmed;
@@ -306,15 +327,23 @@ export async function normalizeImageToLocalStorage(url: string, organizerId: str
     throw new Error("Processed organizer logo is empty.");
   }
 
-  const timestamp = Date.now();
-  const objectPath = `logos/${organizerId}-${timestamp}.webp`;
+  const hash = createHash("sha256").update(webpBuffer).digest("hex");
+  const objectPath = `logos/${hash}.webp`;
   const supabase = createSupabaseAdmin();
-  const { error: uploadError } = await supabase.storage.from(ORGANIZER_LOGOS_BUCKET).upload(objectPath, webpBuffer, {
-    contentType: "image/webp",
-    cacheControl: UPLOAD_CACHE_CONTROL,
-  });
-  if (uploadError) {
-    throw new Error(`Upload failed: ${uploadError.message}`);
+  try {
+    const { error: uploadError } = await supabase.storage.from(ORGANIZER_LOGOS_BUCKET).upload(objectPath, webpBuffer, {
+      contentType: "image/webp",
+      cacheControl: UPLOAD_CACHE_CONTROL,
+    });
+    if (uploadError) {
+      if (!isAlreadyExistsError(uploadError)) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+    }
+  } catch (err) {
+    if (!isAlreadyExistsError(err)) {
+      throw err;
+    }
   }
 
   const { data: publicData } = supabase.storage.from(ORGANIZER_LOGOS_BUCKET).getPublicUrl(objectPath);

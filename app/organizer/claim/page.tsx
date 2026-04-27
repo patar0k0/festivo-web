@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { OrganizerClaimMeResponse } from "@/app/api/organizer/claims/me/route";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/TurnstileWidget";
 import OrganizerClaimStepStrip from "@/components/organizer/OrganizerClaimStepStrip";
 import OrganizerOnboardingValueBlock from "@/components/organizer/OrganizerOnboardingValueBlock";
@@ -25,15 +26,16 @@ export default function OrganizerClaimPage() {
   const [suggestions, setSuggestions] = useState<OrganizerSuggestion[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [ok, setOk] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
   const needsTurnstile = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
   const blurCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [myClaim, setMyClaim] = useState<OrganizerClaimMeResponse | undefined>(undefined);
 
   const clearBlurTimer = useCallback(() => {
     if (blurCloseTimer.current) {
@@ -41,6 +43,28 @@ export default function OrganizerClaimPage() {
       blurCloseTimer.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/organizer/claims/me", { credentials: "include" });
+        const payload = (await res.json().catch(() => null)) as OrganizerClaimMeResponse | { error?: string } | null;
+        if (res.ok && payload && typeof payload === "object" && "status" in payload && !("error" in payload)) {
+          setMyClaim(payload as OrganizerClaimMeResponse);
+        } else {
+          setMyClaim({ status: "none" });
+        }
+      } catch {
+        setMyClaim({ status: "none" });
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (myClaim?.status === "approved" && myClaim.organizer_slug) {
+      router.push(`/organizers/${myClaim.organizer_slug}`);
+    }
+  }, [myClaim, router]);
 
   useEffect(() => {
     if (selected) {
@@ -91,8 +115,9 @@ export default function OrganizerClaimPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    setOk(false);
+    if (loading) return;
+
+    setError(null);
     const slug = selected?.slug?.trim() ?? "";
     if (!slug) {
       setError("Изберете организатор от списъка.");
@@ -108,7 +133,8 @@ export default function OrganizerClaimPage() {
       setError("Попълнете телефон за връзка.");
       return;
     }
-    setBusy(true);
+
+    setLoading(true);
     try {
       const res = await fetch("/api/organizer/claims", {
         method: "POST",
@@ -121,20 +147,29 @@ export default function OrganizerClaimPage() {
           turnstileToken: needsTurnstile ? turnstileToken : "",
         }),
       });
-      const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+      await res.json().catch(() => null);
       if (!res.ok) {
         setTurnstileToken("");
         turnstileRef.current?.reset();
-        throw new Error(payload?.error ?? "Грешка при заявката.");
+        throw new Error("Request failed");
       }
-      setOk(true);
+      setSubmitted(true);
+      try {
+        const meRes = await fetch("/api/organizer/claims/me", { credentials: "include" });
+        const mePayload = (await meRes.json().catch(() => null)) as OrganizerClaimMeResponse | { error?: string } | null;
+        if (meRes.ok && mePayload && typeof mePayload === "object" && "status" in mePayload && !("error" in mePayload)) {
+          setMyClaim(mePayload as OrganizerClaimMeResponse);
+        }
+      } catch {
+        /* ignore refresh errors; local submitted state still applies */
+      }
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Неуспех.");
+    } catch {
+      setError("Възникна грешка. Опитай пак.");
       setTurnstileToken("");
       turnstileRef.current?.reset();
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   }
 
@@ -176,14 +211,48 @@ export default function OrganizerClaimPage() {
 
         <OrganizerClaimStepStrip />
 
+        {myClaim === undefined ? (
+          <p className={cn(pub.bodySm, "rounded-2xl border border-amber-200/45 bg-white/90 p-6 shadow-sm ring-1 ring-amber-100/35 md:p-8")}>
+            Зареждане…
+          </p>
+        ) : myClaim.status === "approved" ? (
+          <div
+            className={cn(
+              "space-y-3 rounded-2xl border border-amber-200/45 bg-white/90 p-6 shadow-sm ring-1 ring-amber-100/35 md:p-8",
+            )}
+          >
+            <h2 className={cn(pub.displayH1, "text-xl md:text-2xl")}>Профилът е одобрен</h2>
+            {myClaim.organizer_slug ? (
+              <a
+                href={`/organizers/${myClaim.organizer_slug}`}
+                className="inline-block font-semibold text-amber-900/90 underline-offset-2 hover:underline"
+              >
+                Отиди към профила
+              </a>
+            ) : null}
+          </div>
+        ) : submitted || myClaim.status === "pending" ? (
+          <div
+            className={cn(
+              "space-y-3 rounded-2xl border border-amber-200/45 bg-white/90 p-6 shadow-sm ring-1 ring-amber-100/35 md:p-8",
+            )}
+          >
+            <h2 className={cn(pub.displayH1, "text-xl md:text-2xl")}>Заявката е изпратена</h2>
+            <p className={pub.bodySm}>Ще я прегледаме и ще се свържем с теб.</p>
+          </div>
+        ) : (
+        <>
+        {myClaim.status === "rejected" ? (
+          <div
+            className={cn(
+              "space-y-3 rounded-2xl border border-amber-200/45 bg-white/90 p-6 shadow-sm ring-1 ring-amber-100/35 md:p-8",
+            )}
+          >
+            <h2 className={cn(pub.displayH1, "text-xl md:text-2xl")}>Заявката е отхвърлена</h2>
+            <p className={pub.bodySm}>Можеш да изпратиш нова заявка по-долу, ако все още имаш право върху профила.</p>
+          </div>
+        ) : null}
         <form onSubmit={onSubmit} className={cn("space-y-4 rounded-2xl border border-amber-200/45 bg-white/90 p-6 shadow-sm ring-1 ring-amber-100/35 md:p-8")}>
-          {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
-          {ok ? (
-            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-              Заявката е изпратена. Ще бъде прегледана от екипа на Festivo.
-            </p>
-          ) : null}
-
           <input type="hidden" name="slug" value={selected?.slug ?? ""} readOnly />
 
           {selected ? (
@@ -314,14 +383,22 @@ export default function OrganizerClaimPage() {
             className="flex min-h-[65px] justify-center"
           />
 
+          {error ? (
+            <div className="text-sm text-red-600">
+              {error}
+            </div>
+          ) : null}
+
           <button
             type="submit"
-            disabled={busy || (needsTurnstile && !turnstileToken)}
+            disabled={loading || (needsTurnstile && !turnstileToken)}
             className={cn(pub.btnPrimaryFull, pub.focusRing)}
           >
-            {busy ? "Изпращане…" : "Заяви профил"}
+            {loading ? "Изпращане…" : "Заяви профил"}
           </button>
         </form>
+        </>
+        )}
 
         <p className="text-center text-xs leading-relaxed text-black/50">
           Заявката се преглежда от екипа на Festivo.

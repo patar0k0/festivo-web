@@ -80,6 +80,18 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Заявката вече е обработена." }, { status: 409 });
   }
 
+  {
+    const { error: claimAuditErr } = await admin.from("organizer_claim_audit").insert({
+      claim_id: row.id,
+      organizer_id: row.organizer_id,
+      user_id: ctx.user.id,
+      action: "approve",
+    });
+    if (claimAuditErr) {
+      console.error("[organizer_claim_audit] approve insert failed", claimAuditErr);
+    }
+  }
+
   const org = row.organizer as { name?: string | null; slug?: string | null } | null;
   const organizerName = org?.name?.trim() || "Организатор";
   const organizerSlug = org?.slug?.trim() || null;

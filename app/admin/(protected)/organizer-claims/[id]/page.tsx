@@ -1,11 +1,24 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import OrganizerMemberApproveButton from "@/components/admin/OrganizerMemberApproveButton";
-import OrganizerMemberRejectButton from "@/components/admin/OrganizerMemberRejectButton";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import OrganizerClaimActions from "./organizer-claim-actions";
 
 export const dynamic = "force-dynamic";
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "pending") {
+    return <span className="rounded bg-yellow-100 px-2 py-1 text-xs text-yellow-800">Pending</span>;
+  }
+  if (status === "approved" || status === "active") {
+    return <span className="rounded bg-green-100 px-2 py-1 text-xs text-green-800">Approved</span>;
+  }
+  if (status === "rejected" || status === "revoked") {
+    return <span className="rounded bg-red-100 px-2 py-1 text-xs text-red-800">Rejected</span>;
+  }
+  return <span className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-800">{status}</span>;
+}
 
 export default async function AdminOrganizerClaimDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -35,6 +48,33 @@ export default async function AdminOrganizerClaimDetailPage({ params }: { params
     notFound();
   }
 
+  const { data: auditRows, error: auditError } = await admin
+    .from("organizer_claim_audit")
+    .select("id, action, created_at, user_id")
+    .eq("claim_id", id)
+    .order("created_at", { ascending: false });
+
+  if (auditError) {
+    console.error("[admin] organizer claim audit load failed", auditError);
+    throw new Error(auditError.message);
+  }
+
+  const auditUserIds = [...new Set((auditRows ?? []).map((r) => r.user_id))];
+  const auditEmailByUserId = new Map<string, string>();
+  await Promise.all(
+    auditUserIds.map(async (uid) => {
+      const email = await resolveAuthUserEmail(admin, uid);
+      auditEmailByUserId.set(uid, email?.trim() || "—");
+    }),
+  );
+
+  const audit = (auditRows ?? []).map((a) => ({
+    id: a.id,
+    action: a.action,
+    created_at: a.created_at,
+    user_email: auditEmailByUserId.get(a.user_id) ?? "—",
+  }));
+
   const org = data.organizer as { name?: string | null; slug?: string | null } | null;
   const isPending = data.status === "pending";
 
@@ -53,10 +93,10 @@ export default async function AdminOrganizerClaimDetailPage({ params }: { params
           <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Организатор</h2>
           <p className="text-lg font-semibold">{org?.name ?? "—"}</p>
           {org?.slug ? (
-            <p className="text-sm text-black/55">
-              <Link href={`/organizers/${org.slug}`} className="underline">
-                /organizers/{org.slug}
-              </Link>
+            <p className="text-sm">
+              <a href={`/organizers/${org.slug}`} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                Виж профила
+              </a>
             </p>
           ) : null}
         </section>
@@ -80,9 +120,9 @@ export default async function AdminOrganizerClaimDetailPage({ params }: { params
 
         <section className="space-y-2 border-t border-black/[0.06] pt-6">
           <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Статус</h2>
-          <p className="text-sm">
-            <span className="font-medium">{data.status}</span>
-            {data.role ? <span className="text-black/55"> · {data.role}</span> : null}
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <StatusBadge status={data.status} />
+            {data.role ? <span className="text-black/55">· {data.role}</span> : null}
           </p>
           <p className="text-xs text-black/50">
             Подадена: {data.created_at ? new Date(data.created_at).toLocaleString("bg-BG") : "—"}
@@ -90,13 +130,26 @@ export default async function AdminOrganizerClaimDetailPage({ params }: { params
         </section>
 
         {isPending ? (
-          <div className="flex flex-wrap items-center gap-3 border-t border-black/[0.06] pt-6">
-            <OrganizerMemberApproveButton memberId={data.id} />
-            <OrganizerMemberRejectButton memberId={data.id} />
-          </div>
+          <OrganizerClaimActions memberId={data.id} />
         ) : (
           <p className="border-t border-black/[0.06] pt-6 text-sm text-black/55">Тази заявка вече не е в състояние „чакаща“.</p>
         )}
+
+        <section className="border-t border-black/[0.06] pt-6">
+          <h3 className="mt-6 text-sm font-semibold">История</h3>
+          {audit.length ? (
+            <ul className="mt-2 space-y-1 text-sm text-gray-600">
+              {audit.map((a) => (
+                <li key={a.id}>
+                  {a.action === "approve" ? "Одобрено" : "Отхвърлено"} от {a.user_email} ·{" "}
+                  {a.created_at ? new Date(a.created_at).toLocaleString("bg-BG") : "—"}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-gray-600">Няма записи.</p>
+          )}
+        </section>
       </div>
     </div>
   );

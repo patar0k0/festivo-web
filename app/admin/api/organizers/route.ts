@@ -5,7 +5,11 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeOrganizerName, pickOrganizerSlug } from "@/lib/admin/organizers";
 import { transliteratedSlug } from "@/lib/text/slug";
 import { logAdminAction } from "@/lib/admin/audit-log";
-import { normalizeImageToLocalStorage } from "@/lib/admin/normalizeImageToLocalStorage";
+import {
+  deleteOrganizerLogoFromStorageIfOwned,
+  normalizeImageToLocalStorage,
+  takeOrganizerLogoUploadRateLimit,
+} from "@/lib/admin/normalizeImageToLocalStorage";
 
 type OrganizerPayload = {
   name?: string;
@@ -16,6 +20,21 @@ type OrganizerPayload = {
   facebook_url?: string | null;
   instagram_url?: string | null;
 };
+
+function getRequestIp(request: Request): string {
+  const requestWithIp = request as Request & { ip?: string | null };
+  const directIp = typeof requestWithIp.ip === "string" ? requestWithIp.ip.trim() : "";
+  if (directIp) return directIp;
+
+  const forwardedFor = request.headers.get("x-forwarded-for") ?? "";
+  const forwardedIp = forwardedFor.split(",")[0]?.trim() ?? "";
+  if (forwardedIp) return forwardedIp;
+
+  const realIp = request.headers.get("x-real-ip")?.trim() ?? "";
+  if (realIp) return realIp;
+
+  return "unknown";
+}
 
 export async function GET() {
   const ctx = await getAdminContext();
@@ -49,6 +68,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
+  const requestedLogoUrl = normalizeOrganizerName(body.logo_url);
+  if (requestedLogoUrl) {
+    const requestIp = getRequestIp(request);
+    if (takeOrganizerLogoUploadRateLimit(requestIp)) {
+      return NextResponse.json({ error: "Too many logo uploads. Please try again later." }, { status: 429 });
+    }
+  }
+
   const slugBase = normalizeOrganizerName(body.slug) || transliteratedSlug(name);
 
   if (!slugBase) {
@@ -72,7 +99,7 @@ export async function POST(request: Request) {
     name,
     slug,
     description: normalizeOrganizerName(body.description),
-    logo_url: normalizeOrganizerName(body.logo_url),
+    logo_url: requestedLogoUrl,
     website_url: normalizeOrganizerName(body.website_url),
     facebook_url: normalizeOrganizerName(body.facebook_url),
     instagram_url: normalizeOrganizerName(body.instagram_url),
@@ -92,6 +119,21 @@ export async function POST(request: Request) {
   console.info("[admin/api/organizers][POST] Organizer insert succeeded", { organizerId: data.id });
 
   if (data.logo_url) {
+    let previousLogoUrlForStorageCleanup: string | null | undefined;
+    const { data: existingOrganizer, error: existingError } = await adminClient
+      .from("organizers")
+      .select("logo_url")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (existingError) {
+      console.error("[admin/api/organizers][POST] Failed to read existing organizer logo before normalization", {
+        organizerId: data.id,
+        message: existingError.message,
+      });
+    } else {
+      previousLogoUrlForStorageCleanup = existingOrganizer?.logo_url;
+    }
+
     try {
       const normalizedLogoUrl = await normalizeImageToLocalStorage(data.logo_url, data.id);
       if (normalizedLogoUrl !== data.logo_url) {
@@ -105,6 +147,11 @@ export async function POST(request: Request) {
             organizerId: data.id,
             message: logoUpdateError.message,
           });
+        } else if (previousLogoUrlForStorageCleanup && previousLogoUrlForStorageCleanup !== normalizedLogoUrl) {
+          await deleteOrganizerLogoFromStorageIfOwned(
+            previousLogoUrlForStorageCleanup,
+            previousLogoUrlForStorageCleanup,
+          );
         }
       }
     } catch (logoError) {

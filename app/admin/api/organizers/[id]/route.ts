@@ -7,6 +7,7 @@ import { logAdminAction } from "@/lib/admin/audit-log";
 import {
   deleteOrganizerLogoFromStorageIfOwned,
   normalizeImageToLocalStorage,
+  takeOrganizerLogoUploadRateLimit,
 } from "@/lib/admin/normalizeImageToLocalStorage";
 
 function normalizeText(value: unknown): string | null {
@@ -33,6 +34,21 @@ type OrganizerPatchPayload = {
   included_promotions_per_year?: number | null;
   organizer_rank?: number | null;
 };
+
+function getRequestIp(request: Request): string {
+  const requestWithIp = request as Request & { ip?: string | null };
+  const directIp = typeof requestWithIp.ip === "string" ? requestWithIp.ip.trim() : "";
+  if (directIp) return directIp;
+
+  const forwardedFor = request.headers.get("x-forwarded-for") ?? "";
+  const forwardedIp = forwardedFor.split(",")[0]?.trim() ?? "";
+  if (forwardedIp) return forwardedIp;
+
+  const realIp = request.headers.get("x-real-ip")?.trim() ?? "";
+  if (realIp) return realIp;
+
+  return "unknown";
+}
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -78,11 +94,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     );
   }
 
+  const requestedLogoUrl =
+    typeof body.logo_url === "string"
+      ? body.logo_url.trim() || null
+      : body.logo_url === null
+        ? null
+        : undefined;
+  if (requestedLogoUrl !== undefined) {
+    const requestIp = getRequestIp(request);
+    if (takeOrganizerLogoUploadRateLimit(requestIp)) {
+      return NextResponse.json({ error: "Too many logo uploads. Please try again later." }, { status: 429 });
+    }
+  }
+
   const patch = {
     name: normalizeText(body.name),
     slug: normalizeText(body.slug),
     description: normalizeText(body.description),
-    logo_url: normalizeText(body.logo_url),
+    logo_url: requestedLogoUrl,
     website_url: normalizeText(body.website_url),
     facebook_url: normalizeText(body.facebook_url),
     instagram_url: normalizeText(body.instagram_url),
@@ -172,7 +201,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const prev = previousLogoUrlForStorageCleanup;
     const next = finalPatch.logo_url;
     if (prev && prev !== next) {
-      await deleteOrganizerLogoFromStorageIfOwned(prev);
+      await deleteOrganizerLogoFromStorageIfOwned(prev, prev);
     }
   }
 

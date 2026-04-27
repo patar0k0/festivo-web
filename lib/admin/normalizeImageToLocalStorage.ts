@@ -8,9 +8,15 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 25_000;
 const MAX_REDIRECTS = 5;
 const LOGO_MAX_WIDTH_PX = 512;
+const LOGO_MAX_HEIGHT_PX = 512;
 const WEBP_QUALITY = 80;
 /** Versioned object URLs: long cache is safe; URL changes when the file changes. */
 const UPLOAD_CACHE_CONTROL = "public, max-age=31536000, immutable";
+const LOGO_UPLOAD_RATE_LIMIT_WINDOW_MS = 60_000;
+const LOGO_UPLOAD_RATE_LIMIT_MAX_REQUESTS = 10;
+
+type LogoUploadRateLimitEntry = { count: number; ts: number };
+const logoUploadRateLimitMap = new Map<string, LogoUploadRateLimitEntry>();
 
 function normalizeSupabaseProjectUrl(): string | null {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -211,7 +217,12 @@ async function rasterizeOrganizerLogoToWebp(buffer: Buffer): Promise<Buffer> {
   try {
     return await sharp(buffer)
       .rotate()
-      .resize(LOGO_MAX_WIDTH_PX, null, { withoutEnlargement: true, fit: "inside" })
+      .resize({
+        width: LOGO_MAX_WIDTH_PX,
+        height: LOGO_MAX_HEIGHT_PX,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
       .webp({ quality: WEBP_QUALITY })
       .toBuffer();
   } catch (cause) {
@@ -224,9 +235,14 @@ async function rasterizeOrganizerLogoToWebp(buffer: Buffer): Promise<Buffer> {
  * Best-effort removal of a previously stored organizer logo. No-op if the URL is not
  * an organizer-logo public object for this project. Logs failures; does not throw.
  */
-export async function deleteOrganizerLogoFromStorageIfOwned(publicUrl: string | null | undefined): Promise<void> {
+export async function deleteOrganizerLogoFromStorageIfOwned(
+  publicUrl: string | null | undefined,
+  expectedUrl?: string | null,
+): Promise<void> {
   if (!publicUrl?.trim()) return;
   const trimmed = publicUrl.trim();
+  const expectedTrimmed = expectedUrl?.trim();
+  if (expectedTrimmed && trimmed !== expectedTrimmed) return;
   if (!isAlreadyOurOrganizerLogoPublicUrl(trimmed)) return;
 
   const objectPath = organizerLogoStoragePathFromPublicUrl(trimmed);
@@ -242,6 +258,20 @@ export async function deleteOrganizerLogoFromStorageIfOwned(publicUrl: string | 
     const message = error instanceof Error ? error.message : "unknown";
     console.error("[organizer-logo] Failed to remove storage object", { objectPath, message });
   }
+}
+
+export function takeOrganizerLogoUploadRateLimit(ipKey: string | null | undefined): boolean {
+  const key = ipKey?.trim() || "unknown";
+  const now = Date.now();
+  const entry = logoUploadRateLimitMap.get(key);
+  if (!entry || now - entry.ts > LOGO_UPLOAD_RATE_LIMIT_WINDOW_MS) {
+    logoUploadRateLimitMap.set(key, { count: 1, ts: now });
+    return false;
+  }
+
+  const nextCount = entry.count + 1;
+  logoUploadRateLimitMap.set(key, { count: nextCount, ts: entry.ts });
+  return nextCount > LOGO_UPLOAD_RATE_LIMIT_MAX_REQUESTS;
 }
 
 export async function normalizeImageToLocalStorage(url: string, organizerId: string): Promise<string> {

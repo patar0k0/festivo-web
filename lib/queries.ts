@@ -233,8 +233,22 @@ function getUtcIsoDateToday(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function applyNotPastPublicListingScope<T extends { gte: (column: string, value: string) => T }>(query: T): T {
-  return query.gte("end_date", getUtcIsoDateToday());
+function applyNotPastPublicListingScope<
+  T extends {
+    gte: (column: string, value: string) => T;
+    lt: (column: string, value: string) => T;
+  },
+>(query: T, filters: Filters): T {
+  const when = filters.when;
+  const today = getUtcIsoDateToday();
+
+  if (when === "past") {
+    return query.lt("end_date", today);
+  }
+  if (when === "all") {
+    return query;
+  }
+  return query.gte("end_date", today);
 }
 
 type FilterQuery<T> = {
@@ -414,7 +428,7 @@ export async function getFestivals(
   const selectColumns = filtersForQuery.city?.length ? FESTIVAL_SELECT_MIN_CITY_FILTERED : FESTIVAL_SELECT_MIN;
   let query = supabase.from("festivals").select(selectColumns);
   query = applyFilters(query, filtersForQuery, options, dateResolution);
-  query = applyNotPastPublicListingScope(query);
+  query = applyNotPastPublicListingScope(query, filtersForQuery);
   const { data, error } = await query.returns<Festival[]>();
   if (error) {
     throw new Error(error.message);
@@ -624,7 +638,7 @@ export async function getCalendarMonth(month: string, filters: Filters, options?
   const selectColumns = monthFiltersForQuery.city?.length ? FESTIVAL_SELECT_MIN_CITY_FILTERED : FESTIVAL_SELECT_MIN;
   let query = supabase.from("festivals").select(selectColumns);
   query = applyFilters(query, monthFiltersForQuery, options, dateResolution);
-  query = applyNotPastPublicListingScope(query);
+  query = applyNotPastPublicListingScope(query, monthFiltersForQuery);
 
   const { data, error } = await query.returns<Festival[]>();
 

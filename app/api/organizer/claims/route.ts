@@ -159,7 +159,14 @@ export async function POST(request: Request) {
 
       if (upErr) {
         if (isUniqueViolation(upErr)) {
-          return NextResponse.json({ error: "Вече имаш активна заявка" }, { status: 400 });
+          return NextResponse.json(
+            {
+              error: orgRow.name?.trim()
+                ? `Вече имаш чакаща заявка за "${orgRow.name.trim()}".`
+                : "Вече имаш чакаща заявка за друг организатор.",
+            },
+            { status: 400 },
+          );
         }
         return NextResponse.json({ error: upErr.message }, { status: 500 });
       }
@@ -221,7 +228,14 @@ export async function POST(request: Request) {
     insertedMember = ins.data;
   } catch (err) {
     if (isUniqueViolation(err)) {
-      return NextResponse.json({ error: "Вече имаш активна заявка" }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: orgRow.name?.trim()
+            ? `Вече имаш чакаща заявка за "${orgRow.name.trim()}".`
+            : "Вече имаш чакаща заявка за друг организатор.",
+        },
+        { status: 400 },
+      );
     }
     const pe = err as { code?: string; message?: string };
     if (pe.code === "23505") {

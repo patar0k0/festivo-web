@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
-import { EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED } from "@/lib/email/emailJobTypes";
-import { dedupeKeyOrganizerClaimRejected } from "@/lib/email/emailDedupeKeys";
-import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
+import { sendEmail } from "@/lib/server/email";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +22,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   const { data: row, error: loadErr } = await admin
     .from("organizer_members")
-    .select("id,organizer_id,user_id,role,status,contact_email,organizer:organizers(name)")
+    .select("id,organizer_id,user_id,role,status,contact_email")
     .eq("id", id)
     .maybeSingle();
 
@@ -71,24 +69,24 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     }
   }
 
-  const org = row.organizer as { name?: string | null } | null;
-  const organizerName = org?.name?.trim() || "Организатор";
   const accountEmail = await resolveAuthUserEmail(admin, row.user_id);
   const recipient = accountEmail?.trim() || (typeof row.contact_email === "string" ? row.contact_email.trim() : "");
   if (recipient) {
-    void enqueueEmailJobSafe(
-      admin,
-      {
-        type: EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED,
-        recipientEmail: recipient,
-        recipientUserId: row.user_id,
-        payload: { organizerName },
-        dedupeKey: dedupeKeyOrganizerClaimRejected(row.id),
-      },
-      "organizer_claim_rejected",
-    );
+    try {
+      await sendEmail({
+        to: recipient,
+        subject: "Заявката ти беше отхвърлена",
+        html: `
+    <p>Здравей,</p>
+    <p>Заявката ти за организатор беше отхвърлена.</p>
+    <p>Можеш да опиташ отново от платформата.</p>
+  `,
+      });
+    } catch (e) {
+      console.error("email failed", e);
+    }
   } else {
-    console.warn("[email_jobs] skip organizer-claim-rejected: no recipient", { member_id: row.id });
+    console.warn("[organizer_claim] skip reject email: no recipient", { member_id: row.id });
   }
 
   try {

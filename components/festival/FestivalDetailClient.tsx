@@ -34,6 +34,7 @@ import { FESTIVAL_PROGRAM_SECTION_ID } from "@/lib/festival/programmeAnchor";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import { logGoogleMapsOpenDebug } from "@/lib/location/buildGoogleMapsUrl";
+import { slugify } from "@/lib/utils";
 
 const REMINDER_BLOCK_ID = "festival-reminder-block";
 
@@ -316,6 +317,14 @@ export default function FestivalDetailClient({
   const priceInQuickFactsStrip = showFreeBadge || showPriceRange;
   const locDisplay = getFestivalLocationDisplay(festival);
   const locationUiLine = formatFestivalLocationUiLine(festival);
+  const cityLinkHref = useMemo(() => {
+    const city = locDisplay.city?.trim();
+    if (!city) return null;
+    if (citySlug) return cityHref(citySlug);
+    const slugifiedCityName = slugify(city);
+    if (!slugifiedCityName) return null;
+    return `/festivals?city=${encodeURIComponent(slugifiedCityName)}`;
+  }, [citySlug, locDisplay.city]);
   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
   const mediaItems = useMemo<MediaItem[]>(
     () => [
@@ -1078,7 +1087,20 @@ export default function FestivalDetailClient({
                     <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">Локация</dt>
                     <dd className="mt-1 space-y-1 leading-relaxed text-black/80">
                       {locDisplay.title ? <div>{locDisplay.title}</div> : null}
-                      {locDisplay.city ? <div>{locDisplay.city}</div> : null}
+                      {locDisplay.city ? (
+                        cityLinkHref ? (
+                          <div>
+                            <Link
+                              href={cityLinkHref}
+                              className="text-black/80 underline decoration-black/30 underline-offset-2 transition hover:text-black"
+                            >
+                              {locDisplay.city}
+                            </Link>
+                          </div>
+                        ) : (
+                          <div>{locDisplay.city}</div>
+                        )
+                      ) : null}
                     </dd>
                   </div>
                 ) : null}
@@ -1129,9 +1151,9 @@ export default function FestivalDetailClient({
               <div className="mt-2 space-y-1 text-sm leading-relaxed text-black/80">
                 {locDisplay.title ? <div>{locDisplay.title}</div> : null}
                 {locDisplay.city ? (
-                  citySlug ? (
+                  cityLinkHref ? (
                     <Link
-                      href={cityHref(citySlug)}
+                      href={cityLinkHref}
                       className="inline-block font-medium text-black/75 underline decoration-black/30 underline-offset-2 hover:text-black"
                     >
                       {locDisplay.city}

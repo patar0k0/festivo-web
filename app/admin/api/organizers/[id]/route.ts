@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { validateNoUnknownKeys } from "@/lib/api/strictBody";
 import { ORGANIZER_PATCH_ALLOWED_KEYS } from "@/lib/admin/patchAllowedKeys";
 import { logAdminAction } from "@/lib/admin/audit-log";
+import { normalizeImageToLocalStorage } from "@/lib/admin/normalizeImageToLocalStorage";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -109,6 +110,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
+  if (typeof finalPatch.logo_url === "string") {
+    try {
+      finalPatch.logo_url = await normalizeImageToLocalStorage(finalPatch.logo_url, id);
+    } catch (logoError) {
+      const message = logoError instanceof Error ? logoError.message : "unknown";
+      console.error("[admin/api/organizers/[id]][PATCH] Organizer logo URL normalization failed", {
+        organizerId: id,
+        message,
+      });
+    }
+  }
 
   const payloadKeys = Object.keys(finalPatch);
   console.info("[admin/api/organizers/[id]][PATCH] Update request received", {

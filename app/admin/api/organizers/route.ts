@@ -5,6 +5,7 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeOrganizerName, pickOrganizerSlug } from "@/lib/admin/organizers";
 import { transliteratedSlug } from "@/lib/text/slug";
 import { logAdminAction } from "@/lib/admin/audit-log";
+import { normalizeImageToLocalStorage } from "@/lib/admin/normalizeImageToLocalStorage";
 
 type OrganizerPayload = {
   name?: string;
@@ -80,7 +81,7 @@ export async function POST(request: Request) {
   const { data, error } = await adminClient
     .from("organizers")
     .insert(payload)
-    .select("id,name,slug")
+    .select("id,name,slug,logo_url")
     .single();
 
   if (error) {
@@ -89,6 +90,31 @@ export async function POST(request: Request) {
   }
 
   console.info("[admin/api/organizers][POST] Organizer insert succeeded", { organizerId: data.id });
+
+  if (data.logo_url) {
+    try {
+      const normalizedLogoUrl = await normalizeImageToLocalStorage(data.logo_url, data.id);
+      if (normalizedLogoUrl !== data.logo_url) {
+        const { error: logoUpdateError } = await adminClient
+          .from("organizers")
+          .update({ logo_url: normalizedLogoUrl })
+          .eq("id", data.id);
+
+        if (logoUpdateError) {
+          console.error("[admin/api/organizers][POST] Organizer logo URL normalization update failed", {
+            organizerId: data.id,
+            message: logoUpdateError.message,
+          });
+        }
+      }
+    } catch (logoError) {
+      const message = logoError instanceof Error ? logoError.message : "unknown";
+      console.error("[admin/api/organizers][POST] Organizer logo URL normalization failed", {
+        organizerId: data.id,
+        message,
+      });
+    }
+  }
 
   try {
     await logAdminAction({
@@ -108,5 +134,5 @@ export async function POST(request: Request) {
     console.error("[admin/audit] organizer.created failed", { message });
   }
 
-  return NextResponse.json({ row: data }, { status: 201 });
+  return NextResponse.json({ row: { id: data.id, name: data.name, slug: data.slug } }, { status: 201 });
 }

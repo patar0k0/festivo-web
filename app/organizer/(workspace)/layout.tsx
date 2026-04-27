@@ -1,5 +1,6 @@
 import OrganizerSidebarNav from "@/components/organizer/OrganizerSidebarNav";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
+import { getStatus } from "@/lib/admin/promotionsOverview";
 import {
   fetchOrganizerPortalMembershipSummaryCached,
   getPortalAdminClient,
@@ -36,19 +37,71 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
       }
       const festivals = festRows ?? [];
       const activePromotedCount = festivals.filter((f) => hasActivePromotion(f)).length;
+      const expiringCount = festivals.filter(
+        (f) => hasActivePromotion(f) && getStatus(f.promotion_expires_at ?? null) === "expiring",
+      ).length;
       const hasVip = (orgRows ?? []).some((o) => hasActiveVip(o));
 
-      headerSummary = (
-        <>
-          <div className="text-sm text-gray-700">
-            {activePromotedCount > 0 ? <span>{activePromotedCount} активни промотирани</span> : null}
-            {hasVip ? <span className={activePromotedCount > 0 ? "ml-3" : ""}>VIP план активен</span> : null}
+      if (expiringCount > 0) {
+        headerSummary = (
+          <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 shadow-sm">
+            <p className="text-sm font-semibold text-yellow-900">
+              {expiringCount} промоции изтичат скоро
+            </p>
+            <p className="text-sm text-yellow-800">Поднови ги, за да запазиш видимостта</p>
+            <div className="mt-2">
+              <a href="/organizer/submissions" className="text-sm text-yellow-900 underline">
+                Управлявай промоциите
+              </a>
+            </div>
           </div>
-          {activePromotedCount === 0 ? (
-            <div className="text-sm text-gray-500">Нямаш активни промотирани фестивали</div>
-          ) : null}
-        </>
-      );
+        );
+      } else if (activePromotedCount > 0) {
+        headerSummary = (
+          <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 shadow-sm">
+            <p className="text-sm font-semibold text-green-900">
+              Имаш {activePromotedCount} активни промоции
+            </p>
+            <p className="text-sm text-green-800">Фестивалите ти достигат повече хора</p>
+            <div className="mt-2">
+              <a href="/organizer/submissions" className="text-sm text-green-900 underline">
+                Управлявай промоциите
+              </a>
+            </div>
+          </div>
+        );
+      } else if (hasVip) {
+        headerSummary = (
+          <div className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 shadow-sm">
+            <p className="text-sm font-semibold text-purple-900">VIP план активен</p>
+            <p className="text-sm text-purple-800">
+              Използвай предимствата си и промотирай фестивал
+            </p>
+            <div className="mt-2">
+              <a href="/organizer/submissions" className="text-sm text-purple-900 underline">
+                Промотирай с приоритет
+              </a>
+            </div>
+          </div>
+        );
+      } else {
+        headerSummary = (
+          <div className="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+            <p className="text-sm font-semibold text-gray-900">Промотирай фестивал</p>
+            <p className="text-sm text-gray-600">
+              Достигни повече посетители и увеличи интереса към събитието
+            </p>
+            <div className="mt-3">
+              <a
+                href="/organizer/submissions"
+                className="inline-flex items-center rounded-lg bg-black px-4 py-2 text-sm text-white transition hover:bg-black/90"
+              >
+                Промотирай фестивал
+              </a>
+            </div>
+          </div>
+        );
+      }
     }
   }
 

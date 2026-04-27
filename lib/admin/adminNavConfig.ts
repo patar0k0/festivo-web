@@ -10,6 +10,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin/activity", label: "Активност", match: "prefix" },
   { href: "/admin/email-jobs", label: "Имейли", match: "prefix" },
   { href: "/admin/festivals", label: "Фестивали", match: "prefix" },
+  { href: "/admin/promotions", label: "Промо", match: "prefix" },
   { href: "/admin/organizers", label: "Организатори", match: "prefix" },
   { href: "/admin/organizer-claims", label: "Заявки орг.", match: "prefix" },
   { href: "/admin/pending-festivals", label: "Чакащи", match: "prefix" },

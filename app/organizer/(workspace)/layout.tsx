@@ -1,91 +1,40 @@
 import OrganizerSidebarNav from "@/components/organizer/OrganizerSidebarNav";
-import TrackedAnchor from "@/components/analytics/TrackedAnchor";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
-import { getStatus } from "@/lib/admin/promotionsOverview";
+import { headers } from "next/headers";
 import {
   fetchOrganizerPortalMembershipSummaryCached,
   getPortalAdminClient,
   getPortalSessionUser,
 } from "@/lib/organizer/portal";
-import { hasActivePromotion } from "@/lib/monetization";
-import { ORGANIZER_PORTAL_FESTIVAL_PROMOTION_KEYS, ORGANIZER_PORTAL_ORGANIZER_VIP_FIELDS } from "@/lib/queries";
 
 export default async function OrganizerWorkspaceLayout({ children }: { children: React.ReactNode }) {
+  const pathname = headers().get("x-festivo-pathname") ?? "";
+  const isDashboard = pathname === "/organizer/dashboard";
   const session = await getPortalSessionUser();
   let isOrganizerOwner = false;
   let headerSummary: React.ReactNode = null;
+  let hasSubmissions = false;
 
   if (session?.user?.id) {
     const summary = await fetchOrganizerPortalMembershipSummaryCached(session.user.id);
     isOrganizerOwner = summary.isOrganizerOwner;
-    const orgIds = summary.activeOrganizerIds;
-    if (orgIds.length > 0) {
+    if (summary.activeOrganizerIds.length > 0) {
       const admin = getPortalAdminClient();
-      const { error: orgErr } = await admin
-        .from("organizers")
-        .select(ORGANIZER_PORTAL_ORGANIZER_VIP_FIELDS)
-        .in("id", orgIds)
-        .eq("is_active", true);
-      if (orgErr) {
-        throw new Error(orgErr.message);
+      const { count: submissionCount, error: submissionsErr } = await admin
+        .from("pending_festivals")
+        .select("id", { count: "exact", head: true })
+        .eq("submitted_by_user_id", session.user.id)
+        .eq("submission_source", "organizer_portal");
+      if (submissionsErr) {
+        throw new Error(submissionsErr.message);
       }
-      const { data: festRows, error: festErr } = await admin
-        .from("festivals")
-        .select(ORGANIZER_PORTAL_FESTIVAL_PROMOTION_KEYS)
-        .in("organizer_id", orgIds);
-      if (festErr) {
-        throw new Error(festErr.message);
-      }
-      const festivals = festRows ?? [];
-      const activePromotedCount = festivals.filter((f) => hasActivePromotion(f)).length;
-      const expiringCount = festivals.filter(
-        (f) => hasActivePromotion(f) && getStatus(f.promotion_expires_at ?? null) === "expiring",
-      ).length;
-      if (expiringCount > 0) {
+      hasSubmissions = (submissionCount ?? 0) > 0;
+
+      if (isDashboard && (submissionCount ?? 0) > 0) {
         headerSummary = (
-          <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 shadow-sm">
-            <p className="text-sm font-semibold text-yellow-900">
-              {expiringCount} промоции изтичат скоро
-            </p>
-            <p className="text-sm text-yellow-800">Поднови ги, за да запазиш видимостта</p>
-            <div className="mt-2">
-              <a href="/organizer/submissions" className="text-sm text-yellow-900 underline">
-                Управлявай промоциите
-              </a>
-            </div>
-            <div className="mt-2">
-              <TrackedAnchor href="/organizer/benefits" className="text-xs text-gray-500 underline" eventType="click-benefits">
-                Научи повече
-              </TrackedAnchor>
-            </div>
-          </div>
-        );
-      } else if (activePromotedCount > 0) {
-        headerSummary = (
-          <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 shadow-sm">
-            <p className="text-sm font-semibold text-green-900">
-              Имаш {activePromotedCount} активни промоции
-            </p>
-            <p className="text-sm text-green-800">Фестивалите ти достигат повече хора</p>
-            <div className="mt-2">
-              <a href="/organizer/submissions" className="text-sm text-green-900 underline">
-                Управлявай промоциите
-              </a>
-            </div>
-            <div className="mt-2">
-              <TrackedAnchor href="/organizer/benefits" className="text-xs text-gray-500 underline" eventType="click-benefits">
-                Научи повече
-              </TrackedAnchor>
-            </div>
-          </div>
-        );
-      } else {
-        headerSummary = (
-          <div className="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+          <div className="max-w-md rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
             <p className="text-sm font-semibold text-gray-900">Промотирай фестивал</p>
-            <p className="text-sm text-gray-600">
-              Подай заявка за промотиране и екипът ни ще се свърже с теб за активация
-            </p>
+            <p className="mt-1 text-sm text-gray-600">Увеличи видимостта на събитието си</p>
             <div className="mt-3">
               <a
                 href="/organizer/submissions"
@@ -94,16 +43,9 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
                 Заяви промотиране
               </a>
             </div>
-            <div className="mt-2">
-              <TrackedAnchor href="/organizer/benefits" className="text-xs text-gray-500 underline" eventType="click-benefits">
-                Как работи промотирането?
-              </TrackedAnchor>
-            </div>
-            <div className="mt-2">
-              <TrackedAnchor href="/organizer/benefits" className="text-xs text-gray-500 underline" eventType="click-benefits">
-                Научи повече
-              </TrackedAnchor>
-            </div>
+            <a href="/organizer/benefits" className="mt-2 block text-xs text-gray-500 underline hover:text-gray-700">
+              Научи повече
+            </a>
           </div>
         );
       }
@@ -116,7 +58,7 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
       eyebrow="Festivo · организатори"
       email={session?.user?.email ?? null}
       headerSummary={headerSummary}
-      sidebar={<OrganizerSidebarNav isOrganizerOwner={isOrganizerOwner} />}
+      sidebar={<OrganizerSidebarNav isOrganizerOwner={isOrganizerOwner} hasSubmissions={hasSubmissions} />}
     >
       <div className="mx-auto w-full max-w-3xl">{children}</div>
     </WorkspaceShell>

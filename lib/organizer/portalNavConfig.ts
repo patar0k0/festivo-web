@@ -4,7 +4,7 @@ export type OrganizerNavLink = { href: string; label: string };
 export const ORGANIZER_PORTAL_LINKS_OWNER: OrganizerNavLink[] = [
   { href: "/organizer/dashboard", label: "Табло" },
   { href: "/organizer/submissions", label: "Моите подавания" },
-  { href: "/organizer/festivals/new", label: "Нов фестивал" },
+  { href: "/organizer/festivals/new", label: "Добави фестивал" },
 ];
 
 /** Non-owner signed-in users (e.g. pending claim): onboarding links only. */

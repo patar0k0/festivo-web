@@ -105,18 +105,25 @@ export default async function OrganizerSubmissionsPage({
 
       {showSubmittedOk ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-950">
-          Подаването е изпратено успешно и чака преглед от екипа.
+          <p>Подаването е изпратено успешно и чака преглед от екипа.</p>
+          <p className="mt-1 text-sm text-emerald-900">Можеш да следиш статуса му в „Моите подавания“</p>
         </div>
       ) : null}
 
       <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
         {!submissions?.length ? (
-          <p className="text-sm text-black/60">
-            Няма подавания.{" "}
-            <Link href="/organizer/festivals/new" className="font-medium underline">
-              Подайте фестивал
-            </Link>
-          </p>
+          <>
+            <p className="text-sm text-gray-600">Все още нямаш подадени фестивали</p>
+            <p className="mt-1 text-sm text-gray-500">След като подадеш фестивал, ще можеш да следиш статуса му тук</p>
+            <div className="mt-4">
+              <a
+                href="/organizer/festivals/new"
+                className="inline-flex items-center rounded-lg bg-black px-5 py-2.5 text-sm text-white transition hover:bg-black/90"
+              >
+                Добави фестивал
+              </a>
+            </div>
+          </>
         ) : (
           <ul className="divide-y divide-black/[0.06] text-sm">
             {(submissions ?? []).map((row) => {

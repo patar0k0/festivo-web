@@ -20,6 +20,18 @@ const LOGO_UPLOAD_RATE_LIMIT_MAX_PER_MINUTE = 10;
 
 const logoUploadRateLimitMap = new Map<string, number>();
 
+async function organizerLogoAlreadyExistsInStorage(
+  storage: ReturnType<typeof createSupabaseAdmin>["storage"],
+  bucket: string,
+  hash: string,
+): Promise<boolean> {
+  const { data: existing, error } = await storage.from(bucket).list("logos", { search: `${hash}.webp` });
+  if (error) {
+    throw new Error(`Failed to check existing organizer logo object: ${error.message}`);
+  }
+  return (existing?.length ?? 0) > 0;
+}
+
 function normalizeSupabaseProjectUrl(): string | null {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   if (!raw) return null;
@@ -336,6 +348,60 @@ export async function normalizeImageToLocalStorage(url: string): Promise<string>
   const hash = createHash("sha256").update(webpBuffer).digest("hex");
   const file = organizerLogo(hash);
   const supabase = createSupabaseAdmin();
+  if (await organizerLogoAlreadyExistsInStorage(supabase.storage, file.bucket, hash)) {
+    return file.publicUrl;
+  }
+  try {
+    const { error: uploadError } = await supabase.storage.from(file.bucket).upload(file.path, webpBuffer, {
+      contentType: "image/webp",
+      cacheControl: UPLOAD_CACHE_CONTROL,
+    });
+    if (uploadError) {
+      if (!isAlreadyExistsError(uploadError)) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+    }
+  } catch (err) {
+    if (!isAlreadyExistsError(err)) {
+      throw err;
+    }
+  }
+
+  return file.publicUrl;
+}
+
+/** Portal upload: same WebP pipeline as URL import; max 2MB to match client validation. */
+const MAX_PORTAL_ORGANIZER_LOGO_UPLOAD_BYTES = 2 * 1024 * 1024;
+
+export async function uploadOrganizerLogoFromUploadedBuffer(buffer: Buffer, claimedContentType: string): Promise<string> {
+  if (buffer.length > MAX_PORTAL_ORGANIZER_LOGO_UPLOAD_BYTES) {
+    throw new Error("Image is too large (max 2MB).");
+  }
+  if (!buffer.length) {
+    throw new Error("Empty file.");
+  }
+
+  let mime = claimedContentType.toLowerCase().split(";")[0]?.trim() ?? "";
+  if (!mime.startsWith("image/")) {
+    mime = sniffImageMimeFromBuffer(buffer) ?? "";
+  }
+
+  const extension = extensionFromMimeType(mime);
+  if (!extension) {
+    throw new Error("Unsupported organizer logo image type.");
+  }
+
+  const webpBuffer = await rasterizeOrganizerLogoToWebp(buffer);
+  if (!webpBuffer.length) {
+    throw new Error("Processed organizer logo is empty.");
+  }
+
+  const hash = createHash("sha256").update(webpBuffer).digest("hex");
+  const file = organizerLogo(hash);
+  const supabase = createSupabaseAdmin();
+  if (await organizerLogoAlreadyExistsInStorage(supabase.storage, file.bucket, hash)) {
+    return file.publicUrl;
+  }
   try {
     const { error: uploadError } = await supabase.storage.from(file.bucket).upload(file.path, webpBuffer, {
       contentType: "image/webp",

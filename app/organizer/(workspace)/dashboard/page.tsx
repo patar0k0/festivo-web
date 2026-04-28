@@ -34,9 +34,16 @@ export default async function OrganizerDashboardPage() {
           .order("created_at", { ascending: false })
           .limit(40)
       : { data: [] as { id: string; title: string; status: string; created_at: string; organizer_id: string | null }[] };
+  const submissionCount = submissions?.length ?? 0;
 
   return (
     <div className="space-y-6">
+      {submissionCount === 0 ? (
+        <div>
+          <h1 className="text-xl font-semibold">Създай първия си фестивал</h1>
+          <p className="mt-1 text-sm text-gray-600">Добави събитието и го изпрати за одобрение от екипа на Festivo</p>
+        </div>
+      ) : null}
       <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
         <h1 className="font-[var(--font-display)] text-2xl font-bold tracking-tight md:text-3xl">Табло за организатори</h1>
         <p className="mt-2 text-sm text-black/60">Управление на профили и подавания за модерация.</p>
@@ -64,9 +71,12 @@ export default async function OrganizerDashboardPage() {
                   <p className="font-semibold text-[#0c0e14]">{org.name}</p>
                   <p className="text-xs text-black/50">/{org.slug}</p>
                 </div>
-                <Link href={`/organizers/${org.slug}`} className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0c0e14] underline">
-                  Публичен профил
-                </Link>
+                <a
+                  href={`/organizer/organizations/${org.id}/edit`}
+                  className="text-sm text-black underline hover:text-black/70"
+                >
+                  Редактирай профила
+                </a>
               </li>
             ))}
           </ul>
@@ -80,11 +90,21 @@ export default async function OrganizerDashboardPage() {
             href="/organizer/festivals/new"
             className="inline-flex rounded-lg bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white"
           >
-            Нов фестивал
+            Добави фестивал
           </Link>
         </div>
         {!submissions?.length ? (
-          <p className="mt-3 text-sm text-black/60">Все още няма подавания от тази зона.</p>
+          <>
+            <p className="mt-3 text-sm text-gray-600">Все още нямаш подадени фестивали</p>
+            <div className="mt-4">
+              <a
+                href="/organizer/festivals/new"
+                className="inline-flex items-center rounded-lg bg-black px-5 py-2.5 text-sm text-white transition hover:bg-black/90"
+              >
+                Добави фестивал
+              </a>
+            </div>
+          </>
         ) : (
           <ul className="mt-4 divide-y divide-black/[0.06] text-sm">
             {(submissions ?? []).map((row) => (

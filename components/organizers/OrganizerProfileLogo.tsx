@@ -25,12 +25,14 @@ export default function OrganizerProfileLogo({
 }: Props) {
   const pathname = usePathname();
   const navigationGeneration = useNavigationGeneration();
+  const [errored, setErrored] = useState(false);
   const [failed, setFailed] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const trimmed = logoUrl?.trim() ?? "";
 
   useImageLoadReset(
     () => {
+      setErrored(false);
       setFailed(false);
       setLoadAttempt(0);
     },
@@ -45,8 +47,23 @@ export default function OrganizerProfileLogo({
     const sep = trimmed.includes("?") ? "&" : "?";
     return `${trimmed}${sep}_festivo_logo_retry=${loadAttempt}`;
   }, [trimmed, loadAttempt]);
+  const isFromOwnStorageDomain = useMemo(() => {
+    if (!trimmed) return false;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return false;
+    try {
+      const imageUrl = new URL(trimmed);
+      const projectUrl = new URL(supabaseUrl);
+      return (
+        imageUrl.origin === projectUrl.origin &&
+        imageUrl.pathname.includes("/storage/v1/object/public/organizer-logos/")
+      );
+    } catch {
+      return false;
+    }
+  }, [trimmed]);
 
-  const showImage = Boolean(displayUrl) && !failed;
+  const showImage = Boolean(displayUrl) && !failed && !errored;
   const displayInitials = initials || "OF";
   const isHero = variant === "hero";
 
@@ -76,11 +93,12 @@ export default function OrganizerProfileLogo({
           fill
           sizes={sizes}
           className="object-cover"
-          unoptimized
+          unoptimized={!isFromOwnStorageDomain}
           priority={variant === "hero"}
           onError={() => {
             setLoadAttempt((c) => {
               if (c < 2) return c + 1;
+              setErrored(true);
               setFailed(true);
               return c;
             });

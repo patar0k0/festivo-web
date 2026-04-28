@@ -388,7 +388,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
             ← Табло
           </Link>
           <div className="mt-4">
-            <h1 className="text-xl font-semibold text-gray-900">Нов фестивал</h1>
+            <h1 className="text-xl font-semibold text-gray-900">Добави фестивал</h1>
             <p className="mt-1 text-sm text-gray-600">Попълни информацията и изпрати за преглед от екипа на Festivo</p>
           </div>
         </div>

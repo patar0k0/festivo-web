@@ -6,7 +6,7 @@ import {
   getPortalAdminClient,
   getPortalSessionUser,
 } from "@/lib/organizer/portal";
-import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
+import { hasActivePromotion } from "@/lib/monetization";
 import { ORGANIZER_PORTAL_FESTIVAL_PROMOTION_KEYS, ORGANIZER_PORTAL_ORGANIZER_VIP_FIELDS } from "@/lib/queries";
 
 export default async function OrganizerWorkspaceLayout({ children }: { children: React.ReactNode }) {
@@ -40,8 +40,6 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
       const expiringCount = festivals.filter(
         (f) => hasActivePromotion(f) && getStatus(f.promotion_expires_at ?? null) === "expiring",
       ).length;
-      const hasVip = (orgRows ?? []).some((o) => hasActiveVip(o));
-
       if (expiringCount > 0) {
         headerSummary = (
           <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 shadow-sm">
@@ -70,33 +68,19 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
             </div>
           </div>
         );
-      } else if (hasVip) {
-        headerSummary = (
-          <div className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 shadow-sm">
-            <p className="text-sm font-semibold text-purple-900">VIP план активен</p>
-            <p className="text-sm text-purple-800">
-              Използвай предимствата си и промотирай фестивал
-            </p>
-            <div className="mt-2">
-              <a href="/organizer/submissions" className="text-sm text-purple-900 underline">
-                Промотирай с приоритет
-              </a>
-            </div>
-          </div>
-        );
       } else {
         headerSummary = (
           <div className="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
             <p className="text-sm font-semibold text-gray-900">Промотирай фестивал</p>
             <p className="text-sm text-gray-600">
-              Достигни повече посетители и увеличи интереса към събитието
+              Подай заявка за промотиране и екипът ни ще се свърже с теб за активация
             </p>
             <div className="mt-3">
               <a
                 href="/organizer/submissions"
                 className="inline-flex items-center rounded-lg bg-black px-4 py-2 text-sm text-white transition hover:bg-black/90"
               >
-                Промотирай фестивал
+                Заяви промотиране
               </a>
             </div>
           </div>

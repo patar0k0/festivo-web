@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import OrganizerPendingEditForm from "@/components/organizer/OrganizerPendingEditForm";
+import OrganizerPromotionRequestCta from "@/components/organizer/OrganizerPromotionRequestCta";
 import { formatBgDateFromIso } from "@/lib/email/formatBg";
 import { hasActivePromotion, hasActiveVip, type OrganizerVipStatusRow } from "@/lib/monetization";
 import {
@@ -102,16 +103,11 @@ export default async function OrganizerEditSubmissionPage({ params }: { params: 
             ) : null}
           </div>
         ) : null}
+        <OrganizerPromotionRequestCta festivalId={row.id} hasActivePromotion={Boolean(festivalPromo && hasActivePromotion(festivalPromo))} />
         {!(festivalPromo && hasActivePromotion(festivalPromo)) && hasActiveVip(organizerVip) ? (
-          <div className="mt-2 text-sm text-gray-700">
-            <div>VIP план активен</div>
-            {organizerVip?.plan_expires_at ? (
-              <div>До: {formatBgDateFromIso(organizerVip.plan_expires_at) ?? organizerVip.plan_expires_at}</div>
-            ) : null}
-          </div>
-        ) : null}
-        {!(festivalPromo && hasActivePromotion(festivalPromo)) && !hasActiveVip(organizerVip) ? (
-          <div className="mt-2 text-sm text-gray-500">Няма активна промоция</div>
+          <p className="mt-2 text-xs text-black/55">
+            Активен VIP достъп: приоритетно разглеждане на заявката от екипа.
+          </p>
         ) : null}
       </div>
 

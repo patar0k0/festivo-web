@@ -1,5 +1,5 @@
 import { formatBgDateFromIso } from "@/lib/email/formatBg";
-import { hasActivePromotion, hasActiveVip, type OrganizerVipStatusRow } from "@/lib/monetization";
+import { hasActivePromotion, type OrganizerVipStatusRow } from "@/lib/monetization";
 
 export type FestivalPromotionSlice = {
   promotion_status?: string | null;
@@ -13,7 +13,7 @@ function formatPromotionEndDate(iso: string | null | undefined): string {
 /** List/card badges: promoted beats VIP; pending submissions pass `festival={null}` so promotion is never shown. */
 export default function OrganizerSubmissionMonetizationBadge({
   festival,
-  organizer,
+  organizer: _organizer,
 }: {
   festival: FestivalPromotionSlice | null;
   organizer: OrganizerVipStatusRow | null;
@@ -24,10 +24,6 @@ export default function OrganizerSubmissionMonetizationBadge({
         Промотиран • до {formatPromotionEndDate(festival.promotion_expires_at)}
       </span>
     );
-  }
-
-  if (hasActiveVip(organizer)) {
-    return <span className="inline-block bg-yellow-100 px-2 py-1 text-xs text-yellow-800 rounded">VIP план активен</span>;
   }
 
   return null;

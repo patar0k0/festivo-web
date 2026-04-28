@@ -30,7 +30,7 @@ export default async function OrganizerEditPage({ params }: OrganizerEditPagePro
   const { admin } = gate;
   const { data: organizer, error: organizerError } = await admin
     .from("organizers")
-    .select("id,name,description,logo_url,website_url,facebook_url")
+    .select("id,slug,name,description,logo_url,website_url,facebook_url")
     .eq("id", id)
     .eq("is_active", true)
     .maybeSingle();
@@ -45,14 +45,15 @@ export default async function OrganizerEditPage({ params }: OrganizerEditPagePro
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
-        <h1 className="font-[var(--font-display)] text-2xl font-bold tracking-tight md:text-3xl">Редакция на профил</h1>
-        <p className="mt-2 text-sm text-black/60">Промените се публикуват веднага в профила на организатора.</p>
+        <h1 className="font-[var(--font-display)] text-2xl font-bold tracking-tight md:text-3xl">Профил на организатор</h1>
+        <p className="mt-2 text-sm text-black/60">Това е страницата, която виждат посетителите.</p>
       </div>
 
       <OrganizerProfileEditForm
         organizerId={id}
+        publicProfileSlug={organizer.slug ?? ""}
         initial={{
           name: organizer.name ?? "",
           description: organizer.description ?? "",

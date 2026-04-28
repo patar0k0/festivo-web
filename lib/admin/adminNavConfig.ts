@@ -9,6 +9,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin/users", label: "Потребители", match: "prefix" },
   { href: "/admin/activity", label: "Активност", match: "prefix" },
   { href: "/admin/email-jobs", label: "Имейли", match: "prefix" },
+  { href: "/admin/promotion-requests", label: "Заявки", match: "prefix" },
   { href: "/admin/festivals", label: "Фестивали", match: "prefix" },
   { href: "/admin/promotions", label: "Промо", match: "prefix" },
   { href: "/admin/organizers", label: "Организатори", match: "prefix" },

@@ -20,7 +20,7 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
     isOrganizerOwner = summary.isOrganizerOwner;
     if (summary.activeOrganizerIds.length > 0) {
       const admin = getPortalAdminClient();
-      const { count: submissionCount, error: submissionsErr } = await admin
+      const { count: submissionCountRaw, error: submissionsErr } = await admin
         .from("pending_festivals")
         .select("id", { count: "exact", head: true })
         .eq("submitted_by_user_id", session.user.id)
@@ -28,26 +28,29 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
       if (submissionsErr) {
         throw new Error(submissionsErr.message);
       }
-      hasSubmissions = (submissionCount ?? 0) > 0;
+      const submissionCount = submissionCountRaw ?? 0;
+      hasSubmissions = submissionCount > 0;
 
-      if (isDashboard && (submissionCount ?? 0) > 0) {
-        headerSummary = (
-          <div className="max-w-md rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-            <p className="text-sm font-semibold text-gray-900">Промотирай фестивал</p>
-            <p className="mt-1 text-sm text-gray-600">Увеличи видимостта на събитието си</p>
-            <div className="mt-3">
-              <a
-                href="/organizer/submissions"
-                className="inline-flex items-center rounded-lg bg-black px-4 py-2 text-sm text-white transition hover:bg-black/90"
-              >
-                Заяви промотиране
-              </a>
-            </div>
-            <a href="/organizer/benefits" className="mt-2 block text-xs text-gray-500 underline hover:text-gray-700">
-              Научи повече
+      const renderPromotionBlock = () => (
+        <div className="max-w-md rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+          <p className="text-sm font-semibold text-gray-900">Промотирай фестивал</p>
+          <p className="mt-1 text-sm text-gray-600">Увеличи видимостта на събитието си</p>
+          <div className="mt-3">
+            <a
+              href="/organizer/submissions"
+              className="inline-flex items-center rounded-lg bg-black px-4 py-2 text-sm text-white transition hover:bg-black/90"
+            >
+              Заяви промотиране
             </a>
           </div>
-        );
+          <a href="/organizer/benefits" className="mt-2 block text-xs text-gray-500 underline hover:text-gray-700">
+            Научи повече
+          </a>
+        </div>
+      );
+
+      if (isDashboard && submissionCount > 0) {
+        headerSummary = renderPromotionBlock();
       }
     }
   }

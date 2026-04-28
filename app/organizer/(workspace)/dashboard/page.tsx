@@ -39,15 +39,26 @@ export default async function OrganizerDashboardPage() {
   return (
     <div className="space-y-6">
       {submissionCount === 0 ? (
-        <div>
-          <h1 className="text-xl font-semibold">Създай първия си фестивал</h1>
-          <p className="mt-1 text-sm text-gray-600">Добави събитието и го изпрати за одобрение от екипа на Festivo</p>
+        <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
+          <h2 className="font-[var(--font-display)] text-xl font-semibold tracking-tight text-[#0c0e14] md:text-2xl">
+            Създай първия си фестивал
+          </h2>
+          <p className="mt-2 text-sm text-black/60">Добави събитието и го изпрати за одобрение</p>
+          <div className="mt-4">
+            <Link
+              href="/organizer/festivals/new"
+              className="inline-flex items-center rounded-lg bg-black px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-black/90"
+            >
+              Добави фестивал
+            </Link>
+          </div>
         </div>
-      ) : null}
-      <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
-        <h1 className="font-[var(--font-display)] text-2xl font-bold tracking-tight md:text-3xl">Табло за организатори</h1>
-        <p className="mt-2 text-sm text-black/60">Управление на профили и подавания за модерация.</p>
-      </div>
+      ) : (
+        <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
+          <h1 className="font-[var(--font-display)] text-2xl font-bold tracking-tight md:text-3xl">Табло за организатори</h1>
+          <p className="mt-2 text-sm text-black/60">Управление на профили и подавания за модерация.</p>
+        </div>
+      )}
 
       <section className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
         <h2 className="text-lg font-semibold text-[#0c0e14]">Моите организации</h2>

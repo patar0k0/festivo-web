@@ -32,10 +32,13 @@ export default function OrganizerSidebarNav({
       <div className="flex flex-wrap gap-2 md:flex-col md:gap-2">
         {links.map((item) => {
           const active = linkActive(pathname, item.href);
-          const baseClass = active
-            ? "border-black/[0.16] bg-black/[0.05] text-[#0c0e14]"
-            : "border-black/[0.1] bg-white text-black/75 hover:bg-[#f7f6f3]";
           const isNewFestivalItem = item.href === "/organizer/festivals/new";
+          const primaryNewFestival = isNewFestivalItem && !hasSubmissions;
+          const baseClass = primaryNewFestival
+            ? "border-black/[0.1] bg-black text-white hover:bg-black/90"
+            : active
+              ? "border-black/[0.16] bg-black/[0.05] text-[#0c0e14]"
+              : "border-black/[0.1] bg-white text-black/75 hover:bg-[#f7f6f3]";
           return (
             <Link
               key={item.href}
@@ -43,7 +46,6 @@ export default function OrganizerSidebarNav({
               className={cn(
                 "rounded-xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] transition-colors md:w-full",
                 baseClass,
-                isNewFestivalItem && !hasSubmissions && "bg-black text-white hover:bg-black/90",
               )}
               aria-current={active ? "page" : undefined}
             >

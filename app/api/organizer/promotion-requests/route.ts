@@ -41,7 +41,60 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: gate.error }, { status: 403 });
   }
 
-  const recipientEmail = getEmailAdmin() ?? (await resolveAuthUserEmail(admin, session.user.id));
+  let festivalTitle: string | null = null;
+  let city: string | null = null;
+  let startDate: string | null = null;
+  const { data: pendingFestivalRow, error: pendingFestivalError } = await admin
+    .from("pending_festivals")
+    .select("title,city_name_display,start_date")
+    .eq("id", festivalId)
+    .maybeSingle();
+  if (pendingFestivalError) {
+    console.error(
+      "[api/organizer/promotion-requests] pending_festivals details query failed",
+      pendingFestivalError.message,
+    );
+    return NextResponse.json({ error: "Неуспешно зареждане на фестивала." }, { status: 500 });
+  }
+  festivalTitle = pendingFestivalRow?.title?.trim() || null;
+  city = pendingFestivalRow?.city_name_display?.trim() || null;
+  startDate = typeof pendingFestivalRow?.start_date === "string" ? pendingFestivalRow.start_date : null;
+
+  if (!festivalTitle || !city || !startDate) {
+    const { data: festivalRow, error: festivalError } = await admin
+      .from("festivals")
+      .select("title,city,start_date")
+      .eq("id", festivalId)
+      .maybeSingle();
+    if (festivalError) {
+      console.error("[api/organizer/promotion-requests] festivals details query failed", festivalError.message);
+      return NextResponse.json({ error: "Неуспешно зареждане на фестивала." }, { status: 500 });
+    }
+    festivalTitle = festivalTitle || festivalRow?.title?.trim() || null;
+    city = city || festivalRow?.city?.trim() || null;
+    startDate = startDate || (typeof festivalRow?.start_date === "string" ? festivalRow.start_date : null);
+  }
+
+  let organizerName: string | null = null;
+  if (pending.organizer_id) {
+    const { data: organizerRow, error: organizerError } = await admin
+      .from("organizers")
+      .select("name")
+      .eq("id", pending.organizer_id)
+      .maybeSingle();
+    if (organizerError) {
+      console.error("[api/organizer/promotion-requests] organizers name query failed", organizerError.message);
+      return NextResponse.json({ error: "Неуспешно зареждане на организатора." }, { status: 500 });
+    }
+    organizerName = organizerRow?.name?.trim() || null;
+  }
+
+  const userEmail = await resolveAuthUserEmail(admin, session.user.id);
+  if (!userEmail) {
+    return NextResponse.json({ error: "Неуспешно зареждане на имейла на потребителя." }, { status: 503 });
+  }
+
+  const recipientEmail = getEmailAdmin() ?? userEmail;
   if (!recipientEmail) {
     return NextResponse.json({ error: "Липсва конфигуриран получател за заявката." }, { status: 503 });
   }
@@ -53,7 +106,12 @@ export async function POST(request: Request) {
     subject: "Festivo админ — заявка за промотиране",
     payload: {
       festivalId,
-      userId: session.user.id,
+      festivalTitle,
+      organizerName,
+      organizerId: pending.organizer_id,
+      userEmail,
+      city,
+      startDate,
     },
     dedupe_key: `promotion-request:${festivalId}:${session.user.id}`,
     max_attempts: 1,

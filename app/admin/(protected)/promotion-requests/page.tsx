@@ -25,12 +25,18 @@ export default async function AdminPromotionRequestsPage() {
     festivalId: r.payload?.festivalId ?? "",
     festivalTitle: r.payload?.festivalTitle,
     organizerName: r.payload?.organizerName,
+    userEmail: r.payload?.userEmail,
+    city: r.payload?.city,
+    startDate: r.payload?.startDate,
     createdAt: r.created_at,
   }));
 
   return (
     <div className="space-y-3">
       <h1 className="mb-4 text-xl font-semibold">Заявки за промотиране</h1>
+      <p className="text-sm text-gray-600">
+        Свържи се с организатора, договори цена и активирай промоцията ръчно.
+      </p>
 
       {rows.length === 0 ? (
         <p className="text-sm text-gray-500">Няма заявки</p>

@@ -301,7 +301,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                   ) : (
                     <div className="border-t border-amber-200/35 pt-6">
                       <div className="rounded-2xl border border-dashed border-amber-200/55 bg-amber-50/40 px-4 py-5 text-center ring-1 ring-amber-100/25 sm:px-6">
-                        <p className="text-sm font-medium text-black/70">Все още няма описание на организатора</p>
+                        <p className="text-sm font-medium text-black/70">Няма добавено описание за този организатор.</p>
                         <p className="mt-1.5 text-sm leading-relaxed text-black/55">
                           Когато бъде добавено, ще се покаже тук за посетителите.
                         </p>

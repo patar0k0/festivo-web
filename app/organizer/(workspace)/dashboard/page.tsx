@@ -35,30 +35,69 @@ export default async function OrganizerDashboardPage() {
           .limit(40)
       : { data: [] as { id: string; title: string; status: string; created_at: string; organizer_id: string | null }[] };
   const submissionCount = submissions?.length ?? 0;
+  const hasSubmissions = submissionCount > 0;
+  const profileEditHref =
+    orgRows?.[0]?.id != null ? `/organizer/organizations/${orgRows[0].id}/edit` : "/organizer/profile/new";
 
   return (
     <div className="space-y-6">
-      {submissionCount === 0 ? (
-        <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
-          <h2 className="font-[var(--font-display)] text-xl font-semibold tracking-tight text-[#0c0e14] md:text-2xl">
-            Създай първия си фестивал
-          </h2>
-          <p className="mt-2 text-sm text-black/60">Добави събитието и го изпрати за одобрение</p>
-          <div className="mt-4">
-            <Link
-              href="/organizer/festivals/new"
-              className="inline-flex items-center rounded-lg bg-black px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-black/90"
-            >
+      <h2 className="text-lg font-semibold">Започни с първия си фестивал</h2>
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-lg border border-gray-300 bg-gray-50 p-3 text-sm">
+          <p className="font-medium text-[#0c0e14]">Профил</p>
+          <p className="mt-1 text-black/70">Готов</p>
+          <p className="text-xs font-medium text-black mt-1 hover:underline">
+            <Link href={profileEditHref} className="text-inherit">
+              Редактирай профила
+            </Link>
+          </p>
+        </div>
+        <div
+          className={`rounded-lg border p-3 text-sm ${
+            !hasSubmissions ? "border-black bg-white" : "border-gray-300 bg-gray-50"
+          }`}
+        >
+          <p className="font-medium text-[#0c0e14]">Фестивал</p>
+          <p className="mt-1 text-black/70">
+            {!hasSubmissions ? "Все още нямаш фестивал" : "Създаден"}
+          </p>
+          <p className="text-xs font-medium text-black mt-1 hover:underline">
+            <Link href="/organizer/festivals/new" className="text-inherit">
               Добави фестивал
             </Link>
-          </div>
+          </p>
+          {!hasSubmissions ? (
+            <a
+              href="/organizer/festivals/new"
+              className="mt-2 inline-flex rounded-lg bg-black px-3 py-1.5 text-xs text-white hover:bg-black/90"
+            >
+              Добави фестивал
+            </a>
+          ) : null}
         </div>
-      ) : (
-        <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
-          <h1 className="font-[var(--font-display)] text-2xl font-bold tracking-tight md:text-3xl">Табло за организатори</h1>
-          <p className="mt-2 text-sm text-black/60">Управление на профили и подавания за модерация.</p>
+        <div className="rounded-lg border border-gray-300 bg-gray-50 p-3 text-sm">
+          <p className="font-medium text-[#0c0e14]">Промоция</p>
+          <p className="mt-1 text-black/70">
+            {submissionCount === 0
+              ? "Неактивна"
+              : "Промотирането ще увеличи видимостта на фестивала ти"}
+          </p>
+          <p className="text-xs font-medium text-black mt-1 hover:underline">
+            <Link href="/organizer/benefits" className="text-inherit">
+              Виж опциите за промоция
+            </Link>
+          </p>
         </div>
-      )}
+      </div>
+
+      <p className="text-sm text-gray-600">
+        Промотирането ще помогне на повече хора да открият фестивала ти.
+      </p>
+
+      <div className="mt-8 rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
+        <h1 className="font-[var(--font-display)] text-2xl font-bold tracking-tight md:text-3xl">Табло за организатори</h1>
+        <p className="mt-2 text-sm text-black/60">Управление на профили и подавания за модерация.</p>
+      </div>
 
       <section className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
         <h2 className="text-lg font-semibold text-[#0c0e14]">Моите организации</h2>
@@ -77,17 +116,23 @@ export default async function OrganizerDashboardPage() {
         ) : (
           <ul className="mt-4 space-y-3">
             {(orgRows ?? []).map((org) => (
-              <li key={org.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/[0.08] bg-white px-4 py-3">
-                <div>
-                  <p className="font-semibold text-[#0c0e14]">{org.name}</p>
-                  <p className="text-xs text-black/50">/{org.slug}</p>
+              <li key={org.id} className="rounded-xl border border-black/[0.08] bg-white px-4 py-3">
+                <p className="font-semibold text-[#0c0e14]">{org.name}</p>
+                <p className="text-xs text-black/50">/{org.slug}</p>
+                <div className="mt-2 flex gap-3">
+                  <a
+                    href={`/organizer/organizations/${org.id}/edit`}
+                    className="inline-flex items-center rounded-lg border px-3 py-1.5 text-sm hover:bg-gray-50"
+                  >
+                    Редактирай профила
+                  </a>
+                  <a
+                    href={`/organizers/${org.slug}`}
+                    className="inline-flex items-center text-sm text-gray-500 underline"
+                  >
+                    Публичен профил
+                  </a>
                 </div>
-                <a
-                  href={`/organizer/organizations/${org.id}/edit`}
-                  className="text-sm text-black underline hover:text-black/70"
-                >
-                  Редактирай профила
-                </a>
               </li>
             ))}
           </ul>
@@ -105,17 +150,7 @@ export default async function OrganizerDashboardPage() {
           </Link>
         </div>
         {!submissions?.length ? (
-          <>
-            <p className="mt-3 text-sm text-gray-600">Все още нямаш подадени фестивали</p>
-            <div className="mt-4">
-              <a
-                href="/organizer/festivals/new"
-                className="inline-flex items-center rounded-lg bg-black px-5 py-2.5 text-sm text-white transition hover:bg-black/90"
-              >
-                Добави фестивал
-              </a>
-            </div>
-          </>
+          <p className="mt-3 text-sm text-gray-600">Все още нямаш подадени фестивали</p>
         ) : (
           <ul className="mt-4 divide-y divide-black/[0.06] text-sm">
             {(submissions ?? []).map((row) => (
@@ -123,7 +158,13 @@ export default async function OrganizerDashboardPage() {
                 <div>
                   <p className="font-medium text-[#0c0e14]">{row.title}</p>
                   <p className="text-xs text-black/50">
-                    {row.status === "pending" ? "Чака преглед" : row.status === "approved" ? "Одобрено" : row.status === "rejected" ? "Отхвърлено" : row.status}
+                    {row.status === "pending"
+                      ? "Чака преглед"
+                      : row.status === "approved"
+                        ? "Одобрено"
+                        : row.status === "rejected"
+                          ? "Отхвърлено"
+                          : row.status}
                   </p>
                 </div>
                 {row.status === "pending" ? (

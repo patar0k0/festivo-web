@@ -1,4 +1,5 @@
 import OrganizerSidebarNav from "@/components/organizer/OrganizerSidebarNav";
+import TrackedAnchor from "@/components/analytics/TrackedAnchor";
 import WorkspaceShell from "@/components/workspace/WorkspaceShell";
 import { getStatus } from "@/lib/admin/promotionsOverview";
 import {
@@ -52,6 +53,11 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
                 Управлявай промоциите
               </a>
             </div>
+            <div className="mt-2">
+              <TrackedAnchor href="/organizer/benefits" className="text-xs text-gray-500 underline" eventType="click-benefits">
+                Научи повече
+              </TrackedAnchor>
+            </div>
           </div>
         );
       } else if (activePromotedCount > 0) {
@@ -65,6 +71,11 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
               <a href="/organizer/submissions" className="text-sm text-green-900 underline">
                 Управлявай промоциите
               </a>
+            </div>
+            <div className="mt-2">
+              <TrackedAnchor href="/organizer/benefits" className="text-xs text-gray-500 underline" eventType="click-benefits">
+                Научи повече
+              </TrackedAnchor>
             </div>
           </div>
         );
@@ -82,6 +93,16 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
               >
                 Заяви промотиране
               </a>
+            </div>
+            <div className="mt-2">
+              <TrackedAnchor href="/organizer/benefits" className="text-xs text-gray-500 underline" eventType="click-benefits">
+                Как работи промотирането?
+              </TrackedAnchor>
+            </div>
+            <div className="mt-2">
+              <TrackedAnchor href="/organizer/benefits" className="text-xs text-gray-500 underline" eventType="click-benefits">
+                Научи повече
+              </TrackedAnchor>
             </div>
           </div>
         );

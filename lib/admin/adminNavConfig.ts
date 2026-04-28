@@ -6,6 +6,7 @@ export type AdminNavItem = {
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin", label: "Табло", match: "exact" },
+  { href: "/admin/analytics", label: "Анализи", match: "prefix" },
   { href: "/admin/users", label: "Потребители", match: "prefix" },
   { href: "/admin/activity", label: "Активност", match: "prefix" },
   { href: "/admin/email-jobs", label: "Имейли", match: "prefix" },

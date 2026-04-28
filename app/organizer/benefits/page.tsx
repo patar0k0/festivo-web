@@ -1,4 +1,5 @@
 import Link from "next/link";
+import TrackedAnchor from "@/components/analytics/TrackedAnchor";
 
 export default function OrganizerBenefitsPage() {
   return (
@@ -26,12 +27,13 @@ export default function OrganizerBenefitsPage() {
               <li>· Подходящо при нов фестивал или близка дата</li>
             </ul>
 
-            <a
+            <TrackedAnchor
               href="mailto:hello@festivo.bg?subject=Заявка за промотиране на фестивал"
               className="mt-4 inline-flex rounded-lg bg-black px-4 py-2 text-sm text-white transition hover:bg-black/90"
+              eventType="click-promotion-request"
             >
               Заяви промотиране
-            </a>
+            </TrackedAnchor>
             <p className="mt-2 text-xs text-gray-500">Ще се свържем с теб с детайли за активиране</p>
           </article>
 

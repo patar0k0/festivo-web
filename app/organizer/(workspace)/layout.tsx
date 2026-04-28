@@ -20,7 +20,7 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
     const orgIds = summary.activeOrganizerIds;
     if (orgIds.length > 0) {
       const admin = getPortalAdminClient();
-      const { data: orgRows, error: orgErr } = await admin
+      const { error: orgErr } = await admin
         .from("organizers")
         .select(ORGANIZER_PORTAL_ORGANIZER_VIP_FIELDS)
         .in("id", orgIds)

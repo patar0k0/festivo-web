@@ -14,7 +14,7 @@ import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 import { isAppRoleValue, type AppRole } from "@/lib/admin/appRoles";
 import { consumeAdminBulkUserOperationTokens } from "@/lib/rateLimit";
 import { adminSyncUserBannedUntil } from "@/lib/admin/syncUserBannedUntil";
-import { invalidateCachedUserGate } from "@/lib/middlewareUserGateCache";
+import { invalidateCachedUserGateSafe } from "@/lib/middlewareUserGateCache";
 
 const BAN_DURATION = "87600h";
 const MAX_IDS = 50;
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
             pushFail(id, new Error(syncMsg));
             continue;
           }
-          invalidateCachedUserGate(id);
+          invalidateCachedUserGateSafe(id, "admin_users_bulk_ban");
           await logUserSecurityAudit({
             actorUserId: ctx.user.id,
             targetUserId: id,
@@ -177,7 +177,7 @@ export async function POST(request: Request) {
           const appRole = await getUserAppRole(adminClient, id);
           await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
           await setUserSoftDeleted(adminClient, id, true, { actorUserId: ctx.user.id, reason });
-          invalidateCachedUserGate(id);
+          invalidateCachedUserGateSafe(id, "admin_users_bulk_soft_delete");
           await logUserSecurityAudit({
             actorUserId: ctx.user.id,
             targetUserId: id,

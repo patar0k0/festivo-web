@@ -40,3 +40,12 @@ export function setCachedUserGate(
 export function invalidateCachedUserGate(userId: string): void {
   store.delete(userId);
 }
+
+export function invalidateCachedUserGateSafe(userId: string, context: string): void {
+  try {
+    invalidateCachedUserGate(userId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[middlewareUserGateCache] invalidate failed", { userId, context, message });
+  }
+}

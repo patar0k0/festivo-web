@@ -5,7 +5,7 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { adminSyncUserBannedUntil } from "@/lib/admin/syncUserBannedUntil";
 import { logAdminAction } from "@/lib/admin/audit-log";
 import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
-import { invalidateCachedUserGate } from "@/lib/middlewareUserGateCache";
+import { invalidateCachedUserGateSafe } from "@/lib/middlewareUserGateCache";
 
 type Body = {
   action?: string;
@@ -92,7 +92,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "Auth актуализиран, но записът в базата не успя. Опитайте отново." }, { status: 500 });
   }
 
-  invalidateCachedUserGate(id);
+  invalidateCachedUserGateSafe(id, "admin_users_ban_unban");
 
   await logUserSecurityAudit({
     actorUserId: ctx.user.id,

@@ -4,7 +4,7 @@ import {
   sweepRetryDelayMsAfterFailure,
   sweepRetryLongDeferMs,
 } from "@/lib/admin/sweepRetryBackoff";
-import { invalidateCachedUserGate } from "@/lib/middlewareUserGateCache";
+import { invalidateCachedUserGateSafe } from "@/lib/middlewareUserGateCache";
 import { tryRecoverOrphanSweepQueueUser } from "@/lib/admin/sweepQueueOrphanRecover";
 
 /**
@@ -16,7 +16,19 @@ export async function enqueueUserSweepRetry(
   options?: { seenInAuthBefore?: boolean },
 ): Promise<void> {
   const nowIso = new Date().toISOString();
-  const seenInAuthBefore = Boolean(options?.seenInAuthBefore);
+  const seenInAuthBeforeRequested = Boolean(options?.seenInAuthBefore);
+  let seenInAuthBefore = seenInAuthBeforeRequested;
+  const { data: existingRow, error: existingReadError } = await admin
+    .from("user_sweep_retry_queue")
+    .select("seen_in_auth_before")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (existingReadError) {
+    throw new Error(`user_sweep_retry_queue read: ${existingReadError.message}`);
+  }
+  if (existingRow?.seen_in_auth_before) {
+    seenInAuthBefore = true;
+  }
   const { error } = await admin.from("user_sweep_retry_queue").upsert(
     {
       user_id: userId,
@@ -31,6 +43,48 @@ export async function enqueueUserSweepRetry(
   if (error) {
     throw new Error(`user_sweep_retry_queue: ${error.message}`);
   }
+}
+
+export type UserSweepRetryQueueStats = {
+  pending: number;
+  retrying: number;
+  failedMaxAttempts: number;
+};
+
+export async function getUserSweepRetryQueueStats(
+  admin: SupabaseClient,
+): Promise<UserSweepRetryQueueStats> {
+  const nowIso = new Date().toISOString();
+  const { count: pendingCount, error: pendingError } = await admin
+    .from("user_sweep_retry_queue")
+    .select("user_id", { count: "exact", head: true })
+    .lte("next_retry_at", nowIso);
+  if (pendingError) {
+    throw new Error(`user_sweep_retry_queue stats pending: ${pendingError.message}`);
+  }
+
+  const { count: retryingCount, error: retryingError } = await admin
+    .from("user_sweep_retry_queue")
+    .select("user_id", { count: "exact", head: true })
+    .gt("attempts", 0)
+    .lt("attempts", MAX_USER_SWEEP_ATTEMPTS);
+  if (retryingError) {
+    throw new Error(`user_sweep_retry_queue stats retrying: ${retryingError.message}`);
+  }
+
+  const { count: failedCount, error: failedError } = await admin
+    .from("user_sweep_retry_queue")
+    .select("user_id", { count: "exact", head: true })
+    .gte("attempts", MAX_USER_SWEEP_ATTEMPTS);
+  if (failedError) {
+    throw new Error(`user_sweep_retry_queue stats failed: ${failedError.message}`);
+  }
+
+  return {
+    pending: pendingCount ?? 0,
+    retrying: retryingCount ?? 0,
+    failedMaxAttempts: failedCount ?? 0,
+  };
 }
 
 export async function clearUserSweepRetryQueue(admin: SupabaseClient, userId: string): Promise<void> {
@@ -49,7 +103,7 @@ export async function clearUserSweepTracking(admin: SupabaseClient, userId: stri
   if (error) {
     console.error("[userSweepRetryQueue] clear cleanup_pending failed", { userId, message: error.message });
   }
-  invalidateCachedUserGate(userId);
+  invalidateCachedUserGateSafe(userId, "clearUserSweepTracking");
 }
 
 export async function markUserCleanupPending(admin: SupabaseClient, userId: string): Promise<void> {

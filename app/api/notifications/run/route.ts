@@ -35,6 +35,6 @@ export async function GET(request: Request) {
     console.error("[jobs][notifications_run] error", { message });
     return NextResponse.json({ error: message }, { status: 500 });
   } finally {
-    await releaseCronLock(supabase, lockName);
+    await releaseCronLock(supabase, lockName, lock.ok ? lock.lockToken : undefined);
   }
 }

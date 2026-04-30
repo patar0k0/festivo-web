@@ -6,7 +6,7 @@ import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 import { assertCanApplyDestructiveUserAction } from "@/lib/admin/adminUserAccount";
 import { getUserAppRole } from "@/lib/admin/adminUserRole";
 import { hardDeleteAuthUser } from "@/lib/admin/hardDeleteAuthUser";
-import { invalidateCachedUserGate } from "@/lib/middlewareUserGateCache";
+import { invalidateCachedUserGateSafe } from "@/lib/middlewareUserGateCache";
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   if (process.env.NODE_ENV !== "development") {
@@ -61,7 +61,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
 
     await hardDeleteAuthUser(adminClient, id);
-    invalidateCachedUserGate(id);
+    invalidateCachedUserGateSafe(id, "admin_users_hard_delete");
 
     await logUserSecurityAudit({
       actorUserId: ctx.user.id,

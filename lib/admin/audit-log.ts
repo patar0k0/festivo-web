@@ -14,13 +14,13 @@ type AdminAuditActionInput = {
   details?: Record<string, unknown>;
 };
 
-function auditDedupeMinuteBucket(): number {
-  return Math.floor(Date.now() / 60_000);
+function auditDedupeSecondBucket(): number {
+  return Math.floor(Date.now() / 1_000);
 }
 
-/** Hash(actor + entity_type + entity_id + action + minute bucket) for idempotent retries. */
+/** Hash(actor + entity_type + entity_id + action + second bucket) for idempotent retries. */
 export function buildAdminAuditDedupeKey(input: AdminAuditActionInput): string {
-  const bucket = auditDedupeMinuteBucket();
+  const bucket = auditDedupeSecondBucket();
   const raw = [
     input.actor_user_id ?? "",
     input.entity_type,

@@ -105,7 +105,7 @@ export async function POST() {
     await del("analytics_events");
     await del("outbound_clicks");
 
-    await enqueueUserSweepRetry(admin, userId);
+    await enqueueUserSweepRetry(admin, userId, { seenInAuthBefore: true });
     await markUserCleanupPending(admin, userId);
 
     const { error: authErr } = await admin.auth.admin.deleteUser(userId);

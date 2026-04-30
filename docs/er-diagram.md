@@ -174,6 +174,7 @@ erDiagram
     int attempts
     timestamptz next_retry_at
     timestamptz locked_until
+    boolean seen_in_auth_before
   }
 
   user_roles {

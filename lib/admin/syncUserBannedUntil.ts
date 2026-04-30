@@ -18,3 +18,28 @@ export async function adminSyncUserBannedUntil(
     throw new Error(`sync banned_until (clear ban_sync_error): ${flagErr.message}`);
   }
 }
+
+export async function retryPendingBanSync(admin: SupabaseClient, limit = 50): Promise<number> {
+  const maxRows = Math.max(1, Math.min(limit, 200));
+  const { data: rows, error: readErr } = await admin
+    .from("users")
+    .select("id")
+    .eq("ban_sync_error", true)
+    .limit(maxRows);
+  if (readErr) {
+    throw new Error(`ban sync retry read: ${readErr.message}`);
+  }
+
+  let retried = 0;
+  for (const row of rows ?? []) {
+    const userId = String((row as { id: string }).id);
+    const { data: authData, error: authErr } = await admin.auth.admin.getUserById(userId);
+    if (authErr || !authData?.user) {
+      continue;
+    }
+    await adminSyncUserBannedUntil(admin, userId, authData.user.banned_until ?? null);
+    retried += 1;
+  }
+
+  return retried;
+}

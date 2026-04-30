@@ -4,13 +4,19 @@ import {
   sweepRetryDelayMsAfterFailure,
   sweepRetryLongDeferMs,
 } from "@/lib/admin/sweepRetryBackoff";
+import { invalidateCachedUserGate } from "@/lib/middlewareUserGateCache";
 import { tryRecoverOrphanSweepQueueUser } from "@/lib/admin/sweepQueueOrphanRecover";
 
 /**
  * Durable sweep retry queue (survives auth.users delete + CASCADE on public.users).
  */
-export async function enqueueUserSweepRetry(admin: SupabaseClient, userId: string): Promise<void> {
+export async function enqueueUserSweepRetry(
+  admin: SupabaseClient,
+  userId: string,
+  options?: { seenInAuthBefore?: boolean },
+): Promise<void> {
   const nowIso = new Date().toISOString();
+  const seenInAuthBefore = Boolean(options?.seenInAuthBefore);
   const { error } = await admin.from("user_sweep_retry_queue").upsert(
     {
       user_id: userId,
@@ -18,6 +24,7 @@ export async function enqueueUserSweepRetry(admin: SupabaseClient, userId: strin
       attempts: 0,
       next_retry_at: nowIso,
       locked_until: null,
+      seen_in_auth_before: seenInAuthBefore,
     },
     { onConflict: "user_id" },
   );
@@ -42,6 +49,7 @@ export async function clearUserSweepTracking(admin: SupabaseClient, userId: stri
   if (error) {
     console.error("[userSweepRetryQueue] clear cleanup_pending failed", { userId, message: error.message });
   }
+  invalidateCachedUserGate(userId);
 }
 
 export async function markUserCleanupPending(admin: SupabaseClient, userId: string): Promise<void> {
@@ -73,7 +81,7 @@ export async function isUserInSweepRetryQueue(
   return Boolean(data);
 }
 
-export type ClaimedSweepRetryRow = { user_id: string; attempts: number };
+export type ClaimedSweepRetryRow = { user_id: string; attempts: number; seen_in_auth_before: boolean };
 
 /**
  * Atomically claims due rows with FOR UPDATE SKIP LOCKED (via RPC) and sets a short lease.
@@ -86,8 +94,12 @@ export async function claimUserSweepRetryBatch(
   if (error) {
     throw new Error(`admin_claim_user_sweep_retry_batch: ${error.message}`);
   }
-  const rows = (data ?? []) as Array<{ user_id: string; attempts: number }>;
-  return rows.map((r) => ({ user_id: r.user_id, attempts: Number(r.attempts) || 0 }));
+  const rows = (data ?? []) as Array<{ user_id: string; attempts: number; seen_in_auth_before?: boolean | null }>;
+  return rows.map((r) => ({
+    user_id: r.user_id,
+    attempts: Number(r.attempts) || 0,
+    seen_in_auth_before: Boolean(r.seen_in_auth_before),
+  }));
 }
 
 /**
@@ -97,11 +109,18 @@ export async function recordUserSweepRetryFailure(
   admin: SupabaseClient,
   userId: string,
   attemptsBeforeRun: number,
+  seenInAuthBefore: boolean,
 ): Promise<void> {
   const reachedMax = attemptsBeforeRun + 1 >= MAX_USER_SWEEP_ATTEMPTS;
   const nextAttempts = reachedMax ? MAX_USER_SWEEP_ATTEMPTS : attemptsBeforeRun + 1;
 
   if (reachedMax) {
+    if (!seenInAuthBefore) {
+      console.warn("[userSweepRetryQueue] dropping queue row never seen in auth", { userId });
+      await clearUserSweepTracking(admin, userId);
+      return;
+    }
+
     const recovered = await tryRecoverOrphanSweepQueueUser(admin, userId);
     if (recovered) {
       return;

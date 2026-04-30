@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { isAuthorizedJobRequest } from "@/lib/jobs/auth";
+import { acquireCronLock, releaseCronLock } from "@/lib/jobs/locks";
 import { claimUserSweepRetryBatch, recordUserSweepRetryFailure } from "@/lib/admin/userSweepRetryQueue";
 import { postAuthUserSweep } from "@/lib/admin/postAuthUserSweep";
+import { retryPendingBanSync } from "@/lib/admin/syncUserBannedUntil";
 
 export const runtime = "nodejs";
 
@@ -18,47 +20,70 @@ export async function GET(request: Request) {
   }
 
   const admin = createSupabaseAdmin();
-  let claimed: Awaited<ReturnType<typeof claimUserSweepRetryBatch>>;
+  const lockName = "user_sweep_retry";
+  const lock = await acquireCronLock(admin, lockName, new Date(), 10);
+  if (!lock.ok && lock.reason === "lock_active") {
+    return NextResponse.json({ skipped: true, reason: "lock_active" });
+  }
+  if (!lock.ok) {
+    return NextResponse.json({ error: lock.message }, { status: 500 });
+  }
+
   try {
-    claimed = await claimUserSweepRetryBatch(admin, BATCH);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "claim failed";
-    console.error("[jobs][user_sweep_retry] claim error", { message });
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-
-  if (claimed.length === 0) {
-    return NextResponse.json({ ok: true, processed: 0, message: "queue empty or nothing due" });
-  }
-
-  console.info("[jobs][user_sweep_retry] started", { count: claimed.length });
-
-  const ok: string[] = [];
-  const failed: Array<{ user_id: string; error: string }> = [];
-
-  for (const row of claimed) {
-    const userId = row.user_id;
-    const attemptsBeforeRun = row.attempts;
     try {
-      await postAuthUserSweep(admin, userId, {
-        label: "cron_user_sweep_retry",
-        userId,
-        authUserExistedBeforeSweep: false,
-      });
-      ok.push(userId);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "sweep failed";
-      console.error("[jobs][user_sweep_retry] sweep failed", { userId, message });
-      failed.push({ user_id: userId, error: message });
+      const banResynced = await retryPendingBanSync(admin, 50);
+      if (banResynced > 0) {
+        console.info("[jobs][user_sweep_retry] ban sync retry", { banResynced });
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "ban sync retry failed";
+      console.error("[jobs][user_sweep_retry] ban sync retry error", { message });
+    }
+
+    let claimed: Awaited<ReturnType<typeof claimUserSweepRetryBatch>>;
+    try {
+      claimed = await claimUserSweepRetryBatch(admin, BATCH);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "claim failed";
+      console.error("[jobs][user_sweep_retry] claim error", { message });
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+
+    if (claimed.length === 0) {
+      return NextResponse.json({ ok: true, processed: 0, message: "queue empty or nothing due" });
+    }
+
+    console.info("[jobs][user_sweep_retry] started", { count: claimed.length });
+
+    const ok: string[] = [];
+    const failed: Array<{ user_id: string; error: string }> = [];
+
+    for (const row of claimed) {
+      const userId = row.user_id;
+      const attemptsBeforeRun = row.attempts;
       try {
-        await recordUserSweepRetryFailure(admin, userId, attemptsBeforeRun);
-      } catch (recErr) {
-        const recMsg = recErr instanceof Error ? recErr.message : String(recErr);
-        console.error("[jobs][user_sweep_retry] record failure error", { userId, message: recMsg });
+        await postAuthUserSweep(admin, userId, {
+          label: "cron_user_sweep_retry",
+          userId,
+          authUserExistedBeforeSweep: row.seen_in_auth_before,
+        });
+        ok.push(userId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "sweep failed";
+        console.error("[jobs][user_sweep_retry] sweep failed", { userId, message });
+        failed.push({ user_id: userId, error: message });
+        try {
+          await recordUserSweepRetryFailure(admin, userId, attemptsBeforeRun, row.seen_in_auth_before);
+        } catch (recErr) {
+          const recMsg = recErr instanceof Error ? recErr.message : String(recErr);
+          console.error("[jobs][user_sweep_retry] record failure error", { userId, message: recMsg });
+        }
       }
     }
-  }
 
-  console.info("[jobs][user_sweep_retry] finished", { ok: ok.length, failed: failed.length });
-  return NextResponse.json({ ok: true, processed: ok.length, failed });
+    console.info("[jobs][user_sweep_retry] finished", { ok: ok.length, failed: failed.length });
+    return NextResponse.json({ ok: true, processed: ok.length, failed });
+  } finally {
+    await releaseCronLock(admin, lockName);
+  }
 }

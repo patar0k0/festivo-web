@@ -785,6 +785,8 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           deleted_reason: string | null
+          cleanup_pending?: boolean
+          banned_until?: string | null
           ban_sync_error?: boolean
         }
         Insert: {
@@ -792,12 +794,16 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           deleted_reason?: string | null
+          cleanup_pending?: boolean
+          banned_until?: string | null
           ban_sync_error?: boolean
         }
         Update: {
           deleted_at?: string | null
           deleted_by?: string | null
           deleted_reason?: string | null
+          cleanup_pending?: boolean
+          banned_until?: string | null
           ban_sync_error?: boolean
         }
       }

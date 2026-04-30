@@ -90,7 +90,7 @@ export async function hardDeleteAuthUser(admin: SupabaseClient, userId: string):
 
   if (!authUser) {
     await purgeUserApplicationData(admin, userId);
-    await enqueueUserSweepRetry(admin, userId);
+    await enqueueUserSweepRetry(admin, userId, { seenInAuthBefore: false });
     await markUserCleanupPending(admin, userId);
     try {
       await postAuthUserSweep(admin, userId, {
@@ -107,7 +107,7 @@ export async function hardDeleteAuthUser(admin: SupabaseClient, userId: string):
 
   await purgeUserApplicationData(admin, userId);
 
-  await enqueueUserSweepRetry(admin, userId);
+  await enqueueUserSweepRetry(admin, userId, { seenInAuthBefore: true });
   await markUserCleanupPending(admin, userId);
 
   const { error: authErr } = await admin.auth.admin.deleteUser(userId);

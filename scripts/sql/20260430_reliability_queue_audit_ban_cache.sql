@@ -14,12 +14,17 @@ alter table public.user_sweep_retry_queue
 alter table public.user_sweep_retry_queue
   add column if not exists locked_until timestamptz null;
 
+alter table public.user_sweep_retry_queue
+  add column if not exists seen_in_auth_before boolean not null default false;
+
 comment on column public.user_sweep_retry_queue.attempts is
   'Number of failed sweep attempts; used with next_retry_at for exponential backoff.';
 comment on column public.user_sweep_retry_queue.next_retry_at is
   'Cron processes rows where next_retry_at <= now().';
 comment on column public.user_sweep_retry_queue.locked_until is
   'Lease end time set by admin_claim_user_sweep_retry_batch; prevents duplicate work across overlapping cron runs.';
+comment on column public.user_sweep_retry_queue.seen_in_auth_before is
+  'True when the user was confirmed in auth before deletion flow; helps distinguish true orphan cleanup from never-existing IDs.';
 
 create index if not exists idx_user_sweep_retry_queue_due
   on public.user_sweep_retry_queue (next_retry_at asc, enqueued_at asc);
@@ -28,7 +33,7 @@ create index if not exists idx_user_sweep_retry_queue_due
 -- 2) Claim batch: FOR UPDATE SKIP LOCKED + lease
 -- ---------------------------------------------------------------------------
 create or replace function public.admin_claim_user_sweep_retry_batch(p_limit int)
-returns table (user_id uuid, attempts int)
+returns table (user_id uuid, attempts int, seen_in_auth_before boolean)
 language plpgsql
 security definer
 set search_path = public
@@ -48,7 +53,7 @@ begin
     for update skip locked
     limit v_limit
   )
-  returning q.user_id, q.attempts;
+  returning q.user_id, q.attempts, q.seen_in_auth_before;
 end;
 $$;
 

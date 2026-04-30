@@ -122,6 +122,8 @@ export async function middleware(request: NextRequest) {
   const hasPreviewAccess = Boolean(request.cookies.get("festivo_preview")?.value);
   const isAllowlisted =
     pathname.startsWith("/admin") ||
+    pathname.startsWith("/account-deleted") ||
+    pathname.startsWith("/banned") ||
     pathname.startsWith("/out") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
@@ -173,11 +175,11 @@ export async function middleware(request: NextRequest) {
     const isBanned = bannedUntil != null && bannedUntil !== "" && new Date(bannedUntil) > new Date();
 
     const { data: accountRow } = await supabase.from("users").select("deleted_at").eq("id", user.id).maybeSingle();
-    const isDeactivated = Boolean(accountRow?.deleted_at);
+    const isDeletedAccount = Boolean(accountRow?.deleted_at);
 
-    if (isBanned || isDeactivated) {
-      const reason = isBanned ? "banned" : "deactivated";
-      const redirectResponse = NextResponse.redirect(new URL(`/login?error=${reason}`, request.url));
+    if (isDeletedAccount || isBanned) {
+      const targetPath = isDeletedAccount ? "/account-deleted" : "/banned";
+      const redirectResponse = NextResponse.redirect(new URL(targetPath, request.url));
       const supabaseSignOut = createServerClient(url, anon, {
         cookies: {
           getAll() {

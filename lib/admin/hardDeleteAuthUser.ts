@@ -71,4 +71,9 @@ export async function hardDeleteAuthUser(admin: SupabaseClient, userId: string):
   if (authErr) {
     throw new Error(authErr.message);
   }
+
+  const { error: sweepErr } = await admin.rpc("admin_sweep_user_after_auth_delete", { p_user_id: userId });
+  if (sweepErr) {
+    throw new Error(`post-auth sweep: ${sweepErr.message}`);
+  }
 }

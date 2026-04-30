@@ -3,21 +3,18 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { fetchAdminUserDetail, isAuthUserId } from "@/lib/admin/adminUserDetail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
-import {
-  assertCanApplyDestructiveUserAction,
-  invalidateAuthSessions,
-  setUserSoftDeleted,
-} from "@/lib/admin/adminUserAccount";
+import { assertCanApplyDestructiveUserAction, setUserSoftDeleted } from "@/lib/admin/adminUserAccount";
 import { getUserAppRole, persistUserAppRole, assertCanSetAppRole } from "@/lib/admin/adminUserRole";
 import { isAppRoleValue, type AppRole } from "@/lib/admin/appRoles";
 
 const BAN_DURATION = "87600h";
-const MAX_IDS = 80;
+const MAX_IDS = 50;
 
 type Body = {
   action?: string;
   user_ids?: string[];
   role?: string;
+  reason?: string;
 };
 
 export async function POST(request: Request) {
@@ -35,10 +32,20 @@ export async function POST(request: Request) {
 
   const action = body.action;
   const rawIds = Array.isArray(body.user_ids) ? body.user_ids : [];
-  const userIds = [...new Set(rawIds.map((x) => String(x).trim()).filter(isAuthUserId))].slice(0, MAX_IDS);
+  const userIds = [...new Set(rawIds.map((x) => String(x).trim()).filter(isAuthUserId))];
+
+  if (userIds.length > MAX_IDS) {
+    return NextResponse.json({ error: `Максимум ${MAX_IDS} потребители на заявка.` }, { status: 400 });
+  }
 
   if (userIds.length === 0) {
     return NextResponse.json({ error: "Подайте поне един валиден user id." }, { status: 400 });
+  }
+
+  let reason: string | null = null;
+  const r = body.reason;
+  if (typeof r === "string" && r.trim()) {
+    reason = r.trim().slice(0, 2000);
   }
 
   let adminClient;
@@ -50,8 +57,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Service temporarily unavailable." }, { status: 500 });
   }
 
-  const errors: Record<string, string> = {};
-  let ok = 0;
+  const success: string[] = [];
+  const failed: Array<{ id: string; error: string }> = [];
+
+  const pushFail = (id: string, err: unknown) => {
+    failed.push({ id, error: err instanceof Error ? err.message : "error" });
+  };
 
   try {
     if (action === "ban") {
@@ -59,37 +70,36 @@ export async function POST(request: Request) {
         try {
           const { error } = await adminClient.auth.admin.updateUserById(id, { ban_duration: BAN_DURATION });
           if (error) {
-            errors[id] = error.message;
+            pushFail(id, error.message);
             continue;
           }
-          ok += 1;
+          success.push(id);
         } catch (e) {
-          errors[id] = e instanceof Error ? e.message : "error";
+          pushFail(id, e);
         }
       }
     } else if (action === "soft_delete") {
       for (const id of userIds) {
         try {
           if (id === ctx.user.id) {
-            errors[id] = "Не можете да приложите това действие към собствения си акаунт.";
+            pushFail(id, "Не можете да приложите това действие към собствения си акаунт.");
             continue;
           }
           const detail = await fetchAdminUserDetail(adminClient, id);
           if (!detail) {
-            errors[id] = "Not found";
+            pushFail(id, "Not found");
             continue;
           }
           if (detail.deleted_at) {
-            errors[id] = "Вече деактивиран.";
+            pushFail(id, "Вече деактивиран.");
             continue;
           }
           const appRole = await getUserAppRole(adminClient, id);
           await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
-          await setUserSoftDeleted(adminClient, id, true);
-          await invalidateAuthSessions(adminClient, id);
-          ok += 1;
+          await setUserSoftDeleted(adminClient, id, true, { actorUserId: ctx.user.id, reason });
+          success.push(id);
         } catch (e) {
-          errors[id] = e instanceof Error ? e.message : "error";
+          pushFail(id, e);
         }
       }
     } else if (action === "set_role") {
@@ -102,9 +112,9 @@ export async function POST(request: Request) {
         try {
           await assertCanSetAppRole(adminClient, ctx.user.id, id, nextRole);
           await persistUserAppRole(adminClient, id, nextRole);
-          ok += 1;
+          success.push(id);
         } catch (e) {
-          errors[id] = e instanceof Error ? e.message : "error";
+          pushFail(id, e);
         }
       }
     } else {
@@ -119,13 +129,18 @@ export async function POST(request: Request) {
         entity_id: null,
         route: "/admin/api/users/bulk",
         method: "POST",
-        details: { action, count: userIds.length, ok, failed: Object.keys(errors).length },
+        details: {
+          action,
+          count: userIds.length,
+          ok: success.length,
+          failed: failed.length,
+        },
       });
     } catch {
       /* best-effort */
     }
 
-    return NextResponse.json({ ok: true, processed: ok, errors });
+    return NextResponse.json({ ok: true, success, failed });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
     console.error("[admin/api/users/bulk] failed", { message });

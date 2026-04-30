@@ -104,6 +104,12 @@ export async function POST() {
       throw new Error(authErr.message);
     }
 
+    const { error: sweepErr } = await admin.rpc("admin_sweep_user_after_auth_delete", { p_user_id: userId });
+    if (sweepErr) {
+      console.error("[account/delete] post-auth sweep", sweepErr);
+      throw new Error(sweepErr.message);
+    }
+
     return NextResponse.json({ success: true });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

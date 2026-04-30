@@ -197,7 +197,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
             <dd className="mt-0.5 flex flex-wrap gap-2">
               {isDeleted ? (
                 <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-slate-200 text-slate-900 ring-1 ring-slate-300/90">
-                  Деактивиран
+                  Изтрит
                 </span>
               ) : (
                 <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/90">

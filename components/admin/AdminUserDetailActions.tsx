@@ -31,6 +31,7 @@ export default function AdminUserDetailActions({
   const [role, setRole] = useState<AppRole>(appRole);
   const [hardModal, setHardModal] = useState(false);
   const [hardEmail, setHardEmail] = useState("");
+  const [hardPhrase, setHardPhrase] = useState("");
   const [softModal, setSoftModal] = useState(false);
 
   useEffect(() => {
@@ -196,7 +197,7 @@ export default function AdminUserDetailActions({
         method: "DELETE",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm_email: hardEmail.trim() }),
+        body: JSON.stringify({ confirm_email: hardEmail.trim(), confirm_phrase: hardPhrase.trim() }),
       });
       const payload = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
@@ -308,7 +309,7 @@ export default function AdminUserDetailActions({
 
       {isDeleted ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4">
-          <p className="text-sm font-medium text-amber-950">Потребителят е деактивиран.</p>
+          <p className="text-sm font-medium text-amber-950">Потребителят е изтрит (деактивиран).</p>
           <button
             type="button"
             disabled={busy !== ""}
@@ -341,6 +342,7 @@ export default function AdminUserDetailActions({
                 disabled={actionsDisabled}
                 onClick={() => {
                   setHardEmail("");
+                  setHardPhrase("");
                   setHardModal(true);
                 }}
                 className="mt-2 inline-flex rounded-lg border-2 border-red-800 bg-red-950 px-3 py-1.5 text-xs font-black uppercase tracking-[0.12em] text-white hover:bg-red-900 disabled:opacity-45"
@@ -383,13 +385,21 @@ export default function AdminUserDetailActions({
           <div className="max-w-md rounded-2xl border border-red-300 bg-white p-5 shadow-xl">
             <p className="text-sm font-black uppercase tracking-[0.08em] text-red-950">Твърдо изтриване</p>
             <p className="mt-2 text-xs text-black/70">
-              Това премахва акаунта и свързаните данни. Напишете имейла на потребителя за потвърждение:{" "}
-              <strong>{email ?? "—"}</strong>
+              Това премахва акаунта и свързаните данни. Напишете точно <strong className="font-mono">DELETE</strong> и
+              имейла на потребителя: <strong>{email ?? "—"}</strong>
             </p>
+            <input
+              value={hardPhrase}
+              onChange={(e) => setHardPhrase(e.target.value)}
+              className="mt-3 w-full rounded-lg border border-black/[0.15] px-2.5 py-2 text-sm font-mono"
+              placeholder="Напишете DELETE"
+              autoComplete="off"
+              spellCheck={false}
+            />
             <input
               value={hardEmail}
               onChange={(e) => setHardEmail(e.target.value)}
-              className="mt-3 w-full rounded-lg border border-black/[0.15] px-2.5 py-2 text-sm"
+              className="mt-2 w-full rounded-lg border border-black/[0.15] px-2.5 py-2 text-sm"
               placeholder="Имейл за потвърждение"
               autoComplete="off"
             />
@@ -403,7 +413,11 @@ export default function AdminUserDetailActions({
               </button>
               <button
                 type="button"
-                disabled={busy === "hard"}
+                disabled={
+                  busy === "hard" ||
+                  hardPhrase.trim() !== "DELETE" ||
+                  hardEmail.trim().toLowerCase() !== (email?.trim().toLowerCase() ?? "")
+                }
                 className="rounded-lg bg-red-950 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white hover:bg-red-900 disabled:opacity-45"
                 onClick={() => {
                   if (!window.confirm("Финално потвърждение: безвъзвратно изтриване?")) return;

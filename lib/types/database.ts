@@ -783,13 +783,19 @@ export type Database = {
         Row: {
           id: string
           deleted_at: string | null
+          deleted_by: string | null
+          deleted_reason: string | null
         }
         Insert: {
           id: string
           deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_reason?: string | null
         }
         Update: {
           deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_reason?: string | null
         }
       }
       user_roles: {

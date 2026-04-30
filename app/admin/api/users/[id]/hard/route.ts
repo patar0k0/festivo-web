@@ -23,11 +23,17 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   }
 
   let confirmEmail = "";
+  let confirmPhrase = "";
   try {
-    const body = (await request.json()) as { confirm_email?: string };
+    const body = (await request.json()) as { confirm_email?: string; confirm_phrase?: string };
     confirmEmail = typeof body.confirm_email === "string" ? body.confirm_email.trim() : "";
+    confirmPhrase = typeof body.confirm_phrase === "string" ? body.confirm_phrase.trim() : "";
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (confirmPhrase !== "DELETE") {
+    return NextResponse.json({ error: "Напишете точно DELETE за потвърждение." }, { status: 400 });
   }
 
   let adminClient;

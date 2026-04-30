@@ -82,7 +82,9 @@ export async function assertNotSoleOrganizerOwner(
     }
 
     const ownerIds = (owners ?? []).map((r) => r.user_id as string);
-    if (ownerIds.length === 1 && ownerIds[0] === targetUserId) {
+    const deletedMap = await fetchUserDeletedAtMap(adminClient, ownerIds);
+    const activeOwnerIds = ownerIds.filter((uid) => !deletedMap.get(uid));
+    if (activeOwnerIds.length === 1 && activeOwnerIds[0] === targetUserId) {
       throw new Error(
         "Този потребител е единственият активен собственик на организатор. Първо добавете друг собственик или прехвърлете правата.",
       );
@@ -121,26 +123,25 @@ export async function invalidateAuthSessions(adminClient: SupabaseClient, userId
   }
 }
 
+export type SoftDeleteOptions = {
+  actorUserId?: string | null;
+  reason?: string | null;
+};
+
+/** Atomic soft-delete or restore: refresh tokens + public.users (service_role RPC). */
 export async function setUserSoftDeleted(
   adminClient: SupabaseClient,
   userId: string,
   deleted: boolean,
+  options?: SoftDeleteOptions,
 ): Promise<void> {
-  if (deleted) {
-    const { error } = await adminClient.from("users").upsert(
-      { id: userId, deleted_at: new Date().toISOString() },
-      { onConflict: "id" },
-    );
-    if (error) {
-      throw new Error(`users soft delete: ${error.message}`);
-    }
-  } else {
-    const { error } = await adminClient.from("users").upsert(
-      { id: userId, deleted_at: null },
-      { onConflict: "id" },
-    );
-    if (error) {
-      throw new Error(`users restore: ${error.message}`);
-    }
+  const { error } = await adminClient.rpc("admin_set_user_soft_deleted", {
+    target_user_id: userId,
+    is_deleted: deleted,
+    actor_user_id: deleted ? (options?.actorUserId ?? null) : null,
+    p_reason: deleted ? (options?.reason ?? null) : null,
+  });
+  if (error) {
+    throw new Error(deleted ? `users soft delete: ${error.message}` : `users restore: ${error.message}`);
   }
 }

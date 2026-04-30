@@ -3,11 +3,7 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { fetchAdminUserDetail, isAuthUserId } from "@/lib/admin/adminUserDetail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
-import {
-  assertCanApplyDestructiveUserAction,
-  invalidateAuthSessions,
-  setUserSoftDeleted,
-} from "@/lib/admin/adminUserAccount";
+import { assertCanApplyDestructiveUserAction, setUserSoftDeleted } from "@/lib/admin/adminUserAccount";
 import { getUserAppRole } from "@/lib/admin/adminUserRole";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
@@ -43,7 +39,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   }
 }
 
-export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -52,6 +48,17 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   const { id } = await context.params;
   if (!isAuthUserId(id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  let reason: string | null = null;
+  try {
+    const body = (await request.json().catch(() => null)) as { reason?: unknown } | null;
+    const r = body?.reason;
+    if (typeof r === "string" && r.trim()) {
+      reason = r.trim().slice(0, 2000);
+    }
+  } catch {
+    /* optional body */
   }
 
   let adminClient;
@@ -75,8 +82,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     const appRole = await getUserAppRole(adminClient, id);
     await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
 
-    await setUserSoftDeleted(adminClient, id, true);
-    await invalidateAuthSessions(adminClient, id);
+    await setUserSoftDeleted(adminClient, id, true, { actorUserId: ctx.user.id, reason });
 
     try {
       await logAdminAction({

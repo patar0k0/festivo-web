@@ -25,8 +25,26 @@ const STATUS_LABEL: Record<"active" | "unconfirmed" | "banned" | "deleted", { te
   active: { text: "Активен", className: "bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/90" },
   unconfirmed: { text: "Непотвърден", className: "bg-amber-100 text-amber-950 ring-1 ring-amber-200/90" },
   banned: { text: "Блокиран", className: "bg-red-100 text-red-950 ring-1 ring-red-200/90" },
-  deleted: { text: "Деактивиран", className: "bg-slate-200 text-slate-900 ring-1 ring-slate-300/90" },
+  deleted: { text: "Изтрит", className: "bg-slate-200 text-slate-900 ring-1 ring-slate-300/90" },
 };
+
+function rowStatusBadges(row: AdminUserListRow): { text: string; className: string }[] {
+  const badges: { text: string; className: string }[] = [];
+  if (row.deleted_at) {
+    badges.push(STATUS_LABEL.deleted);
+  }
+  if (row.banned_until && new Date(row.banned_until) > new Date()) {
+    badges.push(STATUS_LABEL.banned);
+  }
+  if (badges.length === 0) {
+    if (!row.email_confirmed_at) {
+      badges.push(STATUS_LABEL.unconfirmed);
+    } else {
+      badges.push(STATUS_LABEL.active);
+    }
+  }
+  return badges;
+}
 
 const PROVIDER_BADGE: Record<string, { label: string; className: string }> = {
   google: {
@@ -42,13 +60,6 @@ const PROVIDER_BADGE: Record<string, { label: string; className: string }> = {
     className: "bg-black/[0.06] text-black/75 ring-1 ring-black/[0.1]",
   },
 };
-
-function rowStatus(row: AdminUserListRow): "active" | "unconfirmed" | "banned" | "deleted" {
-  if (row.deleted_at) return "deleted";
-  if (row.banned_until && new Date(row.banned_until) > new Date()) return "banned";
-  if (!row.email_confirmed_at) return "unconfirmed";
-  return "active";
-}
 
 function providerBadge(provider: string) {
   const key = provider.toLowerCase();
@@ -122,13 +133,16 @@ export default function AdminUsersInteractive({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const payload = (await res.json().catch(() => null)) as { error?: string; errors?: Record<string, string> } | null;
+      const payload = (await res.json().catch(() => null)) as {
+        error?: string;
+        failed?: Array<{ id: string; error: string }>;
+      } | null;
       if (!res.ok) {
         throw new Error(payload?.error ?? "Неуспех.");
       }
-      const failed = payload?.errors && Object.keys(payload.errors).length;
-      if (failed) {
-        setError(`Частичен неуспех: ${failed} потребители.`);
+      const failedCount = payload?.failed?.length ?? 0;
+      if (failedCount) {
+        setError(`Частичен неуспех: ${failedCount} потребители.`);
       }
       setSelected(new Set());
       router.refresh();
@@ -216,8 +230,7 @@ export default function AdminUsersInteractive({
           </thead>
           <tbody>
             {rows.map((row) => {
-              const statusKey = rowStatus(row);
-              const status = STATUS_LABEL[statusKey];
+              const statusBadges = rowStatusBadges(row);
               const prov = providerBadge(row.provider);
               const lastSeen = row.last_sign_in_at
                 ? formatDistanceToNow(new Date(row.last_sign_in_at), { addSuffix: true, locale: bg })
@@ -240,11 +253,16 @@ export default function AdminUsersInteractive({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight ${status.className}`}
-                    >
-                      {status.text}
-                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {statusBadges.map((b) => (
+                        <span
+                          key={`${row.id}-${b.text}`}
+                          className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight ${b.className}`}
+                        >
+                          {b.text}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span

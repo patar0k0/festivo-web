@@ -161,6 +161,8 @@ erDiagram
   users {
     uuid id PK_FK
     timestamptz deleted_at
+    uuid deleted_by FK
+    text deleted_reason
   }
 
   user_roles {

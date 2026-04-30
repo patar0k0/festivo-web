@@ -88,7 +88,7 @@ function applyListFilters(rows: AdminUserListRow[], params: { role: string; hasO
   }
 
   if (params.banned === "1") {
-    out = out.filter((r) => r.banned_until && new Date(r.banned_until) > new Date());
+    out = out.filter((r) => r.banned_active);
   }
 
   if (params.lastLogin === "recent" || params.lastLogin === "stale") {
@@ -156,6 +156,7 @@ export async function GET(request: Request) {
             is_admin: false,
             app_role: "user",
             deleted_at: null,
+            banned_until_db: null,
             organizer_count: 0,
             pending_claim_count: 0,
           },
@@ -193,6 +194,7 @@ export async function GET(request: Request) {
           is_admin: false,
           app_role: "user",
           deleted_at: null,
+          banned_until_db: null,
           organizer_count: 0,
           pending_claim_count: 0,
         },

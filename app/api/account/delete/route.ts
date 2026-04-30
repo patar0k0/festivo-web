@@ -3,6 +3,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { isAuthUserNotFoundError } from "@/lib/admin/authAdminErrors";
 import { postAuthUserSweep } from "@/lib/admin/postAuthUserSweep";
+import {
+  clearUserSweepTracking,
+  enqueueUserSweepRetry,
+  markUserCleanupPending,
+} from "@/lib/admin/userSweepRetryQueue";
 
 async function requireUserId(): Promise<string | null> {
   const supabase = await createSupabaseServerClient();
@@ -100,13 +105,21 @@ export async function POST() {
     await del("analytics_events");
     await del("outbound_clicks");
 
+    await enqueueUserSweepRetry(admin, userId);
+    await markUserCleanupPending(admin, userId);
+
     const { error: authErr } = await admin.auth.admin.deleteUser(userId);
     if (authErr && !isAuthUserNotFoundError(authErr)) {
       console.error("[account/delete] auth.admin.deleteUser", authErr);
+      await clearUserSweepTracking(admin, userId);
       throw new Error(authErr.message);
     }
 
-    await postAuthUserSweep(admin, userId, { label: "account_self_delete", userId, warnOnAllZero: true });
+    await postAuthUserSweep(admin, userId, {
+      label: "account_self_delete",
+      userId,
+      authUserExistedBeforeSweep: true,
+    });
 
     return NextResponse.json({ success: true });
   } catch (e) {

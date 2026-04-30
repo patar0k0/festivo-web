@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isAuthUserNotFoundError } from "@/lib/admin/authAdminErrors";
 import { postAuthUserSweep } from "@/lib/admin/postAuthUserSweep";
+import {
+  clearUserSweepTracking,
+  enqueueUserSweepRetry,
+  markUserCleanupPending,
+} from "@/lib/admin/userSweepRetryQueue";
 
 /**
  * Remove application data for a user (everything except the post-auth RPC sweep).
@@ -85,24 +90,40 @@ export async function hardDeleteAuthUser(admin: SupabaseClient, userId: string):
 
   if (!authUser) {
     await purgeUserApplicationData(admin, userId);
-    await postAuthUserSweep(admin, userId, {
-      label: "hard_delete_auth_already_missing",
-      userId,
-      warnOnAllZero: false,
-    });
+    await enqueueUserSweepRetry(admin, userId);
+    await markUserCleanupPending(admin, userId);
+    try {
+      await postAuthUserSweep(admin, userId, {
+        label: "hard_delete_auth_already_missing",
+        userId,
+        authUserExistedBeforeSweep: false,
+      });
+    } catch (e) {
+      console.error("[hardDeleteAuthUser] sweep failed (auth already missing)", { userId, message: (e as Error).message });
+      throw e;
+    }
     return;
   }
 
   await purgeUserApplicationData(admin, userId);
 
+  await enqueueUserSweepRetry(admin, userId);
+  await markUserCleanupPending(admin, userId);
+
   const { error: authErr } = await admin.auth.admin.deleteUser(userId);
   if (authErr && !isAuthUserNotFoundError(authErr)) {
+    await clearUserSweepTracking(admin, userId);
     throw new Error(authErr.message);
   }
 
-  await postAuthUserSweep(admin, userId, {
-    label: "hard_delete_after_auth_remove",
-    userId,
-    warnOnAllZero: true,
-  });
+  try {
+    await postAuthUserSweep(admin, userId, {
+      label: "hard_delete_after_auth_remove",
+      userId,
+      authUserExistedBeforeSweep: true,
+    });
+  } catch (e) {
+    console.error("[hardDeleteAuthUser] sweep failed after auth delete", { userId, message: (e as Error).message });
+    throw e;
+  }
 }

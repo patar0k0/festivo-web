@@ -4,11 +4,10 @@ import { fetchAdminUserDetail, isAuthUserId } from "@/lib/admin/adminUserDetail"
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 import { setUserSoftDeleted } from "@/lib/admin/adminUserAccount";
-
-function isActiveBan(bannedUntil: string | null | undefined): boolean {
-  if (bannedUntil == null || bannedUntil === "") return false;
-  return new Date(bannedUntil) > new Date();
-}
+import {
+  assertRestorableOrganizerMemberships,
+  isActiveBanTs,
+} from "@/lib/admin/restoreUserConsistency";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -35,12 +34,32 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     if (authErr || !authData?.user) {
       return NextResponse.json({ error: "Акаунтът липсва в Auth — възстановяването е невъзможно." }, { status: 400 });
     }
-    if (isActiveBan(authData.user.banned_until)) {
+    if (isActiveBanTs(authData.user.banned_until)) {
       return NextResponse.json(
         { error: "Акаунтът е баннат. Премахнете бана преди възстановяване." },
         { status: 400 },
       );
     }
+
+    const { data: usersRow, error: usersReadErr } = await adminClient
+      .from("users")
+      .select("banned_until")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (usersReadErr) {
+      console.error("[admin/api/users/[id]/restore] users read", usersReadErr);
+      return NextResponse.json({ error: "Неуспешна проверка на статуса." }, { status: 500 });
+    }
+
+    if (isActiveBanTs((usersRow as { banned_until?: string | null } | null)?.banned_until)) {
+      return NextResponse.json(
+        { error: "Акаунтът е маркиран като блокиран в базата. Синхронизирайте бана преди възстановяване." },
+        { status: 400 },
+      );
+    }
+
+    await assertRestorableOrganizerMemberships(adminClient, id);
 
     const detail = await fetchAdminUserDetail(adminClient, id);
     if (!detail) {
@@ -71,23 +90,20 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
     await setUserSoftDeleted(adminClient, id, false);
 
-    try {
-      await logUserSecurityAudit({
-        actorUserId: ctx.user.id,
-        targetUserId: id,
-        action: "user_restore",
-        route: `/admin/api/users/${id}/restore`,
-        method: "POST",
-        metadata: { email: detail.email },
-      });
-    } catch {
-      /* best-effort */
-    }
+    await logUserSecurityAudit({
+      actorUserId: ctx.user.id,
+      targetUserId: id,
+      action: "user_restore",
+      route: `/admin/api/users/${id}/restore`,
+      method: "POST",
+      metadata: { email: detail.email },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
     console.error("[admin/api/users/[id]/restore] failed", { message, id });
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = message.includes("Невалид") || message.includes("липсващ") ? 400 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

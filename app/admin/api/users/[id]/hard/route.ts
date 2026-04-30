@@ -61,18 +61,14 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
     await hardDeleteAuthUser(adminClient, id);
 
-    try {
-      await logUserSecurityAudit({
-        actorUserId: ctx.user.id,
-        targetUserId: id,
-        action: "user_hard_delete",
-        route: `/admin/api/users/${id}/hard`,
-        method: "DELETE",
-        metadata: { email: detail.email },
-      });
-    } catch {
-      /* best-effort */
-    }
+    await logUserSecurityAudit({
+      actorUserId: ctx.user.id,
+      targetUserId: id,
+      action: "user_hard_delete",
+      route: `/admin/api/users/${id}/hard`,
+      method: "DELETE",
+      metadata: { email: detail.email },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {

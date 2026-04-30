@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { isAuthUserId } from "@/lib/admin/adminUserDetail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { adminSyncUserBannedUntil } from "@/lib/admin/syncUserBannedUntil";
+import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 
 type Body = {
   action?: string;
@@ -49,6 +51,27 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     console.error("[admin/api/users/[id]/ban] updateUserById failed", { message: error.message, id, action });
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  const untilIso = action === "ban" ? (data.user.banned_until ?? null) : null;
+  try {
+    await adminSyncUserBannedUntil(adminClient, id, untilIso);
+  } catch (syncErr) {
+    const m = syncErr instanceof Error ? syncErr.message : String(syncErr);
+    console.error("[admin/api/users/[id]/ban] DB banned_until sync failed", { id, message: m });
+    if (action === "ban") {
+      await adminClient.auth.admin.updateUserById(id, { ban_duration: "none" });
+    }
+    return NextResponse.json({ error: "Auth актуализиран, но записът в базата не успя. Опитайте отново." }, { status: 500 });
+  }
+
+  await logUserSecurityAudit({
+    actorUserId: ctx.user.id,
+    targetUserId: id,
+    action: "user_ban",
+    route: `/admin/api/users/${id}/ban`,
+    method: "POST",
+    metadata: { action, email: data.user.email },
+  });
 
   return NextResponse.json({ ok: true, user: data.user });
 }

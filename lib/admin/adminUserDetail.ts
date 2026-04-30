@@ -1,8 +1,12 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { AppRole } from "@/lib/admin/appRoles";
 import { isStaffAdminRole } from "@/lib/admin/appRoles";
-import { fetchUserDeletedAtMap } from "@/lib/admin/adminUserAccount";
 import { providerKey } from "@/lib/admin/adminUsersList";
+import { isUserInSweepRetryQueue } from "@/lib/admin/userSweepRetryQueue";
+import {
+  effectiveBannedUntilForDisplay,
+  isUserBannedFromEitherSource,
+} from "@/lib/admin/userBanEffective";
 
 const AUTH_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -44,12 +48,17 @@ export type AdminUserDetail = {
   created_at: string;
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
+  /** Display: DB mirror when set, else Auth JWT. */
   banned_until: string | null;
+  /** Either source indicates active ban (middleware-equivalent). */
+  banned_active: boolean;
   provider: string;
   user_metadata: Record<string, unknown>;
   is_admin: boolean;
   app_role: AppRole;
   deleted_at: string | null;
+  cleanup_pending: boolean;
+  sweep_retry_pending: boolean;
   organizer_memberships: AdminUserDetailOrganizerMembership[];
   plan_festivals_count: number;
   plan_reminders_count: number;
@@ -87,7 +96,8 @@ function mapMembershipRow(row: {
   };
 }
 
-export function userIsBanned(user: { banned_until?: string | null }): boolean {
+export function userIsBanned(user: { banned_until?: string | null; banned_active?: boolean }): boolean {
+  if (typeof user.banned_active === "boolean") return user.banned_active;
   const u = user.banned_until;
   if (!u) return false;
   return new Date(u) > new Date();
@@ -99,6 +109,9 @@ export function buildAdminUserDetail(
     is_admin: boolean;
     app_role: AppRole;
     deleted_at: string | null;
+    banned_until_db: string | null;
+    cleanup_pending: boolean;
+    sweep_retry_pending: boolean;
     organizer_memberships: AdminUserDetailOrganizerMembership[];
     plan_festivals_count: number;
     plan_reminders_count: number;
@@ -108,18 +121,23 @@ export function buildAdminUserDetail(
   },
 ): AdminUserDetail {
   const meta = user.user_metadata;
+  const authBan = user.banned_until ?? null;
+  const dbBan = extras.banned_until_db;
   return {
     id: user.id,
     email: user.email ?? null,
     created_at: user.created_at,
     last_sign_in_at: user.last_sign_in_at ?? null,
     email_confirmed_at: user.email_confirmed_at ?? null,
-    banned_until: user.banned_until ?? null,
+    banned_until: effectiveBannedUntilForDisplay(dbBan, authBan),
+    banned_active: isUserBannedFromEitherSource(dbBan, authBan),
     provider: providerKey(user),
     user_metadata: meta && typeof meta === "object" && !Array.isArray(meta) ? { ...(meta as Record<string, unknown>) } : {},
     is_admin: extras.is_admin,
     app_role: extras.app_role,
     deleted_at: extras.deleted_at,
+    cleanup_pending: extras.cleanup_pending,
+    sweep_retry_pending: extras.sweep_retry_pending,
     organizer_memberships: extras.organizer_memberships,
     plan_festivals_count: extras.plan_festivals_count,
     plan_reminders_count: extras.plan_reminders_count,
@@ -140,15 +158,22 @@ export async function fetchAdminUserDetail(adminClient: SupabaseClient, userId: 
   const [
     authRes,
     roleRes,
+    usersRowRes,
     membersRes,
     planFestRes,
     planRemRes,
     tokensRes,
     notifRes,
     auditRes,
+    sweep_retry_pending,
   ] = await Promise.all([
     adminClient.auth.admin.getUserById(userId),
     adminClient.from("user_roles").select("user_id,role").eq("user_id", userId).maybeSingle(),
+    adminClient
+      .from("users")
+      .select("deleted_at, banned_until, cleanup_pending")
+      .eq("id", userId)
+      .maybeSingle(),
     adminClient
       .from("organizer_members")
       .select(
@@ -174,6 +199,7 @@ export async function fetchAdminUserDetail(adminClient: SupabaseClient, userId: 
       .eq("actor_user_id", userId)
       .order("created_at", { ascending: false })
       .limit(12),
+    isUserInSweepRetryQueue(adminClient, userId),
   ]);
 
   if (authRes.error || !authRes.data?.user) {
@@ -183,6 +209,9 @@ export async function fetchAdminUserDetail(adminClient: SupabaseClient, userId: 
 
   if (roleRes.error) {
     throw new Error(`user_roles: ${roleRes.error.message}`);
+  }
+  if (usersRowRes.error) {
+    throw new Error(`users: ${usersRowRes.error.message}`);
   }
   if (membersRes.error) {
     throw new Error(`organizer_members: ${membersRes.error.message}`);
@@ -203,8 +232,14 @@ export async function fetchAdminUserDetail(adminClient: SupabaseClient, userId: 
     throw new Error(`admin_audit_logs: ${auditRes.error.message}`);
   }
 
-  const deletedMap = await fetchUserDeletedAtMap(adminClient, [userId]);
-  const deleted_at = deletedMap.get(userId) ?? null;
+  const usersRow = usersRowRes.data as {
+    deleted_at?: string | null;
+    banned_until?: string | null;
+    cleanup_pending?: boolean | null;
+  } | null;
+  const deleted_at = usersRow?.deleted_at ?? null;
+  const banned_until_db = usersRow?.banned_until ?? null;
+  const cleanup_pending = Boolean(usersRow?.cleanup_pending);
 
   const roleRow = roleRes.data as { role?: string } | null;
   const rawRole = roleRow?.role ? String(roleRow.role) : "";
@@ -249,6 +284,9 @@ export async function fetchAdminUserDetail(adminClient: SupabaseClient, userId: 
     is_admin,
     app_role,
     deleted_at,
+    banned_until_db,
+    cleanup_pending,
+    sweep_retry_pending,
     organizer_memberships: memberships,
     plan_festivals_count: planFestRes.count ?? 0,
     plan_reminders_count: planRemRes.count ?? 0,

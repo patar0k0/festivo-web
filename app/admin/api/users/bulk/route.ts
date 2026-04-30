@@ -12,6 +12,8 @@ import { sanitizeDeletedReason } from "@/lib/admin/sanitizeDeletedReason";
 import { getUserAppRole, persistUserAppRole, assertCanSetAppRole } from "@/lib/admin/adminUserRole";
 import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 import { isAppRoleValue, type AppRole } from "@/lib/admin/appRoles";
+import { consumeAdminBulkUserOperationTokens } from "@/lib/rateLimit";
+import { adminSyncUserBannedUntil } from "@/lib/admin/syncUserBannedUntil";
 
 const BAN_DURATION = "87600h";
 const MAX_IDS = 50;
@@ -46,6 +48,19 @@ export async function POST(request: Request) {
 
   if (userIds.length === 0) {
     return NextResponse.json({ error: "Подайте поне един валиден user id." }, { status: 400 });
+  }
+
+  if (action === "ban" || action === "soft_delete") {
+    const bulkOps = await consumeAdminBulkUserOperationTokens(request, ctx.user.id, userIds.length);
+    if (bulkOps.limited) {
+      return NextResponse.json(
+        { error: "Твърде много операции към потребители за кратко време. Опитайте по-късно." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(bulkOps.resetSeconds) },
+        },
+      );
+    }
   }
 
   let reason: string | null = null;
@@ -85,23 +100,28 @@ export async function POST(request: Request) {
           }
           const appRole = await getUserAppRole(adminClient, id);
           await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
-          const { error } = await adminClient.auth.admin.updateUserById(id, { ban_duration: BAN_DURATION });
+          const { data: banData, error } = await adminClient.auth.admin.updateUserById(id, {
+            ban_duration: BAN_DURATION,
+          });
           if (error) {
             pushFail(id, error.message);
             continue;
           }
           try {
-            await logUserSecurityAudit({
-              actorUserId: ctx.user.id,
-              targetUserId: id,
-              action: "user_ban",
-              route: "/admin/api/users/bulk",
-              method: "POST",
-              metadata: { email: detail.email, bulk: true },
-            });
-          } catch {
-            /* best-effort */
+            await adminSyncUserBannedUntil(adminClient, id, banData.user.banned_until ?? null);
+          } catch (syncErr) {
+            await adminClient.auth.admin.updateUserById(id, { ban_duration: "none" });
+            pushFail(id, syncErr);
+            continue;
           }
+          await logUserSecurityAudit({
+            actorUserId: ctx.user.id,
+            targetUserId: id,
+            action: "user_ban",
+            route: "/admin/api/users/bulk",
+            method: "POST",
+            metadata: { email: detail.email, bulk: true },
+          });
           success.push(id);
         } catch (e) {
           pushFail(id, e);
@@ -126,18 +146,14 @@ export async function POST(request: Request) {
           const appRole = await getUserAppRole(adminClient, id);
           await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
           await setUserSoftDeleted(adminClient, id, true, { actorUserId: ctx.user.id, reason });
-          try {
-            await logUserSecurityAudit({
-              actorUserId: ctx.user.id,
-              targetUserId: id,
-              action: "user_soft_delete",
-              route: "/admin/api/users/bulk",
-              method: "POST",
-              metadata: { email: detail.email, reason: reason ?? undefined, bulk: true },
-            });
-          } catch {
-            /* best-effort */
-          }
+          await logUserSecurityAudit({
+            actorUserId: ctx.user.id,
+            targetUserId: id,
+            action: "user_soft_delete",
+            route: "/admin/api/users/bulk",
+            method: "POST",
+            metadata: { email: detail.email, reason: reason ?? undefined, bulk: true },
+          });
           success.push(id);
         } catch (e) {
           pushFail(id, e);
@@ -159,18 +175,14 @@ export async function POST(request: Request) {
           const prevRole = await getUserAppRole(adminClient, id);
           await assertCanSetAppRole(adminClient, ctx.user.id, id, nextRole);
           await persistUserAppRole(adminClient, id, nextRole);
-          try {
-            await logUserSecurityAudit({
-              actorUserId: ctx.user.id,
-              targetUserId: id,
-              action: "user_role_change",
-              route: "/admin/api/users/bulk",
-              method: "POST",
-              metadata: { from: prevRole, to: nextRole, bulk: true },
-            });
-          } catch {
-            /* best-effort */
-          }
+          await logUserSecurityAudit({
+            actorUserId: ctx.user.id,
+            targetUserId: id,
+            action: "user_role_change",
+            route: "/admin/api/users/bulk",
+            method: "POST",
+            metadata: { from: prevRole, to: nextRole, bulk: true },
+          });
           success.push(id);
         } catch (e) {
           pushFail(id, e);
@@ -180,24 +192,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "action: ban | soft_delete | set_role" }, { status: 400 });
     }
 
-    try {
-      await logAdminAction({
-        actor_user_id: ctx.user.id,
-        action: "users_bulk",
-        entity_type: "user",
-        entity_id: null,
-        route: "/admin/api/users/bulk",
-        method: "POST",
-        details: {
-          action,
-          count: userIds.length,
-          ok: success.length,
-          failed: failed.length,
-        },
-      });
-    } catch {
-      /* best-effort */
-    }
+    await logAdminAction({
+      actor_user_id: ctx.user.id,
+      action: "users_bulk",
+      entity_type: "user",
+      entity_id: null,
+      route: "/admin/api/users/bulk",
+      method: "POST",
+      details: {
+        action,
+        count: userIds.length,
+        ok: success.length,
+        failed: failed.length,
+      },
+    });
 
     return NextResponse.json({ ok: true, success, failed });
   } catch (error) {

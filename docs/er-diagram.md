@@ -163,6 +163,13 @@ erDiagram
     timestamptz deleted_at
     uuid deleted_by FK
     text deleted_reason
+    boolean cleanup_pending
+    timestamptz banned_until
+  }
+
+  user_sweep_retry_queue {
+    uuid user_id PK
+    timestamptz enqueued_at
   }
 
   user_roles {
@@ -313,6 +320,7 @@ erDiagram
   }
 
   auth_users ||--o| users : optional_soft_delete_row
+  auth_users ||--o{ user_sweep_retry_queue : sweep_retry_pending
   auth_users ||--o{ user_roles : has
   auth_users ||--o{ user_plan_festivals : saves
   auth_users ||--o{ user_plan_items : saves

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { clearUserSweepRetryQueue } from "@/lib/admin/userSweepRetryQueue";
 
 export type PostAuthUserSweepResult = {
   organizer_members_deleted: number;
@@ -40,8 +41,11 @@ function totalDeletes(s: PostAuthUserSweepResult): number {
 export type SweepLogContext = {
   label: string;
   userId: string;
-  /** When false, all-zero counts only emit a debug log (idempotent re-sweep). */
-  warnOnAllZero?: boolean;
+  /**
+   * When the auth user existed immediately before this delete/sweep path, all-zero counts indicate
+   * a logic or RPC failure — treat as error. When auth was already absent (retry / idempotent), zeros are allowed.
+   */
+  authUserExistedBeforeSweep: boolean;
 };
 
 /**
@@ -52,9 +56,12 @@ export async function postAuthUserSweep(
   userId: string,
   logCtx?: SweepLogContext,
 ): Promise<PostAuthUserSweepResult> {
+  console.info("[postAuthUserSweep] attempt", { userId, label: logCtx?.label });
+
   let lastErr: Error | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) {
+      console.warn("[postAuthUserSweep] retry", { userId, attempt, label: logCtx?.label });
       await new Promise((r) => setTimeout(r, 80 * attempt));
     }
     const { data, error } = await admin.rpc("admin_sweep_user_after_auth_delete", { p_user_id: userId });
@@ -64,19 +71,33 @@ export async function postAuthUserSweep(
         console.error("[postAuthUserSweep] unparseable RPC result", { userId, data, label: logCtx?.label });
         throw new Error("post-auth sweep: invalid RPC payload");
       }
-      if (logCtx) {
-        console.info("[postAuthUserSweep]", logCtx.label, { userId, ...parsed });
-        const sum = totalDeletes(parsed);
-        if (sum === 0 && logCtx.warnOnAllZero !== false) {
-          console.warn("[postAuthUserSweep] zero row deletes (idempotent or already clean)", {
-            userId,
-            label: logCtx.label,
-          });
-        }
+
+      const sum = totalDeletes(parsed);
+      if (sum === 0 && logCtx?.authUserExistedBeforeSweep) {
+        console.error("[postAuthUserSweep] ERROR all-zero counts but auth user existed before sweep", {
+          userId,
+          label: logCtx.label,
+          ...parsed,
+        });
+        throw new Error("post-auth sweep: zero rows deleted while user existed (possible partial failure)");
       }
+
+      if (logCtx) {
+        console.info("[postAuthUserSweep] ok", logCtx.label, { userId, ...parsed });
+      }
+
+      await clearUserSweepRetryQueue(admin, userId);
       return parsed;
     }
     lastErr = new Error(error.message);
+    console.error("[postAuthUserSweep] RPC error", {
+      userId,
+      attempt,
+      label: logCtx?.label,
+      message: error.message,
+    });
   }
+
+  console.error("[postAuthUserSweep] failed after retries", { userId, label: logCtx?.label });
   throw new Error(`post-auth sweep: ${lastErr?.message ?? "failed after retries"}`);
 }

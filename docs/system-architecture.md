@@ -64,6 +64,8 @@ Production domain protection is configured in the Cloudflare dashboard (not driv
 | `/api/plan/*`, `/api/follow/*`, `POST /api/device-token`, `POST /api/push/register`, `POST /api/notification-settings`, `POST /api/email/preferences`, `POST /api/email/unsubscribe` | 30 / 60s |
 | `POST /api/email/webhook` | skipped (Resend server-to-server; auth = Svix signature) |
 | other write requests under `/api/*` or `/admin/api/*` | 20 / 10s |
+| **Second cap:** destructive admin user actions (`DELETE`/`POST` on `/admin/api/users/*` soft+hard delete, restore, ban, force-logout, reset-password, `POST /admin/api/users/bulk`) | **20 / 60s** per admin (in addition to path-specific bucket above) |
+| `POST /admin/api/users/bulk` (ban / soft_delete) | also consumes **per-target** tokens: **60 operations / 60s** per admin (each user id in the body counts as one operation) |
 
 Limited responses: **429** with `Retry-After` (seconds).
 
@@ -93,9 +95,15 @@ Env var summary for production also lives in `README.md` (`UPSTASH_*`, `CSRF_ALL
 
 Auth UX includes signup/login and password recovery: `/signup` creates email+password users via `POST /api/auth/signup` (Supabase `signUp` on the server; Cloudflare Turnstile when keys are set), `/login` sends Supabase reset emails, and `/reset-password` applies `auth.updateUser({ password })` for valid recovery sessions.
 
-**Soft-deleted vs banned sessions:** `middleware.ts` loads the current user with `supabase.auth.getUser()`, then reads optional `public.users.deleted_at` (RLS: authenticated may `select` only their own row; no client updates to `deleted_at` / `deleted_by` / `deleted_reason`). The `users` lookup retries briefly on transient errors; if `deleted_at` is set, the user is signed out and redirected to `/account-deleted`. If Supabase reports an active auth `banned_until`, redirect is to `/banned`. Staff soft-delete and session revoke are applied atomically via `admin_set_user_soft_deleted` in `scripts/sql/20260430_users_hardening_rls_soft_delete_rpc.sql` (optional `deleted_reason` is tag-stripped and truncated in-RPC); hard auth deletion is followed by `admin_sweep_user_after_auth_delete`, which returns structured delete counts and is invoked with server-side retries + logging. `user_roles` uses RLS so authenticated users can only `select` their own role row (writes go through service-role admin APIs).
+**Soft-deleted vs banned sessions:** `middleware.ts` loads the current user with `supabase.auth.getUser()`, then reads optional `public.users.deleted_at` and **`public.users.banned_until`** (RLS: authenticated may `select` only their own row). The `users` lookup retries briefly on transient errors and is **short-TTL cached in-process** (`lib/middlewareUserGateCache.ts`) to cut repeated DB reads on hot paths. If `deleted_at` is set, the user is signed out and redirected to `/account-deleted`. If **either** the JWT’s `banned_until` **or** the DB mirror `users.banned_until` indicates an active ban, redirect is to `/banned`. Admin ban/unban updates Auth and then **`admin_sync_user_banned_until`** (see `scripts/sql/20260430_admin_user_sweep_ban_cleanup.sql`) so the mirror stays aligned; if DB sync fails after a ban, the single-user ban API rolls back the Auth ban.
 
-**Admin user API rate limits (Upstash):** stricter fixed-window buckets apply to `DELETE /admin/api/users/[id]` (soft delete), `DELETE .../hard`, `POST .../reset-password`, and `POST .../force-logout`, keyed by the logged-in admin’s user id when the session is present (see *Rate limiting* above).
+**Post-auth sweep reliability:** Before `auth.admin.deleteUser` (admin hard-delete dev path and self-service `POST /api/account/delete`), the app enqueues **`user_sweep_retry_queue`** and sets **`users.cleanup_pending`** when a shadow row exists. `admin_sweep_user_after_auth_delete` runs with retries; on success the queue row is removed. If the RPC keeps failing, **`GET /api/jobs/user-sweep-retry`** (Vercel cron every 5 minutes, `JOBS_SECRET` / `x-vercel-cron`) replays sweeps for queued ids. Sweep logs include attempts, RPC errors, and post-success counts; all-zero counts when the auth user **did** exist before the operation are treated as a hard error.
+
+Staff soft-delete and session revoke remain via `admin_set_user_soft_deleted` in `scripts/sql/20260430_users_hardening_rls_soft_delete_rpc.sql` (optional `deleted_reason` sanitized in-RPC). `user_roles` uses RLS so authenticated users can only `select` their own role row (writes go through service-role admin APIs).
+
+**Admin user API rate limits (Upstash):** stricter fixed-window buckets apply to `DELETE /admin/api/users/[id]` (soft delete), `DELETE .../hard`, `POST .../reset-password`, and `POST .../force-logout`, plus a **global destructive cap** for all high-risk user routes (see table above), keyed by the logged-in admin’s user id when the session is present.
+
+**Audit logs:** `logAdminAction` logs insert failures and performs **one delayed async retry**; it does not fail the HTTP handler after the primary action has already succeeded.
 
 ## Moderation-first content flow
 

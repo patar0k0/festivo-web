@@ -112,7 +112,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
   }
 
   const prov = providerBadge(detail.provider);
-  const banned = userIsBanned({ banned_until: detail.banned_until });
+  const banned = userIsBanned(detail);
   const hasActiveOrganizer = detail.organizer_memberships.some((m) => m.status === "active");
   const fullNameRaw = detail.user_metadata["full_name"];
   const displayName =
@@ -207,6 +207,14 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
               {banned && detail.banned_until ? (
                 <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-red-100 text-red-950 ring-1 ring-red-200/90">
                   Блокиран до {new Date(detail.banned_until).toLocaleString("bg-BG")}
+                </span>
+              ) : null}
+              {detail.cleanup_pending || detail.sweep_retry_pending ? (
+                <span
+                  className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-amber-100 text-amber-950 ring-1 ring-amber-200/90"
+                  title="Очаква се или се изпълнява повторно изчистване на данни след изтриване на акаунта."
+                >
+                  Изчистване (опашка)
                 </span>
               ) : null}
             </dd>

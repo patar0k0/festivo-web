@@ -33,7 +33,7 @@ function rowStatusBadges(row: AdminUserListRow): { text: string; className: stri
   if (row.deleted_at) {
     badges.push(STATUS_LABEL.deleted);
   }
-  if (row.banned_until && new Date(row.banned_until) > new Date()) {
+  if (row.banned_active) {
     badges.push(STATUS_LABEL.banned);
   }
   if (badges.length === 0) {

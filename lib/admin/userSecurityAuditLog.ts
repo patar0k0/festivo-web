@@ -9,7 +9,7 @@ export type UserSecurityAuditAction =
   | "user_reset_password"
   | "user_ban";
 
-/** Maps to `admin_audit_logs`: entity_type `user`, entity_id = target user. */
+/** Maps to `admin_audit_logs`: entity_type `user`, entity_id = target user. Never throws. */
 export async function logUserSecurityAudit(input: {
   actorUserId: string;
   targetUserId: string;

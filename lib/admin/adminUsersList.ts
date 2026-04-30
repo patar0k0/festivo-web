@@ -2,6 +2,10 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { AppRole } from "@/lib/admin/appRoles";
 import { isStaffAdminRole } from "@/lib/admin/appRoles";
 import { fetchUserDeletedAtMap } from "@/lib/admin/adminUserAccount";
+import {
+  effectiveBannedUntilForDisplay,
+  isUserBannedFromEitherSource,
+} from "@/lib/admin/userBanEffective";
 
 export const ADMIN_USERS_LIST_CHUNK = 150;
 
@@ -11,7 +15,10 @@ export type AdminUserListRow = {
   created_at: string;
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
+  /** Display: DB mirror when set, else Auth. */
   banned_until: string | null;
+  /** True if either DB or Auth indicates an active ban. */
+  banned_active: boolean;
   provider: string;
   is_admin: boolean;
   app_role: AppRole;
@@ -45,6 +52,7 @@ export type AdminUserListEnrich = {
   is_admin: boolean;
   app_role: AppRole;
   deleted_at: string | null;
+  banned_until_db: string | null;
   organizer_count: number;
   pending_claim_count: number;
 };
@@ -59,6 +67,7 @@ export async function enrichUsersForAdminList(
       is_admin: false,
       app_role: "user",
       deleted_at: null,
+      banned_until_db: null,
       organizer_count: 0,
       pending_claim_count: 0,
     });
@@ -107,6 +116,22 @@ export async function enrichUsersForAdminList(
       if (row.status === "active") cur.organizer_count += 1;
       if (row.status === "pending") cur.pending_claim_count += 1;
     }
+
+    const { data: banRows, error: banErr } = await adminClient
+      .from("users")
+      .select("id, banned_until")
+      .in("id", ids);
+
+    if (banErr) {
+      throw new Error(`users banned_until: ${banErr.message}`);
+    }
+
+    for (const row of banRows ?? []) {
+      const cur = map.get(row.id as string);
+      if (cur) {
+        cur.banned_until_db = (row as { banned_until?: string | null }).banned_until ?? null;
+      }
+    }
   }
 
   return map;
@@ -122,13 +147,16 @@ function displayNameFromUser(user: User): string | null {
 }
 
 export function userToAdminListRow(user: User, enrich: AdminUserListEnrich): AdminUserListRow {
+  const authBan = user.banned_until ?? null;
+  const dbBan = enrich.banned_until_db;
   return {
     id: user.id,
     email: user.email ?? null,
     created_at: user.created_at,
     last_sign_in_at: user.last_sign_in_at ?? null,
     email_confirmed_at: user.email_confirmed_at ?? null,
-    banned_until: user.banned_until ?? null,
+    banned_until: effectiveBannedUntilForDisplay(dbBan, authBan),
+    banned_active: isUserBannedFromEitherSource(dbBan, authBan),
     provider: providerKey(user),
     is_admin: enrich.is_admin,
     app_role: enrich.app_role,

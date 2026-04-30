@@ -778,6 +778,20 @@ export type Database = {
           coords_override?: boolean | null
         }
       }
+      /** Shadow rows for admin soft-delete; optional row per auth user. */
+      users: {
+        Row: {
+          id: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id: string
+          deleted_at?: string | null
+        }
+        Update: {
+          deleted_at?: string | null
+        }
+      }
       user_roles: {
         Row: {
           user_id: string

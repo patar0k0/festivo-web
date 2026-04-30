@@ -1,0 +1,79 @@
+import { NextResponse } from "next/server";
+import { getAdminContext } from "@/lib/admin/isAdmin";
+import { fetchAdminUserDetail, isAuthUserId } from "@/lib/admin/adminUserDetail";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { logAdminAction } from "@/lib/admin/audit-log";
+import { assertCanApplyDestructiveUserAction } from "@/lib/admin/adminUserAccount";
+import { getUserAppRole } from "@/lib/admin/adminUserRole";
+import { hardDeleteAuthUser } from "@/lib/admin/hardDeleteAuthUser";
+
+export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  if (process.env.NODE_ENV !== "development") {
+    return NextResponse.json({ error: "Недостъпно извън development." }, { status: 403 });
+  }
+
+  const ctx = await getAdminContext();
+  if (!ctx || !ctx.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await context.params;
+  if (!isAuthUserId(id)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  let confirmEmail = "";
+  try {
+    const body = (await request.json()) as { confirm_email?: string };
+    confirmEmail = typeof body.confirm_email === "string" ? body.confirm_email.trim() : "";
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  let adminClient;
+  try {
+    adminClient = createSupabaseAdmin();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to initialize admin client";
+    console.error("[admin/api/users/[id]/hard] admin client init failed", { message });
+    return NextResponse.json({ error: "Service temporarily unavailable." }, { status: 500 });
+  }
+
+  try {
+    const detail = await fetchAdminUserDetail(adminClient, id);
+    if (!detail) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const email = detail.email?.trim().toLowerCase() ?? "";
+    if (!email || confirmEmail.trim().toLowerCase() !== email) {
+      return NextResponse.json({ error: "Потвърдете с точния имейл на потребителя." }, { status: 400 });
+    }
+
+    const appRole = await getUserAppRole(adminClient, id);
+    await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
+
+    await hardDeleteAuthUser(adminClient, id);
+
+    try {
+      await logAdminAction({
+        actor_user_id: ctx.user.id,
+        action: "user_hard_delete",
+        entity_type: "user",
+        entity_id: id,
+        route: `/admin/api/users/${id}/hard`,
+        method: "DELETE",
+        details: { email: detail.email },
+      });
+    } catch {
+      /* best-effort */
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    console.error("[admin/api/users/[id]/hard] failed", { message, id });
+    const status = message.includes("Не може") || message.includes("Не можете") ? 400 : 500;
+    return NextResponse.json({ error: message }, { status });
+  }
+}

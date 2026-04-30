@@ -93,6 +93,8 @@ Env var summary for production also lives in `README.md` (`UPSTASH_*`, `CSRF_ALL
 
 Auth UX includes signup/login and password recovery: `/signup` creates email+password users via `POST /api/auth/signup` (Supabase `signUp` on the server; Cloudflare Turnstile when keys are set), `/login` sends Supabase reset emails, and `/reset-password` applies `auth.updateUser({ password })` for valid recovery sessions.
 
+**Soft-deleted and banned sessions:** `middleware.ts` loads the current user with `supabase.auth.getUser()`, then reads optional `public.users.deleted_at` for that id (RLS: users may `select` their own row). If `deleted_at` is set, or Supabase reports an active `banned_until`, the middleware signs the user out and redirects to `/login?error=deactivated` or `/login?error=banned`. DDL and RPC for staff actions live in `scripts/sql/20260430_admin_users_soft_delete_roles.sql` (shadow `public.users` table, expanded `user_roles` app roles, `admin_invalidate_auth_sessions` for forced logout).
+
 ## Moderation-first content flow
 
 1. **Queue source URL**

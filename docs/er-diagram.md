@@ -158,6 +158,11 @@ erDiagram
     text contact_phone
   }
 
+  users {
+    uuid id PK_FK
+    timestamptz deleted_at
+  }
+
   user_roles {
     uuid user_id FK
     text role
@@ -305,6 +310,7 @@ erDiagram
     timestamptz locked_at
   }
 
+  auth_users ||--o| users : optional_soft_delete_row
   auth_users ||--o{ user_roles : has
   auth_users ||--o{ user_plan_festivals : saves
   auth_users ||--o{ user_plan_items : saves

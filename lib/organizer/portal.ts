@@ -3,7 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-const PORTAL_MEMBER_ROLES = ["owner", "admin", "editor"] as const;
+/** Roles that may access organizer context in the portal (including read-only viewer). */
+const PORTAL_ACCESS_ROLES = ["owner", "admin", "editor", "viewer"] as const;
+/** Roles that may create/edit portal submissions and other write flows. */
+const PORTAL_WRITE_ROLES = ["owner", "admin", "editor"] as const;
 
 export type OrganizerMemberRow = {
   id: string;
@@ -43,7 +46,7 @@ export async function fetchActiveMembershipOrganizerIds(admin: SupabaseClient, u
     .select("organizer_id")
     .eq("user_id", userId)
     .eq("status", "active")
-    .in("role", [...PORTAL_MEMBER_ROLES]);
+    .in("role", [...PORTAL_ACCESS_ROLES]);
 
   if (error) {
     throw new Error(error.message);
@@ -64,7 +67,7 @@ export async function hasActiveOrganizerMembership(
     .eq("user_id", userId)
     .eq("organizer_id", organizerId)
     .eq("status", "active")
-    .in("role", [...PORTAL_MEMBER_ROLES])
+    .in("role", [...PORTAL_WRITE_ROLES])
     .maybeSingle();
 
   if (error) {
@@ -128,7 +131,7 @@ export async function fetchOrganizerPortalMembershipSummary(
     .from("organizer_members")
     .select("organizer_id,status,role")
     .eq("user_id", userId)
-    .in("role", [...PORTAL_MEMBER_ROLES]);
+    .in("role", [...PORTAL_ACCESS_ROLES]);
 
   if (error) {
     throw new Error(error.message);

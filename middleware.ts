@@ -164,7 +164,37 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user?.id) {
+    const bannedUntil = user.banned_until;
+    const isBanned = bannedUntil != null && bannedUntil !== "" && new Date(bannedUntil) > new Date();
+
+    const { data: accountRow } = await supabase.from("users").select("deleted_at").eq("id", user.id).maybeSingle();
+    const isDeactivated = Boolean(accountRow?.deleted_at);
+
+    if (isBanned || isDeactivated) {
+      const reason = isBanned ? "banned" : "deactivated";
+      const redirectResponse = NextResponse.redirect(new URL(`/login?error=${reason}`, request.url));
+      const supabaseSignOut = createServerClient(url, anon, {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              redirectResponse.cookies.set(name, value, options);
+            });
+          },
+        },
+      });
+      await supabaseSignOut.auth.signOut();
+      return redirectResponse;
+    }
+  }
+
   return response;
 }
 

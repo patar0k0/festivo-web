@@ -1,4 +1,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { AppRole } from "@/lib/admin/appRoles";
+import { isStaffAdminRole } from "@/lib/admin/appRoles";
+import { fetchUserDeletedAtMap } from "@/lib/admin/adminUserAccount";
 import { providerKey } from "@/lib/admin/adminUsersList";
 
 const AUTH_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,6 +29,15 @@ export type AdminUserDetailDeviceToken = {
   invalidated_at: string | null;
 };
 
+export type AdminUserAuditEntry = {
+  id: string;
+  created_at: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  route: string | null;
+};
+
 export type AdminUserDetail = {
   id: string;
   email: string | null;
@@ -36,11 +48,14 @@ export type AdminUserDetail = {
   provider: string;
   user_metadata: Record<string, unknown>;
   is_admin: boolean;
+  app_role: AppRole;
+  deleted_at: string | null;
   organizer_memberships: AdminUserDetailOrganizerMembership[];
   plan_festivals_count: number;
   plan_reminders_count: number;
   device_tokens: AdminUserDetailDeviceToken[];
   notifications_count: number;
+  recent_audit: AdminUserAuditEntry[];
 };
 
 type OrganizerEmbed = { id?: string; name?: string | null; slug?: string | null } | null;
@@ -82,11 +97,14 @@ export function buildAdminUserDetail(
   user: User,
   extras: {
     is_admin: boolean;
+    app_role: AppRole;
+    deleted_at: string | null;
     organizer_memberships: AdminUserDetailOrganizerMembership[];
     plan_festivals_count: number;
     plan_reminders_count: number;
     device_tokens: AdminUserDetailDeviceToken[];
     notifications_count: number;
+    recent_audit: AdminUserAuditEntry[];
   },
 ): AdminUserDetail {
   const meta = user.user_metadata;
@@ -100,11 +118,14 @@ export function buildAdminUserDetail(
     provider: providerKey(user),
     user_metadata: meta && typeof meta === "object" && !Array.isArray(meta) ? { ...(meta as Record<string, unknown>) } : {},
     is_admin: extras.is_admin,
+    app_role: extras.app_role,
+    deleted_at: extras.deleted_at,
     organizer_memberships: extras.organizer_memberships,
     plan_festivals_count: extras.plan_festivals_count,
     plan_reminders_count: extras.plan_reminders_count,
     device_tokens: extras.device_tokens,
     notifications_count: extras.notifications_count,
+    recent_audit: extras.recent_audit,
   };
 }
 
@@ -118,15 +139,16 @@ export async function fetchAdminUserDetail(adminClient: SupabaseClient, userId: 
 
   const [
     authRes,
-    adminRoleRes,
+    roleRes,
     membersRes,
     planFestRes,
     planRemRes,
     tokensRes,
     notifRes,
+    auditRes,
   ] = await Promise.all([
     adminClient.auth.admin.getUserById(userId),
-    adminClient.from("user_roles").select("user_id").eq("user_id", userId).eq("role", "admin").maybeSingle(),
+    adminClient.from("user_roles").select("user_id,role").eq("user_id", userId).maybeSingle(),
     adminClient
       .from("organizer_members")
       .select(
@@ -146,6 +168,12 @@ export async function fetchAdminUserDetail(adminClient: SupabaseClient, userId: 
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .not("sent_at", "is", null),
+    adminClient
+      .from("admin_audit_logs")
+      .select("id, created_at, action, entity_type, entity_id, route")
+      .eq("actor_user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(12),
   ]);
 
   if (authRes.error || !authRes.data?.user) {
@@ -153,8 +181,8 @@ export async function fetchAdminUserDetail(adminClient: SupabaseClient, userId: 
   }
   const user = authRes.data.user;
 
-  if (adminRoleRes.error) {
-    throw new Error(`user_roles: ${adminRoleRes.error.message}`);
+  if (roleRes.error) {
+    throw new Error(`user_roles: ${roleRes.error.message}`);
   }
   if (membersRes.error) {
     throw new Error(`organizer_members: ${membersRes.error.message}`);
@@ -171,6 +199,20 @@ export async function fetchAdminUserDetail(adminClient: SupabaseClient, userId: 
   if (notifRes.error) {
     throw new Error(`user_notifications: ${notifRes.error.message}`);
   }
+  if (auditRes.error) {
+    throw new Error(`admin_audit_logs: ${auditRes.error.message}`);
+  }
+
+  const deletedMap = await fetchUserDeletedAtMap(adminClient, [userId]);
+  const deleted_at = deletedMap.get(userId) ?? null;
+
+  const roleRow = roleRes.data as { role?: string } | null;
+  const rawRole = roleRow?.role ? String(roleRow.role) : "";
+  const app_role: AppRole =
+    rawRole === "organizer" || rawRole === "admin" || rawRole === "super_admin" || rawRole === "user"
+      ? rawRole
+      : "user";
+  const is_admin = isStaffAdminRole(app_role);
 
   const memberships = (membersRes.data ?? []).map((row) =>
     mapMembershipRow(
@@ -194,12 +236,24 @@ export async function fetchAdminUserDetail(adminClient: SupabaseClient, userId: 
     invalidated_at: t.invalidated_at ?? null,
   }));
 
+  const recent_audit: AdminUserAuditEntry[] = (auditRes.data ?? []).map((row) => ({
+    id: row.id as string,
+    created_at: row.created_at as string,
+    action: row.action as string,
+    entity_type: row.entity_type as string,
+    entity_id: (row.entity_id as string | null) ?? null,
+    route: (row.route as string | null) ?? null,
+  }));
+
   return buildAdminUserDetail(user, {
-    is_admin: Boolean(adminRoleRes.data),
+    is_admin,
+    app_role,
+    deleted_at,
     organizer_memberships: memberships,
     plan_festivals_count: planFestRes.count ?? 0,
     plan_reminders_count: planRemRes.count ?? 0,
     device_tokens,
     notifications_count: notifRes.count ?? 0,
+    recent_audit,
   });
 }

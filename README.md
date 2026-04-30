@@ -51,7 +51,7 @@ Environment variables (no secrets in repo):
 - `BOOKING_ACCOMMODATION_ENABLED=1` (optional, registers the Booking.com provider stub in `lib/accommodation`; returns no offers until the API is wired)
 - `ACCOMMODATION_MOCK_PROVIDER=1` / `ACCOMMODATION_MOCK_SAMPLE=1` (optional, dev-only mock accommodation; do not use for fake production inventory)
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only; jobs и admin bypass към базата)
-- `JOBS_SECRET` (споделен секрет за cron/worker повиквания към `/api/jobs/*` и `/api/notifications/*`, header `x-job-secret`; включително `GET /api/jobs/user-sweep-retry` за повторно изпълнение на post-auth sweep от опашката)
+- `JOBS_SECRET` (споделен секрет за cron/worker повиквания към `/api/cron/*`, `/api/jobs/*` и `/api/notifications/*`, header `x-job-secret`; production Vercel cron извиква `GET /api/cron/worker`; отделните job URL-и остават достъпни със същия секрет)
 - `FCM_SERVER_KEY` (legacy FCM server key за push през `/api/jobs/push` и `/api/notifications/run`)
 - `RESEND_API_KEY` (server-only; transactional email през Resend; опашка `email_jobs` + `GET /api/jobs/email` с `JOBS_SECRET`; виж `lib/email/*`)
 - `RESEND_WEBHOOK_SECRET` (server-only; Svix signing secret `whsec_…` за `POST /api/email/webhook` — Resend Webhooks в dashboard; виж `docs/notification-system.md` § Phase 4)

@@ -51,7 +51,7 @@
 |-----|-----------|--------|---------|
 | `reminder` | high | Потребител добавя фестивал в плана (`user_plan_festivals` чрез `POST /api/plan/festivals`) | Според `user_plan_reminders` за този фестивал (инициализиран от `default_plan_reminder_type` при добавяне): или ~24 ч преди начало, или ~2 ч преди начало (локално Europe/Sofia; инстант от `start_date` + опционално `start_time`, иначе 09:00 на същия календарен ден при липса на час); при `none` — без нови reminder jobs; само бъдещи слотове; при махане от плана — отменяне на pending reminder jobs. Без time-window dedupe. Legacy `/api/jobs/reminders` може да ползва и двата слота по стара логика; MVP `notification_jobs` следва изричното предпочитание. |
 | `update` | high | Админ `PATCH /admin/api/festivals/[id]` с **смислена** промяна | Само потребители със запис в `user_plan_festivals`. Уведомление само при: промяна на `start_date`, значима промяна на `end_date` (≥1 ден), `city`, `address`, или архивиране (`status`). Игнор: описание, снимки, тагове, `occurrence_dates` и др. Pending ъпдейт се заменя при нова редакция извън dedupe прозореца. |
-| `weekend` | normal | Cron: `/api/notifications/weekend-trigger/fri_18` или `.../sat_09` | Фестивали с `start_date` в следващите до 3 дни; потребител с `notify_weekend_digest`, без `only_saved`, с поне един последван град (`user_followed_cities` ↔ slug на фестивала); минимум 2 фестивала; макс. 1 на потребител на слот (dedupe_key). |
+| `weekend` | normal | `GET /api/cron/worker` (прозорец Europe/Sofia според предишните `fri_18` / `sat_09` слотове) или директно `/api/notifications/weekend-trigger/fri_18` / `.../sat_09` | Фестивали с `start_date` в следващите до 3 дни; потребител с `notify_weekend_digest`, без `only_saved`, с поне един последван град (`user_followed_cities` ↔ slug на фестивала); минимум 2 фестивала; макс. 1 на потребител на слот (dedupe_key). |
 | `new_city` | normal | След успешно одобряване на pending (`POST .../approve`) | Само последователи на града (`user_followed_cities`); качество: заглавие, slug, `start_date`; макс. 1 `new_festival` на потребител за календарен ден (София). |
 
 ### Time-window дедупликация (освен `dedupe_key`)
@@ -94,11 +94,9 @@
 
 ## Scheduling model (production-safe)
 
-- High-frequency execution (`GET /api/notifications/run` every ~5 minutes) is expected from an **external scheduler** (Railway/worker/cron service), not from Vercel Cron.
-- **`GET /api/jobs/email`:** on Vercel Hobby there is no sub-daily Vercel cron in `vercel.json`—call it from an external scheduler with `x-job-secret: JOBS_SECRET`.
-- Vercel can keep only low-frequency schedules (for example daily reminders and optional weekend slots) to stay compatible with Hobby limits.
-- Weekend slots remain callable by URL (`/api/notifications/weekend-trigger/fri_18`, `/api/notifications/weekend-trigger/sat_09`) and are safe for external scheduler triggering.
-- Job routes use `cron_locks` to prevent parallel execution: `notifications_run`, `reminders_job`, `notifications_weekend_{slot}`.
+- **`vercel.json`** declares a **single** cron: `GET /api/cron/worker` on a five-minute schedule. It runs `processDueNotificationJobs` (same batching as `GET /api/notifications/run`), `processDueEmailJobs` (same as `GET /api/jobs/email`), calls `GET /api/jobs/reminders` and `GET /api/jobs/push` with `x-job-secret: JOBS_SECRET`, runs weekend digest scheduling when Europe/Sofia time matches the historical `fri_18` / `sat_09` windows, and triggers `GET /api/jobs/user-sweep-retry` at most once per 60 minutes (marker in `cron_locks`). Individual job URLs remain available for external schedulers or manual runs with the same auth headers.
+- External schedulers can still call `GET /api/notifications/run`, `GET /api/jobs/email`, or weekend URLs directly with `x-job-secret: JOBS_SECRET` when higher frequency or isolation is required.
+- Job routes use `cron_locks` to prevent parallel execution: `notifications_run`, `reminders_job`, `email_jobs_run`, `notifications_weekend_{slot}`, `user_sweep_retry`.
 
 ## Автентикация на jobs
 

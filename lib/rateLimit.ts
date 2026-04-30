@@ -127,7 +127,11 @@ function getBucket(pathname: string, method: string): RateLimitBucket {
     return { id: "auth", requests: 5, window: "60 s" };
   }
 
-  if (pathname.startsWith("/api/jobs/") || pathname.startsWith("/api/notifications/")) {
+  if (
+    pathname.startsWith("/api/jobs/") ||
+    pathname.startsWith("/api/notifications/") ||
+    pathname.startsWith("/api/cron/")
+  ) {
     return { id: "jobs", requests: 10, window: "60 s" };
   }
 
@@ -149,7 +153,11 @@ function getBucket(pathname: string, method: string): RateLimitBucket {
 
 export function canBypassJobsRateLimit(request: NextRequest): boolean {
   const pathname = request.nextUrl.pathname;
-  if (!pathname.startsWith("/api/jobs/") && !pathname.startsWith("/api/notifications/")) {
+  if (
+    !pathname.startsWith("/api/jobs/") &&
+    !pathname.startsWith("/api/notifications/") &&
+    !pathname.startsWith("/api/cron/")
+  ) {
     return false;
   }
 

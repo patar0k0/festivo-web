@@ -6,7 +6,8 @@ import CopyUserIdButton from "@/components/admin/CopyUserIdButton";
 import { fetchAdminUserDetail, isAuthUserId, userIsBanned } from "@/lib/admin/adminUserDetail";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { appRoleLabelBg } from "@/lib/admin/appRoles";
+import RoleBadge from "@/components/admin/RoleBadge";
+import StatusBadge, { deriveUserDetailStatus } from "@/components/admin/StatusBadge";
 import { formatDistanceToNow } from "date-fns";
 import { bg } from "date-fns/locale";
 
@@ -61,18 +62,8 @@ function orgRoleLabel(role: string) {
   return ORG_ROLE_LABEL[role] ?? role;
 }
 
-function roleBadgeClass(role: string) {
-  if (role === "admin" || role === "super_admin") {
-    return "bg-violet-100 text-violet-950 ring-1 ring-violet-200/90";
-  }
-  if (role === "organizer") {
-    return "bg-sky-100 text-sky-950 ring-1 ring-sky-200/90";
-  }
-  return "bg-black/[0.04] text-black/60 ring-1 ring-black/[0.08]";
-}
-
 const card =
-  "rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]";
+  "rounded-xl border border-gray-200 bg-white p-5 shadow-sm";
 
 export default async function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -194,19 +185,11 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
           </div>
           <div className="sm:col-span-2">
             <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">Статус</dt>
-            <dd className="mt-0.5 flex flex-wrap gap-2">
-              {isDeleted ? (
-                <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-slate-200 text-slate-900 ring-1 ring-slate-300/90">
-                  Изтрит
-                </span>
-              ) : (
-                <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/90">
-                  Активен акаунт
-                </span>
-              )}
-              {banned && detail.banned_until ? (
-                <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-red-100 text-red-950 ring-1 ring-red-200/90">
-                  Блокиран до {new Date(detail.banned_until).toLocaleString("bg-BG")}
+            <dd className="mt-0.5 flex flex-wrap items-center gap-2 gap-y-1">
+              <StatusBadge kind={deriveUserDetailStatus({ deletedAt: detail.deleted_at, banned })} />
+              {banned && detail.banned_until && !isDeleted ? (
+                <span className="text-xs text-gray-600">
+                  до {new Date(detail.banned_until).toLocaleString("bg-BG")}
                 </span>
               ) : null}
               {detail.cleanup_pending || detail.sweep_retry_pending ? (
@@ -224,12 +207,8 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
 
       <section className={card}>
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">2. Права (роля)</h2>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span
-            className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight ${roleBadgeClass(detail.app_role)}`}
-          >
-            {appRoleLabelBg(detail.app_role)}
-          </span>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <RoleBadge role={detail.app_role} />
           {hasActiveOrganizer ? (
             <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/90">
               Портал организатор: да
@@ -247,7 +226,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         {detail.organizer_memberships.length === 0 ? (
           <p className="mt-3 text-sm text-black/60">Няма организаторски връзки</p>
         ) : (
-          <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.08]">
+          <div className="mt-3 overflow-hidden rounded-xl border border-gray-200">
             <table className="min-w-full text-sm">
               <thead className="bg-black/[0.03] text-left text-xs uppercase tracking-[0.12em] text-black/55">
                 <tr>
@@ -358,8 +337,8 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
       </section>
 
       <section className={card}>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">5. Управление и опасна зона</h2>
-        <div className="mt-3">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">5. Управление</h2>
+        <div className="mt-4">
           <AdminUserDetailActions
             userId={detail.id}
             email={detail.email}

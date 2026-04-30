@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import DangerZone from "@/components/admin/DangerZone";
 import type { AppRole } from "@/lib/admin/appRoles";
 import { APP_ROLE_VALUES } from "@/lib/admin/appRoles";
 type Props = {
@@ -224,8 +225,8 @@ export default function AdminUserDetailActions({
       {error ? <p className="text-sm text-[#b13a1a]">{error}</p> : null}
 
       <div>
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45">Права (роля)</h3>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Права (роля)</h3>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
           <select
             value={role}
             disabled={actionsDisabled || isSelf}
@@ -235,7 +236,7 @@ export default function AdminUserDetailActions({
               setRole(v);
               void patchRole(v);
             }}
-            className="rounded-lg border border-black/[0.12] bg-white px-2.5 py-1.5 text-sm disabled:opacity-45"
+            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-900 disabled:opacity-45"
           >
             {APP_ROLE_VALUES.map((r) => (
               <option key={r} value={r}>
@@ -253,13 +254,13 @@ export default function AdminUserDetailActions({
       </div>
 
       <div>
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45">Сигурност</h3>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Сигурност</h3>
+        <div className="mt-3 flex flex-wrap gap-3">
           <button
             type="button"
             disabled={actionsDisabled}
             onClick={() => void postForceLogout()}
-            className="inline-flex rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.04] disabled:opacity-45"
+            className="inline-flex rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-45"
           >
             {busy === "logout" ? "…" : "Принудителен изход"}
           </button>
@@ -267,7 +268,7 @@ export default function AdminUserDetailActions({
             type="button"
             disabled={actionsDisabled}
             onClick={() => void postResetPassword()}
-            className="inline-flex rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.04] disabled:opacity-45"
+            className="inline-flex rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-45"
           >
             {busy === "reset" ? "…" : "Нова парола (имейл)"}
           </button>
@@ -275,7 +276,7 @@ export default function AdminUserDetailActions({
             type="button"
             disabled={isDeleted || busy !== ""}
             onClick={() => void postEmailVerified(!emailConfirmed)}
-            className="inline-flex rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.04] disabled:opacity-45"
+            className="inline-flex rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-45"
           >
             {busy === "email" ? "…" : emailConfirmed ? "Маркирай имейл като непотвърден" : "Маркирай имейл като потвърден"}
           </button>
@@ -283,14 +284,14 @@ export default function AdminUserDetailActions({
       </div>
 
       <div>
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45">Блокиране</h3>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">Блокиране</h3>
+        <div className="mt-3 flex flex-wrap gap-3">
           {banned ? (
             <button
               type="button"
               disabled={actionsDisabled}
               onClick={() => void postBan("unban")}
-              className="inline-flex rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.04] disabled:opacity-45"
+              className="inline-flex rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-45"
             >
               {busy === "ban" ? "…" : "Премахни блокирането"}
             </button>
@@ -299,7 +300,7 @@ export default function AdminUserDetailActions({
               type="button"
               disabled={actionsDisabled}
               onClick={onBanClick}
-              className="inline-flex rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-red-950 hover:bg-red-100 disabled:opacity-45"
+              className="inline-flex rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-45"
             >
               {busy === "ban" ? "…" : "Блокирай потребителя"}
             </button>
@@ -308,13 +309,13 @@ export default function AdminUserDetailActions({
       </div>
 
       {isDeleted ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4">
-          <p className="text-sm font-medium text-amber-950">Потребителят е изтрит (деактивиран).</p>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-medium text-amber-950">Потребителят е изтрит. Няма достъп, докато не бъде възстановен.</p>
           <button
             type="button"
             disabled={busy !== ""}
             onClick={() => void postRestore()}
-            className="mt-3 inline-flex rounded-lg border border-black/[0.15] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.04] disabled:opacity-45"
+            className="mt-3 inline-flex rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-45"
           >
             {busy === "restore" ? "…" : "Възстанови акаунта"}
           </button>
@@ -322,42 +323,36 @@ export default function AdminUserDetailActions({
       ) : null}
 
       {!isDeleted ? (
-        <div className="rounded-xl border border-red-200/90 bg-red-50/50 p-4">
-          <h3 className="text-xs font-black uppercase tracking-[0.14em] text-red-950">Опасна зона</h3>
-          <p className="mt-1 text-xs text-red-900/80">Деактивираните потребители не могат да влизат.</p>
+        <DangerZone>
           <button
             type="button"
             disabled={actionsDisabled}
             onClick={() => setSoftModal(true)}
-            className="mt-3 inline-flex rounded-lg border border-red-300 bg-red-600 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white hover:bg-red-700 disabled:opacity-45"
+            className="inline-flex rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-white shadow-sm hover:bg-red-700 disabled:opacity-45"
           >
             Изтрий потребител
           </button>
-
           {showHardDelete ? (
-            <div className="mt-4 border-t border-red-200/80 pt-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-red-950">Development: твърдо изтриване</p>
-              <button
-                type="button"
-                disabled={actionsDisabled}
-                onClick={() => {
-                  setHardEmail("");
-                  setHardPhrase("");
-                  setHardModal(true);
-                }}
-                className="mt-2 inline-flex rounded-lg border-2 border-red-800 bg-red-950 px-3 py-1.5 text-xs font-black uppercase tracking-[0.12em] text-white hover:bg-red-900 disabled:opacity-45"
-              >
-                ИЗТРИЙ ЗАВИНАГИ
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={actionsDisabled}
+              onClick={() => {
+                setHardEmail("");
+                setHardPhrase("");
+                setHardModal(true);
+              }}
+              className="inline-flex rounded-lg border-2 border-red-600 bg-transparent px-3 py-2 text-xs font-semibold uppercase tracking-[0.1em] text-red-700 hover:bg-red-50 disabled:opacity-45"
+            >
+              Изтрий завинаги
+            </button>
           ) : null}
-        </div>
+        </DangerZone>
       ) : null}
 
       {softModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="max-w-md rounded-2xl border border-black/[0.1] bg-white p-5 shadow-xl">
-            <p className="text-sm font-semibold text-[#0c0e14]">Потребителят ще бъде деактивиран</p>
+            <p className="text-sm font-semibold text-[#0c0e14]">Потребителят ще бъде изтрит</p>
             <p className="mt-2 text-xs text-black/65">Няма да може да влиза, докато не бъде възстановен.</p>
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               <button

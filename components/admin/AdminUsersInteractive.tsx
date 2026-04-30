@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { AdminUserListRow } from "@/lib/admin/adminUsersList";
 import { emailLocalPart } from "@/lib/admin/adminUsersList";
-import { appRoleLabelBg } from "@/lib/admin/appRoles";
 import type { AppRole } from "@/lib/admin/appRoles";
 import { formatDistanceToNow } from "date-fns";
 import { bg } from "date-fns/locale";
+import RoleBadge from "@/components/admin/RoleBadge";
+import StatusBadge, { deriveUserAccountStatus } from "@/components/admin/StatusBadge";
 
 type Props = {
   rows: AdminUserListRow[];
@@ -20,31 +21,6 @@ type Props = {
   nextQs: string;
   queryLabel: string;
 };
-
-const STATUS_LABEL: Record<"active" | "unconfirmed" | "banned" | "deleted", { text: string; className: string }> = {
-  active: { text: "Активен", className: "bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/90" },
-  unconfirmed: { text: "Непотвърден", className: "bg-amber-100 text-amber-950 ring-1 ring-amber-200/90" },
-  banned: { text: "Блокиран", className: "bg-red-100 text-red-950 ring-1 ring-red-200/90" },
-  deleted: { text: "Изтрит", className: "bg-slate-200 text-slate-900 ring-1 ring-slate-300/90" },
-};
-
-function rowStatusBadges(row: AdminUserListRow): { text: string; className: string }[] {
-  const badges: { text: string; className: string }[] = [];
-  if (row.deleted_at) {
-    badges.push(STATUS_LABEL.deleted);
-  }
-  if (row.banned_active) {
-    badges.push(STATUS_LABEL.banned);
-  }
-  if (badges.length === 0) {
-    if (!row.email_confirmed_at) {
-      badges.push(STATUS_LABEL.unconfirmed);
-    } else {
-      badges.push(STATUS_LABEL.active);
-    }
-  }
-  return badges;
-}
 
 const PROVIDER_BADGE: Record<string, { label: string; className: string }> = {
   google: {
@@ -68,16 +44,6 @@ function providerBadge(provider: string) {
     label: provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : "—",
     className: "bg-black/[0.06] text-black/75 ring-1 ring-black/[0.1]",
   };
-}
-
-function roleBadgeClass(role: AppRole): string {
-  if (role === "admin" || role === "super_admin") {
-    return "bg-violet-100 text-violet-950 ring-1 ring-violet-200/90";
-  }
-  if (role === "organizer") {
-    return "bg-sky-100 text-sky-950 ring-1 ring-sky-200/90";
-  }
-  return "bg-black/[0.04] text-black/60 ring-1 ring-black/[0.08]";
 }
 
 export default function AdminUsersInteractive({
@@ -160,189 +126,197 @@ export default function AdminUsersInteractive({
     <>
       {error ? <p className="text-sm text-[#b13a1a]">{error}</p> : null}
 
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-xs">
-        <span className="font-semibold uppercase tracking-[0.1em] text-black/50">Масови действия</span>
-        <label className="inline-flex items-center gap-1 text-black/70">
-          <input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAllOnPage} />
-          Всички на страницата
-        </label>
-        <select
-          value={rolePick}
-          onChange={(e) => setRolePick(e.target.value as AppRole)}
-          className="rounded border border-black/[0.12] bg-white px-2 py-1 text-[11px] font-medium"
-        >
-          <option value="user">Роля: потребител</option>
-          <option value="organizer">Роля: организатор</option>
-          <option value="admin">Роля: админ</option>
-          <option value="super_admin">Роля: super админ</option>
-        </select>
-        <button
-          type="button"
-          disabled={busy !== ""}
-          onClick={() => void postBulk("set_role")}
-          className="rounded-lg border border-black/[0.12] bg-white px-2.5 py-1 font-semibold uppercase tracking-[0.08em] hover:bg-black/[0.04] disabled:opacity-45"
-        >
-          {busy === "role" ? "…" : "Задай роля"}
-        </button>
-        <button
-          type="button"
-          disabled={busy !== ""}
-          onClick={() => void postBulk("ban")}
-          className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 font-semibold uppercase tracking-[0.08em] text-red-950 hover:bg-red-100 disabled:opacity-45"
-        >
-          {busy === "ban" ? "…" : "Блокирай"}
-        </button>
-        <button
-          type="button"
-          disabled={busy !== ""}
-          onClick={() => void postBulk("soft_delete")}
-          className="rounded-lg border border-red-300 bg-red-600 px-2.5 py-1 font-semibold uppercase tracking-[0.08em] text-white hover:bg-red-700 disabled:opacity-45"
-        >
-          {busy === "delete" ? "…" : "Деактивирай"}
-        </button>
-        <span className="text-black/45">{queryLabel}</span>
+      <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-3 text-xs">
+        <div className="flex flex-wrap items-center gap-3 gap-y-2">
+          <span className="font-semibold uppercase tracking-[0.1em] text-gray-500">Масови действия</span>
+          {selected.size > 0 ? (
+            <span className="text-xs font-medium text-gray-700">
+              Избрани: {selected.size} {selected.size === 1 ? "потребител" : "потребителя"}
+            </span>
+          ) : null}
+          <label className="inline-flex cursor-pointer items-center gap-2 text-gray-700">
+            <input type="checkbox" checked={rows.length > 0 && selected.size === rows.length} onChange={toggleAllOnPage} />
+            Избери всички на страницата
+          </label>
+          <select
+            value={rolePick}
+            onChange={(e) => setRolePick(e.target.value as AppRole)}
+            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-800"
+            aria-label="Роля за назначаване"
+          >
+            <option value="user">Потребител</option>
+            <option value="organizer">Организатор</option>
+            <option value="admin">Админ</option>
+            <option value="super_admin">Super админ</option>
+          </select>
+          <button
+            type="button"
+            disabled={busy !== ""}
+            onClick={() => void postBulk("set_role")}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 font-semibold uppercase tracking-[0.08em] text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-45"
+          >
+            {busy === "role" ? "…" : "Задай роля"}
+          </button>
+          <button
+            type="button"
+            disabled={busy !== ""}
+            onClick={() => void postBulk("ban")}
+            className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 font-semibold uppercase tracking-[0.08em] text-amber-700 shadow-sm hover:bg-amber-100 disabled:opacity-45"
+          >
+            {busy === "ban" ? "…" : "Блокирай"}
+          </button>
+        </div>
+
+        <div className="border-t border-gray-200" aria-hidden />
+
+        <div className="flex flex-wrap items-center justify-between gap-3 gap-y-2">
+          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-red-800/90">Опасно</span>
+          <button
+            type="button"
+            disabled={busy !== ""}
+            onClick={() => void postBulk("soft_delete")}
+            className="rounded-lg bg-red-600 px-3 py-1.5 font-semibold uppercase tracking-[0.08em] text-white shadow-sm hover:bg-red-700 disabled:opacity-45"
+          >
+            {busy === "delete" ? "…" : "Изтри"}
+          </button>
+        </div>
+
+        {queryLabel ? <p className="text-[11px] text-gray-500">{queryLabel}</p> : null}
       </div>
 
-      <p className="text-sm text-black/60">
-        {total === 0 ? (
-          "Няма намерени потребители."
-        ) : (
-          <>
+      {total === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-14 text-center">
+          <p className="text-sm font-medium text-gray-800">Няма намерени потребители</p>
+          <p className="max-w-sm text-xs text-gray-500">Промени филтрите или търсенето</p>
+        </div>
+      ) : (
+        <>
+          <p className="text-sm text-gray-600">
             Показани {from}–{to} от {total}
-          </>
-        )}
-      </p>
+          </p>
 
-      <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white/90">
-        <table className="min-w-full text-sm">
-          <thead className="bg-black/[0.03] text-left text-xs uppercase tracking-[0.14em] text-black/55">
-            <tr>
-              <th className="px-2 py-3 w-8" aria-label="Избор" />
-              <th className="px-4 py-3">Имейл / име</th>
-              <th className="px-4 py-3">Статус</th>
-              <th className="px-4 py-3">Provider</th>
-              <th className="px-4 py-3">Роля</th>
-              <th className="px-4 py-3">Организатор</th>
-              <th className="px-4 py-3">Регистриран</th>
-              <th className="px-4 py-3">Последен вход</th>
-              <th className="px-4 py-3">Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const statusBadges = rowStatusBadges(row);
-              const prov = providerBadge(row.provider);
-              const lastSeen = row.last_sign_in_at
-                ? formatDistanceToNow(new Date(row.last_sign_in_at), { addSuffix: true, locale: bg })
-                : "никога";
-              return (
-                <tr key={row.id} className={`border-t border-black/[0.06] ${row.deleted_at ? "bg-black/[0.02]" : ""}`}>
-                  <td className="px-2 py-3 align-top">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(row.id)}
-                      onChange={() => toggle(row.id)}
-                      disabled={Boolean(row.deleted_at)}
-                      aria-label={`Избор ${row.email ?? row.id}`}
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-[#0c0e14]">{row.email ?? "—"}</div>
-                    <div className="text-xs text-black/50">
-                      {row.full_name ?? emailLocalPart(row.email)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {statusBadges.map((b) => (
-                        <span
-                          key={`${row.id}-${b.text}`}
-                          className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight ${b.className}`}
-                        >
-                          {b.text}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight ${prov.className}`}
-                    >
-                      {prov.label}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight ${roleBadgeClass(row.app_role)}`}
-                    >
-                      {appRoleLabelBg(row.app_role).toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-black/80">{row.organizer_count}</span>
-                      {row.pending_claim_count > 0 ? (
-                        <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-amber-100 text-amber-950 ring-1 ring-amber-200/90">
-                          ЧАКАЩ
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-black/70">
-                    {row.created_at ? new Date(row.created_at).toLocaleString() : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-black/70" title={row.last_sign_in_at ? new Date(row.last_sign_in_at).toLocaleString("bg-BG") : undefined}>
-                    {lastSeen}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/users/${row.id}`}
-                      className="inline-flex items-center rounded-md border border-black/[0.12] px-2 py-1 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.04]"
-                    >
-                      Детайли
-                    </Link>
-                  </td>
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs uppercase tracking-[0.14em] text-gray-500">
+                <tr>
+                  <th className="w-8 px-2 py-3" aria-label="Избор" />
+                  <th className="px-4 py-3">Имейл / име</th>
+                  <th className="px-4 py-3">Статус</th>
+                  <th className="px-4 py-3">Provider</th>
+                  <th className="px-4 py-3">Роля</th>
+                  <th className="px-4 py-3">Организатор</th>
+                  <th className="px-4 py-3">Регистриран</th>
+                  <th className="px-4 py-3">Последен вход</th>
+                  <th className="px-4 py-3">Действия</th>
                 </tr>
-              );
-            })}
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-black/60">
-                  Няма редове за тази страница.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const statusKind = deriveUserAccountStatus(row);
+                  const prov = providerBadge(row.provider);
+                  const lastSeen = row.last_sign_in_at
+                    ? formatDistanceToNow(new Date(row.last_sign_in_at), { addSuffix: true, locale: bg })
+                    : "никога";
+                  return (
+                    <tr
+                      key={row.id}
+                      className={`cursor-default border-t border-gray-200 ${row.deleted_at ? "bg-gray-50/60" : ""}`}
+                    >
+                      <td className="px-2 py-3 align-top">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(row.id)}
+                          onChange={() => toggle(row.id)}
+                          disabled={Boolean(row.deleted_at)}
+                          aria-label={`Избор ${row.email ?? row.id}`}
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-[#0c0e14]">{row.email ?? "—"}</div>
+                        <div className="text-xs text-gray-500">
+                          {row.full_name ?? emailLocalPart(row.email)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge kind={statusKind} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-tight ${prov.className}`}
+                        >
+                          {prov.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <RoleBadge role={row.app_role} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-gray-800">{row.organizer_count}</span>
+                          {row.pending_claim_count > 0 ? (
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-amber-100 text-amber-950 ring-1 ring-amber-200/90">
+                              ЧАКАЩ
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {row.created_at ? new Date(row.created_at).toLocaleString() : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600" title={row.last_sign_in_at ? new Date(row.last_sign_in_at).toLocaleString("bg-BG") : undefined}>
+                        {lastSeen}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/admin/users/${row.id}`}
+                          className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-gray-900 shadow-sm hover:bg-gray-50"
+                        >
+                          Детайли
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-8 text-center text-gray-600">
+                      Няма редове за тази страница.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {totalPages > 1 ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-black/50">
+          <p className="text-xs text-gray-500">
             Страница {currentPage} от {totalPages}
           </p>
           <div className="flex flex-wrap gap-2">
             {prevQs ? (
               <Link
                 href={`/admin/users?${prevQs}`}
-                className="inline-flex items-center rounded-lg border border-black/[0.12] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.04]"
+                className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] shadow-sm hover:bg-gray-50"
               >
                 Предишна
               </Link>
             ) : (
-              <span className="inline-flex items-center rounded-lg border border-black/[0.08] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-black/35">
+              <span className="inline-flex items-center rounded-lg border border-gray-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-gray-400">
                 Предишна
               </span>
             )}
             {nextQs ? (
               <Link
                 href={`/admin/users?${nextQs}`}
-                className="inline-flex items-center rounded-lg border border-black/[0.12] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-black/[0.04]"
+                className="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] shadow-sm hover:bg-gray-50"
               >
                 Следваща
               </Link>
             ) : (
-              <span className="inline-flex items-center rounded-lg border border-black/[0.08] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-black/35">
+              <span className="inline-flex items-center rounded-lg border border-gray-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-gray-400">
                 Следваща
               </span>
             )}

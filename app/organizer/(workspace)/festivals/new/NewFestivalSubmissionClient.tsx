@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
+import { StepContainer } from "@/components/organizer/new-festival-wizard/StepContainer";
+import { StepHeader } from "@/components/organizer/new-festival-wizard/StepHeader";
+import {
+  StepNavigation,
+  WizardProgressInline,
+  type WizardStepMeta,
+} from "@/components/organizer/new-festival-wizard/StepNavigation";
+
 export type NewFestivalDraftInitial = {
   id: string;
   organizer_id: string;
@@ -26,23 +34,7 @@ export type NewFestivalDraftInitial = {
   is_free: boolean;
 };
 
-type OrgOption = { id: string; name: string; slug: string };
-
-const isValidImageUrl = (url: string) => {
-  return /^https?:\/\/.+\.(jpg|jpeg|png|webp)$/i.test(url);
-};
-
-const FIELD_CLASS =
-  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black";
-
-const LABEL_TEXT_CLASS = "block text-sm font-medium text-gray-700 mb-1";
-
-const SECTION_TITLE_CLASS = "text-sm font-semibold text-gray-900 mb-2";
-
-const CARD_CLASS =
-  "w-full rounded-2xl border border-gray-100 bg-white px-4 py-6 shadow-sm sm:px-6";
-
-function buildPortalPayload(args: {
+export type NewFestivalFormData = {
   organizerId: string;
   title: string;
   description: string;
@@ -54,33 +46,99 @@ function buildPortalPayload(args: {
   locationName: string;
   address: string;
   category: string;
-  tags: string[];
+  tagsInput: string;
   websiteUrl: string;
   facebookUrl: string;
   instagramUrl: string;
   ticketUrl: string;
-  heroImage: string | null;
+  heroImageUrl: string;
   isFree: boolean;
-}) {
+};
+
+type OrgOption = { id: string; name: string; slug: string };
+
+const WIZARD_STEPS: WizardStepMeta[] = [
+  { id: 1, label: "Основна информация", shortLabel: "Основна" },
+  { id: 2, label: "Локация", shortLabel: "Локация" },
+  { id: 3, label: "Дати и време", shortLabel: "Дати" },
+  { id: 4, label: "Медия и допълнително", shortLabel: "Медия" },
+];
+
+const isValidImageUrl = (url: string) => {
+  return /^https?:\/\/.+\.(jpg|jpeg|png|webp)$/i.test(url);
+};
+
+const FIELD_CLASS =
+  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black";
+
+const LABEL_TEXT_CLASS = "block text-sm font-medium text-gray-700 mb-1";
+
+const CARD_CLASS =
+  "w-full max-w-2xl rounded-2xl border border-gray-100 bg-white px-4 py-6 shadow-sm sm:px-6";
+
+function buildInitialFormData(initialDraft: NewFestivalDraftInitial | null, preOrg: string): NewFestivalFormData {
   return {
-    organizer_id: args.organizerId,
-    title: args.title,
-    description: args.description,
-    city: args.city,
-    start_date: args.startDate,
-    end_date: args.endDate.trim() ? args.endDate : null,
-    start_time: args.startTime.trim() || null,
-    end_time: args.endTime.trim() || null,
-    location_name: args.locationName || null,
-    address: args.address || null,
-    category: args.category.trim() || "festival",
-    tags: args.tags,
-    website_url: args.websiteUrl || null,
-    facebook_url: args.facebookUrl || null,
-    instagram_url: args.instagramUrl || null,
-    ticket_url: args.ticketUrl || null,
-    hero_image: args.heroImage,
-    is_free: args.isFree,
+    organizerId: initialDraft?.organizer_id || preOrg || "",
+    title: initialDraft?.title ?? "",
+    description: initialDraft?.description ?? "",
+    city: initialDraft?.city ?? "",
+    startDate: initialDraft?.start_date ?? "",
+    endDate: initialDraft?.end_date ?? "",
+    startTime: initialDraft?.start_time ?? "",
+    endTime: initialDraft?.end_time ?? "",
+    locationName: initialDraft?.location_name ?? "",
+    address: initialDraft?.address ?? "",
+    category: initialDraft?.category ?? "festival",
+    tagsInput: initialDraft?.tagsInput ?? "",
+    websiteUrl: initialDraft?.website_url ?? "",
+    facebookUrl: initialDraft?.facebook_url ?? "",
+    instagramUrl: initialDraft?.instagram_url ?? "",
+    ticketUrl: initialDraft?.ticket_url ?? "",
+    heroImageUrl: initialDraft?.hero_image ?? "",
+    isFree: initialDraft?.is_free ?? true,
+  };
+}
+
+function isStepValid(step: number, data: NewFestivalFormData): boolean {
+  switch (step) {
+    case 1:
+      return Boolean(data.organizerId && data.title.trim() && data.category.trim());
+    case 2:
+      return Boolean(data.city.trim());
+    case 3:
+    case 4:
+      return true;
+    default:
+      return false;
+  }
+}
+
+function canSubmitFestival(data: NewFestivalFormData): boolean {
+  return Boolean(
+    data.organizerId && data.title.trim() && data.city.trim() && data.startDate && data.category.trim(),
+  );
+}
+
+function buildPortalPayload(data: NewFestivalFormData, heroImage: string | null, tags: string[]) {
+  return {
+    organizer_id: data.organizerId,
+    title: data.title,
+    description: data.description,
+    city: data.city,
+    start_date: data.startDate,
+    end_date: data.endDate.trim() ? data.endDate : null,
+    start_time: data.startTime.trim() || null,
+    end_time: data.endTime.trim() || null,
+    location_name: data.locationName || null,
+    address: data.address || null,
+    category: data.category.trim() || "festival",
+    tags,
+    website_url: data.websiteUrl || null,
+    facebook_url: data.facebookUrl || null,
+    instagram_url: data.instagramUrl || null,
+    ticket_url: data.ticketUrl || null,
+    hero_image: heroImage,
+    is_free: data.isFree,
   };
 }
 
@@ -91,37 +149,35 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
 
   const [orgs, setOrgs] = useState<OrgOption[]>([]);
   const [draftId, setDraftId] = useState<string | null>(() => initialDraft?.id ?? null);
-  const [organizerId, setOrganizerId] = useState(() => initialDraft?.organizer_id || preOrg);
-  const [title, setTitle] = useState(() => initialDraft?.title ?? "");
-  const [description, setDescription] = useState(() => initialDraft?.description ?? "");
-  const [city, setCity] = useState(() => initialDraft?.city ?? "");
-  const [startDate, setStartDate] = useState(() => initialDraft?.start_date ?? "");
-  const [endDate, setEndDate] = useState(() => initialDraft?.end_date ?? "");
-  const [startTime, setStartTime] = useState(() => initialDraft?.start_time ?? "");
-  const [endTime, setEndTime] = useState(() => initialDraft?.end_time ?? "");
-  const [locationName, setLocationName] = useState(() => initialDraft?.location_name ?? "");
-  const [address, setAddress] = useState(() => initialDraft?.address ?? "");
-  const [category, setCategory] = useState(() => initialDraft?.category ?? "festival");
-  const [tagsInput, setTagsInput] = useState(() => initialDraft?.tagsInput ?? "");
-  const [websiteUrl, setWebsiteUrl] = useState(() => initialDraft?.website_url ?? "");
-  const [facebookUrl, setFacebookUrl] = useState(() => initialDraft?.facebook_url ?? "");
-  const [instagramUrl, setInstagramUrl] = useState(() => initialDraft?.instagram_url ?? "");
-  const [ticketUrl, setTicketUrl] = useState(() => initialDraft?.ticket_url ?? "");
-  const [heroImageUrl, setHeroImageUrl] = useState(() => initialDraft?.hero_image ?? "");
-  const [isFree, setIsFree] = useState(() => initialDraft?.is_free ?? true);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState<NewFestivalFormData>(() => buildInitialFormData(initialDraft, preOrg));
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
   const [imageMissingModalOpen, setImageMissingModalOpen] = useState(false);
   const [thumbLoadFailed, setThumbLoadFailed] = useState(false);
   const heroImageUrlInputRef = useRef<HTMLInputElement>(null);
+  const topAnchorRef = useRef<HTMLDivElement>(null);
 
-  const trimmedHeroImageUrl = heroImageUrl.trim();
+  const trimmedHeroImageUrl = formData.heroImageUrl.trim();
   const hasHeroPreview = Boolean(trimmedHeroImageUrl) && !thumbLoadFailed;
+
+  function patchForm<K extends keyof NewFestivalFormData>(key: K, value: NewFestivalFormData[K]) {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  }
 
   useEffect(() => {
     setThumbLoadFailed(false);
   }, [trimmedHeroImageUrl]);
+
+  const skipScrollRef = useRef(true);
+  useEffect(() => {
+    if (skipScrollRef.current) {
+      skipScrollRef.current = false;
+      return;
+    }
+    topAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [currentStep]);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,7 +192,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
           setOrgs(payload?.organizers ?? []);
           const initialOrg = initialDraft?.organizer_id;
           if (!initialOrg && !preOrg && payload?.organizers?.length === 1) {
-            setOrganizerId(payload.organizers[0].id);
+            setFormData((prev) => ({ ...prev, organizerId: payload.organizers![0].id }));
           }
         }
       } catch (e) {
@@ -153,37 +209,18 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
   const performSubmit = useCallback(
     async (options?: { forceEmptyHero?: boolean }) => {
       setError("");
-      const effectiveHero = options?.forceEmptyHero ? null : heroImageUrl.trim() || null;
+      const effectiveHero = options?.forceEmptyHero ? null : trimmedHeroImageUrl || null;
       if (effectiveHero && !isValidImageUrl(effectiveHero)) {
         setError("Невалиден линк към снимка");
         return;
       }
       setBusy(true);
       try {
-        const tags = tagsInput
+        const tags = formData.tagsInput
           .split(",")
           .map((t) => t.trim())
           .filter(Boolean);
-        const base = buildPortalPayload({
-          organizerId,
-          title,
-          description,
-          city,
-          startDate,
-          endDate,
-          startTime,
-          endTime,
-          locationName,
-          address,
-          category,
-          tags,
-          websiteUrl,
-          facebookUrl,
-          instagramUrl,
-          ticketUrl,
-          heroImage: effectiveHero,
-          isFree,
-        });
+        const base = buildPortalPayload(formData, effectiveHero, tags);
 
         if (draftId) {
           const patchBody: Record<string, unknown> = {
@@ -236,33 +273,12 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
         setBusy(false);
       }
     },
-    [
-      draftId,
-      organizerId,
-      title,
-      description,
-      city,
-      startDate,
-      endDate,
-      startTime,
-      endTime,
-      locationName,
-      address,
-      category,
-      tagsInput,
-      websiteUrl,
-      facebookUrl,
-      instagramUrl,
-      ticketUrl,
-      heroImageUrl,
-      isFree,
-      router,
-    ],
+    [draftId, formData, router, trimmedHeroImageUrl],
   );
 
   async function handlePreview() {
     setError("");
-    if (!organizerId || !title.trim() || !city.trim() || !startDate) {
+    if (!formData.organizerId || !formData.title.trim() || !formData.city.trim() || !formData.startDate) {
       setError("Моля, попълни всички задължителни полета.");
       return;
     }
@@ -273,30 +289,11 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
     }
     setBusy(true);
     try {
-      const tags = tagsInput
+      const tags = formData.tagsInput
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
-      const base = buildPortalPayload({
-        organizerId,
-        title,
-        description,
-        city,
-        startDate,
-        endDate,
-        startTime,
-        endTime,
-        locationName,
-        address,
-        category,
-        tags,
-        websiteUrl,
-        facebookUrl,
-        instagramUrl,
-        ticketUrl,
-        heroImage: trimmedHeroImageUrl || null,
-        isFree,
-      });
+      const base = buildPortalPayload(formData, trimmedHeroImageUrl || null, tags);
 
       if (draftId) {
         const patchBody: Record<string, unknown> = {
@@ -357,9 +354,9 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!organizerId || !title.trim() || !city.trim() || !startDate) {
+  function requestFinalSubmit() {
+    setError("");
+    if (!canSubmitFestival(formData)) {
       setError("Моля, попълни всички задължителни полета.");
       return;
     }
@@ -376,42 +373,60 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
   }
 
   function focusHeroImageUrlField() {
-    heroImageUrlInputRef.current?.focus();
-    heroImageUrlInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setCurrentStep(4);
+    setTimeout(() => {
+      heroImageUrlInputRef.current?.focus();
+      heroImageUrlInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
   }
+
+  function goNext() {
+    setError("");
+    if (!isStepValid(currentStep, formData)) {
+      setError("Моля, попълни задължителните полета в тази стъпка.");
+      return;
+    }
+    setCurrentStep((s) => Math.min(4, s + 1));
+  }
+
+  function goBack() {
+    setError("");
+    setCurrentStep((s) => Math.max(1, s - 1));
+  }
+
+  const stepCopy = WIZARD_STEPS[currentStep - 1];
+  const stepTitle = stepCopy?.label ?? "";
+  const stepDescriptions: Record<number, string> = {
+    1: "Име, описание, категория и организатор.",
+    2: "Град, адрес и място. Координатите се уточняват при модерация при нужда.",
+    3: "Начална и крайна дата и час.",
+    4: "Снимка, връзки към сайт и социални мрежи, тагове.",
+  };
 
   return (
     <>
-      <div className="mx-auto w-full max-w-2xl space-y-6">
+      <div ref={topAnchorRef} className="mx-auto flex w-full max-w-2xl flex-col items-center gap-6">
         <div className={CARD_CLASS}>
           <Link href="/organizer/dashboard" className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 hover:text-gray-900">
             ← Табло
           </Link>
           <div className="mt-4">
             <h1 className="text-xl font-semibold text-gray-900">Добави фестивал</h1>
-            <p className="mt-1 text-sm text-gray-600">Попълни информацията и изпрати за преглед от екипа на Festivo</p>
+            <p className="mt-1 text-sm text-gray-600">Попълни информацията стъпка по стъпка и изпрати за преглед от екипа на Festivo</p>
           </div>
         </div>
 
         {loadError ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">{loadError}</p>
+          <p className="w-full max-w-2xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">{loadError}</p>
         ) : null}
 
-        <form onSubmit={handleSubmit} className={CARD_CLASS}>
-          <div className="space-y-4">
-            <p className="text-xs text-gray-500">* Задължителни полета</p>
+        <div className={CARD_CLASS}>
+          <WizardProgressInline steps={WIZARD_STEPS} currentStep={currentStep} />
+
+          <div className="mt-6 space-y-6">
+            <p className="text-xs text-gray-500">* Задължителни полета за съответната стъпка</p>
             {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
-            <label className="block">
-              <span className={LABEL_TEXT_CLASS}>Организатор *</span>
-              <select required value={organizerId} onChange={(ev) => setOrganizerId(ev.target.value)} className={FIELD_CLASS}>
-                <option value="">— изберете —</option>
-                {orgs.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+
             {draftId ? (
               <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                 Чернова:{" "}
@@ -420,181 +435,245 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                 </Link>
               </p>
             ) : null}
-          </div>
 
-          <div className="mt-6 border-t border-gray-100 pt-6 sm:mt-8 sm:pt-8">
-            <h3 className={SECTION_TITLE_CLASS}>Основна информация</h3>
-            <div className="space-y-4">
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Заглавие *</span>
-                <input
-                  required
-                  value={title}
-                  onChange={(ev) => setTitle(ev.target.value)}
-                  placeholder="Напр. Фестивал на народните танци – Враца 2026"
-                  className={FIELD_CLASS}
-                />
-              </label>
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Описание</span>
-                <textarea value={description} onChange={(ev) => setDescription(ev.target.value)} rows={4} className={FIELD_CLASS} />
-              </label>
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Категория</span>
-                <input value={category} onChange={(ev) => setCategory(ev.target.value)} placeholder="festival" className={FIELD_CLASS} />
-              </label>
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Тагове</span>
-                <input
-                  value={tagsInput}
-                  onChange={(ev) => setTagsInput(ev.target.value)}
-                  placeholder="отделени със запетая"
-                  className={FIELD_CLASS}
-                />
-              </label>
-            </div>
-          </div>
+            <StepContainer stepKey={currentStep}>
+              <StepHeader
+                title={stepTitle}
+                description={stepDescriptions[currentStep]}
+                stepIndex={currentStep}
+                totalSteps={WIZARD_STEPS.length}
+              />
 
-          <div className="mt-6 border-t border-gray-100 pt-6 sm:mt-8 sm:pt-8">
-            <h3 className={SECTION_TITLE_CLASS}>Локация</h3>
-            <div className="space-y-4">
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Град / населено място *</span>
-                <input
-                  required
-                  value={city}
-                  onChange={(ev) => setCity(ev.target.value)}
-                  placeholder="напр. София или Пловдив"
-                  className={FIELD_CLASS}
-                />
-              </label>
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Място / локация</span>
-                <input value={locationName} onChange={(ev) => setLocationName(ev.target.value)} className={FIELD_CLASS} />
-              </label>
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Адрес</span>
-                <input value={address} onChange={(ev) => setAddress(ev.target.value)} className={FIELD_CLASS} />
-              </label>
-            </div>
-          </div>
-
-          <div className="mt-6 border-t border-gray-100 pt-6 sm:mt-8 sm:pt-8">
-            <h3 className={SECTION_TITLE_CLASS}>Дати</h3>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Начало *</span>
-                <input required type="date" value={startDate} onChange={(ev) => setStartDate(ev.target.value)} className={FIELD_CLASS} />
-              </label>
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Край</span>
-                <input type="date" value={endDate} onChange={(ev) => setEndDate(ev.target.value)} className={FIELD_CLASS} />
-              </label>
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Начало (час)</span>
-                <input type="time" step={60} value={startTime} onChange={(ev) => setStartTime(ev.target.value)} className={FIELD_CLASS} />
-              </label>
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Край (час)</span>
-                <input type="time" step={60} value={endTime} onChange={(ev) => setEndTime(ev.target.value)} className={FIELD_CLASS} />
-              </label>
-            </div>
-          </div>
-
-          <div className="mt-6 border-t border-gray-100 pt-6 sm:mt-8 sm:pt-8">
-            <h3 className={SECTION_TITLE_CLASS}>Медия</h3>
-            <div className="space-y-4">
-              <div>
-                <span className={LABEL_TEXT_CLASS}>Снимка (препоръчително)</span>
-                <p className="text-xs text-gray-500">Фестивалите със снимка се разглеждат значително повече</p>
-                <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-stretch">
-                  <button
-                    type="button"
-                    onClick={focusHeroImageUrlField}
-                    className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-50 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 ${
-                      hasHeroPreview
-                        ? "h-36 w-full border border-gray-300 sm:h-auto sm:w-44 sm:min-h-[9rem]"
-                        : "h-36 w-full border-2 border-dashed border-gray-300 sm:w-44"
-                    }`}
-                  >
-                    {hasHeroPreview ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- arbitrary URL paste (no remotePatterns guarantee)
-                      <img
-                        src={trimmedHeroImageUrl}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        onError={() => setThumbLoadFailed(true)}
-                      />
-                    ) : (
-                      <span className="px-3 text-center text-sm font-medium text-gray-500">+ Добави снимка</span>
-                    )}
-                  </button>
-                  <label className="block min-w-0 flex-1">
-                    <span className={LABEL_TEXT_CLASS}>Линк към снимка</span>
+              {currentStep === 1 ? (
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Организатор *</span>
+                    <select
+                      value={formData.organizerId}
+                      onChange={(ev) => patchForm("organizerId", ev.target.value)}
+                      className={FIELD_CLASS}
+                    >
+                      <option value="">— изберете —</option>
+                      {orgs.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Заглавие *</span>
                     <input
-                      ref={heroImageUrlInputRef}
-                      value={heroImageUrl}
-                      onChange={(ev) => setHeroImageUrl(ev.target.value)}
-                      type="url"
-                      placeholder="https://"
+                      value={formData.title}
+                      onChange={(ev) => patchForm("title", ev.target.value)}
+                      placeholder="Напр. Фестивал на народните танци – Враца 2026"
+                      className={FIELD_CLASS}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Описание</span>
+                    <textarea
+                      value={formData.description}
+                      onChange={(ev) => patchForm("description", ev.target.value)}
+                      rows={4}
+                      className={FIELD_CLASS}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Категория *</span>
+                    <input
+                      value={formData.category}
+                      onChange={(ev) => patchForm("category", ev.target.value)}
+                      placeholder="festival"
                       className={FIELD_CLASS}
                     />
                   </label>
                 </div>
-              </div>
-            </div>
-          </div>
+              ) : null}
 
-          <div className="mt-6 border-t border-gray-100 pt-6 sm:mt-8 sm:pt-8">
-            <h3 className={SECTION_TITLE_CLASS}>Връзки</h3>
-            <div className="space-y-4">
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Уебсайт</span>
-                <input value={websiteUrl} onChange={(ev) => setWebsiteUrl(ev.target.value)} type="url" placeholder="https://" className={FIELD_CLASS} />
-              </label>
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Facebook</span>
-                <input value={facebookUrl} onChange={(ev) => setFacebookUrl(ev.target.value)} type="url" placeholder="https://" className={FIELD_CLASS} />
-              </label>
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Instagram</span>
-                <input value={instagramUrl} onChange={(ev) => setInstagramUrl(ev.target.value)} type="url" placeholder="https://" className={FIELD_CLASS} />
-              </label>
-              <label className="block">
-                <span className={LABEL_TEXT_CLASS}>Билети / линк</span>
-                <input value={ticketUrl} onChange={(ev) => setTicketUrl(ev.target.value)} type="url" placeholder="https://" className={FIELD_CLASS} />
-              </label>
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={isFree}
-                  onChange={(ev) => setIsFree(ev.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 accent-black focus:ring-2 focus:ring-black/10"
-                />
-                <span className="text-sm font-medium text-gray-700">Безплатно събитие</span>
-              </label>
-            </div>
-          </div>
+              {currentStep === 2 ? (
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Град / населено място *</span>
+                    <input
+                      value={formData.city}
+                      onChange={(ev) => patchForm("city", ev.target.value)}
+                      placeholder="напр. София или Пловдив"
+                      className={FIELD_CLASS}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Място / локация</span>
+                    <input
+                      value={formData.locationName}
+                      onChange={(ev) => patchForm("locationName", ev.target.value)}
+                      className={FIELD_CLASS}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Адрес</span>
+                    <input value={formData.address} onChange={(ev) => patchForm("address", ev.target.value)} className={FIELD_CLASS} />
+                  </label>
+                </div>
+              ) : null}
 
-          <div className="mt-6 flex flex-col items-stretch gap-2 sm:items-end">
-            <button
-              type="button"
-              onClick={() => void handlePreview()}
-              disabled={!orgs.length || busy}
-              className="mt-6 inline-flex w-full justify-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-900 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black/10 disabled:opacity-50 sm:mt-0 sm:w-auto"
-            >
-              {busy ? "Запис…" : "Преглед"}
-            </button>
-            <button
-              type="submit"
-              disabled={busy || !orgs.length}
-              className="inline-flex w-full justify-center rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white transition hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-black/10 disabled:opacity-50 sm:w-auto"
-            >
-              {busy ? "Изпращане…" : "Изпрати за одобрение"}
-            </button>
-            <p className="text-center text-xs text-gray-500 sm:text-right">След одобрение можеш да промотираш фестивала си</p>
+              {currentStep === 3 ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Начало</span>
+                    <input type="date" value={formData.startDate} onChange={(ev) => patchForm("startDate", ev.target.value)} className={FIELD_CLASS} />
+                  </label>
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Край</span>
+                    <input type="date" value={formData.endDate} onChange={(ev) => patchForm("endDate", ev.target.value)} className={FIELD_CLASS} />
+                  </label>
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Начало (час)</span>
+                    <input type="time" step={60} value={formData.startTime} onChange={(ev) => patchForm("startTime", ev.target.value)} className={FIELD_CLASS} />
+                  </label>
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Край (час)</span>
+                    <input type="time" step={60} value={formData.endTime} onChange={(ev) => patchForm("endTime", ev.target.value)} className={FIELD_CLASS} />
+                  </label>
+                </div>
+              ) : null}
+
+              {currentStep === 4 ? (
+                <div className="space-y-6">
+                  <div>
+                    <span className={LABEL_TEXT_CLASS}>Снимка (препоръчително)</span>
+                    <p className="text-xs text-gray-500">Фестивалите със снимка се разглеждат значително повече</p>
+                    <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-stretch">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          heroImageUrlInputRef.current?.focus();
+                          heroImageUrlInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }}
+                        className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-50 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10 ${
+                          hasHeroPreview
+                            ? "h-36 w-full border border-gray-300 sm:h-auto sm:w-44 sm:min-h-[9rem]"
+                            : "h-36 w-full border-2 border-dashed border-gray-300 sm:w-44"
+                        }`}
+                      >
+                        {hasHeroPreview ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- arbitrary URL paste (no remotePatterns guarantee)
+                          <img
+                            src={trimmedHeroImageUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            onError={() => setThumbLoadFailed(true)}
+                          />
+                        ) : (
+                          <span className="px-3 text-center text-sm font-medium text-gray-500">+ Добави снимка</span>
+                        )}
+                      </button>
+                      <label className="block min-w-0 flex-1">
+                        <span className={LABEL_TEXT_CLASS}>Линк към снимка</span>
+                        <input
+                          ref={heroImageUrlInputRef}
+                          value={formData.heroImageUrl}
+                          onChange={(ev) => patchForm("heroImageUrl", ev.target.value)}
+                          type="url"
+                          placeholder="https://"
+                          className={FIELD_CLASS}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-t border-gray-100 pt-6">
+                    <h3 className="text-sm font-semibold text-gray-900">Връзки</h3>
+                    <label className="block">
+                      <span className={LABEL_TEXT_CLASS}>Уебсайт</span>
+                      <input
+                        value={formData.websiteUrl}
+                        onChange={(ev) => patchForm("websiteUrl", ev.target.value)}
+                        type="url"
+                        placeholder="https://"
+                        className={FIELD_CLASS}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={LABEL_TEXT_CLASS}>Facebook</span>
+                      <input
+                        value={formData.facebookUrl}
+                        onChange={(ev) => patchForm("facebookUrl", ev.target.value)}
+                        type="url"
+                        placeholder="https://"
+                        className={FIELD_CLASS}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={LABEL_TEXT_CLASS}>Instagram</span>
+                      <input
+                        value={formData.instagramUrl}
+                        onChange={(ev) => patchForm("instagramUrl", ev.target.value)}
+                        type="url"
+                        placeholder="https://"
+                        className={FIELD_CLASS}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={LABEL_TEXT_CLASS}>Билети / линк</span>
+                      <input
+                        value={formData.ticketUrl}
+                        onChange={(ev) => patchForm("ticketUrl", ev.target.value)}
+                        type="url"
+                        placeholder="https://"
+                        className={FIELD_CLASS}
+                      />
+                    </label>
+                  </div>
+
+                  <label className="block">
+                    <span className={LABEL_TEXT_CLASS}>Тагове</span>
+                    <input
+                      value={formData.tagsInput}
+                      onChange={(ev) => patchForm("tagsInput", ev.target.value)}
+                      placeholder="отделени със запетая"
+                      className={FIELD_CLASS}
+                    />
+                  </label>
+
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.isFree}
+                      onChange={(ev) => patchForm("isFree", ev.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 accent-black focus:ring-2 focus:ring-black/10"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Безплатно събитие</span>
+                  </label>
+                </div>
+              ) : null}
+            </StepContainer>
+
+            <StepNavigation
+              showBack={currentStep > 1}
+              isLastStep={currentStep === 4}
+              busy={busy}
+              disableNext={!isStepValid(currentStep, formData)}
+              disableSubmit={busy || !orgs.length || !canSubmitFestival(formData)}
+              onBack={goBack}
+              onNext={goNext}
+              onSubmit={requestFinalSubmit}
+              previewSlot={
+                currentStep === 4 ? (
+                  <button
+                    type="button"
+                    onClick={() => void handlePreview()}
+                    disabled={!orgs.length || busy}
+                    className="inline-flex w-full justify-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-900 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black/10 disabled:opacity-50 sm:w-auto"
+                  >
+                    {busy ? "Запис…" : "Преглед"}
+                  </button>
+                ) : null
+              }
+              footerNote={<p className="text-center text-xs text-gray-500 sm:text-right">След одобрение можеш да промотираш фестивала си</p>}
+            />
           </div>
-        </form>
+        </div>
       </div>
 
       {imageMissingModalOpen ? (

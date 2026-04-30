@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isStaffAdminRole } from "@/lib/admin/appRoles";
+import { sanitizeDeletedReason } from "@/lib/admin/sanitizeDeletedReason";
 
 export async function fetchUserDeletedAtMap(
   adminClient: SupabaseClient,
@@ -135,13 +136,26 @@ export async function setUserSoftDeleted(
   deleted: boolean,
   options?: SoftDeleteOptions,
 ): Promise<void> {
-  const { error } = await adminClient.rpc("admin_set_user_soft_deleted", {
-    target_user_id: userId,
-    is_deleted: deleted,
-    actor_user_id: deleted ? (options?.actorUserId ?? null) : null,
-    p_reason: deleted ? (options?.reason ?? null) : null,
-  });
-  if (error) {
-    throw new Error(deleted ? `users soft delete: ${error.message}` : `users restore: ${error.message}`);
+  const reason =
+    deleted && options?.reason != null && String(options.reason).trim()
+      ? sanitizeDeletedReason(options.reason)
+      : null;
+
+  let lastMessage = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, 100 * attempt));
+    }
+    const { error } = await adminClient.rpc("admin_set_user_soft_deleted", {
+      target_user_id: userId,
+      is_deleted: deleted,
+      actor_user_id: deleted ? (options?.actorUserId ?? null) : null,
+      p_reason: reason,
+    });
+    if (!error) {
+      return;
+    }
+    lastMessage = error.message;
   }
+  throw new Error(deleted ? `users soft delete: ${lastMessage}` : `users restore: ${lastMessage}`);
 }

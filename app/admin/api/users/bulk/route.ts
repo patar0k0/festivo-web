@@ -3,8 +3,14 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { fetchAdminUserDetail, isAuthUserId } from "@/lib/admin/adminUserDetail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
-import { assertCanApplyDestructiveUserAction, setUserSoftDeleted } from "@/lib/admin/adminUserAccount";
+import {
+  assertCanApplyDestructiveUserAction,
+  assertNotSoleOrganizerOwner,
+  setUserSoftDeleted,
+} from "@/lib/admin/adminUserAccount";
+import { sanitizeDeletedReason } from "@/lib/admin/sanitizeDeletedReason";
 import { getUserAppRole, persistUserAppRole, assertCanSetAppRole } from "@/lib/admin/adminUserRole";
+import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 import { isAppRoleValue, type AppRole } from "@/lib/admin/appRoles";
 
 const BAN_DURATION = "87600h";
@@ -45,7 +51,7 @@ export async function POST(request: Request) {
   let reason: string | null = null;
   const r = body.reason;
   if (typeof r === "string" && r.trim()) {
-    reason = r.trim().slice(0, 2000);
+    reason = sanitizeDeletedReason(r);
   }
 
   let adminClient;
@@ -68,10 +74,33 @@ export async function POST(request: Request) {
     if (action === "ban") {
       for (const id of userIds) {
         try {
+          if (id === ctx.user.id) {
+            pushFail(id, "Не можете да приложите това действие към собствения си акаунт.");
+            continue;
+          }
+          const detail = await fetchAdminUserDetail(adminClient, id);
+          if (!detail) {
+            pushFail(id, "Not found");
+            continue;
+          }
+          const appRole = await getUserAppRole(adminClient, id);
+          await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
           const { error } = await adminClient.auth.admin.updateUserById(id, { ban_duration: BAN_DURATION });
           if (error) {
             pushFail(id, error.message);
             continue;
+          }
+          try {
+            await logUserSecurityAudit({
+              actorUserId: ctx.user.id,
+              targetUserId: id,
+              action: "user_ban",
+              route: "/admin/api/users/bulk",
+              method: "POST",
+              metadata: { email: detail.email, bulk: true },
+            });
+          } catch {
+            /* best-effort */
           }
           success.push(id);
         } catch (e) {
@@ -97,6 +126,18 @@ export async function POST(request: Request) {
           const appRole = await getUserAppRole(adminClient, id);
           await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
           await setUserSoftDeleted(adminClient, id, true, { actorUserId: ctx.user.id, reason });
+          try {
+            await logUserSecurityAudit({
+              actorUserId: ctx.user.id,
+              targetUserId: id,
+              action: "user_soft_delete",
+              route: "/admin/api/users/bulk",
+              method: "POST",
+              metadata: { email: detail.email, reason: reason ?? undefined, bulk: true },
+            });
+          } catch {
+            /* best-effort */
+          }
           success.push(id);
         } catch (e) {
           pushFail(id, e);
@@ -110,8 +151,26 @@ export async function POST(request: Request) {
       const nextRole: AppRole = rawRole;
       for (const id of userIds) {
         try {
+          if (id === ctx.user.id) {
+            pushFail(id, "Не можете да приложите това действие към собствения си акаунт.");
+            continue;
+          }
+          await assertNotSoleOrganizerOwner(adminClient, id);
+          const prevRole = await getUserAppRole(adminClient, id);
           await assertCanSetAppRole(adminClient, ctx.user.id, id, nextRole);
           await persistUserAppRole(adminClient, id, nextRole);
+          try {
+            await logUserSecurityAudit({
+              actorUserId: ctx.user.id,
+              targetUserId: id,
+              action: "user_role_change",
+              route: "/admin/api/users/bulk",
+              method: "POST",
+              metadata: { from: prevRole, to: nextRole, bulk: true },
+            });
+          } catch {
+            /* best-effort */
+          }
           success.push(id);
         } catch (e) {
           pushFail(id, e);

@@ -63,7 +63,28 @@ function getClientIp(request: NextRequest): string {
   return "unknown";
 }
 
-function getBucket(pathname: string): RateLimitBucket {
+function getBucket(pathname: string, method: string): RateLimitBucket {
+  const m = method.toUpperCase();
+
+  if (
+    pathname.match(/^\/admin\/api\/users\/[0-9a-f-]{36}\/hard$/i) &&
+    m === "DELETE"
+  ) {
+    return { id: "admin-user-hard-delete", requests: 5, window: "60 s" };
+  }
+  if (
+    pathname.match(/^\/admin\/api\/users\/[0-9a-f-]{36}\/reset-password$/i) &&
+    m === "POST"
+  ) {
+    return { id: "admin-user-reset-password", requests: 10, window: "60 s" };
+  }
+  if (pathname.match(/^\/admin\/api\/users\/[0-9a-f-]{36}\/force-logout$/i) && m === "POST") {
+    return { id: "admin-user-force-logout", requests: 20, window: "60 s" };
+  }
+  if (pathname.match(/^\/admin\/api\/users\/[0-9a-f-]{36}$/i) && m === "DELETE") {
+    return { id: "admin-user-soft-delete", requests: 25, window: "60 s" };
+  }
+
   if (pathname.startsWith("/api/admin/research-ai")) {
     return { id: "admin-research", requests: 10, window: "60 s" };
   }
@@ -119,7 +140,7 @@ export async function checkRateLimit(
   userId: string | null = null,
 ): Promise<RateLimitResult> {
   const pathname = request.nextUrl.pathname;
-  const bucket = getBucket(pathname);
+  const bucket = getBucket(pathname, request.method);
   const ratelimit = getRatelimit(bucket);
   if (!ratelimit) {
     return { limited: false, resetSeconds: DEFAULT_WINDOW_SECONDS };

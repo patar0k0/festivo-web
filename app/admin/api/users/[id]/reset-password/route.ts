@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { isAuthUserId } from "@/lib/admin/adminUserDetail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { logAdminAction } from "@/lib/admin/audit-log";
+import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -46,11 +46,10 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     }
 
     try {
-      await logAdminAction({
-        actor_user_id: ctx.user.id,
+      await logUserSecurityAudit({
+        actorUserId: ctx.user.id,
+        targetUserId: id,
         action: "user_reset_password",
-        entity_type: "user",
-        entity_id: id,
         route: `/admin/api/users/${id}/reset-password`,
         method: "POST",
       });

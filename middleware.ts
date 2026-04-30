@@ -174,7 +174,20 @@ export async function middleware(request: NextRequest) {
     const bannedUntil = user.banned_until;
     const isBanned = bannedUntil != null && bannedUntil !== "" && new Date(bannedUntil) > new Date();
 
-    const { data: accountRow } = await supabase.from("users").select("deleted_at").eq("id", user.id).maybeSingle();
+    let accountRow: { deleted_at?: string | null } | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 40 * attempt));
+      }
+      const res = await supabase.from("users").select("deleted_at").eq("id", user.id).maybeSingle();
+      if (!res.error) {
+        accountRow = res.data;
+        break;
+      }
+      if (attempt === 2) {
+        console.error("[middleware] users.deleted_at lookup failed after retries", res.error);
+      }
+    }
     const isDeletedAccount = Boolean(accountRow?.deleted_at);
 
     if (isDeletedAccount || isBanned) {

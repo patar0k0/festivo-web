@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { fetchAdminUserDetail, isAuthUserId } from "@/lib/admin/adminUserDetail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { logAdminAction } from "@/lib/admin/audit-log";
+import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 import { assertCanApplyDestructiveUserAction, setUserSoftDeleted } from "@/lib/admin/adminUserAccount";
+import { sanitizeDeletedReason } from "@/lib/admin/sanitizeDeletedReason";
 import { getUserAppRole } from "@/lib/admin/adminUserRole";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
@@ -55,7 +56,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     const body = (await request.json().catch(() => null)) as { reason?: unknown } | null;
     const r = body?.reason;
     if (typeof r === "string" && r.trim()) {
-      reason = r.trim().slice(0, 2000);
+      reason = sanitizeDeletedReason(r);
     }
   } catch {
     /* optional body */
@@ -85,14 +86,13 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     await setUserSoftDeleted(adminClient, id, true, { actorUserId: ctx.user.id, reason });
 
     try {
-      await logAdminAction({
-        actor_user_id: ctx.user.id,
+      await logUserSecurityAudit({
+        actorUserId: ctx.user.id,
+        targetUserId: id,
         action: "user_soft_delete",
-        entity_type: "user",
-        entity_id: id,
         route: `/admin/api/users/${id}`,
         method: "DELETE",
-        details: { email: detail.email },
+        metadata: { email: detail.email, reason: reason ?? undefined },
       });
     } catch {
       /* best-effort */

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { isAuthUserId } from "@/lib/admin/adminUserDetail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { logAdminAction } from "@/lib/admin/audit-log";
+import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 import { invalidateAuthSessions } from "@/lib/admin/adminUserAccount";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
@@ -29,11 +29,10 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     await invalidateAuthSessions(adminClient, id);
 
     try {
-      await logAdminAction({
-        actor_user_id: ctx.user.id,
+      await logUserSecurityAudit({
+        actorUserId: ctx.user.id,
+        targetUserId: id,
         action: "user_force_logout",
-        entity_type: "user",
-        entity_id: id,
         route: `/admin/api/users/${id}/force-logout`,
         method: "POST",
       });

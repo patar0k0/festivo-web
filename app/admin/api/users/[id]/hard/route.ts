@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { fetchAdminUserDetail, isAuthUserId } from "@/lib/admin/adminUserDetail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { logAdminAction } from "@/lib/admin/audit-log";
+import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 import { assertCanApplyDestructiveUserAction } from "@/lib/admin/adminUserAccount";
 import { getUserAppRole } from "@/lib/admin/adminUserRole";
 import { hardDeleteAuthUser } from "@/lib/admin/hardDeleteAuthUser";
@@ -62,14 +62,13 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     await hardDeleteAuthUser(adminClient, id);
 
     try {
-      await logAdminAction({
-        actor_user_id: ctx.user.id,
+      await logUserSecurityAudit({
+        actorUserId: ctx.user.id,
+        targetUserId: id,
         action: "user_hard_delete",
-        entity_type: "user",
-        entity_id: id,
         route: `/admin/api/users/${id}/hard`,
         method: "DELETE",
-        details: { email: detail.email },
+        metadata: { email: detail.email },
       });
     } catch {
       /* best-effort */

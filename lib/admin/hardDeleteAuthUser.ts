@@ -1,9 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isAuthUserNotFoundError } from "@/lib/admin/authAdminErrors";
+import { postAuthUserSweep } from "@/lib/admin/postAuthUserSweep";
 
 /**
- * Dev-only full removal (mirrors `POST /api/account/delete` ordering for a target user).
+ * Remove application data for a user (everything except the post-auth RPC sweep).
+ * Safe to run when auth user is already gone.
  */
-export async function hardDeleteAuthUser(admin: SupabaseClient, userId: string): Promise<void> {
+export async function purgeUserApplicationData(admin: SupabaseClient, userId: string): Promise<void> {
   const del = async (table: string, column = "user_id") => {
     const { error } = await admin.from(table).delete().eq(column, userId);
     if (error) {
@@ -66,14 +69,40 @@ export async function hardDeleteAuthUser(admin: SupabaseClient, userId: string):
 
   await del("analytics_events");
   await del("outbound_clicks");
+}
+
+/**
+ * Dev-only full removal (mirrors `POST /api/account/delete` ordering for a target user).
+ * Idempotent when auth user is already deleted.
+ */
+export async function hardDeleteAuthUser(admin: SupabaseClient, userId: string): Promise<void> {
+  const { data: authLookup, error: authLookupErr } = await admin.auth.admin.getUserById(userId);
+  const authUser = authLookup?.user ?? null;
+
+  if (authLookupErr && !isAuthUserNotFoundError(authLookupErr)) {
+    throw new Error(authLookupErr.message);
+  }
+
+  if (!authUser) {
+    await purgeUserApplicationData(admin, userId);
+    await postAuthUserSweep(admin, userId, {
+      label: "hard_delete_auth_already_missing",
+      userId,
+      warnOnAllZero: false,
+    });
+    return;
+  }
+
+  await purgeUserApplicationData(admin, userId);
 
   const { error: authErr } = await admin.auth.admin.deleteUser(userId);
-  if (authErr) {
+  if (authErr && !isAuthUserNotFoundError(authErr)) {
     throw new Error(authErr.message);
   }
 
-  const { error: sweepErr } = await admin.rpc("admin_sweep_user_after_auth_delete", { p_user_id: userId });
-  if (sweepErr) {
-    throw new Error(`post-auth sweep: ${sweepErr.message}`);
-  }
+  await postAuthUserSweep(admin, userId, {
+    label: "hard_delete_after_auth_remove",
+    userId,
+    warnOnAllZero: true,
+  });
 }

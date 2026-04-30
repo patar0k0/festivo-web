@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { clearUserSweepRetryQueue } from "@/lib/admin/userSweepRetryQueue";
+import { clearUserSweepTracking } from "@/lib/admin/userSweepRetryQueue";
 
 export type PostAuthUserSweepResult = {
   organizer_members_deleted: number;
@@ -86,7 +86,7 @@ export async function postAuthUserSweep(
         console.info("[postAuthUserSweep] ok", logCtx.label, { userId, ...parsed });
       }
 
-      await clearUserSweepRetryQueue(admin, userId);
+      await clearUserSweepTracking(admin, userId);
       return parsed;
     }
     lastErr = new Error(error.message);

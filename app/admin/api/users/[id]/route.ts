@@ -6,6 +6,7 @@ import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 import { assertCanApplyDestructiveUserAction, setUserSoftDeleted } from "@/lib/admin/adminUserAccount";
 import { sanitizeDeletedReason } from "@/lib/admin/sanitizeDeletedReason";
 import { getUserAppRole } from "@/lib/admin/adminUserRole";
+import { invalidateCachedUserGate } from "@/lib/middlewareUserGateCache";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -84,6 +85,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
 
     await setUserSoftDeleted(adminClient, id, true, { actorUserId: ctx.user.id, reason });
+    invalidateCachedUserGate(id);
 
     await logUserSecurityAudit({
       actorUserId: ctx.user.id,

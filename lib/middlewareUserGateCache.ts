@@ -4,7 +4,7 @@ type GatePayload = {
   exp: number;
 };
 
-const TTL_MS = 8_000;
+const TTL_MS = 4_000;
 const store = new Map<string, GatePayload>();
 
 function prune(now: number): void {
@@ -35,4 +35,8 @@ export function setCachedUserGate(
     banned_until: fields.banned_until,
     exp: Date.now() + TTL_MS,
   });
+}
+
+export function invalidateCachedUserGate(userId: string): void {
+  store.delete(userId);
 }

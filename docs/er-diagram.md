@@ -165,11 +165,15 @@ erDiagram
     text deleted_reason
     boolean cleanup_pending
     timestamptz banned_until
+    boolean ban_sync_error
   }
 
   user_sweep_retry_queue {
     uuid user_id PK
     timestamptz enqueued_at
+    int attempts
+    timestamptz next_retry_at
+    timestamptz locked_until
   }
 
   user_roles {
@@ -241,6 +245,7 @@ erDiagram
     text method
     text status
     jsonb details
+    text dedupe_key UK
   }
 
   notification_jobs {

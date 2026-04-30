@@ -14,6 +14,7 @@ import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
 import { isAppRoleValue, type AppRole } from "@/lib/admin/appRoles";
 import { consumeAdminBulkUserOperationTokens } from "@/lib/rateLimit";
 import { adminSyncUserBannedUntil } from "@/lib/admin/syncUserBannedUntil";
+import { invalidateCachedUserGate } from "@/lib/middlewareUserGateCache";
 
 const BAN_DURATION = "87600h";
 const MAX_IDS = 50;
@@ -40,7 +41,9 @@ export async function POST(request: Request) {
 
   const action = body.action;
   const rawIds = Array.isArray(body.user_ids) ? body.user_ids : [];
-  const userIds = [...new Set(rawIds.map((x) => String(x).trim()).filter(isAuthUserId))];
+  const userIds = [...new Set(rawIds.map((x) => String(x).trim()).filter(isAuthUserId))].sort((a, b) =>
+    a.localeCompare(b),
+  );
 
   if (userIds.length > MAX_IDS) {
     return NextResponse.json({ error: `Максимум ${MAX_IDS} потребители на заявка.` }, { status: 400 });
@@ -110,10 +113,38 @@ export async function POST(request: Request) {
           try {
             await adminSyncUserBannedUntil(adminClient, id, banData.user.banned_until ?? null);
           } catch (syncErr) {
-            await adminClient.auth.admin.updateUserById(id, { ban_duration: "none" });
-            pushFail(id, syncErr);
+            const syncMsg = syncErr instanceof Error ? syncErr.message : String(syncErr);
+            const { error: rollbackErr } = await adminClient.auth.admin.updateUserById(id, { ban_duration: "none" });
+            if (rollbackErr) {
+              console.error("[admin/api/users/bulk] ban rollback failed after DB sync error", {
+                id,
+                message: rollbackErr.message,
+              });
+              const { error: flagErr } = await adminClient.from("users").update({ ban_sync_error: true }).eq("id", id);
+              if (flagErr) {
+                console.error("[admin/api/users/bulk] ban_sync_error flag failed", { id, message: flagErr.message });
+              }
+              await logAdminAction({
+                actor_user_id: ctx.user.id,
+                action: "ban_sync_rollback_failed",
+                entity_type: "user",
+                entity_id: id,
+                route: "/admin/api/users/bulk",
+                method: "POST",
+                details: { sync_error: syncMsg, rollback_error: rollbackErr.message, bulk: true },
+              });
+              pushFail(
+                id,
+                new Error(
+                  "Критична грешка: несъгласувано състояние на бана след неуспешен отказ в Auth.",
+                ),
+              );
+              continue;
+            }
+            pushFail(id, new Error(syncMsg));
             continue;
           }
+          invalidateCachedUserGate(id);
           await logUserSecurityAudit({
             actorUserId: ctx.user.id,
             targetUserId: id,
@@ -146,6 +177,7 @@ export async function POST(request: Request) {
           const appRole = await getUserAppRole(adminClient, id);
           await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
           await setUserSoftDeleted(adminClient, id, true, { actorUserId: ctx.user.id, reason });
+          invalidateCachedUserGate(id);
           await logUserSecurityAudit({
             actorUserId: ctx.user.id,
             targetUserId: id,

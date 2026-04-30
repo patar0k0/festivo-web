@@ -8,6 +8,7 @@ import {
   assertRestorableOrganizerMemberships,
   isActiveBanTs,
 } from "@/lib/admin/restoreUserConsistency";
+import { invalidateCachedUserGate } from "@/lib/middlewareUserGateCache";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -89,6 +90,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     }
 
     await setUserSoftDeleted(adminClient, id, false);
+    invalidateCachedUserGate(id);
 
     await logUserSecurityAudit({
       actorUserId: ctx.user.id,

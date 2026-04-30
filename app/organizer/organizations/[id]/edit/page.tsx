@@ -71,7 +71,9 @@ export default async function OrganizerEditPage({ params }: OrganizerEditPagePro
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
-        <h1 className="font-[var(--font-display)] text-2xl font-bold tracking-tight md:text-3xl">Профил на организатор</h1>
+        <h1 className="font-[var(--font-display)] text-2xl font-bold tracking-tight md:text-3xl">
+          Редактирай профила на организатор
+        </h1>
         <p className="mt-2 text-sm text-black/60">Това е страницата, която виждат посетителите.</p>
       </div>
 

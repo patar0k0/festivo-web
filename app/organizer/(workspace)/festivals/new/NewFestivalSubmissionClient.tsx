@@ -57,10 +57,44 @@ export type NewFestivalFormData = {
 
 type OrgOption = { id: string; name: string; slug: string };
 
+const FESTIVAL_DRAFT_STORAGE_KEY = "festival_draft";
+const DRAFT_VERSION = 1;
+
+type StoredDraftEnvelope = { v: number; data: NewFestivalFormData };
+
+function tryParseLocalDraftPartialFromStorage(): Partial<NewFestivalFormData> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(FESTIVAL_DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const rec = parsed as Record<string, unknown>;
+    if (!rec.data || typeof rec.data !== "object" || rec.data === null || Array.isArray(rec.data)) {
+      return null;
+    }
+    const partial = rec.data as Partial<NewFestivalFormData>;
+    if (Object.keys(partial).length === 0) return null;
+    return partial;
+  } catch {
+    return null;
+  }
+}
+
+function mergeDraftPartialIntoBase(base: NewFestivalFormData, data: Partial<NewFestivalFormData>): NewFestivalFormData {
+  const draftOrg = typeof data.organizerId === "string" ? data.organizerId.trim() : "";
+  return {
+    ...base,
+    ...data,
+    organizerId: draftOrg || base.organizerId,
+    isFree: typeof data.isFree === "boolean" ? data.isFree : base.isFree,
+  };
+}
+
 const WIZARD_STEPS: WizardStepMeta[] = [
   { id: 1, label: "Основна информация", shortLabel: "Основна" },
   { id: 2, label: "Локация", shortLabel: "Локация" },
-  { id: 3, label: "Дати и време", shortLabel: "Дати" },
+  { id: 3, label: "Дати и време (задължително)", shortLabel: "Дати" },
   { id: 4, label: "Медия и допълнително", shortLabel: "Медия" },
 ];
 
@@ -97,6 +131,36 @@ function buildInitialFormData(initialDraft: NewFestivalDraftInitial | null, preO
     heroImageUrl: initialDraft?.hero_image ?? "",
     isFree: initialDraft?.is_free ?? true,
   };
+}
+
+function scrollFocusFirstInvalidFieldForStep(step: number, data: NewFestivalFormData) {
+  let firstId: string | null = null;
+  if (step === 1) {
+    if (!data.organizerId) firstId = "wizard-field-organizer";
+    else if (!data.title.trim()) firstId = "wizard-field-title";
+    else if (!data.category.trim()) firstId = "wizard-field-category";
+  } else if (step === 2 && !data.city.trim()) {
+    firstId = "wizard-field-city";
+  }
+
+  if (firstId) {
+    const el = document.getElementById(firstId);
+    if (el instanceof HTMLElement) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.focus({ preventScroll: true });
+      return;
+    }
+  }
+
+  const selector =
+    step === 1
+      ? "#wizard-field-organizer, #wizard-field-title, #wizard-field-category"
+      : "#wizard-field-city";
+  const fallback = document.querySelector<HTMLElement>(selector);
+  if (fallback) {
+    fallback.scrollIntoView({ behavior: "smooth", block: "center" });
+    fallback.focus({ preventScroll: true });
+  }
 }
 
 function isStepValid(step: number, data: NewFestivalFormData): boolean {
@@ -142,6 +206,8 @@ function buildPortalPayload(data: NewFestivalFormData, heroImage: string | null,
   };
 }
 
+const SUBMISSIONS_SUCCESS_REDIRECT = "/organizer/submissions?submitted=1";
+
 function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestivalDraftInitial | null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -150,14 +216,36 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
   const [orgs, setOrgs] = useState<OrgOption[]>([]);
   const [draftId, setDraftId] = useState<string | null>(() => initialDraft?.id ?? null);
   const [currentStep, setCurrentStep] = useState(1);
+  const [visitedSteps, setVisitedSteps] = useState<Set<number>>(() => new Set([1]));
   const [formData, setFormData] = useState<NewFestivalFormData>(() => buildInitialFormData(initialDraft, preOrg));
+  const [pendingLocalDraftPartial, setPendingLocalDraftPartial] = useState<Partial<NewFestivalFormData> | null>(null);
   const [busy, setBusy] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
   const [imageMissingModalOpen, setImageMissingModalOpen] = useState(false);
   const [thumbLoadFailed, setThumbLoadFailed] = useState(false);
   const heroImageUrlInputRef = useRef<HTMLInputElement>(null);
   const topAnchorRef = useRef<HTMLDivElement>(null);
+  const skipLocalDraftPersistenceRef = useRef(Boolean(initialDraft?.id));
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
+  const draftDebounceRef = useRef<number | null>(null);
+  const submitRedirectTimerRef = useRef<number | null>(null);
+
+  const flushDraftSave = useCallback(() => {
+    if (skipLocalDraftPersistenceRef.current) return;
+    if (draftDebounceRef.current !== null) {
+      clearTimeout(draftDebounceRef.current);
+      draftDebounceRef.current = null;
+    }
+    try {
+      const payload: StoredDraftEnvelope = { v: DRAFT_VERSION, data: formDataRef.current };
+      localStorage.setItem(FESTIVAL_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const trimmedHeroImageUrl = formData.heroImageUrl.trim();
   const hasHeroPreview = Boolean(trimmedHeroImageUrl) && !thumbLoadFailed;
@@ -169,6 +257,51 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
   useEffect(() => {
     setThumbLoadFailed(false);
   }, [trimmedHeroImageUrl]);
+
+  useEffect(() => {
+    if (skipLocalDraftPersistenceRef.current) return;
+    if (draftDebounceRef.current !== null) {
+      clearTimeout(draftDebounceRef.current);
+    }
+    draftDebounceRef.current = window.setTimeout(() => {
+      draftDebounceRef.current = null;
+      try {
+        const payload: StoredDraftEnvelope = { v: DRAFT_VERSION, data: formDataRef.current };
+        localStorage.setItem(FESTIVAL_DRAFT_STORAGE_KEY, JSON.stringify(payload));
+      } catch {
+        /* ignore quota / private mode */
+      }
+    }, 500);
+    return () => {
+      if (draftDebounceRef.current !== null) {
+        clearTimeout(draftDebounceRef.current);
+        draftDebounceRef.current = null;
+      }
+    };
+  }, [formData]);
+
+  useEffect(() => {
+    setVisitedSteps((prev) => {
+      if (prev.has(currentStep)) return prev;
+      const next = new Set(prev);
+      next.add(currentStep);
+      return next;
+    });
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (initialDraft) return;
+    const partial = tryParseLocalDraftPartialFromStorage();
+    if (partial) setPendingLocalDraftPartial(partial);
+  }, [initialDraft]);
+
+  useEffect(() => {
+    return () => {
+      if (submitRedirectTimerRef.current !== null) {
+        clearTimeout(submitRedirectTimerRef.current);
+      }
+    };
+  }, []);
 
   const skipScrollRef = useRef(true);
   useEffect(() => {
@@ -208,6 +341,8 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
 
   const performSubmit = useCallback(
     async (options?: { forceEmptyHero?: boolean }) => {
+      await Promise.resolve();
+      flushDraftSave();
       setError("");
       const effectiveHero = options?.forceEmptyHero ? null : trimmedHeroImageUrl || null;
       if (effectiveHero && !isValidImageUrl(effectiveHero)) {
@@ -265,16 +400,37 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
             throw new Error(payload?.error ?? "Грешка при подаване.");
           }
         }
-        router.push("/organizer/submissions?submitted=1");
-        router.refresh();
+        try {
+          localStorage.removeItem(FESTIVAL_DRAFT_STORAGE_KEY);
+        } catch {
+          /* ignore */
+        }
+        setSubmitSuccess(true);
+        if (submitRedirectTimerRef.current !== null) {
+          clearTimeout(submitRedirectTimerRef.current);
+        }
+        submitRedirectTimerRef.current = window.setTimeout(() => {
+          submitRedirectTimerRef.current = null;
+          router.push(SUBMISSIONS_SUCCESS_REDIRECT);
+          router.refresh();
+        }, 1500);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Неуспех.");
       } finally {
         setBusy(false);
       }
     },
-    [draftId, formData, router, trimmedHeroImageUrl],
+    [draftId, flushDraftSave, formData, router, trimmedHeroImageUrl],
   );
+
+  const redirectAfterSubmitSuccess = useCallback(() => {
+    if (submitRedirectTimerRef.current !== null) {
+      clearTimeout(submitRedirectTimerRef.current);
+      submitRedirectTimerRef.current = null;
+    }
+    router.push(SUBMISSIONS_SUCCESS_REDIRECT);
+    router.refresh();
+  }, [router]);
 
   async function handlePreview() {
     setError("");
@@ -366,6 +522,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
       return;
     }
     if (!trimmedHeroImageUrl) {
+      flushDraftSave();
       setImageMissingModalOpen(true);
       return;
     }
@@ -384,6 +541,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
     setError("");
     if (!isStepValid(currentStep, formData)) {
       setError("Моля, попълни задължителните полета в тази стъпка.");
+      window.requestAnimationFrame(() => scrollFocusFirstInvalidFieldForStep(currentStep, formData));
       return;
     }
     setCurrentStep((s) => Math.min(4, s + 1));
@@ -392,6 +550,28 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
   function goBack() {
     setError("");
     setCurrentStep((s) => Math.max(1, s - 1));
+  }
+
+  function applyPendingLocalDraft() {
+    if (!pendingLocalDraftPartial) return;
+    const base = buildInitialFormData(initialDraft, preOrg);
+    setFormData(mergeDraftPartialIntoBase(base, pendingLocalDraftPartial));
+    setPendingLocalDraftPartial(null);
+    setError("");
+  }
+
+  function startWizardFresh() {
+    try {
+      localStorage.removeItem(FESTIVAL_DRAFT_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    const base = buildInitialFormData(null, preOrg);
+    setFormData(orgs.length === 1 ? { ...base, organizerId: orgs[0].id } : base);
+    setCurrentStep(1);
+    setVisitedSteps(new Set([1]));
+    setPendingLocalDraftPartial(null);
+    setError("");
   }
 
   const stepCopy = WIZARD_STEPS[currentStep - 1];
@@ -420,10 +600,58 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
           <p className="w-full max-w-2xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">{loadError}</p>
         ) : null}
 
-        <div className={CARD_CLASS}>
-          <WizardProgressInline steps={WIZARD_STEPS} currentStep={currentStep} />
+        <div className={`relative ${CARD_CLASS}`}>
+          {submitSuccess ? (
+            <div
+              className="absolute inset-0 z-10 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl bg-white/95 px-6 text-center shadow-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+              role="status"
+              aria-live="polite"
+              tabIndex={0}
+              onClick={() => redirectAfterSubmitSuccess()}
+              onKeyDown={(ev) => {
+                if (ev.key === "Enter" || ev.key === " ") {
+                  ev.preventDefault();
+                  redirectAfterSubmitSuccess();
+                }
+              }}
+            >
+              <p className="text-base font-semibold text-gray-900">Фестивалът е изпратен успешно.</p>
+              <p className="text-sm text-gray-600">Ще получиш имейл при одобрение.</p>
+            </div>
+          ) : null}
+
+          <WizardProgressInline
+            steps={WIZARD_STEPS}
+            currentStep={currentStep}
+            visitedSteps={visitedSteps}
+            onCompletedStepClick={(stepId) => {
+              setError("");
+              setCurrentStep(stepId);
+            }}
+          />
 
           <div className="mt-6 space-y-6">
+            {pendingLocalDraftPartial ? (
+              <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-gray-700">Имаме запазен чернови вариант</p>
+                <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={applyPendingLocalDraft}
+                    className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-black/20"
+                  >
+                    Продължи
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startWizardFresh}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 transition hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-black/10"
+                  >
+                    Започни отначало
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <p className="text-xs text-gray-500">* Задължителни полета за съответната стъпка</p>
             {error ? <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
 
@@ -449,6 +677,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                   <label className="block">
                     <span className={LABEL_TEXT_CLASS}>Организатор *</span>
                     <select
+                      id="wizard-field-organizer"
                       value={formData.organizerId}
                       onChange={(ev) => patchForm("organizerId", ev.target.value)}
                       className={FIELD_CLASS}
@@ -464,6 +693,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                   <label className="block">
                     <span className={LABEL_TEXT_CLASS}>Заглавие *</span>
                     <input
+                      id="wizard-field-title"
                       value={formData.title}
                       onChange={(ev) => patchForm("title", ev.target.value)}
                       placeholder="Напр. Фестивал на народните танци – Враца 2026"
@@ -482,6 +712,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                   <label className="block">
                     <span className={LABEL_TEXT_CLASS}>Категория *</span>
                     <input
+                      id="wizard-field-category"
                       value={formData.category}
                       onChange={(ev) => patchForm("category", ev.target.value)}
                       placeholder="festival"
@@ -496,6 +727,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                   <label className="block">
                     <span className={LABEL_TEXT_CLASS}>Град / населено място *</span>
                     <input
+                      id="wizard-field-city"
                       value={formData.city}
                       onChange={(ev) => patchForm("city", ev.target.value)}
                       placeholder="напр. София или Пловдив"
@@ -514,27 +746,44 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                     <span className={LABEL_TEXT_CLASS}>Адрес</span>
                     <input value={formData.address} onChange={(ev) => patchForm("address", ev.target.value)} className={FIELD_CLASS} />
                   </label>
+                  <p className="text-sm text-gray-600">
+                    Градът е задължителен. Точният адрес ще помогне на хората да намерят фестивала.
+                  </p>
                 </div>
               ) : null}
 
               {currentStep === 3 ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className={LABEL_TEXT_CLASS}>Начало</span>
-                    <input type="date" value={formData.startDate} onChange={(ev) => patchForm("startDate", ev.target.value)} className={FIELD_CLASS} />
-                  </label>
-                  <label className="block">
-                    <span className={LABEL_TEXT_CLASS}>Край</span>
-                    <input type="date" value={formData.endDate} onChange={(ev) => patchForm("endDate", ev.target.value)} className={FIELD_CLASS} />
-                  </label>
-                  <label className="block">
-                    <span className={LABEL_TEXT_CLASS}>Начало (час)</span>
-                    <input type="time" step={60} value={formData.startTime} onChange={(ev) => patchForm("startTime", ev.target.value)} className={FIELD_CLASS} />
-                  </label>
-                  <label className="block">
-                    <span className={LABEL_TEXT_CLASS}>Край (час)</span>
-                    <input type="time" step={60} value={formData.endTime} onChange={(ev) => patchForm("endTime", ev.target.value)} className={FIELD_CLASS} />
-                  </label>
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block">
+                      <span className={LABEL_TEXT_CLASS}>Начало</span>
+                      <input
+                        type="date"
+                        value={formData.startDate}
+                        onChange={(ev) => patchForm("startDate", ev.target.value)}
+                        className={FIELD_CLASS}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={LABEL_TEXT_CLASS}>Край</span>
+                      <input type="date" value={formData.endDate} onChange={(ev) => patchForm("endDate", ev.target.value)} className={FIELD_CLASS} />
+                    </label>
+                    <label className="block">
+                      <span className={LABEL_TEXT_CLASS}>Начало (час)</span>
+                      <input
+                        type="time"
+                        step={60}
+                        value={formData.startTime}
+                        onChange={(ev) => patchForm("startTime", ev.target.value)}
+                        className={FIELD_CLASS}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={LABEL_TEXT_CLASS}>Край (час)</span>
+                      <input type="time" step={60} value={formData.endTime} onChange={(ev) => patchForm("endTime", ev.target.value)} className={FIELD_CLASS} />
+                    </label>
+                  </div>
+                  <p className="text-sm text-gray-600">Можеш да прегледаш фестивала преди изпращане</p>
                 </div>
               ) : null}
 
@@ -658,6 +907,17 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
               onBack={goBack}
               onNext={goNext}
               onSubmit={requestFinalSubmit}
+              submitPrepSlot={
+                currentStep === 4 ? (
+                  <div className="w-full space-y-1 text-sm text-gray-600 sm:text-right">
+                    <p className="font-medium">След изпращане:</p>
+                    <ul className="list-none space-y-0.5 sm:ml-0">
+                      <li>• Ще прегледаме фестивала ти</li>
+                      <li>• Ще получиш имейл при одобрение</li>
+                    </ul>
+                  </div>
+                ) : null
+              }
               previewSlot={
                 currentStep === 4 ? (
                   <button

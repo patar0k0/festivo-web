@@ -17,6 +17,22 @@ This repo includes worker helper logic in `workers/ingest_fb_event.js` for:
 - date/location normalization
 - hero-image rehosting to Supabase Storage
 
+### Discovery seed (admin UI + workers)
+
+**Purpose:** Operators configure **discovery sources** (seed URLs / site types); an external **discovery seed worker** (`festivo-workers`, e.g. `discovery_seed_worker.js`) loads active sources, fetches pages, scores link candidates, writes **`discovered_links`**, updates **`discovery_runs`** (counters + **`metadata_json`**: per-source status/performance, disabled-source hints, learning/aggregator breakdown), and enqueues **`ingest_jobs`** for high-scoring URLs.
+
+**festivo-web (admin):**
+- Dashboard **`/admin/discovery`**: lists sources, run history, link inspector, source-quality aggregates; default table scope is **active sources** (`is_active !== false`); an **Inactive** filter shows soft-deactivated rows.
+- **HTTP APIs** under **`/admin/api/discovery-sources`**: `POST` creates a source (includes **`label`** when required by DB); **`PATCH`** updates activity, limits, manual overrides (**`manual_disabled`** / **`manual_override`**), and catalog fields (**`name`**, **`label`**, **`base_url`**, **`source_type`** within an allowed set including **`aggregator_site`**); **`DELETE`** is a **soft deactivate** (sets **`is_active = false`** and **`manual_disabled = true`**, clears **`manual_override`**) — no physical row delete.
+- Service-role writes after the admin session gate; audit logging on mutating routes where implemented.
+
+**festivo-workers (discovery):**
+- **`discovery_sources`** allowed **`source_type`** values include **`facebook_page`**, **`municipality_site`**, **`aggregator_site`** (worker allowlist in `discovery_helpers.js`).
+- Per-source **`manual_disabled`**: source is always skipped; **`manual_override`**: skips auto soft-disable and approval-rate **penalties** (scoring caps/dedup/hard rejects unchanged).
+- **`workers/lib/discovery_helpers.js`**: **`scoreDiscoveryCandidate`** applies base rules, learning boosts/penalties, and **aggregator-domain** heuristics (detail-page boosts vs listing rejects, optional Facebook event signal from anchors on the fetched page); **`extractAnchorCandidates`** returns candidates plus page-level signals for scoring.
+
+Schema notes (flags, `label`, `source_type` checks) live in **`scripts/sql/`**; live Postgres remains authoritative.
+
 ## Security configuration
 
 Defense in depth spans the **festivo.bg** edge (Cloudflare) and the **festivo-web** application (Next.js, Supabase).

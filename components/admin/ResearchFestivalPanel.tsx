@@ -699,7 +699,7 @@ export default function ResearchFestivalPanel() {
 
           <AdminFieldSection
             title={ADMIN_ENTITY_SECTION.linksSources.title}
-            description={`Evidence URLs from the ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} pass.`}
+            description={`Ranked URLs from ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} discovery; form values are merged from fetched HTML (JSON-LD + Bulgarian date/location patterns).`}
             variant={ADMIN_ENTITY_SECTION.linksSources.variant}
           >
             <AdminFieldGrid>{renderAiFieldsForKeys(AI_LINK_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
@@ -724,6 +724,34 @@ export default function ResearchFestivalPanel() {
                 </div>
               )}
             </div>
+            {aiDraft.research_report ? (
+              <details className="mt-3 rounded-lg border border-black/[0.08] bg-black/[0.02] p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-black/80">
+                  Проследяване: източници, сливане, увереност
+                </summary>
+                <div className="mt-2 space-y-2 text-xs text-black/70">
+                  <p className="whitespace-pre-wrap leading-relaxed">{aiDraft.research_report.confidence_reasoning}</p>
+                  {aiDraft.research_report.agreement_notes.length > 0 ? (
+                    <div>
+                      <p className="font-semibold text-black/60">Съгласуване между страници</p>
+                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                        {aiDraft.research_report.agreement_notes.map((n) => (
+                          <li key={n}>{n}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  <p className="font-semibold text-black/60">Лог по страница</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {aiDraft.research_report.merge_summary_lines.map((line) => (
+                      <li key={line} className="break-words">
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </details>
+            ) : null}
           </AdminFieldSection>
 
           <AdminFieldSection title={ADMIN_ENTITY_SECTION.media.title} variant={ADMIN_ENTITY_SECTION.media.variant}>

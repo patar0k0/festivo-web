@@ -1,6 +1,25 @@
-import { compactProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
+import { programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
+import {
+  extractSignalsFromHtml,
+  fetchHtmlForResearch,
+  mergePageSignals,
+  rankDiscoveryUrls,
+  type ExtractedPageSignals,
+} from "@/lib/research/htmlFestivalExtract";
 
 export type AiResearchConfidence = "low" | "medium" | "high";
+
+/** Admin-visible trace for multi-source HTML merge (Perplexity used only for URL discovery). */
+export type FestivalResearchReport = {
+  flow: "perplexity_url_discovery_html_merge";
+  perplexity_model_urls: number;
+  perplexity_citation_urls: number;
+  sources_attempted: string[];
+  sources_with_extractable_data: string[];
+  merge_summary_lines: string[];
+  agreement_notes: string[];
+  confidence_reasoning: string;
+};
 
 export type PerplexityFestivalResearchResult = {
   title: string | null;
@@ -27,6 +46,8 @@ export type PerplexityFestivalResearchResult = {
   source_urls: string[];
   confidence: AiResearchConfidence;
   missing_fields: string[];
+  /** Populated by `researchFestival` multi-source HTML pipeline. */
+  research_report?: FestivalResearchReport;
 };
 
 type PerplexityMessage = {
@@ -54,10 +75,6 @@ type StrictNullableField = Extract<
 const ENDPOINT = "https://api.perplexity.ai/chat/completions";
 const MODEL = "sonar-pro";
 const TIMEOUT_MS = 30_000;
-/** Run enrichment when this many factual fields are still null (admin tool: prefer more passes over sparse forms). */
-const ENRICHMENT_MISSING_THRESHOLD = 3;
-/** After merge, if still this many missing, run one more targeted pass. */
-const THIRD_PASS_MISSING_THRESHOLD = 5;
 
 const LOW_VALUE_SOURCE_PATTERNS = [
   "allevents.",
@@ -120,87 +137,13 @@ const IMPORTANT_MISSING_FIELDS: readonly ImportantMissingField[] = [
   "organizer_name",
 ];
 
-const REQUIRED_SCHEMA_FIELDS: Array<keyof PerplexityFestivalResearchResult> = [
-  "title",
-  "description",
-  "category",
-  "start_date",
-  "end_date",
-  "city",
-  "location_name",
-  "address",
-  "organizer_name",
-  "website_url",
-  "facebook_url",
-  "instagram_url",
-  "ticket_url",
-  "hero_image",
-  "is_free",
-  "program_draft",
-  "source_urls",
-  "confidence",
-  "missing_fields",
-];
-
-const PERPLEXITY_JSON_SCHEMA = {
+/** Perplexity returns URLs only; HTML merge does factual extraction. */
+const URL_DISCOVERY_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: REQUIRED_SCHEMA_FIELDS,
+  required: ["urls"],
   properties: {
-    title: { type: ["string", "null"] },
-    description: { type: ["string", "null"] },
-    category: { type: ["string", "null"] },
-    start_date: { type: ["string", "null"] },
-    end_date: { type: ["string", "null"] },
-    city: { type: ["string", "null"] },
-    location_name: { type: ["string", "null"] },
-    address: { type: ["string", "null"] },
-    organizer_name: { type: ["string", "null"] },
-    organizer_names: { type: ["array", "null"], items: { type: "string" } },
-    website_url: { type: ["string", "null"] },
-    facebook_url: { type: ["string", "null"] },
-    instagram_url: { type: ["string", "null"] },
-    ticket_url: { type: ["string", "null"] },
-    hero_image: { type: ["string", "null"] },
-    is_free: { type: ["boolean", "null"] },
-    program_draft: {
-      type: ["object", "null"],
-      additionalProperties: false,
-      required: ["days"],
-      properties: {
-        version: { type: ["number", "null"] },
-        days: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            required: ["date", "items"],
-            properties: {
-              date: { type: "string" },
-              title: { type: ["string", "null"] },
-              items: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["title"],
-                  properties: {
-                    title: { type: "string" },
-                    start_time: { type: ["string", "null"] },
-                    end_time: { type: ["string", "null"] },
-                    stage: { type: ["string", "null"] },
-                    description: { type: ["string", "null"] },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-    source_urls: { type: "array", items: { type: "string" } },
-    confidence: { type: "string", enum: ["low", "medium", "high"] },
-    missing_fields: { type: "array", items: { type: "string" } },
+    urls: { type: "array", items: { type: "string" }, minItems: 0, maxItems: 10 },
   },
 } as const;
 
@@ -226,22 +169,6 @@ function sanitizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function sanitizeBooleanOrNull(value: unknown): boolean | null {
-  if (typeof value !== "boolean") return null;
-  return value;
-}
-
-function sanitizeProgramDraftInput(value: unknown): ProgramDraft | null {
-  if (value === null || value === undefined) return null;
-  const parsed = parseProgramDraftUnknown(value);
-  if (!parsed.ok || !programDraftHasContent(parsed.value)) return null;
-  return compactProgramDraft(parsed.value);
-}
-
-function sanitizeConfidence(value: unknown): AiResearchConfidence {
-  return value === "high" || value === "medium" ? value : "low";
 }
 
 function sanitizeStringArray(value: unknown): string[] {
@@ -474,66 +401,170 @@ function buildMissingFields(result: PerplexityFestivalResearchResult): string[] 
   return Array.from(new Set(missing));
 }
 
-type NormalizeResultOptions = {
-  /**
-   * Merge these URLs into `source_urls` before validation.
-   * Required for enrichment passes: Perplexity sometimes omits `source_urls` on follow-up JSON;
-   * without this, `hasFactualClaims && source_urls.length === 0` wipes all extracted fields.
-   */
-  inheritSourceUrls?: string[];
-};
+function extractCitationsFromPayload(payload: unknown): string[] {
+  if (!payload || typeof payload !== "object") return [];
+  const c = (payload as { citations?: unknown }).citations;
+  if (!Array.isArray(c)) return [];
+  const out: string[] = [];
+  for (const item of c) {
+    if (typeof item === "string" && item.trim()) {
+      out.push(item.trim());
+    } else if (item && typeof item === "object" && "url" in item && typeof (item as { url: unknown }).url === "string") {
+      const u = (item as { url: string }).url.trim();
+      if (u) out.push(u);
+    }
+  }
+  return out;
+}
 
-function normalizeResult(
-  data: Record<string, unknown>,
-  context: ExtractionContext,
+function assertUrlDiscoveryKeys(result: Record<string, unknown>) {
+  if (!("urls" in result)) {
+    throw new Error("Perplexity URL discovery response missing urls");
+  }
+}
+
+function buildUrlDiscoveryMessages(query: string, context: ExtractionContext): PerplexityMessage[] {
+  const yearInstruction = context.explicitYear
+    ? `Target year ${context.explicitYear}: prefer pages that clearly refer to this edition.`
+    : "Prefer the current or most recently announced edition.";
+  return [
+    {
+      role: "system",
+      content: [
+        "You help find authoritative web pages about a Bulgarian festival or public event.",
+        "Return ONLY valid JSON. Do not summarize the event in prose.",
+        "Return 3–5 DISTINCT https URLs when possible (fewer only if the event is very obscure).",
+        "Together they should cover: a Facebook event if it exists; a Bulgarian listing site (Event.bg / eventibg / Programata / similar); a news or municipality article if useful; an official site when obvious.",
+        "Exclude duplicate hosts when possible. Every URL must be a real page you would cite from web search.",
+      ].join("\n"),
+    },
+    {
+      role: "user",
+      content: [
+        `Festival / event research query: ${query}`,
+        yearInstruction,
+        'Return STRICT JSON: {"urls":["https://..."]} only.',
+      ].join("\n"),
+    },
+  ];
+}
+
+async function fetchPerplexityUrlDiscovery(
+  apiKey: string,
   query: string,
-  options?: NormalizeResultOptions,
-): PerplexityFestivalResearchResult {
-  const fromModel = cleanSourceUrls(sanitizeStringArray(data.source_urls));
-  const inherited = options?.inheritSourceUrls?.length ? cleanSourceUrls(options.inheritSourceUrls) : [];
-  const source_urls = cleanSourceUrls([...fromModel, ...inherited]);
+  context: ExtractionContext,
+): Promise<{ modelUrls: string[]; citationUrls: string[] }> {
+  const response = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      temperature: 0,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          schema: URL_DISCOVERY_SCHEMA,
+        },
+      },
+      messages: buildUrlDiscoveryMessages(query, context),
+    }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
 
-  const result: PerplexityFestivalResearchResult = {
-    title: sanitizeNullableString(data.title),
-    description: sanitizeNullableString(data.description),
-    category: sanitizeNullableString(data.category),
-    start_date: sanitizeDate(data.start_date, context),
-    end_date: sanitizeDate(data.end_date, context),
-    city: sanitizeNullableString(data.city),
-    location_name: sanitizeNullableString(data.location_name),
-    address: sanitizeNullableString(data.address),
-    organizer_name: sanitizeNullableString(data.organizer_name),
-    organizer_names: (() => {
-      const list = sanitizeStringArray(data.organizer_names);
-      return list.length > 0 ? list : null;
-    })(),
-    website_url: sanitizeUrl(data.website_url),
-    facebook_url: sanitizeUrl(data.facebook_url),
-    instagram_url: sanitizeUrl(data.instagram_url),
-    ticket_url: sanitizeUrl(data.ticket_url),
-    hero_image: sanitizeUrl(data.hero_image),
-    is_free: sanitizeBooleanOrNull(data.is_free),
-    program_draft: sanitizeProgramDraftInput(data.program_draft),
-    source_urls,
-    confidence: sanitizeConfidence(data.confidence),
-    missing_fields: [],
-  };
-
-  // If model does not provide a canonical website, keep first resolved source URL
-  // so admin moderation still has a concrete landing page to review.
-  if (!result.website_url && source_urls.length > 0) {
-    result.website_url = source_urls[0];
+  if (!response.ok) {
+    const payloadText = await response.text().catch(() => "");
+    throw new Error(`Perplexity URL discovery failed (${response.status}): ${payloadText || response.statusText}`);
   }
 
-  // Social links are often returned only as source URLs in structured extraction.
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }>;
+        citations?: unknown;
+      }
+    | null;
+
+  const citationUrls = extractCitationsFromPayload(payload);
+
+  const content = payload?.choices?.[0]?.message?.content;
+  const text =
+    typeof content === "string"
+      ? content
+      : Array.isArray(content)
+        ? content
+            .map((item) => (item?.type === "text" ? item.text ?? "" : ""))
+            .join("\n")
+            .trim()
+        : "";
+
+  if (!text) {
+    return { modelUrls: [], citationUrls };
+  }
+
+  let asJson: Record<string, unknown>;
+  try {
+    asJson = parseJsonObject(text);
+  } catch {
+    return { modelUrls: [], citationUrls };
+  }
+
+  try {
+    assertUrlDiscoveryKeys(asJson);
+  } catch {
+    return { modelUrls: [], citationUrls };
+  }
+
+  const modelUrls = sanitizeStringArray(asJson.urls);
+  return { modelUrls, citationUrls };
+}
+
+function computeAgreementNotes(signals: ExtractedPageSignals[]): string[] {
+  const notes: string[] = [];
+  const relevant = signals.filter((s) => s.had_data);
+  const startMap = new Map<string, number>();
+  for (const s of relevant) {
+    if (!s.start_date) continue;
+    startMap.set(s.start_date, (startMap.get(s.start_date) ?? 0) + 1);
+  }
+  for (const [d, n] of startMap) {
+    if (n >= 2) notes.push(`${n} pages agree on start_date ${d}`);
+  }
+  const cityMap = new Map<string, number>();
+  for (const s of relevant) {
+    if (!s.city?.trim()) continue;
+    const k = s.city.trim().toLowerCase();
+    cityMap.set(k, (cityMap.get(k) ?? 0) + 1);
+  }
+  for (const [city, n] of cityMap) {
+    if (n >= 2) notes.push(`${n} pages agree on city ${city}`);
+  }
+  return notes;
+}
+
+function bumpConfidenceTier(value: AiResearchConfidence): AiResearchConfidence {
+  if (value === "low") return "medium";
+  if (value === "medium") return "high";
+  return "high";
+}
+
+/** Shared validation, year guards, missing_fields, and base confidence (before multi-source bump). */
+function finalizeResearchResult(result: PerplexityFestivalResearchResult, context: ExtractionContext, query: string): void {
+  const source_urls = result.source_urls;
+
+  if (!result.website_url && source_urls.length > 0) {
+    result.website_url = sanitizeUrl(source_urls[0] ?? "");
+  }
+
   if (!result.facebook_url) {
     const facebookSource = source_urls.find((url) => /(^|\.|\/\/)(www\.)?facebook\.com\//i.test(url));
-    if (facebookSource) result.facebook_url = facebookSource;
+    if (facebookSource) result.facebook_url = sanitizeUrl(facebookSource);
   }
 
   if (!result.instagram_url) {
     const instagramSource = source_urls.find((url) => /(^|\.|\/\/)(www\.)?instagram\.com\//i.test(url));
-    if (instagramSource) result.instagram_url = instagramSource;
+    if (instagramSource) result.instagram_url = sanitizeUrl(instagramSource);
   }
 
   const hasExactYearEvidence = hasAnyYearSpecificEvidence(result, context);
@@ -568,7 +599,6 @@ function normalizeResult(
     result.end_date = null;
   }
 
-  // Single-day events: many sources only state one date; mirror start -> end for admin convenience.
   if (result.start_date && !result.end_date) {
     result.end_date = result.start_date;
   }
@@ -582,7 +612,6 @@ function normalizeResult(
     result.program_draft = null;
   }
 
-  // Light heuristic when model omitted boolean (admin-only hint).
   if (result.is_free === null && result.description) {
     const d = result.description.toLowerCase();
     if (
@@ -597,281 +626,6 @@ function normalizeResult(
 
   result.missing_fields = buildMissingFields(result);
   result.confidence = deriveConfidence(result.confidence, result, context);
-
-  return result;
-}
-
-function buildMessages(query: string, context: ExtractionContext): PerplexityMessage[] {
-  const yearInstruction = context.explicitYear
-    ? `The query contains explicit target year ${context.explicitYear}. Treat evidence for other years only as weak context. Do not promote other-year facts as confirmed ${context.explicitYear} facts.`
-    : "No explicit year in query. Prefer the most recent explicitly dated evidence and avoid assumptions.";
-
-  return [
-    {
-      role: "system",
-      content: [
-        "You extract festival facts from web sources. Return ONLY valid JSON.",
-        "Unknown or weakly-supported values must be null.",
-        "Never hallucinate or infer from prior years.",
-        "Prioritize evidence in this order:",
-        "1) official organizer site/page",
-        "2) official municipality/tourism/culture page",
-        "3) current-year event page or announcement",
-        "4) reputable local news source",
-        "5) generic event listing pages only as fallback",
-        "If stronger and weaker sources conflict, prefer the stronger source and set uncertain fields to null.",
-        "Always include source_urls you relied on.",
-        "When explicit event listing pages contain direct facts (organizer, venue/location, address, schedule, links), treat them as valid evidence for those fields.",
-      ].join("\n"),
-    },
-    {
-      role: "user",
-      content: [
-        `Research query: ${query}`,
-        yearInstruction,
-        "Return STRICT JSON with this exact schema and no extra keys:",
-        JSON.stringify(
-          {
-            title: null,
-            description: null,
-            category: null,
-            start_date: null,
-            end_date: null,
-            city: null,
-            location_name: null,
-            address: null,
-            organizer_name: null,
-            organizer_names: null,
-            website_url: null,
-            facebook_url: null,
-            instagram_url: null,
-            ticket_url: null,
-            hero_image: null,
-            is_free: null,
-            program_draft: null,
-            source_urls: [],
-            confidence: "low",
-            missing_fields: [],
-          },
-          null,
-          2,
-        ),
-        "Extraction rules:",
-        "- unknown/uncertain = null",
-        "- do NOT infer current-year dates/location/organizer from older editions",
-        "- if exact-year evidence is missing, keep unsupported fields null",
-        "- if website_url is unknown but an event page URL is confirmed in source_urls, set website_url to that event page",
-        "- extract organizer_name / organizer_names (multiple distinct organizers) / location_name / address whenever explicitly written in any cited source",
-        "- preserve provided social links (facebook_url, instagram_url) when they appear in cited sources",
-        "- program_draft: when sources list a day-by-day or timed schedule, return { days: [{ date: YYYY-MM-DD, title?, items: [{ title, start_time?, end_time?, stage?, description? }] }] }; otherwise null",
-        "- program/schedule must not be invented; only explicit listed times/titles from cited sources",
-        "- confidence must be one of: low, medium, high",
-        "- source_urls should prioritize high-value sources and avoid noisy duplicates",
-        "- missing_fields must list schema keys that remain unknown/null",
-      ].join("\n"),
-    },
-  ];
-}
-
-function buildEnrichmentMessages(query: string, context: ExtractionContext, firstPass: PerplexityFestivalResearchResult): PerplexityMessage[] {
-  const yearInstruction = context.explicitYear
-    ? `Target year is ${context.explicitYear}. Do not use conflicting data from other years unless explicitly marked as historical context.`
-    : "No explicit target year. Prefer explicit current event details.";
-
-  const knownFacts = {
-    title: firstPass.title,
-    start_date: firstPass.start_date,
-    end_date: firstPass.end_date,
-    city: firstPass.city,
-    organizer_name: firstPass.organizer_name,
-    organizer_names: firstPass.organizer_names,
-    category: firstPass.category,
-    location_name: firstPass.location_name,
-    address: firstPass.address,
-    website_url: firstPass.website_url,
-    facebook_url: firstPass.facebook_url,
-    instagram_url: firstPass.instagram_url,
-    ticket_url: firstPass.ticket_url,
-    hero_image: firstPass.hero_image,
-    is_free: firstPass.is_free,
-    program_draft: firstPass.program_draft,
-  };
-
-  return [
-    {
-      role: "system",
-      content: [
-        "You are performing a second extraction pass to fill missing festival fields.",
-        "Return ONLY valid JSON matching the provided schema.",
-        "Use explicit evidence only. Never invent values.",
-        "When a field is uncertain, return null.",
-      ].join("\n"),
-    },
-    {
-      role: "user",
-      content: [
-        `Research query: ${query}`,
-        yearInstruction,
-        `Missing fields from first pass: ${firstPass.missing_fields.join(", ") || "none"}`,
-        "Known facts from first pass (treat as stable context, do not degrade):",
-        JSON.stringify(knownFacts, null, 2),
-        "Focus on filling missing fields using explicit evidence from authoritative/event sources.",
-        "You MUST include in source_urls every URL you used, plus re-list the known first-pass source URLs if still relevant.",
-        "Use source_urls to cite the pages used.",
-        "Return STRICT JSON with this exact schema and no extra keys:",
-        JSON.stringify(
-          {
-            title: null,
-            description: null,
-            category: null,
-            start_date: null,
-            end_date: null,
-            city: null,
-            location_name: null,
-            address: null,
-            organizer_name: null,
-            organizer_names: null,
-            website_url: null,
-            facebook_url: null,
-            instagram_url: null,
-            ticket_url: null,
-            hero_image: null,
-            is_free: null,
-            program_draft: null,
-            source_urls: [],
-            confidence: "low",
-            missing_fields: [],
-          },
-          null,
-          2,
-        ),
-      ].join("\n"),
-    },
-  ];
-}
-
-function assertRequiredKeys(result: Record<string, unknown>) {
-  const missing = REQUIRED_SCHEMA_FIELDS.filter((key) => !(key in result));
-  if (missing.length > 0) {
-    throw new Error(`Perplexity response missing required keys: ${missing.join(", ")}`);
-  }
-}
-
-function confidenceScore(value: AiResearchConfidence): number {
-  if (value === "high") return 3;
-  if (value === "medium") return 2;
-  return 1;
-}
-
-function chooseHigherConfidence(a: AiResearchConfidence, b: AiResearchConfidence): AiResearchConfidence {
-  return confidenceScore(b) > confidenceScore(a) ? b : a;
-}
-
-function shouldRunEnrichmentPass(result: PerplexityFestivalResearchResult): boolean {
-  return result.missing_fields.length >= ENRICHMENT_MISSING_THRESHOLD;
-}
-
-function mergeResults(
-  base: PerplexityFestivalResearchResult,
-  enrichment: PerplexityFestivalResearchResult,
-  context: ExtractionContext,
-): PerplexityFestivalResearchResult {
-  const merged: PerplexityFestivalResearchResult = { ...base };
-  type MergeableField = Exclude<keyof PerplexityFestivalResearchResult, "source_urls" | "confidence" | "missing_fields">;
-  const mergeableFields: MergeableField[] = [
-    "title",
-    "description",
-    "category",
-    "start_date",
-    "end_date",
-    "city",
-    "location_name",
-    "address",
-    "organizer_name",
-    "website_url",
-    "facebook_url",
-    "instagram_url",
-    "ticket_url",
-    "hero_image",
-    "is_free",
-  ];
-
-  const assignFromEnrichment = <K extends MergeableField>(field: K) => {
-    const currentValue = merged[field];
-    const nextValue = enrichment[field];
-    if (currentValue === null && nextValue !== null) {
-      merged[field] = nextValue;
-    }
-  };
-
-  for (const field of mergeableFields) {
-    assignFromEnrichment(field);
-  }
-
-  if ((!merged.organizer_names || merged.organizer_names.length === 0) && enrichment.organizer_names && enrichment.organizer_names.length > 0) {
-    merged.organizer_names = enrichment.organizer_names;
-  }
-
-  if (!programDraftHasContent(merged.program_draft) && programDraftHasContent(enrichment.program_draft)) {
-    merged.program_draft = enrichment.program_draft;
-  }
-
-  merged.source_urls = cleanSourceUrls([...base.source_urls, ...enrichment.source_urls]);
-  merged.confidence = chooseHigherConfidence(base.confidence, enrichment.confidence);
-  merged.missing_fields = buildMissingFields(merged);
-  merged.confidence = deriveConfidence(merged.confidence, merged, context);
-
-  return merged;
-}
-
-async function fetchPerplexityJson(apiKey: string, messages: PerplexityMessage[]): Promise<Record<string, unknown>> {
-  const response = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      temperature: 0,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          schema: PERPLEXITY_JSON_SCHEMA,
-        },
-      },
-      messages,
-    }),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-
-  if (!response.ok) {
-    const payloadText = await response.text().catch(() => "");
-    throw new Error(`Perplexity request failed (${response.status}): ${payloadText || response.statusText}`);
-  }
-
-  const payload = (await response.json().catch(() => null)) as
-    | { choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }> }
-    | null;
-
-  const content = payload?.choices?.[0]?.message?.content;
-  const text =
-    typeof content === "string"
-      ? content
-      : Array.isArray(content)
-        ? content
-            .map((item) => (item?.type === "text" ? item.text ?? "" : ""))
-            .join("\n")
-            .trim()
-        : "";
-
-  if (!text) {
-    throw new Error("Perplexity response did not include content");
-  }
-
-  const asJson = parseJsonObject(text);
-  assertRequiredKeys(asJson);
-  return asJson;
 }
 
 export async function researchFestival(query: string): Promise<PerplexityFestivalResearchResult> {
@@ -889,37 +643,86 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
     explicitYear: extractExplicitYear(normalizedQuery),
   };
 
-  const firstPassJson = await fetchPerplexityJson(apiKey, buildMessages(normalizedQuery, context));
-  const firstPass = normalizeResult(firstPassJson, context, normalizedQuery);
+  const { modelUrls, citationUrls } = await fetchPerplexityUrlDiscovery(apiKey, normalizedQuery, context);
+  const ranked = rankDiscoveryUrls([...modelUrls, ...citationUrls]);
 
-  if (!shouldRunEnrichmentPass(firstPass)) {
-    return firstPass;
+  const mergeSummaryLines: string[] = [];
+  const extractedSignals: ExtractedPageSignals[] = [];
+
+  mergeSummaryLines.push(
+    `Perplexity URL discovery: ${modelUrls.length} JSON URL(s), ${citationUrls.length} API citation(s); after ranking, ${ranked.length} fetch target(s).`,
+  );
+
+  for (const url of ranked) {
+    const html = await fetchHtmlForResearch(url);
+    if (!html) {
+      mergeSummaryLines.push(`Fetch failed or empty: ${url}`);
+      continue;
+    }
+    const sig = extractSignalsFromHtml(html, url, context.explicitYear);
+    extractedSignals.push(sig);
+    mergeSummaryLines.push(sig.had_data ? `Parsed JSON-LD / text signals: ${url}` : `HTML only (no structured fields): ${url}`);
   }
 
-  let merged = firstPass;
+  const merged = mergePageSignals(extractedSignals);
 
-  try {
-    const enrichmentJson = await fetchPerplexityJson(apiKey, buildEnrichmentMessages(normalizedQuery, context, firstPass));
-    const enrichmentPass = normalizeResult(enrichmentJson, context, normalizedQuery, { inheritSourceUrls: firstPass.source_urls });
-    merged = mergeResults(firstPass, enrichmentPass, context);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "unknown enrichment error";
-    console.warn(`[research-ai] enrichment pass failed: ${message}`);
-    return firstPass;
+  const facebookFromList = ranked.find((u) => /facebook\.com/i.test(u)) ?? null;
+  const websiteCandidate =
+    ranked.find((u) => !/facebook\.com|instagram\.com|tiktok\.com/i.test(u)) ?? ranked[0] ?? null;
+
+  const result: PerplexityFestivalResearchResult = {
+    title: merged.title,
+    description: merged.description,
+    category: null,
+    start_date: merged.start_date ? sanitizeDate(merged.start_date, context) : null,
+    end_date: merged.end_date ? sanitizeDate(merged.end_date, context) : null,
+    city: merged.city,
+    location_name: merged.location_name,
+    address: merged.address,
+    organizer_name: merged.organizer_name,
+    organizer_names: null,
+    website_url: websiteCandidate ? sanitizeUrl(websiteCandidate) : null,
+    facebook_url: facebookFromList ? sanitizeUrl(facebookFromList) : null,
+    instagram_url: null,
+    ticket_url: null,
+    hero_image: merged.hero_image ? sanitizeUrl(merged.hero_image) : null,
+    is_free: null,
+    program_draft: null,
+    source_urls: cleanSourceUrls(ranked),
+    confidence: "low",
+    missing_fields: [],
+  };
+
+  finalizeResearchResult(result, context, normalizedQuery);
+
+  const agreementNotes = computeAgreementNotes(extractedSignals);
+  const preAgreementConfidence = result.confidence;
+  if (agreementNotes.length > 0) {
+    result.confidence = bumpConfidenceTier(result.confidence);
   }
 
-  if (merged.missing_fields.length < THIRD_PASS_MISSING_THRESHOLD) {
-    return merged;
+  const withData = extractedSignals.filter((s) => s.had_data).length;
+  const reasoningParts = [
+    `Perplexity was used only to discover URLs (${modelUrls.length} from JSON, ${citationUrls.length} from citations).`,
+    `Fetched ${ranked.length} ranked page(s); ${withData} returned extractable fields.`,
+    `Base confidence after validation: ${preAgreementConfidence}.`,
+  ];
+  if (agreementNotes.length > 0) {
+    reasoningParts.push(`Agreement boost (2+ sources): ${agreementNotes.join("; ")} → ${result.confidence}.`);
+  } else {
+    reasoningParts.push("No multi-source agreement on start date or city; confidence not boosted for agreement.");
   }
 
-  try {
-    const thirdJson = await fetchPerplexityJson(apiKey, buildEnrichmentMessages(normalizedQuery, context, merged));
-    const thirdPass = normalizeResult(thirdJson, context, normalizedQuery, { inheritSourceUrls: merged.source_urls });
-    merged = mergeResults(merged, thirdPass, context);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "unknown third pass error";
-    console.warn(`[research-ai] third extraction pass failed: ${message}`);
-  }
+  result.research_report = {
+    flow: "perplexity_url_discovery_html_merge",
+    perplexity_model_urls: modelUrls.length,
+    perplexity_citation_urls: citationUrls.length,
+    sources_attempted: [...ranked],
+    sources_with_extractable_data: extractedSignals.filter((s) => s.had_data).map((s) => s.url),
+    merge_summary_lines: mergeSummaryLines,
+    agreement_notes: agreementNotes,
+    confidence_reasoning: reasoningParts.join(" "),
+  };
 
-  return merged;
+  return result;
 }

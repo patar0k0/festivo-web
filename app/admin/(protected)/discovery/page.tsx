@@ -273,6 +273,8 @@ export default async function AdminDiscoveryPage({
     };
   });
 
+  const visibleSources = mappedSources.filter((s) => s.isActive !== false);
+
   const mappedRuns = runRows.map((row) => ({
     id: asString(row.id),
     startedAt: asTimestamp(row.started_at) ?? asTimestamp(row.created_at),
@@ -510,7 +512,7 @@ export default async function AdminDiscoveryPage({
       </div>
 
       <section className="space-y-3">
-        <DiscoverySourcesTable rows={mappedSources} />
+        <DiscoverySourcesTable rows={mappedSources} activeCatalogRows={visibleSources} />
       </section>
 
       <section className="space-y-3">

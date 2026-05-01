@@ -43,7 +43,10 @@ type DiscoverySourceRow = {
 };
 
 type Props = {
+  /** Full list (includes inactive) for Inactive filter and actions. */
   rows: DiscoverySourceRow[];
+  /** Active catalog (`is_active !== false`); default “All” filter shows this list. */
+  activeCatalogRows: DiscoverySourceRow[];
 };
 
 async function readErrorMessage(response: Response, fallback: string) {
@@ -179,7 +182,7 @@ function WarningAutoDisabledIcon() {
   );
 }
 
-export default function DiscoverySourcesTable({ rows }: Props) {
+export default function DiscoverySourcesTable({ rows, activeCatalogRows }: Props) {
   const router = useRouter();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -208,10 +211,14 @@ export default function DiscoverySourcesTable({ rows }: Props) {
   const supportsAnyMaxLinksEdit = useMemo(() => rows.some((row) => row.supportsMaxLinksEdit), [rows]);
 
   const visibleRows = useMemo(() => {
-    if (statusFilter === "all") return rows;
-    if (statusFilter === "inactive") return rows.filter((row) => row.isActive === false);
-    return rows.filter((row) => row.operationalStatus === statusFilter);
-  }, [rows, statusFilter]);
+    if (statusFilter === "inactive") {
+      return rows.filter((row) => row.isActive === false);
+    }
+    if (statusFilter === "all") {
+      return activeCatalogRows;
+    }
+    return activeCatalogRows.filter((row) => row.operationalStatus === statusFilter);
+  }, [rows, activeCatalogRows, statusFilter]);
 
   const patchManualMode = async (row: DiscoverySourceRow, mode: "disable" | "force" | "reset") => {
     if (busyId) return;

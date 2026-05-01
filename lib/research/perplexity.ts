@@ -273,7 +273,7 @@ function parseJsonObject(raw: string): Record<string, unknown> {
   }
 }
 
-function normalizeSourceUrl(raw: string): string | null {
+export function normalizeSourceUrl(raw: string): string | null {
   try {
     const url = new URL(raw.trim());
     if (url.protocol !== "http:" && url.protocol !== "https:") return null;

@@ -741,6 +741,24 @@ export default function ResearchFestivalPanel() {
                       </ul>
                     </div>
                   ) : null}
+                  {aiDraft.research_report.completeness ? (
+                    <p className="text-black/65">
+                      Пълнота (ключови полета): обединен резултат {aiDraft.research_report.completeness.merged}/6 — най-добър
+                      единичен източник {aiDraft.research_report.completeness.best_single_source}/6.
+                    </p>
+                  ) : null}
+                  {aiDraft.research_report.source_traces && aiDraft.research_report.source_traces.length > 0 ? (
+                    <div>
+                      <p className="font-semibold text-black/60">Източници (тип / статус)</p>
+                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                        {aiDraft.research_report.source_traces.map((t) => (
+                          <li key={`${t.url}-${t.fetch_status}`} className="break-words">
+                            <span className="font-medium">{t.source_type}</span> · {t.fetch_status} — {t.url}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                   <p className="font-semibold text-black/60">Лог по страница</p>
                   <ul className="mt-1 list-disc space-y-0.5 pl-4">
                     {aiDraft.research_report.merge_summary_lines.map((line) => (

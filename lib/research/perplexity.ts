@@ -1,10 +1,15 @@
 import { programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
 import {
+  classifyResearchSourceType,
+  extractSignalsFromFacebookFallback,
   extractSignalsFromHtml,
   fetchHtmlForResearch,
+  isFacebookEventsUrl,
   mergePageSignals,
   rankDiscoveryUrls,
   type ExtractedPageSignals,
+  type ResearchFetchStatus,
+  type ResearchSourceType,
 } from "@/lib/research/htmlFestivalExtract";
 
 export type AiResearchConfidence = "low" | "medium" | "high";
@@ -14,11 +19,19 @@ export type FestivalResearchReport = {
   flow: "perplexity_url_discovery_html_merge";
   perplexity_model_urls: number;
   perplexity_citation_urls: number;
+  perplexity_followup_queries: number;
   sources_attempted: string[];
   sources_with_extractable_data: string[];
+  source_traces: Array<{
+    url: string;
+    source_type: ResearchSourceType;
+    fetch_status: ResearchFetchStatus;
+  }>;
   merge_summary_lines: string[];
   agreement_notes: string[];
   confidence_reasoning: string;
+  /** Count of key fields filled: title, start_date, end_date, city, description, organizer_name. */
+  completeness: { best_single_source: number; merged: number };
 };
 
 export type PerplexityFestivalResearchResult = {
@@ -449,11 +462,109 @@ function buildUrlDiscoveryMessages(query: string, context: ExtractionContext): P
   ];
 }
 
+type PerplexitySearchResultRow = { url: string | null; title: string | null; snippet: string | null };
+
+function extractSearchResultsFromPayload(payload: unknown): PerplexitySearchResultRow[] {
+  if (!payload || typeof payload !== "object") return [];
+  const sr = (payload as { search_results?: unknown }).search_results;
+  if (!Array.isArray(sr)) return [];
+  const out: PerplexitySearchResultRow[] = [];
+  for (const item of sr) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const url = typeof o.url === "string" ? o.url.trim() || null : null;
+    const title =
+      typeof o.title === "string"
+        ? o.title.trim() || null
+        : typeof o.name === "string"
+          ? o.name.trim() || null
+          : null;
+    const snippet =
+      typeof o.snippet === "string"
+        ? o.snippet.trim() || null
+        : typeof o.text === "string"
+          ? o.text.trim() || null
+          : null;
+    out.push({ url, title, snippet });
+  }
+  return out;
+}
+
+function normalizeUrlLoose(raw: string): string | null {
+  try {
+    const u = new URL(raw.trim());
+    u.hash = "";
+    let path = u.pathname.replace(/\/$/, "");
+    if (!path) path = "/";
+    return `${u.origin}${path}`;
+  } catch {
+    return null;
+  }
+}
+
+function collectSnippetTextForTargetUrl(targetUrl: string, rows: PerplexitySearchResultRow[]): string {
+  const target = normalizeUrlLoose(targetUrl);
+  const parts: string[] = [];
+  for (const r of rows) {
+    if (!r.url) continue;
+    const row = normalizeUrlLoose(r.url);
+    if (!row || !target) continue;
+    if (row === target || target.includes(row) || row.includes(target)) {
+      if (r.title) parts.push(r.title);
+      if (r.snippet) parts.push(r.snippet);
+    }
+  }
+  return parts.join("\n");
+}
+
+function countUniqueDiscoveryUrls(urls: string[]): number {
+  const seen = new Set<string>();
+  for (const raw of urls) {
+    const n = normalizeSourceUrl(raw);
+    if (n) seen.add(n);
+  }
+  return seen.size;
+}
+
+function buildSecondaryDiscoveryQuery(query: string): string {
+  if (/[\u0400-\u04FF]/.test(query)) return `${query} събитие дата място`;
+  return `${query} festival Bulgaria date location`;
+}
+
+function countKeyResearchFields(partial: {
+  title: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  city: string | null;
+  description: string | null;
+  organizer_name: string | null;
+}): number {
+  let n = 0;
+  if (partial.title) n += 1;
+  if (partial.start_date) n += 1;
+  if (partial.end_date) n += 1;
+  if (partial.city) n += 1;
+  if (partial.description) n += 1;
+  if (partial.organizer_name) n += 1;
+  return n;
+}
+
+function countKeyFieldsFromSignal(s: ExtractedPageSignals): number {
+  return countKeyResearchFields({
+    title: s.title,
+    start_date: s.start_date,
+    end_date: s.end_date,
+    city: s.city,
+    description: s.description,
+    organizer_name: s.organizer_name,
+  });
+}
+
 async function fetchPerplexityUrlDiscovery(
   apiKey: string,
   query: string,
   context: ExtractionContext,
-): Promise<{ modelUrls: string[]; citationUrls: string[] }> {
+): Promise<{ modelUrls: string[]; citationUrls: string[]; searchResults: PerplexitySearchResultRow[] }> {
   const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: {
@@ -483,10 +594,12 @@ async function fetchPerplexityUrlDiscovery(
     | {
         choices?: Array<{ message?: { content?: string | Array<{ type?: string; text?: string }> } }>;
         citations?: unknown;
+        search_results?: unknown;
       }
     | null;
 
   const citationUrls = extractCitationsFromPayload(payload);
+  const searchResults = extractSearchResultsFromPayload(payload);
 
   const content = payload?.choices?.[0]?.message?.content;
   const text =
@@ -500,24 +613,24 @@ async function fetchPerplexityUrlDiscovery(
         : "";
 
   if (!text) {
-    return { modelUrls: [], citationUrls };
+    return { modelUrls: [], citationUrls, searchResults };
   }
 
   let asJson: Record<string, unknown>;
   try {
     asJson = parseJsonObject(text);
   } catch {
-    return { modelUrls: [], citationUrls };
+    return { modelUrls: [], citationUrls, searchResults };
   }
 
   try {
     assertUrlDiscoveryKeys(asJson);
   } catch {
-    return { modelUrls: [], citationUrls };
+    return { modelUrls: [], citationUrls, searchResults };
   }
 
   const modelUrls = sanitizeStringArray(asJson.urls);
-  return { modelUrls, citationUrls };
+  return { modelUrls, citationUrls, searchResults };
 }
 
 function computeAgreementNotes(signals: ExtractedPageSignals[]): string[] {
@@ -643,28 +756,78 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
     explicitYear: extractExplicitYear(normalizedQuery),
   };
 
-  const { modelUrls, citationUrls } = await fetchPerplexityUrlDiscovery(apiKey, normalizedQuery, context);
-  const ranked = rankDiscoveryUrls([...modelUrls, ...citationUrls]);
-
   const mergeSummaryLines: string[] = [];
+  let searchResults: PerplexitySearchResultRow[] = [];
+  let perplexityModelTotal = 0;
+  let perplexityCitationTotal = 0;
+  let followupQueries = 0;
+
+  const discoveryPool: string[] = [];
+  const first = await fetchPerplexityUrlDiscovery(apiKey, normalizedQuery, context);
+  perplexityModelTotal += first.modelUrls.length;
+  perplexityCitationTotal += first.citationUrls.length;
+  searchResults = first.searchResults;
+  discoveryPool.push(...first.modelUrls, ...first.citationUrls);
+
+  if (countUniqueDiscoveryUrls(discoveryPool) < 3) {
+    followupQueries = 1;
+    const secondQuery = buildSecondaryDiscoveryQuery(normalizedQuery);
+    const second = await fetchPerplexityUrlDiscovery(apiKey, secondQuery, context);
+    perplexityModelTotal += second.modelUrls.length;
+    perplexityCitationTotal += second.citationUrls.length;
+    discoveryPool.push(...second.modelUrls, ...second.citationUrls);
+    searchResults = [...searchResults, ...second.searchResults];
+    mergeSummaryLines.push(`Discovery follow-up: initial unique URLs < 3 → second query ("${secondQuery}").`);
+  }
+
+  const ranked = rankDiscoveryUrls(discoveryPool);
+
   const extractedSignals: ExtractedPageSignals[] = [];
+  const sourceTraces: Array<{ url: string; source_type: ResearchSourceType; fetch_status: ResearchFetchStatus }> = [];
 
   mergeSummaryLines.push(
-    `Perplexity URL discovery: ${modelUrls.length} JSON URL(s), ${citationUrls.length} API citation(s); after ranking, ${ranked.length} fetch target(s).`,
+    `Perplexity URL discovery: ${perplexityModelTotal} JSON URL row(s), ${perplexityCitationTotal} citation URL(s), ${searchResults.length} search snippet row(s); after ranking, ${ranked.length} fetch target(s).`,
   );
 
   for (const url of ranked) {
+    const sourceType = classifyResearchSourceType(url);
+    if (isFacebookEventsUrl(url)) {
+      const html = (await fetchHtmlForResearch(url)) ?? "";
+      const snippetBlob = collectSnippetTextForTargetUrl(url, searchResults);
+      if (!html && !snippetBlob.trim()) {
+        sourceTraces.push({ url, source_type: sourceType, fetch_status: "blocked" });
+        mergeSummaryLines.push(`Facebook event URL: fetch blocked/empty and no Perplexity snippet match — ${url}`);
+        continue;
+      }
+      const sig = extractSignalsFromFacebookFallback(html, url, snippetBlob, context.explicitYear);
+      extractedSignals.push(sig);
+      sourceTraces.push({ url, source_type: sourceType, fetch_status: "fallback_used" });
+      mergeSummaryLines.push(
+        sig.had_data
+          ? `Facebook fallback (title + snippets, no JSON-LD): ${url}`
+          : `Facebook fallback returned no structured fields: ${url}`,
+      );
+      continue;
+    }
+
     const html = await fetchHtmlForResearch(url);
     if (!html) {
+      sourceTraces.push({ url, source_type: sourceType, fetch_status: "blocked" });
       mergeSummaryLines.push(`Fetch failed or empty: ${url}`);
       continue;
     }
     const sig = extractSignalsFromHtml(html, url, context.explicitYear);
     extractedSignals.push(sig);
+    sourceTraces.push({ url, source_type: sourceType, fetch_status: "success" });
     mergeSummaryLines.push(sig.had_data ? `Parsed JSON-LD / text signals: ${url}` : `HTML only (no structured fields): ${url}`);
   }
 
   const merged = mergePageSignals(extractedSignals);
+  for (const line of merged.merge_lock_notes) {
+    mergeSummaryLines.push(line);
+  }
+
+  const bestSingle = extractedSignals.length ? Math.max(0, ...extractedSignals.map(countKeyFieldsFromSignal)) : 0;
 
   const facebookFromList = ranked.find((u) => /facebook\.com/i.test(u)) ?? null;
   const websiteCandidate =
@@ -701,10 +864,20 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
     result.confidence = bumpConfidenceTier(result.confidence);
   }
 
+  const mergedFieldCount = countKeyResearchFields({
+    title: result.title,
+    start_date: result.start_date,
+    end_date: result.end_date,
+    city: result.city,
+    description: result.description,
+    organizer_name: result.organizer_name,
+  });
+
   const withData = extractedSignals.filter((s) => s.had_data).length;
   const reasoningParts = [
-    `Perplexity was used only to discover URLs (${modelUrls.length} from JSON, ${citationUrls.length} from citations).`,
+    `Perplexity was used only to discover URLs (${perplexityModelTotal} JSON rows, ${perplexityCitationTotal} citation URLs${followupQueries ? `, ${followupQueries} follow-up quer${followupQueries === 1 ? "y" : "ies"}` : ""}).`,
     `Fetched ${ranked.length} ranked page(s); ${withData} returned extractable fields.`,
+    `Field completeness: merged result ${mergedFieldCount}/6 key fields vs best single source ${bestSingle}/6.`,
     `Base confidence after validation: ${preAgreementConfidence}.`,
   ];
   if (agreementNotes.length > 0) {
@@ -715,13 +888,16 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
 
   result.research_report = {
     flow: "perplexity_url_discovery_html_merge",
-    perplexity_model_urls: modelUrls.length,
-    perplexity_citation_urls: citationUrls.length,
+    perplexity_model_urls: perplexityModelTotal,
+    perplexity_citation_urls: perplexityCitationTotal,
+    perplexity_followup_queries: followupQueries,
     sources_attempted: [...ranked],
     sources_with_extractable_data: extractedSignals.filter((s) => s.had_data).map((s) => s.url),
+    source_traces: sourceTraces,
     merge_summary_lines: mergeSummaryLines,
     agreement_notes: agreementNotes,
     confidence_reasoning: reasoningParts.join(" "),
+    completeness: { best_single_source: bestSingle, merged: mergedFieldCount },
   };
 
   return result;

@@ -304,7 +304,7 @@ export async function buildResearchPendingRowFromRequest(
         confidence: ai.confidence,
         missing_fields: sanitizeSourceUrls(ai.missing_fields),
       },
-      verification_status: "pending",
+      verification_status: "needs_review",
       verification_score: mapConfidenceToVerificationScore(ai.confidence),
       extraction_version: "research_ai_perplexity_v1",
       source_type: aiNormalizedSourceType,
@@ -321,7 +321,7 @@ export async function buildResearchPendingRowFromRequest(
     }
 
     finalized.is_free = (finalized.is_free as boolean | null | undefined) ?? false;
-    finalized.verification_status = "pending";
+    finalized.verification_status = "needs_review";
 
     return { ok: true, row: finalized, researchProvider: "perplexity" };
   }
@@ -449,7 +449,7 @@ export async function buildResearchPendingRowFromRequest(
       sources: normalized.sources,
       metadata: normalized.metadata,
     },
-    verification_status: "pending",
+    verification_status: "needs_review",
     verification_score: mapConfidenceToVerificationScore(normalized.confidence.overall),
     extraction_version: "research_candidates_v1",
     source_type: normalizeFestivalSourceType("web_research"),
@@ -470,7 +470,7 @@ export async function buildResearchPendingRowFromRequest(
   }
 
   finalized.is_free = (finalized.is_free as boolean | null | undefined) ?? false;
-  finalized.verification_status = "pending";
+  finalized.verification_status = "needs_review";
 
   return { ok: true, row: finalized, researchProvider: "gemini_pipeline" };
 }

@@ -133,7 +133,7 @@ export async function POST(request: Request) {
     source_primary_url: null as string | null,
     source_count: null as number | null,
     evidence_json: null as unknown,
-    verification_status: null as string | null,
+    verification_status: "needs_review" as const,
     verification_score: null as number | null,
     extraction_version: null as string | null,
     website_url: optionalTrimmedUrl(body.website_url),

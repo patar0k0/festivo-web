@@ -113,11 +113,35 @@ function parseDiscoveryRunMetadata(raw: unknown): DiscoveryRunMetadata | null {
   return value as DiscoveryRunMetadata;
 }
 
-function normalizeOperationalStatus(raw: string | undefined): "active" | "degraded" | "disabled" | "unknown" {
+function asBoolFlag(value: unknown) {
+  return value === true;
+}
+
+function normalizeOperationalStatus(
+  raw: string | undefined,
+): "active" | "degraded" | "disabled" | "disabled_manual" | "forced_active" | "unknown" {
   if (!raw) return "unknown";
   const next = raw.trim().toLowerCase();
-  if (next === "active" || next === "degraded" || next === "disabled") return next;
+  if (
+    next === "active" ||
+    next === "degraded" ||
+    next === "disabled" ||
+    next === "disabled_manual" ||
+    next === "forced_active"
+  ) {
+    return next;
+  }
   return "unknown";
+}
+
+function resolveDiscoveryOperationalStatus(
+  manualDisabled: boolean,
+  manualOverride: boolean,
+  metadataStatus: string | undefined,
+) {
+  if (manualDisabled) return "disabled_manual" as const;
+  if (manualOverride) return "forced_active" as const;
+  return normalizeOperationalStatus(metadataStatus);
 }
 
 function performanceEntryForSource(meta: DiscoveryRunMetadata | null | undefined, sourceId: string) {
@@ -207,7 +231,13 @@ export default async function AdminDiscoveryPage({
     const maxLinksPresent = Object.prototype.hasOwnProperty.call(row, "max_links_per_run");
 
     const perfLatest = performanceEntryForSource(latestRunMeta, id);
-    const operationalStatus = normalizeOperationalStatus(latestRunMeta?.source_status?.[id]);
+    const manualDisabled = asBoolFlag(row.manual_disabled);
+    const manualOverride = asBoolFlag(row.manual_override);
+    const operationalStatus = resolveDiscoveryOperationalStatus(
+      manualDisabled,
+      manualOverride,
+      latestRunMeta?.source_status?.[id],
+    );
     const lastRunsTrend = trendRuns.map((run) => {
       const meta = parseDiscoveryRunMetadata(run.metadata_json);
       const entry = performanceEntryForSource(meta, id);
@@ -234,6 +264,8 @@ export default async function AdminDiscoveryPage({
       totalCandidatesLastRun: perfLatest && typeof perfLatest.total_candidates === "number" ? perfLatest.total_candidates : null,
       autoDisabledLastRun: isSourceInDisabledList(latestRunMeta, id),
       lastRunsTrend,
+      manualDisabled,
+      manualOverride,
     };
   });
 

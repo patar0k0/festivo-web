@@ -7,6 +7,8 @@ type DiscoverySourcePatchPayload = {
   is_active?: unknown;
   max_links_per_run?: unknown;
   priority?: unknown;
+  manual_disabled?: unknown;
+  manual_override?: unknown;
 };
 
 function hasOwn<T extends object>(obj: T, key: string) {
@@ -49,6 +51,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         return NextResponse.json({ error: "priority must be a number" }, { status: 400 });
       }
       patch.priority = body.priority;
+    }
+
+    if (hasOwn(body, "manual_disabled")) {
+      if (typeof body.manual_disabled !== "boolean") {
+        return NextResponse.json({ error: "manual_disabled must be a boolean" }, { status: 400 });
+      }
+      patch.manual_disabled = body.manual_disabled;
+    }
+
+    if (hasOwn(body, "manual_override")) {
+      if (typeof body.manual_override !== "boolean") {
+        return NextResponse.json({ error: "manual_override must be a boolean" }, { status: 400 });
+      }
+      patch.manual_override = body.manual_override;
+    }
+
+    if (patch.manual_disabled === true) {
+      patch.manual_override = false;
+    } else if (patch.manual_override === true) {
+      patch.manual_disabled = false;
     }
 
     if (!Object.keys(patch).length) {

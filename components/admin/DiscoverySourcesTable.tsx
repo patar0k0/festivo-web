@@ -7,7 +7,13 @@ const DEFAULT_SOURCE_TYPE = "municipality_site";
 const DEFAULT_PRIORITY = "100";
 const DEFAULT_MAX_LINKS = "20";
 
-export type SourceOperationalStatus = "active" | "degraded" | "disabled" | "unknown";
+export type SourceOperationalStatus =
+  | "active"
+  | "degraded"
+  | "disabled"
+  | "disabled_manual"
+  | "forced_active"
+  | "unknown";
 
 export type DiscoverySourceRunTrendCell = {
   enqueued: number | null;
@@ -31,6 +37,8 @@ type DiscoverySourceRow = {
   totalCandidatesLastRun: number | null;
   autoDisabledLastRun: boolean;
   lastRunsTrend: DiscoverySourceRunTrendCell[];
+  manualDisabled: boolean;
+  manualOverride: boolean;
 };
 
 type Props = {
@@ -119,6 +127,22 @@ function StatusBadge({ status }: { status: SourceOperationalStatus }) {
     );
   }
 
+  if (status === "disabled_manual") {
+    return (
+      <span className="inline-flex rounded-full bg-[#3f0d0d] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-red-100 shadow-sm">
+        manual
+      </span>
+    );
+  }
+
+  if (status === "forced_active") {
+    return (
+      <span className="inline-flex rounded-full bg-sky-600/18 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-sky-950 ring-1 ring-sky-700/25">
+        forced
+      </span>
+    );
+  }
+
   const palette =
     status === "active"
       ? "bg-emerald-500/15 text-emerald-800"
@@ -176,6 +200,47 @@ export default function DiscoverySourcesTable({ rows }: Props) {
     if (statusFilter === "all") return rows;
     return rows.filter((row) => row.operationalStatus === statusFilter);
   }, [rows, statusFilter]);
+
+  const patchManualMode = async (row: DiscoverySourceRow, mode: "disable" | "force" | "reset") => {
+    if (busyId) return;
+    setBusyId(row.id);
+    setMessage("");
+    setError("");
+
+    const body =
+      mode === "disable"
+        ? { manual_disabled: true, manual_override: false }
+        : mode === "force"
+          ? { manual_override: true, manual_disabled: false }
+          : { manual_disabled: false, manual_override: false };
+
+    try {
+      const url = `/admin/api/discovery-sources/${row.id}`;
+      const response = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Failed to update manual discovery flags."));
+      }
+
+      setMessage(
+        mode === "disable"
+          ? `Manual disable on: ${row.label}`
+          : mode === "force"
+            ? `Force enable on: ${row.label}`
+            : `Reset to auto mode: ${row.label}`,
+      );
+      router.refresh();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Unexpected discovery source update error.");
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const toggleActive = async (row: DiscoverySourceRow) => {
     if (busyId) return;
@@ -318,7 +383,9 @@ export default function DiscoverySourcesTable({ rows }: Props) {
                 ["all", "All"],
                 ["active", "Active"],
                 ["degraded", "Degraded"],
-                ["disabled", "Disabled"],
+                ["disabled", "Auto off"],
+                ["disabled_manual", "Manual"],
+                ["forced_active", "Forced"],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -541,14 +608,45 @@ export default function DiscoverySourcesTable({ rows }: Props) {
                     <td className="px-3 py-3 text-black/65">{row.lastRunAt ? new Date(row.lastRunAt).toLocaleString("bg-BG") : "-"}</td>
                     <td className="px-3 py-3 text-black/65">{row.totalJobsEnqueued ?? "-"}</td>
                     <td className="px-3 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => toggleActive(row)}
-                        disabled={rowBusy || row.isActive === null}
-                        className="rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] disabled:cursor-not-allowed disabled:opacity-45"
-                      >
-                        {rowBusy ? "Saving..." : row.isActive ? "Deactivate" : "Activate"}
-                      </button>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleActive(row)}
+                          disabled={rowBusy || row.isActive === null}
+                          className="rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          {rowBusy ? "Saving..." : row.isActive ? "Deactivate" : "Activate"}
+                        </button>
+                        <div className="flex flex-wrap justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => void patchManualMode(row, "disable")}
+                            disabled={rowBusy}
+                            title="Skip this source on every discovery run"
+                            className="rounded-lg border border-rose-500/35 bg-rose-500/[0.07] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-rose-900 disabled:opacity-45"
+                          >
+                            Disable
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void patchManualMode(row, "force")}
+                            disabled={rowBusy}
+                            title="Ignore auto-disable and approval-rate penalties"
+                            className="rounded-lg border border-sky-500/35 bg-sky-500/[0.08] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-sky-950 disabled:opacity-45"
+                          >
+                            Force
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void patchManualMode(row, "reset")}
+                            disabled={rowBusy}
+                            title="Clear manual flags (auto mode)"
+                            className="rounded-lg border border-black/[0.12] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-black/70 disabled:opacity-45"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 );

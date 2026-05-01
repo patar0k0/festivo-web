@@ -795,6 +795,178 @@ function bumpConfidenceTier(value: AiResearchConfidence): AiResearchConfidence {
   return "high";
 }
 
+/** Admin UI: detect source kind for search hits (extends `ResearchSourceType` with explicit Facebook event label). */
+export type AdminFestivalSearchDetectedType = "facebook_event" | "listing" | "article" | "other";
+
+export type AdminFestivalSearchHit = {
+  url: string;
+  title: string | null;
+  snippet: string | null;
+  source_type: AdminFestivalSearchDetectedType;
+};
+
+function mapResearchSourceToAdminDetected(t: ResearchSourceType): AdminFestivalSearchDetectedType {
+  if (t === "facebook") return "facebook_event";
+  if (t === "listing") return "listing";
+  return "article";
+}
+
+/** Prefer Facebook events and Event.bg-style listings first (stable within ties). */
+function preferredAdminSearchRank(url: string): number {
+  const u = url.toLowerCase();
+  if (u.includes("facebook.com/events")) return 0;
+  if (u.includes("eventibg") || u.includes("event.bg")) return 1;
+  return 2;
+}
+
+function bestTitleSnippetForUrl(url: string, rows: PerplexitySearchResultRow[]): { title: string | null; snippet: string | null } {
+  const target = normalizeUrlLoose(url);
+  let title: string | null = null;
+  let snippet: string | null = null;
+  for (const r of rows) {
+    if (!r.url) continue;
+    const row = normalizeUrlLoose(r.url);
+    if (!row || !target) continue;
+    if (row === target || target.includes(row) || row.includes(target)) {
+      if (!title && r.title) title = r.title;
+      if (!snippet && r.snippet) snippet = r.snippet;
+      if (title && snippet) break;
+    }
+  }
+  return { title, snippet };
+}
+
+/**
+ * Perplexity URL discovery only (no HTML merge). Dedupes, normalizes URLs, caps at 8, ranks Facebook/Event.bg first.
+ */
+export async function adminPerplexityFestivalSearch(query: string): Promise<{
+  urls: string[];
+  search_results: AdminFestivalSearchHit[];
+}> {
+  const apiKey = process.env.PERPLEXITY_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("PERPLEXITY_API_KEY is not configured");
+  }
+
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) {
+    throw new Error("query is required");
+  }
+
+  const context: ExtractionContext = {
+    explicitYear: extractExplicitYear(normalizedQuery),
+  };
+
+  let searchResults: PerplexitySearchResultRow[] = [];
+  const discoveryPool: string[] = [];
+
+  const first = await fetchPerplexityUrlDiscovery(apiKey, normalizedQuery, context);
+  searchResults = first.searchResults;
+  discoveryPool.push(...first.modelUrls, ...first.citationUrls);
+
+  if (countUniqueDiscoveryUrls(discoveryPool) < 3) {
+    const secondQuery = buildSecondaryDiscoveryQuery(normalizedQuery);
+    const second = await fetchPerplexityUrlDiscovery(apiKey, secondQuery, context);
+    discoveryPool.push(...second.modelUrls, ...second.citationUrls);
+    searchResults = [...searchResults, ...second.searchResults];
+  }
+
+  const rankedBase = rankDiscoveryUrls(discoveryPool);
+  const sortedForUi = [...rankedBase].sort((a, b) => {
+    const d = preferredAdminSearchRank(a) - preferredAdminSearchRank(b);
+    if (d !== 0) return d;
+    return rankedBase.indexOf(a) - rankedBase.indexOf(b);
+  });
+
+  const top = sortedForUi.slice(0, 8);
+  const hits: AdminFestivalSearchHit[] = top.map((u) => {
+    const canonical = normalizeSourceUrl(u) ?? u;
+    const { title, snippet } = bestTitleSnippetForUrl(u, searchResults);
+    const blob = collectSnippetTextForTargetUrl(u, searchResults);
+    const snippetOut = snippet ?? (blob.trim() ? blob.trim().slice(0, 500) : null);
+    const st = classifyResearchSourceType(canonical);
+    return {
+      url: canonical,
+      title,
+      snippet: snippetOut,
+      source_type: mapResearchSourceToAdminDetected(st),
+    };
+  });
+
+  return {
+    urls: hits.map((h) => h.url),
+    search_results: hits,
+  };
+}
+
+/**
+ * Single-page extraction (one URL, no multi-source merge). Reuses HTML / Facebook fallback extractors.
+ */
+export async function researchFestivalFromSingleUrl(
+  rawUrl: string,
+  options?: { queryHint?: string; snippetFallback?: string | null },
+): Promise<PerplexityFestivalResearchResult> {
+  const sanitized = sanitizeUrl(rawUrl);
+  if (!sanitized) {
+    throw new Error("Invalid URL");
+  }
+
+  const queryHint = (options?.queryHint ?? "").trim();
+  const context: ExtractionContext = {
+    explicitYear: extractExplicitYear(queryHint),
+  };
+  const normalizedQuery = queryHint || sanitized;
+  const snippetBlob = (options?.snippetFallback ?? "").trim();
+
+  const extracted: ExtractedPageSignals[] = [];
+
+  if (isFacebookEventsUrl(sanitized)) {
+    const html = (await fetchHtmlForResearch(sanitized)) ?? "";
+    const sig = extractSignalsFromFacebookFallback(html, sanitized, snippetBlob, context.explicitYear);
+    extracted.push(sig);
+  } else {
+    const html = await fetchHtmlForResearch(sanitized);
+    if (!html) {
+      throw new Error("Could not fetch page HTML (blocked, empty, or non-HTML response)");
+    }
+    extracted.push(extractSignalsFromHtml(html, sanitized, context.explicitYear));
+  }
+
+  const withData = extracted.filter((s) => s.had_data);
+  const mergeInputs = withData.length > 0 ? withData : extracted;
+  const merged = mergePageSignals(mergeInputs);
+
+  const facebookFromUrl = /facebook\.com/i.test(sanitized) ? sanitized : null;
+  const websiteCandidate = !/facebook\.com|instagram\.com|tiktok\.com/i.test(sanitized) ? sanitized : null;
+
+  const result: PerplexityFestivalResearchResult = {
+    title: merged.title,
+    description: merged.description,
+    category: null,
+    start_date: merged.start_date ? sanitizeDate(merged.start_date, context) : null,
+    end_date: merged.end_date ? sanitizeDate(merged.end_date, context) : null,
+    city: merged.city,
+    location_name: merged.location_name,
+    address: merged.address,
+    organizer_name: merged.organizer_name,
+    organizer_names: null,
+    website_url: websiteCandidate ? sanitizeUrl(websiteCandidate) : null,
+    facebook_url: facebookFromUrl ? sanitizeUrl(facebookFromUrl) : null,
+    instagram_url: null,
+    ticket_url: null,
+    hero_image: merged.hero_image ? sanitizeUrl(merged.hero_image) : null,
+    is_free: null,
+    program_draft: null,
+    source_urls: cleanSourceUrls([sanitized]),
+    confidence: "low",
+    missing_fields: [],
+    research_report: undefined,
+  };
+
+  finalizeResearchResult(result, context, normalizedQuery);
+  return result;
+}
+
 /** Shared validation, year guards, missing_fields, and base confidence (before multi-source bump). */
 function finalizeResearchResult(result: PerplexityFestivalResearchResult, context: ExtractionContext, query: string): void {
   const source_urls = result.source_urls;

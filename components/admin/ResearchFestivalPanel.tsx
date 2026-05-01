@@ -7,7 +7,12 @@ import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
 import { emptyProgramDraft, programDraftHasContent } from "@/lib/festival/programDraft";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { parseFlexibleDateToIso } from "@/lib/dates/euDateFormat";
-import type { AiResearchConfidence, FestivalResearchReport, PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
+import type {
+  AdminFestivalSearchHit,
+  AiResearchConfidence,
+  FestivalResearchReport,
+  PerplexityFestivalResearchResult,
+} from "@/lib/research/perplexity";
 import { getAIProviderLabel } from "@/lib/ai/providerUi";
 import {
   AdminEntityPageShell,
@@ -458,6 +463,16 @@ export default function ResearchFestivalPanel() {
   const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
   const [pipelinePendingId, setPipelinePendingId] = useState<string | null>(null);
 
+  const [sourceSearchQuery, setSourceSearchQuery] = useState("");
+  const [sourceHits, setSourceHits] = useState<AdminFestivalSearchHit[]>([]);
+  const [sourceSearchLoading, setSourceSearchLoading] = useState(false);
+  const [sourceSearchError, setSourceSearchError] = useState("");
+  const [previewHit, setPreviewHit] = useState<AdminFestivalSearchHit | null>(null);
+  const [previewExtract, setPreviewExtract] = useState<PerplexityFestivalResearchResult | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+  const [selectingUrl, setSelectingUrl] = useState<string | null>(null);
+
   const canResearch = query.trim().length > 0 && !isResearching;
   const canAiResearch = aiQuery.trim().length > 0 && !isAiResearching;
   const canCreate = Boolean(result || aiDraft) && !isCreating;
@@ -474,6 +489,112 @@ export default function ResearchFestivalPanel() {
 
   const setAiDraftField = (field: AiEditableStringField, rawValue: string) => {
     setAiDraft((prev) => (prev ? { ...prev, [field]: sanitizeInputValue(rawValue) } : prev));
+  };
+
+  const applyExtractionToAiDraft = (r: PerplexityFestivalResearchResult, successMessage?: string) => {
+    setAiError("");
+    setAiResult(r);
+    const names =
+      Array.isArray(r.organizer_names) && r.organizer_names.length > 0
+        ? r.organizer_names.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+        : r.organizer_name
+          ? [r.organizer_name]
+          : [];
+    setAiDraft({ ...r, organizer_names: names.length > 0 ? names : null });
+    setResult(null);
+    setPipelineJobId(null);
+    setPipelineStatus(null);
+    setPipelinePendingId(null);
+    if (successMessage) {
+      setAiSuccess(successMessage);
+    }
+  };
+
+  const runSourceSearch = async () => {
+    const q = sourceSearchQuery.trim();
+    if (!q) return;
+    setSourceSearchError("");
+    setSourceSearchLoading(true);
+    setSourceHits([]);
+    setPreviewHit(null);
+    setPreviewExtract(null);
+    setPreviewError("");
+    try {
+      const res = await fetch(`/admin/api/search?q=${encodeURIComponent(q)}`);
+      const payload = (await res.json().catch(() => null)) as
+        | { error?: string; search_results?: AdminFestivalSearchHit[] }
+        | null;
+      if (!res.ok || !payload?.search_results) {
+        throw new Error(payload?.error ?? "Search failed.");
+      }
+      setSourceHits(payload.search_results);
+      setAiQuery(q);
+    } catch (e) {
+      setSourceSearchError(e instanceof Error ? e.message : "Search failed.");
+    } finally {
+      setSourceSearchLoading(false);
+    }
+  };
+
+  const loadPreview = async (hit: AdminFestivalSearchHit) => {
+    setPreviewHit(hit);
+    setPreviewExtract(null);
+    setPreviewError("");
+    setPreviewLoading(true);
+    try {
+      const res = await fetch("/admin/api/research-from-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: hit.url,
+          search_query_hint: sourceSearchQuery.trim() || undefined,
+          snippet: hit.snippet ?? undefined,
+        }),
+      });
+      const payload = (await res.json().catch(() => null)) as { error?: string; result?: PerplexityFestivalResearchResult } | null;
+      if (!res.ok || !payload?.result) {
+        throw new Error(payload?.error ?? "Preview extraction failed.");
+      }
+      setPreviewExtract(payload.result);
+    } catch (e) {
+      setPreviewError(e instanceof Error ? e.message : "Preview failed.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const selectFromHit = async (hit: AdminFestivalSearchHit) => {
+    setAiError("");
+    setSelectingUrl(hit.url);
+    try {
+      let r: PerplexityFestivalResearchResult;
+      if (previewHit?.url === hit.url && previewExtract) {
+        r = previewExtract;
+      } else {
+        const res = await fetch("/admin/api/research-from-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: hit.url,
+            search_query_hint: sourceSearchQuery.trim() || undefined,
+            snippet: hit.snippet ?? undefined,
+          }),
+        });
+        const payload = (await res.json().catch(() => null)) as { error?: string; result?: PerplexityFestivalResearchResult } | null;
+        if (!res.ok || !payload?.result) {
+          throw new Error(payload?.error ?? "Extraction failed.");
+        }
+        r = payload.result;
+      }
+      applyExtractionToAiDraft(
+        r,
+        "Source selected: single-page extraction applied. Review confidence and missing fields, then send to pipeline.",
+      );
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Select failed.");
+    } finally {
+      setSelectingUrl(null);
+    }
   };
 
   const summaryEyebrow = "Admin · Research festival";
@@ -574,20 +695,8 @@ export default function ResearchFestivalPanel() {
         throw new Error(payload?.error ?? `${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research request failed.`);
       }
 
-      setAiResult(payload.result);
-      const r = payload.result;
-      const names =
-        Array.isArray(r.organizer_names) && r.organizer_names.length > 0
-          ? r.organizer_names.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
-          : r.organizer_name
-            ? [r.organizer_name]
-            : [];
-      setAiDraft({ ...r, organizer_names: names.length > 0 ? names : null });
-      setResult(null);
-      setPipelineJobId(null);
-      setPipelineStatus(null);
-      setPipelinePendingId(null);
-      setAiSuccess(
+      applyExtractionToAiDraft(
+        payload.result,
         `${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research completed. Review and edit values before sending to the ingest pipeline.`,
       );
     } catch (err) {
@@ -810,13 +919,159 @@ export default function ResearchFestivalPanel() {
 
       <AdminFieldSection
         title={ADMIN_ENTITY_SECTION.researchQueries.title}
-        description={`Run ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} extraction or the ${getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)} pipeline.`}
+        description={`Search with ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)}, pick one URL to extract (controlled mode), or use multi-source / ${getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)} below.`}
         variant={ADMIN_ENTITY_SECTION.researchQueries.variant}
       >
-        <div className="space-y-2">
-          <div className="space-y-1.5">
+        <div className="grid gap-8 lg:grid-cols-[1fr_minmax(260px,340px)] xl:grid-cols-[1fr_minmax(280px,380px)]">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="source-web-search" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
+                Search the web
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  id="source-web-search"
+                  value={sourceSearchQuery}
+                  onChange={(event) => setSourceSearchQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void runSourceSearch();
+                    }
+                  }}
+                  placeholder="Festival name, city, year…"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                />
+                <button
+                  type="button"
+                  onClick={() => void runSourceSearch()}
+                  disabled={sourceSearchQuery.trim().length === 0 || sourceSearchLoading}
+                  className="h-8 shrink-0 rounded-lg bg-[#0c0e14] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {sourceSearchLoading ? "Searching…" : "Search"}
+                </button>
+              </div>
+              {sourceSearchError ? (
+                <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{sourceSearchError}</p>
+              ) : null}
+            </div>
+
+            {sourceHits.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/45">Results</p>
+                <ul className="space-y-3">
+                  {sourceHits.map((hit, index) => {
+                    const highlightFirst =
+                      index === 0 &&
+                      (hit.source_type === "facebook_event" ||
+                        hit.url.toLowerCase().includes("event.bg") ||
+                        hit.url.toLowerCase().includes("eventibg"));
+                    const displayTitle = hit.title?.trim() || "Untitled result";
+                    return (
+                      <li
+                        key={hit.url}
+                        className={`rounded-xl border bg-white p-3 shadow-sm ${
+                          highlightFirst ? "border-[#0e7a45]/40 ring-2 ring-[#0e7a45]/20" : "border-black/[0.08]"
+                        }`}
+                      >
+                        <p className="text-base font-semibold text-[#1a0dab]">{displayTitle}</p>
+                        <p className="mt-0.5 text-sm text-[#006621]">{getDomainLabel(hit.url)}</p>
+                        <p className="mt-1 line-clamp-3 text-sm text-black/70">{hit.snippet ?? "—"}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void selectFromHit(hit)}
+                            disabled={selectingUrl !== null}
+                            className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
+                          >
+                            {selectingUrl === hit.url ? "Working…" : "Select"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void loadPreview(hit)}
+                            disabled={previewLoading}
+                            className="rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+                          >
+                            Preview
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-xl border border-black/[0.08] bg-black/[0.02] p-4 lg:min-h-[220px]">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Preview</p>
+            {!previewHit ? (
+              <p className="mt-3 text-sm text-black/55">Choose a result and click Preview to extract fields from that URL.</p>
+            ) : (
+              <div className="mt-3 space-y-3 text-sm">
+                {previewLoading ? <p className="text-black/60">Extracting…</p> : null}
+                {previewError ? (
+                  <p className="rounded-lg border border-[#c23c1f]/25 bg-[#fff4ef] px-2 py-1.5 text-xs text-[#b13a1a]">{previewError}</p>
+                ) : null}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">URL</p>
+                  <a
+                    href={previewHit.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="break-all text-[#0e7a45] underline-offset-2 hover:underline"
+                  >
+                    {previewHit.url}
+                  </a>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">Title</p>
+                  <p className="font-medium text-black/85">{previewExtract?.title ?? previewHit.title ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">Extracted</p>
+                  <ul className="mt-1 list-none space-y-1 text-black/75">
+                    <li>
+                      <span className="text-black/45">date:</span>{" "}
+                      {previewExtract ? (
+                        <>
+                          {previewExtract.start_date ?? "—"}
+                          {previewExtract.end_date && previewExtract.end_date !== previewExtract.start_date
+                            ? ` → ${previewExtract.end_date}`
+                            : ""}
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </li>
+                    <li>
+                      <span className="text-black/45">city:</span> {previewExtract?.city ?? "—"}
+                    </li>
+                    <li>
+                      <span className="text-black/45">location:</span> {previewExtract?.location_name ?? "—"}
+                    </li>
+                    <li>
+                      <span className="text-black/45">description:</span>{" "}
+                      <span className="line-clamp-4 whitespace-pre-wrap">{previewExtract?.description ?? "—"}</span>
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">Raw snippet</p>
+                  <p className="max-h-36 overflow-y-auto whitespace-pre-wrap rounded-md border border-black/[0.06] bg-white p-2 text-xs text-black/65">
+                    {previewHit.snippet ?? "—"}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-8 space-y-2">
+          <div className="h-px bg-black/[0.08]" />
+          <div className="space-y-1.5 pt-6">
             <label htmlFor="ai-research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
-              Search query ({getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})
+              Multi-source merge ({getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})
             </label>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
@@ -946,7 +1201,11 @@ export default function ResearchFestivalPanel() {
 
           <AdminFieldSection
             title={ADMIN_ENTITY_SECTION.linksSources.title}
-            description={`Ranked URLs from ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} discovery; form values are merged from fetched HTML (JSON-LD + Bulgarian date/location patterns).`}
+            description={
+              aiDraft.research_report
+                ? `Ranked URLs from ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} discovery; form values are merged from fetched HTML (JSON-LD + Bulgarian date/location patterns).`
+                : "Single URL (controlled mode): values come only from the page you selected—no multi-source merge."
+            }
             variant={ADMIN_ENTITY_SECTION.linksSources.variant}
           >
             <AdminFieldGrid>{renderAiFieldsForKeys(AI_LINK_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>

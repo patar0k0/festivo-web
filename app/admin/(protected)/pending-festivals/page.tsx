@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import PendingFestivalsTable from "@/components/admin/PendingFestivalsTable";
@@ -19,6 +20,8 @@ export type PendingFestivalRow = {
   start_date: string | null;
   end_date: string | null;
   source_url: string | null;
+  source_count: number | null;
+  evidence_json: unknown;
   submission_source: string | null;
   created_at: string;
   quality_score: number;
@@ -60,7 +63,7 @@ export default async function AdminPendingFestivalsPage({
 
   const { data, error } = await ctx.supabase
     .from("pending_festivals")
-    .select("id,title,description,city_id,city_guess,location_name,location_guess,organizer_name,hero_image,category,tags,date_guess,start_date,end_date,source_url,submission_source,created_at")
+    .select("id,title,description,city_id,city_guess,location_name,location_guess,organizer_name,hero_image,category,tags,date_guess,start_date,end_date,source_url,source_count,evidence_json,submission_source,created_at")
     .eq("status", "pending")
     .order("created_at", { ascending: false })
     .limit(200);
@@ -87,6 +90,8 @@ export default async function AdminPendingFestivalsPage({
       start_date: row.start_date ?? null,
       end_date: row.end_date ?? null,
       source_url: row.source_url ?? null,
+      source_count: row.source_count ?? null,
+      evidence_json: row.evidence_json ?? null,
       submission_source: row.submission_source ?? null,
       created_at: row.created_at,
       quality_score: quality.quality_score,
@@ -108,8 +113,20 @@ export default async function AdminPendingFestivalsPage({
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-        <h1 className="text-3xl font-black tracking-tight">Pending Festivals</h1>
-        <p className="mt-2 text-sm text-black/65">Review incoming ingestion records before publishing them to the main festivals catalog.</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight">Pending Festivals</h1>
+            <p className="mt-2 text-sm text-black/65">
+              Review incoming ingestion records before publishing them to the main festivals catalog.
+            </p>
+          </div>
+          <Link
+            href="/admin/pending-festivals/review"
+            className="inline-flex shrink-0 rounded-xl border border-black/15 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-[#0c0e14] hover:bg-black/[0.03]"
+          >
+            Fast review
+          </Link>
+        </div>
       </div>
 
       <PendingFestivalsTable rows={filteredRows} initialMessage={initialMessage} qualityFilter={qualityFilter} qualityCounts={qualityCounts} />

@@ -7,7 +7,7 @@ import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
 import { emptyProgramDraft, programDraftHasContent } from "@/lib/festival/programDraft";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { parseFlexibleDateToIso } from "@/lib/dates/euDateFormat";
-import type { AiResearchConfidence, PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
+import type { AiResearchConfidence, FestivalResearchReport, PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
 import { getAIProviderLabel } from "@/lib/ai/providerUi";
 import {
   AdminEntityPageShell,
@@ -126,6 +126,253 @@ function getDomainLabel(url: string): string {
   } catch {
     return "Unknown domain";
   }
+}
+
+const RESEARCH_DEBUG_SECTION =
+  "text-[10px] font-semibold uppercase tracking-[0.14em] text-black/50 border-b border-black/[0.08] pb-1 mb-2";
+
+function ResearchPipelineDebugReport({ report }: { report: FestivalResearchReport }) {
+  const discovery = report.discovery;
+  const hasStructured = Boolean(discovery?.ranked?.length);
+
+  if (!hasStructured) {
+    return (
+      <div className="space-y-2 text-xs text-black/70">
+        <p className="whitespace-pre-wrap leading-relaxed">{report.confidence_reasoning}</p>
+        {report.agreement_notes.length > 0 ? (
+          <ul className="list-disc space-y-0.5 pl-4">
+            {report.agreement_notes.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        ) : null}
+        <ul className="list-disc space-y-0.5 pl-4">
+          {report.merge_summary_lines.map((line) => (
+            <li key={line} className="break-words">
+              {line}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  const formatDateLine = (start: string | null, end: string | null) => {
+    if (!start && !end) return "—";
+    if (start && end && start !== end) return `${start} → ${end}`;
+    return start ?? end ?? "—";
+  };
+
+  return (
+    <div className="space-y-4 text-xs text-black/75">
+      <section>
+        <h4 className={RESEARCH_DEBUG_SECTION}>DISCOVERY</h4>
+        <p className="mb-1 font-medium text-black/80">Query used</p>
+        <ul className="mb-2 list-inside list-decimal space-y-0.5 pl-1 text-black/70">
+          {discovery!.queries.map((q) => (
+            <li key={q} className="break-words">
+              {q}
+            </li>
+          ))}
+        </ul>
+        <p className="mb-1 font-medium text-black/80">URLs returned (ranked)</p>
+        <ul className="space-y-1.5">
+          {discovery!.ranked.map((row) => (
+            <li key={`${row.rank}-${row.url}`} className="rounded-md border border-black/[0.06] bg-white px-2 py-1.5">
+              <span className="font-mono text-[10px] text-black/45">#{row.rank}</span>{" "}
+              <span className="font-medium text-black/65">{row.source_type}</span>
+              <p className="mt-0.5 break-all text-[11px] text-[#0e7a45]">{row.url}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <h4 className={RESEARCH_DEBUG_SECTION}>EXTRACTION (per URL)</h4>
+        <div className="space-y-3">
+          {(report.extractions ?? []).map((row) => (
+            <div key={row.url} className="rounded-lg border border-black/[0.08] bg-white p-2.5 shadow-sm">
+              <p className="break-all font-mono text-[11px] font-semibold text-black/80">URL: {row.url}</p>
+              <p className="mt-1">
+                <span className="text-black/45">TYPE:</span>{" "}
+                <span className="font-medium capitalize">{row.source_type}</span>
+                {" · "}
+                <span className="text-black/45">FETCH:</span>{" "}
+                <span className="font-medium">{row.fetch}</span>
+                {row.similarity != null ? (
+                  <>
+                    {" · "}
+                    <span className="text-black/45">SIM:</span> {row.similarity}
+                  </>
+                ) : null}
+                {row.used_in_merge ? (
+                  <span className="ml-2 rounded bg-[#0e7a45]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#0e7a45]">
+                    used in merge
+                  </span>
+                ) : null}
+              </p>
+              <div className="mt-2 border-t border-black/[0.06] pt-2 text-black/70">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">DATA</p>
+                <ul className="mt-1 list-none space-y-0.5">
+                  <li>
+                    <span className="text-black/45">title:</span> {row.title ? shortText(row.title, 120) : "—"}
+                  </li>
+                  <li>
+                    <span className="text-black/45">date:</span> {formatDateLine(row.start_date, row.end_date)}
+                  </li>
+                  <li>
+                    <span className="text-black/45">city:</span> {row.city ?? "—"}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {(report.rejected_sources ?? []).length > 0 ? (
+        <section>
+          <h4 className={RESEARCH_DEBUG_SECTION}>REJECTED SOURCES</h4>
+          <ul className="space-y-2">
+            {(report.rejected_sources ?? []).map((r) => (
+              <li key={`${r.url}-${r.reason}`} className="rounded-md border border-red-200/80 bg-red-50/50 px-2 py-1.5">
+                <p className="break-all font-mono text-[11px] text-black/85">{r.url}</p>
+                <p className="mt-1">
+                  <span className="font-semibold text-red-900/90">reason:</span>{" "}
+                  <code className="rounded bg-red-100/80 px-1 py-0.5 text-[10px]">{r.reason}</code>
+                </p>
+                {r.detail ? <p className="mt-1 text-[11px] text-black/60">{r.detail}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {report.merge_result ? (
+        <section>
+          <h4 className={RESEARCH_DEBUG_SECTION}>MERGE RESULT</h4>
+          <ul className="space-y-2 rounded-md border border-black/[0.06] bg-white p-2.5">
+            <li>
+              <span className="text-black/45">chosen title:</span>{" "}
+              <span className="font-medium text-black/85">{report.merge_result.title ?? "—"}</span>
+              {report.merge_result.title_from_urls.length > 0 ? (
+                <p className="mt-0.5 pl-2 text-[10px] text-black/55">
+                  from: {report.merge_result.title_from_urls.join(", ")}
+                </p>
+              ) : null}
+            </li>
+            <li>
+              <span className="text-black/45">chosen date:</span>{" "}
+              <span className="font-medium text-black/85">
+                {formatDateLine(report.merge_result.start_date, report.merge_result.end_date)}
+              </span>
+              {report.merge_result.start_date_from_urls.length > 0 ? (
+                <p className="mt-0.5 pl-2 text-[10px] text-black/55">
+                  start from: {report.merge_result.start_date_from_urls.join(", ")}
+                </p>
+              ) : null}
+              {report.merge_result.end_date_from_urls.length > 0 ? (
+                <p className="mt-0.5 pl-2 text-[10px] text-black/55">
+                  end from: {report.merge_result.end_date_from_urls.join(", ")}
+                </p>
+              ) : null}
+            </li>
+            <li>
+              <span className="text-black/45">chosen city:</span>{" "}
+              <span className="font-medium text-black/85">{report.merge_result.city ?? "—"}</span>
+              {report.merge_result.city_from_urls.length > 0 ? (
+                <p className="mt-0.5 pl-2 text-[10px] text-black/55">
+                  from: {report.merge_result.city_from_urls.join(", ")}
+                </p>
+              ) : null}
+            </li>
+            {report.merge_result.merge_fallback_used ? (
+              <li className="rounded bg-amber-50/90 px-2 py-1 text-[11px] text-amber-950/90">
+                Merge fallback: {report.merge_result.merge_fallback_note ?? "Similarity thresholds relaxed."}
+              </li>
+            ) : null}
+            {report.merge_result.lock_notes.length > 0 ? (
+              <li>
+                <span className="text-black/45">lock notes:</span>
+                <ul className="mt-0.5 list-disc pl-4 text-[11px] text-black/65">
+                  {report.merge_result.lock_notes.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </li>
+            ) : null}
+          </ul>
+        </section>
+      ) : null}
+
+      <section>
+        <h4 className={RESEARCH_DEBUG_SECTION}>CONFIDENCE</h4>
+        {report.confidence_debug ? (
+          <>
+            <p className="mb-2 font-semibold capitalize text-black/85">
+              {report.confidence_debug.level} because:
+            </p>
+            <ul className="list-disc space-y-1 pl-4 text-black/70">
+              {report.confidence_debug.bullets.map((b) => (
+                <li key={b} className="leading-relaxed">
+                  {b}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="text-black/70">Confidence tier: {report.confidence_reasoning}</p>
+        )}
+        <p className="mt-2 border-t border-black/[0.06] pt-2 text-[11px] text-black/55">
+          {report.confidence_reasoning}
+        </p>
+      </section>
+
+      {(report.pipeline_errors ?? []).length > 0 ? (
+        <section>
+          <h4 className={RESEARCH_DEBUG_SECTION}>ERRORS</h4>
+          <ul className="space-y-2">
+            {(report.pipeline_errors ?? []).map((err, i) => (
+              <li key={`${err.message}-${i}`} className="rounded-md border border-amber-200/90 bg-amber-50/60 px-2 py-1.5">
+                <p className="font-semibold text-amber-950/90">ERROR</p>
+                {err.url ? <p className="break-all font-mono text-[11px] text-black/75">{err.url}</p> : null}
+                <p className="mt-1 text-[11px] text-black/70">{err.message}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {report.completeness ? (
+        <p className="text-[11px] text-black/60">
+          Completeness (key fields): merged {report.completeness.merged}/6 — best single source{" "}
+          {report.completeness.best_single_source}/6.
+        </p>
+      ) : null}
+
+      {report.agreement_notes.length > 0 ? (
+        <section>
+          <h4 className={RESEARCH_DEBUG_SECTION}>SOURCE AGREEMENT (raw)</h4>
+          <ul className="list-disc space-y-0.5 pl-4">
+            {report.agreement_notes.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <details className="rounded-md border border-black/[0.06] bg-black/[0.02] px-2 py-1.5">
+        <summary className="cursor-pointer text-[11px] font-medium text-black/60">Technical merge log</summary>
+        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-black/55">
+          {report.merge_summary_lines.map((line) => (
+            <li key={line} className="break-words">
+              {line}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </div>
+  );
 }
 
 function formatMissingField(field: string): string {
@@ -727,46 +974,10 @@ export default function ResearchFestivalPanel() {
             {aiDraft.research_report ? (
               <details className="mt-3 rounded-lg border border-black/[0.08] bg-black/[0.02] p-3">
                 <summary className="cursor-pointer text-sm font-semibold text-black/80">
-                  Проследяване: източници, сливане, увереност
+                  Проследяване: discovery, извличане, отхвърляне, merge, увереност
                 </summary>
-                <div className="mt-2 space-y-2 text-xs text-black/70">
-                  <p className="whitespace-pre-wrap leading-relaxed">{aiDraft.research_report.confidence_reasoning}</p>
-                  {aiDraft.research_report.agreement_notes.length > 0 ? (
-                    <div>
-                      <p className="font-semibold text-black/60">Съгласуване между страници</p>
-                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                        {aiDraft.research_report.agreement_notes.map((n) => (
-                          <li key={n}>{n}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                  {aiDraft.research_report.completeness ? (
-                    <p className="text-black/65">
-                      Пълнота (ключови полета): обединен резултат {aiDraft.research_report.completeness.merged}/6 — най-добър
-                      единичен източник {aiDraft.research_report.completeness.best_single_source}/6.
-                    </p>
-                  ) : null}
-                  {aiDraft.research_report.source_traces && aiDraft.research_report.source_traces.length > 0 ? (
-                    <div>
-                      <p className="font-semibold text-black/60">Източници (тип / статус)</p>
-                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                        {aiDraft.research_report.source_traces.map((t) => (
-                          <li key={`${t.url}-${t.fetch_status}`} className="break-words">
-                            <span className="font-medium">{t.source_type}</span> · {t.fetch_status} — {t.url}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                  <p className="font-semibold text-black/60">Лог по страница</p>
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                    {aiDraft.research_report.merge_summary_lines.map((line) => (
-                      <li key={line} className="break-words">
-                        {line}
-                      </li>
-                    ))}
-                  </ul>
+                <div className="mt-3">
+                  <ResearchPipelineDebugReport report={aiDraft.research_report} />
                 </div>
               </details>
             ) : null}

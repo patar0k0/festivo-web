@@ -14,6 +14,8 @@ import {
 
 export type AiResearchConfidence = "low" | "medium" | "high";
 
+export type ResearchRejectionReason = "name_mismatch" | "low_similarity" | "no_data" | "fetch_failed";
+
 /** Admin-visible trace for multi-source HTML merge (Perplexity used only for URL discovery). */
 export type FestivalResearchReport = {
   flow: "perplexity_url_discovery_html_merge";
@@ -32,6 +34,45 @@ export type FestivalResearchReport = {
   confidence_reasoning: string;
   /** Count of key fields filled: title, start_date, end_date, city, description, organizer_name. */
   completeness: { best_single_source: number; merged: number };
+
+  /** Structured debug: discovery step. */
+  discovery: {
+    queries: string[];
+    followup_query: string | null;
+    ranked: Array<{ url: string; source_type: ResearchSourceType; rank: number }>;
+  };
+  /** One row per ranked fetch target. */
+  extractions: Array<{
+    url: string;
+    rank: number;
+    source_type: ResearchSourceType;
+    fetch: ResearchFetchStatus;
+    similarity: number | null;
+    title: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    city: string | null;
+    used_in_merge: boolean;
+  }>;
+  rejected_sources: Array<{ url: string; reason: ResearchRejectionReason; detail?: string }>;
+  merge_result: {
+    title: string | null;
+    title_from_urls: string[];
+    start_date: string | null;
+    start_date_from_urls: string[];
+    end_date: string | null;
+    end_date_from_urls: string[];
+    city: string | null;
+    city_from_urls: string[];
+    merge_fallback_used: boolean;
+    merge_fallback_note: string | null;
+    lock_notes: string[];
+  };
+  confidence_debug: {
+    level: AiResearchConfidence;
+    bullets: string[];
+  };
+  pipeline_errors: Array<{ url?: string; message: string }>;
 };
 
 export type PerplexityFestivalResearchResult = {
@@ -352,6 +393,98 @@ function tokenOverlapScore(a: string, b: string): number {
   }
 
   return intersection / Math.max(left.size, right.size);
+}
+
+/** Query vs extracted identity blob (title, place, excerpt) for inclusion in merge. */
+function identityOverlapForSignal(query: string, sig: ExtractedPageSignals): number {
+  const blob = [sig.title, sig.city, sig.location_name, sig.description?.slice(0, 400)].filter(Boolean).join(" ");
+  if (!blob.trim()) return 0;
+  return tokenOverlapScore(query, blob);
+}
+
+const SIMILARITY_NAME_MISMATCH_LT = 0.14;
+const SIMILARITY_LOW_LT = 0.32;
+
+function similarityRejection(overlap: number, hadData: boolean): ResearchRejectionReason | null {
+  if (!hadData) return null;
+  if (overlap < SIMILARITY_NAME_MISMATCH_LT) return "name_mismatch";
+  if (overlap < SIMILARITY_LOW_LT) return "low_similarity";
+  return null;
+}
+
+function normTitleKey(t: string | null | undefined): string | null {
+  if (!t) return null;
+  const s = t.trim().toLowerCase();
+  return s.length > 0 ? s : null;
+}
+
+function urlsContributingTitle(title: string | null, inputs: ExtractedPageSignals[]): string[] {
+  const key = normTitleKey(title);
+  if (!key) return [];
+  return inputs.filter((s) => normTitleKey(s.title) === key).map((s) => s.url);
+}
+
+function urlsContributingDate(iso: string | null, inputs: ExtractedPageSignals[], which: "start" | "end"): string[] {
+  if (!iso) return [];
+  return inputs
+    .filter((s) => (which === "start" ? s.start_date === iso : s.end_date === iso))
+    .map((s) => s.url);
+}
+
+function urlsContributingCity(city: string | null, inputs: ExtractedPageSignals[]): string[] {
+  if (!city?.trim()) return [];
+  const k = city.trim().toLowerCase();
+  return inputs.filter((s) => s.city?.trim().toLowerCase() === k).map((s) => s.url);
+}
+
+function buildConfidenceDebugBullets(args: {
+  result: PerplexityFestivalResearchResult;
+  agreementNotes: string[];
+  preTier: AiResearchConfidence;
+  postTier: AiResearchConfidence;
+  context: ExtractionContext;
+  mergeInputCount: number;
+  rankedCount: number;
+}): string[] {
+  const { result, agreementNotes, preTier, postTier, context, mergeInputCount, rankedCount } = args;
+  const bullets: string[] = [];
+
+  const dateAgreements = agreementNotes.filter((n) => n.includes("start_date"));
+  const cityAgreements = agreementNotes.filter((n) => n.includes("city"));
+  for (const n of dateAgreements) bullets.push(`${n} (start date consensus).`);
+  for (const n of cityAgreements) bullets.push(`${n} (city consensus).`);
+
+  const hasOfficial = result.source_urls.some((url) => isOfficialLikeSource(url) || !isLowValueSource(url));
+  if (hasOfficial) bullets.push("At least one official or non-aggregate source is present in the URL set.");
+
+  if (context.explicitYear) {
+    if (result.start_date?.startsWith(String(context.explicitYear))) {
+      bullets.push(`Start date aligns with query year ${context.explicitYear}.`);
+    } else if (result.start_date) {
+      bullets.push(`Start date year differs from query year ${context.explicitYear} (validation may cap confidence).`);
+    } else {
+      bullets.push(`Query targets year ${context.explicitYear} but no aligned start date after validation.`);
+    }
+  }
+
+  const missingN = countMissingImportantFields(result);
+  if (missingN >= 5) bullets.push(`Many important fields missing (${missingN}); caps confidence at low.`);
+  else if (missingN >= 3) bullets.push(`${missingN} important fields still missing.`);
+
+  const lowValueCount = result.source_urls.filter((url) => isLowValueSource(url)).length;
+  if (result.source_urls.length > 0 && lowValueCount / result.source_urls.length >= 0.67) {
+    bullets.push("Most sources are low-value aggregators; confidence is limited.");
+  }
+
+  bullets.push(`Merge used ${mergeInputCount} page(s) with passing identity similarity (of ${rankedCount} ranked fetch targets).`);
+
+  if (postTier !== preTier) {
+    bullets.push(`Agreement boost raised confidence from ${preTier} to ${postTier}.`);
+  } else {
+    bullets.push(`No agreement-based bump; tier stays ${postTier} after validation.`);
+  }
+
+  return bullets;
 }
 
 function hasTokenInText(token: string, text: string): boolean {
@@ -761,6 +894,8 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
   let perplexityModelTotal = 0;
   let perplexityCitationTotal = 0;
   let followupQueries = 0;
+  const primaryQuery = normalizedQuery;
+  let followupQuery: string | null = null;
 
   const discoveryPool: string[] = [];
   const first = await fetchPerplexityUrlDiscovery(apiKey, normalizedQuery, context);
@@ -771,42 +906,73 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
 
   if (countUniqueDiscoveryUrls(discoveryPool) < 3) {
     followupQueries = 1;
-    const secondQuery = buildSecondaryDiscoveryQuery(normalizedQuery);
-    const second = await fetchPerplexityUrlDiscovery(apiKey, secondQuery, context);
+    followupQuery = buildSecondaryDiscoveryQuery(normalizedQuery);
+    const second = await fetchPerplexityUrlDiscovery(apiKey, followupQuery, context);
     perplexityModelTotal += second.modelUrls.length;
     perplexityCitationTotal += second.citationUrls.length;
     discoveryPool.push(...second.modelUrls, ...second.citationUrls);
     searchResults = [...searchResults, ...second.searchResults];
-    mergeSummaryLines.push(`Discovery follow-up: initial unique URLs < 3 → second query ("${secondQuery}").`);
+    mergeSummaryLines.push(`Discovery follow-up: initial unique URLs < 3 → second query ("${followupQuery}").`);
   }
 
   const ranked = rankDiscoveryUrls(discoveryPool);
 
-  const extractedSignals: ExtractedPageSignals[] = [];
+  const extractedForMergeDebug: ExtractedPageSignals[] = [];
   const sourceTraces: Array<{ url: string; source_type: ResearchSourceType; fetch_status: ResearchFetchStatus }> = [];
+  const extractions: FestivalResearchReport["extractions"] = [];
+  const pipeline_errors: FestivalResearchReport["pipeline_errors"] = [];
 
   mergeSummaryLines.push(
     `Perplexity URL discovery: ${perplexityModelTotal} JSON URL row(s), ${perplexityCitationTotal} citation URL(s), ${searchResults.length} search snippet row(s); after ranking, ${ranked.length} fetch target(s).`,
   );
 
-  for (const url of ranked) {
+  for (let idx = 0; idx < ranked.length; idx++) {
+    const url = ranked[idx]!;
+    const rank = idx + 1;
     const sourceType = classifyResearchSourceType(url);
+
     if (isFacebookEventsUrl(url)) {
       const html = (await fetchHtmlForResearch(url)) ?? "";
       const snippetBlob = collectSnippetTextForTargetUrl(url, searchResults);
       if (!html && !snippetBlob.trim()) {
         sourceTraces.push({ url, source_type: sourceType, fetch_status: "blocked" });
         mergeSummaryLines.push(`Facebook event URL: fetch blocked/empty and no Perplexity snippet match — ${url}`);
+        pipeline_errors.push({ url, message: "facebook.com blocked or empty fetch (no snippet fallback)" });
+        extractions.push({
+          url,
+          rank,
+          source_type: sourceType,
+          fetch: "blocked",
+          similarity: null,
+          title: null,
+          start_date: null,
+          end_date: null,
+          city: null,
+          used_in_merge: false,
+        });
         continue;
       }
       const sig = extractSignalsFromFacebookFallback(html, url, snippetBlob, context.explicitYear);
-      extractedSignals.push(sig);
+      extractedForMergeDebug.push(sig);
       sourceTraces.push({ url, source_type: sourceType, fetch_status: "fallback_used" });
+      const overlap = identityOverlapForSignal(normalizedQuery, sig);
       mergeSummaryLines.push(
         sig.had_data
           ? `Facebook fallback (title + snippets, no JSON-LD): ${url}`
           : `Facebook fallback returned no structured fields: ${url}`,
       );
+      extractions.push({
+        url,
+        rank,
+        source_type: sourceType,
+        fetch: "fallback_used",
+        similarity: Number(overlap.toFixed(4)),
+        title: sig.title,
+        start_date: sig.start_date,
+        end_date: sig.end_date,
+        city: sig.city,
+        used_in_merge: false,
+      });
       continue;
     }
 
@@ -814,20 +980,127 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
     if (!html) {
       sourceTraces.push({ url, source_type: sourceType, fetch_status: "blocked" });
       mergeSummaryLines.push(`Fetch failed or empty: ${url}`);
+      pipeline_errors.push({ url, message: "Fetch failed, empty body, or non-HTML response" });
+      extractions.push({
+        url,
+        rank,
+        source_type: sourceType,
+        fetch: "blocked",
+        similarity: null,
+        title: null,
+        start_date: null,
+        end_date: null,
+        city: null,
+        used_in_merge: false,
+      });
       continue;
     }
+
     const sig = extractSignalsFromHtml(html, url, context.explicitYear);
-    extractedSignals.push(sig);
+    extractedForMergeDebug.push(sig);
     sourceTraces.push({ url, source_type: sourceType, fetch_status: "success" });
+    const overlap = identityOverlapForSignal(normalizedQuery, sig);
     mergeSummaryLines.push(sig.had_data ? `Parsed JSON-LD / text signals: ${url}` : `HTML only (no structured fields): ${url}`);
+    extractions.push({
+      url,
+      rank,
+      source_type: sourceType,
+      fetch: "success",
+      similarity: Number(overlap.toFixed(4)),
+      title: sig.title,
+      start_date: sig.start_date,
+      end_date: sig.end_date,
+      city: sig.city,
+      used_in_merge: false,
+    });
   }
 
-  const merged = mergePageSignals(extractedSignals);
+  let mergeInputs = extractedForMergeDebug.filter((sig) => {
+    if (!sig.had_data) return false;
+    const o = identityOverlapForSignal(normalizedQuery, sig);
+    return similarityRejection(o, true) === null;
+  });
+
+  let mergeFallbackUsed = false;
+  let mergeFallbackNote: string | null = null;
+  if (mergeInputs.length === 0) {
+    const withData = extractedForMergeDebug.filter((s) => s.had_data);
+    if (withData.length > 0) {
+      mergeInputs = withData;
+      mergeFallbackUsed = true;
+      mergeFallbackNote =
+        "No page passed identity similarity thresholds (see extractions); merged all sources that returned data.";
+      mergeSummaryLines.push(mergeFallbackNote);
+    }
+  }
+
+  const mergeInputUrls = new Set(mergeInputs.map((s) => s.url));
+  for (const row of extractions) {
+    if (mergeInputUrls.has(row.url)) row.used_in_merge = true;
+  }
+
+  const rejected_sources: FestivalResearchReport["rejected_sources"] = [];
+  for (const row of extractions) {
+    if (row.fetch === "blocked") {
+      rejected_sources.push({
+        url: row.url,
+        reason: "fetch_failed",
+        detail: pipeline_errors.find((e) => e.url === row.url)?.message,
+      });
+      continue;
+    }
+    const sig = extractedForMergeDebug.find((s) => s.url === row.url);
+    if (!sig) continue;
+    if (mergeInputUrls.has(row.url)) continue;
+    if (!sig.had_data) {
+      rejected_sources.push({
+        url: row.url,
+        reason: "no_data",
+        detail: "No usable title, dates, city, or structured fields after extraction",
+      });
+      continue;
+    }
+    const o = row.similarity ?? identityOverlapForSignal(normalizedQuery, sig);
+    const sr = similarityRejection(o, true);
+    if (sr) {
+      rejected_sources.push({
+        url: row.url,
+        reason: sr,
+        detail: `Identity similarity ${o.toFixed(2)} (thresholds: ≥${SIMILARITY_LOW_LT} merge, <${SIMILARITY_NAME_MISMATCH_LT} name mismatch)`,
+      });
+    }
+  }
+
+  const merged = mergePageSignals(mergeInputs);
   for (const line of merged.merge_lock_notes) {
     mergeSummaryLines.push(line);
   }
 
-  const bestSingle = extractedSignals.length ? Math.max(0, ...extractedSignals.map(countKeyFieldsFromSignal)) : 0;
+  const merge_result: FestivalResearchReport["merge_result"] = {
+    title: merged.title,
+    title_from_urls: urlsContributingTitle(merged.title, mergeInputs),
+    start_date: merged.start_date,
+    start_date_from_urls: urlsContributingDate(merged.start_date, mergeInputs, "start"),
+    end_date: merged.end_date,
+    end_date_from_urls: urlsContributingDate(merged.end_date, mergeInputs, "end"),
+    city: merged.city,
+    city_from_urls: urlsContributingCity(merged.city, mergeInputs),
+    merge_fallback_used: mergeFallbackUsed,
+    merge_fallback_note: mergeFallbackNote,
+    lock_notes: [...merged.merge_lock_notes],
+  };
+
+  const discovery: FestivalResearchReport["discovery"] = {
+    queries: followupQuery ? [primaryQuery, followupQuery] : [primaryQuery],
+    followup_query: followupQuery,
+    ranked: ranked.map((u, i) => ({
+      url: u,
+      source_type: classifyResearchSourceType(u),
+      rank: i + 1,
+    })),
+  };
+
+  const bestSingle = extractedForMergeDebug.length ? Math.max(0, ...extractedForMergeDebug.map(countKeyFieldsFromSignal)) : 0;
 
   const facebookFromList = ranked.find((u) => /facebook\.com/i.test(u)) ?? null;
   const websiteCandidate =
@@ -858,7 +1131,7 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
 
   finalizeResearchResult(result, context, normalizedQuery);
 
-  const agreementNotes = computeAgreementNotes(extractedSignals);
+  const agreementNotes = computeAgreementNotes(mergeInputs);
   const preAgreementConfidence = result.confidence;
   if (agreementNotes.length > 0) {
     result.confidence = bumpConfidenceTier(result.confidence);
@@ -873,10 +1146,10 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
     organizer_name: result.organizer_name,
   });
 
-  const withData = extractedSignals.filter((s) => s.had_data).length;
+  const withData = extractedForMergeDebug.filter((s) => s.had_data).length;
   const reasoningParts = [
     `Perplexity was used only to discover URLs (${perplexityModelTotal} JSON rows, ${perplexityCitationTotal} citation URLs${followupQueries ? `, ${followupQueries} follow-up quer${followupQueries === 1 ? "y" : "ies"}` : ""}).`,
-    `Fetched ${ranked.length} ranked page(s); ${withData} returned extractable fields.`,
+    `Fetched ${ranked.length} ranked page(s); ${withData} returned extractable fields; ${mergeInputs.length} used in merge.`,
     `Field completeness: merged result ${mergedFieldCount}/6 key fields vs best single source ${bestSingle}/6.`,
     `Base confidence after validation: ${preAgreementConfidence}.`,
   ];
@@ -886,18 +1159,37 @@ export async function researchFestival(query: string): Promise<PerplexityFestiva
     reasoningParts.push("No multi-source agreement on start date or city; confidence not boosted for agreement.");
   }
 
+  const confidence_debug: FestivalResearchReport["confidence_debug"] = {
+    level: result.confidence,
+    bullets: buildConfidenceDebugBullets({
+      result,
+      agreementNotes,
+      preTier: preAgreementConfidence,
+      postTier: result.confidence,
+      context,
+      mergeInputCount: mergeInputs.length,
+      rankedCount: ranked.length,
+    }),
+  };
+
   result.research_report = {
     flow: "perplexity_url_discovery_html_merge",
     perplexity_model_urls: perplexityModelTotal,
     perplexity_citation_urls: perplexityCitationTotal,
     perplexity_followup_queries: followupQueries,
     sources_attempted: [...ranked],
-    sources_with_extractable_data: extractedSignals.filter((s) => s.had_data).map((s) => s.url),
+    sources_with_extractable_data: extractedForMergeDebug.filter((s) => s.had_data).map((s) => s.url),
     source_traces: sourceTraces,
     merge_summary_lines: mergeSummaryLines,
     agreement_notes: agreementNotes,
     confidence_reasoning: reasoningParts.join(" "),
     completeness: { best_single_source: bestSingle, merged: mergedFieldCount },
+    discovery,
+    extractions,
+    rejected_sources,
+    merge_result,
+    confidence_debug,
+    pipeline_errors,
   };
 
   return result;

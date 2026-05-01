@@ -4,7 +4,7 @@
 
 1. **По-стари job маршрути** — пишат директно в `user_notifications`; push през `/api/jobs/push`.
 2. **MVP опашка (notification_jobs)** — планиране, дедупликация, одит в `notification_logs`; изпращане от `/api/notifications/run` чрез FCM (същият `FCM_SERVER_KEY`).
-3. **Transactional email (email_jobs)** — отделна опашка за имейл през Resend; enqueue от приложния код (или dev-only `GET /api/test-email`), batch processor `GET /api/jobs/email` с `x-job-secret: JOBS_SECRET` или `x-vercel-cron` (график и Vercel Hobby: виж „Scheduling model (production-safe)“ по-долу); не смесва push payload-и с FCM. Без конфигуриран `RESEND_API_KEY` job-ът не остава зависнал в `processing` — отива в обичайния retry/fail с `last_error` (напр. `resend_not_configured`); непознат `type` → `unknown_job_type:…`; невалиден payload при рендер → `render_failed:…`. Регистър и валидация: `lib/email/emailRegistry.ts`, `lib/email/emailSchemas.ts`, `lib/email/renderEmailJob.ts`; UI шаблони: `emails/components/*`, `emails/templates/*`. Абсолютни URL се подават в payload при enqueue (база: `NEXT_PUBLIC_SITE_URL` / `getBaseUrl()` в `lib/seo.ts`). **`EMAIL_ADMIN`** (опционално): inbox за админ-only типове (`admin-new-claim`, `admin-new-submission`); ако липсва — enqueue се пропуска с `console.info`, без да се чупи основният flow. **`EMAIL_REPLY_TO`** (опционално): Reply-To към Resend `emails.send`.
+3. **Transactional email (email_jobs)** — отделна опашка за имейл през Resend; enqueue от приложния код (или dev-only `GET /api/test-email`), batch processor `GET /api/jobs/email` с `x-job-secret: JOBS_SECRET` или (TEMP) `User-Agent` съдържащ `vercel-cron` за Vercel Cron без custom secret (график и Vercel Hobby: виж „Scheduling model (production-safe)“ по-долу); не смесва push payload-и с FCM. Без конфигуриран `RESEND_API_KEY` job-ът не остава зависнал в `processing` — отива в обичайния retry/fail с `last_error` (напр. `resend_not_configured`); непознат `type` → `unknown_job_type:…`; невалиден payload при рендер → `render_failed:…`. Регистър и валидация: `lib/email/emailRegistry.ts`, `lib/email/emailSchemas.ts`, `lib/email/renderEmailJob.ts`; UI шаблони: `emails/components/*`, `emails/templates/*`. Абсолютни URL се подават в payload при enqueue (база: `NEXT_PUBLIC_SITE_URL` / `getBaseUrl()` в `lib/seo.ts`). **`EMAIL_ADMIN`** (опционално): inbox за админ-only типове (`admin-new-claim`, `admin-new-submission`); ако липсва — enqueue се пропуска с `console.info`, без да се чупи основният flow. **`EMAIL_REPLY_TO`** (опционално): Reply-To към Resend `emails.send`.
 
 **Типове `email_jobs.type` (Phase 2 + reminder channel):**
 
@@ -100,8 +100,10 @@
 
 ## Автентикация на jobs
 
-- `x-job-secret: JOBS_SECRET` (primary for external schedulers)
-- `x-vercel-cron` (still accepted for optional Vercel low-frequency calls)
+(`lib/jobs/auth.ts` — `isAuthorizedJobRequest`)
+
+- `x-job-secret: JOBS_SECRET` (primary for external schedulers and internal worker fetches)
+- (TEMP) `User-Agent` съдържа `vercel-cron` — Vercel Cron без secret (Hobby plan limitation)
 
 ## Таблици
 

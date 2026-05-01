@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { processDueEmailJobs } from "@/lib/email/processEmailJobs";
 import { isAuthorizedJobRequest } from "@/lib/jobs/auth";
 import { acquireCronLock, releaseCronLock } from "@/lib/jobs/locks";
-import { processDueNotificationJobs } from "@/lib/notifications/processDueJobs";
 import { TZ } from "@/lib/notifications/time";
 import { scheduleWeekendNearbyJobs, type WeekendRunSlot } from "@/lib/notifications/triggers";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
@@ -51,26 +49,9 @@ async function readJsonResponse(res: Response): Promise<unknown> {
   }
 }
 
-async function internalJobGet(
-  request: Request,
-  path: string,
-): Promise<{ ok: boolean; status: number; body: unknown }> {
-  const secret = process.env.JOBS_SECRET;
-  if (!secret) {
-    return { ok: false, status: 0, body: { error: "JOBS_SECRET is not set" } };
-  }
-  const base = getWorkerJobBaseUrl(request);
-  const res = await fetch(`${base}${path}`, {
-    headers: { "x-job-secret": secret },
-    cache: "no-store",
-  });
-  const body = await readJsonResponse(res);
-  return { ok: res.ok, status: res.status, body };
-}
-
 async function maybeRunCleanup(
   supabase: ReturnType<typeof createSupabaseAdmin>,
-  request: Request,
+  baseUrl: string,
   now: Date,
 ): Promise<{ ran: boolean; ok?: boolean; body?: unknown }> {
   const { data, error } = await supabase
@@ -90,10 +71,14 @@ async function maybeRunCleanup(
     }
   }
 
-  const sweep = await internalJobGet(request, "/api/jobs/user-sweep-retry");
-  if (!sweep.ok) {
-    console.error("[cron/worker] user-sweep-retry failed", sweep);
-    return { ran: true, ok: false, body: sweep.body };
+  const sweepRes = await fetch(`${baseUrl}/api/jobs/user-sweep-retry`, {
+    headers: { "x-job-secret": process.env.JOBS_SECRET! },
+    cache: "no-store",
+  });
+  const sweepBody = await readJsonResponse(sweepRes);
+  if (!sweepRes.ok) {
+    console.error("[cron/worker] user-sweep-retry failed", sweepRes.status, sweepBody);
+    return { ran: true, ok: false, body: sweepBody };
   }
 
   await supabase.from("cron_locks").delete().eq("name", CLEANUP_MARKER);
@@ -105,7 +90,7 @@ async function maybeRunCleanup(
     console.error("[cron/worker] cleanup marker insert failed", insErr);
   }
 
-  return { ran: true, ok: true, body: sweep.body };
+  return { ran: true, ok: true, body: sweepBody };
 }
 
 export async function GET(request: Request) {
@@ -123,48 +108,44 @@ export async function GET(request: Request) {
 
   const supabase = createSupabaseAdmin();
   const now = new Date();
+  const baseUrl = getWorkerJobBaseUrl(request);
 
-  const [notifResult, emailResult] = await Promise.all([
-    (async () => {
-      const lockName = "notifications_run";
-      const lock = await acquireCronLock(supabase, lockName, now, 10);
-      if (!lock.ok && lock.reason === "lock_active") {
-        return { skipped: true as const, reason: "lock_active" as const };
-      }
-      if (!lock.ok) {
-        throw new Error("message" in lock ? lock.message : "notification lock failed");
-      }
-      try {
-        return await processDueNotificationJobs(supabase, 75);
-      } finally {
-        await releaseCronLock(supabase, lockName, lock.ok ? lock.lockToken : undefined);
-      }
-    })(),
-    (async () => {
-      const lockName = "email_jobs_run";
-      const lock = await acquireCronLock(supabase, lockName, now, 10);
-      if (!lock.ok && lock.reason === "lock_active") {
-        return { skipped: true as const, reason: "lock_active" as const };
-      }
-      if (!lock.ok) {
-        throw new Error("message" in lock ? lock.message : "email lock failed");
-      }
-      try {
-        return await processDueEmailJobs(supabase, 15);
-      } finally {
-        await releaseCronLock(supabase, lockName, lock.ok ? lock.lockToken : undefined);
-      }
-    })(),
+  const [notifRes, emailRes] = await Promise.all([
+    fetch(`${baseUrl}/api/notifications/run`, {
+      headers: { "x-job-secret": process.env.JOBS_SECRET! },
+      cache: "no-store",
+    }),
+    fetch(`${baseUrl}/api/jobs/email`, {
+      headers: { "x-job-secret": process.env.JOBS_SECRET! },
+      cache: "no-store",
+    }),
   ]);
 
-  const reminders = await internalJobGet(request, "/api/jobs/reminders");
-  if (!reminders.ok) {
-    console.error("[cron/worker] reminders failed", reminders);
+  const notifResult = await readJsonResponse(notifRes);
+  const emailResult = await readJsonResponse(emailRes);
+  if (!notifRes.ok) {
+    console.error("[cron/worker] notifications/run failed", notifRes.status, notifResult);
+  }
+  if (!emailRes.ok) {
+    console.error("[cron/worker] email failed", emailRes.status, emailResult);
   }
 
-  const push = await internalJobGet(request, "/api/jobs/push");
-  if (!push.ok) {
-    console.error("[cron/worker] push failed", push);
+  const remindersRes = await fetch(`${baseUrl}/api/jobs/reminders`, {
+    headers: { "x-job-secret": process.env.JOBS_SECRET! },
+    cache: "no-store",
+  });
+  const remindersBody = await readJsonResponse(remindersRes);
+  if (!remindersRes.ok) {
+    console.error("[cron/worker] reminders failed", remindersRes.status, remindersBody);
+  }
+
+  const pushRes = await fetch(`${baseUrl}/api/jobs/push`, {
+    headers: { "x-job-secret": process.env.JOBS_SECRET! },
+    cache: "no-store",
+  });
+  const pushBody = await readJsonResponse(pushRes);
+  if (!pushRes.ok) {
+    console.error("[cron/worker] push failed", pushRes.status, pushBody);
   }
 
   const weekend: Record<string, unknown> = {};
@@ -192,18 +173,23 @@ export async function GET(request: Request) {
     }
   }
 
-  const cleanup = await maybeRunCleanup(supabase, request, now);
+  const cleanup = await maybeRunCleanup(supabase, baseUrl, now);
 
-  const subtasksOk = reminders.ok && push.ok && (!cleanup.ran || cleanup.ok !== false);
+  const subtasksOk =
+    notifRes.ok &&
+    emailRes.ok &&
+    remindersRes.ok &&
+    pushRes.ok &&
+    (!cleanup.ran || cleanup.ok !== false);
 
   return NextResponse.json({
     ok: subtasksOk,
     notifications_run: notifResult,
     email_jobs: emailResult,
-    reminders: reminders.body,
-    reminders_http_ok: reminders.ok,
-    push: push.body,
-    push_http_ok: push.ok,
+    reminders: remindersBody,
+    reminders_http_ok: remindersRes.ok,
+    push: pushBody,
+    push_http_ok: pushRes.ok,
     weekend,
     cleanup,
   });

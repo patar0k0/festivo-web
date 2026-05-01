@@ -227,7 +227,10 @@ export default async function AdminDiscoveryPage({
 
   const mappedSources = sourceRows.map((row) => {
     const id = asString(row.id);
-    const label = asString(row.name) || asString(row.label) || id;
+    const nameVal = asString(row.name);
+    const labelVal = asString(row.label);
+    const name = nameVal || labelVal || id;
+    const label = labelVal || nameVal || id;
     const maxLinksPresent = Object.prototype.hasOwnProperty.call(row, "max_links_per_run");
 
     const perfLatest = performanceEntryForSource(latestRunMeta, id);
@@ -249,6 +252,7 @@ export default async function AdminDiscoveryPage({
 
     return {
       id,
+      name,
       label,
       sourceType: asString(row.source_type),
       baseUrl: asString(row.base_url),

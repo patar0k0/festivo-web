@@ -3,16 +3,40 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
+const ALLOWED_DISCOVERY_SOURCE_TYPES = new Set(["facebook_page", "municipality_site", "aggregator_site"]);
+
 type DiscoverySourcePatchPayload = {
   is_active?: unknown;
   max_links_per_run?: unknown;
   priority?: unknown;
   manual_disabled?: unknown;
   manual_override?: unknown;
+  name?: unknown;
+  label?: unknown;
+  base_url?: unknown;
+  source_type?: unknown;
 };
 
 function hasOwn<T extends object>(obj: T, key: string) {
   return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function normalizeHttpUrl(raw: string) {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(withProtocol);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -67,6 +91,48 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       patch.manual_override = body.manual_override;
     }
 
+    if (hasOwn(body, "name")) {
+      if (typeof body.name !== "string" || !body.name.trim()) {
+        return NextResponse.json({ error: "name must be a non-empty string" }, { status: 400 });
+      }
+      patch.name = body.name.trim();
+    }
+
+    if (hasOwn(body, "label")) {
+      if (typeof body.label !== "string") {
+        return NextResponse.json({ error: "label must be a string" }, { status: 400 });
+      }
+      const trimmedLabel = body.label.trim();
+      const fallbackName = typeof patch.name === "string" ? patch.name : null;
+      const nextLabel = trimmedLabel || fallbackName;
+      if (!nextLabel) {
+        return NextResponse.json({ error: "label cannot be empty" }, { status: 400 });
+      }
+      patch.label = nextLabel;
+    }
+
+    if (hasOwn(body, "base_url")) {
+      if (typeof body.base_url !== "string") {
+        return NextResponse.json({ error: "base_url must be a string" }, { status: 400 });
+      }
+      const normalized = normalizeHttpUrl(body.base_url);
+      if (!normalized) {
+        return NextResponse.json({ error: "base_url must be a valid http(s) URL" }, { status: 400 });
+      }
+      patch.base_url = normalized;
+    }
+
+    if (hasOwn(body, "source_type")) {
+      if (typeof body.source_type !== "string" || !body.source_type.trim()) {
+        return NextResponse.json({ error: "source_type must be a non-empty string" }, { status: 400 });
+      }
+      const st = body.source_type.trim();
+      if (!ALLOWED_DISCOVERY_SOURCE_TYPES.has(st)) {
+        return NextResponse.json({ error: "source_type is not allowed" }, { status: 400 });
+      }
+      patch.source_type = st;
+    }
+
     if (patch.manual_disabled === true) {
       patch.manual_override = false;
     } else if (patch.manual_override === true) {
@@ -113,5 +179,65 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   } catch (error) {
     console.error("discovery PATCH crashed", error);
     return NextResponse.json({ error: "Discovery source update failed" }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const ctx = await getAdminContext();
+  if (!ctx || !ctx.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  try {
+    const { id: rawId } = await params;
+    const id = typeof rawId === "string" ? rawId.trim() : "";
+    if (!id) {
+      return NextResponse.json({ error: "Invalid source id" }, { status: 400 });
+    }
+
+    let admin;
+    try {
+      admin = createSupabaseAdmin();
+    } catch (adminClientError) {
+      console.error("discovery DELETE admin client failed", adminClientError);
+      return NextResponse.json({ error: "Discovery source delete failed" }, { status: 500 });
+    }
+
+    const { error } = await admin
+      .from("discovery_sources")
+      .update({
+        is_active: false,
+        manual_disabled: true,
+        manual_override: false,
+      })
+      .eq("id", id);
+
+    if (error) {
+      console.error("discovery soft delete failed", error);
+      return NextResponse.json({ error: error.message || "Failed to deactivate discovery source" }, { status: 500 });
+    }
+
+    try {
+      await logAdminAction({
+        actor_user_id: ctx.user.id,
+        action: "discovery_source.soft_deleted",
+        entity_type: "discovery_source",
+        entity_id: id,
+        route: "/admin/api/discovery-sources/[id]",
+        method: "DELETE",
+        details: {
+          is_active: false,
+          manual_disabled: true,
+        },
+      });
+    } catch (auditError) {
+      const message = auditError instanceof Error ? auditError.message : "unknown";
+      console.error("[admin/audit] discovery_source.soft_deleted failed", { message });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("discovery DELETE crashed", error);
+    return NextResponse.json({ error: "Discovery source delete failed" }, { status: 500 });
   }
 }

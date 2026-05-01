@@ -22,6 +22,7 @@ export type DiscoverySourceRunTrendCell = {
 
 type DiscoverySourceRow = {
   id: string;
+  name: string;
   label: string;
   sourceType: string;
   baseUrl: string;
@@ -111,7 +112,7 @@ async function readDiscoverySourceActivityError(response: Response, requestUrl: 
   return detail ? `${prefix} ${detail}` : prefix;
 }
 
-type StatusFilter = "all" | SourceOperationalStatus;
+type StatusFilter = "all" | "inactive" | SourceOperationalStatus;
 
 function formatApprovalRateRatio(value: number | null) {
   if (value === null || !Number.isFinite(value)) return "—";
@@ -193,11 +194,22 @@ export default function DiscoverySourcesTable({ rows }: Props) {
   const [newType, setNewType] = useState(DEFAULT_SOURCE_TYPE);
   const [newPriority, setNewPriority] = useState(DEFAULT_PRIORITY);
   const [newMaxLinks, setNewMaxLinks] = useState(DEFAULT_MAX_LINKS);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState<DiscoverySourceRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editLabel, setEditLabel] = useState("");
+  const [editBaseUrl, setEditBaseUrl] = useState("");
+  const [editType, setEditType] = useState(DEFAULT_SOURCE_TYPE);
+  const [editPriority, setEditPriority] = useState(DEFAULT_PRIORITY);
+  const [editMaxLinks, setEditMaxLinks] = useState(DEFAULT_MAX_LINKS);
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState("");
 
   const supportsAnyMaxLinksEdit = useMemo(() => rows.some((row) => row.supportsMaxLinksEdit), [rows]);
 
   const visibleRows = useMemo(() => {
     if (statusFilter === "all") return rows;
+    if (statusFilter === "inactive") return rows.filter((row) => row.isActive === false);
     return rows.filter((row) => row.operationalStatus === statusFilter);
   }, [rows, statusFilter]);
 
@@ -319,6 +331,109 @@ export default function DiscoverySourcesTable({ rows }: Props) {
     resetAddForm();
   };
 
+  const openEditModal = (row: DiscoverySourceRow) => {
+    setEditError("");
+    setEditRow(row);
+    setEditName(row.name);
+    setEditLabel(row.label);
+    setEditBaseUrl(row.baseUrl);
+    setEditType(row.sourceType || DEFAULT_SOURCE_TYPE);
+    setEditPriority(String(row.priority ?? DEFAULT_PRIORITY));
+    setEditMaxLinks(String(row.maxLinksPerRun ?? DEFAULT_MAX_LINKS));
+    setEditOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setEditOpen(false);
+    setEditRow(null);
+    setEditError("");
+  };
+
+  const submitEditSource = async () => {
+    if (!editRow || editBusy) return;
+    setEditError("");
+
+    const priorityParsed = Number(editPriority);
+    const maxLinksParsed = Number(editMaxLinks);
+    if (!editName.trim()) {
+      setEditError("Name is required.");
+      return;
+    }
+    if (!editLabel.trim()) {
+      setEditError("Label is required.");
+      return;
+    }
+    if (!editBaseUrl.trim()) {
+      setEditError("Base URL is required.");
+      return;
+    }
+    if (!Number.isFinite(priorityParsed)) {
+      setEditError("Priority must be a number.");
+      return;
+    }
+    if (!Number.isInteger(maxLinksParsed) || maxLinksParsed < 1) {
+      setEditError("Max links per run must be a positive integer.");
+      return;
+    }
+
+    setEditBusy(true);
+    try {
+      const response = await fetch(`/admin/api/discovery-sources/${editRow.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: editName.trim(),
+          label: editLabel.trim(),
+          base_url: editBaseUrl.trim(),
+          source_type: editType.trim() || DEFAULT_SOURCE_TYPE,
+          priority: priorityParsed,
+          max_links_per_run: maxLinksParsed,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Failed to update source."));
+      }
+
+      setMessage(`Updated source: ${editLabel.trim()}`);
+      closeEditModal();
+      router.refresh();
+    } catch (editErr) {
+      setEditError(editErr instanceof Error ? editErr.message : "Unexpected error while saving.");
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const softDeleteSource = async (row: DiscoverySourceRow) => {
+    if (busyId) return;
+    if (!window.confirm("Are you sure?")) return;
+
+    setBusyId(row.id);
+    setMessage("");
+    setError("");
+
+    try {
+      const url = `/admin/api/discovery-sources/${row.id}`;
+      const response = await fetch(url, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Failed to delete source."));
+      }
+
+      setMessage(`Deactivated source: ${row.label}`);
+      router.refresh();
+    } catch (delErr) {
+      setError(delErr instanceof Error ? delErr.message : "Unexpected delete error.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const submitNewSource = async () => {
     if (createBusy) return;
     setCreateError("");
@@ -381,6 +496,7 @@ export default function DiscoverySourcesTable({ rows }: Props) {
             {(
               [
                 ["all", "All"],
+                ["inactive", "Inactive"],
                 ["active", "Active"],
                 ["degraded", "Degraded"],
                 ["disabled", "Auto off"],
@@ -514,6 +630,112 @@ export default function DiscoverySourcesTable({ rows }: Props) {
         </div>
       ) : null}
 
+      {editOpen && editRow ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-discovery-source-title"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeEditModal();
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.12)]"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h3 id="edit-discovery-source-title" className="text-lg font-black tracking-tight">
+              Edit discovery source
+            </h3>
+            <p className="mt-1 text-xs text-black/55">Updates name, URL, type, and limits.</p>
+
+            <div className="mt-4 space-y-3">
+              {editError ? (
+                <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{editError}</p>
+              ) : null}
+
+              <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                Name
+                <input
+                  className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  autoComplete="off"
+                />
+              </label>
+              <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                Label
+                <input
+                  className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value)}
+                  autoComplete="off"
+                />
+              </label>
+              <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                Base URL
+                <input
+                  className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                  value={editBaseUrl}
+                  onChange={(e) => setEditBaseUrl(e.target.value)}
+                  autoComplete="url"
+                />
+              </label>
+              <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                Type
+                <input
+                  className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                  value={editType}
+                  onChange={(e) => setEditType(e.target.value)}
+                  placeholder={DEFAULT_SOURCE_TYPE}
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                  Priority
+                  <input
+                    className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                    type="number"
+                    value={editPriority}
+                    onChange={(e) => setEditPriority(e.target.value)}
+                  />
+                </label>
+                <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                  Max links / run
+                  <input
+                    className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={editMaxLinks}
+                    onChange={(e) => setEditMaxLinks(e.target.value)}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeEditModal}
+                disabled={editBusy}
+                className="h-10 rounded-xl border border-black/10 px-4 text-sm font-semibold text-black/70 hover:bg-black/[0.03] disabled:opacity-45"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitEditSource()}
+                disabled={editBusy}
+                className="h-10 rounded-xl bg-black px-4 text-sm font-semibold text-white hover:bg-black/85 disabled:opacity-45"
+              >
+                {editBusy ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {message ? <p className="rounded-lg bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">{message}</p> : null}
       {error ? <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
 
@@ -541,10 +763,19 @@ export default function DiscoverySourcesTable({ rows }: Props) {
             {visibleRows.length ? (
               visibleRows.map((row) => {
                 const rowBusy = busyId === row.id;
+                const rowInactive = row.isActive === false;
                 return (
-                  <tr key={row.id} className="hover:bg-black/[0.02]">
+                  <tr
+                    key={row.id}
+                    className={`hover:bg-black/[0.02] ${rowInactive ? "bg-black/[0.04] opacity-60" : ""}`}
+                  >
                     <td className="px-3 py-3 font-semibold text-black/80">
-                      <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-flex flex-wrap items-center gap-1.5">
+                        {rowInactive ? (
+                          <span className="inline-flex rounded-full bg-black/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/55">
+                            inactive
+                          </span>
+                        ) : null}
                         {row.autoDisabledLastRun ? <WarningAutoDisabledIcon /> : null}
                         <span>{row.label}</span>
                       </span>
@@ -609,6 +840,24 @@ export default function DiscoverySourcesTable({ rows }: Props) {
                     <td className="px-3 py-3 text-black/65">{row.totalJobsEnqueued ?? "-"}</td>
                     <td className="px-3 py-3 text-right">
                       <div className="flex flex-col items-end gap-1.5">
+                        <div className="flex flex-wrap justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(row)}
+                            disabled={rowBusy}
+                            className="rounded-lg border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-black/80 disabled:opacity-45"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void softDeleteSource(row)}
+                            disabled={rowBusy}
+                            className="rounded-lg border border-rose-600/40 bg-rose-600/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-rose-900 disabled:opacity-45"
+                          >
+                            Delete
+                          </button>
+                        </div>
                         <button
                           type="button"
                           onClick={() => toggleActive(row)}

@@ -9,6 +9,15 @@ export default async function AdminPendingFestivalsFastReviewPage() {
     redirect("/login?next=/admin/pending-festivals/review");
   }
 
+  const { count: pendingInitial, error: countError } = await ctx.supabase
+    .from("pending_festivals")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "pending");
+
+  if (countError) {
+    throw new Error(`pending_festivals count: ${countError.message}`);
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
@@ -19,12 +28,12 @@ export default async function AdminPendingFestivalsFastReviewPage() {
             <Link href="/admin/pending-festivals" className="font-semibold underline decoration-black/25 underline-offset-2">
               Pending festivals
             </Link>
-            .
+            . Skipped items stay out of the queue for 10 minutes.
           </p>
         </div>
       </div>
 
-      <PendingFestivalFastReview />
+      <PendingFestivalFastReview initialPendingCount={pendingInitial ?? 0} />
     </div>
   );
 }

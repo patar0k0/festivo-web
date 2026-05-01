@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import { fetchAllPendingSortedIds, pickNextPendingId } from "@/lib/admin/pendingFestivalReviewQueue";
 import { buildFastReviewItem } from "@/lib/admin/pendingFestivalReviewPayload";
+import { countPendingFestivals, fetchNextPendingReviewId } from "@/lib/admin/pendingFestivalReviewQueue";
 
-function parseExcludeIds(raw: string | null): Set<string> {
-  if (!raw?.trim()) return new Set();
-  return new Set(
-    raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean),
-  );
+function parseExcludeIds(raw: string | null): string[] {
+  if (!raw?.trim()) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export async function GET(request: Request) {
@@ -22,32 +20,46 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const excludeIds = parseExcludeIds(url.searchParams.get("exclude"));
 
-  let sorted: Awaited<ReturnType<typeof fetchAllPendingSortedIds>>;
+  let pendingCount: number;
   try {
-    sorted = await fetchAllPendingSortedIds(ctx.supabase);
+    pendingCount = await countPendingFestivals(ctx.supabase);
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown";
-    console.error("[admin/api/pending-festivals/review/next] queue load failed", message);
-    return NextResponse.json({ error: "Failed to load pending queue" }, { status: 500 });
+    console.error("[admin/api/pending-festivals/review/next] count failed", message);
+    return NextResponse.json({ error: "Failed to count pending festivals" }, { status: 500 });
   }
 
-  const localExclude = new Set(excludeIds);
-  let pickId = pickNextPendingId(sorted, localExclude);
+  const tried = new Set(excludeIds);
+  let pickId: string | null = null;
+
+  try {
+    pickId = await fetchNextPendingReviewId(ctx.supabase, { excludeIds: [...tried] });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown";
+    console.error("[admin/api/pending-festivals/review/next] queue pick failed", message);
+    return NextResponse.json({ error: "Failed to load pending queue" }, { status: 500 });
+  }
 
   for (let attempt = 0; attempt < 5 && pickId; attempt++) {
     try {
       const item = await buildFastReviewItem(ctx.supabase, pickId);
       if (item) {
-        return NextResponse.json({ item });
+        return NextResponse.json({ item, pending_count: pendingCount });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "unknown";
       console.error("[admin/api/pending-festivals/review/next] row load failed", { pickId, message });
       return NextResponse.json({ error: "Failed to load pending festival" }, { status: 500 });
     }
-    localExclude.add(pickId);
-    pickId = pickNextPendingId(sorted, localExclude);
+    tried.add(pickId);
+    try {
+      pickId = await fetchNextPendingReviewId(ctx.supabase, { excludeIds: [...tried] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "unknown";
+      console.error("[admin/api/pending-festivals/review/next] queue retry failed", message);
+      return NextResponse.json({ error: "Failed to load pending queue" }, { status: 500 });
+    }
   }
 
-  return NextResponse.json({ item: null });
+  return NextResponse.json({ item: null, pending_count: pendingCount });
 }

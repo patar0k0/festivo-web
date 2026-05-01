@@ -11,6 +11,8 @@ async function readErrorMessage(response: Response, fallback: string) {
   return payload?.error ?? fallback;
 }
 
+type NextPayload = { item: FastReviewPendingItem | null; pending_count: number };
+
 function confidenceBadgeClass(score: number | null) {
   if (score == null) return "border-black/15 bg-black/[0.04] text-black/55";
   if (score >= 70) return "border-[#18a05e]/35 bg-[#18a05e]/10 text-[#0e7a45]";
@@ -26,31 +28,54 @@ function typingTarget(active: Element | null) {
   return false;
 }
 
-export default function PendingFestivalFastReview() {
+function missingUppercase(m: string): string {
+  const map: Record<string, string> = { date: "DATE", city: "CITY", venue: "VENUE" };
+  return map[m] ?? m.toUpperCase();
+}
+
+async function postSkipTouch(id: string): Promise<void> {
+  const res = await fetch("/admin/api/pending-festivals/review/skip", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  if (!res.ok) {
+    console.warn("[fast-review] skip touch failed", await readErrorMessage(res, res.statusText));
+  }
+}
+
+export default function PendingFestivalFastReview({ initialPendingCount }: { initialPendingCount: number }) {
   const router = useRouter();
   const [current, setCurrent] = useState<FastReviewPendingItem | null | undefined>(undefined);
   const [prefetched, setPrefetched] = useState<FastReviewPendingItem | null>(null);
+  const [pendingCount, setPendingCount] = useState(initialPendingCount);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<"approve" | "reject" | null>(null);
+  const [navBusy, setNavBusy] = useState(false);
   const prefetching = useRef(false);
 
-  const loadNext = useCallback(async (exclude: string): Promise<FastReviewPendingItem | null> => {
+  const loadNextRaw = useCallback(async (exclude: string): Promise<NextPayload> => {
     const q = exclude ? `?exclude=${encodeURIComponent(exclude)}` : "";
     const res = await fetch(`/admin/api/pending-festivals/review/next${q}`, { credentials: "include" });
     if (!res.ok) {
       throw new Error(await readErrorMessage(res, "Failed to load next festival."));
     }
-    const body = (await res.json()) as { item: FastReviewPendingItem | null };
-    return body.item;
+    return (await res.json()) as NextPayload;
   }, []);
+
+  const recoverFresh = useCallback(async (): Promise<NextPayload> => {
+    return loadNextRaw("");
+  }, [loadNextRaw]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const item = await loadNext("");
+        const body = await loadNextRaw("");
         if (!cancelled) {
-          setCurrent(item);
+          setCurrent(body.item);
+          setPendingCount(body.pending_count);
           setError("");
         }
       } catch (e) {
@@ -63,22 +88,23 @@ export default function PendingFestivalFastReview() {
     return () => {
       cancelled = true;
     };
-  }, [loadNext]);
+  }, [loadNextRaw]);
 
   const runPrefetch = useCallback(
     async (excludeId: string) => {
       if (prefetching.current || !excludeId) return;
       prefetching.current = true;
       try {
-        const next = await loadNext(excludeId);
-        setPrefetched(next);
+        const body = await loadNextRaw(excludeId);
+        setPrefetched(body.item);
+        setPendingCount(body.pending_count);
       } catch {
         setPrefetched(null);
       } finally {
         prefetching.current = false;
       }
     },
-    [loadNext],
+    [loadNextRaw],
   );
 
   useEffect(() => {
@@ -89,80 +115,140 @@ export default function PendingFestivalFastReview() {
   }, [current?.id, runPrefetch]);
 
   const advance = useCallback(async () => {
+    if (!current || navBusy || busy) return;
+    setNavBusy(true);
     setError("");
-    if (prefetched) {
-      setCurrent(prefetched);
-      setPrefetched(null);
-      return;
-    }
-    if (current?.id) {
-      try {
-        const item = await loadNext(current.id);
-        setCurrent(item);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Advance failed.");
-      }
-      return;
-    }
+    const curId = current.id;
     try {
-      const item = await loadNext("");
-      setCurrent(item);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Advance failed.");
+      await postSkipTouch(curId);
+      const p = prefetched;
+      setPrefetched(null);
+
+      if (p && p.id !== curId) {
+        setCurrent(p);
+      } else {
+        try {
+          const body = await recoverFresh();
+          setCurrent(body.item);
+          setPendingCount(body.pending_count);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Advance failed.");
+          try {
+            const body = await recoverFresh();
+            setCurrent(body.item);
+            setPendingCount(body.pending_count);
+            setError("");
+          } catch {
+            /* keep error */
+          }
+        }
+      }
+    } finally {
+      setNavBusy(false);
     }
-  }, [current?.id, loadNext, prefetched]);
+  }, [busy, current, navBusy, prefetched, recoverFresh]);
 
   const onApprove = useCallback(async () => {
-    if (!current || busy) return;
+    if (!current || busy || navBusy) return;
     setBusy("approve");
     setError("");
+    const curId = current.id;
+    const p = prefetched;
     try {
-      const res = await fetch(`/admin/api/pending-festivals/${current.id}/approve`, {
+      const res = await fetch(`/admin/api/pending-festivals/${curId}/approve`, {
         method: "POST",
         credentials: "include",
       });
       if (!res.ok) {
         throw new Error(await readErrorMessage(res, "Approve failed."));
       }
-      if (prefetched) {
-        setCurrent(prefetched);
-        setPrefetched(null);
+      setPrefetched(null);
+      setPendingCount((n) => Math.max(0, n - 1));
+
+      if (p && p.id !== curId) {
+        setCurrent(p);
       } else {
-        const item = await loadNext("");
-        setCurrent(item);
+        try {
+          const body = await recoverFresh();
+          setCurrent(body.item);
+          setPendingCount(body.pending_count);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Load failed after approve.");
+          try {
+            const body = await recoverFresh();
+            setCurrent(body.item);
+            setPendingCount(body.pending_count);
+            setError("");
+          } catch {
+            /* keep error */
+          }
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Approve failed.");
+      setPrefetched(null);
+      try {
+        const body = await recoverFresh();
+        setPendingCount(body.pending_count);
+      } catch {
+        /* ignore */
+      }
+      void runPrefetch(curId);
     } finally {
       setBusy(null);
     }
-  }, [busy, current, loadNext, prefetched]);
+  }, [busy, current, navBusy, prefetched, recoverFresh, runPrefetch]);
 
   const onReject = useCallback(async () => {
-    if (!current || busy) return;
+    if (!current || busy || navBusy) return;
     setBusy("reject");
     setError("");
+    const curId = current.id;
+    const p = prefetched;
     try {
-      const res = await fetch(`/admin/api/pending-festivals/${current.id}/reject`, {
+      const res = await fetch(`/admin/api/pending-festivals/${curId}/reject`, {
         method: "POST",
         credentials: "include",
       });
       if (!res.ok) {
         throw new Error(await readErrorMessage(res, "Reject failed."));
       }
-      if (prefetched) {
-        setCurrent(prefetched);
-        setPrefetched(null);
+      setPrefetched(null);
+      setPendingCount((n) => Math.max(0, n - 1));
+
+      if (p && p.id !== curId) {
+        setCurrent(p);
       } else {
-        const item = await loadNext("");
-        setCurrent(item);
+        try {
+          const body = await recoverFresh();
+          setCurrent(body.item);
+          setPendingCount(body.pending_count);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Load failed after reject.");
+          try {
+            const body = await recoverFresh();
+            setCurrent(body.item);
+            setPendingCount(body.pending_count);
+            setError("");
+          } catch {
+            /* keep error */
+          }
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Reject failed.");
+      setPrefetched(null);
+      try {
+        const body = await recoverFresh();
+        setPendingCount(body.pending_count);
+      } catch {
+        /* ignore */
+      }
+      void runPrefetch(curId);
     } finally {
       setBusy(null);
     }
-  }, [busy, current, loadNext, prefetched]);
+  }, [busy, current, navBusy, prefetched, recoverFresh, runPrefetch]);
 
   const onEdit = useCallback(() => {
     if (!current) return;
@@ -173,7 +259,7 @@ export default function PendingFestivalFastReview() {
     const onKey = (ev: KeyboardEvent) => {
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
       if (typingTarget(document.activeElement)) return;
-      if (busy) return;
+      if (busy || navBusy) return;
       const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
       if (k === "a") {
         ev.preventDefault();
@@ -194,7 +280,7 @@ export default function PendingFestivalFastReview() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [advance, busy, onApprove, onEdit, onReject]);
+  }, [advance, busy, navBusy, onApprove, onEdit, onReject]);
 
   if (current === undefined) {
     return (
@@ -207,6 +293,11 @@ export default function PendingFestivalFastReview() {
   if (!current) {
     return (
       <div className="space-y-4">
+        <div className="flex justify-end">
+          <span className="rounded-lg border border-black/10 bg-white px-3 py-1.5 text-sm font-bold text-[#0c0e14] shadow-sm">
+            Pending: {pendingCount}
+          </span>
+        </div>
         {error ? (
           <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p>
         ) : null}
@@ -226,9 +317,16 @@ export default function PendingFestivalFastReview() {
   }
 
   const warnReview = current.needs_review || current.validate_needs_review;
+  const missingUpper = current.missing_labels.map(missingUppercase);
 
   return (
     <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-4 pb-28">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <span className="rounded-lg border border-black/10 bg-white px-3 py-1.5 text-sm font-bold text-[#0c0e14] shadow-sm">
+          Pending: {pendingCount}
+        </span>
+      </div>
+
       {error ? (
         <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p>
       ) : null}
@@ -253,16 +351,6 @@ export default function PendingFestivalFastReview() {
               {current.venue_label || "—"}
             </p>
           </div>
-          {current.missing_labels.length > 0 ? (
-            <div className="mt-3 rounded-lg border border-[#b8891e]/25 bg-[#fff7e6]/80 px-3 py-2 text-xs text-[#8a6516]">
-              <p className="font-semibold">Missing:</p>
-              <ul className="mt-1 list-inside list-disc">
-                {current.missing_labels.map((m) => (
-                  <li key={m}>{m}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
           <div className="mt-5 max-h-[min(28rem,50vh)] overflow-y-auto rounded-xl border border-black/[0.06] bg-black/[0.02] p-4 text-sm leading-relaxed text-black/80">
             {current.description?.trim() ? (
               <p className="whitespace-pre-wrap">{current.description}</p>
@@ -286,6 +374,16 @@ export default function PendingFestivalFastReview() {
         </div>
 
         <aside className="space-y-4 rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)] lg:sticky lg:top-4 lg:self-start">
+          {missingUpper.length > 0 ? (
+            <div
+              className="rounded-xl border-2 border-[#b91c1c] bg-[#fef2f2] px-3 py-2.5 text-sm font-extrabold uppercase tracking-wide text-[#991b1b] shadow-sm"
+              role="status"
+            >
+              <span aria-hidden>❌ </span>
+              Missing: {missingUpper.join(", ")}
+            </div>
+          ) : null}
+
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Confidence</p>
             <span
@@ -324,7 +422,7 @@ export default function PendingFestivalFastReview() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-2">
           <button
             type="button"
-            disabled={Boolean(busy)}
+            disabled={Boolean(busy) || navBusy}
             onClick={() => void onApprove()}
             className="rounded-xl border border-[#18a05e]/40 bg-[#18a05e]/15 px-4 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-[#0e7a45] disabled:opacity-45"
           >
@@ -332,7 +430,7 @@ export default function PendingFestivalFastReview() {
           </button>
           <button
             type="button"
-            disabled={Boolean(busy)}
+            disabled={Boolean(busy) || navBusy}
             onClick={onEdit}
             className="rounded-xl border border-black/15 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-black/75 disabled:opacity-45"
           >
@@ -340,7 +438,7 @@ export default function PendingFestivalFastReview() {
           </button>
           <button
             type="button"
-            disabled={Boolean(busy)}
+            disabled={Boolean(busy) || navBusy}
             onClick={() => void onReject()}
             className="rounded-xl border border-[#b13a1a]/35 bg-[#fff1ec] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-[#9f3115] disabled:opacity-45"
           >
@@ -348,19 +446,19 @@ export default function PendingFestivalFastReview() {
           </button>
           <button
             type="button"
-            disabled={Boolean(busy)}
+            disabled={Boolean(busy) || navBusy}
             onClick={() => void advance()}
             className="rounded-xl border border-black/15 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-black/75 disabled:opacity-45"
           >
-            Skip (S)
+            {navBusy ? "…" : "Skip (S)"}
           </button>
           <button
             type="button"
-            disabled={Boolean(busy)}
+            disabled={Boolean(busy) || navBusy}
             onClick={() => void advance()}
             className="rounded-xl border border-black/20 bg-black/[0.06] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-[#0c0e14] disabled:opacity-45"
           >
-            Next → (Enter)
+            {navBusy ? "…" : "Next → (Enter)"}
           </button>
         </div>
         <p className="mx-auto mt-2 max-w-6xl text-center text-[10px] text-black/40">

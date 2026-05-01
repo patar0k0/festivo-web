@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: built.error }, { status: built.status });
   }
 
-  let insertRow: Record<string, unknown> = { ...built.row };
+  const insertRow: Record<string, unknown> = { ...built.row };
 
   const evRaw = insertRow.evidence_json;
   const ev =

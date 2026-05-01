@@ -35,6 +35,7 @@ import { outboundClickHref } from "@/lib/outbound/outboundLink";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import { logGoogleMapsOpenDebug } from "@/lib/location/buildGoogleMapsUrl";
 import { slugify } from "@/lib/utils";
+import ShareAction from "@/components/actions/ShareAction";
 
 const REMINDER_BLOCK_ID = "festival-reminder-block";
 
@@ -1248,10 +1249,13 @@ export default function FestivalDetailClient({
             />
           ) : null}
 
-          {hasCtaButtons ? (
+          {(hasCtaButtons || !previewMode) ? (
             <section className={pub.railCardPlain}>
               <h2 className={pub.sectionTitleMd}>Полезни връзки</h2>
               <div className="mt-4 flex flex-col gap-2">
+                {!previewMode && !festival.website_url && !festival.ticket_url ? (
+                  <ShareAction title={festival.title} description={festival.description} />
+                ) : null}
                 {festival.website_url ? (
                   previewMode ? (
                     <div
@@ -1313,6 +1317,9 @@ export default function FestivalDetailClient({
                       Билети
                     </a>
                   )
+                ) : null}
+                {!previewMode && (festival.website_url || festival.ticket_url) ? (
+                  <ShareAction title={festival.title} description={festival.description} />
                 ) : null}
               </div>
             </section>

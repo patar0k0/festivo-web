@@ -7,6 +7,13 @@ const DEFAULT_SOURCE_TYPE = "municipality_site";
 const DEFAULT_PRIORITY = "100";
 const DEFAULT_MAX_LINKS = "20";
 
+export type SourceOperationalStatus = "active" | "degraded" | "disabled" | "unknown";
+
+export type DiscoverySourceRunTrendCell = {
+  enqueued: number | null;
+  approvalRate: number | null;
+};
+
 type DiscoverySourceRow = {
   id: string;
   label: string;
@@ -18,6 +25,12 @@ type DiscoverySourceRow = {
   lastRunAt: string | null;
   totalJobsEnqueued: number | null;
   supportsMaxLinksEdit: boolean;
+  operationalStatus: SourceOperationalStatus;
+  approvalRateLastRun: number | null;
+  enqueuedLastRun: number | null;
+  totalCandidatesLastRun: number | null;
+  autoDisabledLastRun: boolean;
+  lastRunsTrend: DiscoverySourceRunTrendCell[];
 };
 
 type Props = {
@@ -90,8 +103,60 @@ async function readDiscoverySourceActivityError(response: Response, requestUrl: 
   return detail ? `${prefix} ${detail}` : prefix;
 }
 
+type StatusFilter = "all" | SourceOperationalStatus;
+
+function formatApprovalRateRatio(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return `${Math.round(value * 100)}%`;
+}
+
+function StatusBadge({ status }: { status: SourceOperationalStatus }) {
+  if (status === "unknown") {
+    return (
+      <span className="inline-flex rounded-full bg-black/[0.06] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-black/45">
+        n/a
+      </span>
+    );
+  }
+
+  const palette =
+    status === "active"
+      ? "bg-emerald-500/15 text-emerald-800"
+      : status === "degraded"
+        ? "bg-amber-400/20 text-amber-950"
+        : "bg-rose-500/15 text-rose-900";
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] ${palette}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function WarningAutoDisabledIcon() {
+  return (
+    <span
+      className="inline-flex shrink-0 text-amber-600"
+      title="Auto-disabled due to low performance"
+      aria-label="Auto-disabled due to low performance"
+      role="img"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+        <path
+          fillRule="evenodd"
+          d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+          clipRule="evenodd"
+        />
+      </svg>
+    </span>
+  );
+}
+
 export default function DiscoverySourcesTable({ rows }: Props) {
   const router = useRouter();
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -106,6 +171,11 @@ export default function DiscoverySourcesTable({ rows }: Props) {
   const [newMaxLinks, setNewMaxLinks] = useState(DEFAULT_MAX_LINKS);
 
   const supportsAnyMaxLinksEdit = useMemo(() => rows.some((row) => row.supportsMaxLinksEdit), [rows]);
+
+  const visibleRows = useMemo(() => {
+    if (statusFilter === "all") return rows;
+    return rows.filter((row) => row.operationalStatus === statusFilter);
+  }, [rows, statusFilter]);
 
   const toggleActive = async (row: DiscoverySourceRow) => {
     if (busyId) return;
@@ -240,16 +310,42 @@ export default function DiscoverySourcesTable({ rows }: Props) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-black tracking-tight">Discovery Sources</h2>
-        <button
-          type="button"
-          onClick={() => {
-            setCreateError("");
-            setAddOpen(true);
-          }}
-          className="h-10 rounded-xl bg-black px-4 text-sm font-semibold text-white hover:bg-black/85"
-        >
-          + Add Source
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45">Filter</span>
+            {(
+              [
+                ["all", "All"],
+                ["active", "Active"],
+                ["degraded", "Degraded"],
+                ["disabled", "Disabled"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatusFilter(value)}
+                className={`h-8 rounded-lg border px-2.5 text-xs font-semibold transition-colors ${
+                  statusFilter === value
+                    ? "border-black/20 bg-black text-white"
+                    : "border-black/10 bg-white text-black/70 hover:bg-black/[0.03]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setCreateError("");
+              setAddOpen(true);
+            }}
+            className="h-10 shrink-0 rounded-xl bg-black px-4 text-sm font-semibold text-white hover:bg-black/85"
+          >
+            + Add Source
+          </button>
+        </div>
       </div>
 
       {addOpen ? (
@@ -362,6 +458,11 @@ export default function DiscoverySourcesTable({ rows }: Props) {
               <th className="px-3 py-3">Type</th>
               <th className="px-3 py-3">Base URL</th>
               <th className="px-3 py-3">Active</th>
+              <th className="px-3 py-3">Source health</th>
+              <th className="px-3 py-3">Approval rate</th>
+              <th className="px-3 py-3">Enqueued (last run)</th>
+              <th className="px-3 py-3">Candidates (last run)</th>
+              <th className="px-3 py-3">Last 3 runs</th>
               <th className="px-3 py-3">Priority</th>
               <th className="px-3 py-3">Max links/run</th>
               <th className="px-3 py-3">Last run</th>
@@ -370,12 +471,17 @@ export default function DiscoverySourcesTable({ rows }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-black/[0.06]">
-            {rows.length ? (
-              rows.map((row) => {
+            {visibleRows.length ? (
+              visibleRows.map((row) => {
                 const rowBusy = busyId === row.id;
                 return (
                   <tr key={row.id} className="hover:bg-black/[0.02]">
-                    <td className="px-3 py-3 font-semibold text-black/80">{row.label}</td>
+                    <td className="px-3 py-3 font-semibold text-black/80">
+                      <span className="inline-flex items-center gap-1.5">
+                        {row.autoDisabledLastRun ? <WarningAutoDisabledIcon /> : null}
+                        <span>{row.label}</span>
+                      </span>
+                    </td>
                     <td className="px-3 py-3 text-black/75">{row.sourceType || "-"}</td>
                     <td className="px-3 py-3 text-black/75">
                       {row.baseUrl ? (
@@ -387,6 +493,28 @@ export default function DiscoverySourcesTable({ rows }: Props) {
                       )}
                     </td>
                     <td className="px-3 py-3 text-black/75">{row.isActive === null ? "-" : row.isActive ? "yes" : "no"}</td>
+                    <td className="px-3 py-3">
+                      <StatusBadge status={row.operationalStatus} />
+                    </td>
+                    <td className="px-3 py-3 text-black/65 tabular-nums">{formatApprovalRateRatio(row.approvalRateLastRun)}</td>
+                    <td className="px-3 py-3 text-black/65 tabular-nums">{row.enqueuedLastRun ?? "—"}</td>
+                    <td className="px-3 py-3 text-black/65 tabular-nums">{row.totalCandidatesLastRun ?? "—"}</td>
+                    <td className="px-3 py-3 text-[11px] leading-snug text-black/60">
+                      {row.lastRunsTrend.length ? (
+                        <span className="tabular-nums">
+                          {row.lastRunsTrend.map((cell, index) => (
+                            <span key={`${row.id}-trend-${index}`}>
+                              {index > 0 ? <span className="text-black/35"> · </span> : null}
+                              <span title={`Run ${index + 1} (newest first): enqueued / approval rate`}>
+                                {cell.enqueued ?? "—"} / {formatApprovalRateRatio(cell.approvalRate)}
+                              </span>
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-black/65">{row.priority ?? "-"}</td>
                     <td className="px-3 py-3 text-black/65">
                       {row.supportsMaxLinksEdit ? (
@@ -427,8 +555,8 @@ export default function DiscoverySourcesTable({ rows }: Props) {
               })
             ) : (
               <tr>
-                <td className="px-3 py-6 text-center text-black/50" colSpan={9}>
-                  No discovery sources found.
+                <td className="px-3 py-6 text-center text-black/50" colSpan={14}>
+                  {rows.length ? "No sources match this filter." : "No discovery sources found."}
                 </td>
               </tr>
             )}

@@ -146,9 +146,19 @@ export async function GET(request: Request) {
     console.error("[cron/worker] reminders failed", remindersJob.status, remindersJob.body);
   }
 
-  const pushJob = await callJob("/api/jobs/push");
-  if (!pushJob.ok) {
-    console.error("[cron/worker] push failed", pushJob.status, pushJob.body);
+  let push_http_ok = true;
+  let push: unknown = {};
+
+  if (process.env.FCM_SERVER_KEY) {
+    const res = await callJob("/api/jobs/push");
+    push_http_ok = res.ok;
+    push = res.body;
+    if (!res.ok) {
+      console.error("[cron/worker] push failed", res.status, res.body);
+    }
+  } else {
+    push_http_ok = true;
+    push = { skipped: true };
   }
 
   const weekend: Record<string, unknown> = {};
@@ -182,7 +192,7 @@ export async function GET(request: Request) {
     notifJob.ok &&
     emailJob.ok &&
     remindersJob.ok &&
-    pushJob.ok &&
+    (process.env.FCM_SERVER_KEY ? push_http_ok : true) &&
     (!cleanup.ran || cleanup.ok !== false);
 
   return NextResponse.json({
@@ -191,8 +201,8 @@ export async function GET(request: Request) {
     email_jobs: emailJob.body,
     reminders: remindersJob.body,
     reminders_http_ok: remindersJob.ok,
-    push: pushJob.body,
-    push_http_ok: pushJob.ok,
+    push,
+    push_http_ok,
     weekend,
     cleanup,
   });

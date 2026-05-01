@@ -59,6 +59,8 @@ export async function POST(request: Request) {
     insertRow.needs_review = Boolean(insertRow.needs_review) || body.needs_review;
   }
 
+  insertRow.is_free = (insertRow.is_free as boolean | null | undefined) ?? false;
+
   const admin = createSupabaseAdmin();
   const { data: inserted, error } = await admin.from("pending_festivals").insert(insertRow).select("id").single();
 

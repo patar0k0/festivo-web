@@ -294,7 +294,7 @@ export async function buildResearchPendingRowFromRequest(
       instagram_url: sanitizeNullableString(ai.instagram_url),
       ticket_url: sanitizeNullableString(ai.ticket_url),
       ...heroResolved.patch,
-      is_free: typeof ai.is_free === "boolean" ? ai.is_free : null,
+      is_free: ai.is_free ?? false,
       source_url: sourcePrimaryUrl,
       source_primary_url: sourcePrimaryUrl,
       source_count: sourceUrls.length,
@@ -319,6 +319,8 @@ export async function buildResearchPendingRowFromRequest(
     if (ft && ft !== ot) {
       finalized.slug = resolvePendingSlugFromResearch(aiSlugGuess, ft);
     }
+
+    finalized.is_free = (finalized.is_free as boolean | null | undefined) ?? false;
 
     return { ok: true, row: finalized, researchProvider: "perplexity" };
   }
@@ -421,7 +423,7 @@ export async function buildResearchPendingRowFromRequest(
     end_date: finalValues.end_date,
     start_time: finalValues.start_time ?? null,
     end_time: finalValues.end_time ?? null,
-    is_free: finalValues.is_free,
+    is_free: finalValues.is_free ?? false,
     source_url: sourceUrl,
     website_url: websiteFromForm ?? sourceUrl,
     facebook_url: sanitizeNullableString(finalValues.facebook_url),
@@ -465,6 +467,8 @@ export async function buildResearchPendingRowFromRequest(
   if (ft && ft !== ot) {
     finalized.slug = resolvePendingSlugFromResearch(finalValues.slug, ft);
   }
+
+  finalized.is_free = (finalized.is_free as boolean | null | undefined) ?? false;
 
   return { ok: true, row: finalized, researchProvider: "gemini_pipeline" };
 }

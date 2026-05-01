@@ -16,6 +16,12 @@ import { normalizeBgLocation } from "@/lib/location/normalizeBgLocation";
 import { resolveEventCoordinates } from "@/lib/location/resolveEventCoordinates";
 import { validateCoordinates } from "@/lib/location/validateCoordinates";
 import { applyResearchRowQualityPipeline } from "@/lib/admin/research/festivalDataQuality";
+import {
+  inferCity,
+  inferDateRange,
+  inferIsFree,
+  ingestDebugLog,
+} from "@/lib/ingestion/inferFestivalFields";
 
 export type ResearchEnqueueBody = {
   result?: ResearchFestivalResult;
@@ -268,18 +274,47 @@ export async function buildResearchPendingRowFromRequest(
       aiProgramDraftInsert = programDraftToPublishPayload(pd.value);
     }
 
+    const descPlain = sanitizeNullableString(ai.description);
+    const inferredDatesAi = inferDateRange(descPlain);
+    const startDateAi = normalizeDateForDb(ai.start_date) ?? inferredDatesAi.start_date ?? null;
+    const endDateAi =
+      normalizeDateForDb(ai.end_date) ??
+      inferredDatesAi.end_date ??
+      normalizeDateForDb(ai.start_date) ??
+      inferredDatesAi.start_date ??
+      null;
+    const inferredCityRawAi = inferCity(aiLocationLine ?? descPlain ?? null);
+    const cityDisplayAi =
+      aiCityText ?? (inferredCityRawAi ? normalizeBgLocation(inferredCityRawAi) : null);
+    const isFreeAi = typeof ai.is_free === "boolean" ? ai.is_free : inferIsFree(descPlain);
+
+    const hadStartAi = Boolean(normalizeDateForDb(ai.start_date));
+    const hadEndAi = Boolean(normalizeDateForDb(ai.end_date));
+    const inferenceUsedAi =
+      typeof ai.is_free !== "boolean" ||
+      (!aiCityText && Boolean(inferredCityRawAi)) ||
+      (!hadStartAi && Boolean(inferredDatesAi.start_date)) ||
+      (!hadEndAi && Boolean(inferredDatesAi.end_date));
+    if (inferenceUsedAi) {
+      ingestDebugLog("log", "[ingest]", "inferred fields", {
+        is_free: isFreeAi,
+        city: inferredCityRawAi,
+        dates: inferredDatesAi,
+      });
+    }
+
     const row: Record<string, unknown> = {
       title: aiTitle,
       slug: resolvePendingSlugFromResearch(aiSlugGuess, aiTitle),
-      description: sanitizeNullableString(ai.description),
+      description: descPlain,
       category: aiCategory,
       category_guess: aiCategory,
-      start_date: normalizeDateForDb(ai.start_date),
-      end_date: normalizeDateForDb(ai.end_date),
+      start_date: startDateAi,
+      end_date: endDateAi,
       start_time: aiTimes.start_time,
       end_time: aiTimes.end_time,
-      city_guess: aiCityText,
-      city_name_display: aiCityText,
+      city_guess: cityDisplayAi,
+      city_name_display: cityDisplayAi,
       location_name: aiVenue,
       location_guess: aiVenue,
       address: aiAddress,
@@ -294,7 +329,7 @@ export async function buildResearchPendingRowFromRequest(
       instagram_url: sanitizeNullableString(ai.instagram_url),
       ticket_url: sanitizeNullableString(ai.ticket_url),
       ...heroResolved.patch,
-      is_free: ai.is_free ?? false,
+      is_free: isFreeAi,
       source_url: sourcePrimaryUrl,
       source_primary_url: sourcePrimaryUrl,
       source_count: sourceUrls.length,
@@ -407,24 +442,68 @@ export async function buildResearchPendingRowFromRequest(
   });
   const categoryText = sanitizeNullableString(finalValues.category);
 
+  const descPlainGemini = sanitizeNullableString(finalValues.description);
+  const inferredDatesGemini = inferDateRange(descPlainGemini);
+  const startDateGemini =
+    (typeof finalValues.start_date === "string" ? finalValues.start_date : null) ??
+    inferredDatesGemini.start_date ??
+    null;
+  const endDateGemini =
+    (typeof finalValues.end_date === "string" ? finalValues.end_date : null) ??
+    inferredDatesGemini.end_date ??
+    (typeof finalValues.start_date === "string" ? finalValues.start_date : null) ??
+    inferredDatesGemini.start_date ??
+    null;
+  const inferredCityRawGemini = inferCity(locationLine ?? descPlainGemini ?? null);
+  const cityDisplayGemini =
+    cityText ?? (inferredCityRawGemini ? normalizeBgLocation(inferredCityRawGemini) : null);
+  const isFreeGemini =
+    typeof finalValues.is_free === "boolean" ? finalValues.is_free : inferIsFree(descPlainGemini);
+
+  const hadStartGemini = Boolean(
+    typeof finalValues.start_date === "string" && finalValues.start_date.length > 0,
+  );
+  const hadEndGemini = Boolean(
+    typeof finalValues.end_date === "string" && finalValues.end_date.length > 0,
+  );
+  const inferenceUsedGemini =
+    typeof finalValues.is_free !== "boolean" ||
+    (!cityText && Boolean(inferredCityRawGemini)) ||
+    (!hadStartGemini && Boolean(inferredDatesGemini.start_date)) ||
+    (!hadEndGemini && Boolean(inferredDatesGemini.end_date));
+  if (inferenceUsedGemini) {
+    ingestDebugLog("log", "[ingest]", "inferred fields", {
+      is_free: isFreeGemini,
+      city: inferredCityRawGemini,
+      dates: inferredDatesGemini,
+    });
+  }
+
+  const titleForRow =
+    typeof resolvedTitle === "string"
+      ? resolvedTitle.trim().length > 0
+        ? resolvedTitle.trim()
+        : resolvedTitle
+      : resolvedTitle;
+
   const row: Record<string, unknown> = {
-    title: resolvedTitle,
-    slug: resolvePendingSlugFromResearch(finalValues.slug, resolvedTitle),
-    description: finalValues.description,
+    title: titleForRow,
+    slug: resolvePendingSlugFromResearch(finalValues.slug, titleForRow),
+    description: descPlainGemini,
     description_short: sanitizeNullableString(finalValues.description_short),
-    city_guess: cityText,
-    city_name_display: cityText,
+    city_guess: cityDisplayGemini,
+    city_name_display: cityDisplayGemini,
     location_guess: venueText,
     location_name: venueText,
     organizer_entries: orgEntriesResearch,
     organizer_name: primaryNameFromEntries(orgEntriesResearch, finalValues.organizer),
     ...heroResolvedLegacy.patch,
     tags_guess: finalValues.tags,
-    start_date: finalValues.start_date,
-    end_date: finalValues.end_date,
+    start_date: startDateGemini,
+    end_date: endDateGemini,
     start_time: finalValues.start_time ?? null,
     end_time: finalValues.end_time ?? null,
-    is_free: finalValues.is_free ?? false,
+    is_free: isFreeGemini,
     source_url: sourceUrl,
     website_url: websiteFromForm ?? sourceUrl,
     facebook_url: sanitizeNullableString(finalValues.facebook_url),

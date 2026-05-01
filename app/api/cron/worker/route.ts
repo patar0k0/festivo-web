@@ -10,13 +10,11 @@ export const runtime = "nodejs";
 const CLEANUP_MARKER = "cron_worker_cleanup_marker";
 const CLEANUP_MIN_INTERVAL_MS = 60 * 60 * 1000;
 
-function getWorkerJobBaseUrl(request: Request): string {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, "");
-  const vercel = process.env.VERCEL_URL?.trim();
-  if (vercel) return `https://${vercel.replace(/^https?:\/\//, "")}`;
-  return new URL(request.url).origin;
-}
+type JobCallResult = {
+  ok: boolean;
+  status: number;
+  body: unknown;
+};
 
 function getSofiaWeekdayHourMinute(now: Date): { weekday: string; hour: number; minute: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -51,7 +49,7 @@ async function readJsonResponse(res: Response): Promise<unknown> {
 
 async function maybeRunCleanup(
   supabase: ReturnType<typeof createSupabaseAdmin>,
-  baseUrl: string,
+  callJob: (path: string) => Promise<JobCallResult>,
   now: Date,
 ): Promise<{ ran: boolean; ok?: boolean; body?: unknown }> {
   const { data, error } = await supabase
@@ -71,13 +69,9 @@ async function maybeRunCleanup(
     }
   }
 
-  const sweepRes = await fetch(`${baseUrl}/api/jobs/user-sweep-retry`, {
-    headers: { "x-job-secret": process.env.JOBS_SECRET! },
-    cache: "no-store",
-  });
-  const sweepBody = await readJsonResponse(sweepRes);
-  if (!sweepRes.ok) {
-    console.error("[cron/worker] user-sweep-retry failed", sweepRes.status, sweepBody);
+  const { ok, status, body: sweepBody } = await callJob("/api/jobs/user-sweep-retry");
+  if (!ok) {
+    console.error("[cron/worker] user-sweep-retry failed", status, sweepBody);
     return { ran: true, ok: false, body: sweepBody };
   }
 
@@ -98,54 +92,63 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!process.env.JOBS_SECRET) {
+    throw new Error("Missing JOBS_SECRET");
+  }
+
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY is not set" }, { status: 500 });
   }
 
-  if (!process.env.JOBS_SECRET) {
-    return NextResponse.json({ error: "JOBS_SECRET is not set" }, { status: 500 });
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+
+  if (!baseUrl) {
+    throw new Error("Missing base URL for cron worker");
+  }
+
+  async function callJob(path: string): Promise<JobCallResult> {
+    const res = await fetch(`${baseUrl}${path}`, {
+      method: "GET",
+      headers: {
+        "x-job-secret": process.env.JOBS_SECRET || "",
+      },
+      cache: "no-store",
+    });
+
+    const body = await readJsonResponse(res);
+
+    return {
+      ok: res.ok,
+      status: res.status,
+      body,
+    };
   }
 
   const supabase = createSupabaseAdmin();
   const now = new Date();
-  const baseUrl = getWorkerJobBaseUrl(request);
 
-  const [notifRes, emailRes] = await Promise.all([
-    fetch(`${baseUrl}/api/notifications/run`, {
-      headers: { "x-job-secret": process.env.JOBS_SECRET! },
-      cache: "no-store",
-    }),
-    fetch(`${baseUrl}/api/jobs/email`, {
-      headers: { "x-job-secret": process.env.JOBS_SECRET! },
-      cache: "no-store",
-    }),
+  const [notifJob, emailJob] = await Promise.all([
+    callJob("/api/notifications/run"),
+    callJob("/api/jobs/email"),
   ]);
 
-  const notifResult = await readJsonResponse(notifRes);
-  const emailResult = await readJsonResponse(emailRes);
-  if (!notifRes.ok) {
-    console.error("[cron/worker] notifications/run failed", notifRes.status, notifResult);
+  if (!notifJob.ok) {
+    console.error("[cron/worker] notifications/run failed", notifJob.status, notifJob.body);
   }
-  if (!emailRes.ok) {
-    console.error("[cron/worker] email failed", emailRes.status, emailResult);
+  if (!emailJob.ok) {
+    console.error("[cron/worker] email failed", emailJob.status, emailJob.body);
   }
 
-  const remindersRes = await fetch(`${baseUrl}/api/jobs/reminders`, {
-    headers: { "x-job-secret": process.env.JOBS_SECRET! },
-    cache: "no-store",
-  });
-  const remindersBody = await readJsonResponse(remindersRes);
-  if (!remindersRes.ok) {
-    console.error("[cron/worker] reminders failed", remindersRes.status, remindersBody);
+  const remindersJob = await callJob("/api/jobs/reminders");
+  if (!remindersJob.ok) {
+    console.error("[cron/worker] reminders failed", remindersJob.status, remindersJob.body);
   }
 
-  const pushRes = await fetch(`${baseUrl}/api/jobs/push`, {
-    headers: { "x-job-secret": process.env.JOBS_SECRET! },
-    cache: "no-store",
-  });
-  const pushBody = await readJsonResponse(pushRes);
-  if (!pushRes.ok) {
-    console.error("[cron/worker] push failed", pushRes.status, pushBody);
+  const pushJob = await callJob("/api/jobs/push");
+  if (!pushJob.ok) {
+    console.error("[cron/worker] push failed", pushJob.status, pushJob.body);
   }
 
   const weekend: Record<string, unknown> = {};
@@ -173,23 +176,23 @@ export async function GET(request: Request) {
     }
   }
 
-  const cleanup = await maybeRunCleanup(supabase, baseUrl, now);
+  const cleanup = await maybeRunCleanup(supabase, callJob, now);
 
   const subtasksOk =
-    notifRes.ok &&
-    emailRes.ok &&
-    remindersRes.ok &&
-    pushRes.ok &&
+    notifJob.ok &&
+    emailJob.ok &&
+    remindersJob.ok &&
+    pushJob.ok &&
     (!cleanup.ran || cleanup.ok !== false);
 
   return NextResponse.json({
     ok: subtasksOk,
-    notifications_run: notifResult,
-    email_jobs: emailResult,
-    reminders: remindersBody,
-    reminders_http_ok: remindersRes.ok,
-    push: pushBody,
-    push_http_ok: pushRes.ok,
+    notifications_run: notifJob.body,
+    email_jobs: emailJob.body,
+    reminders: remindersJob.body,
+    reminders_http_ok: remindersJob.ok,
+    push: pushJob.body,
+    push_http_ok: pushJob.ok,
     weekend,
     cleanup,
   });

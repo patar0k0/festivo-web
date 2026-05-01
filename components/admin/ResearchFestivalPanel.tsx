@@ -473,6 +473,12 @@ export default function ResearchFestivalPanel() {
   const [previewError, setPreviewError] = useState("");
   const [selectingUrl, setSelectingUrl] = useState<string | null>(null);
 
+  const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
+  const [isMerging, setIsMerging] = useState(false);
+  const [mergeError, setMergeError] = useState("");
+  const [isSendingPending, setIsSendingPending] = useState(false);
+  const [lastMergeMeta, setLastMergeMeta] = useState<{ confidence_score: number; needs_review: boolean } | null>(null);
+
   const canResearch = query.trim().length > 0 && !isResearching;
   const canAiResearch = aiQuery.trim().length > 0 && !isAiResearching;
   const canCreate = Boolean(result || aiDraft) && !isCreating;
@@ -490,6 +496,10 @@ export default function ResearchFestivalPanel() {
   const setAiDraftField = (field: AiEditableStringField, rawValue: string) => {
     setAiDraft((prev) => (prev ? { ...prev, [field]: sanitizeInputValue(rawValue) } : prev));
   };
+
+  function toggleSelect(url: string) {
+    setSelectedUrls((prev) => (prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]));
+  }
 
   const applyExtractionToAiDraft = (r: PerplexityFestivalResearchResult, successMessage?: string) => {
     setAiError("");
@@ -516,6 +526,8 @@ export default function ResearchFestivalPanel() {
     setSourceSearchError("");
     setSourceSearchLoading(true);
     setSourceHits([]);
+    setSelectedUrls([]);
+    setMergeError("");
     setPreviewHit(null);
     setPreviewExtract(null);
     setPreviewError("");
@@ -564,6 +576,7 @@ export default function ResearchFestivalPanel() {
   };
 
   const selectFromHit = async (hit: AdminFestivalSearchHit) => {
+    setLastMergeMeta(null);
     setAiError("");
     setSelectingUrl(hit.url);
     try {
@@ -663,6 +676,7 @@ export default function ResearchFestivalPanel() {
       }
 
       setResult(payload.result);
+      setLastMergeMeta(null);
       setAiResult(null);
       setAiDraft(null);
       setPipelineJobId(null);
@@ -695,6 +709,7 @@ export default function ResearchFestivalPanel() {
         throw new Error(payload?.error ?? `${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research request failed.`);
       }
 
+      setLastMergeMeta(null);
       applyExtractionToAiDraft(
         payload.result,
         `${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research completed. Review and edit values before sending to the ingest pipeline.`,
@@ -765,6 +780,92 @@ export default function ResearchFestivalPanel() {
       }
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const mergeSelected = async () => {
+    setMergeError("");
+    if (selectedUrls.length === 0) {
+      setMergeError("Select at least one URL to merge.");
+      return;
+    }
+    setIsMerging(true);
+    try {
+      const snippets_by_url: Record<string, string> = {};
+      for (const hit of sourceHits) {
+        if (selectedUrls.includes(hit.url) && hit.snippet) {
+          snippets_by_url[hit.url] = hit.snippet;
+        }
+      }
+      const res = await fetch("/admin/api/research-merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          urls: selectedUrls,
+          query: sourceSearchQuery.trim(),
+          ...(Object.keys(snippets_by_url).length > 0 ? { snippets_by_url } : {}),
+        }),
+      });
+      const payload = (await res.json().catch(() => null)) as
+        | {
+            error?: string;
+            merged_result?: PerplexityFestivalResearchResult;
+            confidence_score?: number;
+            needs_review?: boolean;
+            extraction_errors?: Array<{ url: string; message: string }>;
+          }
+        | null;
+      if (!res.ok || !payload?.merged_result) {
+        throw new Error(payload?.error ?? "Merge failed.");
+      }
+      setLastMergeMeta({
+        confidence_score: typeof payload.confidence_score === "number" ? payload.confidence_score : 0,
+        needs_review: Boolean(payload.needs_review),
+      });
+      applyExtractionToAiDraft(
+        payload.merged_result,
+        `Merged ${payload.merged_result.source_urls.length} source(s). Review the draft, then send to pending or pipeline.`,
+      );
+      if (payload.extraction_errors?.length) {
+        console.warn("[research-merge] partial extraction failures", payload.extraction_errors);
+      }
+    } catch (e) {
+      setMergeError(e instanceof Error ? e.message : "Merge failed.");
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  const sendToPendingDirect = async () => {
+    if (!aiDraft) return;
+    setMergeError("");
+    setAiError("");
+    setIsSendingPending(true);
+    try {
+      const normalizedAiDraft = {
+        ...aiDraft,
+        start_date: normalizeDisplayDateToIso(aiDraft.start_date),
+        end_date: normalizeDisplayDateToIso(aiDraft.end_date),
+      };
+      const res = await fetch("/admin/api/pending-festivals/direct-create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: normalizedAiDraft,
+          ...(lastMergeMeta
+            ? { confidence_score: lastMergeMeta.confidence_score, needs_review: lastMergeMeta.needs_review }
+            : {}),
+        }),
+      });
+      const payload = (await res.json().catch(() => null)) as { error?: string; id?: string } | null;
+      if (!res.ok || !payload?.id) {
+        throw new Error(payload?.error ?? "Failed to create pending festival.");
+      }
+      router.push(`/admin/pending-festivals/${payload.id}`);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Could not create pending festival.");
+    } finally {
+      setIsSendingPending(false);
     }
   };
 
@@ -959,6 +1060,40 @@ export default function ResearchFestivalPanel() {
             {sourceHits.length > 0 ? (
               <div className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/45">Results</p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                  <button
+                    type="button"
+                    onClick={() => void mergeSelected()}
+                    disabled={selectedUrls.length === 0 || isMerging}
+                    className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {isMerging ? "Merging…" : "Merge selected"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void sendToPendingDirect()}
+                    disabled={!aiDraft || isSendingPending}
+                    className="rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {isSendingPending ? "Creating…" : "Send to pending"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void sendToPipeline()}
+                    disabled={!canCreate}
+                    className="rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {isCreating ? "Sending…" : "Send to pipeline"}
+                  </button>
+                </div>
+                {selectedUrls.length > 0 && selectedUrls.length < 2 ? (
+                  <p className="text-xs text-amber-800/90">
+                    Select two or more sources to get the most from merge (single URL uses merge rules with one extraction).
+                  </p>
+                ) : null}
+                {mergeError ? (
+                  <p className="rounded-lg border border-[#c23c1f]/25 bg-[#fff4ef] px-2 py-1.5 text-xs text-[#b13a1a]">{mergeError}</p>
+                ) : null}
                 <ul className="space-y-3">
                   {sourceHits.map((hit, index) => {
                     const highlightFirst =
@@ -974,26 +1109,37 @@ export default function ResearchFestivalPanel() {
                           highlightFirst ? "border-[#0e7a45]/40 ring-2 ring-[#0e7a45]/20" : "border-black/[0.08]"
                         }`}
                       >
-                        <p className="text-base font-semibold text-[#1a0dab]">{displayTitle}</p>
-                        <p className="mt-0.5 text-sm text-[#006621]">{getDomainLabel(hit.url)}</p>
-                        <p className="mt-1 line-clamp-3 text-sm text-black/70">{hit.snippet ?? "—"}</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void selectFromHit(hit)}
-                            disabled={selectingUrl !== null}
-                            className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
-                          >
-                            {selectingUrl === hit.url ? "Working…" : "Select"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void loadPreview(hit)}
-                            disabled={previewLoading}
-                            className="rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
-                          >
-                            Preview
-                          </button>
+                        <div className="flex gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedUrls.includes(hit.url)}
+                            onChange={() => toggleSelect(hit.url)}
+                            className="mt-1.5 h-4 w-4 shrink-0 rounded border-black/20"
+                            aria-label={`Select source ${displayTitle}`}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-base font-semibold text-[#1a0dab]">{displayTitle}</p>
+                            <p className="mt-0.5 text-sm text-[#006621]">{getDomainLabel(hit.url)}</p>
+                            <p className="mt-1 line-clamp-3 text-sm text-black/70">{hit.snippet ?? "—"}</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void selectFromHit(hit)}
+                                disabled={selectingUrl !== null}
+                                className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
+                              >
+                                {selectingUrl === hit.url ? "Working…" : "Select"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void loadPreview(hit)}
+                                disabled={previewLoading}
+                                className="rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+                              >
+                                Preview
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </li>
                     );

@@ -15,7 +15,8 @@ import { ADMIN_FIELD_LABEL } from "@/lib/admin/entitySchema";
 
 type IngestJobRow = {
   id: string;
-  status: "queued" | "pending" | "processing" | "done" | "failed";
+  status: "pending" | "processing" | "done" | "failed";
+  source_type: string;
   source_url: string;
   pending_festival_id: string | null;
   pending_status: "pending" | "approved" | "rejected" | null;
@@ -29,7 +30,8 @@ type IngestJobRow = {
 };
 
 function fbBrowserContextLabel(row: IngestJobRow): string {
-  if (row.status === "pending" || row.status === "queued") return "—";
+  if (row.source_type === "research") return "—";
+  if (row.status === "pending") return "—";
   if (row.status === "processing" && row.fb_browser_context == null) return "…";
   if (row.fb_browser_context === "authenticated") return "С FB сесия";
   if (row.fb_browser_context === "anonymous") return "Анонимно";
@@ -156,7 +158,7 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
 
   const summaryItems = useMemo(() => {
     const pendingReview = rows.filter((r) => r.moderation_action === "open_pending").length;
-    const inFlight = rows.filter((r) => r.status === "pending" || r.status === "processing" || r.status === "queued").length;
+    const inFlight = rows.filter((r) => r.status === "pending" || r.status === "processing").length;
     const failed = rows.filter((r) => r.status === "failed").length;
     const statusLine = [
       inFlight > 0 ? `${inFlight} in progress` : null,
@@ -167,7 +169,7 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
       .join(" · ");
     return buildStandardSummaryStripItems({
       status: statusLine || "Queue idle",
-      sourceLine: "facebook_event",
+      sourceLine: "ingest_jobs",
       city: "—",
       startDate: "—",
       organizer: "—",
@@ -194,7 +196,7 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
 
       <AdminFieldSection
         title={ADMIN_ENTITY_SECTION.linksSources.title}
-        description="Paste a Facebook event URL to enqueue worker ingestion. „С FB сесия“ means the worker used a stored Facebook login (FB_STORAGE_STATE_B64)."
+        description="Facebook events are scraped by the worker. Research rows use source_type=research (no browser). Discovery rows use source_type=discovery. „С FB сесия“ means the worker used a stored Facebook login (FB_STORAGE_STATE_B64)."
         variant={ADMIN_ENTITY_SECTION.linksSources.variant}
       >
         <form onSubmit={onSubmit} className="grid gap-2 md:grid-cols-[1fr_auto] md:items-end">
@@ -231,6 +233,7 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
           <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
             <tr>
               <th className="px-2.5 py-2">Status</th>
+              <th className="px-2.5 py-2">Type</th>
               <th className="px-2.5 py-2">FB браузър</th>
               <th className="px-2.5 py-2">Source URL</th>
               <th className="px-2.5 py-2">Created</th>
@@ -270,6 +273,7 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
                 return (
                   <tr key={row.id} className="hover:bg-black/[0.02]">
                     <td className="px-2.5 py-2 text-black/75">{workflowState}</td>
+                    <td className="px-2.5 py-2 font-mono text-xs text-black/60">{row.source_type}</td>
                     <td className="px-2.5 py-2 text-black/65" title="Playwright: логнат FB профил или анонимно">
                       {fbBrowserContextLabel(row)}
                     </td>
@@ -334,7 +338,7 @@ export default function IngestJobsPanel({ rows }: { rows: IngestJobRow[] }) {
               })
             ) : (
               <tr>
-                <td colSpan={8} className="px-6 py-12 text-center text-sm text-black/60">
+                <td colSpan={9} className="px-6 py-12 text-center text-sm text-black/60">
                   No jobs queued yet.
                 </td>
               </tr>

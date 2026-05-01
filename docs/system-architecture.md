@@ -108,14 +108,18 @@ Staff soft-delete and session revoke remain via `admin_set_user_soft_deleted` in
 
 ## Moderation-first content flow
 
-1. **Queue source URL**
-   - Admin posts Facebook event URLs to `/admin/api/ingest-jobs`.
-   - URL is validated and normalized, then inserted into `ingest_jobs`.
+Unified rule: **new catalog candidates reach `pending_festivals` only via `ingest_jobs`** (worker insert). Exceptions outside this doc’s ingestion scope (e.g. organizer portal drafts) remain as implemented.
+
+1. **Enqueue `ingest_jobs`**
+   - **Facebook (manual):** `POST /admin/api/ingest-jobs` with `source_url` → `source_type=facebook_event`, optional `payload_json.submission_source=ingest`.
+   - **Discovery (manual):** same route with `source_type=discovery`, `source_url`, optional `discovered_link_id` → worker scrapes URL (routes to FB vs generic web by URL); `pending_festivals.submission_source=discovery`.
+   - **Research (Gemini / Perplexity):** `POST /admin/api/ingest-jobs` with `source_type=research` and `result`/`final_values` or `ai_result`. Festivo-web builds a **handoff snapshot** (geocode + hero rehost + row shape) in `ingest_jobs.payload_json.pending_row` with `submission_source=research`. Worker **does not scrape**; it inserts `pending_festivals` from that snapshot.
+   - Legacy alias: `POST /admin/api/research-festival/create-pending` enqueues the same research job (deprecated path).
 
 2. **Ingestion worker processing**
-   - Worker marks job lifecycle in `ingest_jobs` (`pending/processing/done/failed`).
-   - Worker may persist `ingest_jobs.fb_browser_context` (authenticated Playwright FB state vs anonymous) for admin diagnostics.
-   - Worker creates or updates `pending_festivals` (actual worker orchestration is not implemented in Next.js routes here). Recent worker versions also map extra event fields (e.g. external website, ticket URL, price range) and hero metadata columns when present in the DB.
+   - Worker marks job lifecycle in `ingest_jobs` (`pending` / `processing` / `done` / `failed` only).
+   - Worker may persist `ingest_jobs.fb_browser_context` (authenticated Playwright FB state vs anonymous) for scrape jobs; unused for `research`.
+   - Worker creates or updates `pending_festivals` (orchestration lives in festivo-workers). Scrape jobs map extra event fields when present in the DB; research jobs map from `payload_json`.
 
 3. **Admin moderation of pending record**
    - `/admin/pending-festivals`: lists only `status=pending`.
@@ -154,7 +158,7 @@ Displayed workflow actions/states are derived from queue + moderation outcome:
 
 Retry behavior is explicit and limited:
 - only `failed` jobs can be retried
-- retry resets job to `status=pending` and clears `started_at`, `finished_at`, `error`
+- retry resets job to `status=pending` and clears `started_at`, `finished_at`, `error` (never `queued`)
 - jobs can also be removed from queue via admin delete
 
 ## AI autofill and authority boundaries
@@ -173,13 +177,13 @@ Admin festival research (`POST /admin/api/research-festival`, UI `/admin/researc
 4. **Validate:** `lib/admin/research/pipeline-validate.ts` enforces date sanity, title length, and clears inconsistent data with warnings.
 5. **Output:** Normalized `ResearchFestivalResult` with `best_guess` (including `organizers[]` plus legacy `organizer`), optional structured **`program_draft`** when sources list a schedule, `sources`, `evidence`, `confidence`, `warnings` (no raw model text in the API response).
 
-`POST /admin/api/research-festival/create-pending` normalizes location/city/address text, then resolves coordinates via `lib/location/resolveEventCoordinates.ts`: **normalized venue+city lookup** in `public.location_cache` (when a row exists), then **Google `place_id`** (when present and the API key is configured), then **venue + city**, then **venue/address line only** — **never** a city-only geocode (no city-center fallback). Callers may pass **`coords_override: true`** with **`latitude`/`longitude`** (e.g. on `best_guess` / final values) to **skip cache and geocoding** and keep those coordinates (`geocode_provider` `manual`). New **high-confidence** API results (score ≥ 60; never overwriting an existing key via the default upsert) are stored in `location_cache` for reuse. Admin **manual map pins** upsert the cache at **confidence 100** via `POST /admin/api/location-cache` (replaces the row for that normalized key). Results pass `lib/location/validateCoordinates.ts` (finite lat/lng; optional distance vs city center when callers supply reference coords). Uncertain resolution leaves `latitude`/`longitude`/`place_id`/`geocode_provider` null. Admin `POST /api/admin/geocode` uses the same resolver (optional `place_id`, and optional `coords_override` + `existing_lat` / `existing_lng` in the body). Published and pending admin editors expose a **Leaflet map picker** (`components/admin/MapPicker.tsx`) for pin placement; `coords_override` is **UI session state** unless callers persist flags in payloads as above.
+Research handoff (before enqueue): `lib/admin/ingest/researchPendingRowFromRequest.ts` normalizes location/city/address text, then resolves coordinates via `lib/location/resolveEventCoordinates.ts`: **normalized venue+city lookup** in `public.location_cache` (when a row exists), then **Google `place_id`** (when present and the API key is configured), then **venue + city**, then **venue/address line only** — **never** a city-only geocode (no city-center fallback). Callers may pass **`coords_override: true`** with **`latitude`/`longitude`** (e.g. on `best_guess` / final values) to **skip cache and geocoding** and keep those coordinates (`geocode_provider` `manual`). New **high-confidence** API results (score ≥ 60; never overwriting an existing key via the default upsert) are stored in `location_cache` for reuse. Admin **manual map pins** upsert the cache at **confidence 100** via `POST /admin/api/location-cache` (replaces the row for that normalized key). Results pass `lib/location/validateCoordinates.ts` (finite lat/lng; optional distance vs city center when callers supply reference coords). Uncertain resolution leaves `latitude`/`longitude`/`place_id`/`geocode_provider` null. Admin `POST /api/admin/geocode` uses the same resolver (optional `place_id`, and optional `coords_override` + `existing_lat` / `existing_lng` in the body). Published and pending admin editors expose a **Leaflet map picker** (`components/admin/MapPicker.tsx`) for pin placement; `coords_override` is **UI session state** unless callers persist flags in payloads as above.
 
 **Configuration:** `GEMINI_API_KEY` (or `GOOGLE_AI_API_KEY`); optional `GEMINI_RESEARCH_MODEL` (default `gemini-2.0-flash`), `GEMINI_RESEARCH_TIMEOUT_MS`.
 
 If Gemini is not configured, the route returns **503**. If extraction yields no usable fields, the API returns a **low-confidence** minimal result with sources + warnings (preferring null over speculative values).
 
-`/api/admin/research-ai` (Perplexity-backed extraction) may return `organizer_names[]` (optional) in addition to `organizer_name`; create-pending stores ordered `organizer_entries` on the draft. The pipeline uses a strict structured first pass plus additive follow-up passes:
+`/api/admin/research-ai` (Perplexity-backed extraction) may return `organizer_names[]` (optional) in addition to `organizer_name`; the ingest handoff stores ordered `organizer_entries` on the pending snapshot. The pipeline uses a strict structured first pass plus additive follow-up passes:
 - enrichment runs when first-pass has enough still-null factual fields (low threshold for admin UX)
 - follow-up passes inherit `source_urls` from the prior pass so Perplexity responses that omit URLs do not trigger вЂњfacts without sourcesвЂќ wipes
 - optional third pass runs when merged result still has many missing fields

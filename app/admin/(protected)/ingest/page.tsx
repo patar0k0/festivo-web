@@ -5,7 +5,8 @@ import { getSourceUrlMatchMeta } from "@/lib/admin/sourceUrlMatching";
 
 type IngestJobRow = {
   id: string;
-  status: "queued" | "pending" | "processing" | "done" | "failed";
+  status: "pending" | "processing" | "done" | "failed";
+  source_type: string;
   source_url: string;
   pending_festival_id: string | null;
   pending_status: "pending" | "approved" | "rejected" | null;
@@ -47,7 +48,7 @@ export default async function AdminIngestPage() {
 
   const { data, error } = await ctx.supabase
     .from("ingest_jobs")
-    .select("id,status,source_url,created_at,started_at,finished_at,error,fb_browser_context")
+    .select("id,status,source_url,source_type,created_at,started_at,finished_at,error,fb_browser_context")
     .order("created_at", { ascending: false })
     .limit(50);
 
@@ -202,9 +203,14 @@ export default async function AdminIngestPage() {
     const fb_browser_context: IngestJobRow["fb_browser_context"] =
       fbCtx === "authenticated" || fbCtx === "anonymous" ? fbCtx : null;
 
+    const rawStatus = String(row.status ?? "");
+    const normalizedStatus: IngestJobRow["status"] =
+      rawStatus === "queued" ? "pending" : (rawStatus as IngestJobRow["status"]);
+
     return {
       id: String(row.id),
-      status: row.status as IngestJobRow["status"],
+      status: normalizedStatus,
+      source_type: typeof row.source_type === "string" ? row.source_type : "facebook_event",
       source_url: sourceUrl,
       pending_festival_id: pendingFestivalId,
       pending_status: pendingStatus,

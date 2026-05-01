@@ -36,6 +36,7 @@ erDiagram
     text source_type
     text status
     text error
+    jsonb payload_json
     text fb_browser_context
     timestamptz created_at
     timestamptz started_at

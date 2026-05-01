@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ResearchBestGuess, ResearchDateCandidate, ResearchFestivalResult, ResearchFieldCandidate } from "@/lib/admin/research/types";
 import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
@@ -207,6 +207,10 @@ export default function ResearchFestivalPanel() {
   const [isAiResearching, setIsAiResearching] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
+  const [pipelineJobId, setPipelineJobId] = useState<string | null>(null);
+  const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
+  const [pipelinePendingId, setPipelinePendingId] = useState<string | null>(null);
+
   const canResearch = query.trim().length > 0 && !isResearching;
   const canAiResearch = aiQuery.trim().length > 0 && !isAiResearching;
   const canCreate = Boolean(result || aiDraft) && !isCreating;
@@ -293,6 +297,9 @@ export default function ResearchFestivalPanel() {
       setResult(payload.result);
       setAiResult(null);
       setAiDraft(null);
+      setPipelineJobId(null);
+      setPipelineStatus(null);
+      setPipelinePendingId(null);
       const bg = payload.result.best_guess ?? EMPTY_FINAL_VALUES;
       setFinalValues({ ...EMPTY_FINAL_VALUES, ...bg, program_draft: bg.program_draft ?? null });
       setSuccess("Research completed. Review candidates and finalize values below.");
@@ -330,8 +337,11 @@ export default function ResearchFestivalPanel() {
             : [];
       setAiDraft({ ...r, organizer_names: names.length > 0 ? names : null });
       setResult(null);
+      setPipelineJobId(null);
+      setPipelineStatus(null);
+      setPipelinePendingId(null);
       setAiSuccess(
-        `${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research completed. Review and edit values before creating a pending draft.`,
+        `${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research completed. Review and edit values before sending to the ingest pipeline.`,
       );
     } catch (err) {
       setAiError(
@@ -342,7 +352,7 @@ export default function ResearchFestivalPanel() {
     }
   };
 
-  const createPendingFestival = async () => {
+  const sendToPipeline = async () => {
     if (!result && !aiDraft) return;
 
     setError("");
@@ -350,6 +360,9 @@ export default function ResearchFestivalPanel() {
     setAiError("");
     setAiSuccess("");
     setIsCreating(true);
+    setPipelineJobId(null);
+    setPipelineStatus(null);
+    setPipelinePendingId(null);
 
     try {
       const normalizedAiDraft = aiDraft
@@ -360,27 +373,35 @@ export default function ResearchFestivalPanel() {
           }
         : null;
 
-      const response = await fetch("/admin/api/research-festival/create-pending", {
+      const response = await fetch("/admin/api/ingest-jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(normalizedAiDraft ? { ai_result: normalizedAiDraft } : { result, final_values: finalValues }),
+        body: JSON.stringify(
+          normalizedAiDraft
+            ? { source_type: "research", ai_result: normalizedAiDraft }
+            : { source_type: "research", result, final_values: finalValues },
+        ),
       });
 
-      const payload = (await response.json().catch(() => null)) as { error?: string; id?: string } | null;
-      if (!response.ok || !payload?.id) {
-        throw new Error(payload?.error ?? "Failed to create pending festival.");
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string; id?: string; job_id?: string; status?: string }
+        | null;
+      const jobId = payload?.job_id ?? payload?.id;
+      if (!response.ok || !jobId) {
+        throw new Error(payload?.error ?? "Failed to enqueue ingest job.");
       }
 
-      const message = `Pending festival created (#${payload.id}).`;
+      setPipelineJobId(jobId);
+      setPipelineStatus(payload?.status ?? "pending");
+
+      const message = `Ingest job ${jobId} queued. Status: ${payload?.status ?? "pending"} — the worker will create the pending festival.`;
       if (aiDraft) {
         setAiSuccess(message);
       } else {
         setSuccess(message);
       }
-
-      router.push(`/admin/pending-festivals/${payload.id}`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error while creating pending festival.";
+      const message = err instanceof Error ? err.message : "Unexpected error while enqueueing ingest job.";
       if (aiDraft) {
         setAiError(message);
       } else {
@@ -391,17 +412,63 @@ export default function ResearchFestivalPanel() {
     }
   };
 
+  useEffect(() => {
+    if (!pipelineJobId) return;
+
+    let cancelled = false;
+
+    const tick = async () => {
+      const res = await fetch(`/admin/api/ingest-jobs/${pipelineJobId}`);
+      const body = (await res.json().catch(() => null)) as { job?: { status?: string; pending_festival_id?: string | null } } | null;
+      if (cancelled || !body?.job) return;
+
+      const job = body.job;
+      setPipelineStatus(typeof job.status === "string" ? job.status : null);
+      setPipelinePendingId(job.pending_festival_id ?? null);
+
+      if (job.status === "done" && job.pending_festival_id) {
+        router.push(`/admin/pending-festivals/${job.pending_festival_id}`);
+      }
+    };
+
+    void tick();
+    const iv = setInterval(() => void tick(), 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [pipelineJobId, router]);
+
+  const pipelineStatusBadge =
+    pipelineJobId && pipelineStatus ? (
+      <span
+        className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${
+          pipelineStatus === "done"
+            ? "border-[#0e7a45]/30 bg-[#f0fbf4] text-[#0e7a45]"
+            : pipelineStatus === "failed"
+              ? "border-[#c23c1f]/30 bg-[#fff4ef] text-[#b13a1a]"
+              : pipelineStatus === "processing"
+                ? "border-[#9a6700]/30 bg-[#fffbeb] text-[#8a5d00]"
+                : "border-black/10 bg-white text-black/60"
+        }`}
+        title={pipelinePendingId ? `Pending: ${pipelinePendingId}` : undefined}
+      >
+        Job {pipelineJobId.slice(0, 8)}… · {pipelineStatus}
+      </span>
+    ) : null;
+
   let summaryActions: ReactNode = null;
   if (aiDraft) {
     summaryActions = (
-      <>
+      <div className="flex flex-wrap items-center gap-2">
+        {pipelineStatusBadge}
         <button
           type="button"
-          onClick={createPendingFestival}
+          onClick={sendToPipeline}
           disabled={!canCreate}
           className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
         >
-          {isCreating ? "Creating..." : "Create pending draft"}
+          {isCreating ? "Sending..." : "Send to pipeline"}
         </button>
         <button
           type="button"
@@ -413,18 +480,21 @@ export default function ResearchFestivalPanel() {
             ? "Researching..."
             : `Research again (${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})`}
         </button>
-      </>
+      </div>
     );
   } else if (result) {
     summaryActions = (
-      <button
-        type="button"
-        onClick={createPendingFestival}
-        disabled={!canCreate}
-        className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
-      >
-        {isCreating ? "Creating..." : "Create pending festival"}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        {pipelineStatusBadge}
+        <button
+          type="button"
+          onClick={sendToPipeline}
+          disabled={!canCreate}
+          className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {isCreating ? "Sending..." : "Send to pipeline"}
+        </button>
+      </div>
     );
   }
 

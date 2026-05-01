@@ -9,6 +9,30 @@ type RouteContext = {
   };
 };
 
+export async function GET(_request: Request, context: RouteContext) {
+  const ctx = await getAdminContext();
+  if (!ctx || !ctx.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const id = context.params.id;
+  if (!id) {
+    return NextResponse.json({ error: "Missing job id." }, { status: 400 });
+  }
+
+  const { data, error } = await ctx.supabase.from("ingest_jobs").select("*").eq("id", id).maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Ingest job not found." }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true, job: data });
+}
+
 export async function PATCH(_request: Request, context: RouteContext) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
@@ -49,7 +73,7 @@ export async function PATCH(_request: Request, context: RouteContext) {
   }
 
   const resetPatch: Record<string, unknown> = {
-    status: "queued",
+    status: "pending",
     started_at: null,
     finished_at: null,
   };

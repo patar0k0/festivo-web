@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthorizedJobRequest } from "@/lib/jobs/auth";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildDeepLink } from "@/lib/notifications/scheduler";
 import { sendFcmToTokens } from "@/lib/notifications/send";
@@ -18,11 +19,7 @@ type DeviceTokenRow = {
 };
 
 export async function GET(request: Request) {
-  const expectedSecret = process.env.JOBS_SECRET;
-  const providedSecret = request.headers.get("x-job-secret");
-  const isCron = request.headers.get("x-vercel-cron");
-
-  if (!isCron && (!expectedSecret || providedSecret !== expectedSecret)) {
+  if (!isAuthorizedJobRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

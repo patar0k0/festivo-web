@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthorizedJobRequest } from "@/lib/jobs/auth";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type Payload = {
@@ -39,11 +40,7 @@ function chunk<T>(input: T[], size: number): T[][] {
 }
 
 export async function POST(request: Request) {
-  const expectedSecret = process.env.JOBS_SECRET;
-  const providedSecret = request.headers.get("x-job-secret");
-  const isCron = request.headers.get("x-vercel-cron");
-
-  if (!isCron && (!expectedSecret || providedSecret !== expectedSecret)) {
+  if (!isAuthorizedJobRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

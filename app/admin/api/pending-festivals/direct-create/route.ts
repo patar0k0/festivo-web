@@ -60,6 +60,7 @@ export async function POST(request: Request) {
   }
 
   insertRow.is_free = (insertRow.is_free as boolean | null | undefined) ?? false;
+  insertRow.verification_status = (insertRow.verification_status as string | null | undefined) ?? "pending";
 
   const admin = createSupabaseAdmin();
   const { data: inserted, error } = await admin.from("pending_festivals").insert(insertRow).select("id").single();

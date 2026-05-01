@@ -5,6 +5,7 @@ import Section from "@/components/ui/Section";
 import FestivalDetailClient from "@/components/festival/FestivalDetailClient";
 import { getAdminSession } from "@/lib/admin/isAdmin";
 import { fetchAccommodationOffersForFestival } from "@/lib/accommodation/fetchAccommodationOffers";
+import { canPreviewNonPublicFestival, isFestivalPublicDetailCatalogVisible } from "@/lib/festival/detailPreviewAccess";
 import {
   getCityFestivals,
   getFestivalBySlug,
@@ -25,6 +26,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const slug = normalizePublicFestivalSlugParam(rawSlug);
   const festival = await getFestivalBySlug(slug);
   if (!festival) return {};
+
+  if (!isFestivalPublicDetailCatalogVisible(festival)) {
+    const canPreview = await canPreviewNonPublicFestival(festival);
+    if (!canPreview) return {};
+  }
 
   const meta = festivalMeta(festival);
   const canonical = `${getBaseUrl()}/festivals/${slug}`;
@@ -64,8 +70,15 @@ export default async function Page({
   const slug = normalizePublicFestivalSlugParam(rawSlug);
   const data = await getFestivalDetail(slug);
 
-  /** Missing published row only — fetch failures throw and are handled by `app/festivals/error.tsx`. */
+  /** Missing row only — fetch failures throw and are handled by `app/festivals/error.tsx`. */
   if (!data) return notFound();
+
+  if (!isFestivalPublicDetailCatalogVisible(data.festival)) {
+    const canPreview = await canPreviewNonPublicFestival(data.festival);
+    if (!canPreview) return notFound();
+  }
+
+  const showPendingApprovalBadge = !isFestivalPublicDetailCatalogVisible(data.festival);
 
   const galleryImageUrls = data.media
     .filter((m) => {
@@ -132,6 +145,7 @@ export default async function Page({
             adminEditHref={adminEditHref}
             showTravelPopularLabel={showTravelPopularLabel}
             programItemPlanActions={!data.usedProgramDraftFallback}
+            showPendingApprovalBadge={showPendingApprovalBadge}
           />
         </Container>
       </Section>

@@ -77,6 +77,8 @@ type Props = {
   adminEditHref?: string | null;
   /** Booking outbound interest (last 30d); server-derived from outbound_clicks. */
   showTravelPopularLabel?: boolean;
+  /** Non–catalog-visible row: show moderation preview label (admin / organizer preview only). */
+  showPendingApprovalBadge?: boolean;
   /** When false, schedule rows are shown from `program_draft` fallback — hide per-item plan actions. */
   programItemPlanActions?: boolean;
   /** Organizer draft preview: same layout as public page without plan/outbound/app CTAs. */
@@ -205,6 +207,7 @@ export default function FestivalDetailClient({
   accommodationOffers,
   adminEditHref,
   showTravelPopularLabel = false,
+  showPendingApprovalBadge = false,
   programItemPlanActions = true,
   previewMode = false,
 }: Props) {
@@ -586,6 +589,11 @@ export default function FestivalDetailClient({
                 <h1 className="max-w-[22ch] text-xl font-semibold leading-[1.03] tracking-tight text-white sm:text-2xl sm:leading-[1.02]">
                   {festival.title}
                 </h1>
+                {showPendingApprovalBadge ? (
+                  <span className="rounded bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800">
+                    Очаква одобрение
+                  </span>
+                ) : null}
                 {urgencyHeroLabel ? (
                   <span className="rounded-full border border-white/20 bg-black/32 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/95 shadow-sm backdrop-blur-[1px] sm:text-[11px]">
                     {urgencyHeroLabel}

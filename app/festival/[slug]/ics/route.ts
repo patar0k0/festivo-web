@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
-import { buildFestivalIcs } from "@/lib/ics";
+import { isFestivalVisibleOnPublicCatalog } from "@/lib/festival/editorOpenAction";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
+import { buildFestivalIcs } from "@/lib/ics";
 import { getFestivalBySlug, normalizePublicFestivalSlugParam } from "@/lib/queries";
 
 export async function GET(
@@ -11,6 +12,16 @@ export async function GET(
   const slug = normalizePublicFestivalSlugParam(rawSlug);
   const festival = await getFestivalBySlug(slug);
   if (!festival) {
+    return new Response("Not found", { status: 404 });
+  }
+
+  if (
+    !isFestivalVisibleOnPublicCatalog({
+      slug: festival.slug,
+      status: festival.status ?? "",
+      is_verified: festival.is_verified ?? null,
+    })
+  ) {
     return new Response("Not found", { status: 404 });
   }
 

@@ -1,5 +1,6 @@
 import { endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { cache } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -62,7 +63,7 @@ export function normalizePublicFestivalSlugParam(raw: string): string {
 }
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,location_name,address,organizer_id,organizer_name,lat,lng,place_id,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,program_draft,cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,location_name,address,organizer_id,organizer_name,lat,lng,place_id,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,is_verified,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,program_draft,cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
 
 const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -164,15 +165,25 @@ function getFestivalOrganizers(festival: Festival): Array<{ id?: string | null; 
     .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999));
 }
 
+/** Organizer IDs linked to a festival (legacy `organizer_id` + M2M `festival_organizers`). */
+export function getFestivalOrganizerIdsForAccessCheck(festival: Festival): string[] {
+  const ids = new Set<string>();
+  if (festival.organizer_id != null && String(festival.organizer_id).trim()) {
+    ids.add(String(festival.organizer_id).trim());
+  }
+  for (const row of getFestivalOrganizers(festival)) {
+    const id = row.id != null ? String(row.id).trim() : "";
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
 /**
  * Явно зареждане на M2M връзки — вграденият select към festivals често връща грешен/непълен масив при >1 организатор.
  * Използва service role клиент, когато е наличен: при anon ключа RLS често позволява `festival_organizers`, но не и `organizers`,
  * и вторият SELECT връща 0 реда → празна секция „Информация“.
  */
-async function mergeFestivalOrganizersFromJoinTable(
-  supabase: NonNullable<ReturnType<typeof supabaseServer>>,
-  festival: Festival
-): Promise<Festival> {
+async function mergeFestivalOrganizersFromJoinTable(supabase: SupabaseClient, festival: Festival): Promise<Festival> {
   const db = supabaseAdmin() ?? supabase;
   const festivalId = String(festival.id);
   const { data: links, error: linksError } = await db
@@ -463,10 +474,8 @@ const FESTIVAL_BY_SLUG_RETRY_DELAY_MS = 150;
  */
 export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug: string): Promise<Festival | null> {
   const slug = normalizePublicFestivalSlugParam(rawSlug);
-  const supabase = supabaseServer();
-  if (!supabase) {
-    throw new Error("Festival query failed: Supabase client is not configured");
-  }
+  /** Cookie-aware client so RLS can expose non–catalog rows to admins / organizer members when logged in. */
+  const supabase = await createSupabaseServerClient();
 
   let lastMessage = "";
   for (let attempt = 1; attempt <= FESTIVAL_BY_SLUG_MAX_ATTEMPTS; attempt++) {
@@ -474,8 +483,6 @@ export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug:
       .from("festivals")
       .select(FESTIVAL_SELECT_DETAIL)
       .eq("slug", slug)
-      .or("status.eq.published,status.eq.verified,is_verified.eq.true")
-      .neq("status", "archived")
       .maybeSingle();
 
     if (!error) {

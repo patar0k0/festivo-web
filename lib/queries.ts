@@ -311,7 +311,7 @@ async function resolveFestivalDateFilterIds(
   const to = applied.to ?? "2099-12-31";
   const { data, error } = await supabase.rpc("festivals_intersecting_range", { p_from: from, p_to: to });
   if (error) {
-    debugLog("[queries] festivals_intersecting_range RPC failed, using legacy date filter", error.message);
+    debugLog("warn", "[queries] festivals_intersecting_range RPC failed, using legacy date filter", error.message);
     return { kind: "legacy" };
   }
   const ids = (data ?? [])
@@ -489,7 +489,7 @@ export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug:
     if (!error) {
       const festival = data as Festival | null;
       if (!festival) {
-        debugLog("Festival not found or blocked by RLS", { slug });
+        debugLog("warn", "Festival not found", { slug });
         return null;
       }
       const withOrganizers = await mergeFestivalOrganizersFromJoinTable(supabase, festival);
@@ -604,7 +604,7 @@ export async function getFestivalDetail(
   }
 
   if (usedProgramDraftFallback) {
-    debugLog("[program-fallback]", {
+    debugLog("log", "[program-fallback]", {
       festivalId: festival.id,
       reason: "no schedule items, using program_draft",
     });

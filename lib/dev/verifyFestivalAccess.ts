@@ -28,7 +28,7 @@ export async function verifyFestivalAccessDev(rawSlug: string): Promise<void> {
     role = "organizer";
   }
 
-  debugLog({
+  debugLog("log", "verifyFestivalAccess", {
     slug,
     found: festival != null,
     role,

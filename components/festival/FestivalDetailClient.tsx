@@ -544,7 +544,7 @@ export default function FestivalDetailClient({
     <div className="space-y-6 md:space-y-8">
       <Toast />
       {showPendingApprovalBadge ? (
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800 flex items-start gap-2">
+        <div className="sticky top-0 z-10 mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800 flex items-start gap-2">
           <span className="mt-0.5" aria-hidden>
             ⚠️
           </span>

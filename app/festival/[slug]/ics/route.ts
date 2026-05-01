@@ -34,7 +34,7 @@ export async function GET(
   const icsContent = buildFestivalIcs(festival);
   return new Response(icsContent, {
     headers: {
-      "Content-Type": "text/calendar",
+      "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": `attachment; filename=\"festivo-${slug}.ics\"`,
       "Cache-Control": "private, no-store",
       "Content-Length": Buffer.byteLength(icsContent, "utf8").toString(),

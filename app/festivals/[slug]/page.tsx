@@ -49,17 +49,46 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const pageTitle = isPreviewMetadata ? `[Преглед] ${festival.title}` : meta.title;
   const ogImages =
     meta.shareImageUrl != null ? [{ url: meta.shareImageUrl, alt: festival.title }] : undefined;
+  const previewSafeDescription = "Този фестивал все още не е публичен.";
+
+  if (isPreviewMetadata) {
+    return {
+      title: pageTitle,
+      description: previewSafeDescription,
+      alternates: {
+        canonical: undefined,
+      },
+      openGraph: {
+        title: pageTitle,
+        description: previewSafeDescription,
+      },
+      twitter: {
+        card: "summary",
+        title: pageTitle,
+        description: previewSafeDescription,
+      },
+      robots: {
+        index: false,
+        follow: false,
+        googleBot: {
+          index: false,
+          follow: false,
+          noimageindex: true,
+        },
+      },
+    };
+  }
 
   return {
     title: pageTitle,
     ...(meta.description ? { description: meta.description } : {}),
     alternates: {
-      canonical: catalogVisible ? canonical : undefined,
+      canonical,
     },
     openGraph: {
       title: pageTitle,
       ...(meta.description ? { description: meta.description } : {}),
-      ...(catalogVisible ? { url: canonical } : {}),
+      url: canonical,
       siteName: "Festivo",
       locale: "bg_BG",
       type: "website",
@@ -71,9 +100,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       ...(meta.description ? { description: meta.description } : {}),
       ...(ogImages ? { images: [ogImages[0].url] } : {}),
     },
-    ...(isPreviewMetadata
-      ? { robots: { index: false, follow: false, nocache: true } }
-      : {}),
   };
 }
 
@@ -92,7 +118,7 @@ export default async function Page({
   if (!isFestivalPublicDetailCatalogVisible(data.festival)) {
     const canPreview = await canPreviewNonPublicFestival(data.festival);
     if (!canPreview) {
-      debugLog("Festival preview access denied (not catalog-visible)", { slug });
+      debugLog("error", "RLS blocked access", { slug });
       return notFound();
     }
   }

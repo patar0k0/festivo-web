@@ -1,5 +1,8 @@
 import { NextRequest } from "next/server";
-import { isFestivalVisibleOnPublicCatalog } from "@/lib/festival/editorOpenAction";
+import {
+  canPreviewNonPublicFestival,
+  isFestivalPublicDetailCatalogVisible,
+} from "@/lib/festival/detailPreviewAccess";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { buildFestivalIcs } from "@/lib/ics";
 import { getFestivalBySlug, normalizePublicFestivalSlugParam } from "@/lib/queries";
@@ -15,14 +18,11 @@ export async function GET(
     return new Response("Not found", { status: 404 });
   }
 
-  if (
-    !isFestivalVisibleOnPublicCatalog({
-      slug: festival.slug,
-      status: festival.status ?? "",
-      is_verified: festival.is_verified ?? null,
-    })
-  ) {
-    return new Response("Not found", { status: 404 });
+  if (!isFestivalPublicDetailCatalogVisible(festival)) {
+    const canPreview = await canPreviewNonPublicFestival(festival);
+    if (!canPreview) {
+      return new Response("Not found", { status: 404 });
+    }
   }
 
   if (isFestivalPast(festival)) {
@@ -31,12 +31,13 @@ export async function GET(
     });
   }
 
-  const ics = buildFestivalIcs(festival);
-  return new Response(ics, {
+  const icsContent = buildFestivalIcs(festival);
+  return new Response(icsContent, {
     headers: {
-      "Content-Type": "text/calendar; charset=utf-8",
+      "Content-Type": "text/calendar",
       "Content-Disposition": `attachment; filename=\"festivo-${slug}.ics\"`,
-      "Cache-Control": "public, max-age=0, s-maxage=3600",
+      "Cache-Control": "private, no-store",
+      "Content-Length": Buffer.byteLength(icsContent, "utf8").toString(),
     },
   });
 }

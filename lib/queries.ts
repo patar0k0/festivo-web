@@ -10,6 +10,7 @@ import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText
 import { formatSettlementLocationLines } from "@/lib/settlements/formatLocation";
 import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
+import { debugLog } from "@/lib/utils/debugLog";
 import { buildFestivalsTagOrFilter } from "@/lib/festivals/buildFestivalsTagOrFilter";
 import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { compareFestivalsForListing, sortFestivalsForListing } from "@/lib/festival/sorting";
@@ -310,7 +311,7 @@ async function resolveFestivalDateFilterIds(
   const to = applied.to ?? "2099-12-31";
   const { data, error } = await supabase.rpc("festivals_intersecting_range", { p_from: from, p_to: to });
   if (error) {
-    console.warn("[queries] festivals_intersecting_range RPC failed, using legacy date filter", error.message);
+    debugLog("[queries] festivals_intersecting_range RPC failed, using legacy date filter", error.message);
     return { kind: "legacy" };
   }
   const ids = (data ?? [])
@@ -488,6 +489,7 @@ export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug:
     if (!error) {
       const festival = data as Festival | null;
       if (!festival) {
+        debugLog("Festival not found or blocked by RLS", { slug });
         return null;
       }
       const withOrganizers = await mergeFestivalOrganizersFromJoinTable(supabase, festival);
@@ -602,7 +604,7 @@ export async function getFestivalDetail(
   }
 
   if (usedProgramDraftFallback) {
-    console.warn("[program-fallback]", {
+    debugLog("[program-fallback]", {
       festivalId: festival.id,
       reason: "no schedule items, using program_draft",
     });

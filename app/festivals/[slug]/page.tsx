@@ -13,6 +13,7 @@ import {
   normalizePublicFestivalSlugParam,
 } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
+import { debugLog } from "@/lib/utils/debugLog";
 import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
@@ -21,32 +22,44 @@ import { buildGoogleMapsEmbedSrc, buildGoogleMapsUrl } from "@/lib/location/buil
 /** Match `/organizers/[slug]`: avoid caching a stale `notFound()` / partial payload across soft navigation and ISR. */
 export const dynamic = "force-dynamic";
 
+const SAFE_PUBLIC_FESTIVAL_METADATA = {
+  title: "Festivo",
+  description: "Открий фестивали в България",
+} as const;
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: rawSlug } = await params;
   const slug = normalizePublicFestivalSlugParam(rawSlug);
   const festival = await getFestivalBySlug(slug);
-  if (!festival) return {};
+  if (!festival) {
+    return { ...SAFE_PUBLIC_FESTIVAL_METADATA };
+  }
 
-  if (!isFestivalPublicDetailCatalogVisible(festival)) {
+  const catalogVisible = isFestivalPublicDetailCatalogVisible(festival);
+  if (!catalogVisible) {
     const canPreview = await canPreviewNonPublicFestival(festival);
-    if (!canPreview) return {};
+    if (!canPreview) {
+      return { ...SAFE_PUBLIC_FESTIVAL_METADATA };
+    }
   }
 
   const meta = festivalMeta(festival);
   const canonical = `${getBaseUrl()}/festivals/${slug}`;
+  const isPreviewMetadata = !catalogVisible;
+  const pageTitle = isPreviewMetadata ? `[Преглед] ${festival.title}` : meta.title;
   const ogImages =
     meta.shareImageUrl != null ? [{ url: meta.shareImageUrl, alt: festival.title }] : undefined;
 
   return {
-    title: meta.title,
+    title: pageTitle,
     ...(meta.description ? { description: meta.description } : {}),
     alternates: {
-      canonical,
+      canonical: catalogVisible ? canonical : undefined,
     },
     openGraph: {
-      title: meta.title,
+      title: pageTitle,
       ...(meta.description ? { description: meta.description } : {}),
-      url: canonical,
+      ...(catalogVisible ? { url: canonical } : {}),
       siteName: "Festivo",
       locale: "bg_BG",
       type: "website",
@@ -54,10 +67,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     },
     twitter: {
       card: ogImages ? "summary_large_image" : "summary",
-      title: meta.title,
+      title: pageTitle,
       ...(meta.description ? { description: meta.description } : {}),
       ...(ogImages ? { images: [ogImages[0].url] } : {}),
     },
+    ...(isPreviewMetadata
+      ? { robots: { index: false, follow: false, nocache: true } }
+      : {}),
   };
 }
 
@@ -75,7 +91,10 @@ export default async function Page({
 
   if (!isFestivalPublicDetailCatalogVisible(data.festival)) {
     const canPreview = await canPreviewNonPublicFestival(data.festival);
-    if (!canPreview) return notFound();
+    if (!canPreview) {
+      debugLog("Festival preview access denied (not catalog-visible)", { slug });
+      return notFound();
+    }
   }
 
   const showPendingApprovalBadge = !isFestivalPublicDetailCatalogVisible(data.festival);

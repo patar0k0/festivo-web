@@ -1,5 +1,5 @@
 -- Admin users: soft-delete shadow table, app roles on user_roles, organizer viewer role,
--- is_admin() includes super_admin, RPC to revoke refresh tokens (force logout).
+-- is_admin() includes super_admin. Force-logout RPC: 20260503_admin_user_delete_uuid_compare.sql
 
 -- 1) public.users: optional row per auth user; deleted_at set => soft-deleted (blocked at middleware).
 create table if not exists public.users (
@@ -56,18 +56,4 @@ as $$
   );
 $$;
 
--- 5) Invalidate refresh tokens for a user (server-only via service_role RPC).
-create or replace function public.admin_invalidate_auth_sessions(target_user_id uuid)
-returns void
-language plpgsql
-security definer
-set search_path = auth, public
-as $$
-begin
-  delete from auth.refresh_tokens
-  where user_id = target_user_id;
-end;
-$$;
-
-revoke all on function public.admin_invalidate_auth_sessions(uuid) from public;
-grant execute on function public.admin_invalidate_auth_sessions(uuid) to service_role;
+-- Deprecated: replaced by 20260503_admin_user_delete_uuid_compare.sql

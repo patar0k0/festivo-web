@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isStaffAdminRole } from "@/lib/admin/appRoles";
+import { assertRpcUserUuid } from "@/lib/admin/rpcUserUuid";
 import { sanitizeDeletedReason } from "@/lib/admin/sanitizeDeletedReason";
 
 export async function fetchUserDeletedAtMap(
@@ -118,6 +119,7 @@ export async function assertCanApplyDestructiveUserAction(
 }
 
 export async function invalidateAuthSessions(adminClient: SupabaseClient, userId: string): Promise<void> {
+  assertRpcUserUuid(userId);
   const { error } = await adminClient.rpc("admin_invalidate_auth_sessions", { target_user_id: userId });
   if (error) {
     throw new Error(`invalidate sessions: ${error.message}`);
@@ -136,6 +138,7 @@ export async function setUserSoftDeleted(
   deleted: boolean,
   options?: SoftDeleteOptions,
 ): Promise<void> {
+  assertRpcUserUuid(userId);
   const reason =
     deleted && options?.reason != null && String(options.reason).trim()
       ? sanitizeDeletedReason(options.reason)

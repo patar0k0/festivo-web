@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { assertRpcUserUuid } from "@/lib/admin/rpcUserUuid";
 import { clearUserSweepTracking } from "@/lib/admin/userSweepRetryQueue";
 
 export type PostAuthUserSweepResult = {
@@ -56,6 +57,7 @@ export async function postAuthUserSweep(
   userId: string,
   logCtx?: SweepLogContext,
 ): Promise<PostAuthUserSweepResult> {
+  assertRpcUserUuid(userId);
   console.info("[postAuthUserSweep] attempt", { userId, label: logCtx?.label });
 
   let lastErr: Error | null = null;

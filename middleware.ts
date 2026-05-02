@@ -7,7 +7,7 @@ import { getSupabaseEnv } from "@/lib/supabaseServer";
 import { getCachedUserGate, setCachedUserGate } from "@/lib/middlewareUserGateCache";
 
 /**
- * Routes where we do not force-clear auth for missing `users` row / invalid admin.
+ * Routes where we do not force-clear auth for missing `public.users` row.
  * `/login` and `/signup` are not exempt: a broken session is cleared there before
  * `login` can redirect `next=/admin` (avoids admin ↔ login loops).
  */
@@ -287,23 +287,8 @@ export async function middleware(request: NextRequest) {
       return redirectResponse;
     }
 
-    if (gateReady && !isInvalidSessionPurgeExempt(pathname)) {
-      if (!userRowExists) {
-        return signOutAndRedirectHome(request, url, anon);
-      }
-      if (pathname.startsWith("/admin")) {
-        const { data: roleRow, error: roleError } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .in("role", ["admin", "super_admin"])
-          .maybeSingle();
-        if (roleError) {
-          console.error("[middleware] user_roles lookup failed", roleError);
-        } else if (!roleRow) {
-          return signOutAndRedirectHome(request, url, anon);
-        }
-      }
+    if (gateReady && !isInvalidSessionPurgeExempt(pathname) && !userRowExists) {
+      return signOutAndRedirectHome(request, url, anon);
     }
   }
 

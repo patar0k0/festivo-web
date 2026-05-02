@@ -1,14 +1,14 @@
-import { redirect } from "next/navigation";
-import { getAdminContext } from "@/lib/admin/isAdmin";
+import { headers } from "next/headers";
+import { getAdminAuthContext } from "@/lib/admin/isAdmin";
 
 export default async function AdminRootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const admin = await getAdminContext();
-  if (!admin || !admin.isAdmin) {
-    redirect("/login?next=/admin");
+  const pathname = (await headers()).get("x-festivo-pathname") ?? "";
+  if (!pathname.startsWith("/admin/login")) {
+    await getAdminAuthContext();
   }
 
   return <>{children}</>;

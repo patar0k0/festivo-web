@@ -57,6 +57,7 @@ Production domain protection is configured in the Cloudflare dashboard (not driv
 - **Rate limiting:** Upstash, **per bucket** and **per identity** (logged-in user id vs client IP). Implementation detail: **Rate limiting (Upstash)** under Edge middleware below.
 - **Origin / Referer guard:** allowlisted hosts for `POST /api/*`. Implementation detail: **Origin / Referer guard (CSRF-ish)** under Edge middleware below.
 - **RLS policies:** Supabase Postgres; user-owned and role-scoped tables rely on Row Level Security. Policy definitions live in the database (see repo rules: live Postgres / `scripts/sql/` as the authority for schema and RLS).
+- **Admin staff role (UI gate):** canonical role rows live in **`public.user_roles`** (`admin` / `super_admin`). The app mirrors staff into Auth **`app_metadata.role`** via **`syncUserRoleToJwt`** (after role changes and when a staff user hits admin with a stale JWT) so server layouts and **`SiteHeader`** can treat the JWT as a fast path; **`hasAdminRole`** / **`resolveAdminAccessOrRedirect`** still fall back to **`user_roles`** when the claim is missing. Data access remains enforced by RLS and service-role admin APIs, not by the claim alone.
 
 ## Edge middleware: API POST hardening (festivo-web)
 

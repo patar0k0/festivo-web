@@ -3,6 +3,7 @@ import type { AppRole } from "@/lib/admin/appRoles";
 import { isAppRoleValue } from "@/lib/admin/appRoles";
 import { isStaffAdminRole } from "@/lib/admin/appRoles";
 import { countStaffAdminsExcluding } from "@/lib/admin/adminUserAccount";
+import { syncUserRoleToJwt } from "@/lib/auth/syncUserRoleToJwt";
 
 export async function getUserAppRole(adminClient: SupabaseClient, userId: string): Promise<AppRole> {
   const { data, error } = await adminClient.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
@@ -39,6 +40,7 @@ export async function persistUserAppRole(adminClient: SupabaseClient, userId: st
     if (error) {
       throw new Error(`user_roles: ${error.message}`);
     }
+    await syncUserRoleToJwt(userId);
     return;
   }
 
@@ -46,4 +48,5 @@ export async function persistUserAppRole(adminClient: SupabaseClient, userId: st
   if (error) {
     throw new Error(`user_roles: ${error.message}`);
   }
+  await syncUserRoleToJwt(userId);
 }

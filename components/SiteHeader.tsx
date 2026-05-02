@@ -11,17 +11,8 @@ export default async function SiteHeader() {
   } = await supabase.auth.getUser();
   const isAuthenticated = Boolean(user?.id);
   const userEmail = user?.email ?? null;
-  let isAdmin = false;
-
-  if (user?.id) {
-    const { data: roleRow } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .in("role", ["admin", "super_admin"])
-      .maybeSingle();
-    isAdmin = Boolean(roleRow);
-  }
+  const jwtRole = user?.app_metadata?.role;
+  const isAdmin = jwtRole === "admin" || jwtRole === "super_admin";
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#f5f4f0]/95">

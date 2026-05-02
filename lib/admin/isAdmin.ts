@@ -2,8 +2,8 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { type SupabaseClient, type User } from "@supabase/supabase-js";
 import { requireActiveUserWithSupabase } from "@/lib/auth/requireActiveUser";
+import { syncUserRoleToJwt } from "@/lib/auth/syncUserRoleToJwt";
 import { ensurePublicUserRowForSession } from "@/lib/ensurePublicUserRowForSession";
-import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export type AdminSession = {
   userId: string;
@@ -27,15 +27,17 @@ function dbRolesIsAdmin(roles: { role: string }[] | null | undefined): boolean {
 }
 
 /**
- * Resolves admin access: JWT `app_metadata.role` OR `user_roles` row (admin / super_admin).
- * When DB says staff but JWT lacks role, merges `role` into Auth `app_metadata` and redirects
- * through `/api/auth/sign-out` so the next login/session picks up the JWT claim.
+ * Resolves admin access: JWT `app_metadata.role` first (no DB read); falls back to `user_roles`.
+ * When DB says staff but JWT lacks role, syncs via `syncUserRoleToJwt` and redirects through
+ * `/api/auth/sign-out` so the next session picks up the claim.
  */
 async function resolveAdminAccessOrRedirect(supabase: SupabaseClient, user: User): Promise<void> {
   await ensurePublicUserRowForSession(supabase, user);
 
-  const jwtRole = user.app_metadata?.role;
-  const isJwtAdmin = jwtRoleIsAdmin(jwtRole);
+  const role = user.app_metadata?.role;
+  if (role === "admin" || role === "super_admin") {
+    return;
+  }
 
   const { data: roles, error } = await supabase
     .from("user_roles")
@@ -48,28 +50,16 @@ async function resolveAdminAccessOrRedirect(supabase: SupabaseClient, user: User
 
   const isDbAdmin = dbRolesIsAdmin(roles);
 
-  if (isDbAdmin && !isJwtAdmin) {
+  if (isDbAdmin) {
     try {
-      const admin = createSupabaseAdmin();
-      const { data: authData, error: getErr } = await admin.auth.admin.getUserById(user.id);
-      if (getErr || !authData?.user) {
-        throw getErr ?? new Error("getUserById returned no user");
-      }
-      const prev = { ...(authData.user.app_metadata ?? {}) } as Record<string, unknown>;
-      const newRole = (roles ?? []).some((r) => r.role === "super_admin") ? "super_admin" : "admin";
-      const { error: upErr } = await admin.auth.admin.updateUserById(user.id, {
-        app_metadata: { ...prev, role: newRole },
-      });
-      if (upErr) {
-        throw upErr;
-      }
+      await syncUserRoleToJwt(user.id);
       redirect(`/api/auth/sign-out?next=${encodeURIComponent("/login?next=/admin")}`);
     } catch (e) {
       console.error("[resolveAdminAccessOrRedirect] JWT role sync failed", e);
     }
   }
 
-  if (!isJwtAdmin && !isDbAdmin) {
+  if (!isDbAdmin) {
     redirect("/");
   }
 }

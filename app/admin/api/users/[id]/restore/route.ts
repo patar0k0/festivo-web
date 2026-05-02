@@ -9,6 +9,7 @@ import {
   isActiveBanTs,
 } from "@/lib/admin/restoreUserConsistency";
 import { invalidateCachedUserGateSafe } from "@/lib/middlewareUserGateCache";
+import { syncUserRoleToJwt } from "@/lib/auth/syncUserRoleToJwt";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -86,6 +87,12 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       if (insErr) {
         console.error("[admin/api/users/[id]/restore] user_roles insert", insErr);
         return NextResponse.json({ error: "Неуспешно създаване на роля преди възстановяване." }, { status: 500 });
+      }
+      try {
+        await syncUserRoleToJwt(id);
+      } catch (e) {
+        console.error("[admin/api/users/[id]/restore] syncUserRoleToJwt", e);
+        return NextResponse.json({ error: "Ролята е записана, но синхронизацията с Auth не успя." }, { status: 500 });
       }
     }
 

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  nextResponseForRequireActiveUserError,
+  requireActiveUserWithSupabase,
+} from "@/lib/auth/requireActiveUser";
 import { getOrCreateUserEmailPreferences } from "@/lib/email/emailPreferences";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type EmailPrefsResponse = {
   reminder_emails_enabled: boolean;
@@ -13,22 +16,18 @@ type Body = {
 
 const SELECT = "reminder_emails_enabled,unsubscribed_all_optional" as const;
 
-async function requireUser() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-  return { supabase, user, error };
-}
-
 export async function GET() {
-  const { supabase, user, error: authError } = await requireUser();
-  if (authError) {
-    return NextResponse.json({ error: authError.message }, { status: 500 });
-  }
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let supabase;
+  let user;
+  try {
+    const ctx = await requireActiveUserWithSupabase();
+    supabase = ctx.supabase;
+    user = ctx.user;
+  } catch (e) {
+    const r = nextResponseForRequireActiveUserError(e);
+    if (r) return r;
+    console.error("[email/preferences] GET auth", e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Server error" }, { status: 500 });
   }
 
   const row = await getOrCreateUserEmailPreferences(supabase, user.id);
@@ -40,12 +39,17 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { supabase, user, error: authError } = await requireUser();
-  if (authError) {
-    return NextResponse.json({ error: authError.message }, { status: 500 });
-  }
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let supabase;
+  let user;
+  try {
+    const ctx = await requireActiveUserWithSupabase();
+    supabase = ctx.supabase;
+    user = ctx.user;
+  } catch (e) {
+    const r = nextResponseForRequireActiveUserError(e);
+    if (r) return r;
+    console.error("[email/preferences] POST auth", e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Server error" }, { status: 500 });
   }
 
   let body: Body;

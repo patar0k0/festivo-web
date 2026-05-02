@@ -33,6 +33,20 @@ export async function getPortalSessionUser() {
     error,
   } = await supabase.auth.getUser();
   if (error || !user?.id) return null;
+
+  const { data: row, error: rowError } = await supabase
+    .from("users")
+    .select("deleted_at")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (rowError) {
+    console.error("[getPortalSessionUser] users lookup failed", rowError);
+    throw rowError;
+  }
+
+  if (row?.deleted_at) return null;
+
   return { supabase, user };
 }
 

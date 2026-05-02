@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  nextResponseForRequireActiveUserError,
+  requireActiveUserWithSupabase,
+} from "@/lib/auth/requireActiveUser";
 
 type Payload = {
   token?: string;
@@ -33,21 +36,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Missing or invalid platform" }, { status: 400 });
   }
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    return NextResponse.json({ ok: false, error: authError.message }, { status: 500 });
-  }
-
-  if (!user) {
-    // `device_tokens` RLS is defined for `to authenticated` and rows require `user_id`.
+  let supabase;
+  let user;
+  try {
+    const ctx = await requireActiveUserWithSupabase();
+    supabase = ctx.supabase;
+    user = ctx.user;
+  } catch (e) {
+    const r = nextResponseForRequireActiveUserError(e, (msg) => ({
+      ok: false,
+      error:
+        msg === "Unauthorized"
+          ? "Unauthorized: sign in required to register push token"
+          : msg,
+    }));
+    if (r) return r;
+    console.error("[push/register] auth", e);
     return NextResponse.json(
-      { ok: false, error: "Unauthorized: sign in required to register push token" },
-      { status: 401 },
+      { ok: false, error: e instanceof Error ? e.message : "Server error" },
+      { status: 500 },
     );
   }
 

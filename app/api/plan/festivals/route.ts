@@ -1,26 +1,28 @@
 import { NextResponse } from "next/server";
+import {
+  nextResponseForRequireActiveUserError,
+  requireActiveUserWithSupabase,
+} from "@/lib/auth/requireActiveUser";
 import { cancelPendingReminderJobs, syncReminderJobsForPreference } from "@/lib/notifications/triggers";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Payload = {
   festivalId?: string;
 };
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    return NextResponse.json({ error: authError.message }, { status: 500 });
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let supabase;
+  let user;
+  try {
+    const ctx = await requireActiveUserWithSupabase();
+    supabase = ctx.supabase;
+    user = ctx.user;
+  } catch (e) {
+    const r = nextResponseForRequireActiveUserError(e);
+    if (r) return r;
+    console.error("[plan/festivals] auth", e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Server error" }, { status: 500 });
   }
 
   const body = (await request.json()) as Payload;

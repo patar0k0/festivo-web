@@ -15,7 +15,7 @@ type AdminAuthContext = {
   isAdmin: true;
 };
 
-async function hasAdminRole(client: SupabaseClient, userId: string) {
+export async function hasAdminRole(client: SupabaseClient, userId: string) {
   const { data, error } = await client
     .from("user_roles")
     .select("role")

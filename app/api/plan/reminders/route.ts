@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import {
+  nextResponseForRequireActiveUserError,
+  requireActiveUserWithSupabase,
+} from "@/lib/auth/requireActiveUser";
+import {
   applyReminderTypeToAllSavedFestivals,
   getSavedReminderTimingSummary,
 } from "@/lib/plan/applyReminderToSavedFestivals";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { ReminderType } from "@/lib/plan/server";
 import { syncReminderJobsForPreference } from "@/lib/notifications/triggers";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Payload = {
   festivalId?: string;
@@ -17,13 +20,17 @@ type Payload = {
 const allowed = new Set<ReminderType>(["none", "24h", "same_day_09"]);
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let supabase;
+  let user;
+  try {
+    const ctx = await requireActiveUserWithSupabase();
+    supabase = ctx.supabase;
+    user = ctx.user;
+  } catch (e) {
+    const r = nextResponseForRequireActiveUserError(e);
+    if (r) return r;
+    console.error("[plan/reminders] GET auth", e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Server error" }, { status: 500 });
   }
 
   const summary = await getSavedReminderTimingSummary(user.id, supabase);
@@ -35,13 +42,17 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let supabase;
+  let user;
+  try {
+    const ctx = await requireActiveUserWithSupabase();
+    supabase = ctx.supabase;
+    user = ctx.user;
+  } catch (e) {
+    const r = nextResponseForRequireActiveUserError(e);
+    if (r) return r;
+    console.error("[plan/reminders] POST auth", e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Server error" }, { status: 500 });
   }
 
   const body = (await request.json()) as Payload;

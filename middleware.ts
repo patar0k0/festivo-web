@@ -209,7 +209,14 @@ export async function middleware(request: NextRequest) {
 
     if (isDeletedAccount || isBannedEffective) {
       const targetPath = isDeletedAccount ? "/account-deleted" : "/banned";
+      // Deleted users must remain signed in on `/account-deleted` so the page can verify `users.deleted_at`.
+      if (isDeletedAccount && pathname.startsWith("/account-deleted")) {
+        return response;
+      }
       const redirectResponse = NextResponse.redirect(new URL(targetPath, request.url));
+      if (isDeletedAccount) {
+        return redirectResponse;
+      }
       const supabaseSignOut = createServerClient(url, anon, {
         cookies: {
           getAll() {

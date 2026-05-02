@@ -782,6 +782,8 @@ export type Database = {
       users: {
         Row: {
           id: string
+          /** Mirrored from auth.users for DB-backed destructive confirmations. */
+          email: string | null
           deleted_at: string | null
           deleted_by: string | null
           deleted_reason: string | null
@@ -791,6 +793,7 @@ export type Database = {
         }
         Insert: {
           id: string
+          email?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           deleted_reason?: string | null
@@ -799,6 +802,7 @@ export type Database = {
           ban_sync_error?: boolean
         }
         Update: {
+          email?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           deleted_reason?: string | null

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getOptionalUser } from "@/lib/authUser";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 const MAX_LABEL_LEN = 200;
@@ -46,14 +46,7 @@ export async function GET(request: NextRequest) {
 
   let user_id: string | null = null;
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-    if (!error) {
-      user_id = user?.id ?? null;
-    }
+    user_id = (await getOptionalUser())?.id ?? null;
   } catch {
     // Anonymous redirect is allowed.
   }

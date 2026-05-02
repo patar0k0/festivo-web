@@ -1,19 +1,26 @@
 import { NextResponse } from "next/server";
+import {
+  nextResponseForRequireActiveUserError,
+  requireActiveUserWithSupabase,
+} from "@/lib/auth/requireActiveUser";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type Payload = {
   scheduleItemId?: string;
 };
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let supabase;
+  let user;
+  try {
+    const ctx = await requireActiveUserWithSupabase();
+    supabase = ctx.supabase;
+    user = ctx.user;
+  } catch (e) {
+    const r = nextResponseForRequireActiveUserError(e);
+    if (r) return r;
+    console.error("[plan/items] auth", e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Server error" }, { status: 500 });
   }
 
   const body = (await request.json()) as Payload;

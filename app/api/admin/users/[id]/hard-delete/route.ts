@@ -1,22 +1,35 @@
 import { NextResponse } from "next/server";
-import { getAdminContext } from "@/lib/admin/isAdmin";
+import { assertCanApplyDestructiveUserAction } from "@/lib/admin/adminUserAccount";
 import { fetchAdminUserDetail, isAuthUserId } from "@/lib/admin/adminUserDetail";
 import { validateHardDeleteConfirmEmailFromUsersTable } from "@/lib/admin/hardDeleteConfirmEmail";
-import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
-import { assertCanApplyDestructiveUserAction } from "@/lib/admin/adminUserAccount";
 import { getUserAppRole } from "@/lib/admin/adminUserRole";
 import { hardDeleteAuthUser } from "@/lib/admin/hardDeleteAuthUser";
+import { hasAdminRole } from "@/lib/admin/isAdmin";
+import { logUserSecurityAudit } from "@/lib/admin/userSecurityAuditLog";
+import {
+  nextResponseForRequireActiveUserError,
+  requireActiveUserWithSupabase,
+} from "@/lib/auth/requireActiveUser";
 import { invalidateCachedUserGateSafe } from "@/lib/middlewareUserGateCache";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
+/**
+ * Production hard delete: removes Auth user (`auth.admin.deleteUser`) after app data purge
+ * so the email can be reused. Requires staff admin + same confirmations as dev `DELETE .../admin/api/users/[id]/hard`.
+ */
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
-  if (process.env.NODE_ENV !== "development") {
-    return NextResponse.json({ error: "Недостъпно извън development." }, { status: 403 });
-  }
-
-  const ctx = await getAdminContext();
-  if (!ctx || !ctx.isAdmin) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  let actorUserId: string;
+  try {
+    const { user, supabase } = await requireActiveUserWithSupabase();
+    if (!(await hasAdminRole(supabase, user.id))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    actorUserId = user.id;
+  } catch (e) {
+    const r = nextResponseForRequireActiveUserError(e);
+    if (r) return r;
+    console.error("[api/admin/users/[id]/hard-delete] auth", e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Server error" }, { status: 500 });
   }
 
   const { id } = await context.params;
@@ -43,7 +56,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     adminClient = createSupabaseAdmin();
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to initialize admin client";
-    console.error("[admin/api/users/[id]/hard] admin client init failed", { message });
+    console.error("[api/admin/users/[id]/hard-delete] admin client init failed", { message });
     return NextResponse.json({ error: "Service temporarily unavailable." }, { status: 500 });
   }
 
@@ -59,16 +72,16 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     }
 
     const appRole = await getUserAppRole(adminClient, id);
-    await assertCanApplyDestructiveUserAction(adminClient, { actorUserId: ctx.user.id, targetUserId: id }, appRole);
+    await assertCanApplyDestructiveUserAction(adminClient, { actorUserId, targetUserId: id }, appRole);
 
     await hardDeleteAuthUser(adminClient, id);
-    invalidateCachedUserGateSafe(id, "admin_users_hard_delete");
+    invalidateCachedUserGateSafe(id, "api_admin_users_hard_delete");
 
     await logUserSecurityAudit({
-      actorUserId: ctx.user.id,
+      actorUserId,
       targetUserId: id,
       action: "user_hard_delete",
-      route: `/admin/api/users/${id}/hard`,
+      route: `/api/admin/users/${id}/hard-delete`,
       method: "DELETE",
       metadata: { email: emailCheck.dbEmail },
     });
@@ -76,7 +89,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
-    console.error("[admin/api/users/[id]/hard] failed", { message, id });
+    console.error("[api/admin/users/[id]/hard-delete] failed", { message, id });
     const status = message.includes("Не може") || message.includes("Не можете") ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }

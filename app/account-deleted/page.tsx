@@ -1,6 +1,28 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default function AccountDeletedPage() {
+export default async function AccountDeletedPage() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.id) {
+    redirect("/");
+  }
+
+  const { data: row, error } = await supabase.from("users").select("deleted_at").eq("id", user.id).maybeSingle();
+
+  if (error) {
+    console.error("[account-deleted] users lookup failed", error);
+    throw error;
+  }
+
+  if (!row?.deleted_at) {
+    redirect("/");
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f5f4f0] px-4 text-[#0c0e14]">
       <div className="w-full max-w-md rounded-2xl border border-black/5 bg-white p-6 shadow-sm">

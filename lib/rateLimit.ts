@@ -79,13 +79,14 @@ const DESTRUCTIVE_ADMIN_USER_BUCKET: RateLimitBucket = {
 /** Single-request admin user destructive actions (soft/hard delete, ban, restore, etc.). */
 export function isAdminUserDestructiveRequest(pathname: string, method: string): boolean {
   const m = method.toUpperCase();
-  if (!pathname.startsWith("/admin/api/users")) return false;
+  if (!pathname.startsWith("/admin/api/users") && !pathname.startsWith("/api/admin/users")) return false;
 
   if (pathname === "/admin/api/users/bulk" && m === "POST") return true;
 
   const idSeg = "\\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
   if (new RegExp(`^/admin/api/users${idSeg}$`, "i").test(pathname) && m === "DELETE") return true;
   if (new RegExp(`^/admin/api/users${idSeg}/hard$`, "i").test(pathname) && m === "DELETE") return true;
+  if (new RegExp(`^/api/admin/users${idSeg}/hard-delete$`, "i").test(pathname) && m === "DELETE") return true;
   if (new RegExp(`^/admin/api/users${idSeg}/restore$`, "i").test(pathname) && m === "POST") return true;
   if (new RegExp(`^/admin/api/users${idSeg}/ban$`, "i").test(pathname) && m === "POST") return true;
   if (new RegExp(`^/admin/api/users${idSeg}/force-logout$`, "i").test(pathname) && m === "POST") return true;
@@ -98,7 +99,8 @@ function getBucket(pathname: string, method: string): RateLimitBucket {
   const m = method.toUpperCase();
 
   if (
-    pathname.match(/^\/admin\/api\/users\/[0-9a-f-]{36}\/hard$/i) &&
+    (pathname.match(/^\/admin\/api\/users\/[0-9a-f-]{36}\/hard$/i) ||
+      pathname.match(/^\/api\/admin\/users\/[0-9a-f-]{36}\/hard-delete$/i)) &&
     m === "DELETE"
   ) {
     return { id: "admin-user-hard-delete", requests: 5, window: "60 s" };

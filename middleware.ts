@@ -6,6 +6,54 @@ import { verifyApiPostOrigin } from "@/lib/postOriginGuard";
 import { getSupabaseEnv } from "@/lib/supabaseServer";
 import { getCachedUserGate, setCachedUserGate } from "@/lib/middlewareUserGateCache";
 
+/**
+ * Routes where we do not force-clear auth for missing `users` row / invalid admin.
+ * `/login` and `/signup` are not exempt: a broken session is cleared there before
+ * `login` can redirect `next=/admin` (avoids admin ↔ login loops).
+ */
+function isInvalidSessionPurgeExempt(pathname: string): boolean {
+  return (
+    pathname === "/" ||
+    pathname.startsWith("/auth") ||
+    (pathname.startsWith("/api/") && !pathname.startsWith("/admin/api/")) ||
+    pathname.startsWith("/account-deleted") ||
+    pathname.startsWith("/banned") ||
+    pathname.startsWith("/out") ||
+    pathname.startsWith("/preview") ||
+    pathname.startsWith("/logout-preview") ||
+    pathname.startsWith("/_next") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/unsubscribe")
+  );
+}
+
+async function signOutAndRedirectHome(
+  request: NextRequest,
+  url: string,
+  anon: string,
+): Promise<NextResponse> {
+  const res = NextResponse.redirect(new URL("/", request.url));
+  res.cookies.delete("sb-access-token");
+  res.cookies.delete("sb-refresh-token");
+  const supabaseSignOut = createServerClient(url, anon, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          res.cookies.set(name, value, options);
+        });
+      },
+    },
+  });
+  await supabaseSignOut.auth.signOut();
+  return res;
+}
+
 /** For server components (e.g. layout) to choose minimal chrome without client env. */
 function withPathnameHeaders(request: NextRequest): Headers {
   const h = new Headers(request.headers);
@@ -176,6 +224,8 @@ export async function middleware(request: NextRequest) {
     const isBanned = bannedUntil != null && bannedUntil !== "" && new Date(bannedUntil) > new Date();
 
     const cachedGate = getCachedUserGate(user.id);
+    let gateReady = cachedGate != null;
+    let userRowExists = cachedGate != null;
     let deletedAt: string | null | undefined = cachedGate?.deleted_at ?? undefined;
     let dbBannedUntil: string | null | undefined = cachedGate?.banned_until ?? undefined;
 
@@ -186,12 +236,16 @@ export async function middleware(request: NextRequest) {
         }
         const res = await supabase.from("users").select("deleted_at, banned_until").eq("id", user.id).maybeSingle();
         if (!res.error) {
-          deletedAt = res.data?.deleted_at ?? null;
-          dbBannedUntil = (res.data as { banned_until?: string | null } | null)?.banned_until ?? null;
-          setCachedUserGate(user.id, {
-            deleted_at: deletedAt ?? null,
-            banned_until: dbBannedUntil ?? null,
-          });
+          gateReady = true;
+          userRowExists = res.data != null;
+          if (res.data) {
+            deletedAt = res.data.deleted_at ?? null;
+            dbBannedUntil = (res.data as { banned_until?: string | null }).banned_until ?? null;
+            setCachedUserGate(user.id, {
+              deleted_at: deletedAt ?? null,
+              banned_until: dbBannedUntil ?? null,
+            });
+          }
           break;
         }
         if (attempt === 2) {
@@ -200,7 +254,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    const isDeletedAccount = Boolean(deletedAt);
+    const isDeletedAccount = userRowExists && Boolean(deletedAt);
     const dbBanActive =
       dbBannedUntil != null &&
       dbBannedUntil !== "" &&
@@ -231,6 +285,25 @@ export async function middleware(request: NextRequest) {
       });
       await supabaseSignOut.auth.signOut();
       return redirectResponse;
+    }
+
+    if (gateReady && !isInvalidSessionPurgeExempt(pathname)) {
+      if (!userRowExists) {
+        return signOutAndRedirectHome(request, url, anon);
+      }
+      if (pathname.startsWith("/admin")) {
+        const { data: roleRow, error: roleError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .in("role", ["admin", "super_admin"])
+          .maybeSingle();
+        if (roleError) {
+          console.error("[middleware] user_roles lookup failed", roleError);
+        } else if (!roleRow) {
+          return signOutAndRedirectHome(request, url, anon);
+        }
+      }
     }
   }
 

@@ -79,19 +79,19 @@ begin
   delete from auth.refresh_tokens where user_id = p_user_id::text;
   get diagnostics n_sessions = row_count;
 
-  delete from public.organizer_members where user_id = p_user_id::text;
+  delete from public.organizer_members where user_id = p_user_id;
   get diagnostics n_organ = row_count;
 
-  delete from public.user_roles where user_id = p_user_id::text;
+  delete from public.user_roles where user_id = p_user_id;
   get diagnostics n_roles = row_count;
 
-  delete from public.user_plan_reminders where user_id = p_user_id::text;
+  delete from public.user_plan_reminders where user_id = p_user_id;
   get diagnostics n_reminders = row_count;
 
-  delete from public.device_tokens where user_id = p_user_id::text;
+  delete from public.device_tokens where user_id = p_user_id;
   get diagnostics n_devices = row_count;
 
-  delete from public.users where id = p_user_id::text;
+  delete from public.users where id = p_user_id;
   get diagnostics n_users = row_count;
 
   return jsonb_build_object(

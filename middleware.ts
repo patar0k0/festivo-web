@@ -222,7 +222,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (user?.id) {
-    await ensurePublicUserRowForSession(supabase, user);
+    const usersShadowUpsertOk = await ensurePublicUserRowForSession(supabase, user);
 
     const bannedUntil = user.banned_until;
     const isBanned = bannedUntil != null && bannedUntil !== "" && new Date(bannedUntil) > new Date();
@@ -291,7 +291,12 @@ export async function middleware(request: NextRequest) {
       return redirectResponse;
     }
 
-    if (gateReady && !isInvalidSessionPurgeExempt(pathname) && !userRowExists) {
+    if (
+      usersShadowUpsertOk &&
+      gateReady &&
+      !isInvalidSessionPurgeExempt(pathname) &&
+      !userRowExists
+    ) {
       return signOutAndRedirectHome(request, url, anon);
     }
   }

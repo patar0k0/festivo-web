@@ -2,6 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { type SupabaseClient, type User } from "@supabase/supabase-js";
 import { requireActiveUserWithSupabase } from "@/lib/auth/requireActiveUser";
+import { ensurePublicUserRowForSession } from "@/lib/ensurePublicUserRowForSession";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export type AdminSession = {
@@ -31,6 +32,8 @@ function dbRolesIsAdmin(roles: { role: string }[] | null | undefined): boolean {
  * through `/api/auth/sign-out` so the next login/session picks up the JWT claim.
  */
 async function resolveAdminAccessOrRedirect(supabase: SupabaseClient, user: User): Promise<void> {
+  await ensurePublicUserRowForSession(supabase, user);
+
   const jwtRole = user.app_metadata?.role;
   const isJwtAdmin = jwtRoleIsAdmin(jwtRole);
 
@@ -74,6 +77,10 @@ async function resolveAdminAccessOrRedirect(supabase: SupabaseClient, user: User
 export async function hasAdminRole(client: SupabaseClient, userId: string, user?: User) {
   if (user != null && jwtRoleIsAdmin(user.app_metadata?.role)) {
     return true;
+  }
+
+  if (user != null) {
+    await ensurePublicUserRowForSession(client, user);
   }
 
   const { data, error } = await client.from("user_roles").select("role").eq("user_id", userId);

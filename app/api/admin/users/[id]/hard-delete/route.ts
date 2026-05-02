@@ -21,7 +21,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   let actorUserId: string;
   try {
     const { user, supabase } = await requireActiveUserWithSupabase();
-    if (!(await hasAdminRole(supabase, user.id))) {
+    if (!(await hasAdminRole(supabase, user.id, user))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     actorUserId = user.id;

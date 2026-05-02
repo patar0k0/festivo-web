@@ -5,9 +5,11 @@ import { canBypassJobsRateLimit, checkRateLimit } from "@/lib/rateLimit";
 import { verifyApiPostOrigin } from "@/lib/postOriginGuard";
 import { getSupabaseEnv } from "@/lib/supabaseServer";
 import { getCachedUserGate, setCachedUserGate } from "@/lib/middlewareUserGateCache";
+import { ensurePublicUserRowForSession } from "@/lib/ensurePublicUserRowForSession";
 
 /**
- * Routes where we do not force-clear auth for missing `public.users` row.
+ * Routes where we do not force-clear auth for missing `public.users` row (fallback).
+ * Sessions normally get a shadow row via `ensurePublicUserRowForSession` after `getUser()`.
  * `/login` and `/signup` are not exempt: a broken session is cleared there before
  * `login` can redirect `next=/admin` (avoids admin ↔ login loops).
  */
@@ -220,6 +222,8 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (user?.id) {
+    await ensurePublicUserRowForSession(supabase, user);
+
     const bannedUntil = user.banned_until;
     const isBanned = bannedUntil != null && bannedUntil !== "" && new Date(bannedUntil) > new Date();
 

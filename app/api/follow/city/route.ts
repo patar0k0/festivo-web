@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   let supabase;
   let user;
   try {
-    const ctx = await requireActiveUserWithSupabase();
+    const ctx = await requireActiveUserWithSupabase(request);
     supabase = ctx.supabase;
     user = ctx.user;
   } catch (e) {
@@ -48,7 +48,7 @@ export async function DELETE(request: Request) {
   let supabase;
   let user;
   try {
-    const ctx = await requireActiveUserWithSupabase();
+    const ctx = await requireActiveUserWithSupabase(request);
     supabase = ctx.supabase;
     user = ctx.user;
   } catch (e) {

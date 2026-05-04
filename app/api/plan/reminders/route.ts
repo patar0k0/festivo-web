@@ -19,11 +19,11 @@ type Payload = {
 
 const allowed = new Set<ReminderType>(["none", "24h", "same_day_09"]);
 
-export async function GET() {
+export async function GET(request: Request) {
   let supabase;
   let user;
   try {
-    const ctx = await requireActiveUserWithSupabase();
+    const ctx = await requireActiveUserWithSupabase(request);
     supabase = ctx.supabase;
     user = ctx.user;
   } catch (e) {
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   let supabase;
   let user;
   try {
-    const ctx = await requireActiveUserWithSupabase();
+    const ctx = await requireActiveUserWithSupabase(request);
     supabase = ctx.supabase;
     user = ctx.user;
   } catch (e) {

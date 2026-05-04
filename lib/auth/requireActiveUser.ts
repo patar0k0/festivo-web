@@ -1,26 +1,24 @@
 import type { User } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUserFromRequest, type RequestSupabaseClient } from "@/lib/auth/getUserFromRequest";
 
-export type ActiveUserSupabase = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+export type ActiveUserSupabase = RequestSupabaseClient;
 
 /**
  * Authenticated user whose `public.users.deleted_at` is null.
+ * Uses `Authorization: Bearer` when present; otherwise cookie session (`createSupabaseServerClient`).
+ *
  * Throws `Error("Unauthorized")`, `Error("User is deleted")`, or the Supabase error from the users lookup.
+ *
+ * @param request - Pass the incoming `Request` from Route Handlers so mobile Bearer tokens work.
+ *   Omit in Server Components (cookies only).
  */
-export async function requireActiveUserWithSupabase(): Promise<{ supabase: ActiveUserSupabase; user: User }> {
-  const supabase = await createSupabaseServerClient();
+export async function requireActiveUserWithSupabase(
+  request?: Request,
+): Promise<{ supabase: ActiveUserSupabase; user: User }> {
+  const { supabase, user, bearerMalformed } = await getUserFromRequest(request);
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    throw authError;
-  }
-
-  if (!user) {
+  if (bearerMalformed || !user) {
     throw new Error("Unauthorized");
   }
 
@@ -37,12 +35,14 @@ export async function requireActiveUserWithSupabase(): Promise<{ supabase: Activ
   return { supabase, user };
 }
 
-export async function requireActiveUser(): Promise<User> {
-  const { user } = await requireActiveUserWithSupabase();
+export async function requireActiveUser(request?: Request): Promise<User> {
+  const { user } = await requireActiveUserWithSupabase(request);
   return user;
 }
 
 type ErrorBody = Record<string, unknown>;
+
+const UNAUTHORIZED_JSON = { error: "Unauthorized" } as const;
 
 /**
  * Maps failures from `requireActiveUser*` to JSON responses. Returns null for non-auth failures (e.g. PostgREST errors).
@@ -54,7 +54,7 @@ export function nextResponseForRequireActiveUserError(
   if (e instanceof Error) {
     if (e.message === "Unauthorized") {
       const msg = "Unauthorized";
-      return NextResponse.json(body ? body(msg) : { error: msg }, { status: 401 });
+      return NextResponse.json(body ? body(msg) : UNAUTHORIZED_JSON, { status: 401 });
     }
     if (e.message === "User is deleted") {
       const msg = "User is deleted";

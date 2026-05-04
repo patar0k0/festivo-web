@@ -89,11 +89,11 @@ function mergeSettingsRow(data: Record<string, unknown> | null): NotificationSet
 const NOTIFICATION_SETTINGS_COLUMNS =
   "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest,push_enabled,only_saved,quiet_hours_start,quiet_hours_end,default_plan_reminder_type" as const;
 
-export async function GET() {
+export async function GET(request: Request) {
   let supabase;
   let user;
   try {
-    const ctx = await requireActiveUserWithSupabase();
+    const ctx = await requireActiveUserWithSupabase(request);
     supabase = ctx.supabase;
     user = ctx.user;
   } catch (e) {
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
   let supabase;
   let user;
   try {
-    const ctx = await requireActiveUserWithSupabase();
+    const ctx = await requireActiveUserWithSupabase(request);
     supabase = ctx.supabase;
     user = ctx.user;
   } catch (e) {

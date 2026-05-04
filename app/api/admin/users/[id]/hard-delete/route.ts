@@ -20,7 +20,7 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   let actorUserId: string;
   try {
-    const { user, supabase } = await requireActiveUserWithSupabase();
+    const { user, supabase } = await requireActiveUserWithSupabase(request);
     if (!(await hasAdminRole(supabase, user.id, user))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

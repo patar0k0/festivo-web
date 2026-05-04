@@ -9,10 +9,10 @@ import {
   markUserCleanupPending,
 } from "@/lib/admin/userSweepRetryQueue";
 
-export async function POST() {
+export async function POST(request: Request) {
   let userId: string;
   try {
-    const user = await requireActiveUser();
+    const user = await requireActiveUser(request);
     userId = user.id;
   } catch (e) {
     const r = nextResponseForRequireActiveUserError(e);

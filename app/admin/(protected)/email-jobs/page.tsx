@@ -10,6 +10,7 @@ import {
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { fetchAdminEmailJobsSummary, queryAdminEmailJobsList } from "@/lib/admin/queryAdminEmailJobs";
 import { EMAIL_JOB_TYPES } from "@/lib/email/emailJobTypes";
+import { isDeadLetter } from "@/lib/email/isDeadLetter";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ function buildQueryString(params: {
   type: string;
   kind: string;
   q: string;
+  dead_letter: string;
   page: number;
 }) {
   const sp = new URLSearchParams();
@@ -34,6 +36,7 @@ function buildQueryString(params: {
   if (params.type.trim()) sp.set("type", params.type.trim());
   if (params.kind.trim()) sp.set("kind", params.kind.trim());
   if (params.q.trim()) sp.set("q", params.q.trim());
+  if (params.dead_letter.trim() === "1") sp.set("dead_letter", "1");
   if (params.page > 1) sp.set("page", String(params.page));
   return sp.toString();
 }
@@ -48,6 +51,7 @@ export default async function AdminEmailJobsPage({ searchParams }: { searchParam
   const type = asString(params.type);
   const kindRaw = asString(params.kind);
   const q = asString(params.q);
+  const deadLetter = asString(params.dead_letter) === "1";
   const pageRaw = asString(params.page);
   const page = Math.max(1, Number.parseInt(pageRaw || "1", 10) || 1);
   const kind = parseEmailJobKindPreset(kindRaw);
@@ -70,7 +74,7 @@ export default async function AdminEmailJobsPage({ searchParams }: { searchParam
     );
   }
 
-  const filterState = { status, delivery_status, type, kind: kindRaw, q };
+  const filterState = { status, delivery_status, type, kind: kindRaw, q, dead_letter: deadLetter ? "1" : "" };
 
   const [listResult, summaryResult] = await Promise.all([
     queryAdminEmailJobsList({
@@ -80,6 +84,7 @@ export default async function AdminEmailJobsPage({ searchParams }: { searchParam
       type,
       kind,
       q,
+      deadLetter,
     }),
     fetchAdminEmailJobsSummary(adminClient),
   ]);
@@ -172,6 +177,17 @@ export default async function AdminEmailJobsPage({ searchParams }: { searchParam
                 <option value="admin_alert">Админ алерти</option>
               </select>
             </label>
+            <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
+              Dead letter
+              <select
+                name="dead_letter"
+                defaultValue={deadLetter ? "1" : ""}
+                className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm"
+              >
+                <option value="">Не</option>
+                <option value="1">Само dead letter</option>
+              </select>
+            </label>
             <label className="col-span-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50 sm:col-span-2 lg:col-span-2">
               Търсене
               <input
@@ -207,6 +223,9 @@ export default async function AdminEmailJobsPage({ searchParams }: { searchParam
           </Link>
           <Link className="font-medium text-[#0c0e14] hover:underline" href="/admin/email-jobs?status=failed">
             Провалени (опашка)
+          </Link>
+          <Link className="font-medium text-[#0c0e14] hover:underline" href="/admin/email-jobs?dead_letter=1">
+            Dead letters
           </Link>
           <Link className="font-medium text-[#0c0e14] hover:underline" href="/admin/email-jobs?delivery_status=bounced">
             Bounce
@@ -263,12 +282,13 @@ export default async function AdminEmailJobsPage({ searchParams }: { searchParam
 
           <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white/90">
             <div className="overflow-x-auto">
-              <table className="min-w-[1100px] w-full text-sm">
+              <table className="min-w-[1180px] w-full text-sm">
                 <thead className="bg-black/[0.03] text-left text-xs uppercase tracking-[0.14em] text-black/55">
                   <tr>
                     <th className="px-4 py-3">Създаден</th>
                     <th className="px-4 py-3">Тип</th>
                     <th className="px-4 py-3">Получател</th>
+                    <th className="px-4 py-3">Приоритет</th>
                     <th className="px-4 py-3">Статус</th>
                     <th className="px-4 py-3">Доставка</th>
                     <th className="px-4 py-3">Subject</th>
@@ -280,6 +300,7 @@ export default async function AdminEmailJobsPage({ searchParams }: { searchParam
                 <tbody>
                   {rows.map((row) => {
                     const cat = emailJobCategoryLabel(row.type);
+                    const dead = isDeadLetter(row);
                     return (
                       <tr key={row.id} className="border-t border-black/[0.06] align-top">
                         <td className="whitespace-nowrap px-4 py-3 text-black/75">{formatAdminDateTime(row.created_at)}</td>
@@ -292,12 +313,18 @@ export default async function AdminEmailJobsPage({ searchParams }: { searchParam
                           ) : null}
                         </td>
                         <td className="max-w-[200px] px-4 py-3 break-all text-black/85">{row.recipient_email}</td>
+                        <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-black/80">{row.priority}</td>
                         <td className="px-4 py-3">
                           <span
                             className={`inline-flex rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight ${emailJobStatusBadgeClass(row.status)}`}
                           >
                             {row.status}
                           </span>
+                          {dead ? (
+                            <span className="mt-1 block w-fit rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-950 ring-1 ring-amber-200/90">
+                              dead letter
+                            </span>
+                          ) : null}
                         </td>
                         <td className="px-4 py-3">
                           {row.delivery_status ? (
@@ -352,7 +379,7 @@ export default async function AdminEmailJobsPage({ searchParams }: { searchParam
                   })}
                   {rows.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-10 text-center text-black/55">
+                      <td colSpan={10} className="px-4 py-10 text-center text-black/55">
                         Няма редове на тази страница.
                       </td>
                     </tr>

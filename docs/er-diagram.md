@@ -272,6 +272,7 @@ erDiagram
     text subject
     jsonb payload
     text status
+    text priority
     int attempts
     int max_attempts
     timestamptz scheduled_at

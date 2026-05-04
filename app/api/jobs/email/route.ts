@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   console.info("[jobs][email_jobs] started");
 
   try {
-    const result = await processDueEmailJobs(supabase, 15);
+    const result = await processDueEmailJobs(supabase, 10);
     console.info("[jobs][email_jobs] finished", result);
     return NextResponse.json(result);
   } catch (error) {

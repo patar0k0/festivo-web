@@ -248,7 +248,7 @@ export async function processOneEmailJob(
 
 export async function processDueEmailJobs(
   supabase: SupabaseClient,
-  limit = 15,
+  limit = 10,
 ): Promise<{
   picked: number;
   sent: number;

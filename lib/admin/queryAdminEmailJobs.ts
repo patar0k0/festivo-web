@@ -9,6 +9,9 @@ export type AdminEmailJobRow = {
   type: string;
   recipient_email: string;
   status: string;
+  priority: string;
+  attempts: number;
+  max_attempts: number;
   delivery_status: string | null;
   subject: string | null;
   provider: string | null;
@@ -55,6 +58,8 @@ export type AdminEmailJobsListInput = {
   type?: string;
   kind?: EmailJobKindPreset | null;
   q?: string;
+  /** `status = failed` and `attempts >= max_attempts` (terminal / no retry). */
+  deadLetter?: boolean;
 };
 
 export type AdminEmailJobsListResult = {
@@ -75,6 +80,9 @@ function normalizeRow(r: Record<string, unknown>): AdminEmailJobRow {
     type: String(r.type),
     recipient_email: String(r.recipient_email),
     status: String(r.status),
+    priority: r.priority == null ? "normal" : String(r.priority),
+    attempts: Number(r.attempts ?? 0),
+    max_attempts: Number(r.max_attempts ?? 0),
     delivery_status: r.delivery_status == null ? null : String(r.delivery_status),
     subject: r.subject == null ? null : String(r.subject),
     provider: r.provider == null ? null : String(r.provider),
@@ -142,7 +150,7 @@ export async function queryAdminEmailJobsList(input: AdminEmailJobsListInput): P
   let q = admin
     .from("email_jobs")
     .select(
-      "id, type, recipient_email, status, delivery_status, subject, provider, provider_message_id, created_at, sent_at, last_event_type, last_event_at",
+      "id, type, recipient_email, status, priority, attempts, max_attempts, delivery_status, subject, provider, provider_message_id, created_at, sent_at, last_event_type, last_event_at",
       { count: "exact" },
     )
     .order("created_at", { ascending: false })
@@ -156,9 +164,13 @@ export async function queryAdminEmailJobsList(input: AdminEmailJobsListInput): P
     q = q.in("type", types);
   }
 
-  const st = input.status?.trim();
-  if (st) {
-    q = q.eq("status", st);
+  if (input.deadLetter) {
+    q = q.eq("status", "failed").filter("attempts", "gte", "max_attempts");
+  } else {
+    const st = input.status?.trim();
+    if (st) {
+      q = q.eq("status", st);
+    }
   }
 
   const ds = input.delivery_status?.trim();
@@ -230,8 +242,6 @@ export async function fetchAdminEmailJobDetail(
     locale: String(r.locale ?? "bg"),
     payload,
     last_error: r.last_error == null ? null : String(r.last_error),
-    attempts: Number(r.attempts ?? 0),
-    max_attempts: Number(r.max_attempts ?? 0),
     dedupe_key: r.dedupe_key == null ? null : String(r.dedupe_key),
     delivered_at: r.delivered_at == null ? null : String(r.delivered_at),
     bounced_at: r.bounced_at == null ? null : String(r.bounced_at),

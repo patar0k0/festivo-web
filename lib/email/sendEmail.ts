@@ -35,6 +35,12 @@ export async function sendEmail(input: SendEmailInput, meta?: SendEmailMeta): Pr
     console.info("[email][start]", { jobId: meta.jobId, type: meta.type });
   }
 
+  if (process.env.EMAIL_ENABLED === "false") {
+    const to = input.to;
+    console.info("[email][disabled]", { jobId: meta?.jobId, to });
+    return { success: true, providerMessageId: "disabled-mode" };
+  }
+
   if (!resend) {
     return { success: false, error: RESEND_API_KEY_MISSING_ERROR };
   }

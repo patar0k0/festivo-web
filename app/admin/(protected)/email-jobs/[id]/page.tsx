@@ -10,6 +10,7 @@ import {
 } from "@/lib/admin/emailJobAdminDisplay";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { fetchAdminEmailEventsForJob, fetchAdminEmailJobDetail } from "@/lib/admin/queryAdminEmailJobs";
+import { isDeadLetter } from "@/lib/email/isDeadLetter";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export default async function AdminEmailJobDetailPage({ params }: { params: Prom
   const maskedPayload = maskSensitiveJsonForAdmin(row.payload);
   const payloadStr = JSON.stringify(maskedPayload, null, 2);
   const category = emailJobCategoryLabel(row.type);
+  const dead = isDeadLetter(row);
 
   return (
     <div className="space-y-5">
@@ -55,11 +57,18 @@ export default async function AdminEmailJobDetailPage({ params }: { params: Prom
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/45">Имейл job</p>
             <h1 className="mt-1 font-mono text-lg font-bold text-[#0c0e14]">{row.id}</h1>
-            {category ? (
-              <span className="mt-2 inline-flex rounded bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-950 ring-1 ring-violet-200/80">
-                {category}
-              </span>
-            ) : null}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {category ? (
+                <span className="inline-flex rounded bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-950 ring-1 ring-violet-200/80">
+                  {category}
+                </span>
+              ) : null}
+              {dead ? (
+                <span className="inline-flex rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-950 ring-1 ring-amber-200/90">
+                  dead letter
+                </span>
+              ) : null}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -89,6 +98,10 @@ export default async function AdminEmailJobDetailPage({ params }: { params: Prom
                 {row.status}
               </span>
             </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45">Приоритет</dt>
+            <dd className="mt-0.5 font-mono text-black/85">{row.priority}</dd>
           </div>
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45">Доставка</dt>

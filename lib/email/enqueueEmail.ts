@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { EmailJobType } from "./emailJobTypes";
-import { isKnownEmailJobType } from "./emailJobTypes";
+import type { EmailJobPriority, EmailJobType } from "./emailJobTypes";
+import { isKnownEmailJobType, normalizeEmailJobPriority } from "./emailJobTypes";
 
 export type EnqueueEmailJobInput = {
   type: EmailJobType;
@@ -13,6 +13,7 @@ export type EnqueueEmailJobInput = {
   dedupeKey?: string | null;
   scheduledAt?: Date;
   maxAttempts?: number;
+  priority?: EmailJobPriority;
 };
 
 export type EnqueueEmailJobResult =
@@ -109,6 +110,7 @@ export async function enqueueEmailJob(
     dedupe_key: dedupeKey,
     scheduled_at: (input.scheduledAt ?? new Date()).toISOString(),
     max_attempts: input.maxAttempts ?? 3,
+    priority: normalizeEmailJobPriority(input.priority),
     status: "pending" as const,
     updated_at: nowIso,
   };

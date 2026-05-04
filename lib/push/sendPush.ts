@@ -26,6 +26,79 @@ export type PushSendResult = {
   error?: string;
 };
 
+/** Aggregated outcome from Expo Push API (also attached under `raw` for `sendPushToUser`). */
+export type ExpoPushSendSummary = {
+  success: number;
+  failed: number;
+  invalidTokens: string[];
+};
+
+const EXPO_PUSH_SEND_URL = "https://exp.host/--/api/v2/push/send";
+const EXPO_TOKEN_PREFIX = "ExponentPushToken";
+const EXPO_BATCH_MAX = 100;
+
+type ExpoPushTicket =
+  | { status: "ok"; id: string }
+  | { status: "error"; message?: string; details?: { error?: string } };
+
+function expoTicketErrorCode(ticket: ExpoPushTicket): string {
+  if (ticket.status !== "error") return "";
+  const fromDetails = ticket.details?.error;
+  if (fromDetails && typeof fromDetails === "string") return fromDetails;
+  const msg = ticket.message;
+  if (typeof msg === "string" && msg.includes("DeviceNotRegistered")) return "DeviceNotRegistered";
+  return typeof msg === "string" && msg.length ? msg : "ExpoError";
+}
+
+function logExpoResponseErrors(raw: unknown, userId: string, notificationId: string | undefined): void {
+  const errors = (raw as { errors?: unknown }).errors;
+  if (!Array.isArray(errors)) return;
+  for (const e of errors) {
+    const code =
+      typeof e === "object" && e !== null && "code" in e
+        ? String((e as { code?: unknown }).code)
+        : typeof e === "object" && e !== null && "errorCode" in e
+          ? String((e as { errorCode?: unknown }).errorCode)
+          : "";
+    if (code === "MessageTooBig" || code === "InvalidCredentials") {
+      console.warn("[push][expo][failed]", { userId, notification_id: notificationId, error: code, raw: e });
+    }
+  }
+}
+
+async function postExpoPushBatch(
+  messages: Array<{ to: string; sound: string; title: string; body: string; data: Record<string, string> }>,
+): Promise<{ httpOk: boolean; httpStatus: number; tickets: ExpoPushTicket[]; raw: unknown }> {
+  const response = await fetch(EXPO_PUSH_SEND_URL, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Accept-Encoding": "gzip, deflate",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(messages),
+  });
+
+  const raw = (await response.json()) as {
+    data?: ExpoPushTicket | ExpoPushTicket[];
+    errors?: unknown;
+  };
+
+  if (!response.ok) {
+    return { httpOk: false, httpStatus: response.status, tickets: [], raw };
+  }
+
+  const d = raw.data;
+  let tickets: ExpoPushTicket[] = [];
+  if (Array.isArray(d)) {
+    tickets = d;
+  } else if (d && typeof d === "object" && "status" in d) {
+    tickets = [d as ExpoPushTicket];
+  }
+
+  return { httpOk: true, httpStatus: response.status, tickets, raw };
+}
+
 const PERMANENT_TOKEN_ERROR =
   /NotRegistered|InvalidRegistration|MismatchSenderId|InvalidPackageName|Unregistered|NotFound|InvalidApnsCredentials/i;
 
@@ -198,19 +271,164 @@ async function sendViaFcm(
   return { ok: false, raw: sendResult.raw, results: sendResult.results, duration_ms: durationMs };
 }
 
-/** Placeholder for Expo Push API integration (see TODO in repo docs). */
 async function sendViaExpo(
-  _supabase: SupabaseClient,
+  supabase: SupabaseClient,
   userId: string,
-  _tokens: string[],
+  tokens: string[],
   payload: NotificationPayloadV1,
 ): Promise<PushSendResult> {
-  console.warn("[push][skipped]", {
+  const expoTokens: string[] = [];
+  for (const t of tokens) {
+    const trimmed = t.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith(EXPO_TOKEN_PREFIX)) {
+      expoTokens.push(trimmed);
+    } else {
+      console.info("[push][skipped]", {
+        userId,
+        reason: "non_expo_push_token",
+        notification_id: payload.notification_id,
+        token_prefix: trimmed.slice(0, 24),
+      });
+    }
+  }
+
+  if (!expoTokens.length) {
+    console.info("[push][skipped]", {
+      userId,
+      reason: "no_valid_expo_push_tokens",
+      notification_id: payload.notification_id,
+    });
+    const empty: ExpoPushSendSummary = { success: 0, failed: 0, invalidTokens: [] };
+    return { ok: false, skipped: true, reason: "no_valid_expo_push_tokens", raw: empty };
+  }
+
+  const data = fcmDataPayload(payload);
+  const messages = expoTokens.map((to) => ({
+    to,
+    sound: "default",
+    title: payload.title,
+    body: payload.body,
+    data,
+  }));
+
+  console.info("[push][expo][start]", {
     userId,
-    reason: "expo_not_implemented",
     notification_id: payload.notification_id,
+    token_count: expoTokens.length,
   });
-  return { ok: false, skipped: true, reason: "expo_not_implemented", raw: { error: "expo_stub" } };
+
+  const t0 = Date.now();
+  let success = 0;
+  let failed = 0;
+  const invalidTokens: string[] = [];
+  const batchRaws: unknown[] = [];
+
+  for (let offset = 0; offset < messages.length; offset += EXPO_BATCH_MAX) {
+    const batch = messages.slice(offset, offset + EXPO_BATCH_MAX);
+    const batchTokens = batch.map((m) => m.to);
+
+    const send = await postExpoPushBatch(batch);
+    batchRaws.push(send.raw);
+    logExpoResponseErrors(send.raw, userId, payload.notification_id);
+
+    if (!send.httpOk) {
+      failed += batch.length;
+      console.warn("[push][expo][failed]", {
+        userId,
+        notification_id: payload.notification_id,
+        httpStatus: send.httpStatus,
+        raw: send.raw,
+      });
+      continue;
+    }
+
+    if (send.tickets.length !== batchTokens.length) {
+      console.warn("[push][expo][failed]", {
+        userId,
+        notification_id: payload.notification_id,
+        reason: "expo_ticket_count_mismatch",
+        expected: batchTokens.length,
+        got: send.tickets.length,
+      });
+    }
+
+    const results: FcmLegacyResult[] = [];
+    for (let i = 0; i < batchTokens.length; i += 1) {
+      const token = batchTokens[i];
+      const ticket = send.tickets[i];
+
+      if (!ticket) {
+        failed += 1;
+        results.push({ error: "MissingTicket" });
+        console.warn("[push][expo][failed]", {
+          userId,
+          notification_id: payload.notification_id,
+          error: "MissingTicket",
+        });
+        continue;
+      }
+
+      if (ticket.status === "ok") {
+        success += 1;
+        results.push({});
+        continue;
+      }
+
+      failed += 1;
+      const code = expoTicketErrorCode(ticket);
+      results.push({ error: code });
+
+      if (code === "DeviceNotRegistered") {
+        invalidTokens.push(token);
+        console.info("[push][expo][invalid_token]", {
+          userId,
+          notification_id: payload.notification_id,
+        });
+      } else {
+        console.warn("[push][expo][failed]", {
+          userId,
+          notification_id: payload.notification_id,
+          error: code,
+        });
+      }
+    }
+
+    await invalidateDeadTokens(supabase, userId, batchTokens, results);
+  }
+
+  const durationMs = Date.now() - t0;
+  const summary: ExpoPushSendSummary = {
+    success,
+    failed,
+    invalidTokens: [...new Set(invalidTokens)],
+  };
+
+  if (success > 0) {
+    console.info("[push][expo][sent]", {
+      userId,
+      notification_id: payload.notification_id,
+      duration_ms: durationMs,
+      ...summary,
+    });
+    return {
+      ok: true,
+      raw: { ...summary, expo_batches: batchRaws },
+      duration_ms: durationMs,
+    };
+  }
+
+  console.warn("[push][expo][failed]", {
+    userId,
+    notification_id: payload.notification_id,
+    duration_ms: durationMs,
+    ...summary,
+  });
+  return {
+    ok: false,
+    raw: { ...summary, expo_batches: batchRaws },
+    duration_ms: durationMs,
+  };
 }
 
 export type SendPushToUserOptions = {

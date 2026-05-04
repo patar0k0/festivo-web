@@ -10,7 +10,7 @@ Public users browse verified/published festivals, while ingestion inputs first l
 **Backend:** Next.js API routes + worker-side ingestion helpers
 **Database:** Supabase Postgres
 **Auth:** Supabase Auth (signup/login + password recovery via `/reset-password`)
-**Mobile:** Flutter
+**Mobile:** Flutter; read-only catalog JSON: `GET /api/mobile/festivals`, `GET /api/mobile/festivals/[slug]` (`lib/api/mobile/*`), optional `Authorization: Bearer` for `is_saved` (`user_plan_festivals`).
 **Deployment:** Vercel
 
 **API edge hardening:** `middleware.ts` applies Upstash rate limits to **`POST` / `PATCH` / `PUT` / `DELETE`** on **`/api/*`** and **`/admin/api/*`**, and an Origin/Referer allowlist to **`POST /api/*`** only (details, buckets, env vars: `docs/system-architecture.md`, section *Edge middleware: API POST hardening*).

@@ -470,13 +470,14 @@ const FESTIVAL_BY_SLUG_MAX_ATTEMPTS = 2;
 const FESTIVAL_BY_SLUG_RETRY_DELAY_MS = 150;
 
 /**
- * One primary row fetch per request: `generateMetadata` and the page both call into this path.
- * React `cache()` dedupes parallel server work so we do not run duplicate slug queries back-to-back.
+ * Slug fetch with an explicit Supabase client (cookie SSR, Bearer JWT, or service role).
+ * Used by `getFestivalBySlug` and API routes that must not depend on cookies alone.
  */
-export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug: string): Promise<Festival | null> {
+export async function getFestivalBySlugWithClient(
+  supabase: SupabaseClient,
+  rawSlug: string,
+): Promise<Festival | null> {
   const slug = normalizePublicFestivalSlugParam(rawSlug);
-  /** Cookie-aware client so RLS can expose non–catalog rows to admins / organizer members when logged in. */
-  const supabase = await createSupabaseServerClient();
 
   let lastMessage = "";
   for (let attempt = 1; attempt <= FESTIVAL_BY_SLUG_MAX_ATTEMPTS; attempt++) {
@@ -503,12 +504,28 @@ export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug:
     }
   }
 
-  console.error("[queries] getFestivalBySlug failed after retries", { slug, message: lastMessage });
+  console.error("[queries] getFestivalBySlugWithClient failed after retries", { slug, message: lastMessage });
   throw new Error(`Festival query failed: ${lastMessage}`);
+}
+
+/**
+ * One primary row fetch per request: `generateMetadata` and the page both call into this path.
+ * React `cache()` dedupes parallel server work so we do not run duplicate slug queries back-to-back.
+ */
+export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug: string): Promise<Festival | null> {
+  /** Cookie-aware client so RLS can expose non–catalog rows to admins / organizer members when logged in. */
+  const supabase = await createSupabaseServerClient();
+  return getFestivalBySlugWithClient(supabase, rawSlug);
 });
 
+export type GetFestivalDetailOptions = {
+  /** When set (e.g. Bearer JWT from `getUserFromRequest`), slug load uses this client instead of cookie-cached `getFestivalBySlug`. */
+  supabaseForFestivalLoad?: SupabaseClient;
+};
+
 export async function getFestivalDetail(
-  slug: string
+  slug: string,
+  options?: GetFestivalDetailOptions,
 ): Promise<{
   festival: Festival;
   media: FestivalMediaItem[];
@@ -520,7 +537,9 @@ export async function getFestivalDetail(
   if (!supabase) {
     throw new Error("Festival query failed: Supabase client is not configured");
   }
-  const festival = await getFestivalBySlug(slug);
+  const festival = options?.supabaseForFestivalLoad
+    ? await getFestivalBySlugWithClient(options.supabaseForFestivalLoad, slug)
+    : await getFestivalBySlug(slug);
   if (!festival) return null;
 
   const [mediaRes, daysRes] = await Promise.all([

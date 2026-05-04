@@ -424,22 +424,28 @@ export type Database = {
       }
       device_tokens: {
         Row: {
+          id: string
           user_id: string
           token: string
           platform?: string | null
           invalidated_at?: string | null
+          created_at?: string | null
         }
         Insert: {
+          id?: string
           user_id: string
           token: string
           platform?: string | null
           invalidated_at?: string | null
+          created_at?: string | null
         }
         Update: {
+          id?: string
           user_id?: string
           token?: string
           platform?: string | null
           invalidated_at?: string | null
+          created_at?: string | null
         }
       }
       email_events: {
@@ -490,6 +496,7 @@ export type Database = {
           attempts: number
           max_attempts: number
           scheduled_at: string
+          priority: string
           dedupe_key: string | null
           provider: string | null
           provider_message_id: string | null
@@ -517,6 +524,7 @@ export type Database = {
           attempts?: number
           max_attempts?: number
           scheduled_at?: string
+          priority?: string
           dedupe_key?: string | null
           provider?: string | null
           provider_message_id?: string | null
@@ -544,6 +552,7 @@ export type Database = {
           attempts?: number
           max_attempts?: number
           scheduled_at?: string
+          priority?: string
           dedupe_key?: string | null
           provider?: string | null
           provider_message_id?: string | null

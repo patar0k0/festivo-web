@@ -9,12 +9,14 @@ import { FestivalSubmissionReceivedEmail } from "@/emails/templates/FestivalSubm
 import { OrganizerClaimApprovedEmail } from "@/emails/templates/OrganizerClaimApprovedEmail";
 import { OrganizerClaimReceivedEmail } from "@/emails/templates/OrganizerClaimReceivedEmail";
 import { OrganizerClaimRejectedEmail } from "@/emails/templates/OrganizerClaimRejectedEmail";
+import { ContactFormEmail } from "@/emails/templates/ContactFormEmail";
 import { TestEmail } from "@/emails/templates/TestEmail";
-import { getBaseUrl } from "@/lib/seo";
+import { getBaseUrl } from "@/lib/config/baseUrl";
 
 import {
   EMAIL_JOB_TYPE_ADMIN_NEW_CLAIM,
   EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION,
+  EMAIL_JOB_TYPE_CONTACT_FORM,
   EMAIL_JOB_TYPE_FESTIVAL_APPROVED,
   EMAIL_JOB_TYPE_FESTIVAL_REJECTED,
   EMAIL_JOB_TYPE_FESTIVAL_SUBMISSION_RECEIVED,
@@ -29,6 +31,7 @@ import {
 import {
   parseAdminNewClaimPayload,
   parseAdminNewSubmissionPayload,
+  parseContactFormPayload,
   parseFestivalApprovedPayload,
   parseFestivalRejectedPayload,
   parseFestivalSubmissionReceivedPayload,
@@ -209,6 +212,29 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
           cityDisplay: p.cityDisplay,
           startDateDisplay: p.startDateDisplay,
           reviewUrl: p.reviewUrl,
+        }),
+      );
+      return { subject, html, text };
+    },
+  },
+
+  [EMAIL_JOB_TYPE_CONTACT_FORM]: {
+    buildDefaultSubject: (pl) => {
+      const p = parseContactFormPayload(pl as Record<string, unknown>);
+      const safe = p.visitorName.replace(/[\r\n\u0000]/g, " ").slice(0, 100);
+      return `[Festivo.bg] Контакт: ${safe}`;
+    },
+    build: async (payload) => {
+      const p = parseContactFormPayload(payload as Record<string, unknown>);
+      const siteUrl = siteOrigin();
+      const subjectSafe = p.visitorName.replace(/[\r\n\u0000]/g, " ").slice(0, 100);
+      const subject = `[Festivo.bg] Контакт: ${subjectSafe}`;
+      const { html, text } = await renderEmail(
+        createElement(ContactFormEmail, {
+          siteUrl,
+          visitorName: p.visitorName,
+          visitorEmail: p.visitorEmail,
+          message: p.message,
         }),
       );
       return { subject, html, text };

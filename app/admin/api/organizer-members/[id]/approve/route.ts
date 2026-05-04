@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
+import { buildEmailJobContent } from "@/lib/email/emailRegistry";
+import { dedupeKeyOrganizerClaimApproved } from "@/lib/email/emailDedupeKeys";
+import { EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED } from "@/lib/email/emailJobTypes";
+import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
+import { absoluteSiteUrl } from "@/lib/email/emailUrls";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
-import { trySendOrganizerClaimApprovedEmail } from "@/lib/server/email";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -97,36 +101,25 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const accountEmail = await resolveAuthUserEmail(admin, row.user_id);
   const recipient = accountEmail?.trim() || (typeof row.contact_email === "string" ? row.contact_email.trim() : "");
   if (recipient && prevStatus !== "active") {
-    const base = (
-      process.env.NEXT_PUBLIC_BASE_URL ??
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      "https://festivo.bg"
-    ).replace(/\/$/, "");
     const profilePath = organizerSlug ? `/organizers/${organizerSlug}` : "/organizer/dashboard";
-    const profileUrl = `${base}${profilePath}`;
-    await trySendOrganizerClaimApprovedEmail(admin, {
-      memberId: row.id,
-      recipient,
-      recipientUserId: row.user_id,
-      direct: {
-        to: recipient,
-        subject: "Профилът ти е одобрен",
-        html: `
-    <p>Здравей,</p>
-    <p>Заявката ти за организатор е одобрена.</p>
-    <p>
-      <a href="${profileUrl}">
-        Виж профила
-      </a>
-    </p>
-  `,
+    const profileUrl = absoluteSiteUrl(profilePath);
+    const payload = {
+      organizerName,
+      organizerSlug,
+      dashboardUrl: profileUrl,
+    };
+    await buildEmailJobContent(EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED, null, payload);
+    await enqueueEmailJobSafe(
+      admin,
+      {
+        type: EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED,
+        recipientEmail: recipient,
+        recipientUserId: row.user_id,
+        payload,
+        dedupeKey: dedupeKeyOrganizerClaimApproved(row.id),
       },
-      queuePayload: {
-        organizerName,
-        organizerSlug,
-        dashboardUrl: profileUrl,
-      },
-    });
+      "organizer-claim-approved",
+    );
   } else if (!recipient) {
     console.warn("[organizer_claim] skip approve email: no recipient", { member_id: row.id });
   }

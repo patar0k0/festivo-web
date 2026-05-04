@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
+import { buildEmailJobContent } from "@/lib/email/emailRegistry";
+import { dedupeKeyOrganizerClaimRejected } from "@/lib/email/emailDedupeKeys";
+import { EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED } from "@/lib/email/emailJobTypes";
+import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
-import { trySendOrganizerClaimRejectedEmail } from "@/lib/server/email";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -76,21 +79,19 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const accountEmail = await resolveAuthUserEmail(admin, row.user_id);
   const recipient = accountEmail?.trim() || (typeof row.contact_email === "string" ? row.contact_email.trim() : "");
   if (recipient && prevStatus !== "revoked") {
-    await trySendOrganizerClaimRejectedEmail(admin, {
-      memberId: row.id,
-      recipient,
-      recipientUserId: row.user_id,
-      direct: {
-        to: recipient,
-        subject: "Заявката ти беше отхвърлена",
-        html: `
-    <p>Здравей,</p>
-    <p>Заявката ти за организатор беше отхвърлена.</p>
-    <p>Можеш да опиташ отново от платформата.</p>
-  `,
+    const payload = { organizerName };
+    await buildEmailJobContent(EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED, null, payload);
+    await enqueueEmailJobSafe(
+      admin,
+      {
+        type: EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED,
+        recipientEmail: recipient,
+        recipientUserId: row.user_id,
+        payload,
+        dedupeKey: dedupeKeyOrganizerClaimRejected(row.id),
       },
-      queuePayload: { organizerName },
-    });
+      "organizer-claim-rejected",
+    );
   } else if (!recipient) {
     console.warn("[organizer_claim] skip reject email: no recipient", { member_id: row.id });
   }

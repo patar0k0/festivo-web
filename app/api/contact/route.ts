@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getEmailAdmin } from "@/lib/email/config";
-import { sendEmail } from "@/lib/email/sendEmail";
+import { enqueueEmailJob } from "@/lib/email/enqueueEmail";
+import { EMAIL_JOB_TYPE_CONTACT_FORM } from "@/lib/email/emailJobTypes";
 import { SITE_ADMIN_EMAIL } from "@/lib/siteContact";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getRequestClientIp, shouldEnforceTurnstile, verifyTurnstileToken } from "@/lib/turnstile";
 
 type Body = {
@@ -14,14 +16,6 @@ type Body = {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function parseContact(body: Body):
   | { ok: true; name: string; email: string; message: string }
@@ -74,33 +68,9 @@ export async function POST(request: Request) {
   }
 
   const { name, email, message } = parsed;
-  const recipient = getEmailAdmin()?.trim() || SITE_ADMIN_EMAIL;
-  const subjectSafe = name.replace(/[\r\n\u0000]/g, " ").slice(0, 100);
-  const subject = `[Festivo.bg] Контакт: ${subjectSafe}`;
 
-  const html = `<!DOCTYPE html><html><body>
-<p><strong>Име:</strong> ${escapeHtml(name)}</p>
-<p><strong>Имейл:</strong> ${escapeHtml(email)}</p>
-<p><strong>Съобщение:</strong></p>
-<p style="white-space:pre-wrap;font-family:system-ui,sans-serif">${escapeHtml(message)}</p>
-</body></html>`;
-
-  const text = `Име: ${name}\nИмейл: ${email}\n\n${message}\n`;
-
-  const result = await sendEmail({
-    to: recipient,
-    subject,
-    html,
-    text,
-    replyTo: email,
-  });
-
-  if (result.ok) {
-    return NextResponse.json({ ok: true });
-  }
-
-  if (result.missingApiKey) {
-    console.error("[contact] resend not configured");
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("[contact] SUPABASE_SERVICE_ROLE_KEY is not set");
     return NextResponse.json(
       {
         error: `Изпращането на съобщения е временно недостъпно. Моля, пиши на ${SITE_ADMIN_EMAIL}.`,
@@ -109,6 +79,31 @@ export async function POST(request: Request) {
     );
   }
 
-  console.error("[contact] send failed", result.errorMessage);
-  return NextResponse.json({ error: "Неуспешно изпращане. Опитай отново по-късно." }, { status: 502 });
+  const recipientRaw = getEmailAdmin()?.trim() || SITE_ADMIN_EMAIL;
+  const recipient = recipientRaw.trim().toLowerCase();
+
+  try {
+    const supabase = createSupabaseAdmin();
+    await enqueueEmailJob(supabase, {
+      type: EMAIL_JOB_TYPE_CONTACT_FORM,
+      recipientEmail: recipient,
+      recipientUserId: null,
+      payload: {
+        visitorName: name,
+        visitorEmail: email,
+        message,
+        replyTo: email,
+      },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("RESEND") || msg.includes("enqueue")) {
+      console.error("[contact] enqueue failed", msg);
+    } else {
+      console.error("[contact] enqueue failed", err);
+    }
+    return NextResponse.json({ error: "Неуспешно изпращане. Опитай отново по-късно." }, { status: 502 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

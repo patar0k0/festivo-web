@@ -39,6 +39,24 @@ function assertValidRecipientEmail(normalized: string): void {
   }
 }
 
+/** Matches DB unique index `email_jobs_dedupe_strict` (type + identity + dedupe_key). */
+function selectExistingByDedupe(
+  supabase: SupabaseClient,
+  type: EmailJobType,
+  dedupeKey: string,
+  recipientEmail: string,
+  recipientUserId: string | null | undefined,
+) {
+  const uid = recipientUserId?.trim() || null;
+  let q = supabase.from("email_jobs").select("id").eq("type", type).eq("dedupe_key", dedupeKey).limit(1);
+  if (uid) {
+    q = q.eq("recipient_user_id", uid);
+  } else {
+    q = q.is("recipient_user_id", null).eq("recipient_email", recipientEmail);
+  }
+  return q.maybeSingle();
+}
+
 export async function enqueueEmailJob(
   supabase: SupabaseClient,
   input: EnqueueEmailJobInput,
@@ -54,16 +72,19 @@ export async function enqueueEmailJob(
   const nowIso = new Date().toISOString();
 
   if (dedupeKey) {
-    const { data: existing, error: existingErr } = await supabase
-      .from("email_jobs")
-      .select("id")
-      .eq("dedupe_key", dedupeKey)
-      .maybeSingle();
+    const { data: existing, error: existingErr } = await selectExistingByDedupe(
+      supabase,
+      input.type,
+      dedupeKey,
+      recipientEmail,
+      input.recipientUserId,
+    );
 
     if (existingErr) {
       console.error("[email_jobs] enqueue dedupe lookup failed", {
         message: existingErr.message,
         dedupe_key: dedupeKey,
+        type: input.type,
       });
       throw new Error(existingErr.message);
     }
@@ -72,6 +93,7 @@ export async function enqueueEmailJob(
       console.info("[email_jobs] enqueue skipped (existing dedupe_key)", {
         job_id: existing.id,
         dedupe_key: dedupeKey,
+        type: input.type,
       });
       return { outcome: "existing", jobId: existing.id };
     }
@@ -98,11 +120,13 @@ export async function enqueueEmailJob(
     .single();
 
   if (insertErr?.code === "23505" && dedupeKey) {
-    const { data: afterRace, error: raceErr } = await supabase
-      .from("email_jobs")
-      .select("id")
-      .eq("dedupe_key", dedupeKey)
-      .single();
+    const { data: afterRace, error: raceErr } = await selectExistingByDedupe(
+      supabase,
+      input.type,
+      dedupeKey,
+      recipientEmail,
+      input.recipientUserId,
+    );
 
     if (raceErr || !afterRace?.id) {
       console.error("[email_jobs] enqueue race reconcile failed", {

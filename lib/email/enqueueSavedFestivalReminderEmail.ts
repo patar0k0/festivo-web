@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { NotificationJobRow } from "@/lib/notifications/types";
 import { TZ } from "@/lib/notifications/time";
-import { getBaseUrl } from "@/lib/seo";
+import { getBaseUrl } from "@/lib/config/baseUrl";
 import { formatScheduleHm } from "@/lib/festival/festivalTimeFields";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { getCityLabel } from "@/lib/settlements/getCityLabel";

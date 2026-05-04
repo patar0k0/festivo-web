@@ -5,7 +5,7 @@ import type { EmailJobRow } from "./emailJobRow";
 import { parseEmailJobType } from "./emailJobTypes";
 import { isUserPreferenceGatedEmailType } from "./emailTypeCategory";
 import { renderEmailJob } from "./renderEmailJob";
-import { sendEmail } from "./sendEmail";
+import { RESEND_API_KEY_MISSING_ERROR, sendEmail } from "./sendEmail";
 
 export type { EmailJobRow } from "./emailJobRow";
 
@@ -14,6 +14,14 @@ const BACKOFF_MS = [60_000, 5 * 60_000, 15 * 60_000];
 
 const LAST_ERROR_UNKNOWN_TYPE_PREFIX = "unknown_job_type:";
 const LAST_ERROR_RESEND_NOT_CONFIGURED = "resend_not_configured";
+
+function replyToFromPayload(payload: Record<string, unknown>): string | undefined {
+  const v = payload.replyTo;
+  if (typeof v !== "string") return undefined;
+  const t = v.trim();
+  if (!t || !t.includes("@")) return undefined;
+  return t;
+}
 
 function backoffAfterFailureMs(attemptsAfterIncrement: number): number {
   const idx = Math.min(Math.max(attemptsAfterIncrement - 1, 0), BACKOFF_MS.length - 1);
@@ -121,20 +129,14 @@ async function finalizeSendFailure(
   }
 
   if (terminal) {
-    console.warn("[email_jobs] job failed (terminal)", {
-      job_id: job.id,
-      attempts: nextAttempts,
-      max_attempts: job.max_attempts,
-      last_error: errorMessage.slice(0, 200),
+    console.warn("[email][failed]", {
+      jobId: job.id,
+      error: errorMessage.slice(0, 500),
     });
     return "failed";
   }
 
-  console.info("[email_jobs] job retry scheduled", {
-    job_id: job.id,
-    attempts: nextAttempts,
-    next_scheduled_at: nextScheduled,
-  });
+  console.info("[email][retry]", { jobId: job.id, attempt: nextAttempts });
   return "retried";
 }
 
@@ -220,33 +222,26 @@ export async function processOneEmailJob(
     return finalizeSendFailure(supabase, job, `render_failed:${message.slice(0, 500)}`);
   }
 
-  const result = await sendEmail({
-    to: job.recipient_email,
-    subject: built.subject,
-    html: built.html,
-    text: built.text,
-  });
+  const result = await sendEmail(
+    {
+      to: job.recipient_email,
+      subject: built.subject,
+      html: built.html,
+      text: built.text,
+      replyTo: replyToFromPayload(job.payload),
+    },
+    { jobId: job.id, type: job.type },
+  );
 
-  if (result.ok) {
+  if (result.success) {
     await finalizeSendSuccess(supabase, job.id, result.providerMessageId ?? null);
-    console.info("[email_jobs] job sent", {
-      job_id: job.id,
-      type: job.type,
-      provider_message_id: result.providerMessageId ?? null,
-    });
     return "sent";
   }
 
   const err =
-    result.missingApiKey === true
+    result.error === RESEND_API_KEY_MISSING_ERROR
       ? LAST_ERROR_RESEND_NOT_CONFIGURED
-      : (result.errorMessage?.trim() || "send_failed");
-
-  if (result.missingApiKey) {
-    console.warn("[email_jobs] job failed: resend_not_configured", { job_id: job.id });
-  } else {
-    console.warn("[email_jobs] job send failed", { job_id: job.id, type: job.type, error: err });
-  }
+      : (result.error?.trim() || "send_failed");
 
   return finalizeSendFailure(supabase, job, err);
 }

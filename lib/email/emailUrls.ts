@@ -1,4 +1,4 @@
-import { getBaseUrl } from "@/lib/seo";
+import { getBaseUrl } from "@/lib/config/baseUrl";
 
 export function absoluteSiteUrl(path: string): string {
   const base = getBaseUrl().replace(/\/$/, "");

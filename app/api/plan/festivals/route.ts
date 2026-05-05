@@ -41,7 +41,7 @@ export async function GET(request: Request) {
         )
       `,
       )
-      .limit(10);
+      .eq("user_id", user.id);
 
     console.log('[PLAN GET] raw data:', data);
 

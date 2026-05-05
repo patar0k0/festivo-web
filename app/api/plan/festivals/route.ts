@@ -4,6 +4,7 @@ import {
   requireActiveUserWithSupabase,
 } from "@/lib/auth/requireActiveUser";
 import { cancelPendingReminderJobs, syncReminderJobsForPreference } from "@/lib/notifications/triggers";
+import { enqueueFestivalReminder } from "@/lib/notifications/enqueueFestivalReminder";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
 
@@ -12,17 +13,19 @@ type Payload = {
 };
 
 export async function POST(request: Request) {
+  console.log("[AUTH] headers:", request.headers.get("authorization"));
+  console.log("[AUTH] cookies:", request.headers.get("cookie"));
+
   let supabase;
   let user;
   try {
     const ctx = await requireActiveUserWithSupabase(request);
     supabase = ctx.supabase;
     user = ctx.user;
+    console.log("[AUTH] resolved user:", user?.id);
   } catch (e) {
-    const r = nextResponseForRequireActiveUserError(e);
-    if (r) return r;
-    console.error("[plan/festivals] auth", e);
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Server error" }, { status: 500 });
+    console.error("[AUTH ERROR]", e);
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = (await request.json()) as Payload;
@@ -141,6 +144,29 @@ export async function POST(request: Request) {
   if (verifyError) {
     return NextResponse.json({ error: verifyError.message }, { status: 500 });
   }
+  console.log("[REMINDER] verifyRow:", verifyRow);
+  console.log("[REMINDER] route hit", {
+    userId: user.id,
+    festivalId,
+  });
+
+  if (verifyRow) {
+    console.log("[REMINDER] calling enqueue");
+    await enqueueFestivalReminder({
+      userId: user.id,
+      festivalId,
+    });
+  }
+
+  await supabase.from("notification_jobs").insert({
+    user_id: user.id,
+    type: "debug_test",
+    status: "pending",
+    scheduled_at: new Date().toISOString(),
+    payload: { test: true },
+  });
+
+  console.log("[REMINDER] debug insert done");
 
   return NextResponse.json({ ok: true, inPlan: Boolean(verifyRow) });
 }

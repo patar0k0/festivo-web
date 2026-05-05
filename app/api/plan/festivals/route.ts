@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   requireActiveUserWithSupabase,
 } from "@/lib/auth/requireActiveUser";
-import { syncReminderJobsForPreference } from "@/lib/notifications/triggers";
+import { cancelPendingReminderJobs, syncReminderJobsForPreference } from "@/lib/notifications/triggers";
 import { enqueueFestivalReminder } from "@/lib/notifications/enqueueFestivalReminder";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
@@ -86,18 +86,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing festivalId" }, { status: 400 });
   }
 
-  const getExistingRow = async () =>
-    supabase
-      .from("user_plan_festivals")
-      .select("festival_id")
-      .eq("user_id", user.id)
-      .eq("festival_id", festivalId)
-      .maybeSingle();
-
-  const { error: existingError } = await getExistingRow();
+  const { data: existing, error: existingError } = await supabase
+    .from("user_plan_festivals")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("festival_id", festivalId)
+    .maybeSingle();
 
   if (existingError) {
     return NextResponse.json({ error: existingError.message }, { status: 500 });
+  }
+
+  if (existing) {
+    const { error: deleteError } = await supabase
+      .from("user_plan_festivals")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("festival_id", festivalId);
+
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
+
+    void cancelPendingReminderJobs(user.id, festivalId).catch((err) =>
+      console.warn("[notifications] cancelPendingReminderJobs", err),
+    );
+    void syncReminderJobsForPreference(user.id, festivalId, "none").catch((err) =>
+      console.warn("[notifications] syncReminderJobsForPreference", err),
+    );
+
+    return NextResponse.json({ saved: false });
   }
 
   const { data: festival, error: festivalError } = await supabase
@@ -118,7 +136,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cannot add past festival to plan" }, { status: 400 });
   }
 
-  // TEMP DEBUG: always insert, toggle delete is disabled.
   const { error: insertError } = await supabase.from("user_plan_festivals").insert({
     user_id: user.id,
     festival_id: festivalId,
@@ -170,33 +187,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: verifyRow, error: verifyError } = await getExistingRow();
-  if (verifyError) {
-    return NextResponse.json({ error: verifyError.message }, { status: 500 });
-  }
-  console.log("[REMINDER] verifyRow:", verifyRow);
   console.log("[REMINDER] route hit", {
     userId: user.id,
     festivalId,
   });
-
-  if (verifyRow) {
-    console.log("[REMINDER] calling enqueue");
-    await enqueueFestivalReminder({
-      userId: user.id,
-      festivalId,
-    });
-  }
-
-  await supabase.from("notification_jobs").insert({
-    user_id: user.id,
-    type: "debug_test",
-    status: "pending",
-    scheduled_at: new Date().toISOString(),
-    payload: { test: true },
+  console.log("[REMINDER] calling enqueue");
+  await enqueueFestivalReminder({
+    userId: user.id,
+    festivalId,
   });
 
-  console.log("[REMINDER] debug insert done");
-
-  return NextResponse.json({ ok: true, inPlan: Boolean(verifyRow) });
+  return NextResponse.json({ saved: true });
 }

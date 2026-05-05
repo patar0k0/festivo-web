@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   requireActiveUserWithSupabase,
 } from "@/lib/auth/requireActiveUser";
-import { cancelPendingReminderJobs, syncReminderJobsForPreference } from "@/lib/notifications/triggers";
+import { syncReminderJobsForPreference } from "@/lib/notifications/triggers";
 import { enqueueFestivalReminder } from "@/lib/notifications/enqueueFestivalReminder";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
@@ -94,33 +94,10 @@ export async function POST(request: Request) {
       .eq("festival_id", festivalId)
       .maybeSingle();
 
-  const { data: existing, error: existingError } = await getExistingRow();
+  const { error: existingError } = await getExistingRow();
 
   if (existingError) {
     return NextResponse.json({ error: existingError.message }, { status: 500 });
-  }
-
-  if (existing) {
-    const { error: deleteError } = await supabase
-      .from("user_plan_festivals")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("festival_id", festivalId);
-
-    if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
-    }
-
-    void cancelPendingReminderJobs(user.id, festivalId).catch((err) =>
-      console.warn("[notifications] cancelPendingReminderJobs", err),
-    );
-
-    const { data: verifyRow, error: verifyError } = await getExistingRow();
-    if (verifyError) {
-      return NextResponse.json({ error: verifyError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ ok: true, inPlan: Boolean(verifyRow) });
   }
 
   const { data: festival, error: festivalError } = await supabase
@@ -141,6 +118,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cannot add past festival to plan" }, { status: 400 });
   }
 
+  // TEMP DEBUG: always insert, toggle delete is disabled.
   const { error: insertError } = await supabase.from("user_plan_festivals").insert({
     user_id: user.id,
     festival_id: festivalId,

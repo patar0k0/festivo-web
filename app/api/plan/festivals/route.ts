@@ -11,6 +11,18 @@ type Payload = {
   festivalId?: string;
 };
 
+type SavedFestival = {
+  id: string;
+  slug: string;
+  title: string;
+  city: string | null;
+  start_date: string | null;
+};
+
+type SavedFestivalRow = {
+  festival?: SavedFestival[] | null;
+};
+
 export async function GET(request: Request) {
   try {
     const { user, supabase } = await requireActiveUserWithSupabase(request);
@@ -35,10 +47,13 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      festivals: (data ?? []).map((row) => ({
-        ...(row as { festival?: Record<string, unknown> }).festival,
-        saved: true,
-      })),
+      festivals: (data ?? [])
+        .map((row) => (row as SavedFestivalRow).festival?.[0])
+        .filter(Boolean)
+        .map((festival) => ({
+          ...festival,
+          saved: true,
+        })),
     });
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

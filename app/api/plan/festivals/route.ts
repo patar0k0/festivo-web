@@ -26,6 +26,7 @@ type SavedFestivalRow = {
 export async function GET(request: Request) {
   try {
     const { user, supabase } = await requireActiveUserWithSupabase(request);
+    console.log('[PLAN GET] user.id:', user.id);
 
     const { data, error } = await supabase
       .from("user_plan_festivals")
@@ -40,7 +41,9 @@ export async function GET(request: Request) {
         )
       `,
       )
-      .eq("user_id", user.id);
+      .limit(10);
+
+    console.log('[PLAN GET] raw data:', data);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -142,6 +145,7 @@ export async function POST(request: Request) {
     user_id: user.id,
     festival_id: festivalId,
   });
+  console.log('[PLAN POST] inserting user_id:', user.id);
 
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });

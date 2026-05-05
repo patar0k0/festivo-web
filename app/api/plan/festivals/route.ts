@@ -12,6 +12,31 @@ type Payload = {
   festivalId?: string;
 };
 
+export async function GET(request: Request) {
+  let supabase;
+  let user;
+  try {
+    const ctx = await requireActiveUserWithSupabase(request);
+    supabase = ctx.supabase;
+    user = ctx.user;
+  } catch (error) {
+    return nextResponseForRequireActiveUserError(error);
+  }
+
+  const { data, error } = await supabase
+    .from("user_plan_festivals")
+    .select("festival_id")
+    .eq("user_id", user.id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    festivals: data ?? [],
+  });
+}
+
 export async function POST(request: Request) {
   console.log("[AUTH] headers:", request.headers.get("authorization"));
   console.log("[AUTH] cookies:", request.headers.get("cookie"));

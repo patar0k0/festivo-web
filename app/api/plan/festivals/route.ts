@@ -15,12 +15,12 @@ type SavedFestival = {
   id: string;
   slug: string;
   title: string;
-  city: string | null;
-  start_date: string | null;
+  city: string;
+  start_date: string;
 };
 
 type SavedFestivalRow = {
-  festival?: SavedFestival | SavedFestival[] | null;
+  festival: SavedFestival | SavedFestival[] | null;
 };
 
 export async function GET(request: Request) {
@@ -51,9 +51,14 @@ export async function GET(request: Request) {
 
     const festivals = (data ?? [])
       .map((row) => {
-        const f = Array.isArray((row as SavedFestivalRow).festival)
-          ? (row as SavedFestivalRow).festival?.[0]
-          : (row as SavedFestivalRow).festival;
+        const r = row as SavedFestivalRow;
+        let f: SavedFestival | null = null;
+
+        if (Array.isArray(r.festival)) {
+          f = r.festival[0] ?? null;
+        } else {
+          f = r.festival ?? null;
+        }
 
         if (!f) return null;
 
@@ -67,9 +72,7 @@ export async function GET(request: Request) {
           saved: true,
         };
       })
-      .filter((festival): festival is SavedFestival & { festivalId: string; saved: true } =>
-        Boolean(festival),
-      );
+      .filter((x): x is NonNullable<typeof x> => Boolean(x));
 
     console.log('[PLAN GET] mapped festivals:', festivals);
 

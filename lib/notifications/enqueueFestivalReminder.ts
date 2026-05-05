@@ -1,5 +1,4 @@
-import { supabaseServer } from "@/lib/supabase/server";
-import { getFestivalById } from "@/lib/queries";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function enqueueFestivalReminder({
   userId,
@@ -11,8 +10,17 @@ export async function enqueueFestivalReminder({
   try {
     console.log("[REMINDER] enqueue start", { userId, festivalId });
     const supabase = supabaseServer();
+    if (!supabase) {
+      console.error("[REMINDER] missing Supabase env");
+      return;
+    }
 
-    const festival = await getFestivalById(festivalId);
+    const { data: festival } = await supabase
+      .from("festivals")
+      .select("id, slug, title, start_date")
+      .eq("id", festivalId)
+      .single();
+
     if (!festival?.start_date) return;
 
     const start = new Date(festival.start_date);

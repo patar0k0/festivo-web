@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  nextResponseForRequireActiveUserError,
   requireActiveUserWithSupabase,
 } from "@/lib/auth/requireActiveUser";
 import { cancelPendingReminderJobs, syncReminderJobsForPreference } from "@/lib/notifications/triggers";
@@ -13,28 +12,37 @@ type Payload = {
 };
 
 export async function GET(request: Request) {
-  let supabase;
-  let user;
   try {
-    const ctx = await requireActiveUserWithSupabase(request);
-    supabase = ctx.supabase;
-    user = ctx.user;
-  } catch (error) {
-    return nextResponseForRequireActiveUserError(error);
+    const { user, supabase } = await requireActiveUserWithSupabase(request);
+
+    const { data, error } = await supabase
+      .from("user_plan_festivals")
+      .select(
+        `
+        festival:festival_id (
+          id,
+          slug,
+          title,
+          city,
+          start_date
+        )
+      `,
+      )
+      .eq("user_id", user.id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      festivals: (data ?? []).map((row) => ({
+        ...(row as { festival?: Record<string, unknown> }).festival,
+        saved: true,
+      })),
+    });
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const { data, error } = await supabase
-    .from("user_plan_festivals")
-    .select("festival_id")
-    .eq("user_id", user.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({
-    festivals: data ?? [],
-  });
 }
 
 export async function POST(request: Request) {

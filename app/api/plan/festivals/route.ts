@@ -20,7 +20,7 @@ type SavedFestival = {
 };
 
 type SavedFestivalRow = {
-  festival?: SavedFestival[] | null;
+  festival?: SavedFestival | SavedFestival[] | null;
 };
 
 export async function GET(request: Request) {
@@ -49,15 +49,31 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      festivals: (data ?? [])
-        .map((row) => (row as SavedFestivalRow).festival?.[0])
-        .filter(Boolean)
-        .map((festival) => ({
-          ...festival,
+    const festivals = (data ?? [])
+      .map((row) => {
+        const f = Array.isArray((row as SavedFestivalRow).festival)
+          ? (row as SavedFestivalRow).festival?.[0]
+          : (row as SavedFestivalRow).festival;
+
+        if (!f) return null;
+
+        return {
+          id: f.id,
+          slug: f.slug,
+          title: f.title,
+          city: f.city,
+          start_date: f.start_date,
+          festivalId: f.id,
           saved: true,
-        })),
-    });
+        };
+      })
+      .filter((festival): festival is SavedFestival & { festivalId: string; saved: true } =>
+        Boolean(festival),
+      );
+
+    console.log('[PLAN GET] mapped festivals:', festivals);
+
+    return NextResponse.json({ festivals });
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

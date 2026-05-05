@@ -317,7 +317,8 @@ function planSavesCountFromRow(row: FestivalRowWithPlanCount): number {
 }
 
 function festivalRowWithoutPlanEmbed(row: FestivalRowWithPlanCount): Festival {
-  const { user_plan_festivals: _omit, ...rest } = row;
+  const rest = { ...row };
+  delete rest.user_plan_festivals;
   return rest as Festival;
 }
 

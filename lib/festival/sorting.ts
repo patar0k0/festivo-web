@@ -65,20 +65,45 @@ export function sortFestivalsForListing(festivals: Festival[]): Festival[] {
   return [...festivals].sort(compareFestivalsForListing);
 }
 
-export type FestivalListingSortMode = "default" | "popular";
+export type FestivalListingSortMode = "default" | "popular" | "trending";
 
 /** Default mode preserves `sortFestivalsForListing`; popular orders by global `saves_count` then listing tie-breaks. */
 export function sortFestivalsForListingWithMode(
   festivals: Festival[],
   mode: FestivalListingSortMode = "default",
 ): Festival[] {
-  if (mode !== "popular") {
-    return sortFestivalsForListing(festivals);
+  if (mode === "trending") {
+    return [...festivals].sort((a, b) => {
+      const now = new Date();
+
+      const daysA =
+        (new Date(startDateValue(a)).getTime() - now.getTime()) /
+        (1000 * 60 * 60 * 24);
+
+      const daysB =
+        (new Date(startDateValue(b)).getTime() - now.getTime()) /
+        (1000 * 60 * 60 * 24);
+
+      const scoreA =
+        (a.saves_count ?? 0) / (Math.max(daysA, 0) + 1);
+
+      const scoreB =
+        (b.saves_count ?? 0) / (Math.max(daysB, 0) + 1);
+
+      if (scoreA !== scoreB) {
+        return scoreB - scoreA;
+      }
+
+      return compareFestivalsForListing(a, b);
+    });
   }
-  return [...festivals].sort((a, b) => {
-    const ca = a.saves_count ?? 0;
-    const cb = b.saves_count ?? 0;
-    if (cb !== ca) return cb - ca;
-    return compareFestivalsForListing(a, b);
-  });
+  if (mode === "popular") {
+    return [...festivals].sort((a, b) => {
+      const ca = a.saves_count ?? 0;
+      const cb = b.saves_count ?? 0;
+      if (cb !== ca) return cb - ca;
+      return compareFestivalsForListing(a, b);
+    });
+  }
+  return sortFestivalsForListing(festivals);
 }

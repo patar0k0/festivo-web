@@ -302,7 +302,7 @@ function looksLikeSingleTokenCitySlug(value: string): boolean {
 export type FilterOptions = {
   applyDefaults?: boolean;
   /** Listing order for `getFestivals`. Separate from URL `Filters.sort` (soonest / curated / nearest). */
-  listingSort?: "default" | "popular";
+  listingSort?: "default" | "popular" | "trending";
 };
 
 type FestivalRowWithPlanCount = Festival & {
@@ -477,7 +477,12 @@ export async function getFestivals(
   if (error) {
     throw new Error(error.message);
   }
-  const listingSort = options?.listingSort === "popular" ? "popular" : "default";
+  const listingSort =
+    options?.listingSort === "popular"
+      ? "popular"
+      : options?.listingSort === "trending"
+        ? "trending"
+        : "default";
   const normalized = (data ?? []).map((row) => {
     const saves = planSavesCountFromRow(row);
     const fixed = fixFestivalText(festivalRowWithoutPlanEmbed(row));

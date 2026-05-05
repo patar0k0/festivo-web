@@ -36,12 +36,15 @@ function searchParamsToFilterRecord(searchParams: URLSearchParams): Record<strin
   const month = get("month");
   if (month) raw.month = month;
   const sort = get("sort");
-  if (sort && sort !== "popular") raw.sort = sort;
+  if (sort && sort !== "popular" && sort !== "trending") raw.sort = sort;
   return raw;
 }
 
-function parseListingSort(searchParams: URLSearchParams): "default" | "popular" {
-  return searchParams.get("sort") === "popular" ? "popular" : "default";
+function parseListingSort(searchParams: URLSearchParams): "default" | "popular" | "trending" {
+  const sort = searchParams.get("sort");
+  if (sort === "popular") return "popular";
+  if (sort === "trending") return "trending";
+  return "default";
 }
 
 function parsePage(searchParams: URLSearchParams): number {

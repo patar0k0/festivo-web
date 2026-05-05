@@ -6,6 +6,7 @@ import {
   getFestivalTemporalState,
   temporalListingRank,
 } from "@/lib/festival/temporal";
+import { endOfDaySofia, nowSofia, toSofiaDate } from "@/lib/utils/timezone";
 
 function vipScore(festival: Festival): number {
   return hasActiveVip(festival.organizer) ? 1 : 0;
@@ -74,21 +75,48 @@ export function sortFestivalsForListingWithMode(
 ): Festival[] {
   if (mode === "trending") {
     return [...festivals].sort((a, b) => {
-      const now = new Date();
+      const now = nowSofia();
+
+      const dateA = toSofiaDate(startDateValue(a));
+      const dateB = toSofiaDate(startDateValue(b));
+
+      if (Number.isNaN(dateA.getTime()) && Number.isNaN(dateB.getTime())) return 0;
+      if (Number.isNaN(dateA.getTime())) return 1;
+      if (Number.isNaN(dateB.getTime())) return -1;
+
+      const endA = a.end_date ? endOfDaySofia(a.end_date) : dateA;
+      const endB = b.end_date ? endOfDaySofia(b.end_date) : dateB;
+
+      const isPastA = endA.getTime() < now.getTime();
+      const isPastB = endB.getTime() < now.getTime();
+
+      if (isPastA !== isPastB) {
+        return isPastA ? 1 : -1;
+      }
+
+      const hasDateA = !!a.start_date;
+      const hasDateB = !!b.start_date;
+
+      if (hasDateA !== hasDateB) {
+        return hasDateA ? -1 : 1;
+      }
 
       const daysA =
-        (new Date(startDateValue(a)).getTime() - now.getTime()) /
+        (dateA.getTime() - now.getTime()) /
         (1000 * 60 * 60 * 24);
 
       const daysB =
-        (new Date(startDateValue(b)).getTime() - now.getTime()) /
+        (dateB.getTime() - now.getTime()) /
         (1000 * 60 * 60 * 24);
 
+      const safeDaysA = Math.max(daysA, 0.5);
+      const safeDaysB = Math.max(daysB, 0.5);
+
       const scoreA =
-        (a.saves_count ?? 0) / (Math.max(daysA, 0) + 1);
+        (a.saves_count ?? 0) / Math.pow(safeDaysA + 1, 1.2);
 
       const scoreB =
-        (b.saves_count ?? 0) / (Math.max(daysB, 0) + 1);
+        (b.saves_count ?? 0) / Math.pow(safeDaysB + 1, 1.2);
 
       if (scoreA !== scoreB) {
         return scoreB - scoreA;

@@ -1,8 +1,8 @@
 import { endOfMonth, endOfWeek, format, parseISO, startOfWeek } from "date-fns";
 import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBounds";
-import { calendarYmdToUtcNoon } from "@/lib/festival/temporal";
 import { type FestivalWhenFilter, Filters } from "@/lib/types";
 import { ensureArray } from "@/lib/utils";
+import { toSofiaDate } from "@/lib/utils/timezone";
 
 function parseWhenParam(raw: string | string[] | undefined): FestivalWhenFilter | undefined {
   const value = Array.isArray(raw) ? raw[0] : raw;
@@ -55,7 +55,7 @@ export function parseFilters(searchParams: Record<string, string | string[] | un
     when = undefined;
   } else if (rawWhen === "this_week") {
     const today = festivalDiscoveryCalendarBounds().today;
-    const anchor = calendarYmdToUtcNoon(today);
+    const anchor = toSofiaDate(today);
     from = format(startOfWeek(anchor, { weekStartsOn: 1 }), "yyyy-MM-dd");
     to = format(endOfWeek(anchor, { weekStartsOn: 1 }), "yyyy-MM-dd");
     when = undefined;

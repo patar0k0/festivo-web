@@ -41,9 +41,11 @@ function searchParamsToFilterRecord(searchParams: URLSearchParams): Record<strin
 }
 
 function parseListingSort(searchParams: URLSearchParams): "default" | "popular" | "trending" {
-  const sort = searchParams.get("sort");
-  if (sort === "popular") return "popular";
-  if (sort === "trending") return "trending";
+  const rawSort = searchParams.get("sort");
+  const trimmed = rawSort?.trim();
+  if (trimmed === "trending") return "trending";
+  if (trimmed === "popular") return "popular";
+  if (!trimmed) return "trending";
   return "default";
 }
 

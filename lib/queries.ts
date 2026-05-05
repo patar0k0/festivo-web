@@ -13,12 +13,19 @@ import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { debugLog } from "@/lib/utils/debugLog";
 import { buildFestivalsTagOrFilter } from "@/lib/festivals/buildFestivalsTagOrFilter";
 import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
-import { compareFestivalsForListing, sortFestivalsForListing } from "@/lib/festival/sorting";
+import {
+  compareFestivalsForListing,
+  sortFestivalsForListing,
+  sortFestivalsForListingWithMode,
+} from "@/lib/festival/sorting";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { parseProgramDraftUnknown, programDraftToDetailSchedule } from "@/lib/festival/programDraft";
 
 export const FESTIVAL_SELECT_MIN =
   "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
+
+/** Same as `FESTIVAL_SELECT_MIN` plus global plan save counts (`user_plan_festivals` is not readable under anon RLS; use service role for accurate counts). */
+const FESTIVAL_SELECT_MIN_WITH_PLAN_SAVES = `${FESTIVAL_SELECT_MIN},user_plan_festivals(count)`;
 
 /** Festival rows for `/organizers/[slug]`: nested organizer without plan/rank/promotion-credit fields. */
 export const FESTIVAL_SELECT_ORGANIZER_PROFILE =
@@ -292,9 +299,27 @@ function looksLikeSingleTokenCitySlug(value: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(s);
 }
 
-type FilterOptions = {
+export type FilterOptions = {
   applyDefaults?: boolean;
+  /** Listing order for `getFestivals`. Separate from URL `Filters.sort` (soonest / curated / nearest). */
+  listingSort?: "default" | "popular";
 };
+
+type FestivalRowWithPlanCount = Festival & {
+  user_plan_festivals?: Array<{ count?: number }> | null;
+};
+
+function planSavesCountFromRow(row: FestivalRowWithPlanCount): number {
+  const rel = row.user_plan_festivals;
+  if (!rel || !Array.isArray(rel) || rel.length === 0) return 0;
+  const c = rel[0]?.count;
+  return typeof c === "number" ? c : 0;
+}
+
+function festivalRowWithoutPlanEmbed(row: FestivalRowWithPlanCount): Festival {
+  const { user_plan_festivals: _omit, ...rest } = row;
+  return rest as Festival;
+}
 
 type DateFilterResolution = { kind: "rpc"; ids: string[] } | { kind: "legacy" };
 
@@ -443,18 +468,25 @@ export async function getFestivals(
 
   const dateResolution = await resolveFestivalDateFilterIds(supabase, filters, options);
   const filtersForQuery = await withCitySlugsResolvedInFilters(supabase, filters, options);
-  let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN);
+  /** Service role so `user_plan_festivals(count)` reflects global saves (RLS blocks anon on that table). Public scope still applied via `applyFilters`. */
+  const db = supabaseAdmin() ?? supabase;
+  let query = db.from("festivals").select(FESTIVAL_SELECT_MIN_WITH_PLAN_SAVES);
   query = applyFilters(query, filtersForQuery, options, dateResolution);
   query = applyNotPastPublicListingScope(query, filtersForQuery);
-  const { data, error } = await query.returns<Festival[]>();
+  const { data, error } = await query.returns<FestivalRowWithPlanCount[]>();
   if (error) {
     throw new Error(error.message);
   }
-  const normalized = (data ?? []).map(fixFestivalText);
+  const listingSort = options?.listingSort === "popular" ? "popular" : "default";
+  const normalized = (data ?? []).map((row) => {
+    const saves = planSavesCountFromRow(row);
+    const fixed = fixFestivalText(festivalRowWithoutPlanEmbed(row));
+    return { ...fixed, saves_count: saves };
+  });
   const when = filters.when;
   const scoped =
     when && when !== "all" ? normalized.filter((f) => getFestivalTemporalState(f) === when) : normalized;
-  const sorted = sortFestivalsForListing(scoped);
+  const sorted = sortFestivalsForListingWithMode(scoped, listingSort);
   const paginated = sorted.slice(from, to);
   const total = sorted.length;
   return {

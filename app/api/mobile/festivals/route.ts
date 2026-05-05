@@ -7,17 +7,41 @@ import { getFestivals } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-function parseListFilters(searchParams: URLSearchParams) {
+function searchParamsToFilterRecord(searchParams: URLSearchParams): Record<string, string | string[] | undefined> {
   const raw: Record<string, string | string[] | undefined> = {};
-  const city = searchParams.get("city");
-  if (city?.trim()) {
-    raw.city = city.trim();
-  }
-  const category = searchParams.get("category");
-  if (category?.trim()) {
-    raw.cat = category.trim();
-  }
-  return parseFilters(raw);
+  const get = (key: string) => {
+    const v = searchParams.get(key);
+    return v?.trim() ? v.trim() : undefined;
+  };
+  const when = get("when");
+  if (when) raw.when = when;
+  const from = get("from");
+  if (from) raw.from = from;
+  const to = get("to");
+  if (to) raw.to = to;
+  const date = get("date");
+  if (date) raw.date = date;
+  const city = get("city");
+  if (city) raw.city = city;
+  const category = get("category");
+  const cat = get("cat");
+  if (category) raw.cat = category;
+  else if (cat) raw.cat = cat;
+  const tag = get("tag");
+  if (tag) raw.tag = tag;
+  const free = searchParams.get("free");
+  if (free !== null && free !== "") raw.free = free;
+  const q = get("q");
+  if (q) raw.q = q;
+  const month = get("month");
+  if (month) raw.month = month;
+  const sort = get("sort");
+  if (sort && sort !== "popular") raw.sort = sort;
+  return raw;
+}
+
+function parseListingSort(searchParams: URLSearchParams): "default" | "popular" {
+  return searchParams.get("sort") === "popular" ? "popular" : "default";
 }
 
 function parsePage(searchParams: URLSearchParams): number {
@@ -47,11 +71,12 @@ export async function GET(request: Request) {
     }
 
     const url = new URL(request.url);
-    const filters = parseListFilters(url.searchParams);
+    const filters = parseFilters(searchParamsToFilterRecord(url.searchParams));
+    const listingSort = parseListingSort(url.searchParams);
     const page = parsePage(url.searchParams);
     const pageSize = parsePageSize(url.searchParams);
 
-    const result = await getFestivals(filters, page, pageSize);
+    const result = await getFestivals(filters, page, pageSize, { listingSort });
     const ids = result.data.map((f) => String(f.id));
 
     let saved = new Set<string>();

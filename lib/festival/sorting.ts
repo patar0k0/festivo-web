@@ -64,3 +64,21 @@ export function compareFestivalsForListing(a: Festival, b: Festival): number {
 export function sortFestivalsForListing(festivals: Festival[]): Festival[] {
   return [...festivals].sort(compareFestivalsForListing);
 }
+
+export type FestivalListingSortMode = "default" | "popular";
+
+/** Default mode preserves `sortFestivalsForListing`; popular orders by global `saves_count` then listing tie-breaks. */
+export function sortFestivalsForListingWithMode(
+  festivals: Festival[],
+  mode: FestivalListingSortMode = "default",
+): Festival[] {
+  if (mode !== "popular") {
+    return sortFestivalsForListing(festivals);
+  }
+  return [...festivals].sort((a, b) => {
+    const ca = a.saves_count ?? 0;
+    const cb = b.saves_count ?? 0;
+    if (cb !== ca) return cb - ca;
+    return compareFestivalsForListing(a, b);
+  });
+}

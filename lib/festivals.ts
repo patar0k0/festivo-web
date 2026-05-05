@@ -1,5 +1,6 @@
 import { Filters, Festival, PaginatedResult } from "@/lib/types";
 import {
+  type FilterOptions,
   getCityFestivals,
   getFestivals,
   getFestivalBySlug,
@@ -16,7 +17,7 @@ export async function listFestivals(
   filters: Filters,
   page = 1,
   pageSize = 12,
-  options?: { applyDefaults?: boolean }
+  options?: Pick<FilterOptions, "applyDefaults" | "listingSort">
 ): Promise<PaginatedResult<Festival>> {
   return getFestivals(filters, page, pageSize, options);
 }

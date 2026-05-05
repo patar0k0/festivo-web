@@ -67,6 +67,8 @@ export type Festival = {
     sort_order?: number | null;
   }> | null;
   festival_media?: Array<Partial<FestivalMediaItem> & { is_primary?: boolean | null }> | null;
+  /** Populated by `getFestivals` via `user_plan_festivals(count)`; global save count, not per-user. */
+  saves_count?: number;
 };
 
 export type FestivalMediaItem = {

@@ -1,5 +1,6 @@
-import { endOfMonth, format, parseISO } from "date-fns";
+import { endOfMonth, endOfWeek, format, parseISO, startOfWeek } from "date-fns";
 import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBounds";
+import { calendarYmdToUtcNoon } from "@/lib/festival/temporal";
 import { type FestivalWhenFilter, Filters } from "@/lib/types";
 import { ensureArray } from "@/lib/utils";
 
@@ -51,6 +52,12 @@ export function parseFilters(searchParams: Record<string, string | string[] | un
     const { weekendStart, weekendEnd } = festivalDiscoveryCalendarBounds();
     from = weekendStart;
     to = weekendEnd;
+    when = undefined;
+  } else if (rawWhen === "this_week") {
+    const today = festivalDiscoveryCalendarBounds().today;
+    const anchor = calendarYmdToUtcNoon(today);
+    from = format(startOfWeek(anchor, { weekStartsOn: 1 }), "yyyy-MM-dd");
+    to = format(endOfWeek(anchor, { weekStartsOn: 1 }), "yyyy-MM-dd");
     when = undefined;
   } else if (rawWhen === "now") {
     when = "ongoing";

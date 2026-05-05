@@ -3,7 +3,6 @@ import {
   requireActiveUserWithSupabase,
 } from "@/lib/auth/requireActiveUser";
 import { cancelPendingReminderJobs, syncReminderJobsForPreference } from "@/lib/notifications/triggers";
-import { enqueueFestivalReminder } from "@/lib/notifications/enqueueFestivalReminder";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
 
@@ -205,16 +204,6 @@ export async function POST(request: Request) {
       console.warn("[notifications] syncReminderJobsForPreference", err),
     );
   }
-
-  console.log("[REMINDER] route hit", {
-    userId: user.id,
-    festivalId,
-  });
-  console.log("[REMINDER] calling enqueue");
-  await enqueueFestivalReminder({
-    userId: user.id,
-    festivalId,
-  });
 
   return NextResponse.json({ saved: true });
 }

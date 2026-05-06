@@ -26,7 +26,6 @@ export function buildReminderPayload(
   args: {
     slug: string;
     festivalId: string;
-    title: string;
     subkind: ReminderSubkind;
   },
 ): NotificationPayloadV1 {
@@ -38,8 +37,8 @@ export function buildReminderPayload(
     festival_id: args.festivalId,
     slug: args.slug.trim(),
     deep_link: deep,
-    title: args.title,
-    body: is24 ? "Фестивалът започва след 24 часа." : "Фестивалът започва след 2 часа.",
+    title: "Фестивалът започва скоро",
+    body: is24 ? "Запазеното събитие започва след 24 часа" : "Запазеното събитие започва след 2 часа",
     source: "push",
     notification_type: is24 ? "saved_festival_reminder_24h" : "saved_festival_reminder_2h",
     priority: pr,
@@ -202,6 +201,16 @@ export async function insertNotificationJobs(
 
   if (error) {
     return { inserted: 0, error: error.message, skippedRateLimit, skippedDedupe };
+  }
+
+  const reminderRows = filtered.filter((r) => r.job_type === "reminder");
+  if (reminderRows.length > 0) {
+    console.info("[REMINDER INSERT]", {
+      inserted: data?.length ?? 0,
+      attempted: reminderRows.length,
+      userId: reminderRows[0]?.user_id,
+      festivalId: reminderRows[0]?.festival_id,
+    });
   }
 
   return { inserted: data?.length ?? 0, error: null, skippedRateLimit, skippedDedupe };

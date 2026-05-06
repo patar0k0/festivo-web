@@ -17,7 +17,7 @@ type Payload = {
   applyToAllSaved?: boolean;
 };
 
-const allowed = new Set<ReminderType>(["none", "24h", "same_day_09"]);
+const allowed = new Set<ReminderType>(["none", "24h", "same_day_09", "default"]);
 
 export async function GET(request: Request) {
   let supabase;

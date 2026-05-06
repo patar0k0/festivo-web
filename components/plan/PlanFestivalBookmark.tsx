@@ -179,6 +179,7 @@ export default function PlanFestivalBookmark({
               className="ml-2 rounded-lg border border-black/[0.1] bg-white px-2 py-1 text-xs text-[#0c0e14] disabled:cursor-not-allowed disabled:opacity-45"
             >
               <option value="none">Без</option>
+              <option value="default">24h + 2ч</option>
               <option value="24h">24h</option>
               <option value="same_day_09">09:00</option>
             </select>

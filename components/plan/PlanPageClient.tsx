@@ -182,13 +182,16 @@ function ReminderMenu({
   }, [open]);
 
   const summary =
-    value === "24h"
-      ? "24ч"
-      : value === "same_day_09"
-        ? "В деня (09:00)"
-        : "Без";
+    value === "default"
+      ? "24ч + 2ч"
+      : value === "24h"
+        ? "24ч"
+        : value === "same_day_09"
+          ? "В деня (09:00)"
+          : "Без";
 
   const options: Array<{ value: ReminderType; label: string }> = [
+    { value: "default", label: "1 ден и 2 часа преди (препоръчано)" },
     { value: "24h", label: "1 ден по-рано" },
     { value: "same_day_09", label: "В деня (09:00)" },
     { value: "none", label: "Без напомняне" },
@@ -246,6 +249,7 @@ function ReminderPills({
   onChange: (next: ReminderType) => void;
 }) {
   const options: Array<{ value: ReminderType; label: string }> = [
+    { value: "default", label: "24ч+2ч" },
     { value: "24h", label: "24ч" },
     { value: "same_day_09", label: "В деня" },
     { value: "none", label: "Без" },

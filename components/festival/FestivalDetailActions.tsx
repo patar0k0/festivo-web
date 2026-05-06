@@ -46,7 +46,7 @@ export function FestivalHeroActionBar({
       return;
     }
     if (reminder === "none") {
-      await setFestivalReminder(festivalId, "24h" as ReminderType);
+      await setFestivalReminder(festivalId, "default");
     }
     scrollToReminder();
   }, [festivalId, isAuthenticated, onGuestReminderClick, reminder, requireAuthForPlan, scrollToReminder, setFestivalReminder]);
@@ -54,9 +54,11 @@ export function FestivalHeroActionBar({
   const primaryReminderLabel =
     reminder === "none"
       ? "🔔 Напомни ми за началото"
-      : reminder === "24h"
-        ? "🔔 Ще ти напомним 1 ден по-рано"
-        : "🔔 Ще ти напомним в деня в 09:00";
+      : reminder === "default"
+        ? "🔔 Ще ти напомним 1 ден и 2 часа преди"
+        : reminder === "24h"
+          ? "🔔 Ще ти напомним 1 ден по-рано"
+          : "🔔 Ще ти напомним в деня в 09:00";
 
   const heroReminderHelper =
     reminder === "none" ? "Ще ти напомним за началото на събитието" : "Напомнянето е включено";

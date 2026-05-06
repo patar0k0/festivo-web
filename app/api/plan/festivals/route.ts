@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   requireActiveUserWithSupabase,
 } from "@/lib/auth/requireActiveUser";
-import { cancelPendingReminderJobs, syncReminderJobsForPreference } from "@/lib/notifications/triggers";
+import { syncReminderJobsForPreference } from "@/lib/notifications/triggers";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
 
@@ -126,9 +126,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
-    void cancelPendingReminderJobs(user.id, festivalId).catch((err) =>
-      console.warn("[notifications] cancelPendingReminderJobs", err),
-    );
     void syncReminderJobsForPreference(user.id, festivalId, "none").catch((err) =>
       console.warn("[notifications] syncReminderJobsForPreference", err),
     );
@@ -193,14 +190,14 @@ export async function POST(request: Request) {
       {
         user_id: user.id,
         festival_id: festivalId,
-        reminder_type: defaultTiming,
+        reminder_type: "default",
       },
       { onConflict: "user_id,festival_id" },
     );
     if (upsertRemErr) {
       console.warn("[plan/festivals] user_plan_reminders upsert", upsertRemErr.message);
     }
-    void syncReminderJobsForPreference(user.id, festivalId, defaultTiming).catch((err) =>
+    void syncReminderJobsForPreference(user.id, festivalId, "default").catch((err) =>
       console.warn("[notifications] syncReminderJobsForPreference", err),
     );
   }

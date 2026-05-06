@@ -54,11 +54,12 @@ function parseStoredPlanActions(raw: string | null): string[] {
 }
 
 function isReminderTypeParam(value: string | null): value is ReminderType {
-  return value === "24h" || value === "same_day_09" || value === "none";
+  return value === "default" || value === "24h" || value === "same_day_09" || value === "none";
 }
 
 function planReminderSuccessCopy(value: ReminderType): string {
   if (value === "none") return "Напомнянето е изключено.";
+  if (value === "default") return "Ще ти напомним 1 ден и 2 часа преди събитието.";
   if (value === "24h") return "Ще ти напомним 1 ден по-рано.";
   return "Ще ти напомним в деня в 09:00.";
 }
@@ -372,6 +373,7 @@ export default function FestivalDetailClient({
     nearbyBookingPlace && festival.start_date?.trim() && !previewMode,
   );
   const reminderOptions: Array<{ value: ReminderType; label: string; helper: string }> = [
+    { value: "default", label: "1 ден и 2 часа преди", helper: "Две напомняния преди началото" },
     { value: "24h", label: "1 ден по-рано", helper: "Най-често избирано" },
     { value: "same_day_09", label: "В деня в 09:00", helper: "Сутрин, преди да тръгнеш" },
     { value: "none", label: "Без напомняне", helper: "Можеш да го включиш по всяко време" },

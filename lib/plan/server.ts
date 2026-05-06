@@ -3,7 +3,8 @@ import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type ReminderType = "none" | "24h" | "same_day_09";
+/** `default` = both push reminders (24h + 2h before start) for this saved festival. */
+export type ReminderType = "none" | "24h" | "same_day_09" | "default";
 
 export type PlanState = {
   scheduleItemIds: string[];

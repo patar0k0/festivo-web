@@ -32,7 +32,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   only_saved: false,
   quiet_hours_start: null,
   quiet_hours_end: null,
-  default_plan_reminder_type: "24h",
+  default_plan_reminder_type: "default",
 };
 
 function normalizePayload(payload: PartialNotificationSettings): PartialNotificationSettings {
@@ -68,7 +68,8 @@ function normalizePayload(payload: PartialNotificationSettings): PartialNotifica
   if (
     payload.default_plan_reminder_type === "none" ||
     payload.default_plan_reminder_type === "24h" ||
-    payload.default_plan_reminder_type === "same_day_09"
+    payload.default_plan_reminder_type === "same_day_09" ||
+    payload.default_plan_reminder_type === "default"
   ) {
     normalized.default_plan_reminder_type = payload.default_plan_reminder_type;
   }

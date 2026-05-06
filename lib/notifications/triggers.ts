@@ -156,7 +156,6 @@ export async function cancelPendingReminderJobs(userId: string, festivalId: stri
 export async function scheduleSavedFestivalReminders(
   userId: string,
   festivalId: string,
-  reminderPreference: Exclude<ReminderType, "none">,
 ): Promise<{ ok: boolean; error?: string }> {
   const supabase = createSupabaseAdmin();
   const { data: festival, error: fErr } = await supabase
@@ -235,7 +234,7 @@ export async function syncReminderJobsForPreference(
   if (reminderType === "none") {
     return { ok: true };
   }
-  return scheduleSavedFestivalReminders(userId, festivalId, reminderType);
+  return scheduleSavedFestivalReminders(userId, festivalId);
 }
 
 /** Админ промяна на фестивал: уведомява само потребители със запис в плана. */

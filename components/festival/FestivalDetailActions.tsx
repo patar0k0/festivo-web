@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { ReminderType } from "@/lib/plan/server";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { logGoogleMapsOpenDebug } from "@/lib/location/buildGoogleMapsUrl";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";

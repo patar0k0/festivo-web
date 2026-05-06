@@ -95,14 +95,15 @@ export function buildReminderPayload(args: {
   const festivalStartAt = args.festivalStartAt;
   const is2h = args.subkind === "2h";
 
-  const now = nowSofia();
-  const today = formatSofiaDate(now);
-  const tomorrow = formatSofiaDate(addDays(now, 1));
+  const now = nowSofia().getTime();
+  const nowDate = new Date(now);
+  const today = formatSofiaDate(nowDate);
+  const tomorrow = formatSofiaDate(addDays(nowDate, 1));
   const eventDay = formatSofiaDate(festivalStartAt);
 
   let body: string;
   if (eventDay === today) {
-    const diffMs = festivalStartAt.getTime() - now.getTime();
+    const diffMs = festivalStartAt.getTime() - now;
     const diffMin = Math.max(0, Math.round(diffMs / (1000 * 60)));
     const h = Math.floor(diffMin / 60);
     const m = diffMin % 60;
@@ -114,7 +115,9 @@ export function buildReminderPayload(args: {
   } else if (eventDay === tomorrow) {
     body = `Утре${cityPart}`;
   } else {
-    body = `${formatDateBg(eventDay)}${cityPart}`;
+    const dateLabel = formatDateBg(eventDay);
+    const datePart = dateLabel === "—" ? "" : dateLabel;
+    body = `${datePart}${cityPart}`;
   }
   const deep = buildDeepLink(args.festival.slug);
   const pr = priorityForJobType("reminder");

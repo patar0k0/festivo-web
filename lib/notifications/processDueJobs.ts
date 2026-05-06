@@ -73,6 +73,7 @@ export async function processDueNotificationJobs(
   skippedQuiet: number;
 }> {
   const nowIso = new Date().toISOString();
+  const now = nowSofia().getTime();
   const { data: jobs, error } = await supabase
     .from("notification_jobs")
     .select("*")
@@ -94,14 +95,14 @@ export async function processDueNotificationJobs(
     if (startAt && typeof startAt === "string") {
       const start = new Date(startAt).getTime();
       if (!Number.isNaN(start)) {
-        const days = (start - nowSofia().getTime()) / (1000 * 60 * 60 * 24);
+        const days = (start - now) / (1000 * 60 * 60 * 24);
         return days <= 2 ? "high" : "normal";
       }
     }
     if (!startAt) {
       const scheduled = new Date(job.scheduled_for);
       if (Number.isNaN(scheduled.getTime())) return "normal";
-      const diff = scheduled.getTime() - nowSofia().getTime();
+      const diff = scheduled.getTime() - now;
       if (diff <= 0) return "normal";
       if (diff <= 24 * 60 * 60 * 1000) return "high";
       return "normal";

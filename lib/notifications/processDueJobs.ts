@@ -11,7 +11,7 @@ import { sendPushToUser, type PushSendResult } from "@/lib/push/sendPush";
 
 import { notificationTypeForJob } from "./notificationTypes";
 import type { NotificationJobRow, NotificationPayloadV1 } from "./types";
-import { isInQuietHours, nextAllowedSendAfterQuietHours } from "./time";
+import { isInQuietHours, nextAllowedSendAfterQuietHours, nowSofia } from "./time";
 
 const MAX_RETRIES = PUSH_SEND_MAX_RETRIES;
 const BACKOFF_MS = [5 * 60 * 1000, 15 * 60 * 1000, 60 * 60 * 1000];
@@ -86,7 +86,44 @@ export async function processDueNotificationJobs(
     throw new Error(error.message);
   }
 
-  const rows = (jobs ?? []) as (NotificationJobRow & { attempts?: number })[];
+  /** Recompute from payload so priority does not drift between enqueue and send. */
+  function computePriority(
+    startAt: unknown,
+    job: NotificationJobRow & { attempts?: number },
+  ): "high" | "normal" {
+    if (startAt && typeof startAt === "string") {
+      const start = new Date(startAt).getTime();
+      if (!Number.isNaN(start)) {
+        const days = (start - nowSofia().getTime()) / (1000 * 60 * 60 * 24);
+        return days <= 2 ? "high" : "normal";
+      }
+    }
+    if (!startAt) {
+      const scheduled = new Date(job.scheduled_for);
+      if (Number.isNaN(scheduled.getTime())) return "normal";
+      const diff = scheduled.getTime() - nowSofia().getTime();
+      if (diff <= 0) return "normal";
+      if (diff <= 24 * 60 * 60 * 1000) return "high";
+      return "normal";
+    }
+    return "normal";
+  }
+
+  function priorityRank(p: "high" | "normal"): number {
+    return p === "high" ? 1 : 0;
+  }
+
+  const rows = ((jobs ?? []) as (NotificationJobRow & { attempts?: number })[])
+    .slice()
+    .sort((a, b) => {
+      const pj = a.payload_json as Record<string, unknown>;
+      const pk = b.payload_json as Record<string, unknown>;
+      const pa = computePriority(pj?.reminder_festival_start_at, a);
+      const pb = computePriority(pk?.reminder_festival_start_at, b);
+      const pr = priorityRank(pb) - priorityRank(pa);
+      if (pr !== 0) return pr;
+      return new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime();
+    });
 
   const reminderFestivalIds: string[] = [];
   for (const j of rows) {

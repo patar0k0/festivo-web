@@ -11,7 +11,7 @@ import {
   type InsertJob,
 } from "./scheduler";
 import { getUsersNotificationRates24hBatch, shouldSkipScheduleForRateLimit } from "./rateLimit";
-import { formatSofiaDate, isSameSofiaCalendarDay } from "./time";
+import { formatSofiaDate, getFestivalStartInstant, isSameSofiaCalendarDay } from "./time";
 import type { ReminderType } from "@/lib/plan/server";
 
 type FestivalRow = {
@@ -161,7 +161,7 @@ export async function scheduleSavedFestivalReminders(
   const supabase = createSupabaseAdmin();
   const { data: festival, error: fErr } = await supabase
     .from("festivals")
-    .select("id,title,slug,start_date,start_time,status")
+    .select("id,title,slug,city,start_date,start_time,status")
     .eq("id", festivalId)
     .maybeSingle();
 
@@ -174,21 +174,32 @@ export async function scheduleSavedFestivalReminders(
   }
 
   const now = new Date();
+  const startInstant = getFestivalStartInstant(
+    festival.start_date,
+    (festival as { start_time?: string | null }).start_time ?? null,
+  );
   const times = computeSavedFestivalReminderTimes(
     festival.start_date,
     now,
     (festival as { start_time?: string | null }).start_time ?? null,
   );
 
-  if (!times.length) {
+  if (!times.length || !startInstant) {
     return { ok: true };
   }
 
+  const festivalMeta = {
+    id: festival.id,
+    slug: festival.slug,
+    title: festival.title,
+    city: (festival as { city?: string | null }).city ?? null,
+  };
+
   const rows = times.map((t) => {
     const payload = buildReminderPayload({
-      slug: festival.slug,
-      festivalId: festival.id,
+      festival: festivalMeta,
       subkind: t.subkind,
+      festivalStartAt: startInstant,
     });
     const dedupe_key = makeDedupeKey([userId, "reminder", festival.id, t.scheduled_for.toISOString()]);
     return {

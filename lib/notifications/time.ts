@@ -1,6 +1,7 @@
 /** Europe/Sofia helpers for scheduling (aligned with /api/jobs/reminders). */
 
 import { parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
+import { toSofiaDate } from "@/lib/utils/timezone";
 
 export const TZ = "Europe/Sofia";
 
@@ -126,6 +127,27 @@ export function getFestivalStartInstant(startDateValue: string | null, startTime
 
 export function formatSofiaDate(d: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(d);
+}
+
+/** User-facing BG day + month for a Sofia `YYYY-MM-DD` string (push / notifications). */
+export function formatDateBg(yyyyMmDd: string): string {
+  const ymd = yyyyMmDd.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    return "—";
+  }
+  const [y, m, d] = ymd.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  if (Number.isNaN(date.getTime())) return yyyyMmDd;
+  return new Intl.DateTimeFormat("bg-BG", {
+    timeZone: TZ,
+    day: "numeric",
+    month: "long",
+  }).format(date);
+}
+
+/** Current instant in Sofia wall-clock terms; pair with {@link formatSofiaDate}. */
+export function nowSofia(): Date {
+  return toSofiaDate(new Date());
 }
 
 export function isSameSofiaCalendarDay(a: Date, b: Date): boolean {

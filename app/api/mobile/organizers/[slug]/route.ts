@@ -46,13 +46,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       return authErr;
     }
 
-    const { organizer, requestedSlug, normalizedSlug } = await getMobileOrganizerBySlug(slug);
+    const { organizer } = await getMobileOrganizerBySlug(slug);
     if (!organizer) {
-      console.info("[api/mobile/organizers/[slug]] Organizer not found", {
-        requestedSlug,
-        normalizedSlug,
-        reason: "no_active_organizer_for_slug",
-      });
       return NextResponse.json({ error: "Organizer not found" }, { status: 404 });
     }
 
@@ -125,13 +120,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         saved: listItem.is_saved,
         is_verified: festival.is_verified ?? null,
       };
-    });
-
-    console.info("[api/mobile/organizers/[slug]] Organizer resolved", {
-      requestedSlug,
-      normalizedSlug,
-      organizerId: organizer.id,
-      festivalsCount: festivalItems.length,
     });
 
     return NextResponse.json({ organizer, festivals: festivalItems }, { status: 200 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Analytics } from "@vercel/analytics/react";
+import { Analytics } from "@vercel/analytics/next";
 import { useEffect, useState } from "react";
 import { FESTIVO_COOKIE_CONSENT_CHANGED_EVENT, FESTIVO_COOKIE_CONSENT_KEY } from "@/components/CookieConsentBanner";
 

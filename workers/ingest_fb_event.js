@@ -467,12 +467,16 @@ async function buildPendingFestivalPatch({ fbEvent = {}, ogMeta = {}, existing =
   });
   console.log(`[ingest] hero final=${finalHeroImage ?? ""}`);
 
+  const coordsLocked = existing.coords_override === true;
+  const { latitude: _ingestFbLat, longitude: _ingestFbLng, ...locationWithoutCoords } = location;
   const payload = {
     title: typeof fbEvent.name === "string" ? fbEvent.name.trim() : existing.title ?? "",
     description,
     hero_image: finalHeroImage,
     ...dates,
-    ...location,
+    ...(coordsLocked
+      ? { ...locationWithoutCoords, latitude: existing.latitude ?? null, longitude: existing.longitude ?? null }
+      : location),
   };
 
   console.log(`[ingest] title="${payload.title}"`);

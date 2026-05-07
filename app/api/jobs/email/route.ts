@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   console.info("[jobs][email_jobs] started");
 
   try {
-    const result = await processDueEmailJobs(supabase, 15);
+    const result = await processDueEmailJobs(supabase, 10);
     console.info("[jobs][email_jobs] finished", result);
     return NextResponse.json(result);
   } catch (error) {
@@ -38,6 +38,6 @@ export async function GET(request: Request) {
     console.error("[jobs][email_jobs] error", { message });
     return NextResponse.json({ error: message }, { status: 500 });
   } finally {
-    await releaseCronLock(supabase, lockName);
+    await releaseCronLock(supabase, lockName, lock.ok ? lock.lockToken : undefined);
   }
 }

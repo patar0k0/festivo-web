@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { getOptionalUser } from "@/lib/authUser";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AnalyticsEvent } from "@/lib/analytics/types";
 import { isAnalyticsEvent } from "@/lib/analytics/types";
 
@@ -40,17 +40,7 @@ export async function POST(request: Request) {
 
   let user_id: string | null = null;
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error) {
-      console.warn("[analytics] failed to read session user", { error: error.message });
-    } else {
-      user_id = user?.id ?? null;
-    }
+    user_id = (await getOptionalUser())?.id ?? null;
   } catch (err) {
     // Anonymous tracking is allowed; do not block.
     console.warn("[analytics] session read failed; tracking anonymously", err);

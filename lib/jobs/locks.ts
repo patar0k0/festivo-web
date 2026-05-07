@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type LockResult =
-  | { ok: true }
+  | { ok: true; lockToken: string }
   | { ok: false; reason: "lock_active" }
   | { ok: false; reason: "error"; message: string };
 
@@ -11,28 +11,54 @@ export async function acquireCronLock(
   now: Date,
   staleAfterMinutes = 10,
 ): Promise<LockResult> {
+  const lockToken = now.toISOString();
   const lockCutoff = new Date(now.getTime() - staleAfterMinutes * 60 * 1000).toISOString();
-  const { error: staleLockError } = await supabase.from("cron_locks").delete().lt("locked_at", lockCutoff);
-  if (staleLockError) {
-    return { ok: false, reason: "error", message: staleLockError.message };
-  }
-
-  const { data: lockRows, error: lockError } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("cron_locks")
-    .upsert({ name, locked_at: now.toISOString() }, { onConflict: "name", ignoreDuplicates: true })
-    .select("name");
-
-  if (lockError) {
-    return { ok: false, reason: "error", message: lockError.message };
+    .select("locked_at")
+    .eq("name", name)
+    .maybeSingle();
+  if (existingError) {
+    return { ok: false, reason: "error", message: existingError.message };
   }
 
-  if (!lockRows?.length) {
+  if (existing?.locked_at && existing.locked_at >= lockCutoff) {
     return { ok: false, reason: "lock_active" };
   }
 
-  return { ok: true };
+  if (existing?.locked_at) {
+    const { error: staleLockError } = await supabase
+      .from("cron_locks")
+      .delete()
+      .eq("name", name)
+      .eq("locked_at", existing.locked_at);
+    if (staleLockError) {
+      return { ok: false, reason: "error", message: staleLockError.message };
+    }
+  }
+
+  const { error: insertError } = await supabase
+    .from("cron_locks")
+    .insert({ name, locked_at: lockToken });
+
+  if (insertError) {
+    if (insertError.code === "23505") {
+      return { ok: false, reason: "lock_active" };
+    }
+    return { ok: false, reason: "error", message: insertError.message };
+  }
+
+  return { ok: true, lockToken };
 }
 
-export async function releaseCronLock(supabase: SupabaseClient, name: string): Promise<void> {
-  await supabase.from("cron_locks").delete().eq("name", name);
+export async function releaseCronLock(
+  supabase: SupabaseClient,
+  name: string,
+  lockToken?: string,
+): Promise<void> {
+  let query = supabase.from("cron_locks").delete().eq("name", name);
+  if (lockToken) {
+    query = query.eq("locked_at", lockToken);
+  }
+  await query;
 }

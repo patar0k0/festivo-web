@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { getEmbedUrl } from "@/lib/media/getEmbedUrl";
+
 export type MediaItem = { type: "image"; url: string } | { type: "video"; url: string };
 
 type Props = {
@@ -10,11 +12,6 @@ type Props = {
   onClose: () => void;
   onChange: (i: number) => void;
 };
-
-function getYouTubeId(url: string): string | null {
-  const match = url.match(/youtube\.com.*v=([^&]+)/) || url.match(/youtu\.be\/([^?]+)/);
-  return match ? match[1] : null;
-}
 
 export function MediaLightbox({ items, index, onClose, onChange }: Props) {
   const item = items[index];
@@ -42,17 +39,31 @@ export function MediaLightbox({ items, index, onClose, onChange }: Props) {
         <img src={item.url} alt="" className="max-h-[85vh] max-w-[90vw] object-contain" />
       ) : (
         (() => {
-          const id = getYouTubeId(item.url);
-          if (!id) return null;
-
+          if (process.env.NODE_ENV === "development") {
+            console.log(item.type, item.url);
+          }
+          const embed = getEmbedUrl(item.url);
+          if (!embed) {
+            return (
+              <div className="flex h-full w-full items-center justify-center bg-black text-white">
+                Unsupported video
+              </div>
+            );
+          }
+          const iframeSrc = embed.includes("youtube.com/embed")
+            ? `${embed}${embed.includes("?") ? "&" : "?"}autoplay=1&rel=0`
+            : embed;
           return (
-            <iframe
-              className="aspect-video w-[90vw] max-w-[1000px]"
-              src={`https://www.youtube.com/embed/${id}?autoplay=1&rel=0`}
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-              title="Видео"
-            />
+            <div className="flex h-full w-full items-center justify-center bg-black">
+              <iframe
+                src={iframeSrc}
+                className="aspect-video max-h-[80vh] w-full"
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+                allowFullScreen
+                title="Видео"
+                style={{ border: "none", overflow: "hidden" }}
+              />
+            </div>
           );
         })()
       )}

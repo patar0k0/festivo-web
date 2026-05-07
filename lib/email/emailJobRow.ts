@@ -8,6 +8,7 @@ export type EmailJobRow = {
   subject: string | null;
   payload: Record<string, unknown>;
   status: string;
+  priority: string;
   attempts: number;
   max_attempts: number;
   scheduled_at: string;

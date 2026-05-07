@@ -1,6 +1,6 @@
 /**
  * Resolves which open/view affordance to show on festival edit surfaces.
- * Public catalog visibility mirrors `getFestivalBySlug` in `lib/queries.ts`.
+ * Public catalog visibility matches `isFestivalVisibleOnPublicCatalog` (slug detail applies the same rule after fetch).
  */
 
 export type EditorOpenActionResolved =

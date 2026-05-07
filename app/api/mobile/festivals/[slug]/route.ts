@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+<<<<<<< HEAD
 import { getCanonicalOrganizerForFestival, getMobileDbClient } from "@/lib/mobile/organizers";
 import { normalizePublicFestivalSlugParam } from "@/lib/queries";
 
@@ -69,3 +70,43 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   });
 }
 
+=======
+import { serializeMobileFestivalDetail } from "@/lib/api/mobile/festivalSerialization";
+import { isFestivalInUserPlan } from "@/lib/api/mobile/planSaved";
+import { mobileAuthErrorResponse, resolveMobileRequestAuth } from "@/lib/api/mobile/resolveMobileAuth";
+import { getFestivalDetail, normalizePublicFestivalSlugParam } from "@/lib/queries";
+
+export const dynamic = "force-dynamic";
+
+type RouteContext = { params: Promise<{ slug: string }> };
+
+export async function GET(request: Request, context: RouteContext) {
+  try {
+    const auth = await resolveMobileRequestAuth(request);
+    const authErr = mobileAuthErrorResponse(auth);
+    if (authErr) {
+      return authErr;
+    }
+
+    const { slug: rawSlug } = await context.params;
+    const slug = normalizePublicFestivalSlugParam(rawSlug);
+
+    const detail = await getFestivalDetail(slug, { supabaseForFestivalLoad: auth.supabase });
+    if (!detail) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    let isSaved = false;
+    if (auth.user) {
+      isSaved = await isFestivalInUserPlan(auth.supabase, auth.user.id, String(detail.festival.id));
+    }
+
+    const body = serializeMobileFestivalDetail(detail.festival, detail.media, isSaved);
+    return NextResponse.json(body);
+  } catch (e) {
+    console.error("[api/mobile/festivals/[slug]]", e);
+    const message = e instanceof Error ? e.message : "Server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+>>>>>>> 21a9dbcfae0df2084eeb0b6327b8d7abdca43765

@@ -1,24 +1,45 @@
 import { endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { cache } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Filters, Festival, FestivalDay, FestivalMediaItem, FestivalScheduleItem, OrganizerProfile, PaginatedResult } from "@/lib/types";
 import { withDefaultFilters } from "@/lib/filters";
-import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
 import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
+import { formatSettlementLocationLines } from "@/lib/settlements/formatLocation";
+import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
+import { debugLog } from "@/lib/utils/debugLog";
 import { buildFestivalsTagOrFilter } from "@/lib/festivals/buildFestivalsTagOrFilter";
 import { festivalDayKeysInMonth, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
-import { compareFestivalsForListing, sortFestivalsForListing } from "@/lib/festival/sorting";
+import {
+  compareFestivalsForListing,
+  sortFestivalsForListing,
+  sortFestivalsForListingWithMode,
+} from "@/lib/festival/sorting";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
+import { parseProgramDraftUnknown, programDraftToDetailSchedule } from "@/lib/festival/programDraft";
 
 export const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
+  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
+
+/** Same as `FESTIVAL_SELECT_MIN` plus global plan save counts (`user_plan_festivals` is not readable under anon RLS; use service role for accurate counts). */
+const FESTIVAL_SELECT_MIN_WITH_PLAN_SAVES = `${FESTIVAL_SELECT_MIN},user_plan_festivals(count)`;
 
 /** Festival rows for `/organizers/[slug]`: nested organizer without plan/rank/promotion-credit fields. */
 export const FESTIVAL_SELECT_ORGANIZER_PROFILE =
-  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug)";
+  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug)";
+
+/**
+ * Organizer portal: published `festivals` columns for promotion UI (join submissions by organizer_id + slug).
+ * Does not add schema; only documents the select used by portal pages.
+ */
+export const ORGANIZER_PORTAL_FESTIVAL_PROMOTION_KEYS =
+  "organizer_id,slug,promotion_status,promotion_expires_at";
+
+/** Organizer portal: VIP fields on `organizers` for `hasActiveVip`. */
+export const ORGANIZER_PORTAL_ORGANIZER_VIP_FIELDS = "id,name,plan,plan_started_at,plan_expires_at";
 
 /** Public organizer profile fields (no plan, rank, credits, merge state). */
 // claimed_events_count: included for future public display, not rendered yet
@@ -50,11 +71,11 @@ export function normalizePublicFestivalSlugParam(raw: string): string {
 }
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,location_name,address,organizer_id,organizer_name,lat,lng,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,cities:cities!left(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,location_name,address,organizer_id,organizer_name,lat,lng,place_id,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,is_verified,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,program_draft,cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
 
 const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
 
-/** Reserved filter token when URL city params cannot be mapped to `cities.slug`. */
+/** Reserved filter token when URL city params cannot be mapped to a `festivals.city_slug` value. */
 const IMPOSSIBLE_CITY_SLUG_FILTER = "__festivo_no_city_match__";
 
 async function resolveCityFilterTokensToSlugs(
@@ -152,15 +173,25 @@ function getFestivalOrganizers(festival: Festival): Array<{ id?: string | null; 
     .sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999));
 }
 
+/** Organizer IDs linked to a festival (legacy `organizer_id` + M2M `festival_organizers`). */
+export function getFestivalOrganizerIdsForAccessCheck(festival: Festival): string[] {
+  const ids = new Set<string>();
+  if (festival.organizer_id != null && String(festival.organizer_id).trim()) {
+    ids.add(String(festival.organizer_id).trim());
+  }
+  for (const row of getFestivalOrganizers(festival)) {
+    const id = row.id != null ? String(row.id).trim() : "";
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
 /**
  * Явно зареждане на M2M връзки — вграденият select към festivals често връща грешен/непълен масив при >1 организатор.
  * Използва service role клиент, когато е наличен: при anon ключа RLS често позволява `festival_organizers`, но не и `organizers`,
  * и вторият SELECT връща 0 реда → празна секция „Информация“.
  */
-async function mergeFestivalOrganizersFromJoinTable(
-  supabase: NonNullable<ReturnType<typeof supabaseServer>>,
-  festival: Festival
-): Promise<Festival> {
+async function mergeFestivalOrganizersFromJoinTable(supabase: SupabaseClient, festival: Festival): Promise<Festival> {
   const db = supabaseAdmin() ?? supabase;
   const festivalId = String(festival.id);
   const { data: links, error: linksError } = await db
@@ -223,6 +254,28 @@ function applyPublicScope<T>(query: T): T {
   return withOr.neq("status", "archived") as T;
 }
 
+function getUtcIsoDateToday(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function applyNotPastPublicListingScope<
+  T extends {
+    gte: (column: string, value: string) => T;
+    lt: (column: string, value: string) => T;
+  },
+>(query: T, filters: Filters): T {
+  const when = filters.when;
+  const today = getUtcIsoDateToday();
+
+  if (when === "past") {
+    return query.lt("end_date", today);
+  }
+  if (when === "all") {
+    return query;
+  }
+  return query.gte("end_date", today);
+}
+
 type FilterQuery<T> = {
   eq: (column: string, value: unknown) => T;
   in: (column: string, values: readonly string[]) => T;
@@ -246,9 +299,28 @@ function looksLikeSingleTokenCitySlug(value: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(s);
 }
 
-type FilterOptions = {
+export type FilterOptions = {
   applyDefaults?: boolean;
+  /** Listing order for `getFestivals`. Separate from URL `Filters.sort` (soonest / curated / nearest). */
+  listingSort?: "default" | "popular" | "trending";
 };
+
+type FestivalRowWithPlanCount = Festival & {
+  user_plan_festivals?: Array<{ count?: number }> | null;
+};
+
+function planSavesCountFromRow(row: FestivalRowWithPlanCount): number {
+  const rel = row.user_plan_festivals;
+  if (!rel || !Array.isArray(rel) || rel.length === 0) return 0;
+  const c = rel[0]?.count;
+  return typeof c === "number" ? c : 0;
+}
+
+function festivalRowWithoutPlanEmbed(row: FestivalRowWithPlanCount): Festival {
+  const rest = { ...row };
+  delete rest.user_plan_festivals;
+  return rest as Festival;
+}
 
 type DateFilterResolution = { kind: "rpc"; ids: string[] } | { kind: "legacy" };
 
@@ -265,7 +337,7 @@ async function resolveFestivalDateFilterIds(
   const to = applied.to ?? "2099-12-31";
   const { data, error } = await supabase.rpc("festivals_intersecting_range", { p_from: from, p_to: to });
   if (error) {
-    console.warn("[queries] festivals_intersecting_range RPC failed, using legacy date filter", error.message);
+    debugLog("warn", "[queries] festivals_intersecting_range RPC failed, using legacy date filter", error.message);
     return { kind: "legacy" };
   }
   const ids = (data ?? [])
@@ -294,11 +366,11 @@ function applyFilters<T extends FilterQuery<T>>(
   }
 
   if (applied.city?.length) {
-    const trimmed = applied.city.map((c) => c.trim()).filter(Boolean);
+    const trimmed = applied.city.map((c) => c.trim().toLowerCase()).filter(Boolean);
     typedQuery =
       trimmed.length === 1
-        ? typedQuery.eq("cities.slug", trimmed[0]!)
-        : typedQuery.in("cities.slug", trimmed);
+        ? typedQuery.eq("city_slug", trimmed[0]!)
+        : typedQuery.in("city_slug", trimmed);
   }
 
   if (applied.cat?.length) {
@@ -346,7 +418,8 @@ export function fixFestivalText(festival: Festival): Festival {
       city_name_display: festival.city_name_display,
       city_guess: (festival as Festival & { city_guess?: string | null }).city_guess ?? null,
     }) ?? null;
-  const city_name_display = festivalSettlementDisplayText(rawLine, settlementKind);
+  const lines = formatSettlementLocationLines(rawLine, settlementKind);
+  const city_name_display = lines?.primary ? fixMojibakeBG(lines.primary) : null;
 
   const occurrenceNorm = normalizeOccurrenceDatesInput((festival as Festival & { occurrence_dates?: unknown }).occurrence_dates);
 
@@ -396,19 +469,30 @@ export async function getFestivals(
 
   const dateResolution = await resolveFestivalDateFilterIds(supabase, filters, options);
   const filtersForQuery = await withCitySlugsResolvedInFilters(supabase, filters, options);
-  let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN);
+  /** Service role so `user_plan_festivals(count)` reflects global saves (RLS blocks anon on that table). Public scope still applied via `applyFilters`. */
+  const db = supabaseAdmin() ?? supabase;
+  let query = db.from("festivals").select(FESTIVAL_SELECT_MIN_WITH_PLAN_SAVES);
   query = applyFilters(query, filtersForQuery, options, dateResolution);
-  const { data, error } = await query.returns<Festival[]>();
-
+  query = applyNotPastPublicListingScope(query, filtersForQuery);
+  const { data, error } = await query.returns<FestivalRowWithPlanCount[]>();
   if (error) {
     throw new Error(error.message);
   }
-
-  const normalized = (data ?? []).map(fixFestivalText);
+  const listingSort =
+    options?.listingSort === "popular"
+      ? "popular"
+      : options?.listingSort === "trending"
+        ? "trending"
+        : "default";
+  const normalized = (data ?? []).map((row) => {
+    const saves = planSavesCountFromRow(row);
+    const fixed = fixFestivalText(festivalRowWithoutPlanEmbed(row));
+    return { ...fixed, saves_count: saves };
+  });
   const when = filters.when;
   const scoped =
     when && when !== "all" ? normalized.filter((f) => getFestivalTemporalState(f) === when) : normalized;
-  const sorted = sortFestivalsForListing(scoped);
+  const sorted = sortFestivalsForListingWithMode(scoped, listingSort);
   const paginated = sorted.slice(from, to);
   const total = sorted.length;
   return {
@@ -424,15 +508,14 @@ const FESTIVAL_BY_SLUG_MAX_ATTEMPTS = 2;
 const FESTIVAL_BY_SLUG_RETRY_DELAY_MS = 150;
 
 /**
- * One primary row fetch per request: `generateMetadata` and the page both call into this path.
- * React `cache()` dedupes parallel server work so we do not run duplicate slug queries back-to-back.
+ * Slug fetch with an explicit Supabase client (cookie SSR, Bearer JWT, or service role).
+ * Used by `getFestivalBySlug` and API routes that must not depend on cookies alone.
  */
-export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug: string): Promise<Festival | null> {
+export async function getFestivalBySlugWithClient(
+  supabase: SupabaseClient,
+  rawSlug: string,
+): Promise<Festival | null> {
   const slug = normalizePublicFestivalSlugParam(rawSlug);
-  const supabase = supabaseServer();
-  if (!supabase) {
-    throw new Error("Festival query failed: Supabase client is not configured");
-  }
 
   let lastMessage = "";
   for (let attempt = 1; attempt <= FESTIVAL_BY_SLUG_MAX_ATTEMPTS; attempt++) {
@@ -440,13 +523,12 @@ export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug:
       .from("festivals")
       .select(FESTIVAL_SELECT_DETAIL)
       .eq("slug", slug)
-      .or("status.eq.published,status.eq.verified,is_verified.eq.true")
-      .neq("status", "archived")
       .maybeSingle();
 
     if (!error) {
       const festival = data as Festival | null;
       if (!festival) {
+        debugLog("warn", "Festival not found", { slug });
         return null;
       }
       const withOrganizers = await mergeFestivalOrganizersFromJoinTable(supabase, festival);
@@ -460,23 +542,42 @@ export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug:
     }
   }
 
-  console.error("[queries] getFestivalBySlug failed after retries", { slug, message: lastMessage });
+  console.error("[queries] getFestivalBySlugWithClient failed after retries", { slug, message: lastMessage });
   throw new Error(`Festival query failed: ${lastMessage}`);
+}
+
+/**
+ * One primary row fetch per request: `generateMetadata` and the page both call into this path.
+ * React `cache()` dedupes parallel server work so we do not run duplicate slug queries back-to-back.
+ */
+export const getFestivalBySlug = cache(async function getFestivalBySlug(rawSlug: string): Promise<Festival | null> {
+  /** Cookie-aware client so RLS can expose non–catalog rows to admins / organizer members when logged in. */
+  const supabase = await createSupabaseServerClient();
+  return getFestivalBySlugWithClient(supabase, rawSlug);
 });
 
+export type GetFestivalDetailOptions = {
+  /** When set (e.g. Bearer JWT from `getUserFromRequest`), slug load uses this client instead of cookie-cached `getFestivalBySlug`. */
+  supabaseForFestivalLoad?: SupabaseClient;
+};
+
 export async function getFestivalDetail(
-  slug: string
+  slug: string,
+  options?: GetFestivalDetailOptions,
 ): Promise<{
   festival: Festival;
   media: FestivalMediaItem[];
   days: FestivalDay[];
   scheduleItems: FestivalScheduleItem[];
+  usedProgramDraftFallback: boolean;
 } | null> {
   const supabase = supabaseServer();
   if (!supabase) {
     throw new Error("Festival query failed: Supabase client is not configured");
   }
-  const festival = await getFestivalBySlug(slug);
+  const festival = options?.supabaseForFestivalLoad
+    ? await getFestivalBySlugWithClient(options.supabaseForFestivalLoad, slug)
+    : await getFestivalBySlug(slug);
   if (!festival) return null;
 
   const [mediaRes, daysRes] = await Promise.all([
@@ -536,11 +637,48 @@ export async function getFestivalDetail(
     description: item.description ? fixMojibakeBG(item.description) : item.description,
   }));
 
+  let outDays = fixedDays;
+  let outSchedule = fixedScheduleItems;
+  let usedProgramDraftFallback = false;
+  if (fixedScheduleItems.length === 0 && festival.program_draft != null) {
+    const parsed = parseProgramDraftUnknown(festival.program_draft);
+    if (parsed.ok) {
+      const fromDraft = programDraftToDetailSchedule(parsed.value, festival.id);
+      if (fromDraft.scheduleItems.length > 0) {
+        outDays = fromDraft.days.map((day) => ({
+          ...day,
+          title: day.title ? fixMojibakeBG(day.title) : day.title,
+        }));
+        outSchedule = fromDraft.scheduleItems.map((item) => ({
+          ...item,
+          title: fixMojibakeBG(item.title),
+          stage: item.stage ? fixMojibakeBG(item.stage) : item.stage,
+          description: item.description ? fixMojibakeBG(item.description) : item.description,
+        }));
+        usedProgramDraftFallback = true;
+      }
+    }
+  }
+
+  if (usedProgramDraftFallback) {
+    debugLog("log", "[program-fallback]", {
+      festivalId: festival.id,
+      reason: "no schedule items, using program_draft",
+    });
+  }
+
+  console.info("[program-load]", {
+    schedule_from_rows: fixedScheduleItems.length,
+    has_program_draft: festival.program_draft != null,
+    used_program_draft_fallback: usedProgramDraftFallback,
+  });
+
   return {
     festival,
     media: fixedMedia,
-    days: fixedDays,
-    scheduleItems: fixedScheduleItems,
+    days: outDays,
+    scheduleItems: outSchedule,
+    usedProgramDraftFallback,
   };
 }
 
@@ -570,6 +708,7 @@ export async function getCalendarMonth(month: string, filters: Filters, options?
   const monthFiltersForQuery = await withCitySlugsResolvedInFilters(supabase, monthFilters, options);
   let query = supabase.from("festivals").select(FESTIVAL_SELECT_MIN);
   query = applyFilters(query, monthFiltersForQuery, options, dateResolution);
+  query = applyNotPastPublicListingScope(query, monthFiltersForQuery);
 
   const { data, error } = await query.returns<Festival[]>();
 
@@ -622,7 +761,7 @@ export async function getCityLinks(): Promise<Array<{ name: string; slug: string
       Boolean(row.name_bg && row.slug),
     )
     .map((row) => ({
-      name: festivalSettlementDisplayText(row.name_bg, row.is_village) ?? fixMojibakeBG(row.name_bg),
+      name: getCityLabel({ name_bg: fixMojibakeBG(row.name_bg) }),
       slug: row.slug,
     }));
 }
@@ -636,7 +775,7 @@ function normalizeFestivalCityJoin(
   return Array.isArray(raw) ? (raw[0] ?? null) : raw;
 }
 
-/** Градове с поне един публикуван фестивал; `filterValue` е `cities.slug`. */
+/** Градове с поне един публикуван фестивал; `filterValue` е `cities.slug` (и съвпада с `festivals.city_slug` след нормализация). */
 export async function getHomeCitySelectOptions(): Promise<
   Array<{ name: string; slug: string | null; filterValue: string }>
 > {
@@ -647,12 +786,12 @@ export async function getHomeCitySelectOptions(): Promise<
 
   const { data, error } = await supabase
     .from("festivals")
-    .select("cities:cities!inner(slug,name_bg,is_village)")
+    .select("cities:cities!festivals_city_id_fkey!inner(slug,name_bg,is_village)")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
+    .gte("end_date", getUtcIsoDateToday())
     .not("city_id", "is", null)
     .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
-
   if (error || !data?.length) {
     return [];
   }
@@ -664,8 +803,9 @@ export async function getHomeCitySelectOptions(): Promise<
     const slug = joined?.slug?.trim();
     if (!joined || !slug) continue;
 
-    const name =
-      festivalSettlementDisplayText(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg ?? slug);
+    const name = getCityLabel({
+      name_bg: fixMojibakeBG(joined.name_bg ?? slug),
+    });
     map.set(slug, { name, slug });
   }
 
@@ -684,6 +824,7 @@ export async function getFestivalSlugs(): Promise<string[]> {
     .select("slug")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
+    .gte("end_date", getUtcIsoDateToday())
     .returns<{ slug: string | null }[]>();
 
   if (error) {
@@ -786,7 +927,10 @@ export async function getOrganizerWithFestivals(
     cities,
     name: fixMojibakeBG(organizer.name),
     description: organizer.description ? fixMojibakeBG(organizer.description) : organizer.description,
-    city_name_display: festivalSettlementDisplayText(cities?.name_bg ?? null, cities?.is_village),
+    city_name_display: (() => {
+      const clines = formatSettlementLocationLines(cities?.name_bg ?? null, cities?.is_village);
+      return clines?.primary ? fixMojibakeBG(clines.primary) : null;
+    })(),
   };
 
   const { data: links, error: linksError } = await db
@@ -807,6 +951,7 @@ export async function getOrganizerWithFestivals(
     .eq("organizer_id", organizer.id)
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
+    .gte("end_date", getUtcIsoDateToday())
     .returns<Array<{ id: string }>>();
 
   if (legacyError) {
@@ -831,6 +976,7 @@ export async function getOrganizerWithFestivals(
     .in("id", festivalIds)
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
+    .gte("end_date", getUtcIsoDateToday())
     .returns<Festival[]>();
 
   if (festivalsError) {

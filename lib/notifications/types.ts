@@ -7,6 +7,8 @@ export type NotificationPayloadV1 = {
   deep_link: string;
   title: string;
   body: string;
+  /** ISO instant; optional metadata for reminder scheduling / priority (not required by push transport). */
+  reminder_festival_start_at?: string;
   /**
    * Opaque identifier for the specific push payload delivered to the user.
    * Used by clients to correlate follow-up analytics events.

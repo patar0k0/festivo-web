@@ -13,12 +13,30 @@ erDiagram
     boolean is_village
   }
 
+  settlement_unknowns {
+    uuid id PK
+    text name
+    timestamptz created_at
+  }
+
+  location_cache {
+    uuid id PK
+    text normalized_key UK
+    text location_name
+    text city_name
+    float latitude
+    float longitude
+    int confidence_score
+    timestamptz created_at
+  }
+
   ingest_jobs {
     uuid id PK
     text source_url UK
     text source_type
     text status
     text error
+    jsonb payload_json
     text fb_browser_context
     timestamptz created_at
     timestamptz started_at
@@ -37,6 +55,7 @@ erDiagram
     text source_url
     text place_id
     text geocode_provider
+    boolean coords_override
     date start_date
     date end_date
     time start_time
@@ -57,6 +76,7 @@ erDiagram
     text slug
     bigint city_id FK
     text city
+    text city_slug
     date start_date
     date end_date
     time start_time
@@ -65,6 +85,7 @@ erDiagram
     text source_url
     text place_id
     text geocode_provider
+    boolean coords_override
     text source_type
     text status
     boolean is_verified
@@ -138,6 +159,25 @@ erDiagram
     text contact_phone
   }
 
+  users {
+    uuid id PK_FK
+    timestamptz deleted_at
+    uuid deleted_by FK
+    text deleted_reason
+    boolean cleanup_pending
+    timestamptz banned_until
+    boolean ban_sync_error
+  }
+
+  user_sweep_retry_queue {
+    uuid user_id PK
+    timestamptz enqueued_at
+    int attempts
+    timestamptz next_retry_at
+    timestamptz locked_until
+    boolean seen_in_auth_before
+  }
+
   user_roles {
     uuid user_id FK
     text role
@@ -207,6 +247,7 @@ erDiagram
     text method
     text status
     jsonb details
+    text dedupe_key UK
   }
 
   notification_jobs {
@@ -231,6 +272,7 @@ erDiagram
     text subject
     jsonb payload
     text status
+    text priority
     int attempts
     int max_attempts
     timestamptz scheduled_at
@@ -285,6 +327,8 @@ erDiagram
     timestamptz locked_at
   }
 
+  auth_users ||--o| users : optional_soft_delete_row
+  auth_users ||--o{ user_sweep_retry_queue : sweep_retry_pending
   auth_users ||--o{ user_roles : has
   auth_users ||--o{ user_plan_festivals : saves
   auth_users ||--o{ user_plan_items : saves

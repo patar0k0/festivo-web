@@ -13,6 +13,7 @@ import { mergeFestivoAdminListingShort } from "@/lib/admin/festivalListingShort"
 import { scheduleFestivalUpdateNotifications } from "@/lib/notifications/triggers";
 import { consumePromotionCredit, getRemainingPromotionCredits, hasActiveVip } from "@/lib/monetization";
 import { logAdminAction } from "@/lib/admin/audit-log";
+import { slugifyCity } from "@/lib/text/slugifyCity";
 
 
 type SaveResponse = {
@@ -371,6 +372,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     console.info(
       `[admin-festival-edit] festival_id=${id} city_id=${cityIdForLog ?? "null"} city_name_bg="${selectedCity?.name_bg ?? ""}" city_slug="${citySlug}" displayed_city="${cityDisplay}"`
     );
+
+    if (Object.prototype.hasOwnProperty.call(patch, "city")) {
+      const raw = patch.city;
+      patch.city_slug =
+        typeof raw === "string" && raw.trim().length > 0 ? slugifyCity(raw) : null;
+    }
 
     if ("occurrence_dates" in body) {
       const merged = mergeOccurrenceDatesWithRange({

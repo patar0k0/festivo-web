@@ -6,12 +6,14 @@ import {
   type SavedFestivalReminderEmailEnqueueResult,
 } from "@/lib/email/enqueueSavedFestivalReminderEmail";
 import { loadEmailPreferencesMapForReminderUsers } from "@/lib/email/emailPreferences";
+import { PUSH_SEND_MAX_RETRIES } from "@/lib/push/constants";
+import { sendPushToUser, type PushSendResult } from "@/lib/push/sendPush";
 
-import { getFcmServerKey, invalidateDeadTokens, MAX_RETRIES, sendFcmToTokens } from "./send";
 import { notificationTypeForJob } from "./notificationTypes";
 import type { NotificationJobRow, NotificationPayloadV1 } from "./types";
-import { isInQuietHours, nextAllowedSendAfterQuietHours } from "./time";
+import { isInQuietHours, nextAllowedSendAfterQuietHours, nowSofia } from "./time";
 
+const MAX_RETRIES = PUSH_SEND_MAX_RETRIES;
 const BACKOFF_MS = [5 * 60 * 1000, 15 * 60 * 1000, 60 * 60 * 1000];
 
 function reminderCancelledLastErrorForEmailSkip(
@@ -32,6 +34,33 @@ function backoffMsForRetry(retryCountAfterFailure: number): number {
   return BACKOFF_MS[idx];
 }
 
+async function retryJobOrFail(
+  supabase: SupabaseClient,
+  job: NotificationJobRow & { attempts?: number },
+  nowIso: string,
+  lastError: string,
+): Promise<void> {
+  const rc = jobRetryCount(job) + 1;
+  const giveUp = rc > MAX_RETRIES;
+  const { error } = await supabase
+    .from("notification_jobs")
+    .update({
+      status: giveUp ? "failed" : "pending",
+      last_error: lastError.slice(0, 800),
+      retry_count: rc,
+      scheduled_for: giveUp
+        ? job.scheduled_for
+        : new Date(Date.now() + backoffMsForRetry(rc)).toISOString(),
+      updated_at: nowIso,
+    })
+    .eq("id", job.id);
+
+  if (error) {
+    console.error("[notifications] retry update failed", { job_id: job.id, message: error.message });
+    throw new Error(error.message);
+  }
+}
+
 export async function processDueNotificationJobs(
   supabase: SupabaseClient,
   limit = 75,
@@ -43,13 +72,8 @@ export async function processDueNotificationJobs(
   skipped: number;
   skippedQuiet: number;
 }> {
-  const fcmKey = getFcmServerKey();
-  if (!fcmKey) {
-    console.warn("[notifications] FCM_SERVER_KEY missing; skip send");
-    return { processed: 0, sent: 0, failed: 0, rescheduled: 0, skipped: 0, skippedQuiet: 0 };
-  }
-
   const nowIso = new Date().toISOString();
+  const now = nowSofia().getTime();
   const { data: jobs, error } = await supabase
     .from("notification_jobs")
     .select("*")
@@ -63,7 +87,44 @@ export async function processDueNotificationJobs(
     throw new Error(error.message);
   }
 
-  const rows = (jobs ?? []) as (NotificationJobRow & { attempts?: number })[];
+  /** Recompute from payload so priority does not drift between enqueue and send. */
+  function computePriority(
+    startAt: unknown,
+    job: NotificationJobRow & { attempts?: number },
+  ): "high" | "normal" {
+    if (startAt && typeof startAt === "string") {
+      const start = new Date(startAt).getTime();
+      if (!Number.isNaN(start)) {
+        const days = (start - now) / (1000 * 60 * 60 * 24);
+        return days <= 2 ? "high" : "normal";
+      }
+    }
+    if (!startAt) {
+      const scheduled = new Date(job.scheduled_for);
+      if (Number.isNaN(scheduled.getTime())) return "normal";
+      const diff = scheduled.getTime() - now;
+      if (diff <= 0) return "normal";
+      if (diff <= 24 * 60 * 60 * 1000) return "high";
+      return "normal";
+    }
+    return "normal";
+  }
+
+  function priorityRank(p: "high" | "normal"): number {
+    return p === "high" ? 1 : 0;
+  }
+
+  const rows = ((jobs ?? []) as (NotificationJobRow & { attempts?: number })[])
+    .slice()
+    .sort((a, b) => {
+      const pj = a.payload_json as Record<string, unknown>;
+      const pk = b.payload_json as Record<string, unknown>;
+      const pa = computePriority(pj?.reminder_festival_start_at, a);
+      const pb = computePriority(pk?.reminder_festival_start_at, b);
+      const pr = priorityRank(pb) - priorityRank(pa);
+      if (pr !== 0) return pr;
+      return new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime();
+    });
 
   const reminderFestivalIds: string[] = [];
   for (const j of rows) {
@@ -135,7 +196,7 @@ export async function processDueNotificationJobs(
 
     /**
      * Reminder email (`email_jobs`): optional channel via `user_email_preferences`.
-     * Push uses `push_enabled` + tokens; email can succeed when push is off or tokens are missing.
+     * Runs before push; never rolled back by push.
      */
     let reminderEmailResult: SavedFestivalReminderEmailEnqueueResult = { status: "skipped", reason: "other" };
     if (job.job_type === "reminder") {
@@ -169,42 +230,72 @@ export async function processDueNotificationJobs(
       continue;
     }
 
-    const { data: tokenRows, error: tokenErr } = await supabase
-      .from("device_tokens")
-      .select("token,invalidated_at")
-      .eq("user_id", job.user_id);
+    const payloadForSend: NotificationPayloadV1 = { ...payload, notification_id: job.id };
+    const notifType = notificationTypeForJob(job.job_type, job.payload_json as Record<string, unknown>);
+    const priorityVal = (job as { priority?: string }).priority ?? (payload.priority as string | undefined) ?? "normal";
 
-    if (tokenErr) {
-      const rc = jobRetryCount(job) + 1;
-      const giveUp = rc > MAX_RETRIES;
-      await supabase
-        .from("notification_jobs")
-        .update({
-          status: giveUp ? "failed" : "pending",
-          last_error: tokenErr.message,
-          retry_count: rc,
-          scheduled_for: giveUp ? job.scheduled_for : new Date(Date.now() + backoffMsForRetry(rc)).toISOString(),
-          updated_at: nowIso,
-        })
-        .eq("id", job.id);
+    let pushResult: PushSendResult;
+    try {
+      pushResult = await sendPushToUser(supabase, job.user_id, payloadForSend, { pushEnabled: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[push][failed]", { userId: job.user_id, job_id: job.id, message });
+      pushResult = { ok: false, skipped: false, raw: { thrown: message } };
+    }
+
+    if (pushResult.error) {
+      await retryJobOrFail(supabase, job, nowIso, pushResult.error);
       failed += 1;
       continue;
     }
 
-    const tokenList = (tokenRows ?? [])
-      .filter((r: { invalidated_at?: string | null }) => !r.invalidated_at)
-      .map((r: { token: string }) => r.token.trim())
-      .filter(Boolean);
+    const durationMs = pushResult.duration_ms ?? 0;
 
-    if (!tokenList.length) {
-      if (job.job_type === "reminder" && reminderEmailEnqueued) {
+    /** Reminder with email in queue: complete job regardless of push outcome (push is optional). */
+    if (job.job_type === "reminder" && reminderEmailEnqueued) {
+      if (pushResult.ok) {
         await supabase
           .from("notification_jobs")
           .update({ status: "sent", updated_at: nowIso, last_error: null, retry_count: 0 })
           .eq("id", job.id);
-        sent += 1;
-        continue;
+        await supabase.from("notification_logs").insert({
+          job_id: job.id,
+          user_id: job.user_id,
+          status: "sent",
+          response: (pushResult.raw ?? {}) as object,
+          duration_ms: durationMs,
+          priority: priorityVal,
+          notification_type: notifType,
+        });
+
+        const { error: unErr } = await supabase.from("user_notifications").upsert(
+          {
+            user_id: job.user_id,
+            festival_id: festivalId,
+            type: notifType,
+            title: payload.title,
+            body: payload.body,
+            scheduled_for: job.scheduled_for,
+            sent_at: nowIso,
+            pushed_at: nowIso,
+          },
+          { onConflict: "user_id,festival_id,type", ignoreDuplicates: true },
+        );
+
+        if (unErr) {
+          console.warn("[notifications] user_notifications upsert failed", { job_id: job.id, message: unErr.message });
+        }
+      } else {
+        await supabase
+          .from("notification_jobs")
+          .update({ status: "sent", updated_at: nowIso, last_error: null, retry_count: 0 })
+          .eq("id", job.id);
       }
+      sent += 1;
+      continue;
+    }
+
+    if (pushResult.skipped && pushResult.reason === "no_tokens") {
       const rc = jobRetryCount(job) + 1;
       const giveUp = rc > MAX_RETRIES;
       await supabase
@@ -221,25 +312,21 @@ export async function processDueNotificationJobs(
       continue;
     }
 
-    const t0 = Date.now();
-    const payloadForSend = { ...payload, notification_id: job.id };
-    const sendResult = await sendFcmToTokens(tokenList, payloadForSend.title, payloadForSend.body, payloadForSend, fcmKey);
-    const durationMs = Date.now() - t0;
-    await invalidateDeadTokens(supabase, job.user_id, tokenList, sendResult.results);
-
-    const notifType = notificationTypeForJob(job.job_type, job.payload_json as Record<string, unknown>);
-    const priorityVal = (job as { priority?: string }).priority ?? (payload.priority as string | undefined) ?? "normal";
-
-    if (!sendResult.ok) {
+    if (!pushResult.ok) {
       const rc = jobRetryCount(job) + 1;
       const giveUp = rc > MAX_RETRIES;
       const nextScheduled = giveUp ? job.scheduled_for : new Date(Date.now() + backoffMsForRetry(rc)).toISOString();
+      const lastError =
+        typeof pushResult.raw !== "undefined"
+          ? JSON.stringify(pushResult.raw).slice(0, 800)
+          : (pushResult.reason ?? "push_failed").slice(0, 800);
+
       await supabase
         .from("notification_jobs")
         .update({
           status: giveUp ? "failed" : "pending",
           retry_count: rc,
-          last_error: JSON.stringify(sendResult.raw).slice(0, 800),
+          last_error: lastError,
           scheduled_for: nextScheduled,
           updated_at: nowIso,
         })
@@ -248,7 +335,7 @@ export async function processDueNotificationJobs(
         job_id: job.id,
         user_id: job.user_id,
         status: "failed",
-        response: sendResult.raw as object,
+        response: (pushResult.raw ?? {}) as object,
         duration_ms: durationMs,
         priority: priorityVal,
         notification_type: notifType,
@@ -265,18 +352,17 @@ export async function processDueNotificationJobs(
       job_id: job.id,
       user_id: job.user_id,
       status: "sent",
-      response: sendResult.raw as object,
+      response: (pushResult.raw ?? {}) as object,
       duration_ms: durationMs,
       priority: priorityVal,
       notification_type: notifType,
     });
 
-    const notifTypeInbox = notifType;
     const { error: unErr } = await supabase.from("user_notifications").upsert(
       {
         user_id: job.user_id,
         festival_id: festivalId,
-        type: notifTypeInbox,
+        type: notifType,
         title: payload.title,
         body: payload.body,
         scheduled_for: job.scheduled_for,

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { isAuthorizedJobRequest } from "@/lib/jobs/auth";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { buildDeepLink } from "@/lib/notifications/scheduler";
-import { sendFcmToTokens } from "@/lib/notifications/send";
+import { sendPushToUser } from "@/lib/push/sendPush";
 import type { NotificationPayloadV1 } from "@/lib/notifications/types";
 
 type UserNotificationRow = {
@@ -13,26 +14,13 @@ type UserNotificationRow = {
   body: string | null;
 };
 
-type DeviceTokenRow = {
-  token: string;
-};
-
 export async function GET(request: Request) {
-  const expectedSecret = process.env.JOBS_SECRET;
-  const providedSecret = request.headers.get("x-job-secret");
-  const isCron = request.headers.get("x-vercel-cron");
-
-  if (!isCron && (!expectedSecret || providedSecret !== expectedSecret)) {
+  if (!isAuthorizedJobRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY is not set" }, { status: 500 });
-  }
-
-  const fcmServerKey = process.env.FCM_SERVER_KEY;
-  if (!fcmServerKey) {
-    return NextResponse.json({ error: "FCM_SERVER_KEY is not set" }, { status: 500 });
   }
 
   const supabase = createSupabaseAdmin();
@@ -68,25 +56,6 @@ export async function GET(request: Request) {
   }
 
   for (const notification of rows) {
-    const { data: tokenRows, error: tokenError } = await supabase
-      .from("device_tokens")
-      .select("token")
-      .eq("user_id", notification.user_id);
-
-    if (tokenError) {
-      return NextResponse.json({ error: tokenError.message }, { status: 500 });
-    }
-
-    const tokens = ((tokenRows ?? []) as DeviceTokenRow[])
-      .map((row) => row.token)
-      .map((token) => token.trim())
-      .filter((token) => Boolean(token));
-
-    if (!tokens.length) {
-      skipped += 1;
-      continue;
-    }
-
     const festivalSlug = slugByFestivalId.get(notification.festival_id);
     if (!festivalSlug) {
       skipped += 1;
@@ -107,7 +76,36 @@ export async function GET(request: Request) {
       notification_id: notification.id,
     };
 
-    const sendResult = await sendFcmToTokens(tokens, title, body, payload, fcmServerKey);
+    let sendResult;
+    try {
+      sendResult = await sendPushToUser(supabase, notification.user_id, payload, { pushEnabled: true });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error("[push][failed]", { notification_id: notification.id, message });
+      return NextResponse.json(
+        {
+          error: "Unexpected push error",
+          notification_id: notification.id,
+        },
+        { status: 500 },
+      );
+    }
+
+    if (sendResult.error) {
+      return NextResponse.json(
+        {
+          error: sendResult.error,
+          notification_id: notification.id,
+        },
+        { status: 500 },
+      );
+    }
+
+    if (sendResult.skipped) {
+      skipped += 1;
+      continue;
+    }
+
     if (!sendResult.ok) {
       return NextResponse.json(
         {

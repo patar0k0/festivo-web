@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addDays, subDays, subHours } from "date-fns";
 import { hasRecentWindowDuplicate } from "./dedupe";
 import { notificationTypeForJob } from "./notificationTypes";
 import { getUsersNotificationRates24hBatch, shouldSkipScheduleForRateLimit } from "./rateLimit";
@@ -8,7 +9,62 @@ import type {
   NotificationPriority,
   ReminderSubkind,
 } from "./types";
-import { getFestivalStartInstant } from "./time";
+import { formatDateBg, formatSofiaDate, getDateAtHmsInTimeZone, getFestivalStartInstant, nowSofia, TZ } from "./time";
+
+function getSofiaHour(d: Date): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  return Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+}
+
+/**
+ * If wall-clock time in Europe/Sofia is before 08:00 or from 22:00 onward, snap to 09:00
+ * on the same or next Sofia calendar day (so sends stay in a civil daytime window).
+ * Uses {@link getDateAtHmsInTimeZone} in Europe/Sofia — no `setHours` (server-local).
+ */
+export function normalizeToDayHours(date: Date): Date {
+  const d = new Date(date.getTime());
+  const hour = getSofiaHour(d);
+
+  if (hour >= 8 && hour < 22) {
+    return d;
+  }
+
+  const anchorNoon = getDateAtHmsInTimeZone(d, TZ, 12, 0, 0);
+  if (!anchorNoon) {
+    console.warn("[TZ ERROR]", date);
+    const sofiaDay = formatSofiaDate(date);
+    const [y, m, d] = sofiaDay.split("-").map(Number);
+    const anchor = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+    return getDateAtHmsInTimeZone(anchor, TZ, 9, 0, 0) ?? date;
+  }
+
+  if (hour < 8) {
+    const snapped = getDateAtHmsInTimeZone(d, TZ, 9, 0, 0);
+    return snapped ?? d;
+  }
+
+  if (hour >= 22) {
+    const nextAnchor = addDays(anchorNoon, 1);
+    const snapped = getDateAtHmsInTimeZone(nextAnchor, TZ, 9, 0, 0);
+    return snapped ?? d;
+  }
+
+  return d;
+}
+
+function reminderPriorityFromFestivalStart(payload: Record<string, unknown>): NotificationPriority | null {
+  const raw = payload.reminder_festival_start_at;
+  if (typeof raw !== "string") return null;
+  const start = new Date(raw);
+  if (Number.isNaN(start.getTime())) return null;
+  const daysUntilStart = (start.getTime() - nowSofia().getTime()) / (1000 * 60 * 60 * 24);
+  return daysUntilStart <= 2 ? "high" : "normal";
+}
 
 export function buildDeepLink(slug: string): string {
   const s = slug.trim();
@@ -22,27 +78,60 @@ export function priorityForJobType(jobType: NotificationJobType): NotificationPr
   return "normal";
 }
 
-export function buildReminderPayload(
-  args: {
+export function buildReminderPayload(args: {
+  festival: {
+    id: string;
     slug: string;
-    festivalId: string;
-    title: string;
-    subkind: ReminderSubkind;
-  },
-): NotificationPayloadV1 {
-  const deep = buildDeepLink(args.slug);
-  const is24 = args.subkind === "24h";
+    title: string | null;
+    city: string | null;
+  };
+  subkind: ReminderSubkind;
+  festivalStartAt: Date;
+}): NotificationPayloadV1 {
+  const title = args.festival.title?.trim() || "Събитие в България";
+  const cityLine = (args.festival.city ?? "").trim() || "България";
+  const hasCity = cityLine && cityLine !== "България";
+  const cityPart = hasCity ? ` • ${cityLine}` : "";
+  const festivalStartAt = args.festivalStartAt;
+  const is2h = args.subkind === "2h";
+
+  const now = nowSofia().getTime();
+  const nowDate = new Date(now);
+  const today = formatSofiaDate(nowDate);
+  const tomorrow = formatSofiaDate(addDays(nowDate, 1));
+  const eventDay = formatSofiaDate(festivalStartAt);
+
+  let body: string;
+  if (eventDay === today) {
+    const diffMs = festivalStartAt.getTime() - now;
+    const diffMin = Math.max(0, Math.round(diffMs / (1000 * 60)));
+    const h = Math.floor(diffMin / 60);
+    const m = diffMin % 60;
+    if (h > 0) {
+      body = `След ${h} ч${m ? ` ${m} мин` : ""}${cityPart}`;
+    } else {
+      body = `След ${m} мин${cityPart}`;
+    }
+  } else if (eventDay === tomorrow) {
+    body = `Утре${cityPart}`;
+  } else {
+    const dateLabel = formatDateBg(eventDay);
+    const datePart = dateLabel === "—" ? "" : dateLabel;
+    body = `${datePart}${cityPart}`;
+  }
+  const deep = buildDeepLink(args.festival.slug);
   const pr = priorityForJobType("reminder");
   return {
     type: "festival_reminder",
-    festival_id: args.festivalId,
-    slug: args.slug.trim(),
+    festival_id: args.festival.id,
+    slug: args.festival.slug.trim(),
     deep_link: deep,
-    title: args.title,
-    body: is24 ? "Фестивалът започва след 24 часа." : "Фестивалът започва след 2 часа.",
+    title,
+    body,
     source: "push",
-    notification_type: is24 ? "saved_festival_reminder_24h" : "saved_festival_reminder_2h",
+    notification_type: is2h ? "saved_festival_reminder_2h" : "saved_festival_reminder_24h",
     priority: pr,
+    reminder_festival_start_at: args.festivalStartAt.toISOString(),
   };
 }
 
@@ -155,7 +244,13 @@ export async function insertNotificationJobs(
         continue;
       }
 
-      const priority = row.priority ?? priorityForJobType(row.job_type);
+      let priority = row.priority ?? priorityForJobType(row.job_type);
+      if (row.job_type === "reminder") {
+        const fromStart = reminderPriorityFromFestivalStart(row.payload_json as Record<string, unknown>);
+        if (fromStart) {
+          priority = fromStart;
+        }
+      }
       filtered.push({
         ...row,
         priority,
@@ -164,7 +259,13 @@ export async function insertNotificationJobs(
     }
   } else {
     for (const row of rows) {
-      const priority = row.priority ?? priorityForJobType(row.job_type);
+      let priority = row.priority ?? priorityForJobType(row.job_type);
+      if (row.job_type === "reminder") {
+        const fromStart = reminderPriorityFromFestivalStart(row.payload_json as Record<string, unknown>);
+        if (fromStart) {
+          priority = fromStart;
+        }
+      }
       filtered.push({
         ...row,
         priority,
@@ -204,34 +305,74 @@ export async function insertNotificationJobs(
     return { inserted: 0, error: error.message, skippedRateLimit, skippedDedupe };
   }
 
-  return { inserted: data?.length ?? 0, error: null, skippedRateLimit, skippedDedupe };
+  const inserted = data?.length ?? 0;
+  if (inserted > 0 && data) {
+    console.log("[REMINDER INSERT]", { count: data.length });
+  }
+
+  return { inserted, error: null, skippedRateLimit, skippedDedupe };
 }
 
-/** Reminder times: 24h and 2h before festival start; skips past. */
+/** Reminder times: 24h and 2h before festival start; snaps into 08:00–22:00 Sofia; skips past and times at/after start. */
 export function computeSavedFestivalReminderTimes(
   startDate: string | null,
   now: Date,
   startTime?: string | null,
 ): { subkind: ReminderSubkind; scheduled_for: Date }[] {
   const start = getFestivalStartInstant(startDate, startTime ?? null);
-  if (!start) {
+  if (!start || Number.isNaN(start.getTime())) {
+    console.warn("[REMINDER INVALID START]", start);
     return [];
   }
 
-  if (start <= now) {
+  if (start.getTime() <= now.getTime()) {
     return [];
   }
 
-  const t24 = new Date(start.getTime() - 24 * 60 * 60 * 1000);
-  const t2 = new Date(start.getTime() - 2 * 60 * 60 * 1000);
-  const out: { subkind: ReminderSubkind; scheduled_for: Date }[] = [];
+  const t24 = subDays(start, 1);
+  const t2 = subHours(start, 2);
+  const raw: { subkind: ReminderSubkind; scheduled_for: Date }[] = [];
 
   if (t24 > now) {
-    out.push({ subkind: "24h", scheduled_for: t24 });
+    raw.push({ subkind: "24h", scheduled_for: t24 });
   }
   if (t2 > now) {
-    out.push({ subkind: "2h", scheduled_for: t2 });
+    raw.push({ subkind: "2h", scheduled_for: t2 });
   }
 
-  return out;
+  const normalized = raw.map((slot) => ({
+    ...slot,
+    scheduled_for: normalizeToDayHours(slot.scheduled_for),
+  }));
+
+  const uniqueMap = new Map<string, { subkind: ReminderSubkind; scheduled_for: Date }>();
+  for (const slot of normalized) {
+    const key = slot.scheduled_for.toISOString();
+
+    if (!uniqueMap.has(key)) {
+      uniqueMap.set(key, slot);
+    } else {
+      const existing = uniqueMap.get(key)!;
+      if (slot.scheduled_for < existing.scheduled_for) {
+        uniqueMap.set(key, slot);
+      } else if (
+        slot.scheduled_for.getTime() === existing.scheduled_for.getTime() &&
+        slot.subkind === "2h"
+      ) {
+        uniqueMap.set(key, slot);
+      }
+    }
+  }
+  let uniqueSlots = Array.from(uniqueMap.values());
+
+  uniqueSlots.sort((a, b) => a.scheduled_for.getTime() - b.scheduled_for.getTime());
+
+  if (uniqueSlots.length > 2) {
+    uniqueSlots = uniqueSlots.slice(0, 2);
+  }
+
+  return uniqueSlots.filter(
+    (s) =>
+      s.scheduled_for.getTime() > now.getTime() && s.scheduled_for.getTime() < start.getTime(),
+  );
 }

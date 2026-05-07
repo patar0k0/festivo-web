@@ -1,9 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import AdminOrganizerMemberRowActions from "@/components/admin/AdminOrganizerMemberRowActions";
 import AdminUserDetailActions from "@/components/admin/AdminUserDetailActions";
+import CopyUserIdButton from "@/components/admin/CopyUserIdButton";
 import { fetchAdminUserDetail, isAuthUserId, userIsBanned } from "@/lib/admin/adminUserDetail";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import RoleBadge from "@/components/admin/RoleBadge";
+import StatusBadge, { deriveUserDetailStatus } from "@/components/admin/StatusBadge";
+import { formatDistanceToNow } from "date-fns";
+import { bg } from "date-fns/locale";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +38,7 @@ const ORG_ROLE_LABEL: Record<string, string> = {
   owner: "Собственик",
   admin: "Админ",
   editor: "Редактор",
+  viewer: "Наблюдател",
 };
 
 function providerBadge(provider: string) {
@@ -56,7 +63,7 @@ function orgRoleLabel(role: string) {
 }
 
 const card =
-  "rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]";
+  "rounded-xl border border-gray-200 bg-white p-5 shadow-sm";
 
 export default async function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -96,11 +103,18 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
   }
 
   const prov = providerBadge(detail.provider);
-  const banned = userIsBanned({ banned_until: detail.banned_until });
+  const banned = userIsBanned(detail);
   const hasActiveOrganizer = detail.organizer_memberships.some((m) => m.status === "active");
   const fullNameRaw = detail.user_metadata["full_name"];
   const displayName =
     typeof fullNameRaw === "string" && fullNameRaw.trim() ? fullNameRaw.trim() : null;
+
+  const lastSeenHuman = detail.last_sign_in_at
+    ? formatDistanceToNow(new Date(detail.last_sign_in_at), { addSuffix: true, locale: bg })
+    : null;
+
+  const showHardDelete = process.env.NODE_ENV === "development";
+  const isDeleted = Boolean(detail.deleted_at);
 
   return (
     <div className="space-y-4">
@@ -112,8 +126,16 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
           ← Към потребителите
         </Link>
         <h1 className="mt-3 text-2xl font-black tracking-tight">Потребител</h1>
-        <p className="mt-0.5 break-all font-mono text-xs text-black/50">{detail.id}</p>
-        <h2 className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Акаунт</h2>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <p className="break-all font-mono text-xs text-black/50">{detail.id}</p>
+          <CopyUserIdButton id={detail.id} />
+        </div>
+        {detail.is_admin ? (
+          <span className="mt-2 inline-flex items-center rounded px-2 py-0.5 text-[11px] font-black uppercase tracking-[0.12em] bg-violet-600 text-white ring-1 ring-violet-700/40">
+            Администраторски акаунт
+          </span>
+        ) : null}
+        <h2 className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-black/45">1. Акаунт</h2>
         <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">Имейл</dt>
@@ -138,8 +160,15 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
           </div>
           <div>
             <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">Последен вход</dt>
-            <dd className="mt-0.5 text-black/75">
-              {detail.last_sign_in_at ? new Date(detail.last_sign_in_at).toLocaleString("bg-BG") : "Никога"}
+            <dd className="mt-0.5 text-black/75" title={detail.last_sign_in_at ? new Date(detail.last_sign_in_at).toLocaleString("bg-BG") : undefined}>
+              {detail.last_sign_in_at ? (
+                <>
+                  {new Date(detail.last_sign_in_at).toLocaleString("bg-BG")}
+                  {lastSeenHuman ? <span className="ml-1.5 text-xs text-black/50">({lastSeenHuman})</span> : null}
+                </>
+              ) : (
+                "Никога"
+              )}
             </dd>
           </div>
           <div className="sm:col-span-2">
@@ -155,30 +184,31 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
             </dd>
           </div>
           <div className="sm:col-span-2">
-            <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">Блокиране</dt>
-            <dd className="mt-0.5 text-black/75">
-              {banned && detail.banned_until ? (
-                <>Активно до {new Date(detail.banned_until).toLocaleString("bg-BG")}</>
-              ) : (
-                "Не е блокиран"
-              )}
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">Статус</dt>
+            <dd className="mt-0.5 flex flex-wrap items-center gap-2 gap-y-1">
+              <StatusBadge kind={deriveUserDetailStatus({ deletedAt: detail.deleted_at, banned })} />
+              {banned && detail.banned_until && !isDeleted ? (
+                <span className="text-xs text-gray-600">
+                  до {new Date(detail.banned_until).toLocaleString("bg-BG")}
+                </span>
+              ) : null}
+              {detail.cleanup_pending || detail.sweep_retry_pending ? (
+                <span
+                  className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-amber-100 text-amber-950 ring-1 ring-amber-200/90"
+                  title="Очаква се или се изпълнява повторно изчистване на данни след изтриване на акаунта."
+                >
+                  Изчистване (опашка)
+                </span>
+              ) : null}
             </dd>
           </div>
         </dl>
       </section>
 
       <section className={card}>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Роли и достъп</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {detail.is_admin ? (
-            <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-violet-100 text-violet-950 ring-1 ring-violet-200/90">
-              Администратор: да
-            </span>
-          ) : (
-            <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-black/[0.04] text-black/60 ring-1 ring-black/[0.08]">
-              Администратор: не
-            </span>
-          )}
+        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">2. Права (роля)</h2>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <RoleBadge role={detail.app_role} />
           {hasActiveOrganizer ? (
             <span className="inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/90">
               Портал организатор: да
@@ -192,11 +222,11 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
       </section>
 
       <section className={card}>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Организаторски връзки</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">3. Организации</h2>
         {detail.organizer_memberships.length === 0 ? (
           <p className="mt-3 text-sm text-black/60">Няма организаторски връзки</p>
         ) : (
-          <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.08]">
+          <div className="mt-3 overflow-hidden rounded-xl border border-gray-200">
             <table className="min-w-full text-sm">
               <thead className="bg-black/[0.03] text-left text-xs uppercase tracking-[0.12em] text-black/55">
                 <tr>
@@ -205,6 +235,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
                   <th className="px-3 py-2">Статус</th>
                   <th className="px-3 py-2">Присъединен</th>
                   <th className="px-3 py-2">Контакт (вериф.)</th>
+                  <th className="px-3 py-2">Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,7 +243,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
                   const st = memberStatusBadge(m.status);
                   return (
                     <tr key={m.id} className="border-t border-black/[0.06]">
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 align-top">
                         <Link
                           href={`/admin/organizers/${m.organizer_id}/edit`}
                           className="font-semibold text-[#0c0e14] underline-offset-2 hover:underline"
@@ -220,20 +251,27 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
                           {m.organizer_name}
                         </Link>
                       </td>
-                      <td className="px-3 py-2 text-black/75">{orgRoleLabel(m.role)}</td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 align-top text-black/75">{orgRoleLabel(m.role)}</td>
+                      <td className="px-3 py-2 align-top">
                         <span
                           className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight ${st.className}`}
                         >
                           {st.text}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-black/70">
+                      <td className="px-3 py-2 align-top text-black/70">
                         {m.created_at ? new Date(m.created_at).toLocaleString("bg-BG") : "—"}
                       </td>
-                      <td className="px-3 py-2 text-xs text-black/65">
+                      <td className="px-3 py-2 align-top text-xs text-black/65">
                         <div className="break-all">{m.contact_email?.trim() || "—"}</div>
                         <div className="mt-0.5">{m.contact_phone?.trim() || "—"}</div>
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <AdminOrganizerMemberRowActions
+                          membershipId={m.id}
+                          currentRole={m.role}
+                          disabled={isDeleted || m.status === "revoked"}
+                        />
                       </td>
                     </tr>
                   );
@@ -245,12 +283,27 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
       </section>
 
       <section className={card}>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Активност</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">4. Активност</h2>
         <ul className="mt-3 space-y-1.5 text-sm text-black/75">
           <li>Запазени фестивали: {detail.plan_festivals_count}</li>
           <li>Напомняния: {detail.plan_reminders_count}</li>
           <li>Push известия изпратени: {detail.notifications_count}</li>
         </ul>
+        <h3 className="mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45">Скорошни админ действия (като изпълнител)</h3>
+        {detail.recent_audit.length === 0 ? (
+          <p className="mt-2 text-sm text-black/55">Няма записи в одитния дневник за този потребител.</p>
+        ) : (
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {detail.recent_audit.map((a) => (
+              <li key={a.id} className="border-t border-black/[0.05] pt-1.5 first:border-t-0 first:pt-0">
+                <span className="font-medium text-[#0c0e14]">{a.action}</span>
+                <span className="text-black/50"> · {a.entity_type}</span>
+                {a.route ? <span className="text-xs text-black/45"> · {a.route}</span> : null}
+                <div className="text-xs text-black/50">{new Date(a.created_at).toLocaleString("bg-BG")}</div>
+              </li>
+            ))}
+          </ul>
+        )}
         <h3 className="mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45">Устройства</h3>
         {detail.device_tokens.length === 0 ? (
           <p className="mt-2 text-sm text-black/55">Няма регистрирани устройства</p>
@@ -284,13 +337,17 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
       </section>
 
       <section className={card}>
-        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Админ действия</h2>
-        <div className="mt-3">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">5. Управление</h2>
+        <div className="mt-4">
           <AdminUserDetailActions
             userId={detail.id}
+            email={detail.email}
             banned={banned}
-            isAdmin={detail.is_admin}
+            appRole={detail.app_role}
+            deletedAt={detail.deleted_at}
+            emailConfirmed={Boolean(detail.email_confirmed_at)}
             currentAdminUserId={ctx.user.id}
+            showHardDelete={showHardDelete}
           />
         </div>
       </section>

@@ -1,9 +1,10 @@
 import { type SupabaseClient, type User } from "@supabase/supabase-js";
-import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type ReminderType = "none" | "24h" | "same_day_09";
+/** `default` = both push reminders (24h + 2h before start) for this saved festival. */
+export type ReminderType = "none" | "24h" | "same_day_09" | "default";
 
 export type PlanState = {
   scheduleItemIds: string[];
@@ -209,7 +210,7 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
 
   const { data: festivalRows } = await db
     .from("festivals")
-    .select("id,slug,title,cities:cities!left(name_bg,is_village)")
+    .select("id,slug,title,cities:cities!festivals_city_id_fkey(name_bg,is_village)")
     .in("id", festivalIds)
     .returns<FestivalRow[]>();
 
@@ -226,7 +227,7 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
     const joined = normalizePlanCityJoin(festival.cities);
     const cityLabel =
       joined?.name_bg?.trim() != null && joined.name_bg.trim() !== ""
-        ? festivalSettlementDisplayText(joined.name_bg, joined.is_village ?? false)
+        ? getCityLabel({ name_bg: fixMojibakeBG(joined.name_bg) })
         : null;
     entries.push({
       scheduleItemId: String(schedule.id),

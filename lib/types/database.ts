@@ -18,6 +18,20 @@ export type Database = {
           is_village?: boolean
         }
       }
+      settlement_unknowns: {
+        Row: {
+          id: string
+          name: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          name?: string
+        }
+      }
       festivals: {
         Row: {
           id: string
@@ -25,6 +39,7 @@ export type Database = {
           slug: string
           description: string
           city: string
+          city_slug: string | null
           city_id: number | null
           address: string | null
           start_date: string
@@ -39,6 +54,7 @@ export type Database = {
           is_verified: boolean
           lat: number | null
           lng: number | null
+          coords_override: boolean | null
           website_url: string | null
           ticket_url: string | null
           price_range: string | null
@@ -54,6 +70,7 @@ export type Database = {
           slug: string
           description: string
           city: string
+          city_slug?: string | null
           city_id?: number | null
           address?: string | null
           start_date: string
@@ -68,6 +85,7 @@ export type Database = {
           is_verified: boolean
           lat?: number | null
           lng?: number | null
+          coords_override?: boolean
           website_url?: string | null
           ticket_url?: string | null
           price_range?: string | null
@@ -83,6 +101,7 @@ export type Database = {
           slug?: string
           description?: string
           city?: string
+          city_slug?: string | null
           city_id?: number | null
           address?: string | null
           start_date?: string
@@ -97,6 +116,7 @@ export type Database = {
           is_verified?: boolean
           lat?: number | null
           lng?: number | null
+          coords_override?: boolean
           website_url?: string | null
           ticket_url?: string | null
           price_range?: string | null
@@ -404,22 +424,28 @@ export type Database = {
       }
       device_tokens: {
         Row: {
+          id: string
           user_id: string
           token: string
           platform?: string | null
           invalidated_at?: string | null
+          created_at?: string | null
         }
         Insert: {
+          id?: string
           user_id: string
           token: string
           platform?: string | null
           invalidated_at?: string | null
+          created_at?: string | null
         }
         Update: {
+          id?: string
           user_id?: string
           token?: string
           platform?: string | null
           invalidated_at?: string | null
+          created_at?: string | null
         }
       }
       email_events: {
@@ -470,6 +496,7 @@ export type Database = {
           attempts: number
           max_attempts: number
           scheduled_at: string
+          priority: string
           dedupe_key: string | null
           provider: string | null
           provider_message_id: string | null
@@ -497,6 +524,7 @@ export type Database = {
           attempts?: number
           max_attempts?: number
           scheduled_at?: string
+          priority?: string
           dedupe_key?: string | null
           provider?: string | null
           provider_message_id?: string | null
@@ -524,6 +552,7 @@ export type Database = {
           attempts?: number
           max_attempts?: number
           scheduled_at?: string
+          priority?: string
           dedupe_key?: string | null
           provider?: string | null
           provider_message_id?: string | null
@@ -742,6 +771,53 @@ export type Database = {
           error_message?: string | null
           created_at?: string
           updated_at?: string | null
+        }
+      }
+      /** Partial row shape; extend when regenerating from Supabase. */
+      pending_festivals: {
+        Row: {
+          id: string
+          coords_override: boolean | null
+        }
+        Insert: {
+          id?: string
+          coords_override?: boolean | null
+        }
+        Update: {
+          coords_override?: boolean | null
+        }
+      }
+      /** Shadow rows for admin soft-delete; optional row per auth user. */
+      users: {
+        Row: {
+          id: string
+          /** Mirrored from auth.users for DB-backed destructive confirmations. */
+          email: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_reason: string | null
+          cleanup_pending?: boolean
+          banned_until?: string | null
+          ban_sync_error?: boolean
+        }
+        Insert: {
+          id: string
+          email?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_reason?: string | null
+          cleanup_pending?: boolean
+          banned_until?: string | null
+          ban_sync_error?: boolean
+        }
+        Update: {
+          email?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_reason?: string | null
+          cleanup_pending?: boolean
+          banned_until?: string | null
+          ban_sync_error?: boolean
         }
       }
       user_roles: {

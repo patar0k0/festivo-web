@@ -5,8 +5,10 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { normalizeOrganizerName, pickOrganizerSlug } from "@/lib/admin/organizers";
 import { transliteratedSlug } from "@/lib/text/slug";
 import { logAdminAction } from "@/lib/admin/audit-log";
+import { normalizeImageToLocalStorage, takeOrganizerLogoUploadRateLimit } from "@/lib/admin/normalizeImageToLocalStorage";
 
 type OrganizerPayload = {
+  id?: string;
   name?: string;
   slug?: string;
   description?: string | null;
@@ -15,6 +17,20 @@ type OrganizerPayload = {
   facebook_url?: string | null;
   instagram_url?: string | null;
 };
+
+function getRequestIp(req: Request): string {
+  const xff = req.headers.get("x-forwarded-for");
+  const realIp = req.headers.get("x-real-ip");
+  const requestWithIp = req as Request & { ip?: string | null };
+
+  const ip =
+    xff?.split(",")[0]?.trim() ||
+    realIp ||
+    (typeof requestWithIp.ip === "string" ? requestWithIp.ip : undefined) ||
+    "unknown";
+
+  return ip;
+}
 
 export async function GET() {
   const ctx = await getAdminContext();
@@ -42,17 +58,6 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as OrganizerPayload;
-  const name = normalizeOrganizerName(body.name);
-
-  if (!name) {
-    return NextResponse.json({ error: "name is required" }, { status: 400 });
-  }
-
-  const slugBase = normalizeOrganizerName(body.slug) || transliteratedSlug(name);
-
-  if (!slugBase) {
-    return NextResponse.json({ error: "Could not generate slug" }, { status: 400 });
-  }
 
   let adminClient: SupabaseClient;
   try {
@@ -65,13 +70,42 @@ export async function POST(request: Request) {
 
   console.info("[admin/api/organizers][POST] Using service-role client for organizer insert");
 
+  const requestedId = typeof body.id === "string" ? body.id.trim() : "";
+  if (requestedId) {
+    const { data: existing } = await adminClient.from("organizers").select("id").eq("id", requestedId).maybeSingle();
+    if (existing) {
+      return NextResponse.json({ error: "Organizer already exists" }, { status: 409 });
+    }
+  }
+
+  const name = normalizeOrganizerName(body.name);
+
+  if (!name) {
+    return NextResponse.json({ error: "name is required" }, { status: 400 });
+  }
+
+  const requestedLogoUrl = normalizeOrganizerName(body.logo_url);
+  if (requestedLogoUrl) {
+    const requestIp = getRequestIp(request);
+    if (takeOrganizerLogoUploadRateLimit(requestIp)) {
+      return NextResponse.json({ error: "Too many logo uploads. Please try again later." }, { status: 429 });
+    }
+  }
+
+  const slugBase = normalizeOrganizerName(body.slug) || transliteratedSlug(name);
+
+  if (!slugBase) {
+    return NextResponse.json({ error: "Could not generate slug" }, { status: 400 });
+  }
+
   const slug = await pickOrganizerSlug(adminClient, slugBase);
 
   const payload = {
+    ...(requestedId ? { id: requestedId } : {}),
     name,
     slug,
     description: normalizeOrganizerName(body.description),
-    logo_url: normalizeOrganizerName(body.logo_url),
+    logo_url: requestedLogoUrl,
     website_url: normalizeOrganizerName(body.website_url),
     facebook_url: normalizeOrganizerName(body.facebook_url),
     instagram_url: normalizeOrganizerName(body.instagram_url),
@@ -80,7 +114,7 @@ export async function POST(request: Request) {
   const { data, error } = await adminClient
     .from("organizers")
     .insert(payload)
-    .select("id,name,slug")
+    .select("id,name,slug,logo_url")
     .single();
 
   if (error) {
@@ -89,6 +123,31 @@ export async function POST(request: Request) {
   }
 
   console.info("[admin/api/organizers][POST] Organizer insert succeeded", { organizerId: data.id });
+
+  if (data.logo_url) {
+    try {
+      const normalizedLogoUrl = await normalizeImageToLocalStorage(data.logo_url);
+      if (normalizedLogoUrl !== data.logo_url) {
+        const { error: logoUpdateError } = await adminClient
+          .from("organizers")
+          .update({ logo_url: normalizedLogoUrl })
+          .eq("id", data.id);
+
+        if (logoUpdateError) {
+          console.error("[admin/api/organizers][POST] Organizer logo URL normalization update failed", {
+            organizerId: data.id,
+            message: logoUpdateError.message,
+          });
+        }
+      }
+    } catch (logoError) {
+      const message = logoError instanceof Error ? logoError.message : "unknown";
+      console.error("[admin/api/organizers][POST] Organizer logo URL normalization failed", {
+        organizerId: data.id,
+        message,
+      });
+    }
+  }
 
   try {
     await logAdminAction({
@@ -108,5 +167,5 @@ export async function POST(request: Request) {
     console.error("[admin/audit] organizer.created failed", { message });
   }
 
-  return NextResponse.json({ row: data }, { status: 201 });
+  return NextResponse.json({ row: { id: data.id, name: data.name, slug: data.slug } }, { status: 201 });
 }

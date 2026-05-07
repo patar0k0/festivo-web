@@ -26,6 +26,10 @@ export type Festival = {
   lng?: number | null;
   latitude?: number | null;
   longitude?: number | null;
+  /** Google Maps place_id for exact POI links when coordinates are ambiguous. */
+  place_id?: string | null;
+  /** Admin manual pin: when true, lat/lng must not be replaced by ingest or geocode resolution. */
+  coords_override?: boolean | null;
   ticket_url?: string | null;
   price_range?: string | null;
   /** External YouTube/Facebook page URL for optional embedded video (not gallery media). */
@@ -33,8 +37,11 @@ export type Festival = {
   website_url?: string | null;
   source_url?: string | null;
   source_type?: string | null;
+  /** Last admin-saved program (JSON). May mirror `festival_days` + `festival_schedule_items`. */
+  program_draft?: unknown;
   tags?: string[] | null;
   status?: string | null;
+  is_verified?: boolean | null;
   promotion_status?: "normal" | "promoted" | null;
   promotion_started_at?: string | null;
   promotion_expires_at?: string | null;
@@ -60,6 +67,8 @@ export type Festival = {
     sort_order?: number | null;
   }> | null;
   festival_media?: Array<Partial<FestivalMediaItem> & { is_primary?: boolean | null }> | null;
+  /** Populated by `getFestivals` via `user_plan_festivals(count)`; global save count, not per-user. */
+  saves_count?: number;
 };
 
 export type FestivalMediaItem = {

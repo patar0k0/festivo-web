@@ -29,8 +29,10 @@ import { absoluteSiteUrl } from "@/lib/email/emailUrls";
 import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { formatBgDateFromIso } from "@/lib/email/formatBg";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
-import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { getCityLabel } from "@/lib/settlements/getCityLabel";
+import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { ensureFestivalHasImage } from "@/lib/festival/ensureFestivalHasImage";
+import { slugifyCity } from "@/lib/text/slugifyCity";
 
 type CityRow = {
   id: number;
@@ -88,10 +90,11 @@ type PendingFestivalRow = {
   submission_source?: string | null;
   city_name_display?: string | null;
   city_guess?: string | null;
+  coords_override?: boolean | null;
 };
 
 const PENDING_APPROVE_SELECT =
-  "id,title,slug,description,description_short,category,city_id,location_name,address,latitude,longitude,place_id,geocode_provider,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls,program_draft,submitted_by_user_id,submission_source,city_name_display,city_guess";
+  "id,title,slug,description,description_short,category,city_id,location_name,address,latitude,longitude,coords_override,place_id,geocode_provider,start_date,end_date,start_time,end_time,occurrence_dates,organizer_id,organizer_name,organizer_entries,source_url,source_type,source_primary_url,source_count,evidence_json,verification_status,verification_score,extraction_version,website_url,ticket_url,price_range,is_free,hero_image,tags,status,video_url,gallery_image_urls,program_draft,submitted_by_user_id,submission_source,city_name_display,city_guess";
 
 async function resolveOrganizerIdsForPublish(
   adminSupabase: SupabaseClient,
@@ -528,6 +531,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       occurrence_dates: pending.occurrence_dates ?? null,
       slug: finalSlug,
       city: cityText || null,
+      city_slug: cityText ? slugifyCity(cityText) : null,
       city_id: cityId,
       address: normalizedAddress || null,
       category: canonicalApproved.category ?? "festival",
@@ -548,6 +552,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       video_url: videoUrlForPublish,
       place_id: pending.place_id,
       geocode_provider: pending.geocode_provider,
+      coords_override: pending.coords_override === true,
     };
 
     console.info(`[pending-approve] pending_id=${id} festivals insert payload keys=${Object.keys(insertPayload).join(",")}`);
@@ -652,9 +657,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const cityDisplay =
-      festivalSettlementDisplayText(cityById.name_bg, cityById.is_village ?? undefined) ??
-      pending.city_name_display?.trim() ??
-      null;
+      cityById.name_bg?.trim() != null && cityById.name_bg.trim() !== ""
+        ? getCityLabel({ name_bg: fixMojibakeBG(cityById.name_bg) })
+        : pending.city_name_display?.trim() ?? null;
 
     if (pending.submission_source === "organizer_portal" && pending.submitted_by_user_id) {
       try {

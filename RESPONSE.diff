@@ -1,0 +1,882 @@
+diff --git a/app/cities/[slug]/page.tsx b/app/cities/[slug]/page.tsx
+index 8275ff8..e63adda 100644
+--- a/app/cities/[slug]/page.tsx
++++ b/app/cities/[slug]/page.tsx
+@@ -9,7 +9,8 @@ import { cityHref } from "@/lib/cities";
+ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+ import { parseFilters, serializeFilters, withDefaultFilters } from "@/lib/filters";
+ import { listFestivals } from "@/lib/festivals";
+-import { festivalCityLabel, festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
++import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
++import { formatSettlementLocationLines } from "@/lib/settlements/formatLocation";
+ import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
+ import { getBaseUrl } from "@/lib/seo";
+ import { createSupabaseServerClient } from "@/lib/supabase/server";
+@@ -61,12 +62,12 @@ export async function generateMetadata({
+ }) {
+   const { slug } = await params;
+   const { city, rawTrimmed } = await resolveCityByParam(slug);
++  const cityLines = city != null ? formatSettlementLocationLines(city.name_bg, city.is_village) : null;
+   const cityName =
+-    city != null
+-      ? festivalSettlementDisplayText(city.name_bg, city.is_village) ?? city.name_bg
+-      : rawTrimmed;
++    city != null ? (cityLines?.geoLine ?? city.name_bg) : rawTrimmed;
++  const cityTitlePrimary = city != null ? (cityLines?.primary ?? city.name_bg) : rawTrimmed;
+   const canonicalSlug = city?.slug ?? rawTrimmed;
+-  const title = `Фестивали в ${cityName} | Festivo`;
++  const title = `Фестивали в ${cityTitlePrimary} | Festivo`;
+   const description = `Открий предстоящи фестивали и събития в ${cityName}. Запази в план и получавай напомняния.`;
+ 
+   return {
+@@ -96,7 +97,9 @@ export default async function CityLandingPage({
+     permanentRedirect(cityHref(city.slug));
+   }
+ 
+-  const cityName = festivalSettlementDisplayText(city.name_bg, city.is_village) ?? city.name_bg;
++  const cityLines = formatSettlementLocationLines(city.name_bg, city.is_village);
++  const cityName = cityLines?.primary ?? city.name_bg;
++  const citySubline = cityLines?.secondary;
+   const citySlug = city.slug;
+ 
+   const parsedFilters = parseFilters(resolvedSearchParams);
+@@ -164,8 +167,11 @@ export default async function CityLandingPage({
+             <section className={cn(pub.panelHero, "p-6 md:p-8")}>
+               <p className={pub.eyebrowMuted}>Градска страница</p>
+               <h1 className={cn(pub.pageTitle, "mt-2")}>Фестивали в {cityName}</h1>
++              {citySubline ? (
++                <p className="mt-1 text-sm text-black/50">{citySubline}</p>
++              ) : null}
+               <p className={cn(pub.body, "mt-3 max-w-2xl text-black/60")}>
+-                Безплатни събития, дати и програма. Открий предстоящи фестивали и събития в {cityName}. Запази в план и получавай напомняния.
++                Безплатни събития, дати и програма. Открий предстоящи фестивали и събития в {cityLines?.geoLine ?? city.name_bg}. Запази в план и получавай напомняния.
+               </p>
+ 
+               <div className="mt-5 flex flex-wrap gap-2">
+@@ -230,7 +236,8 @@ export default async function CityLandingPage({
+                       <EventCard
+                         key={festival.slug}
+                         title={festival.title}
+-                        city={festivalCityLabel(festival, "")}
++                        city={festivalLocationPrimary(festival, "")}
++                        citySecondary={festivalLocationSecondary(festival)}
+                         category={festival.category}
+                         imageUrl={getFestivalHeroImage(festival)}
+                         startDate={festival.start_date}
+diff --git a/app/festivals/page.tsx b/app/festivals/page.tsx
+index 03fb0c1..85e33a6 100644
+--- a/app/festivals/page.tsx
++++ b/app/festivals/page.tsx
+@@ -12,7 +12,7 @@ import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategorie
+ import { listFestivals, listHomeCitySelectOptions } from "@/lib/festivals";
+ import { parseFilters, withDefaultFilters } from "@/lib/filters";
+ import { getBaseUrl, listMeta } from "@/lib/seo";
+-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
++import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+ import { Festival } from "@/lib/types";
+ import { cn } from "@/lib/utils";
+ import { pub } from "@/lib/public-ui/styles";
+@@ -159,7 +159,8 @@ export default async function FestivalsPage({ searchParams }: { searchParams: Pa
+                     <EventCard
+                       key={festival.slug}
+                       title={festival.title}
+-                      city={festivalCityLabel(festival, "")}
++                      city={festivalLocationPrimary(festival, "")}
++                      citySecondary={festivalLocationSecondary(festival)}
+                       category={festival.category}
+                       imageUrl={getFestivalHeroImage(festival)}
+                       startDate={festival.start_date}
+diff --git a/app/organizers/[slug]/page.tsx b/app/organizers/[slug]/page.tsx
+index 8d5ad86..ca06698 100644
+--- a/app/organizers/[slug]/page.tsx
++++ b/app/organizers/[slug]/page.tsx
+@@ -3,7 +3,11 @@ import Link from "next/link";
+ import Container from "@/components/ui/Container";
+ import Section from "@/components/ui/Section";
+ import EventCard from "@/components/ui/EventCard";
+-import { festivalCityLabel, organizerPageLocationLabel } from "@/lib/settlements/formatDisplayName";
++import {
++  festivalLocationPrimary,
++  festivalLocationSecondary,
++  organizerPageLocationLabel,
++} from "@/lib/settlements/formatDisplayName";
+ import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
+ import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
+ import OrganizerProfileAbout from "@/components/organizers/OrganizerProfileAbout";
+@@ -337,7 +341,8 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
+                           <EventCard
+                             key={festival.id}
+                             title={festival.title}
+-                            city={festivalCityLabel(festival, "")}
++                            city={festivalLocationPrimary(festival, "")}
++                            citySecondary={festivalLocationSecondary(festival)}
+                             category={festival.category}
+                             imageUrl={getFestivalHeroImage(festival)}
+                             startDate={festival.start_date}
+@@ -362,7 +367,8 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
+                           <EventCard
+                             key={festival.id}
+                             title={festival.title}
+-                            city={festivalCityLabel(festival, "")}
++                            city={festivalLocationPrimary(festival, "")}
++                            citySecondary={festivalLocationSecondary(festival)}
+                             category={festival.category}
+                             imageUrl={getFestivalHeroImage(festival)}
+                             startDate={festival.start_date}
+diff --git a/app/plan/page.tsx b/app/plan/page.tsx
+index 5345b6f..55e3240 100644
+--- a/app/plan/page.tsx
++++ b/app/plan/page.tsx
+@@ -58,7 +58,7 @@ function mapPlanFestivalRow(row: {
+     slug: row.slug,
+     title: row.title,
+     city: joined?.name_bg?.trim()
+-      ? festivalSettlementDisplayText(joined.name_bg, joined.is_village ?? false)
++      ? festivalSettlementDisplayText(joined.name_bg, joined.is_village)
+       : null,
+     start_date: row.start_date,
+     end_date: row.end_date,
+diff --git a/components/FestivalCard.tsx b/components/FestivalCard.tsx
+index e13e0f8..074912e 100644
+--- a/components/FestivalCard.tsx
++++ b/components/FestivalCard.tsx
+@@ -1,7 +1,7 @@
+ import EventCard from "@/components/ui/EventCard";
+ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+ import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
+-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
++import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+ import { Festival } from "@/lib/types";
+ import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
+ 
+@@ -10,7 +10,8 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
+   return (
+     <EventCard
+       title={festival.title}
+-      city={festivalCityLabel(festival, "")}
++      city={festivalLocationPrimary(festival, "")}
++      citySecondary={festivalLocationSecondary(festival)}
+       category={festival.category}
+       imageUrl={getFestivalHeroImage(festival)}
+       startDate={festival.start_date}
+diff --git a/components/FestivalGrid.tsx b/components/FestivalGrid.tsx
+index 30b27b8..b7acde8 100644
+--- a/components/FestivalGrid.tsx
++++ b/components/FestivalGrid.tsx
+@@ -4,7 +4,7 @@ import { format, parseISO } from "date-fns";
+ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+ import { formatFestivalDateLineShort, primaryFestivalDate } from "@/lib/festival/listingDates";
+ import { getFestivalTemporalState } from "@/lib/festival/temporal";
+-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
++import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+ import { categoryLabel } from "@/lib/festival/categoryLabel";
+ import { Festival } from "@/lib/types";
+ 
+@@ -49,7 +49,16 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
+             <div className="space-y-3 p-5">
+               <div className="text-[17px] font-semibold tracking-[-0.2px]">{festival.title}</div>
+               <div className="text-sm text-[color:var(--muted)]">
+-                {[festivalCityLabel(festival, "").trim(), formatFestivalDateLineShort(festival)].filter(Boolean).join(" · ")}
++                <div>
++                  {[festivalLocationPrimary(festival, "").trim(), formatFestivalDateLineShort(festival)]
++                    .filter(Boolean)
++                    .join(" · ")}
++                </div>
++                {festivalLocationSecondary(festival) ? (
++                  <div className="mt-0.5 text-xs text-[color:var(--muted)]/80">
++                    {festivalLocationSecondary(festival)}
++                  </div>
++                ) : null}
+               </div>
+               <div className="flex flex-wrap gap-2">
+                 {temporalChip ? (
+diff --git a/components/FestivalHero.tsx b/components/FestivalHero.tsx
+index 352d26b..59aedbf 100644
+--- a/components/FestivalHero.tsx
++++ b/components/FestivalHero.tsx
+@@ -2,7 +2,11 @@ import FallbackImage from "@/components/ui/FallbackImage";
+ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+ import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
+ import { formatPublicFestivalLocationSummary } from "@/lib/festival/publicLocationDisplay";
+-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
++import {
++  festivalCityLabel,
++  festivalLocationPrimary,
++  festivalLocationSecondary,
++} from "@/lib/settlements/formatDisplayName";
+ import { Festival } from "@/lib/types";
+ import OpenInAppButton from "@/components/OpenInAppButton";
+ import QRCodeBlock from "@/components/QRCodeBlock";
+@@ -27,9 +31,18 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
+       </div>
+       <div className="relative z-10 grid gap-8 p-8 text-white md:grid-cols-[1.2fr_0.8fr]">
+         <div className="space-y-4">
+-          <p className="text-xs uppercase tracking-[0.3em] text-white/70">
+-            {[festivalCityLabel(festival, "").trim(), formatFestivalDateLineShort(festival)].filter(Boolean).join(" · ")}
+-          </p>
++          <div className="text-xs uppercase tracking-[0.3em] text-white/70">
++            <p>
++              {[festivalLocationPrimary(festival, "").trim(), formatFestivalDateLineShort(festival)]
++                .filter(Boolean)
++                .join(" · ")}
++            </p>
++            {festivalLocationSecondary(festival) ? (
++              <p className="mt-1 normal-case tracking-normal text-[11px] text-white/60">
++                {festivalLocationSecondary(festival)}
++              </p>
++            ) : null}
++          </div>
+           <h1 className="text-3xl font-semibold md:text-5xl">{festival.title}</h1>
+           {festival.is_free && <span className="badge bg-white/90 text-ink">Free</span>}
+           <div className="flex flex-wrap items-center gap-4">
+diff --git a/components/FestivalLocation.tsx b/components/FestivalLocation.tsx
+index 7684c7d..a92e99a 100644
+--- a/components/FestivalLocation.tsx
++++ b/components/FestivalLocation.tsx
+@@ -1,12 +1,14 @@
+ import { formatPublicFestivalLocationSummary } from "@/lib/festival/publicLocationDisplay";
+-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
++import { getFestivalLocationLines } from "@/lib/settlements/formatDisplayName";
+ import { Festival } from "@/lib/types";
+ 
+ export default function FestivalLocation({ festival }: { festival: Festival }) {
+   const summary = formatPublicFestivalLocationSummary(festival);
+-  const cityL = festivalCityLabel(festival, "");
+-  if (!summary && !cityL && !festival.city_name_display) return null;
+-  const display = [summary, cityL].filter(Boolean).join(", ");
++  const loc = getFestivalLocationLines(festival, "");
++  const cityPrimary = loc.primary.trim();
++  const citySub = loc.secondary?.trim() ?? "";
++  if (!summary && !cityPrimary && !festival.city_name_display) return null;
++  const display = [summary, loc.geoLine.trim() || cityPrimary].filter(Boolean).join(", ");
+   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(display)}`;
+ 
+   return (
+@@ -14,7 +16,15 @@ export default function FestivalLocation({ festival }: { festival: Festival }) {
+       <h2 className="text-xl font-semibold">Къде</h2>
+       <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
+         <div className="rounded-2xl border border-ink/10 bg-white/70 p-5">
+-          <p className="text-sm text-muted">{display}</p>
++          <div className="text-sm text-muted">
++            {summary ? <p>{summary}</p> : null}
++            {cityPrimary ? (
++              <>
++                <p className={summary ? "mt-2 font-medium text-ink/90" : ""}>{cityPrimary}</p>
++                {citySub ? <p className="mt-0.5 text-xs text-muted">{citySub}</p> : null}
++              </>
++            ) : null}
++          </div>
+           <a
+             href={mapUrl}
+             target="_blank"
+diff --git a/components/MapResultsList.tsx b/components/MapResultsList.tsx
+index 4723f71..21136e5 100644
+--- a/components/MapResultsList.tsx
++++ b/components/MapResultsList.tsx
+@@ -6,7 +6,7 @@ import EventCard from "@/components/ui/EventCard";
+ import { pub } from "@/lib/public-ui/styles";
+ import { cn } from "@/lib/utils";
+ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
++import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+ import { Festival } from "@/lib/types";
+ import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
+ 
+@@ -56,7 +56,8 @@ export default function MapResultsList({
+           >
+             <EventCard
+               title={festival.title}
+-              city={festivalCityLabel(festival, "")}
++              city={festivalLocationPrimary(festival, "")}
++              citySecondary={festivalLocationSecondary(festival)}
+               category={festival.category}
+               imageUrl={getFestivalHeroImage(festival)}
+               startDate={festival.start_date}
+diff --git a/components/MapView.tsx b/components/MapView.tsx
+index 884b1b4..8de5765 100644
+--- a/components/MapView.tsx
++++ b/components/MapView.tsx
+@@ -7,7 +7,7 @@ import L from "leaflet";
+ import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
+ import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
+ import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
+-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
++import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+ import { Festival } from "@/lib/types";
+ 
+ type FocusCoords = {
+@@ -102,7 +102,10 @@ export default function MapView({
+             <Popup>
+               <div className="space-y-1">
+                 <p className="text-sm font-semibold">{festival.title}</p>
+-                <p className="text-xs text-muted">{festivalCityLabel(festival, "")}</p>
++                <p className="text-xs text-muted">{festivalLocationPrimary(festival, "")}</p>
++                {festivalLocationSecondary(festival) ? (
++                  <p className="text-[10px] text-muted/90">{festivalLocationSecondary(festival)}</p>
++                ) : null}
+                 <p className="text-xs text-muted">{formatFestivalDateLineShort(festival)}</p>
+                 <Link href={`/festivals/${festival.slug}`} className="text-xs font-semibold text-ink">
+                   Виж
+@@ -132,7 +135,10 @@ export default function MapView({
+         <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[500]">
+           <div className="pointer-events-auto rounded-xl border border-black/[0.08] bg-white/95 p-3 shadow-[0_2px_0_rgba(12,14,20,0.06),0_14px_30px_rgba(12,14,20,0.16)] backdrop-blur">
+             <p className="text-sm font-semibold text-[#0c0e14]">{selectedFestival.title}</p>
+-            <p className="mt-0.5 text-xs text-black/60">{festivalCityLabel(selectedFestival, "")}</p>
++            <p className="mt-0.5 text-xs text-black/60">{festivalLocationPrimary(selectedFestival, "")}</p>
++            {festivalLocationSecondary(selectedFestival) ? (
++              <p className="text-[10px] text-black/50">{festivalLocationSecondary(selectedFestival)}</p>
++            ) : null}
+             <p className="text-xs text-black/55">{formatFestivalDateLineShort(selectedFestival)}</p>
+             <Link
+               href={`/festivals/${selectedFestival.slug}`}
+diff --git a/components/calendar/DayEventsList.tsx b/components/calendar/DayEventsList.tsx
+index 09b518e..d9252f5 100644
+--- a/components/calendar/DayEventsList.tsx
++++ b/components/calendar/DayEventsList.tsx
+@@ -1,7 +1,7 @@
+ import Link from "next/link";
+ import { parseISO } from "date-fns";
+ import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
+-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
++import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+ import { cn } from "@/lib/utils";
+ import { pub } from "@/lib/public-ui/styles";
+ import { getFestivalTemporalState } from "@/lib/festival/temporal";
+@@ -45,7 +45,16 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
+             >
+               <p className="text-base font-semibold text-[#0c0e14]">{festival.title}</p>
+               <p className="mt-1 text-sm text-black/60">
+-                {[festivalCityLabel(festival, "").trim(), formatFestivalDateLineShort(festival)].filter(Boolean).join(" · ")}
++                <span>
++                  {[festivalLocationPrimary(festival, "").trim(), formatFestivalDateLineShort(festival)]
++                    .filter(Boolean)
++                    .join(" · ")}
++                </span>
++                {festivalLocationSecondary(festival) ? (
++                  <span className="mt-0.5 block text-[11px] text-black/50">
++                    {festivalLocationSecondary(festival)}
++                  </span>
++                ) : null}
+               </p>
+               <div className="mt-2 flex flex-wrap items-center gap-2">
+                 {temporalChip ? (
+diff --git a/components/festival/FestivalDetailClient.tsx b/components/festival/FestivalDetailClient.tsx
+index 2f62030..9a302bd 100644
+--- a/components/festival/FestivalDetailClient.tsx
++++ b/components/festival/FestivalDetailClient.tsx
+@@ -21,7 +21,7 @@ import FestivalQuickFactsStrip from "@/components/festival/FestivalQuickFactsStr
+ import FestivalAppCta from "@/components/festival/FestivalAppCta";
+ import FestivalAccommodationSection from "@/components/festival/FestivalAccommodationSection";
+ import FestivalNearbyBookingCard from "@/components/festival/FestivalNearbyBookingCard";
+-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
++import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+ import {
+   formatPublicFestivalLocationSummary,
+   getCompactMetaLocationBeyondCity,
+@@ -315,15 +315,17 @@ export default function FestivalDetailClient({
+   const showPriceRange = Boolean(priceRange) && !showFreeBadge;
+   const showDescriptionSection = Boolean(descriptionText) || tags.length > 0 || showPriceRange || showFreeBadge;
+   const priceInQuickFactsStrip = showFreeBadge || showPriceRange;
+-  const cityName = festivalCityLabel(festival, "");
++  const cityPrimary = festivalLocationPrimary(festival, "");
++  const citySecondaryLine = festivalLocationSecondary(festival);
+   const locationSummary = formatPublicFestivalLocationSummary(festival);
+   const locationBeyondCity =
+     locationSummary &&
+-    (!cityName || normalizeFestivalLocationText(locationSummary) !== normalizeFestivalLocationText(cityName))
++    (!cityPrimary ||
++      normalizeFestivalLocationText(locationSummary) !== normalizeFestivalLocationText(cityPrimary))
+       ? locationSummary
+       : "";
+-  const compactLocationBeyondCity = getCompactMetaLocationBeyondCity(festival, cityName);
+-  const cityOrLocationText = [cityName, compactLocationBeyondCity].filter(Boolean).join(" · ");
++  const compactLocationBeyondCity = getCompactMetaLocationBeyondCity(festival, cityPrimary);
++  const cityOrLocationText = [cityPrimary, compactLocationBeyondCity].filter(Boolean).join(" · ");
+   const hasProgramContent = groupedDays.some((day) => day.items.length > 0);
+   const mediaItems = useMemo<MediaItem[]>(
+     () => [
+@@ -339,20 +341,26 @@ export default function FestivalDetailClient({
+   const icsHref = `/festival/${festival.slug}/ics`;
+   const timeLine = earliestScheduleTime(scheduleItems);
+   const quickFactSegments = useMemo(() => {
+-    const segments: { key: string; label: string; value: string }[] = [];
+-    const whereValue = [cityName, compactLocationBeyondCity].filter(Boolean).join(" · ");
+-    if (whereValue) segments.push({ key: "where", label: "Къде", value: whereValue });
++    const segments: { key: string; label: string; value: string; valueSub?: string | null }[] = [];
++    const whereValue = [cityPrimary, compactLocationBeyondCity].filter(Boolean).join(" · ");
++    if (whereValue)
++      segments.push({
++        key: "where",
++        label: "Къде",
++        value: whereValue,
++        valueSub: citySecondaryLine,
++      });
+     if (formattedDateRange) segments.push({ key: "date", label: "Дата", value: formattedDateRange });
+     if (timeLine) segments.push({ key: "time", label: "Час", value: `от ${timeLine}` });
+     if (showFreeBadge) segments.push({ key: "price", label: "Вход", value: "Безплатно" });
+     else if (showPriceRange) segments.push({ key: "price", label: "Цена", value: priceRange });
+     return segments;
+-  }, [cityName, compactLocationBeyondCity, formattedDateRange, timeLine, showFreeBadge, showPriceRange, priceRange]);
++  }, [cityPrimary, citySecondaryLine, compactLocationBeyondCity, formattedDateRange, timeLine, showFreeBadge, showPriceRange, priceRange]);
+ 
+   const displayOrganizers = buildDisplayOrganizers(festival);
+   const showOrganizer = displayOrganizers.length > 0;
+   const showInfoSection = Boolean(formattedDateRange || locationSummary || showOrganizer);
+-  const showMapSection = Boolean(mapEmbedSrc && mapHref && (cityName || locationSummary));
++  const showMapSection = Boolean(mapEmbedSrc && mapHref && (cityPrimary || locationSummary));
+   const hasCtaButtons = Boolean(festival.website_url || festival.ticket_url);
+   const nearbyBookingPlace = cityOrLocationText.trim();
+   const mapLocationBlurb = locationBeyondCity || null;
+@@ -827,7 +835,7 @@ export default function FestivalDetailClient({
+           {relatedFestivals.length ? (
+             <section className="space-y-4">
+               <div className="flex flex-wrap items-center justify-between gap-3">
+-                <h2 className={pub.sectionTitle}>Още фестивали в {cityName || "региона"}</h2>
++                <h2 className={pub.sectionTitle}>Още фестивали в {cityPrimary || "региона"}</h2>
+                 <div className="flex flex-wrap gap-3 text-sm font-medium text-black/90">
+                   {citySlug ? (
+                     <Link
+@@ -852,7 +860,8 @@ export default function FestivalDetailClient({
+                   <Link key={item.slug} href={`/festivals/${item.slug}`} className="block">
+                     <EventCard
+                       title={item.title}
+-                      city={festivalCityLabel(item, "")}
++                      city={festivalLocationPrimary(item, "")}
++                      citySecondary={festivalLocationSecondary(item)}
+                       category={item.category}
+                       imageUrl={getFestivalHeroImage(item)}
+                       startDate={primaryFestivalDate(item)}
+@@ -1112,18 +1121,21 @@ export default function FestivalDetailClient({
+             <section className={pub.railCardPlain}>
+               <h2 className={pub.sectionTitleMd}>Карта</h2>
+               <div className="mt-2 space-y-1 text-sm leading-relaxed text-black/80">
+-                {citySlug && cityName ? (
++                {citySlug && cityPrimary ? (
+                   <Link
+                     href={cityHref(citySlug)}
+                     className="inline-block font-medium text-black/75 underline decoration-black/30 underline-offset-2 hover:text-black"
+                   >
+-                    {cityName}
++                    {cityPrimary}
+                   </Link>
+-                ) : cityName ? (
+-                  <p>{cityName}</p>
++                ) : cityPrimary ? (
++                  <p>{cityPrimary}</p>
++                ) : null}
++                {citySecondaryLine ? (
++                  <p className="text-xs text-black/55">{citySecondaryLine}</p>
+                 ) : null}
+                 {mapLocationBlurb ? (
+-                  <p className={cityName ? "text-black/60" : "font-medium text-black/80"}>{mapLocationBlurb}</p>
++                  <p className={cityPrimary ? "text-black/60" : "font-medium text-black/80"}>{mapLocationBlurb}</p>
+                 ) : null}
+               </div>
+               <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.08]">
+diff --git a/components/festival/FestivalQuickFactsStrip.tsx b/components/festival/FestivalQuickFactsStrip.tsx
+index ac2628a..9a43a10 100644
+--- a/components/festival/FestivalQuickFactsStrip.tsx
++++ b/components/festival/FestivalQuickFactsStrip.tsx
+@@ -1,6 +1,6 @@
+ import { pub } from "@/lib/public-ui/styles";
+ 
+-type Segment = { key: string; label: string; value: string };
++type Segment = { key: string; label: string; value: string; valueSub?: string | null };
+ 
+ type Props = {
+   segments: Segment[];
+@@ -23,7 +23,12 @@ export default function FestivalQuickFactsStrip({ segments }: Props) {
+               </span>
+             ) : null}
+             <span className="shrink-0 text-black/60">{seg.label}</span>
+-            <span className="min-w-0 font-semibold text-black/90">{seg.value}</span>
++            <span className="inline-flex min-w-0 flex-col gap-0.5">
++              <span className="min-w-0 font-semibold text-black/90">{seg.value}</span>
++              {seg.valueSub?.trim() ? (
++                <span className="min-w-0 text-[11px] font-normal leading-snug text-black/50">{seg.valueSub.trim()}</span>
++              ) : null}
++            </span>
+           </span>
+         ))}
+       </div>
+diff --git a/components/home/CurrentFestivalsSection.tsx b/components/home/CurrentFestivalsSection.tsx
+index f971456..d497f70 100644
+--- a/components/home/CurrentFestivalsSection.tsx
++++ b/components/home/CurrentFestivalsSection.tsx
+@@ -2,7 +2,7 @@ import Link from "next/link";
+ import { cn } from "@/components/ui/cn";
+ import EventCard from "@/components/ui/EventCard";
+ import { pub } from "@/lib/public-ui/styles";
+-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
++import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+ import { Festival } from "@/lib/types";
+ import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
+@@ -45,7 +45,8 @@ export default function CurrentFestivalsSection({ currentFestivals }: Props) {
+           <EventCard
+             key={festival.slug}
+             title={festival.title}
+-            city={festivalCityLabel(festival, "")}
++            city={festivalLocationPrimary(festival, "")}
++            citySecondary={festivalLocationSecondary(festival)}
+             category={festival.category}
+             imageUrl={getFestivalHeroImage(festival)}
+             startDate={festival.start_date}
+diff --git a/components/home/RealHomePage.tsx b/components/home/RealHomePage.tsx
+index 26672c5..534e7c5 100644
+--- a/components/home/RealHomePage.tsx
++++ b/components/home/RealHomePage.tsx
+@@ -4,7 +4,7 @@ import { cn } from "@/components/ui/cn";
+ import EventCard from "@/components/ui/EventCard";
+ import Section from "@/components/ui/Section";
+ import { pub } from "@/lib/public-ui/styles";
+-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
++import { festivalLocationPrimary, festivalLocationSecondary } from "@/lib/settlements/formatDisplayName";
+ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+ import type { HomePageViewProps } from "@/lib/home/loadHomePageData";
+ import { Festival } from "@/lib/types";
+@@ -65,7 +65,8 @@ function EventsSection({
+             <EventCard
+               key={festival.slug}
+               title={festival.title}
+-              city={festivalCityLabel(festival, "")}
++              city={festivalLocationPrimary(festival, "")}
++              citySecondary={festivalLocationSecondary(festival)}
+               category={festival.category}
+               imageUrl={getFestivalHeroImage(festival)}
+               startDate={festival.start_date}
+diff --git a/components/ui/EventCard.tsx b/components/ui/EventCard.tsx
+index 9f25875..53bc818 100644
+--- a/components/ui/EventCard.tsx
++++ b/components/ui/EventCard.tsx
+@@ -28,6 +28,8 @@ const BADGE_MONTH_BG: Record<number, string> = {
+ type EventCardProps = {
+   title: string;
+   city?: string | null;
++  /** Малък втори ред под/до локацията: тип населено място • област. */
++  citySecondary?: string | null;
+   category?: string | null;
+   imageUrl?: string | null;
+   startDate?: string | null;
+@@ -91,6 +93,7 @@ function getUrgencyTag(startDate?: string | null) {
+ export default function EventCard({
+   title,
+   city,
++  citySecondary,
+   category,
+   imageUrl,
+   startDate,
+@@ -108,7 +111,8 @@ export default function EventCard({
+ }: EventCardProps) {
+   const badge = getDateBadge(startDate);
+   const dateText = dateLine?.trim() ? dateLine : formatContinuousFestivalRangeBg(startDate, endDate);
+-  const locationText = city?.trim() ? city.trim() : "";
++  const locationPrimary = city?.trim() ? city.trim() : "";
++  const locationSub = citySecondary?.trim() ? citySecondary.trim() : "";
+   const snippet = description?.trim();
+   const categoryText = categoryLabel(category);
+   const weekendTag = getWeekendTag(startDate);
+@@ -201,9 +205,18 @@ export default function EventCard({
+ 
+       <CardContent className="flex flex-1 flex-col p-5">
+         <div className="space-y-2">
+-          <p className="text-sm text-black/55">
+-            {locationText ? `${locationText} • ${dateText}` : dateText}
+-          </p>
++          <div className="text-sm text-black/55">
++            {locationPrimary ? (
++              <>
++                <p className="text-black/70">
++                  {locationPrimary} • {dateText}
++                </p>
++                {locationSub ? <p className="mt-0.5 text-xs text-black/45">{locationSub}</p> : null}
++              </>
++            ) : (
++              <p>{dateText}</p>
++            )}
++          </div>
+           <h3 className="text-xl font-semibold tracking-tight text-[#0c0e14]">
+             {detailsHref ? (
+               <Link
+diff --git a/lib/plan/server.ts b/lib/plan/server.ts
+index 2d51e82..1157473 100644
+--- a/lib/plan/server.ts
++++ b/lib/plan/server.ts
+@@ -226,7 +226,7 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
+     const joined = normalizePlanCityJoin(festival.cities);
+     const cityLabel =
+       joined?.name_bg?.trim() != null && joined.name_bg.trim() !== ""
+-        ? festivalSettlementDisplayText(joined.name_bg, joined.is_village ?? false)
++        ? festivalSettlementDisplayText(joined.name_bg, joined.is_village)
+         : null;
+     entries.push({
+       scheduleItemId: String(schedule.id),
+diff --git a/lib/settlements/formatDisplayName.ts b/lib/settlements/formatDisplayName.ts
+index 080989c..e63ff95 100644
+--- a/lib/settlements/formatDisplayName.ts
++++ b/lib/settlements/formatDisplayName.ts
+@@ -1,66 +1,62 @@
+ import type { Festival } from "@/lib/types";
+-import { fixMojibakeBG } from "@/lib/text/fixMojibake";
++import {
++  formatSettlementLocationLines,
++  type SettlementLocationLines,
++} from "@/lib/settlements/formatLocation";
++import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
+ 
+-/** Премахва типични представки в началото (за сравнение / нормализация). */
+-export function stripBulgarianSettlementPrefix(name: string): string {
+-  // Изискваме „с.“ с точка и интервал (или „село “), за да не „сваляме“ първата буква на „Стара Загора“
+-  // при case-insensitive съвпадение със съкращението „с.“.
+-  return name.trim().replace(/^(?:гр\.\s*|град\s+|с\.\s*|село\s+)/iu, "").trim();
++/** @deprecated Prefer importing from `@/lib/settlements/formatLocation`. */
++export { stripBulgarianSettlementPrefix } from "@/lib/settlements/formatLocation";
++
++type FestivalCityLabelInput = Pick<Festival, "city_name_display" | "cities"> & {
++  city_guess?: string | null;
++};
++
++export function getFestivalLocationLines(
++  festival: FestivalCityLabelInput,
++  fallback = "България",
++): SettlementLocationLines {
++  const rawLine = festivalSettlementSourceText({
++    cityRelation: festival.cities ?? null,
++    city_name_display: festival.city_name_display,
++    city_guess: festival.city_guess ?? null,
++  });
++  const lines = formatSettlementLocationLines(rawLine, festival.cities?.is_village);
++  if (lines?.primary.trim()) return lines;
++  const fb = fallback.trim();
++  if (!fb) return { primary: "", secondary: null, geoLine: "" };
++  return { primary: fb, secondary: null, geoLine: fb };
+ }
+ 
+ /**
+- * Единен етикет за населено място: село → „с. {name_bg}“, град → „гр. {name_bg}“.
+- * При `is_village == null` без префикс (само нормализирано име).
++ * Единен низ за имейли, ICS, стари места: „Име, тип • обл. …“.
+  */
+ export function festivalSettlementDisplayText(
+   name_bg: string | null | undefined,
+   is_village: boolean | null | undefined,
+ ): string | null {
+-  if (name_bg == null || !String(name_bg).trim()) {
+-    return null;
+-  }
+-
+-  const trimmed = fixMojibakeBG(String(name_bg).trim());
+-
+-  if (is_village === true) {
+-    if (/^(?:с\.\s+|село\s+)/iu.test(trimmed)) {
+-      return trimmed;
+-    }
+-    const base = stripBulgarianSettlementPrefix(trimmed);
+-    return base ? `с. ${base}` : trimmed;
+-  }
+-
+-  if (is_village === false) {
+-    if (/^(?:гр\.\s+|град\s+)/iu.test(trimmed)) {
+-      return trimmed;
+-    }
+-    const base = stripBulgarianSettlementPrefix(trimmed);
+-    return base ? `гр. ${base}` : trimmed;
+-  }
++  const lines = formatSettlementLocationLines(name_bg, is_village);
++  return lines?.geoLine ?? null;
++}
+ 
+-  return trimmed;
++/** Пълен ред за карти и контекст (както преди `festivalCityLabel`). */
++export function festivalCityLabel(festival: FestivalCityLabelInput, fallback = "България"): string {
++  return getFestivalLocationLines(festival, fallback).geoLine;
+ }
+ 
+-type FestivalCityLabelInput = Pick<Festival, "city_name_display" | "cities"> & {
+-  city_guess?: string | null;
+-};
++/** Само чистото име за основен ред в UI. */
++export function festivalLocationPrimary(festival: FestivalCityLabelInput, fallback = "България"): string {
++  return getFestivalLocationLines(festival, fallback).primary;
++}
+ 
+-/** Публичен етикет: само `cities` или модерирани/AI полета — без legacy `festivals.city`. */
+-export function festivalCityLabel(festival: FestivalCityLabelInput, fallback = "България"): string {
+-  const rel = festival.cities;
+-  if (rel?.name_bg?.trim()) {
+-    const formatted = festivalSettlementDisplayText(rel.name_bg, rel.is_village ?? false);
+-    if (formatted?.trim()) return formatted.trim();
+-  }
+-  const moderated = festival.city_name_display?.trim();
+-  if (moderated) {
+-    return festivalSettlementDisplayText(moderated, undefined) ?? moderated;
+-  }
+-  const guess = festival.city_guess?.trim();
+-  if (guess) {
+-    return festivalSettlementDisplayText(guess, undefined) ?? guess;
+-  }
+-  return fallback;
++/** Вторичен ред: тип населено място • област (ако е известна от текста). */
++export function festivalLocationSecondary(festival: FestivalCityLabelInput): string | null {
++  const rawLine = festivalSettlementSourceText({
++    cityRelation: festival.cities ?? null,
++    city_name_display: festival.city_name_display,
++    city_guess: festival.city_guess ?? null,
++  });
++  return formatSettlementLocationLines(rawLine, festival.cities?.is_village)?.secondary ?? null;
+ }
+ 
+ /**
+@@ -71,13 +67,13 @@ export function organizerPageLocationLabel(
+   organizerCities: { name_bg?: string | null; is_village?: boolean | null } | null | undefined,
+   festivals: FestivalCityLabelInput[],
+ ): string | null {
+-  const primary = festivalSettlementDisplayText(
++  const ocLines = formatSettlementLocationLines(
+     organizerCities?.name_bg ?? null,
+     organizerCities?.is_village ?? undefined,
+   );
+-  if (primary?.trim()) return primary.trim();
++  if (ocLines?.geoLine.trim()) return ocLines.geoLine.trim();
+   for (const festival of festivals) {
+-    const line = festivalCityLabel(festival, "").trim();
++    const line = getFestivalLocationLines(festival, "").geoLine.trim();
+     if (line) return line;
+   }
+   return null;
+diff --git a/lib/settlements/formatLocation.ts b/lib/settlements/formatLocation.ts
+new file mode 100644
+index 0000000..12b3073
+--- /dev/null
++++ b/lib/settlements/formatLocation.ts
+@@ -0,0 +1,130 @@
++import { fixMojibakeBG } from "@/lib/text/fixMojibake";
++
++export type ParsedSettlementPrefixKind = "city" | "village" | "resort" | "unknown";
++
++/** Премахва типични представки в началото (за сравнение / нормализация). */
++export function stripBulgarianSettlementPrefix(name: string): string {
++  return name
++    .trim()
++    .replace(
++      /^(?:гр\.\s*|град\s+|с\.\s*|село\s+|к\.к\.\s*|к\.к\s+|кк\s+|курортен\s+комплекс\s+)/iu,
++      "",
++    )
++    .trim();
++}
++
++function stripResortPrefix(name: string): string {
++  return name
++    .trim()
++    .replace(/^(?:к\.к\.\s*|к\.к\s+|кк\s+|курортен\s+комплекс\s+)/iu, "")
++    .trim();
++}
++
++export function detectSettlementPrefixKind(trimmedLine: string): {
++  kind: ParsedSettlementPrefixKind;
++  nameWithoutPrefix: string;
++} {
++  const t = trimmedLine.trim();
++  if (/^(?:к\.к\.|к\.к\b|кк\b|курортен\s+комплекс)/iu.test(t)) {
++    return { kind: "resort", nameWithoutPrefix: stripResortPrefix(t) };
++  }
++  if (/^(?:с\.|село\s+)/iu.test(t)) {
++    return { kind: "village", nameWithoutPrefix: stripBulgarianSettlementPrefix(t) };
++  }
++  if (/^(?:гр\.|град\s+)/iu.test(t)) {
++    return { kind: "city", nameWithoutPrefix: stripBulgarianSettlementPrefix(t) };
++  }
++  return { kind: "unknown", nameWithoutPrefix: stripBulgarianSettlementPrefix(t) };
++}
++
++function normalizeRegionFragment(fragment: string): string {
++  const t = fragment.trim();
++  if (!t) return "";
++  if (/^област\b/iu.test(t)) {
++    return `обл. ${t.replace(/^област\s+/iu, "").trim()}`;
++  }
++  if (/^обл\./iu.test(t)) {
++    return `обл. ${t.replace(/^обл\.\s*/iu, "").trim()}`.replace(/\s+/g, " ").trim();
++  }
++  return t;
++}
++
++/**
++ * Извлича опашка „обл. …“ от свободен текст след първата запетая.
++ * Не приема произволен втори сегмент за област, за да не объркаме адресни добавки.
++ */
++export function extractOblastTailFromCommaParts(parts: string[]): string | null {
++  if (parts.length < 2) return null;
++  const idx = parts.findIndex((p, i) => i > 0 && /^(?:обл\.|област\b)/iu.test(p.trim()));
++  if (idx === -1) return null;
++  const tail = parts
++    .slice(idx)
++    .map((p) => p.trim())
++    .filter(Boolean)
++    .join(", ");
++  const norm = normalizeRegionFragment(tail);
++  return norm || null;
++}
++
++export function resolveSettlementKind(
++  dbIsVillage: boolean | null | undefined,
++  parsed: ParsedSettlementPrefixKind,
++): ParsedSettlementPrefixKind {
++  if (dbIsVillage === true) return "village";
++  if (dbIsVillage === false) return "city";
++  return parsed;
++}
++
++function settlementKindToBgLabel(kind: ParsedSettlementPrefixKind): string | null {
++  switch (kind) {
++    case "village":
++      return "село";
++    case "city":
++      return "град";
++    case "resort":
++      return "курортен комплекс";
++    default:
++      return null;
++  }
++}
++
++export type SettlementLocationLines = {
++  primary: string;
++  secondary: string | null;
++  geoLine: string;
++};
++
++function buildSecondaryLine(kind: ParsedSettlementPrefixKind, region: string | null): string | null {
++  const typeLabel = settlementKindToBgLabel(kind);
++  const bits = [typeLabel, region].filter(Boolean) as string[];
++  if (!bits.length) return null;
++  return bits.join(" • ");
++}
++
++/**
++ * Единна логика: чисто име, вторичен ред (тип + област), и ред за карти/ICS.
++ */
++export function formatSettlementLocationLines(
++  rawLine: string | null | undefined,
++  isVillage: boolean | null | undefined,
++): SettlementLocationLines | null {
++  if (rawLine == null || !String(rawLine).trim()) return null;
++
++  const fixed = fixMojibakeBG(String(rawLine).trim());
++  const commaParts = fixed
++    .split(",")
++    .map((p) => p.trim())
++    .filter(Boolean);
++  const firstSeg = commaParts[0] ?? fixed;
++  const regionFromText = extractOblastTailFromCommaParts(commaParts);
++
++  const { kind: prefixKind, nameWithoutPrefix } = detectSettlementPrefixKind(firstSeg);
++  const cleanPrimary = nameWithoutPrefix.trim() || firstSeg.trim();
++  if (!cleanPrimary) return null;
++
++  const resolvedKind = resolveSettlementKind(isVillage, prefixKind);
++  const secondary = buildSecondaryLine(resolvedKind, regionFromText);
++  const geoLine = secondary ? `${cleanPrimary}, ${secondary}` : cleanPrimary;
++
++  return { primary: cleanPrimary, secondary, geoLine };
++}

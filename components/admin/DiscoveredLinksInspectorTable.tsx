@@ -45,6 +45,43 @@ function selectedStateLabel(link: DiscoveredLinkRow, isSelected: boolean, isReje
 
 export default function DiscoveredLinksInspectorTable({ links }: Props) {
   const [activeLinkKey, setActiveLinkKey] = useState<string | null>(null);
+  const [enqueueBusyKey, setEnqueueBusyKey] = useState<string | null>(null);
+  const [enqueueNotice, setEnqueueNotice] = useState<string | null>(null);
+
+  const enqueueDiscoveryLink = async (link: DiscoveredLinkRow, rowKey: string) => {
+    const url = (link.normalizedUrl || "").trim();
+    if (!url) {
+      setEnqueueNotice("Missing URL for this row.");
+      return;
+    }
+    if (link.ingestJobId) {
+      setEnqueueNotice("This link already has an ingest job.");
+      return;
+    }
+    setEnqueueBusyKey(rowKey);
+    setEnqueueNotice(null);
+    try {
+      const res = await fetch("/admin/api/ingest-jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_type: "discovery",
+          source_url: url,
+          discovered_link_id: link.id || null,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string; job_id?: string; id?: string } | null;
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Enqueue failed");
+      }
+      const jobId = data?.job_id ?? data?.id;
+      setEnqueueNotice(jobId ? `Ingest job ${jobId} queued (source_type=discovery).` : "Job queued.");
+    } catch (e) {
+      setEnqueueNotice(e instanceof Error ? e.message : "Enqueue failed");
+    } finally {
+      setEnqueueBusyKey(null);
+    }
+  };
 
   const keyedLinks = useMemo(
     () =>
@@ -59,6 +96,9 @@ export default function DiscoveredLinksInspectorTable({ links }: Props) {
 
   return (
     <>
+      {enqueueNotice ? (
+        <p className="mb-2 rounded-xl border border-black/10 bg-black/[0.02] px-3 py-2 text-xs text-black/70">{enqueueNotice}</p>
+      ) : null}
       <div className="overflow-x-auto rounded-2xl border border-black/[0.08] bg-white/85 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
         <table className="min-w-full divide-y divide-black/[0.08] text-sm">
           <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
@@ -70,6 +110,7 @@ export default function DiscoveredLinksInspectorTable({ links }: Props) {
               <th className="px-3 py-3">Decision</th>
               <th className="px-3 py-3">Ingest job</th>
               <th className="px-3 py-3">Reject reason</th>
+              <th className="px-3 py-3">Enqueue</th>
               <th className="px-3 py-3">Inspect</th>
             </tr>
           </thead>
@@ -116,6 +157,16 @@ export default function DiscoveredLinksInspectorTable({ links }: Props) {
                     <td className="px-3 py-3">
                       <button
                         type="button"
+                        disabled={Boolean(link.ingestJobId) || enqueueBusyKey === key}
+                        onClick={() => void enqueueDiscoveryLink(link, key)}
+                        className="rounded-lg border border-black/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-black/65 hover:bg-black/[0.03] hover:text-black disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {enqueueBusyKey === key ? "…" : "Enqueue"}
+                      </button>
+                    </td>
+                    <td className="px-3 py-3">
+                      <button
+                        type="button"
                         onClick={() => setActiveLinkKey(key)}
                         className="rounded-lg border border-black/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-black/65 hover:bg-black/[0.03] hover:text-black"
                       >
@@ -127,7 +178,7 @@ export default function DiscoveredLinksInspectorTable({ links }: Props) {
               })
             ) : (
               <tr>
-                <td className="px-3 py-6 text-center text-black/50" colSpan={8}>
+                <td className="px-3 py-6 text-center text-black/50" colSpan={9}>
                   No discovered links found for the current filters.
                 </td>
               </tr>

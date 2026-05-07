@@ -1,6 +1,9 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { type SupabaseClient, type User } from "@supabase/supabase-js";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireActiveUserWithSupabase } from "@/lib/auth/requireActiveUser";
+import { syncUserRoleToJwt } from "@/lib/auth/syncUserRoleToJwt";
+import { ensurePublicUserRowForSession } from "@/lib/ensurePublicUserRowForSession";
 
 export type AdminSession = {
   userId: string;
@@ -8,93 +11,153 @@ export type AdminSession = {
   isAdmin: boolean;
 };
 
-type AdminAuthContext = {
+export type AdminAuthContext = {
   supabase: SupabaseClient;
   client: SupabaseClient;
   user: User;
   isAdmin: true;
 };
 
-async function hasAdminRole(client: SupabaseClient, userId: string) {
-  const { data, error } = await client
+function jwtRoleIsAdmin(role: unknown): boolean {
+  return role === "admin" || role === "super_admin";
+}
+
+function dbRolesIsAdmin(roles: { role: string }[] | null | undefined): boolean {
+  return roles?.some((r) => r.role === "admin" || r.role === "super_admin") ?? false;
+}
+
+/**
+ * Resolves admin access: JWT `app_metadata.role` first (no DB read); falls back to `user_roles`.
+ * When DB says staff but JWT lacks role, syncs via `syncUserRoleToJwt` and redirects through
+ * `/api/auth/sign-out` so the next session picks up the claim.
+ */
+async function resolveAdminAccessOrRedirect(supabase: SupabaseClient, user: User): Promise<void> {
+  await ensurePublicUserRowForSession(supabase, user);
+
+  const role = user.app_metadata?.role;
+  if (role === "admin" || role === "super_admin") {
+    return;
+  }
+
+  const { data: roles, error } = await supabase
     .from("user_roles")
     .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
+    .eq("user_id", user.id);
 
   if (error) {
     throw new Error(`user_roles lookup failed: ${error.message}`);
   }
 
-  return Boolean(data);
+  const isDbAdmin = dbRolesIsAdmin(roles);
+
+  if (isDbAdmin) {
+    try {
+      await syncUserRoleToJwt(user.id);
+      redirect(`/api/auth/sign-out?next=${encodeURIComponent("/login?next=/admin")}`);
+    } catch (e) {
+      console.error("[resolveAdminAccessOrRedirect] JWT role sync failed", e);
+    }
+  }
+
+  if (!isDbAdmin) {
+    redirect("/");
+  }
 }
 
-async function getCurrentUser(client: SupabaseClient) {
-  const {
-    data: { user },
-    error,
-  } = await client.auth.getUser();
-
-  if (error || !user) {
-    return null;
+export async function hasAdminRole(client: SupabaseClient, userId: string, user?: User) {
+  if (user != null && jwtRoleIsAdmin(user.app_metadata?.role)) {
+    return true;
   }
 
-  return user;
+  if (user != null) {
+    await ensurePublicUserRowForSession(client, user);
+  }
+
+  const { data, error } = await client.from("user_roles").select("role").eq("user_id", userId);
+
+  if (error) {
+    throw new Error(`user_roles lookup failed: ${error.message}`);
+  }
+
+  return dbRolesIsAdmin(data);
 }
 
-export async function getAdminContext(): Promise<AdminAuthContext | null> {
-  const supabase = await createSupabaseServerClient();
-  const user = await getCurrentUser(supabase);
-  if (!user) {
-    return null;
+/**
+ * Active (non-deleted) user with admin or super_admin. Redirects if unauthenticated,
+ * deleted, or lacking admin role. Deduplicated per request when wrapped with `cache`.
+ */
+export async function requireAdminAuthContext(): Promise<AdminAuthContext> {
+  let supabase;
+  let user;
+  try {
+    ({ supabase, user } = await requireActiveUserWithSupabase());
+  } catch (e) {
+    if (e instanceof Error && e.message === "Unauthorized") {
+      redirect("/login?next=/admin");
+    }
+    if (e instanceof Error && e.message === "User is deleted") {
+      redirect("/account-deleted");
+    }
+    throw e;
   }
 
-  const isAdmin = await hasAdminRole(supabase, user.id);
-  if (!isAdmin) {
-    return null;
-  }
+  await resolveAdminAccessOrRedirect(supabase, user);
 
   return { supabase, client: supabase, user, isAdmin: true };
 }
 
-export async function getAdminSession(): Promise<AdminSession | null> {
-  const client = await createSupabaseServerClient();
-  const user = await getCurrentUser(client);
-  if (!user) {
-    return null;
+/** Same as `requireAdminAuthContext`, at most once per React request tree. */
+export const getAdminAuthContext = cache(requireAdminAuthContext);
+
+export async function getAdminContext(): Promise<AdminAuthContext | null> {
+  try {
+    const { supabase, user } = await requireActiveUserWithSupabase();
+    const isAdmin = await hasAdminRole(supabase, user.id, user);
+    if (!isAdmin) {
+      return null;
+    }
+    return { supabase, client: supabase, user, isAdmin: true };
+  } catch (e) {
+    if (e instanceof Error && (e.message === "Unauthorized" || e.message === "User is deleted")) {
+      return null;
+    }
+    throw e;
   }
+}
 
-  const isAdmin = await hasAdminRole(client, user.id);
-
-  return {
-    userId: user.id,
-    email: user.email ?? null,
-    isAdmin,
-  };
+export async function getAdminSession(): Promise<AdminSession | null> {
+  try {
+    const { supabase, user } = await requireActiveUserWithSupabase();
+    const isAdmin = await hasAdminRole(supabase, user.id, user);
+    return {
+      userId: user.id,
+      email: user.email ?? null,
+      isAdmin,
+    };
+  } catch (e) {
+    if (e instanceof Error && (e.message === "Unauthorized" || e.message === "User is deleted")) {
+      return null;
+    }
+    throw e;
+  }
 }
 
 export async function requireAdmin() {
   try {
-    const client = await createSupabaseServerClient();
-    const user = await getCurrentUser(client);
-
-    if (!user) {
-      redirect("/login");
-    }
-
-    const isAdmin = await hasAdminRole(client, user.id);
-
-    if (!isAdmin) {
-      redirect("/");
-    }
-
+    const { supabase, user } = await requireActiveUserWithSupabase();
+    await resolveAdminAccessOrRedirect(supabase, user);
     return {
       userId: user.id,
       email: user.email ?? null,
       isAdmin: true,
     };
-  } catch {
-    redirect("/");
+  } catch (e) {
+    if (e instanceof Error && e.message === "Unauthorized") {
+      redirect("/login?next=/admin");
+    }
+    if (e instanceof Error && e.message === "User is deleted") {
+      redirect("/account-deleted");
+    }
+    throw e;
   }
 }

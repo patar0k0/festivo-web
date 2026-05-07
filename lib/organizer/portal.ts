@@ -1,8 +1,12 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
-const PORTAL_MEMBER_ROLES = ["owner", "admin", "editor"] as const;
+/** Roles that may access organizer context in the portal (including read-only viewer). */
+const PORTAL_ACCESS_ROLES = ["owner", "admin", "editor", "viewer"] as const;
+/** Roles that may create/edit portal submissions and other write flows. */
+const PORTAL_WRITE_ROLES = ["owner", "admin", "editor"] as const;
 
 export type OrganizerMemberRow = {
   id: string;
@@ -15,6 +19,13 @@ export type OrganizerMemberRow = {
   approved_by: string | null;
 };
 
+/** Portal membership row shape used for role checks (from `organizer_members`). */
+export type OrganizerPortalMembershipRow = { organizer_id: string; status: string; role: string };
+
+export function isOrganizerOwner(memberships: { status: string; role: string }[]): boolean {
+  return memberships.some((m) => m.status === "active" && m.role === "owner");
+}
+
 export async function getPortalSessionUser() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -22,6 +33,20 @@ export async function getPortalSessionUser() {
     error,
   } = await supabase.auth.getUser();
   if (error || !user?.id) return null;
+
+  const { data: row, error: rowError } = await supabase
+    .from("users")
+    .select("deleted_at")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (rowError) {
+    console.error("[getPortalSessionUser] users lookup failed", rowError);
+    throw rowError;
+  }
+
+  if (row?.deleted_at) return null;
+
   return { supabase, user };
 }
 
@@ -35,7 +60,7 @@ export async function fetchActiveMembershipOrganizerIds(admin: SupabaseClient, u
     .select("organizer_id")
     .eq("user_id", userId)
     .eq("status", "active")
-    .in("role", [...PORTAL_MEMBER_ROLES]);
+    .in("role", [...PORTAL_ACCESS_ROLES]);
 
   if (error) {
     throw new Error(error.message);
@@ -56,7 +81,7 @@ export async function hasActiveOrganizerMembership(
     .eq("user_id", userId)
     .eq("organizer_id", organizerId)
     .eq("status", "active")
-    .in("role", [...PORTAL_MEMBER_ROLES])
+    .in("role", [...PORTAL_WRITE_ROLES])
     .maybeSingle();
 
   if (error) {
@@ -89,8 +114,8 @@ export async function loadPortalPendingFestival(admin: SupabaseClient, pendingId
 }
 
 export async function assertCanEditOrganizerPending(admin: SupabaseClient, userId: string, pending: PortalPendingRow) {
-  if (pending.status !== "pending") {
-    return { ok: false as const, error: "Редакция е възможна само за чакащи записи." };
+  if (pending.status !== "pending" && pending.status !== "draft") {
+    return { ok: false as const, error: "Редакция е възможна само за чернови или чакащи записи." };
   }
 
   if (pending.submission_source !== "organizer_portal" || !pending.organizer_id) {
@@ -109,6 +134,7 @@ export type OrganizerPortalMembershipSummary = {
   activeOrganizerIds: string[];
   hasPendingMembership: boolean;
   hasRevokedMembership: boolean;
+  isOrganizerOwner: boolean;
 };
 
 export async function fetchOrganizerPortalMembershipSummary(
@@ -117,15 +143,15 @@ export async function fetchOrganizerPortalMembershipSummary(
 ): Promise<OrganizerPortalMembershipSummary> {
   const { data, error } = await admin
     .from("organizer_members")
-    .select("organizer_id,status")
+    .select("organizer_id,status,role")
     .eq("user_id", userId)
-    .in("role", [...PORTAL_MEMBER_ROLES]);
+    .in("role", [...PORTAL_ACCESS_ROLES]);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const rows = data ?? [];
+  const rows = (data ?? []) as OrganizerPortalMembershipRow[];
   const activeOrganizerIds = [
     ...new Set(
       rows
@@ -136,9 +162,16 @@ export async function fetchOrganizerPortalMembershipSummary(
   ];
   const hasPendingMembership = rows.some((r) => r.status === "pending");
   const hasRevokedMembership = rows.some((r) => r.status === "revoked");
+  const owner = isOrganizerOwner(rows);
 
-  return { activeOrganizerIds, hasPendingMembership, hasRevokedMembership };
+  return { activeOrganizerIds, hasPendingMembership, hasRevokedMembership, isOrganizerOwner: owner };
 }
+
+/** Per-request dedupe for server components and organizer gates. */
+export const fetchOrganizerPortalMembershipSummaryCached = cache(async (userId: string) => {
+  const admin = getPortalAdminClient();
+  return fetchOrganizerPortalMembershipSummary(admin, userId);
+});
 
 export type ActiveOrganizerPortalGate =
   | { kind: "redirect"; to: string }
@@ -164,4 +197,34 @@ export async function requireActiveOrganizerPortalSession(loginNextPath: string)
   }
 
   return { kind: "ok", admin, userId: session.user.id, orgIds };
+}
+
+export async function requireOrganizerOwnerPortalSession(loginNextPath: string): Promise<ActiveOrganizerPortalGate> {
+  const session = await getPortalSessionUser();
+  if (!session?.user?.id) {
+    return { kind: "redirect", to: `/login?next=${encodeURIComponent(loginNextPath)}` };
+  }
+
+  let admin: SupabaseClient;
+  try {
+    admin = getPortalAdminClient();
+  } catch {
+    return { kind: "unavailable" };
+  }
+
+  let summary: OrganizerPortalMembershipSummary;
+  try {
+    summary = await fetchOrganizerPortalMembershipSummaryCached(session.user.id);
+  } catch {
+    return { kind: "unavailable" };
+  }
+
+  if (summary.activeOrganizerIds.length === 0) {
+    return { kind: "redirect", to: "/organizer" };
+  }
+  if (!summary.isOrganizerOwner) {
+    return { kind: "redirect", to: "/organizer" };
+  }
+
+  return { kind: "ok", admin, userId: session.user.id, orgIds: summary.activeOrganizerIds };
 }

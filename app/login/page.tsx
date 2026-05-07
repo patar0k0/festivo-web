@@ -5,10 +5,12 @@ import { LoginForm } from "./LoginForm";
 
 const URL_ERROR_MESSAGES: Record<string, string> = {
   oauth: "Входът с Google/Apple не бе завършен. Опитай отново.",
+  banned: "Този акаунт е блокиран. Свържете се с поддръжка.",
+  deactivated: "Този акаунт е деактивиран. Свържете се с поддръжка.",
 };
 
 const POST_LOGIN_PLAN_ACTIONS = new Set(["add_festival", "add_item", "set_reminder"]);
-const POST_LOGIN_REMINDER_TYPES = new Set(["24h", "same_day_09", "none"]);
+const POST_LOGIN_REMINDER_TYPES = new Set(["default", "24h", "same_day_09", "none"]);
 
 /**
  * `/login?next=/path&action=...&id=...&type=...` — merge plan-intent params into `next`

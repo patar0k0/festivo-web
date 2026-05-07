@@ -1,46 +1,151 @@
 import { NextResponse } from "next/server";
-import { cancelPendingReminderJobs, syncReminderJobsForPreference } from "@/lib/notifications/triggers";
+import {
+  nextResponseForRequireActiveUserError,
+  requireActiveUserWithSupabase,
+} from "@/lib/auth/requireActiveUser";
+import { syncReminderJobsForPreference } from "@/lib/notifications/triggers";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+function planJsonError(message: string, status: number) {
+  return NextResponse.json({ error: message, message }, { status });
+}
 
 type Payload = {
   festivalId?: string;
+  festival_id?: string;
 };
 
-export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+type SavedFestival = {
+  id: string;
+  slug: string;
+  title: string;
+  city: string;
+  start_date: string;
+};
 
-  if (authError) {
-    return NextResponse.json({ error: authError.message }, { status: 500 });
-  }
+type SavedFestivalRow = {
+  festival: SavedFestival | SavedFestival[] | null;
+};
 
-  if (!user) {
+export async function GET(request: Request) {
+  try {
+    const { user, supabase } = await requireActiveUserWithSupabase(request);
+    console.log('[PLAN GET] user.id:', user.id);
+
+    const { data, error } = await supabase
+      .from("user_plan_festivals")
+      .select(
+        `
+        festival:festival_id (
+          id,
+          slug,
+          title,
+          city,
+          start_date
+        )
+      `,
+      )
+      .eq("user_id", user.id);
+
+    console.log('[PLAN GET] raw data:', data);
+
+    if (error) {
+      console.error("[plan festivals GET] supabase", { userId: user.id, message: error.message, code: error.code });
+      return NextResponse.json({ error: error.message, message: error.message }, { status: 500 });
+    }
+
+    const festivals = (data ?? [])
+      .map((row) => {
+        const r = row as SavedFestivalRow;
+        let f: SavedFestival | null = null;
+
+        if (Array.isArray(r.festival)) {
+          f = r.festival[0] ?? null;
+        } else {
+          f = r.festival ?? null;
+        }
+
+        if (!f) return null;
+
+        return {
+          id: f.id,
+          slug: f.slug,
+          title: f.title,
+          city: f.city,
+          start_date: f.start_date,
+          festivalId: f.id,
+          saved: true,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x));
+
+    console.log('[PLAN GET] mapped festivals:', festivals);
+
+    return NextResponse.json({ festivals });
+  } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+}
 
-  const body = (await request.json()) as Payload;
-  const festivalId = body.festivalId;
-
-  if (!festivalId) {
-    return NextResponse.json({ error: "Missing festivalId" }, { status: 400 });
+export async function POST(request: Request) {
+  let supabase;
+  let user;
+  try {
+    const ctx = await requireActiveUserWithSupabase(request);
+    supabase = ctx.supabase;
+    user = ctx.user;
+  } catch (e) {
+    const authRes = nextResponseForRequireActiveUserError(e, (msg) => ({ error: msg, message: msg }));
+    if (authRes) return authRes;
+    console.error("[plan save] requireActiveUser unexpected", e);
+    return planJsonError("Internal error", 500);
   }
 
-  const getExistingRow = async () =>
-    supabase
-      .from("user_plan_festivals")
-      .select("festival_id")
-      .eq("user_id", user.id)
-      .eq("festival_id", festivalId)
-      .maybeSingle();
+  let body: Payload;
+  try {
+    body = (await request.json()) as Payload;
+  } catch {
+    console.error("[plan save] invalid JSON body");
+    return planJsonError("Invalid JSON body", 400);
+  }
 
-  const { data: existing, error: existingError } = await getExistingRow();
+  const festivalIdRaw = body.festivalId ?? body.festival_id;
+  const festivalId = typeof festivalIdRaw === "string" ? festivalIdRaw.trim() : "";
+
+  console.log("[plan save] request", { userId: user.id, festivalId: festivalId || null, hasBody: Boolean(body) });
+
+  if (!festivalId) {
+    return planJsonError("Missing festivalId", 400);
+  }
+
+  if (!isValidUuid(festivalId)) {
+    console.error("[plan save] invalid festivalId format", { userId: user.id });
+    return planJsonError("Invalid festivalId", 400);
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("user_plan_festivals")
+    .select("festival_id")
+    .eq("user_id", user.id)
+    .eq("festival_id", festivalId)
+    .maybeSingle();
 
   if (existingError) {
-    return NextResponse.json({ error: existingError.message }, { status: 500 });
+    console.error("[plan save] existing lookup failed", {
+      userId: user.id,
+      festivalId,
+      message: existingError.message,
+      code: existingError.code,
+    });
+    return planJsonError(existingError.message, 500);
   }
 
   if (existing) {
@@ -51,19 +156,44 @@ export async function POST(request: Request) {
       .eq("festival_id", festivalId);
 
     if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+      console.error("[plan save] delete failed", {
+        userId: user.id,
+        festivalId,
+        message: deleteError.message,
+        code: deleteError.code,
+      });
+      return planJsonError(deleteError.message, 500);
     }
 
-    void cancelPendingReminderJobs(user.id, festivalId).catch((err) =>
-      console.warn("[notifications] cancelPendingReminderJobs", err),
+    void syncReminderJobsForPreference(user.id, festivalId, "none").catch((err) =>
+      console.warn("[notifications] syncReminderJobsForPreference", err),
     );
 
-    const { data: verifyRow, error: verifyError } = await getExistingRow();
-    if (verifyError) {
-      return NextResponse.json({ error: verifyError.message }, { status: 500 });
-    }
+    return NextResponse.json({ saved: false });
+  }
 
-    return NextResponse.json({ ok: true, inPlan: Boolean(verifyRow) });
+  const { data: festival, error: festivalError } = await supabase
+    .from("festivals")
+    .select("start_date,end_date")
+    .eq("id", festivalId)
+    .maybeSingle<{ start_date: string | null; end_date: string | null }>();
+
+  if (festivalError) {
+    console.error("[plan save] festival lookup failed", {
+      userId: user.id,
+      festivalId,
+      message: festivalError.message,
+      code: festivalError.code,
+    });
+    return planJsonError(festivalError.message, 500);
+  }
+
+  if (!festival) {
+    return planJsonError("Festival not found", 404);
+  }
+
+  if (isFestivalPast(festival)) {
+    return planJsonError("Cannot add past festival to plan", 400);
   }
 
   const { error: insertError } = await supabase.from("user_plan_festivals").insert({
@@ -72,7 +202,20 @@ export async function POST(request: Request) {
   });
 
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    if (insertError.code === "23505") {
+      console.error("[plan save] duplicate insert treated as idempotent save", { userId: user.id, festivalId });
+    } else if (insertError.code === "23503") {
+      console.error("[plan save] FK violation on insert", { userId: user.id, festivalId, message: insertError.message });
+      return planJsonError("Festival not found", 404);
+    } else {
+      console.error("[plan save] insert failed", {
+        userId: user.id,
+        festivalId,
+        message: insertError.message,
+        code: insertError.code,
+      });
+      return planJsonError(insertError.message, 500);
+    }
   }
 
   const { data: nsRow, error: nsErr } = await supabase
@@ -104,22 +247,17 @@ export async function POST(request: Request) {
       {
         user_id: user.id,
         festival_id: festivalId,
-        reminder_type: defaultTiming,
+        reminder_type: "default",
       },
       { onConflict: "user_id,festival_id" },
     );
     if (upsertRemErr) {
       console.warn("[plan/festivals] user_plan_reminders upsert", upsertRemErr.message);
     }
-    void syncReminderJobsForPreference(user.id, festivalId, defaultTiming).catch((err) =>
+    void syncReminderJobsForPreference(user.id, festivalId, "default").catch((err) =>
       console.warn("[notifications] syncReminderJobsForPreference", err),
     );
   }
 
-  const { data: verifyRow, error: verifyError } = await getExistingRow();
-  if (verifyError) {
-    return NextResponse.json({ error: verifyError.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true, inPlan: Boolean(verifyRow) });
+  return NextResponse.json({ saved: true });
 }

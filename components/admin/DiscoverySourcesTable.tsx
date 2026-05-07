@@ -7,8 +7,22 @@ const DEFAULT_SOURCE_TYPE = "municipality_site";
 const DEFAULT_PRIORITY = "100";
 const DEFAULT_MAX_LINKS = "20";
 
+export type SourceOperationalStatus =
+  | "active"
+  | "degraded"
+  | "disabled"
+  | "disabled_manual"
+  | "forced_active"
+  | "unknown";
+
+export type DiscoverySourceRunTrendCell = {
+  enqueued: number | null;
+  approvalRate: number | null;
+};
+
 type DiscoverySourceRow = {
   id: string;
+  name: string;
   label: string;
   sourceType: string;
   baseUrl: string;
@@ -18,10 +32,21 @@ type DiscoverySourceRow = {
   lastRunAt: string | null;
   totalJobsEnqueued: number | null;
   supportsMaxLinksEdit: boolean;
+  operationalStatus: SourceOperationalStatus;
+  approvalRateLastRun: number | null;
+  enqueuedLastRun: number | null;
+  totalCandidatesLastRun: number | null;
+  autoDisabledLastRun: boolean;
+  lastRunsTrend: DiscoverySourceRunTrendCell[];
+  manualDisabled: boolean;
+  manualOverride: boolean;
 };
 
 type Props = {
+  /** Full list (includes inactive) for Inactive filter and actions. */
   rows: DiscoverySourceRow[];
+  /** Active catalog (`is_active !== false`); default “All” filter shows this list. */
+  activeCatalogRows: DiscoverySourceRow[];
 };
 
 async function readErrorMessage(response: Response, fallback: string) {
@@ -90,8 +115,76 @@ async function readDiscoverySourceActivityError(response: Response, requestUrl: 
   return detail ? `${prefix} ${detail}` : prefix;
 }
 
-export default function DiscoverySourcesTable({ rows }: Props) {
+type StatusFilter = "all" | "inactive" | SourceOperationalStatus;
+
+function formatApprovalRateRatio(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return `${Math.round(value * 100)}%`;
+}
+
+function StatusBadge({ status }: { status: SourceOperationalStatus }) {
+  if (status === "unknown") {
+    return (
+      <span className="inline-flex rounded-full bg-black/[0.06] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-black/45">
+        n/a
+      </span>
+    );
+  }
+
+  if (status === "disabled_manual") {
+    return (
+      <span className="inline-flex rounded-full bg-[#3f0d0d] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-red-100 shadow-sm">
+        manual
+      </span>
+    );
+  }
+
+  if (status === "forced_active") {
+    return (
+      <span className="inline-flex rounded-full bg-sky-600/18 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-sky-950 ring-1 ring-sky-700/25">
+        forced
+      </span>
+    );
+  }
+
+  const palette =
+    status === "active"
+      ? "bg-emerald-500/15 text-emerald-800"
+      : status === "degraded"
+        ? "bg-amber-400/20 text-amber-950"
+        : "bg-rose-500/15 text-rose-900";
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] ${palette}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function WarningAutoDisabledIcon() {
+  return (
+    <span
+      className="inline-flex shrink-0 text-amber-600"
+      title="Auto-disabled due to low performance"
+      aria-label="Auto-disabled due to low performance"
+      role="img"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+        <path
+          fillRule="evenodd"
+          d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+          clipRule="evenodd"
+        />
+      </svg>
+    </span>
+  );
+}
+
+export default function DiscoverySourcesTable({ rows, activeCatalogRows }: Props) {
   const router = useRouter();
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -104,8 +197,69 @@ export default function DiscoverySourcesTable({ rows }: Props) {
   const [newType, setNewType] = useState(DEFAULT_SOURCE_TYPE);
   const [newPriority, setNewPriority] = useState(DEFAULT_PRIORITY);
   const [newMaxLinks, setNewMaxLinks] = useState(DEFAULT_MAX_LINKS);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editRow, setEditRow] = useState<DiscoverySourceRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editLabel, setEditLabel] = useState("");
+  const [editBaseUrl, setEditBaseUrl] = useState("");
+  const [editType, setEditType] = useState(DEFAULT_SOURCE_TYPE);
+  const [editPriority, setEditPriority] = useState(DEFAULT_PRIORITY);
+  const [editMaxLinks, setEditMaxLinks] = useState(DEFAULT_MAX_LINKS);
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState("");
 
   const supportsAnyMaxLinksEdit = useMemo(() => rows.some((row) => row.supportsMaxLinksEdit), [rows]);
+
+  const visibleRows = useMemo(() => {
+    if (statusFilter === "inactive") {
+      return rows.filter((row) => row.isActive === false);
+    }
+    if (statusFilter === "all") {
+      return activeCatalogRows;
+    }
+    return activeCatalogRows.filter((row) => row.operationalStatus === statusFilter);
+  }, [rows, activeCatalogRows, statusFilter]);
+
+  const patchManualMode = async (row: DiscoverySourceRow, mode: "disable" | "force" | "reset") => {
+    if (busyId) return;
+    setBusyId(row.id);
+    setMessage("");
+    setError("");
+
+    const body =
+      mode === "disable"
+        ? { manual_disabled: true, manual_override: false }
+        : mode === "force"
+          ? { manual_override: true, manual_disabled: false }
+          : { manual_disabled: false, manual_override: false };
+
+    try {
+      const url = `/admin/api/discovery-sources/${row.id}`;
+      const response = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Failed to update manual discovery flags."));
+      }
+
+      setMessage(
+        mode === "disable"
+          ? `Manual disable on: ${row.label}`
+          : mode === "force"
+            ? `Force enable on: ${row.label}`
+            : `Reset to auto mode: ${row.label}`,
+      );
+      router.refresh();
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Unexpected discovery source update error.");
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const toggleActive = async (row: DiscoverySourceRow) => {
     if (busyId) return;
@@ -184,6 +338,109 @@ export default function DiscoverySourcesTable({ rows }: Props) {
     resetAddForm();
   };
 
+  const openEditModal = (row: DiscoverySourceRow) => {
+    setEditError("");
+    setEditRow(row);
+    setEditName(row.name);
+    setEditLabel(row.label);
+    setEditBaseUrl(row.baseUrl);
+    setEditType(row.sourceType || DEFAULT_SOURCE_TYPE);
+    setEditPriority(String(row.priority ?? DEFAULT_PRIORITY));
+    setEditMaxLinks(String(row.maxLinksPerRun ?? DEFAULT_MAX_LINKS));
+    setEditOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setEditOpen(false);
+    setEditRow(null);
+    setEditError("");
+  };
+
+  const submitEditSource = async () => {
+    if (!editRow || editBusy) return;
+    setEditError("");
+
+    const priorityParsed = Number(editPriority);
+    const maxLinksParsed = Number(editMaxLinks);
+    if (!editName.trim()) {
+      setEditError("Name is required.");
+      return;
+    }
+    if (!editLabel.trim()) {
+      setEditError("Label is required.");
+      return;
+    }
+    if (!editBaseUrl.trim()) {
+      setEditError("Base URL is required.");
+      return;
+    }
+    if (!Number.isFinite(priorityParsed)) {
+      setEditError("Priority must be a number.");
+      return;
+    }
+    if (!Number.isInteger(maxLinksParsed) || maxLinksParsed < 1) {
+      setEditError("Max links per run must be a positive integer.");
+      return;
+    }
+
+    setEditBusy(true);
+    try {
+      const response = await fetch(`/admin/api/discovery-sources/${editRow.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: editName.trim(),
+          label: editLabel.trim(),
+          base_url: editBaseUrl.trim(),
+          source_type: editType.trim() || DEFAULT_SOURCE_TYPE,
+          priority: priorityParsed,
+          max_links_per_run: maxLinksParsed,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Failed to update source."));
+      }
+
+      setMessage(`Updated source: ${editLabel.trim()}`);
+      closeEditModal();
+      router.refresh();
+    } catch (editErr) {
+      setEditError(editErr instanceof Error ? editErr.message : "Unexpected error while saving.");
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const softDeleteSource = async (row: DiscoverySourceRow) => {
+    if (busyId) return;
+    if (!window.confirm("Are you sure?")) return;
+
+    setBusyId(row.id);
+    setMessage("");
+    setError("");
+
+    try {
+      const url = `/admin/api/discovery-sources/${row.id}`;
+      const response = await fetch(url, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Failed to delete source."));
+      }
+
+      setMessage(`Deactivated source: ${row.label}`);
+      router.refresh();
+    } catch (delErr) {
+      setError(delErr instanceof Error ? delErr.message : "Unexpected delete error.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const submitNewSource = async () => {
     if (createBusy) return;
     setCreateError("");
@@ -240,16 +497,45 @@ export default function DiscoverySourcesTable({ rows }: Props) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-black tracking-tight">Discovery Sources</h2>
-        <button
-          type="button"
-          onClick={() => {
-            setCreateError("");
-            setAddOpen(true);
-          }}
-          className="h-10 rounded-xl bg-black px-4 text-sm font-semibold text-white hover:bg-black/85"
-        >
-          + Add Source
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45">Filter</span>
+            {(
+              [
+                ["all", "All"],
+                ["inactive", "Inactive"],
+                ["active", "Active"],
+                ["degraded", "Degraded"],
+                ["disabled", "Auto off"],
+                ["disabled_manual", "Manual"],
+                ["forced_active", "Forced"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatusFilter(value)}
+                className={`h-8 rounded-lg border px-2.5 text-xs font-semibold transition-colors ${
+                  statusFilter === value
+                    ? "border-black/20 bg-black text-white"
+                    : "border-black/10 bg-white text-black/70 hover:bg-black/[0.03]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setCreateError("");
+              setAddOpen(true);
+            }}
+            className="h-10 shrink-0 rounded-xl bg-black px-4 text-sm font-semibold text-white hover:bg-black/85"
+          >
+            + Add Source
+          </button>
+        </div>
       </div>
 
       {addOpen ? (
@@ -351,6 +637,112 @@ export default function DiscoverySourcesTable({ rows }: Props) {
         </div>
       ) : null}
 
+      {editOpen && editRow ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-discovery-source-title"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeEditModal();
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.12)]"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h3 id="edit-discovery-source-title" className="text-lg font-black tracking-tight">
+              Edit discovery source
+            </h3>
+            <p className="mt-1 text-xs text-black/55">Updates name, URL, type, and limits.</p>
+
+            <div className="mt-4 space-y-3">
+              {editError ? (
+                <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{editError}</p>
+              ) : null}
+
+              <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                Name
+                <input
+                  className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  autoComplete="off"
+                />
+              </label>
+              <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                Label
+                <input
+                  className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value)}
+                  autoComplete="off"
+                />
+              </label>
+              <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                Base URL
+                <input
+                  className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                  value={editBaseUrl}
+                  onChange={(e) => setEditBaseUrl(e.target.value)}
+                  autoComplete="url"
+                />
+              </label>
+              <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                Type
+                <input
+                  className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                  value={editType}
+                  onChange={(e) => setEditType(e.target.value)}
+                  placeholder={DEFAULT_SOURCE_TYPE}
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                  Priority
+                  <input
+                    className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                    type="number"
+                    value={editPriority}
+                    onChange={(e) => setEditPriority(e.target.value)}
+                  />
+                </label>
+                <label className="block space-y-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/50">
+                  Max links / run
+                  <input
+                    className="h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm font-medium normal-case tracking-normal text-black/80"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={editMaxLinks}
+                    onChange={(e) => setEditMaxLinks(e.target.value)}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeEditModal}
+                disabled={editBusy}
+                className="h-10 rounded-xl border border-black/10 px-4 text-sm font-semibold text-black/70 hover:bg-black/[0.03] disabled:opacity-45"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitEditSource()}
+                disabled={editBusy}
+                className="h-10 rounded-xl bg-black px-4 text-sm font-semibold text-white hover:bg-black/85 disabled:opacity-45"
+              >
+                {editBusy ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {message ? <p className="rounded-lg bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">{message}</p> : null}
       {error ? <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
 
@@ -362,6 +754,11 @@ export default function DiscoverySourcesTable({ rows }: Props) {
               <th className="px-3 py-3">Type</th>
               <th className="px-3 py-3">Base URL</th>
               <th className="px-3 py-3">Active</th>
+              <th className="px-3 py-3">Source health</th>
+              <th className="px-3 py-3">Approval rate</th>
+              <th className="px-3 py-3">Enqueued (last run)</th>
+              <th className="px-3 py-3">Candidates (last run)</th>
+              <th className="px-3 py-3">Last 3 runs</th>
               <th className="px-3 py-3">Priority</th>
               <th className="px-3 py-3">Max links/run</th>
               <th className="px-3 py-3">Last run</th>
@@ -370,12 +767,26 @@ export default function DiscoverySourcesTable({ rows }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-black/[0.06]">
-            {rows.length ? (
-              rows.map((row) => {
+            {visibleRows.length ? (
+              visibleRows.map((row) => {
                 const rowBusy = busyId === row.id;
+                const rowInactive = row.isActive === false;
                 return (
-                  <tr key={row.id} className="hover:bg-black/[0.02]">
-                    <td className="px-3 py-3 font-semibold text-black/80">{row.label}</td>
+                  <tr
+                    key={row.id}
+                    className={`hover:bg-black/[0.02] ${rowInactive ? "bg-black/[0.04] opacity-60" : ""}`}
+                  >
+                    <td className="px-3 py-3 font-semibold text-black/80">
+                      <span className="inline-flex flex-wrap items-center gap-1.5">
+                        {rowInactive ? (
+                          <span className="inline-flex rounded-full bg-black/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-black/55">
+                            inactive
+                          </span>
+                        ) : null}
+                        {row.autoDisabledLastRun ? <WarningAutoDisabledIcon /> : null}
+                        <span>{row.label}</span>
+                      </span>
+                    </td>
                     <td className="px-3 py-3 text-black/75">{row.sourceType || "-"}</td>
                     <td className="px-3 py-3 text-black/75">
                       {row.baseUrl ? (
@@ -387,6 +798,28 @@ export default function DiscoverySourcesTable({ rows }: Props) {
                       )}
                     </td>
                     <td className="px-3 py-3 text-black/75">{row.isActive === null ? "-" : row.isActive ? "yes" : "no"}</td>
+                    <td className="px-3 py-3">
+                      <StatusBadge status={row.operationalStatus} />
+                    </td>
+                    <td className="px-3 py-3 text-black/65 tabular-nums">{formatApprovalRateRatio(row.approvalRateLastRun)}</td>
+                    <td className="px-3 py-3 text-black/65 tabular-nums">{row.enqueuedLastRun ?? "—"}</td>
+                    <td className="px-3 py-3 text-black/65 tabular-nums">{row.totalCandidatesLastRun ?? "—"}</td>
+                    <td className="px-3 py-3 text-[11px] leading-snug text-black/60">
+                      {row.lastRunsTrend.length ? (
+                        <span className="tabular-nums">
+                          {row.lastRunsTrend.map((cell, index) => (
+                            <span key={`${row.id}-trend-${index}`}>
+                              {index > 0 ? <span className="text-black/35"> · </span> : null}
+                              <span title={`Run ${index + 1} (newest first): enqueued / approval rate`}>
+                                {cell.enqueued ?? "—"} / {formatApprovalRateRatio(cell.approvalRate)}
+                              </span>
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className="px-3 py-3 text-black/65">{row.priority ?? "-"}</td>
                     <td className="px-3 py-3 text-black/65">
                       {row.supportsMaxLinksEdit ? (
@@ -413,22 +846,71 @@ export default function DiscoverySourcesTable({ rows }: Props) {
                     <td className="px-3 py-3 text-black/65">{row.lastRunAt ? new Date(row.lastRunAt).toLocaleString("bg-BG") : "-"}</td>
                     <td className="px-3 py-3 text-black/65">{row.totalJobsEnqueued ?? "-"}</td>
                     <td className="px-3 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => toggleActive(row)}
-                        disabled={rowBusy || row.isActive === null}
-                        className="rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] disabled:cursor-not-allowed disabled:opacity-45"
-                      >
-                        {rowBusy ? "Saving..." : row.isActive ? "Deactivate" : "Activate"}
-                      </button>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <div className="flex flex-wrap justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(row)}
+                            disabled={rowBusy}
+                            className="rounded-lg border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-black/80 disabled:opacity-45"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void softDeleteSource(row)}
+                            disabled={rowBusy}
+                            className="rounded-lg border border-rose-600/40 bg-rose-600/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-rose-900 disabled:opacity-45"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleActive(row)}
+                          disabled={rowBusy || row.isActive === null}
+                          className="rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] disabled:cursor-not-allowed disabled:opacity-45"
+                        >
+                          {rowBusy ? "Saving..." : row.isActive ? "Deactivate" : "Activate"}
+                        </button>
+                        <div className="flex flex-wrap justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => void patchManualMode(row, "disable")}
+                            disabled={rowBusy}
+                            title="Skip this source on every discovery run"
+                            className="rounded-lg border border-rose-500/35 bg-rose-500/[0.07] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-rose-900 disabled:opacity-45"
+                          >
+                            Disable
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void patchManualMode(row, "force")}
+                            disabled={rowBusy}
+                            title="Ignore auto-disable and approval-rate penalties"
+                            className="rounded-lg border border-sky-500/35 bg-sky-500/[0.08] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-sky-950 disabled:opacity-45"
+                          >
+                            Force
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void patchManualMode(row, "reset")}
+                            disabled={rowBusy}
+                            title="Clear manual flags (auto mode)"
+                            className="rounded-lg border border-black/[0.12] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-black/70 disabled:opacity-45"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <td className="px-3 py-6 text-center text-black/50" colSpan={9}>
-                  No discovery sources found.
+                <td className="px-3 py-6 text-center text-black/50" colSpan={14}>
+                  {rows.length ? "No sources match this filter." : "No discovery sources found."}
                 </td>
               </tr>
             )}

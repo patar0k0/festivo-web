@@ -5,7 +5,7 @@ import { sortFestivalsForListing } from "@/lib/festival/sorting";
 import { sofiaWallClockNow } from "@/lib/festival/temporal";
 import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBounds";
 import { FESTIVAL_SELECT_MIN, fixFestivalText } from "@/lib/queries";
-import { festivalSettlementDisplayText } from "@/lib/settlements/formatDisplayName";
+import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Festival } from "@/lib/types";
@@ -13,7 +13,7 @@ import { Festival } from "@/lib/types";
 export type HomeCityOption = {
   name: string;
   slug: string | null;
-  /** `cities.slug` — стойност за `?city=` на началната страница. */
+  /** Стойност за `?city=` на началната страница; филтрира се по `festivals.city_slug`. */
   filterValue: string;
   /** Брой публикувани фестивали за този `city_id` / slug. */
   publishedFestivalCount: number;
@@ -77,7 +77,7 @@ async function fetchHomeFestivals(params: {
     .limit(limit);
 
   if (params.citySlug) {
-    query = query.eq("cities.slug", params.citySlug);
+    query = query.eq("city_slug", params.citySlug.trim().toLowerCase());
   }
 
   const rangeTo = params.to ?? "2099-12-31";
@@ -146,12 +146,11 @@ async function fetchHomePublishedCityOptionsWithCounts(): Promise<HomeCityOption
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("festivals")
-    .select("cities:cities!inner(slug,name_bg,is_village)")
+    .select("cities:cities!festivals_city_id_fkey!inner(slug,name_bg,is_village)")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
     .not("city_id", "is", null)
     .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
-
   if (error) {
     console.error("[loadHomePageData] fetchHomePublishedCityOptionsWithCounts", error);
     throw new Error(`fetchHomePublishedCityOptionsWithCounts: ${error.message}`);
@@ -164,8 +163,7 @@ async function fetchHomePublishedCityOptionsWithCounts(): Promise<HomeCityOption
     const slug = joined?.slug?.trim();
     if (!joined || !slug) continue;
 
-    const displayName =
-      festivalSettlementDisplayText(joined.name_bg, joined.is_village) ?? fixMojibakeBG(joined.name_bg ?? slug);
+    const displayName = getCityLabel({ name_bg: fixMojibakeBG(joined.name_bg ?? slug) });
 
     const existing = map.get(slug);
     if (!existing) {
@@ -204,7 +202,7 @@ async function fetchCurrentFestivals(params: { today: string; citySlug?: string 
     .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
 
   if (citySlug) {
-    query = query.eq("cities.slug", citySlug);
+    query = query.eq("city_slug", citySlug.trim().toLowerCase());
   }
 
   const { data, error } = await query.limit(100).returns<Festival[]>();
@@ -236,8 +234,9 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
       listPublicFestivalCategorySlugs().catch(() => [] as string[]),
     ]);
 
-  const selectedCityName = citySlug
-    ? (citiesResult.find((item) => item.slug === citySlug)?.name ?? null)
+  const cityKey = citySlug?.trim().toLowerCase();
+  const selectedCityName = cityKey
+    ? (citiesResult.find((item) => item.slug?.trim().toLowerCase() === cityKey)?.name ?? null)
     : null;
 
   const chipLinks = buildFestivalsQuickChipLinks(categorySlugs);

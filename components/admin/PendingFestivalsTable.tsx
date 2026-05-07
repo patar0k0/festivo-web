@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { PendingQualityBucket } from "@/lib/admin/pendingFestivalQuality";
+import { listEvidenceSources } from "@/lib/admin/pendingEvidenceSources";
 
 type PendingFestivalRow = {
   id: string;
@@ -12,6 +13,8 @@ type PendingFestivalRow = {
   start_date: string | null;
   end_date: string | null;
   source_url: string | null;
+  source_count: number | null;
+  evidence_json: unknown;
   submission_source: string | null;
   created_at: string;
   quality_score: number;
@@ -60,6 +63,7 @@ export default function PendingFestivalsTable({
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"approve" | "reject" | null>(null);
+  const [sourcesOpen, setSourcesOpen] = useState<Record<string, boolean>>({});
 
   const runAction = async (id: string, action: "approve" | "reject") => {
     if (busyId) return;
@@ -157,6 +161,7 @@ export default function PendingFestivalsTable({
               <th className="px-3 py-3">Start date</th>
               <th className="px-3 py-3">End date</th>
               <th className="px-3 py-3">Source URL</th>
+              <th className="px-3 py-3">Sources</th>
               <th className="px-3 py-3">Източник</th>
               <th className="px-3 py-3">Created</th>
               <th className="px-3 py-3">Actions</th>
@@ -165,6 +170,13 @@ export default function PendingFestivalsTable({
           <tbody className="divide-y divide-black/[0.06]">
             {rows.map((row) => {
               const rowBusy = busyId === row.id;
+              const evidenceSources = listEvidenceSources(row.evidence_json);
+              const sourceTotal =
+                row.source_count != null && Number.isFinite(Number(row.source_count))
+                  ? Number(row.source_count)
+                  : 0;
+              const showing = evidenceSources.length;
+              const showList = Boolean(sourcesOpen[row.id]);
               return (
                 <tr key={row.id} className="hover:bg-black/[0.02]">
                   <td className="px-3 py-3 font-medium text-[#0c0e14]">{row.title}</td>
@@ -191,6 +203,44 @@ export default function PendingFestivalsTable({
                     ) : (
                       "-"
                     )}
+                  </td>
+                  <td className="max-w-[14rem] px-3 py-3 align-top text-black/65">
+                    <div className="flex flex-col gap-1.5 text-xs">
+                      <span className="text-black/70">
+                        Sources: {sourceTotal} (showing {showing})
+                      </span>
+                      {evidenceSources.length > 0 ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSourcesOpen((prev) => ({
+                                ...prev,
+                                [row.id]: !prev[row.id],
+                              }))
+                            }
+                            className="w-fit rounded-md border border-black/15 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-black/70 hover:bg-black/[0.03]"
+                          >
+                            {showList ? "Hide sources" : "Show sources"}
+                          </button>
+                          {showList ? (
+                            <ul className="mt-0.5 list-none space-y-1 break-all text-[11px] leading-snug text-black/60">
+                              {evidenceSources.map((s, idx) => (
+                                <li key={`${row.id}-src-${idx}`}>
+                                  <span className="font-medium text-black/55">{s.type}</span>
+                                  <span className="text-black/40"> → </span>
+                                  <a href={s.url} target="_blank" rel="noreferrer" className="underline decoration-black/20 underline-offset-2">
+                                    {s.url}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="text-[11px] text-black/45">No evidence sources</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-3 text-black/65">
                     {row.submission_source === "organizer_portal" ? (

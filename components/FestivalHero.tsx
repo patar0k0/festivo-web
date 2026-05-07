@@ -1,17 +1,23 @@
 import FallbackImage from "@/components/ui/FallbackImage";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
-import { formatPublicFestivalLocationSummary } from "@/lib/festival/publicLocationDisplay";
-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { formatFestivalLocationUiLine } from "@/lib/location/getFestivalLocationDisplay";
 import { Festival } from "@/lib/types";
 import OpenInAppButton from "@/components/OpenInAppButton";
 import QRCodeBlock from "@/components/QRCodeBlock";
 import { festivalDeepLink } from "@/lib/deepLink";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
+import { buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
 
 export default function FestivalHero({ festival }: { festival: Festival }) {
   const deepLink = festivalDeepLink(festival.slug);
+  const isPast = isFestivalPast(festival);
   const heroImage = getFestivalHeroImage(festival);
-  const mapsQuery = [formatPublicFestivalLocationSummary(festival), festivalCityLabel(festival, "")].filter(Boolean).join(", ");
+  const mapsHref = buildGoogleMapsUrl({
+    placeId: festival.place_id,
+    latitude: festival.latitude ?? festival.lat ?? undefined,
+    longitude: festival.longitude ?? festival.lng ?? undefined,
+  });
   return (
     <section className="relative overflow-hidden rounded-3xl border border-ink/10 bg-ink/80">
       <div className="absolute inset-0">
@@ -27,27 +33,35 @@ export default function FestivalHero({ festival }: { festival: Festival }) {
       </div>
       <div className="relative z-10 grid gap-8 p-8 text-white md:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-4">
-          <p className="text-xs uppercase tracking-[0.3em] text-white/70">
-            {[festivalCityLabel(festival, "").trim(), formatFestivalDateLineShort(festival)].filter(Boolean).join(" · ")}
-          </p>
+          <div className="text-xs uppercase tracking-[0.3em] text-white/70">
+            <p>
+              {[formatFestivalLocationUiLine(festival).trim(), formatFestivalDateLineShort(festival)]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
           <h1 className="text-3xl font-semibold md:text-5xl">{festival.title}</h1>
           {festival.is_free && <span className="badge bg-white/90 text-ink">Free</span>}
           <div className="flex flex-wrap items-center gap-4">
             <OpenInAppButton deepLink={deepLink} />
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`}
-              className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Directions
-            </a>
-            <a
-              href={`/festival/${festival.slug}/ics`}
-              className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-            >
-              Add to calendar
-            </a>
+            {mapsHref ? (
+              <a
+                href={mapsHref}
+                className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Directions
+              </a>
+            ) : null}
+            {!isPast ? (
+              <a
+                href={`/festival/${festival.slug}/ics`}
+                className="rounded-full border border-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+              >
+                Add to calendar
+              </a>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-col gap-4">

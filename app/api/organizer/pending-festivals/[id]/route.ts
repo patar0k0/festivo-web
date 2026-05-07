@@ -3,6 +3,7 @@ import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/ad
 import { mergeOccurrenceDatesWithRange } from "@/lib/festival/occurrenceDates";
 import { pendingPatchFromCanonicalPartial } from "@/lib/festival/mappers";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
+import { enqueueOrganizerPortalSubmissionEmails } from "@/lib/organizer/enqueuePendingFestivalSubmissionEmails";
 import {
   assertCanEditOrganizerPending,
   getPortalAdminClient,
@@ -51,6 +52,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const body: Record<string, unknown> = rawBody as Record<string, unknown>;
+
+  const submitPendingRequested = body.status === "pending";
 
   const safeBody: Record<string, unknown> = {};
   const allowKeys = [
@@ -143,11 +146,25 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     patch.end_date = merged.end_date;
   }
 
+  const transitionDraftToPending = submitPendingRequested && pending.status === "draft";
+  if (submitPendingRequested && pending.status === "pending") {
+    return NextResponse.json({ error: "Записът вече е изпратен за преглед." }, { status: 400 });
+  }
+  if (transitionDraftToPending) {
+    patch.status = "pending";
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: true });
   }
 
-  const { data, error } = await admin.from("pending_festivals").update(patch).eq("id", id).eq("status", "pending").select("id").maybeSingle();
+  const { data, error } = await admin
+    .from("pending_festivals")
+    .update(patch)
+    .eq("id", id)
+    .in("status", ["pending", "draft"])
+    .select("id,title,start_date,city_name_display,status")
+    .maybeSingle();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -155,6 +172,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (!data) {
     return NextResponse.json({ error: "Записът не беше обновен." }, { status: 409 });
+  }
+
+  if (transitionDraftToPending && data.status === "pending") {
+    const title = typeof data.title === "string" ? data.title.trim() : "";
+    const startDate = typeof data.start_date === "string" ? data.start_date.trim() : "";
+    if (title && startDate) {
+      void enqueueOrganizerPortalSubmissionEmails(admin, {
+        pendingId: id,
+        userId: session.user.id,
+        title,
+        cityDisplay: typeof data.city_name_display === "string" ? data.city_name_display.trim() || null : null,
+        startDate,
+      });
+    }
   }
 
   return NextResponse.json({ ok: true });

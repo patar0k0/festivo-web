@@ -5,6 +5,7 @@ import Section from "@/components/ui/Section";
 import FestivalDetailClient from "@/components/festival/FestivalDetailClient";
 import { getAdminSession } from "@/lib/admin/isAdmin";
 import { fetchAccommodationOffersForFestival } from "@/lib/accommodation/fetchAccommodationOffers";
+import { canPreviewNonPublicFestival, isFestivalPublicDetailCatalogVisible } from "@/lib/festival/detailPreviewAccess";
 import {
   getCityFestivals,
   getFestivalBySlug,
@@ -12,32 +13,80 @@ import {
   normalizePublicFestivalSlugParam,
 } from "@/lib/queries";
 import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
+import { debugLog } from "@/lib/utils/debugLog";
 import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
+import { buildGoogleMapsEmbedSrc, buildGoogleMapsUrl } from "@/lib/location/buildGoogleMapsUrl";
 
 /** Match `/organizers/[slug]`: avoid caching a stale `notFound()` / partial payload across soft navigation and ISR. */
 export const dynamic = "force-dynamic";
+
+const SAFE_PUBLIC_FESTIVAL_METADATA = {
+  title: "Festivo",
+  description: "Открий фестивали в България",
+} as const;
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: rawSlug } = await params;
   const slug = normalizePublicFestivalSlugParam(rawSlug);
   const festival = await getFestivalBySlug(slug);
-  if (!festival) return {};
+  if (!festival) {
+    return { ...SAFE_PUBLIC_FESTIVAL_METADATA };
+  }
+
+  const catalogVisible = isFestivalPublicDetailCatalogVisible(festival);
+  if (!catalogVisible) {
+    const canPreview = await canPreviewNonPublicFestival(festival);
+    if (!canPreview) {
+      return { ...SAFE_PUBLIC_FESTIVAL_METADATA };
+    }
+  }
 
   const meta = festivalMeta(festival);
   const canonical = `${getBaseUrl()}/festivals/${slug}`;
+  const isPreviewMetadata = !catalogVisible;
+  const pageTitle = isPreviewMetadata ? `[Преглед] ${festival.title}` : meta.title;
   const ogImages =
     meta.shareImageUrl != null ? [{ url: meta.shareImageUrl, alt: festival.title }] : undefined;
+  const previewSafeDescription = "Този фестивал все още не е публичен.";
+
+  if (isPreviewMetadata) {
+    return {
+      title: pageTitle,
+      description: previewSafeDescription,
+      alternates: {
+        canonical: undefined,
+      },
+      openGraph: {
+        title: pageTitle,
+        description: previewSafeDescription,
+      },
+      twitter: {
+        card: "summary",
+        title: pageTitle,
+        description: previewSafeDescription,
+      },
+      robots: {
+        index: false,
+        follow: false,
+        googleBot: {
+          index: false,
+          follow: false,
+          noimageindex: true,
+        },
+      },
+    };
+  }
 
   return {
-    title: meta.title,
+    title: pageTitle,
     ...(meta.description ? { description: meta.description } : {}),
     alternates: {
       canonical,
     },
     openGraph: {
-      title: meta.title,
+      title: pageTitle,
       ...(meta.description ? { description: meta.description } : {}),
       url: canonical,
       siteName: "Festivo",
@@ -47,7 +96,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     },
     twitter: {
       card: ogImages ? "summary_large_image" : "summary",
-      title: meta.title,
+      title: pageTitle,
       ...(meta.description ? { description: meta.description } : {}),
       ...(ogImages ? { images: [ogImages[0].url] } : {}),
     },
@@ -63,8 +112,18 @@ export default async function Page({
   const slug = normalizePublicFestivalSlugParam(rawSlug);
   const data = await getFestivalDetail(slug);
 
-  /** Missing published row only — fetch failures throw and are handled by `app/festivals/error.tsx`. */
+  /** Missing row only — fetch failures throw and are handled by `app/festivals/error.tsx`. */
   if (!data) return notFound();
+
+  if (!isFestivalPublicDetailCatalogVisible(data.festival)) {
+    const canPreview = await canPreviewNonPublicFestival(data.festival);
+    if (!canPreview) {
+      debugLog("error", "RLS blocked access", { slug });
+      return notFound();
+    }
+  }
+
+  const showPendingApprovalBadge = !isFestivalPublicDetailCatalogVisible(data.festival);
 
   const galleryImageUrls = data.media
     .filter((m) => {
@@ -78,16 +137,18 @@ export default async function Page({
   });
   const citySlug = data.festival.cities?.slug?.trim() || null;
   const cityFilterValue = citySlug;
-  const mapQuery =
-    data.festival.latitude != null && data.festival.longitude != null
-      ? `${data.festival.latitude},${data.festival.longitude}`
-      : null;
-  const mapHref = mapQuery
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`
-    : null;
-  const mapEmbedSrc = mapQuery
-    ? `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed`
-    : null;
+  const mapLat = data.festival.latitude ?? data.festival.lat;
+  const mapLng = data.festival.longitude ?? data.festival.lng;
+  const mapHref = buildGoogleMapsUrl({
+    placeId: data.festival.place_id,
+    latitude: mapLat ?? undefined,
+    longitude: mapLng ?? undefined,
+  });
+  const mapEmbedRaw = buildGoogleMapsEmbedSrc({
+    lat: mapLat ?? undefined,
+    lng: mapLng ?? undefined,
+  });
+  const mapEmbedSrc = mapEmbedRaw || null;
   const calendarMonth = data.festival.start_date ? format(parseISO(data.festival.start_date), "yyyy-MM") : null;
 
   const [relatedResponse, adminSession, accommodationOffers, bookingClicks30d] = await Promise.all([
@@ -128,6 +189,8 @@ export default async function Page({
             accommodationOffers={accommodationOffers}
             adminEditHref={adminEditHref}
             showTravelPopularLabel={showTravelPopularLabel}
+            programItemPlanActions={!data.usedProgramDraftFallback}
+            showPendingApprovalBadge={showPendingApprovalBadge}
           />
         </Container>
       </Section>

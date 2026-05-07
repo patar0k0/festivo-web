@@ -11,7 +11,7 @@ import {
   type InsertJob,
 } from "./scheduler";
 import { getUsersNotificationRates24hBatch, shouldSkipScheduleForRateLimit } from "./rateLimit";
-import { formatSofiaDate, isSameSofiaCalendarDay } from "./time";
+import { formatSofiaDate, getFestivalStartInstant, isSameSofiaCalendarDay } from "./time";
 import type { ReminderType } from "@/lib/plan/server";
 
 type FestivalRow = {
@@ -124,6 +124,20 @@ export function hasMeaningfulFestivalChange(
 
 export async function cancelPendingReminderJobs(userId: string, festivalId: string): Promise<void> {
   const supabase = createSupabaseAdmin();
+  const { count, error: countErr } = await supabase
+    .from("notification_jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("festival_id", festivalId)
+    .eq("job_type", "reminder")
+    .eq("status", "pending");
+
+  if (countErr) {
+    console.warn("[REMINDER DELETE] count failed", { userId, festivalId, message: countErr.message });
+  } else {
+    console.info("[REMINDER DELETE]", { userId, festivalId, pendingCount: count ?? 0 });
+  }
+
   const now = new Date().toISOString();
   await supabase
     .from("notification_jobs")
@@ -135,18 +149,18 @@ export async function cancelPendingReminderJobs(userId: string, festivalId: stri
 }
 
 /**
- * Schedules pending reminder jobs for a saved festival, respecting explicit timing preference.
- * `24h` → only ~24h-before slot; `same_day_09` → only ~2h-before slot (MVP semantics).
+ * Schedules pending reminder jobs for a saved festival: **24h before** and **2h before** start
+ * (all future slots). `24h` / `same_day_09` / `default` are equivalent here — preference is expressed
+ * only as saved vs not (`none`).
  */
 export async function scheduleSavedFestivalReminders(
   userId: string,
   festivalId: string,
-  reminderPreference: Exclude<ReminderType, "none">,
 ): Promise<{ ok: boolean; error?: string }> {
   const supabase = createSupabaseAdmin();
   const { data: festival, error: fErr } = await supabase
     .from("festivals")
-    .select("id,title,slug,start_date,start_time,status")
+    .select("id,title,slug,city,start_date,start_time,status")
     .eq("id", festivalId)
     .maybeSingle();
 
@@ -159,25 +173,32 @@ export async function scheduleSavedFestivalReminders(
   }
 
   const now = new Date();
-  const allSlots = computeSavedFestivalReminderTimes(
+  const startInstant = getFestivalStartInstant(
+    festival.start_date,
+    (festival as { start_time?: string | null }).start_time ?? null,
+  );
+  const times = computeSavedFestivalReminderTimes(
     festival.start_date,
     now,
     (festival as { start_time?: string | null }).start_time ?? null,
   );
-  const times =
-    reminderPreference === "24h"
-      ? allSlots.filter((t) => t.subkind === "24h")
-      : allSlots.filter((t) => t.subkind === "2h");
-  if (!times.length) {
+
+  if (!times.length || !startInstant) {
     return { ok: true };
   }
 
+  const festivalMeta = {
+    id: festival.id,
+    slug: festival.slug,
+    title: festival.title,
+    city: (festival as { city?: string | null }).city ?? null,
+  };
+
   const rows = times.map((t) => {
     const payload = buildReminderPayload({
-      slug: festival.slug,
-      festivalId: festival.id,
-      title: festival.title ?? "Фестивал",
+      festival: festivalMeta,
       subkind: t.subkind,
+      festivalStartAt: startInstant,
     });
     const dedupe_key = makeDedupeKey([userId, "reminder", festival.id, t.scheduled_for.toISOString()]);
     return {
@@ -199,20 +220,21 @@ export async function scheduleSavedFestivalReminders(
 }
 
 /**
- * Align pending reminder jobs with the explicit reminder preference from user_plan_reminders.
- * - none: cancel pending reminder jobs
- * - 24h/same_day_09: cancel old pending jobs and schedule fresh reminder jobs
+ * Single entry point for saved-festival push reminders (`notification_jobs` only).
+ * - `none`: cancel all pending reminder jobs for this user/festival
+ * - otherwise: delete pending (cancel) then upsert fresh 24h + 2h jobs (dedupe_key + ignoreDuplicates)
  */
 export async function syncReminderJobsForPreference(
   userId: string,
   festivalId: string,
   reminderType: ReminderType,
 ): Promise<{ ok: boolean; error?: string }> {
+  console.info("[REMINDER SYNC]", { userId, festivalId, reminderType });
   await cancelPendingReminderJobs(userId, festivalId);
   if (reminderType === "none") {
     return { ok: true };
   }
-  return scheduleSavedFestivalReminders(userId, festivalId, reminderType);
+  return scheduleSavedFestivalReminders(userId, festivalId);
 }
 
 /** Админ промяна на фестивал: уведомява само потребители със запис в плана. */

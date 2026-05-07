@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
-import { compactProgramDraft, parseProgramDraftUnknown, programDraftHasContent, publishedRowsToProgramDraft, replaceFestivalScheduleFromProgramDraft } from "@/lib/festival/programDraft";
+import { parseProgramDraftUnknown, programDraftToPublishPayload, publishedRowsToProgramDraft, replaceFestivalScheduleFromProgramDraft } from "@/lib/festival/programDraft";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 type ScheduleGetResponse = {
@@ -96,11 +96,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
-  const draft = programDraftHasContent(parsed.value) ? compactProgramDraft(parsed.value) : null;
+  const draft = programDraftToPublishPayload(parsed.value);
 
   try {
     const admin = createSupabaseAdmin();
     await replaceFestivalScheduleFromProgramDraft(admin, id, draft);
+    const { error: festivalDraftErr } = await admin.from("festivals").update({ program_draft: draft }).eq("id", id);
+    if (festivalDraftErr) {
+      throw new Error(`festival program_draft update failed: ${festivalDraftErr.message}`);
+    }
   } catch (e) {
     const message = e instanceof Error ? e.message : "schedule update failed";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -125,5 +129,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     console.error("[admin/audit] festival.schedule_updated failed", { message });
   }
 
-  return NextResponse.json({ ok: true });
+  const savedItemsCount = draft
+    ? draft.days.reduce((n, d) => n + d.items.length, 0)
+    : 0;
+
+  console.info("[program-save] saved", { festivalId: id, savedItemsCount, payload: draft ?? null });
+
+  return NextResponse.json({ ok: true, savedItemsCount });
 }

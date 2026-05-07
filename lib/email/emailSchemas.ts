@@ -199,3 +199,20 @@ export function parseSavedFestivalReminderEmailPayload(
     managePreferencesUrl: optString(raw, "managePreferencesUrl", 2000),
   };
 }
+
+export type ContactFormPayload = {
+  visitorName: string;
+  visitorEmail: string;
+  message: string;
+  /** Reply-To for the outbound message (visitor). */
+  replyTo: string;
+};
+
+export function parseContactFormPayload(raw: Record<string, unknown>): ContactFormPayload {
+  return {
+    visitorName: reqString(raw, "visitorName", 120),
+    visitorEmail: reqString(raw, "visitorEmail", 320),
+    message: reqString(raw, "message", 6000),
+    replyTo: reqString(raw, "replyTo", 320),
+  };
+}

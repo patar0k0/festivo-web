@@ -43,6 +43,6 @@ export async function GET(
     console.error("[jobs][weekend_trigger] error", { slot, message });
     return NextResponse.json({ error: message }, { status: 500 });
   } finally {
-    await releaseCronLock(supabase, lockName);
+    await releaseCronLock(supabase, lockName, lock.ok ? lock.lockToken : undefined);
   }
 }

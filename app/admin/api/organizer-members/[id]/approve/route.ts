@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
-import { EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED } from "@/lib/email/emailJobTypes";
+import { buildEmailJobContent } from "@/lib/email/emailRegistry";
 import { dedupeKeyOrganizerClaimApproved } from "@/lib/email/emailDedupeKeys";
-import { absoluteSiteUrl } from "@/lib/email/emailUrls";
+import { EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED } from "@/lib/email/emailJobTypes";
 import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
+import { absoluteSiteUrl } from "@/lib/email/emailUrls";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -36,6 +37,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!row) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  const prevStatus = row.status;
 
   if (row.status !== "pending") {
     return NextResponse.json({ error: "Заявката вече е обработена." }, { status: 409 });
@@ -80,30 +83,45 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Заявката вече е обработена." }, { status: 409 });
   }
 
+  {
+    const { error: claimAuditErr } = await admin.from("organizer_claim_audit").insert({
+      claim_id: row.id,
+      organizer_id: row.organizer_id,
+      user_id: ctx.user.id,
+      action: "approve",
+    });
+    if (claimAuditErr) {
+      console.error("[organizer_claim_audit] approve insert failed", claimAuditErr);
+    }
+  }
+
   const org = row.organizer as { name?: string | null; slug?: string | null } | null;
-  const organizerName = org?.name?.trim() || "Организатор";
   const organizerSlug = org?.slug?.trim() || null;
-  const dashboardUrl = absoluteSiteUrl("/organizer/dashboard");
+  const organizerName = org?.name?.trim() || "Организатор";
   const accountEmail = await resolveAuthUserEmail(admin, row.user_id);
   const recipient = accountEmail?.trim() || (typeof row.contact_email === "string" ? row.contact_email.trim() : "");
-  if (recipient) {
-    void enqueueEmailJobSafe(
+  if (recipient && prevStatus !== "active") {
+    const profilePath = organizerSlug ? `/organizers/${organizerSlug}` : "/organizer/dashboard";
+    const profileUrl = absoluteSiteUrl(profilePath);
+    const payload = {
+      organizerName,
+      organizerSlug,
+      dashboardUrl: profileUrl,
+    };
+    await buildEmailJobContent(EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED, null, payload);
+    await enqueueEmailJobSafe(
       admin,
       {
         type: EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED,
         recipientEmail: recipient,
         recipientUserId: row.user_id,
-        payload: {
-          organizerName,
-          organizerSlug,
-          dashboardUrl,
-        },
+        payload,
         dedupeKey: dedupeKeyOrganizerClaimApproved(row.id),
       },
-      "organizer_claim_approved",
+      "organizer-claim-approved",
     );
-  } else {
-    console.warn("[email_jobs] skip organizer-claim-approved: no recipient", { member_id: row.id });
+  } else if (!recipient) {
+    console.warn("[organizer_claim] skip approve email: no recipient", { member_id: row.id });
   }
 
   try {

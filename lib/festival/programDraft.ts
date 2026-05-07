@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { FestivalDay, FestivalScheduleItem } from "@/lib/types";
 import {
   normalizeScheduleItemTimePair,
   parseHmInputToDbTime,
@@ -163,18 +164,93 @@ export function parseProgramDraftUnknown(input: unknown): { ok: true; value: Pro
 /** Strip empty days / items for storage. */
 export function compactProgramDraft(draft: ProgramDraft): ProgramDraft {
   const days = draft.days
-    .map((d) => ({
-      date: d.date,
-      title: d.title?.trim() ? d.title.trim() : null,
-      items: sortProgramDraftItemsByStartTime(d.items.filter((it) => it.title.trim().length > 0)),
-    }))
+    .map((d) => {
+      const items = d.items
+        .map((it) => {
+          const rawTitle = it.title?.trim() ?? "";
+          const desc = it.description?.trim() ?? "";
+          const fallbackTitle = desc ? desc.slice(0, 60) : "";
+          const title = rawTitle || fallbackTitle;
+          if (!title) return null;
+          console.info("[program] normalized item", { rawTitle, fallbackTitle, finalTitle: title });
+          return { ...it, title };
+        })
+        .filter((it): it is ProgramDraftItem => it !== null);
+      return {
+        date: d.date,
+        title: d.title?.trim() ? d.title.trim() : null,
+        items: sortProgramDraftItemsByStartTime(items),
+      };
+    })
     .filter((d) => isValidIsoDate(d.date));
   return { version: draft.version ?? PROGRAM_DRAFT_VERSION, days };
 }
 
+export function hasPublishableContent(draft: ProgramDraft | null): boolean {
+  if (!draft?.days?.length) return false;
+
+  for (const day of draft.days) {
+    for (const item of day.items || []) {
+      if (item.title && item.title.trim().length > 0) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 export function programDraftHasContent(draft: ProgramDraft | null | undefined): boolean {
   if (!draft?.days?.length) return false;
-  return draft.days.some((d) => d.items.length > 0);
+  return hasPublishableContent(compactProgramDraft(draft));
+}
+
+/**
+ * What we actually persist: compact strips empty titles, invalid dates, etc.
+ * Use this (not raw `programDraftHasContent` alone) to decide the saved payload, client and server.
+ */
+export function programDraftToPublishPayload(draft: ProgramDraft | null | undefined): ProgramDraft | null {
+  if (!draft?.days?.length) return null;
+  const compacted = compactProgramDraft(draft);
+  if (!hasPublishableContent(compacted)) {
+    return null;
+  }
+
+  return compacted;
+}
+
+/** Build public detail schedule from stored JSON when `festival_schedule_items` are empty (e.g. RLS gaps). */
+export function programDraftToDetailSchedule(draft: ProgramDraft, festivalId: string | number): {
+  days: FestivalDay[];
+  scheduleItems: FestivalScheduleItem[];
+} {
+  const c = programDraftToPublishPayload(draft);
+  if (!c) return { days: [], scheduleItems: [] };
+  const outDays: FestivalDay[] = [];
+  const outItems: FestivalScheduleItem[] = [];
+  for (const d of c.days) {
+    const dateKey = d.date.slice(0, 10);
+    const dayId = `pd-fb-${String(festivalId)}-${dateKey}`;
+    outDays.push({
+      id: dayId,
+      festival_id: festivalId,
+      date: d.date,
+      title: d.title ?? null,
+    });
+    d.items.forEach((it, idx) => {
+      outItems.push({
+        id: `pd-fbi-${String(festivalId)}-${dateKey}-${idx}`,
+        day_id: dayId,
+        start_time: it.start_time ?? null,
+        end_time: it.end_time ?? null,
+        stage: it.stage ?? null,
+        title: it.title,
+        description: it.description ?? null,
+        sort_order: it.sort_order ?? idx,
+      });
+    });
+  }
+  return { days: outDays, scheduleItems: outItems };
 }
 
 function cloneProgramDraft(d: ProgramDraft): ProgramDraft {
@@ -296,7 +372,10 @@ export function programDraftFromEditorDayBlocks(blocks: ProgramEditorDayBlock[])
     if (dt) titleByDate.set(d, dt);
 
     for (const row of block.items) {
-      const title = row.title.trim();
+      const rawTitle = row.title?.trim() ?? "";
+      const desc = row.description?.trim() ? row.description.trim() : "";
+      const fallbackTitle = desc ? desc.slice(0, 60) : "";
+      const title = rawTitle || fallbackTitle;
       if (!title) continue;
       const pair = normalizeScheduleItemTimePair(
         parseHmInputToDbTime(row.start_time),
@@ -534,6 +613,10 @@ export async function replaceFestivalScheduleFromProgramDraft(
   }
 
   if (itemRows.length === 0) {
+    const { error: delEmptyErr } = await admin.from("festival_days").delete().eq("festival_id", festivalId);
+    if (delEmptyErr) {
+      throw new Error(`festival_days delete (empty program) failed: ${delEmptyErr.message}`);
+    }
     return;
   }
 

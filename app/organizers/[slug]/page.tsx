@@ -3,7 +3,7 @@ import Link from "next/link";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
-import { festivalCityLabel, organizerPageLocationLabel } from "@/lib/settlements/formatDisplayName";
+import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import OrganizerProfileAbout from "@/components/organizers/OrganizerProfileAbout";
@@ -102,7 +102,10 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
   const { organizer, festivals } = data;
   const organizerInitials = organizerInitialsFromName(organizer.name);
 
-  const locationLabel = organizerPageLocationLabel(organizer.cities, festivals);
+  const locationLabel =
+    organizer.cities?.name_bg?.trim() ||
+    festivals.map((f) => getFestivalLocationDisplay(f).city).find((c) => Boolean(c?.trim())) ||
+    null;
 
   const email = organizer.email?.trim() || null;
   const phone = organizer.phone?.trim() || null;
@@ -298,7 +301,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                   ) : (
                     <div className="border-t border-amber-200/35 pt-6">
                       <div className="rounded-2xl border border-dashed border-amber-200/55 bg-amber-50/40 px-4 py-5 text-center ring-1 ring-amber-100/25 sm:px-6">
-                        <p className="text-sm font-medium text-black/70">Все още няма описание на организатора</p>
+                        <p className="text-sm font-medium text-black/70">Няма добавено описание за този организатор.</p>
                         <p className="mt-1.5 text-sm leading-relaxed text-black/55">
                           Когато бъде добавено, ще се покаже тук за посетителите.
                         </p>
@@ -337,7 +340,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                           <EventCard
                             key={festival.id}
                             title={festival.title}
-                            city={festivalCityLabel(festival, "")}
+                            city={getFestivalLocationDisplay(festival).city ?? ""}
                             category={festival.category}
                             imageUrl={getFestivalHeroImage(festival)}
                             startDate={festival.start_date}
@@ -362,7 +365,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                           <EventCard
                             key={festival.id}
                             title={festival.title}
-                            city={festivalCityLabel(festival, "")}
+                            city={getFestivalLocationDisplay(festival).city ?? ""}
                             category={festival.category}
                             imageUrl={getFestivalHeroImage(festival)}
                             startDate={festival.start_date}

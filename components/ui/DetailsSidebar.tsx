@@ -3,6 +3,7 @@ import Select from "@/components/ui/Select";
 import OpenInAppButton from "@/components/OpenInAppButton";
 import QRCodeBlock from "@/components/QRCodeBlock";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 
 type DetailsSidebarProps = {
   dateText: string;
@@ -10,9 +11,11 @@ type DetailsSidebarProps = {
   mapHref?: string | null;
   deepLink: string;
   icsHref: string;
+  festival?: { start_date?: string | null; end_date?: string | null } | null;
 };
 
-export default function DetailsSidebar({ dateText, venueText, mapHref, deepLink, icsHref }: DetailsSidebarProps) {
+export default function DetailsSidebar({ dateText, venueText, mapHref, deepLink, icsHref, festival }: DetailsSidebarProps) {
+  const isPast = isFestivalPast(festival ?? {});
   return (
     <div className="space-y-4">
       <Card>
@@ -51,22 +54,28 @@ export default function DetailsSidebar({ dateText, venueText, mapHref, deepLink,
         <CardContent className="space-y-3">
           <OpenInAppButton deepLink={deepLink} />
           <QRCodeBlock value={deepLink} />
-          <Button variant="secondary" size="lg" className="w-full" href={icsHref}>
-            Add to calendar (.ics)
-          </Button>
+          {!isPast ? (
+            <Button variant="secondary" size="lg" className="w-full" href={icsHref}>
+              Add to calendar (.ics)
+            </Button>
+          ) : null}
           {mapHref ? (
             <Button variant="secondary" size="lg" className="w-full" href={mapHref}>
               Navigation
             </Button>
           ) : null}
-          <div className="space-y-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Reminder</span>
-            <Select className="w-full">
-              <option value="none">None</option>
-              <option value="24h">24h before</option>
-              <option value="same-day">Same day 09:00</option>
-            </Select>
-          </div>
+          {!isPast ? (
+            <div className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Reminder</span>
+              <Select className="w-full">
+                <option value="none">None</option>
+                <option value="24h">24h before</option>
+                <option value="same-day">Same day 09:00</option>
+              </Select>
+            </div>
+          ) : (
+            <p className="text-sm text-neutral-500">Събитието е приключило</p>
+          )}
         </CardContent>
       </Card>
     </div>

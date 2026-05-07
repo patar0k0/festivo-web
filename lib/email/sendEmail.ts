@@ -10,20 +10,39 @@ export type SendEmailInput = {
   replyTo?: string | null;
 };
 
-export type SendEmailResult = {
-  ok: boolean;
-  providerMessageId?: string | null;
-  errorMessage?: string | null;
-  missingApiKey?: boolean;
+export type SendEmailMeta = {
+  jobId?: string;
+  type?: string;
 };
 
-export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
+export type SendEmailResult = {
+  success: boolean;
+  providerMessageId?: string | null;
+  error?: string;
+};
+
+export const RESEND_API_KEY_MISSING_ERROR = "RESEND_API_KEY is not set";
+
+function normalizeProviderError(err: unknown): string {
+  if (err && typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string") {
+    return (err as { message: string }).message;
+  }
+  return JSON.stringify(err).slice(0, 500);
+}
+
+export async function sendEmail(input: SendEmailInput, meta?: SendEmailMeta): Promise<SendEmailResult> {
+  if (meta?.jobId && meta?.type) {
+    console.info("[email][start]", { jobId: meta.jobId, type: meta.type });
+  }
+
+  if (process.env.EMAIL_ENABLED === "false") {
+    const to = input.to;
+    console.info("[email][disabled]", { jobId: meta?.jobId, to });
+    return { success: true, providerMessageId: "disabled-mode" };
+  }
+
   if (!resend) {
-    return {
-      ok: false,
-      missingApiKey: true,
-      errorMessage: "RESEND_API_KEY is not set",
-    };
+    return { success: false, error: RESEND_API_KEY_MISSING_ERROR };
   }
 
   try {
@@ -39,9 +58,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     });
 
     if (error) {
-      const errorMessage =
-        typeof error.message === "string" ? error.message : JSON.stringify(error).slice(0, 500);
-      return { ok: false, errorMessage };
+      return { success: false, error: normalizeProviderError(error) };
     }
 
     const providerMessageId =
@@ -49,9 +66,13 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         ? (data as { id: string }).id
         : null;
 
-    return { ok: true, providerMessageId };
+    if (meta?.jobId) {
+      console.info("[email][sent]", { jobId: meta.jobId, providerMessageId: providerMessageId ?? undefined });
+    }
+
+    return { success: true, providerMessageId };
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    return { ok: false, errorMessage };
+    return { success: false, error: errorMessage };
   }
 }

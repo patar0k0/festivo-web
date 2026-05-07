@@ -1,13 +1,18 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ResearchBestGuess, ResearchDateCandidate, ResearchFestivalResult, ResearchFieldCandidate } from "@/lib/admin/research/types";
 import ProgramDraftEditor from "@/components/admin/ProgramDraftEditor";
 import { emptyProgramDraft, programDraftHasContent } from "@/lib/festival/programDraft";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { parseFlexibleDateToIso } from "@/lib/dates/euDateFormat";
-import type { AiResearchConfidence, PerplexityFestivalResearchResult } from "@/lib/research/perplexity";
+import type {
+  AdminFestivalSearchHit,
+  AiResearchConfidence,
+  FestivalResearchReport,
+  PerplexityFestivalResearchResult,
+} from "@/lib/research/perplexity";
 import { getAIProviderLabel } from "@/lib/ai/providerUi";
 import {
   AdminEntityPageShell,
@@ -128,6 +133,253 @@ function getDomainLabel(url: string): string {
   }
 }
 
+const RESEARCH_DEBUG_SECTION =
+  "text-[10px] font-semibold uppercase tracking-[0.14em] text-black/50 border-b border-black/[0.08] pb-1 mb-2";
+
+function ResearchPipelineDebugReport({ report }: { report: FestivalResearchReport }) {
+  const discovery = report.discovery;
+  const hasStructured = Boolean(discovery?.ranked?.length);
+
+  if (!hasStructured) {
+    return (
+      <div className="space-y-2 text-xs text-black/70">
+        <p className="whitespace-pre-wrap leading-relaxed">{report.confidence_reasoning}</p>
+        {report.agreement_notes.length > 0 ? (
+          <ul className="list-disc space-y-0.5 pl-4">
+            {report.agreement_notes.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        ) : null}
+        <ul className="list-disc space-y-0.5 pl-4">
+          {report.merge_summary_lines.map((line) => (
+            <li key={line} className="break-words">
+              {line}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  const formatDateLine = (start: string | null, end: string | null) => {
+    if (!start && !end) return "—";
+    if (start && end && start !== end) return `${start} → ${end}`;
+    return start ?? end ?? "—";
+  };
+
+  return (
+    <div className="space-y-4 text-xs text-black/75">
+      <section>
+        <h4 className={RESEARCH_DEBUG_SECTION}>DISCOVERY</h4>
+        <p className="mb-1 font-medium text-black/80">Query used</p>
+        <ul className="mb-2 list-inside list-decimal space-y-0.5 pl-1 text-black/70">
+          {discovery!.queries.map((q) => (
+            <li key={q} className="break-words">
+              {q}
+            </li>
+          ))}
+        </ul>
+        <p className="mb-1 font-medium text-black/80">URLs returned (ranked)</p>
+        <ul className="space-y-1.5">
+          {discovery!.ranked.map((row) => (
+            <li key={`${row.rank}-${row.url}`} className="rounded-md border border-black/[0.06] bg-white px-2 py-1.5">
+              <span className="font-mono text-[10px] text-black/45">#{row.rank}</span>{" "}
+              <span className="font-medium text-black/65">{row.source_type}</span>
+              <p className="mt-0.5 break-all text-[11px] text-[#0e7a45]">{row.url}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <h4 className={RESEARCH_DEBUG_SECTION}>EXTRACTION (per URL)</h4>
+        <div className="space-y-3">
+          {(report.extractions ?? []).map((row) => (
+            <div key={row.url} className="rounded-lg border border-black/[0.08] bg-white p-2.5 shadow-sm">
+              <p className="break-all font-mono text-[11px] font-semibold text-black/80">URL: {row.url}</p>
+              <p className="mt-1">
+                <span className="text-black/45">TYPE:</span>{" "}
+                <span className="font-medium capitalize">{row.source_type}</span>
+                {" · "}
+                <span className="text-black/45">FETCH:</span>{" "}
+                <span className="font-medium">{row.fetch}</span>
+                {row.similarity != null ? (
+                  <>
+                    {" · "}
+                    <span className="text-black/45">SIM:</span> {row.similarity}
+                  </>
+                ) : null}
+                {row.used_in_merge ? (
+                  <span className="ml-2 rounded bg-[#0e7a45]/12 px-1.5 py-0.5 text-[10px] font-semibold text-[#0e7a45]">
+                    used in merge
+                  </span>
+                ) : null}
+              </p>
+              <div className="mt-2 border-t border-black/[0.06] pt-2 text-black/70">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">DATA</p>
+                <ul className="mt-1 list-none space-y-0.5">
+                  <li>
+                    <span className="text-black/45">title:</span> {row.title ? shortText(row.title, 120) : "—"}
+                  </li>
+                  <li>
+                    <span className="text-black/45">date:</span> {formatDateLine(row.start_date, row.end_date)}
+                  </li>
+                  <li>
+                    <span className="text-black/45">city:</span> {row.city ?? "—"}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {(report.rejected_sources ?? []).length > 0 ? (
+        <section>
+          <h4 className={RESEARCH_DEBUG_SECTION}>REJECTED SOURCES</h4>
+          <ul className="space-y-2">
+            {(report.rejected_sources ?? []).map((r) => (
+              <li key={`${r.url}-${r.reason}`} className="rounded-md border border-red-200/80 bg-red-50/50 px-2 py-1.5">
+                <p className="break-all font-mono text-[11px] text-black/85">{r.url}</p>
+                <p className="mt-1">
+                  <span className="font-semibold text-red-900/90">reason:</span>{" "}
+                  <code className="rounded bg-red-100/80 px-1 py-0.5 text-[10px]">{r.reason}</code>
+                </p>
+                {r.detail ? <p className="mt-1 text-[11px] text-black/60">{r.detail}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {report.merge_result ? (
+        <section>
+          <h4 className={RESEARCH_DEBUG_SECTION}>MERGE RESULT</h4>
+          <ul className="space-y-2 rounded-md border border-black/[0.06] bg-white p-2.5">
+            <li>
+              <span className="text-black/45">chosen title:</span>{" "}
+              <span className="font-medium text-black/85">{report.merge_result.title ?? "—"}</span>
+              {report.merge_result.title_from_urls.length > 0 ? (
+                <p className="mt-0.5 pl-2 text-[10px] text-black/55">
+                  from: {report.merge_result.title_from_urls.join(", ")}
+                </p>
+              ) : null}
+            </li>
+            <li>
+              <span className="text-black/45">chosen date:</span>{" "}
+              <span className="font-medium text-black/85">
+                {formatDateLine(report.merge_result.start_date, report.merge_result.end_date)}
+              </span>
+              {report.merge_result.start_date_from_urls.length > 0 ? (
+                <p className="mt-0.5 pl-2 text-[10px] text-black/55">
+                  start from: {report.merge_result.start_date_from_urls.join(", ")}
+                </p>
+              ) : null}
+              {report.merge_result.end_date_from_urls.length > 0 ? (
+                <p className="mt-0.5 pl-2 text-[10px] text-black/55">
+                  end from: {report.merge_result.end_date_from_urls.join(", ")}
+                </p>
+              ) : null}
+            </li>
+            <li>
+              <span className="text-black/45">chosen city:</span>{" "}
+              <span className="font-medium text-black/85">{report.merge_result.city ?? "—"}</span>
+              {report.merge_result.city_from_urls.length > 0 ? (
+                <p className="mt-0.5 pl-2 text-[10px] text-black/55">
+                  from: {report.merge_result.city_from_urls.join(", ")}
+                </p>
+              ) : null}
+            </li>
+            {report.merge_result.merge_fallback_used ? (
+              <li className="rounded bg-amber-50/90 px-2 py-1 text-[11px] text-amber-950/90">
+                Merge fallback: {report.merge_result.merge_fallback_note ?? "Similarity thresholds relaxed."}
+              </li>
+            ) : null}
+            {report.merge_result.lock_notes.length > 0 ? (
+              <li>
+                <span className="text-black/45">lock notes:</span>
+                <ul className="mt-0.5 list-disc pl-4 text-[11px] text-black/65">
+                  {report.merge_result.lock_notes.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </li>
+            ) : null}
+          </ul>
+        </section>
+      ) : null}
+
+      <section>
+        <h4 className={RESEARCH_DEBUG_SECTION}>CONFIDENCE</h4>
+        {report.confidence_debug ? (
+          <>
+            <p className="mb-2 font-semibold capitalize text-black/85">
+              {report.confidence_debug.level} because:
+            </p>
+            <ul className="list-disc space-y-1 pl-4 text-black/70">
+              {report.confidence_debug.bullets.map((b) => (
+                <li key={b} className="leading-relaxed">
+                  {b}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="text-black/70">Confidence tier: {report.confidence_reasoning}</p>
+        )}
+        <p className="mt-2 border-t border-black/[0.06] pt-2 text-[11px] text-black/55">
+          {report.confidence_reasoning}
+        </p>
+      </section>
+
+      {(report.pipeline_errors ?? []).length > 0 ? (
+        <section>
+          <h4 className={RESEARCH_DEBUG_SECTION}>ERRORS</h4>
+          <ul className="space-y-2">
+            {(report.pipeline_errors ?? []).map((err, i) => (
+              <li key={`${err.message}-${i}`} className="rounded-md border border-amber-200/90 bg-amber-50/60 px-2 py-1.5">
+                <p className="font-semibold text-amber-950/90">ERROR</p>
+                {err.url ? <p className="break-all font-mono text-[11px] text-black/75">{err.url}</p> : null}
+                <p className="mt-1 text-[11px] text-black/70">{err.message}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {report.completeness ? (
+        <p className="text-[11px] text-black/60">
+          Completeness (key fields): merged {report.completeness.merged}/6 — best single source{" "}
+          {report.completeness.best_single_source}/6.
+        </p>
+      ) : null}
+
+      {report.agreement_notes.length > 0 ? (
+        <section>
+          <h4 className={RESEARCH_DEBUG_SECTION}>SOURCE AGREEMENT (raw)</h4>
+          <ul className="list-disc space-y-0.5 pl-4">
+            {report.agreement_notes.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <details className="rounded-md border border-black/[0.06] bg-black/[0.02] px-2 py-1.5">
+        <summary className="cursor-pointer text-[11px] font-medium text-black/60">Technical merge log</summary>
+        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-black/55">
+          {report.merge_summary_lines.map((line) => (
+            <li key={line} className="break-words">
+              {line}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </div>
+  );
+}
+
 function formatMissingField(field: string): string {
   const normalized = field.replace(/_url$/, "").replace(/_/g, " ");
   return `${normalized} missing`;
@@ -207,6 +459,26 @@ export default function ResearchFestivalPanel() {
   const [isAiResearching, setIsAiResearching] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
+  const [pipelineJobId, setPipelineJobId] = useState<string | null>(null);
+  const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
+  const [pipelinePendingId, setPipelinePendingId] = useState<string | null>(null);
+
+  const [sourceSearchQuery, setSourceSearchQuery] = useState("");
+  const [sourceHits, setSourceHits] = useState<AdminFestivalSearchHit[]>([]);
+  const [sourceSearchLoading, setSourceSearchLoading] = useState(false);
+  const [sourceSearchError, setSourceSearchError] = useState("");
+  const [previewHit, setPreviewHit] = useState<AdminFestivalSearchHit | null>(null);
+  const [previewExtract, setPreviewExtract] = useState<PerplexityFestivalResearchResult | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+  const [selectingUrl, setSelectingUrl] = useState<string | null>(null);
+
+  const [selectedUrls, setSelectedUrls] = useState<string[]>([]);
+  const [isMerging, setIsMerging] = useState(false);
+  const [mergeError, setMergeError] = useState("");
+  const [isSendingPending, setIsSendingPending] = useState(false);
+  const [lastMergeMeta, setLastMergeMeta] = useState<{ confidence_score: number; needs_review: boolean } | null>(null);
+
   const canResearch = query.trim().length > 0 && !isResearching;
   const canAiResearch = aiQuery.trim().length > 0 && !isAiResearching;
   const canCreate = Boolean(result || aiDraft) && !isCreating;
@@ -223,6 +495,119 @@ export default function ResearchFestivalPanel() {
 
   const setAiDraftField = (field: AiEditableStringField, rawValue: string) => {
     setAiDraft((prev) => (prev ? { ...prev, [field]: sanitizeInputValue(rawValue) } : prev));
+  };
+
+  function toggleSelect(url: string) {
+    setSelectedUrls((prev) => (prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]));
+  }
+
+  const applyExtractionToAiDraft = (r: PerplexityFestivalResearchResult, successMessage?: string) => {
+    setAiError("");
+    setAiResult(r);
+    const names =
+      Array.isArray(r.organizer_names) && r.organizer_names.length > 0
+        ? r.organizer_names.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+        : r.organizer_name
+          ? [r.organizer_name]
+          : [];
+    setAiDraft({ ...r, organizer_names: names.length > 0 ? names : null });
+    setResult(null);
+    setPipelineJobId(null);
+    setPipelineStatus(null);
+    setPipelinePendingId(null);
+    if (successMessage) {
+      setAiSuccess(successMessage);
+    }
+  };
+
+  const runSourceSearch = async () => {
+    const q = sourceSearchQuery.trim();
+    if (!q) return;
+    setSourceSearchError("");
+    setSourceSearchLoading(true);
+    setSourceHits([]);
+    setSelectedUrls([]);
+    setMergeError("");
+    setPreviewHit(null);
+    setPreviewExtract(null);
+    setPreviewError("");
+    try {
+      const res = await fetch(`/admin/api/search?q=${encodeURIComponent(q)}`);
+      const payload = (await res.json().catch(() => null)) as
+        | { error?: string; search_results?: AdminFestivalSearchHit[] }
+        | null;
+      if (!res.ok || !payload?.search_results) {
+        throw new Error(payload?.error ?? "Search failed.");
+      }
+      setSourceHits(payload.search_results);
+      setAiQuery(q);
+    } catch (e) {
+      setSourceSearchError(e instanceof Error ? e.message : "Search failed.");
+    } finally {
+      setSourceSearchLoading(false);
+    }
+  };
+
+  const loadPreview = async (hit: AdminFestivalSearchHit) => {
+    setPreviewHit(hit);
+    setPreviewExtract(null);
+    setPreviewError("");
+    setPreviewLoading(true);
+    try {
+      const res = await fetch("/admin/api/research-from-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: hit.url,
+          search_query_hint: sourceSearchQuery.trim() || undefined,
+          snippet: hit.snippet ?? undefined,
+        }),
+      });
+      const payload = (await res.json().catch(() => null)) as { error?: string; result?: PerplexityFestivalResearchResult } | null;
+      if (!res.ok || !payload?.result) {
+        throw new Error(payload?.error ?? "Preview extraction failed.");
+      }
+      setPreviewExtract(payload.result);
+    } catch (e) {
+      setPreviewError(e instanceof Error ? e.message : "Preview failed.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const selectFromHit = async (hit: AdminFestivalSearchHit) => {
+    setLastMergeMeta(null);
+    setAiError("");
+    setSelectingUrl(hit.url);
+    try {
+      let r: PerplexityFestivalResearchResult;
+      if (previewHit?.url === hit.url && previewExtract) {
+        r = previewExtract;
+      } else {
+        const res = await fetch("/admin/api/research-from-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: hit.url,
+            search_query_hint: sourceSearchQuery.trim() || undefined,
+            snippet: hit.snippet ?? undefined,
+          }),
+        });
+        const payload = (await res.json().catch(() => null)) as { error?: string; result?: PerplexityFestivalResearchResult } | null;
+        if (!res.ok || !payload?.result) {
+          throw new Error(payload?.error ?? "Extraction failed.");
+        }
+        r = payload.result;
+      }
+      applyExtractionToAiDraft(
+        r,
+        "Source selected: single-page extraction applied. Review confidence and missing fields, then send to pipeline.",
+      );
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Select failed.");
+    } finally {
+      setSelectingUrl(null);
+    }
   };
 
   const summaryEyebrow = "Admin · Research festival";
@@ -291,8 +676,12 @@ export default function ResearchFestivalPanel() {
       }
 
       setResult(payload.result);
+      setLastMergeMeta(null);
       setAiResult(null);
       setAiDraft(null);
+      setPipelineJobId(null);
+      setPipelineStatus(null);
+      setPipelinePendingId(null);
       const bg = payload.result.best_guess ?? EMPTY_FINAL_VALUES;
       setFinalValues({ ...EMPTY_FINAL_VALUES, ...bg, program_draft: bg.program_draft ?? null });
       setSuccess("Research completed. Review candidates and finalize values below.");
@@ -320,18 +709,10 @@ export default function ResearchFestivalPanel() {
         throw new Error(payload?.error ?? `${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research request failed.`);
       }
 
-      setAiResult(payload.result);
-      const r = payload.result;
-      const names =
-        Array.isArray(r.organizer_names) && r.organizer_names.length > 0
-          ? r.organizer_names.filter((x): x is string => typeof x === "string" && x.trim().length > 0)
-          : r.organizer_name
-            ? [r.organizer_name]
-            : [];
-      setAiDraft({ ...r, organizer_names: names.length > 0 ? names : null });
-      setResult(null);
-      setAiSuccess(
-        `${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research completed. Review and edit values before creating a pending draft.`,
+      setLastMergeMeta(null);
+      applyExtractionToAiDraft(
+        payload.result,
+        `${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research completed. Review and edit values before sending to the ingest pipeline.`,
       );
     } catch (err) {
       setAiError(
@@ -342,7 +723,7 @@ export default function ResearchFestivalPanel() {
     }
   };
 
-  const createPendingFestival = async () => {
+  const sendToPipeline = async () => {
     if (!result && !aiDraft) return;
 
     setError("");
@@ -350,6 +731,9 @@ export default function ResearchFestivalPanel() {
     setAiError("");
     setAiSuccess("");
     setIsCreating(true);
+    setPipelineJobId(null);
+    setPipelineStatus(null);
+    setPipelinePendingId(null);
 
     try {
       const normalizedAiDraft = aiDraft
@@ -360,27 +744,35 @@ export default function ResearchFestivalPanel() {
           }
         : null;
 
-      const response = await fetch("/admin/api/research-festival/create-pending", {
+      const response = await fetch("/admin/api/ingest-jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(normalizedAiDraft ? { ai_result: normalizedAiDraft } : { result, final_values: finalValues }),
+        body: JSON.stringify(
+          normalizedAiDraft
+            ? { source_type: "research", ai_result: normalizedAiDraft }
+            : { source_type: "research", result, final_values: finalValues },
+        ),
       });
 
-      const payload = (await response.json().catch(() => null)) as { error?: string; id?: string } | null;
-      if (!response.ok || !payload?.id) {
-        throw new Error(payload?.error ?? "Failed to create pending festival.");
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string; id?: string; job_id?: string; status?: string }
+        | null;
+      const jobId = payload?.job_id ?? payload?.id;
+      if (!response.ok || !jobId) {
+        throw new Error(payload?.error ?? "Failed to enqueue ingest job.");
       }
 
-      const message = `Pending festival created (#${payload.id}).`;
+      setPipelineJobId(jobId);
+      setPipelineStatus(payload?.status ?? "pending");
+
+      const message = `Ingest job ${jobId} queued. Status: ${payload?.status ?? "pending"} — the worker will create the pending festival.`;
       if (aiDraft) {
         setAiSuccess(message);
       } else {
         setSuccess(message);
       }
-
-      router.push(`/admin/pending-festivals/${payload.id}`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unexpected error while creating pending festival.";
+      const message = err instanceof Error ? err.message : "Unexpected error while enqueueing ingest job.";
       if (aiDraft) {
         setAiError(message);
       } else {
@@ -391,17 +783,149 @@ export default function ResearchFestivalPanel() {
     }
   };
 
+  const mergeSelected = async () => {
+    setMergeError("");
+    if (selectedUrls.length === 0) {
+      setMergeError("Select at least one URL to merge.");
+      return;
+    }
+    setIsMerging(true);
+    try {
+      const snippets_by_url: Record<string, string> = {};
+      for (const hit of sourceHits) {
+        if (selectedUrls.includes(hit.url) && hit.snippet) {
+          snippets_by_url[hit.url] = hit.snippet;
+        }
+      }
+      const res = await fetch("/admin/api/research-merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          urls: selectedUrls,
+          query: sourceSearchQuery.trim(),
+          ...(Object.keys(snippets_by_url).length > 0 ? { snippets_by_url } : {}),
+        }),
+      });
+      const payload = (await res.json().catch(() => null)) as
+        | {
+            error?: string;
+            merged_result?: PerplexityFestivalResearchResult;
+            confidence_score?: number;
+            needs_review?: boolean;
+            extraction_errors?: Array<{ url: string; message: string }>;
+          }
+        | null;
+      if (!res.ok || !payload?.merged_result) {
+        throw new Error(payload?.error ?? "Merge failed.");
+      }
+      setLastMergeMeta({
+        confidence_score: typeof payload.confidence_score === "number" ? payload.confidence_score : 0,
+        needs_review: Boolean(payload.needs_review),
+      });
+      applyExtractionToAiDraft(
+        payload.merged_result,
+        `Merged ${payload.merged_result.source_urls.length} source(s). Review the draft, then send to pending or pipeline.`,
+      );
+      if (payload.extraction_errors?.length) {
+        console.warn("[research-merge] partial extraction failures", payload.extraction_errors);
+      }
+    } catch (e) {
+      setMergeError(e instanceof Error ? e.message : "Merge failed.");
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  const sendToPendingDirect = async () => {
+    if (!aiDraft) return;
+    setMergeError("");
+    setAiError("");
+    setIsSendingPending(true);
+    try {
+      const normalizedAiDraft = {
+        ...aiDraft,
+        start_date: normalizeDisplayDateToIso(aiDraft.start_date),
+        end_date: normalizeDisplayDateToIso(aiDraft.end_date),
+      };
+      const res = await fetch("/admin/api/pending-festivals/direct-create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: normalizedAiDraft,
+          ...(lastMergeMeta
+            ? { confidence_score: lastMergeMeta.confidence_score, needs_review: lastMergeMeta.needs_review }
+            : {}),
+        }),
+      });
+      const payload = (await res.json().catch(() => null)) as { error?: string; id?: string } | null;
+      if (!res.ok || !payload?.id) {
+        throw new Error(payload?.error ?? "Failed to create pending festival.");
+      }
+      router.push(`/admin/pending-festivals/${payload.id}`);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Could not create pending festival.");
+    } finally {
+      setIsSendingPending(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!pipelineJobId) return;
+
+    let cancelled = false;
+
+    const tick = async () => {
+      const res = await fetch(`/admin/api/ingest-jobs/${pipelineJobId}`);
+      const body = (await res.json().catch(() => null)) as { job?: { status?: string; pending_festival_id?: string | null } } | null;
+      if (cancelled || !body?.job) return;
+
+      const job = body.job;
+      setPipelineStatus(typeof job.status === "string" ? job.status : null);
+      setPipelinePendingId(job.pending_festival_id ?? null);
+
+      if (job.status === "done" && job.pending_festival_id) {
+        router.push(`/admin/pending-festivals/${job.pending_festival_id}`);
+      }
+    };
+
+    void tick();
+    const iv = setInterval(() => void tick(), 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [pipelineJobId, router]);
+
+  const pipelineStatusBadge =
+    pipelineJobId && pipelineStatus ? (
+      <span
+        className={`inline-flex items-center rounded-lg border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${
+          pipelineStatus === "done"
+            ? "border-[#0e7a45]/30 bg-[#f0fbf4] text-[#0e7a45]"
+            : pipelineStatus === "failed"
+              ? "border-[#c23c1f]/30 bg-[#fff4ef] text-[#b13a1a]"
+              : pipelineStatus === "processing"
+                ? "border-[#9a6700]/30 bg-[#fffbeb] text-[#8a5d00]"
+                : "border-black/10 bg-white text-black/60"
+        }`}
+        title={pipelinePendingId ? `Pending: ${pipelinePendingId}` : undefined}
+      >
+        Job {pipelineJobId.slice(0, 8)}… · {pipelineStatus}
+      </span>
+    ) : null;
+
   let summaryActions: ReactNode = null;
   if (aiDraft) {
     summaryActions = (
-      <>
+      <div className="flex flex-wrap items-center gap-2">
+        {pipelineStatusBadge}
         <button
           type="button"
-          onClick={createPendingFestival}
+          onClick={sendToPipeline}
           disabled={!canCreate}
           className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
         >
-          {isCreating ? "Creating..." : "Create pending draft"}
+          {isCreating ? "Sending..." : "Send to pipeline"}
         </button>
         <button
           type="button"
@@ -413,18 +937,21 @@ export default function ResearchFestivalPanel() {
             ? "Researching..."
             : `Research again (${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})`}
         </button>
-      </>
+      </div>
     );
   } else if (result) {
     summaryActions = (
-      <button
-        type="button"
-        onClick={createPendingFestival}
-        disabled={!canCreate}
-        className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
-      >
-        {isCreating ? "Creating..." : "Create pending festival"}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        {pipelineStatusBadge}
+        <button
+          type="button"
+          onClick={sendToPipeline}
+          disabled={!canCreate}
+          className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {isCreating ? "Sending..." : "Send to pipeline"}
+        </button>
+      </div>
     );
   }
 
@@ -493,13 +1020,204 @@ export default function ResearchFestivalPanel() {
 
       <AdminFieldSection
         title={ADMIN_ENTITY_SECTION.researchQueries.title}
-        description={`Run ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} extraction or the ${getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)} pipeline.`}
+        description={`Search with ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)}, pick one URL to extract (controlled mode), or use multi-source / ${getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)} below.`}
         variant={ADMIN_ENTITY_SECTION.researchQueries.variant}
       >
-        <div className="space-y-2">
-          <div className="space-y-1.5">
+        <div className="grid gap-8 lg:grid-cols-[1fr_minmax(260px,340px)] xl:grid-cols-[1fr_minmax(280px,380px)]">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="source-web-search" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
+                Search the web
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  id="source-web-search"
+                  value={sourceSearchQuery}
+                  onChange={(event) => setSourceSearchQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void runSourceSearch();
+                    }
+                  }}
+                  placeholder="Festival name, city, year…"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                />
+                <button
+                  type="button"
+                  onClick={() => void runSourceSearch()}
+                  disabled={sourceSearchQuery.trim().length === 0 || sourceSearchLoading}
+                  className="h-8 shrink-0 rounded-lg bg-[#0c0e14] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {sourceSearchLoading ? "Searching…" : "Search"}
+                </button>
+              </div>
+              {sourceSearchError ? (
+                <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{sourceSearchError}</p>
+              ) : null}
+            </div>
+
+            {sourceHits.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/45">Results</p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                  <button
+                    type="button"
+                    onClick={() => void mergeSelected()}
+                    disabled={selectedUrls.length === 0 || isMerging}
+                    className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {isMerging ? "Merging…" : "Merge selected"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void sendToPendingDirect()}
+                    disabled={!aiDraft || isSendingPending}
+                    className="rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {isSendingPending ? "Creating…" : "Send to pending"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void sendToPipeline()}
+                    disabled={!canCreate}
+                    className="rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    {isCreating ? "Sending…" : "Send to pipeline"}
+                  </button>
+                </div>
+                {selectedUrls.length > 0 && selectedUrls.length < 2 ? (
+                  <p className="text-xs text-amber-800/90">
+                    Select two or more sources to get the most from merge (single URL uses merge rules with one extraction).
+                  </p>
+                ) : null}
+                {mergeError ? (
+                  <p className="rounded-lg border border-[#c23c1f]/25 bg-[#fff4ef] px-2 py-1.5 text-xs text-[#b13a1a]">{mergeError}</p>
+                ) : null}
+                <ul className="space-y-3">
+                  {sourceHits.map((hit, index) => {
+                    const highlightFirst =
+                      index === 0 &&
+                      (hit.source_type === "facebook_event" ||
+                        hit.url.toLowerCase().includes("event.bg") ||
+                        hit.url.toLowerCase().includes("eventibg"));
+                    const displayTitle = hit.title?.trim() || "Untitled result";
+                    return (
+                      <li
+                        key={hit.url}
+                        className={`rounded-xl border bg-white p-3 shadow-sm ${
+                          highlightFirst ? "border-[#0e7a45]/40 ring-2 ring-[#0e7a45]/20" : "border-black/[0.08]"
+                        }`}
+                      >
+                        <div className="flex gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedUrls.includes(hit.url)}
+                            onChange={() => toggleSelect(hit.url)}
+                            className="mt-1.5 h-4 w-4 shrink-0 rounded border-black/20"
+                            aria-label={`Select source ${displayTitle}`}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-base font-semibold text-[#1a0dab]">{displayTitle}</p>
+                            <p className="mt-0.5 text-sm text-[#006621]">{getDomainLabel(hit.url)}</p>
+                            <p className="mt-1 line-clamp-3 text-sm text-black/70">{hit.snippet ?? "—"}</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void selectFromHit(hit)}
+                                disabled={selectingUrl !== null}
+                                className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
+                              >
+                                {selectingUrl === hit.url ? "Working…" : "Select"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void loadPreview(hit)}
+                                disabled={previewLoading}
+                                className="rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
+                              >
+                                Preview
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-xl border border-black/[0.08] bg-black/[0.02] p-4 lg:min-h-[220px]">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Preview</p>
+            {!previewHit ? (
+              <p className="mt-3 text-sm text-black/55">Choose a result and click Preview to extract fields from that URL.</p>
+            ) : (
+              <div className="mt-3 space-y-3 text-sm">
+                {previewLoading ? <p className="text-black/60">Extracting…</p> : null}
+                {previewError ? (
+                  <p className="rounded-lg border border-[#c23c1f]/25 bg-[#fff4ef] px-2 py-1.5 text-xs text-[#b13a1a]">{previewError}</p>
+                ) : null}
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">URL</p>
+                  <a
+                    href={previewHit.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="break-all text-[#0e7a45] underline-offset-2 hover:underline"
+                  >
+                    {previewHit.url}
+                  </a>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">Title</p>
+                  <p className="font-medium text-black/85">{previewExtract?.title ?? previewHit.title ?? "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">Extracted</p>
+                  <ul className="mt-1 list-none space-y-1 text-black/75">
+                    <li>
+                      <span className="text-black/45">date:</span>{" "}
+                      {previewExtract ? (
+                        <>
+                          {previewExtract.start_date ?? "—"}
+                          {previewExtract.end_date && previewExtract.end_date !== previewExtract.start_date
+                            ? ` → ${previewExtract.end_date}`
+                            : ""}
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </li>
+                    <li>
+                      <span className="text-black/45">city:</span> {previewExtract?.city ?? "—"}
+                    </li>
+                    <li>
+                      <span className="text-black/45">location:</span> {previewExtract?.location_name ?? "—"}
+                    </li>
+                    <li>
+                      <span className="text-black/45">description:</span>{" "}
+                      <span className="line-clamp-4 whitespace-pre-wrap">{previewExtract?.description ?? "—"}</span>
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">Raw snippet</p>
+                  <p className="max-h-36 overflow-y-auto whitespace-pre-wrap rounded-md border border-black/[0.06] bg-white p-2 text-xs text-black/65">
+                    {previewHit.snippet ?? "—"}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-8 space-y-2">
+          <div className="h-px bg-black/[0.08]" />
+          <div className="space-y-1.5 pt-6">
             <label htmlFor="ai-research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
-              Search query ({getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})
+              Multi-source merge ({getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})
             </label>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
@@ -629,7 +1347,11 @@ export default function ResearchFestivalPanel() {
 
           <AdminFieldSection
             title={ADMIN_ENTITY_SECTION.linksSources.title}
-            description={`Evidence URLs from the ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} pass.`}
+            description={
+              aiDraft.research_report
+                ? `Ranked URLs from ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} discovery; form values are merged from fetched HTML (JSON-LD + Bulgarian date/location patterns).`
+                : "Single URL (controlled mode): values come only from the page you selected—no multi-source merge."
+            }
             variant={ADMIN_ENTITY_SECTION.linksSources.variant}
           >
             <AdminFieldGrid>{renderAiFieldsForKeys(AI_LINK_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
@@ -654,6 +1376,16 @@ export default function ResearchFestivalPanel() {
                 </div>
               )}
             </div>
+            {aiDraft.research_report ? (
+              <details className="mt-3 rounded-lg border border-black/[0.08] bg-black/[0.02] p-3">
+                <summary className="cursor-pointer text-sm font-semibold text-black/80">
+                  Проследяване: discovery, извличане, отхвърляне, merge, увереност
+                </summary>
+                <div className="mt-3">
+                  <ResearchPipelineDebugReport report={aiDraft.research_report} />
+                </div>
+              </details>
+            ) : null}
           </AdminFieldSection>
 
           <AdminFieldSection title={ADMIN_ENTITY_SECTION.media.title} variant={ADMIN_ENTITY_SECTION.media.variant}>

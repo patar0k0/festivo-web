@@ -37,8 +37,8 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => ({}))) as DiscoverySourceCreatePayload;
 
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  if (!name) {
+  const safeName = String(typeof body.name === "string" ? body.name : "").trim();
+  if (!safeName) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
@@ -76,7 +76,8 @@ export async function POST(request: Request) {
   }
 
   const insertPayload = {
-    name,
+    name: safeName,
+    label: safeName || "source",
     base_url,
     source_type: typeRaw,
     priority,
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
       route: "/admin/api/discovery-sources",
       method: "POST",
       details: {
-        name,
+        name: safeName,
         source_type: typeRaw,
       },
     });

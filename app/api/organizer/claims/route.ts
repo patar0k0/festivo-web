@@ -17,6 +17,12 @@ type Body = {
   turnstileToken?: string;
 };
 
+function isUniqueViolation(err: unknown): boolean {
+  const raw =
+    err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : String(err);
+  return raw.includes("organizer_members_one_pending_per_user");
+}
+
 function parseClaimContact(body: Body): { ok: true; contact_email: string; contact_phone: string } | { ok: false; error: string } {
   const email = typeof body.contact_email === "string" ? body.contact_email.trim() : "";
   const phone = typeof body.contact_phone === "string" ? body.contact_phone.trim() : "";
@@ -152,6 +158,16 @@ export async function POST(request: Request) {
         .eq("status", "revoked");
 
       if (upErr) {
+        if (isUniqueViolation(upErr)) {
+          return NextResponse.json(
+            {
+              error: orgRow.name?.trim()
+                ? `Вече имаш чакаща заявка за "${orgRow.name.trim()}".`
+                : "Вече имаш чакаща заявка за друг организатор.",
+            },
+            { status: 400 },
+          );
+        }
         return NextResponse.json({ error: upErr.message }, { status: 500 });
       }
       const memberId = existingMine.id;
@@ -194,24 +210,38 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data: insertedMember, error: insErr } = await admin
-    .from("organizer_members")
-    .insert({
-      organizer_id: organizerId,
-      user_id: session.user.id,
-      role: "owner",
-      status: "pending",
-      contact_email: contact.contact_email,
-      contact_phone: contact.contact_phone,
-    })
-    .select("id")
-    .single();
-
-  if (insErr) {
-    if (insErr.code === "23505") {
+  let insertedMember: { id: string } | null = null;
+  try {
+    const ins = await admin
+      .from("organizer_members")
+      .insert({
+        organizer_id: organizerId,
+        user_id: session.user.id,
+        role: "owner",
+        status: "pending",
+        contact_email: contact.contact_email,
+        contact_phone: contact.contact_phone,
+      })
+      .select("id")
+      .single();
+    if (ins.error) throw ins.error;
+    insertedMember = ins.data;
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      return NextResponse.json(
+        {
+          error: orgRow.name?.trim()
+            ? `Вече имаш чакаща заявка за "${orgRow.name.trim()}".`
+            : "Вече имаш чакаща заявка за друг организатор.",
+        },
+        { status: 400 },
+      );
+    }
+    const pe = err as { code?: string; message?: string };
+    if (pe.code === "23505") {
       return NextResponse.json({ error: "Вече има заявка или членство за този профил." }, { status: 409 });
     }
-    return NextResponse.json({ error: insErr.message }, { status: 500 });
+    return NextResponse.json({ error: pe.message ?? "Грешка." }, { status: 500 });
   }
 
   const memberId = insertedMember?.id;

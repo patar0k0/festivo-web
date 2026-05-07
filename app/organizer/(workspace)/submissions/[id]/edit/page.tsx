@@ -1,17 +1,20 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import OrganizerPendingEditForm from "@/components/organizer/OrganizerPendingEditForm";
+import OrganizerPromotionRequestCta from "@/components/organizer/OrganizerPromotionRequestCta";
+import { formatBgDateFromIso } from "@/lib/email/formatBg";
+import { hasActivePromotion, hasActiveVip, type OrganizerVipStatusRow } from "@/lib/monetization";
 import {
   assertCanEditOrganizerPending,
   loadPortalPendingFestival,
-  requireActiveOrganizerPortalSession,
+  requireOrganizerOwnerPortalSession,
 } from "@/lib/organizer/portal";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrganizerEditSubmissionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const access = await requireActiveOrganizerPortalSession(`/organizer/submissions/${id}/edit`);
+  const access = await requireOrganizerOwnerPortalSession(`/organizer/submissions/${id}/edit`);
   if (access.kind === "redirect") {
     redirect(access.to);
   }
@@ -43,6 +46,34 @@ export default async function OrganizerEditSubmissionPage({ params }: { params: 
     notFound();
   }
 
+  let organizerVip: OrganizerVipStatusRow | null = null;
+  if (meta.organizer_id) {
+    const { data: orgRow, error: orgErr } = await admin
+      .from("organizers")
+      .select("plan,plan_started_at,plan_expires_at")
+      .eq("id", meta.organizer_id)
+      .maybeSingle();
+    if (orgErr) {
+      throw new Error(orgErr.message);
+    }
+    organizerVip = orgRow;
+  }
+
+  const slugKey = typeof row.slug === "string" && row.slug.trim() ? row.slug.trim() : null;
+  let festivalPromo: { promotion_status?: string | null; promotion_expires_at?: string | null } | null = null;
+  if (meta.status === "approved" && meta.organizer_id && slugKey) {
+    const { data: festRow, error: festErr } = await admin
+      .from("festivals")
+      .select("promotion_status,promotion_expires_at")
+      .eq("organizer_id", meta.organizer_id)
+      .eq("slug", slugKey)
+      .maybeSingle();
+    if (festErr) {
+      throw new Error(festErr.message);
+    }
+    festivalPromo = festRow;
+  }
+
   const cityRel = row.city as { name_bg?: string | null; slug?: string | null } | null;
   const city_label =
     (typeof row.city_name_display === "string" && row.city_name_display.trim()) ||
@@ -60,6 +91,24 @@ export default async function OrganizerEditSubmissionPage({ params }: { params: 
         </Link>
         <h1 className="mt-4 font-[var(--font-display)] text-2xl font-bold">Редакция на подаване</h1>
         <p className="mt-2 text-sm text-black/60">Промените отиват отново в опашката за модерация.</p>
+      </div>
+
+      <div className="rounded-2xl border border-black/[0.08] bg-white/90 p-6 shadow-sm md:p-8">
+        <h3 className="text-sm font-semibold">Промотиране</h3>
+        {festivalPromo && hasActivePromotion(festivalPromo) ? (
+          <div className="mt-2 text-sm text-gray-700">
+            <div>Статус: Промотиран</div>
+            {festivalPromo.promotion_expires_at ? (
+              <div>Активен до: {formatBgDateFromIso(festivalPromo.promotion_expires_at) ?? festivalPromo.promotion_expires_at}</div>
+            ) : null}
+          </div>
+        ) : null}
+        <OrganizerPromotionRequestCta festivalId={row.id} hasActivePromotion={Boolean(festivalPromo && hasActivePromotion(festivalPromo))} />
+        {!(festivalPromo && hasActivePromotion(festivalPromo)) && hasActiveVip(organizerVip) ? (
+          <p className="mt-2 text-xs text-black/55">
+            Активен VIP достъп: приоритетно разглеждане на заявката от екипа.
+          </p>
+        ) : null}
       </div>
 
       <OrganizerPendingEditForm

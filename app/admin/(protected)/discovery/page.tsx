@@ -6,7 +6,10 @@ import DiscoveredLinksInspectorTable, { type DiscoveredLinkRow } from "@/compone
 type GenericRow = Record<string, unknown>;
 
 function asString(value: unknown) {
-  return typeof value === "string" ? value : "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "bigint") return String(value);
+  return "";
 }
 
 function asNumber(value: unknown) {
@@ -85,6 +88,74 @@ function getSourceIdFromRow(row: GenericRow) {
   return asString(row.discovery_source_id);
 }
 
+type DiscoveryRunMetadata = {
+  source_status?: Record<string, string>;
+  source_performance?: Array<{
+    source_id: number | string;
+    total_candidates?: number;
+    enqueued?: number;
+    approval_rate?: number;
+  }>;
+  disabled_sources?: Array<{ source_id: number | string; approval_rate?: number; total_enqueued?: number }>;
+};
+
+function parseDiscoveryRunMetadata(raw: unknown): DiscoveryRunMetadata | null {
+  if (raw == null) return null;
+  let value: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  return value as DiscoveryRunMetadata;
+}
+
+function asBoolFlag(value: unknown) {
+  return value === true;
+}
+
+function normalizeOperationalStatus(
+  raw: string | undefined,
+): "active" | "degraded" | "disabled" | "disabled_manual" | "forced_active" | "unknown" {
+  if (!raw) return "unknown";
+  const next = raw.trim().toLowerCase();
+  if (
+    next === "active" ||
+    next === "degraded" ||
+    next === "disabled" ||
+    next === "disabled_manual" ||
+    next === "forced_active"
+  ) {
+    return next;
+  }
+  return "unknown";
+}
+
+function resolveDiscoveryOperationalStatus(
+  manualDisabled: boolean,
+  manualOverride: boolean,
+  metadataStatus: string | undefined,
+) {
+  if (manualDisabled) return "disabled_manual" as const;
+  if (manualOverride) return "forced_active" as const;
+  return normalizeOperationalStatus(metadataStatus);
+}
+
+function performanceEntryForSource(meta: DiscoveryRunMetadata | null | undefined, sourceId: string) {
+  const list = meta?.source_performance;
+  if (!Array.isArray(list)) return null;
+  return list.find((entry) => String(entry.source_id) === sourceId) ?? null;
+}
+
+function isSourceInDisabledList(meta: DiscoveryRunMetadata | null | undefined, sourceId: string) {
+  const list = meta?.disabled_sources;
+  if (!Array.isArray(list)) return false;
+  return list.some((entry) => String(entry.source_id) === sourceId);
+}
+
 export default async function AdminDiscoveryPage({
   searchParams,
 }: {
@@ -150,13 +221,38 @@ export default async function AdminDiscoveryPage({
     }
   }
 
+  const finishedRuns = runRows.filter((run) => asTimestamp(run.finished_at));
+  const latestRunMeta = finishedRuns.length ? parseDiscoveryRunMetadata(finishedRuns[0].metadata_json) : null;
+  const trendRuns = finishedRuns.slice(0, 3);
+
   const mappedSources = sourceRows.map((row) => {
     const id = asString(row.id);
-    const label = asString(row.name) || asString(row.label) || id;
+    const nameVal = asString(row.name);
+    const labelVal = asString(row.label);
+    const name = nameVal || labelVal || id;
+    const label = labelVal || nameVal || id;
     const maxLinksPresent = Object.prototype.hasOwnProperty.call(row, "max_links_per_run");
+
+    const perfLatest = performanceEntryForSource(latestRunMeta, id);
+    const manualDisabled = asBoolFlag(row.manual_disabled);
+    const manualOverride = asBoolFlag(row.manual_override);
+    const operationalStatus = resolveDiscoveryOperationalStatus(
+      manualDisabled,
+      manualOverride,
+      latestRunMeta?.source_status?.[id],
+    );
+    const lastRunsTrend = trendRuns.map((run) => {
+      const meta = parseDiscoveryRunMetadata(run.metadata_json);
+      const entry = performanceEntryForSource(meta, id);
+      return {
+        enqueued: entry && typeof entry.enqueued === "number" ? entry.enqueued : null,
+        approvalRate: entry && typeof entry.approval_rate === "number" ? entry.approval_rate : null,
+      };
+    });
 
     return {
       id,
+      name,
       label,
       sourceType: asString(row.source_type),
       baseUrl: asString(row.base_url),
@@ -166,8 +262,18 @@ export default async function AdminDiscoveryPage({
       supportsMaxLinksEdit: maxLinksPresent,
       lastRunAt: id ? lastRunBySource.get(id) ?? null : null,
       totalJobsEnqueued: id ? totalJobsBySource.get(id) ?? null : null,
+      operationalStatus,
+      approvalRateLastRun: perfLatest && typeof perfLatest.approval_rate === "number" ? perfLatest.approval_rate : null,
+      enqueuedLastRun: perfLatest && typeof perfLatest.enqueued === "number" ? perfLatest.enqueued : null,
+      totalCandidatesLastRun: perfLatest && typeof perfLatest.total_candidates === "number" ? perfLatest.total_candidates : null,
+      autoDisabledLastRun: isSourceInDisabledList(latestRunMeta, id),
+      lastRunsTrend,
+      manualDisabled,
+      manualOverride,
     };
   });
+
+  const visibleSources = mappedSources.filter((s) => s.isActive !== false);
 
   const mappedRuns = runRows.map((row) => ({
     id: asString(row.id),
@@ -406,7 +512,7 @@ export default async function AdminDiscoveryPage({
       </div>
 
       <section className="space-y-3">
-        <DiscoverySourcesTable rows={mappedSources} />
+        <DiscoverySourcesTable rows={mappedSources} activeCatalogRows={visibleSources} />
       </section>
 
       <section className="space-y-3">

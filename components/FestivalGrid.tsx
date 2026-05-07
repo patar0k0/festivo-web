@@ -4,7 +4,7 @@ import { format, parseISO } from "date-fns";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import { formatFestivalDateLineShort, primaryFestivalDate } from "@/lib/festival/listingDates";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
-import { festivalCityLabel } from "@/lib/settlements/formatDisplayName";
+import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { categoryLabel } from "@/lib/festival/categoryLabel";
 import { Festival } from "@/lib/types";
 
@@ -19,6 +19,7 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {festivals.map((festival) => {
+        const loc = getFestivalLocationDisplay(festival);
         const heroImage = getFestivalHeroImage(festival);
         const tState = getFestivalTemporalState(festival);
         const temporalChip = tState === "past" ? "Отминал" : tState === "ongoing" ? "Текущ" : null;
@@ -49,7 +50,11 @@ export default function FestivalGrid({ festivals }: { festivals: Festival[] }) {
             <div className="space-y-3 p-5">
               <div className="text-[17px] font-semibold tracking-[-0.2px]">{festival.title}</div>
               <div className="text-sm text-[color:var(--muted)]">
-                {[festivalCityLabel(festival, "").trim(), formatFestivalDateLineShort(festival)].filter(Boolean).join(" · ")}
+                <div>
+                  {[loc.city?.trim() ?? "", formatFestivalDateLineShort(festival)]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 {temporalChip ? (

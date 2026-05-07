@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { ReminderType } from "@/lib/plan/server";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
+import { logGoogleMapsOpenDebug } from "@/lib/location/buildGoogleMapsUrl";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";
 
 type HeroProps = {
   festivalId: string;
   icsHref: string;
   reminderAnchorId: string;
+  showReminderAction?: boolean;
+  showCalendarAction?: boolean;
   /** When set, guests call this instead of context-only auth hint (e.g. open login modal). */
   onGuestReminderClick?: () => void;
 };
@@ -16,7 +18,14 @@ type HeroProps = {
 /**
  * Hero / top zone: single primary CTA (reminder) + calendar as secondary.
  */
-export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId, onGuestReminderClick }: HeroProps) {
+export function FestivalHeroActionBar({
+  festivalId,
+  icsHref,
+  reminderAnchorId,
+  showReminderAction = true,
+  showCalendarAction = true,
+  onGuestReminderClick,
+}: HeroProps) {
   const { isAuthenticated, requireAuthForPlan, reminderTypeByFestivalId, setFestivalReminder } = usePlanState();
 
   const reminder = reminderTypeByFestivalId[festivalId] ?? "none";
@@ -36,7 +45,7 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId, o
       return;
     }
     if (reminder === "none") {
-      await setFestivalReminder(festivalId, "24h" as ReminderType);
+      await setFestivalReminder(festivalId, "default");
     }
     scrollToReminder();
   }, [festivalId, isAuthenticated, onGuestReminderClick, reminder, requireAuthForPlan, scrollToReminder, setFestivalReminder]);
@@ -44,9 +53,11 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId, o
   const primaryReminderLabel =
     reminder === "none"
       ? "🔔 Напомни ми за началото"
-      : reminder === "24h"
-        ? "🔔 Ще ти напомним 1 ден по-рано"
-        : "🔔 Ще ти напомним в деня в 09:00";
+      : reminder === "default"
+        ? "🔔 Ще ти напомним 1 ден и 2 часа преди"
+        : reminder === "24h"
+          ? "🔔 Ще ти напомним 1 ден по-рано"
+          : "🔔 Ще ти напомним в деня в 09:00";
 
   const heroReminderHelper =
     reminder === "none" ? "Ще ти напомним за началото на събитието" : "Напомнянето е включено";
@@ -61,14 +72,18 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId, o
   return (
     <div className="space-y-2">
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start">
-        <button type="button" onClick={() => void onReminderPrimary()} className={primaryClass}>
-          {primaryReminderLabel}
-        </button>
-        <a href={icsHref} className={secondaryClass}>
-          Добави в календара
-        </a>
+        {showReminderAction ? (
+          <button type="button" onClick={() => void onReminderPrimary()} className={primaryClass}>
+            {primaryReminderLabel}
+          </button>
+        ) : null}
+        {showCalendarAction ? (
+          <a href={icsHref} className={secondaryClass}>
+            Добави в календара
+          </a>
+        ) : null}
       </div>
-      <p className="text-xs leading-relaxed text-black/60">{heroReminderHelper}</p>
+      {showReminderAction ? <p className="text-xs leading-relaxed text-black/60">{heroReminderHelper}</p> : null}
     </div>
   );
 }
@@ -76,13 +91,19 @@ export function FestivalHeroActionBar({ festivalId, icsHref, reminderAnchorId, o
 type RailProps = {
   festivalId: string;
   mapHref: string | null;
+  showPlanAction?: boolean;
   onGuestPlanClick?: () => void;
 };
 
 /**
  * Rail: planning + navigation only (reminder timing lives in the same aside card below).
  */
-export function FestivalRailActionBar({ festivalId, mapHref, onGuestPlanClick }: RailProps) {
+export function FestivalRailActionBar({
+  festivalId,
+  mapHref,
+  showPlanAction = true,
+  onGuestPlanClick,
+}: RailProps) {
   const { isAuthenticated, requireAuthForPlan, toggleFestivalPlan, festivalIds } = usePlanState();
   const [planBusy, setPlanBusy] = useState(false);
 
@@ -121,9 +142,11 @@ export function FestivalRailActionBar({ festivalId, mapHref, onGuestPlanClick }:
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={() => void onPlan()} disabled={planBusy} className={planButtonClass}>
-        {festivalInPlan ? "✔ В плана ти" : "Добави в моя план"}
-      </button>
+      {showPlanAction ? (
+        <button type="button" onClick={() => void onPlan()} disabled={planBusy} className={planButtonClass}>
+          {festivalInPlan ? "✔ В плана ти" : "Добави в моя план"}
+        </button>
+      ) : null}
       {mapHref ? (
         <a
           href={outboundClickHref({
@@ -135,6 +158,7 @@ export function FestivalRailActionBar({ festivalId, mapHref, onGuestPlanClick }:
           target="_blank"
           rel="noreferrer"
           className={navClass}
+          onClick={() => logGoogleMapsOpenDebug(mapHref)}
         >
           Отвори в Google Maps
         </a>

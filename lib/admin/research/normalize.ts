@@ -2,7 +2,6 @@ import type { ResearchConfidenceLevel, ResearchDateCandidate, ResearchFestivalRe
 import { compactProgramDraft, parseProgramDraftUnknown, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
 import type { SourceAuthorityTier } from "@/lib/admin/research/source-ranking";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
-
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();

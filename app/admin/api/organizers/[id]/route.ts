@@ -4,6 +4,11 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { validateNoUnknownKeys } from "@/lib/api/strictBody";
 import { ORGANIZER_PATCH_ALLOWED_KEYS } from "@/lib/admin/patchAllowedKeys";
 import { logAdminAction } from "@/lib/admin/audit-log";
+import {
+  deleteOrganizerLogoFromStorageIfOwned,
+  normalizeImageToLocalStorage,
+  takeOrganizerLogoUploadRateLimit,
+} from "@/lib/admin/normalizeImageToLocalStorage";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -29,6 +34,20 @@ type OrganizerPatchPayload = {
   included_promotions_per_year?: number | null;
   organizer_rank?: number | null;
 };
+
+function getRequestIp(req: Request): string {
+  const xff = req.headers.get("x-forwarded-for");
+  const realIp = req.headers.get("x-real-ip");
+  const requestWithIp = req as Request & { ip?: string | null };
+
+  const ip =
+    xff?.split(",")[0]?.trim() ||
+    realIp ||
+    (typeof requestWithIp.ip === "string" ? requestWithIp.ip : undefined) ||
+    "unknown";
+
+  return ip;
+}
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -74,11 +93,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     );
   }
 
+  const requestedLogoUrl =
+    typeof body.logo_url === "string"
+      ? body.logo_url.trim() || null
+      : body.logo_url === null
+        ? null
+        : undefined;
+  if (requestedLogoUrl !== undefined) {
+    const requestIp = getRequestIp(request);
+    if (takeOrganizerLogoUploadRateLimit(requestIp)) {
+      return NextResponse.json({ error: "Too many logo uploads. Please try again later." }, { status: 429 });
+    }
+  }
+
   const patch = {
     name: normalizeText(body.name),
     slug: normalizeText(body.slug),
     description: normalizeText(body.description),
-    logo_url: normalizeText(body.logo_url),
+    logo_url: requestedLogoUrl,
     website_url: normalizeText(body.website_url),
     facebook_url: normalizeText(body.facebook_url),
     instagram_url: normalizeText(body.instagram_url),
@@ -110,6 +142,35 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params;
 
+  let previousLogoUrlForStorageCleanup: string | null | undefined;
+  if ("logo_url" in finalPatch) {
+    const { data: existingOrganizer, error: existingError } = await adminClient
+      .from("organizers")
+      .select("logo_url")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 500 });
+    }
+    if (!existingOrganizer) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    previousLogoUrlForStorageCleanup = existingOrganizer.logo_url;
+  }
+
+  if (typeof finalPatch.logo_url === "string") {
+    try {
+      finalPatch.logo_url = await normalizeImageToLocalStorage(finalPatch.logo_url);
+    } catch (logoError) {
+      const message = logoError instanceof Error ? logoError.message : "unknown";
+      console.error("[admin/api/organizers/[id]][PATCH] Organizer logo URL normalization failed", {
+        organizerId: id,
+        message,
+      });
+    }
+  }
+
   const payloadKeys = Object.keys(finalPatch);
   console.info("[admin/api/organizers/[id]][PATCH] Update request received", {
     organizerId: id,
@@ -134,6 +195,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if ("logo_url" in finalPatch) {
+    const prev = previousLogoUrlForStorageCleanup;
+    const next = finalPatch.logo_url;
+    if (prev && prev !== next) {
+      await deleteOrganizerLogoFromStorageIfOwned(prev, prev);
+    }
+  }
 
   try {
     await logAdminAction({

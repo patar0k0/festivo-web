@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+  nextResponseForRequireActiveUserError,
+  requireActiveUserWithSupabase,
+} from "@/lib/auth/requireActiveUser";
 import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
 import type { ReminderType } from "@/lib/plan/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type NotificationSettings = {
   notify_plan_reminders: boolean;
@@ -29,7 +32,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   only_saved: false,
   quiet_hours_start: null,
   quiet_hours_end: null,
-  default_plan_reminder_type: "24h",
+  default_plan_reminder_type: "default",
 };
 
 function normalizePayload(payload: PartialNotificationSettings): PartialNotificationSettings {
@@ -65,7 +68,8 @@ function normalizePayload(payload: PartialNotificationSettings): PartialNotifica
   if (
     payload.default_plan_reminder_type === "none" ||
     payload.default_plan_reminder_type === "24h" ||
-    payload.default_plan_reminder_type === "same_day_09"
+    payload.default_plan_reminder_type === "same_day_09" ||
+    payload.default_plan_reminder_type === "default"
   ) {
     normalized.default_plan_reminder_type = payload.default_plan_reminder_type;
   }
@@ -86,25 +90,18 @@ function mergeSettingsRow(data: Record<string, unknown> | null): NotificationSet
 const NOTIFICATION_SETTINGS_COLUMNS =
   "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest,push_enabled,only_saved,quiet_hours_start,quiet_hours_end,default_plan_reminder_type" as const;
 
-async function requireUser() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  return { supabase, user, error };
-}
-
-export async function GET() {
-  const { supabase, user, error: authError } = await requireUser();
-
-  if (authError) {
-    return NextResponse.json({ error: authError.message }, { status: 500 });
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(request: Request) {
+  let supabase;
+  let user;
+  try {
+    const ctx = await requireActiveUserWithSupabase(request);
+    supabase = ctx.supabase;
+    user = ctx.user;
+  } catch (e) {
+    const r = nextResponseForRequireActiveUserError(e);
+    if (r) return r;
+    console.error("[notification-settings] GET auth", e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Server error" }, { status: 500 });
   }
 
   const { data, error } = await supabase
@@ -123,14 +120,17 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { supabase, user, error: authError } = await requireUser();
-
-  if (authError) {
-    return NextResponse.json({ error: authError.message }, { status: 500 });
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let supabase;
+  let user;
+  try {
+    const ctx = await requireActiveUserWithSupabase(request);
+    supabase = ctx.supabase;
+    user = ctx.user;
+  } catch (e) {
+    const r = nextResponseForRequireActiveUserError(e);
+    if (r) return r;
+    console.error("[notification-settings] POST auth", e);
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Server error" }, { status: 500 });
   }
 
   const body = (await request.json()) as PartialNotificationSettings;

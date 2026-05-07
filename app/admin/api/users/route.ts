@@ -4,10 +4,13 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import {
   emailMatchesQuery,
   enrichUsersForAdminList,
+  lastSignInMatchesLastLoginFilter,
+  nameMatchesQuery,
   userToAdminListRow,
   type AdminUserListRow,
 } from "@/lib/admin/adminUsersList";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { isAppRoleValue } from "@/lib/admin/appRoles";
 
 const INTERNAL_PAGE_SIZE = 200;
 const DEFAULT_PER_PAGE = 50;
@@ -25,12 +28,22 @@ function parsePositiveInt(raw: string | null, fallback: number, max?: number): n
   return n;
 }
 
-function needsFullUserScan(params: { q: string; role: string; hasOrganizer: string; banned: string }): boolean {
+function needsFullUserScan(params: {
+  q: string;
+  role: string;
+  hasOrganizer: string;
+  banned: string;
+  status: string;
+  lastLogin: string;
+}): boolean {
   return (
     params.q.length > 0 ||
-    params.role === "admin" ||
+    (params.role !== "" && params.role !== "all") ||
     params.hasOrganizer === "1" ||
-    params.banned === "1"
+    params.banned === "1" ||
+    params.status === "deleted" ||
+    params.status === "all" ||
+    (params.lastLogin !== "" && params.lastLogin !== "all")
   );
 }
 
@@ -54,25 +67,46 @@ async function fetchAllAuthUsers(adminClient: ReturnType<typeof createSupabaseAd
   return all;
 }
 
-function applyPostEnrichmentFilters(
-  rows: AdminUserListRow[],
-  params: { role: string; hasOrganizer: string; banned: string },
-): AdminUserListRow[] {
+function applyListFilters(rows: AdminUserListRow[], params: { role: string; hasOrganizer: string; banned: string; lastLogin: string; status: string }): AdminUserListRow[] {
   let out = rows;
-  if (params.role === "admin") {
-    out = out.filter((r) => r.is_admin);
+
+  const st = params.status;
+  if (st === "active" || st === "") {
+    out = out.filter((r) => !r.deleted_at);
+  } else if (st === "deleted") {
+    out = out.filter((r) => Boolean(r.deleted_at));
   }
+
+  if (params.role && params.role !== "all") {
+    if (isAppRoleValue(params.role)) {
+      out = out.filter((r) => r.app_role === params.role);
+    }
+  }
+
   if (params.hasOrganizer === "1") {
     out = out.filter((r) => r.organizer_count > 0);
   }
+
   if (params.banned === "1") {
-    out = out.filter((r) => r.banned_until && new Date(r.banned_until) > new Date());
+    out = out.filter((r) => r.banned_active);
   }
+
+  if (params.lastLogin === "recent" || params.lastLogin === "stale") {
+    const lf = params.lastLogin as "recent" | "stale";
+    out = out.filter((r) => lastSignInMatchesLastLoginFilter(r.last_sign_in_at ?? null, lf));
+  }
+
   return out;
 }
 
 function sortByCreatedDesc(rows: AdminUserListRow[]): AdminUserListRow[] {
   return [...rows].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
+function filterCandidatesBySearch(users: User[], q: string): User[] {
+  const needle = q.trim();
+  if (!needle) return users;
+  return users.filter((u) => emailMatchesQuery(u.email ?? null, needle) || nameMatchesQuery(u, needle));
 }
 
 export async function GET(request: Request) {
@@ -97,8 +131,10 @@ export async function GET(request: Request) {
   const role = asString(url.searchParams.get("role"));
   const hasOrganizer = asString(url.searchParams.get("has_organizer"));
   const banned = asString(url.searchParams.get("banned"));
+  const status = asString(url.searchParams.get("status"));
+  const lastLogin = asString(url.searchParams.get("last_login"));
 
-  const scan = needsFullUserScan({ q, role, hasOrganizer, banned });
+  const scan = needsFullUserScan({ q, role, hasOrganizer, banned, status, lastLogin: lastLogin });
 
   try {
     if (!scan) {
@@ -113,9 +149,21 @@ export async function GET(request: Request) {
         adminClient,
         users.map((u) => u.id),
       );
-      const rows: AdminUserListRow[] = users.map((u) =>
-        userToAdminListRow(u, enrich.get(u.id) ?? { is_admin: false, organizer_count: 0, pending_claim_count: 0 }),
+      let rows: AdminUserListRow[] = users.map((u) =>
+        userToAdminListRow(
+          u,
+          enrich.get(u.id) ?? {
+            is_admin: false,
+            app_role: "user",
+            deleted_at: null,
+            banned_until_db: null,
+            organizer_count: 0,
+            pending_claim_count: 0,
+          },
+        ),
       );
+
+      rows = applyListFilters(rows, { role, hasOrganizer, banned, lastLogin, status: status || "active" });
 
       let total = apiTotal;
       if (total <= 0) {
@@ -132,9 +180,7 @@ export async function GET(request: Request) {
     const allUsers = await fetchAllAuthUsers(adminClient);
 
     let candidates = allUsers;
-    if (q) {
-      candidates = candidates.filter((u) => emailMatchesQuery(u.email ?? null, q));
-    }
+    candidates = filterCandidatesBySearch(candidates, q);
 
     const enrich = await enrichUsersForAdminList(
       adminClient,
@@ -142,10 +188,20 @@ export async function GET(request: Request) {
     );
 
     let rows: AdminUserListRow[] = candidates.map((u) =>
-      userToAdminListRow(u, enrich.get(u.id) ?? { is_admin: false, organizer_count: 0, pending_claim_count: 0 }),
+      userToAdminListRow(
+        u,
+        enrich.get(u.id) ?? {
+          is_admin: false,
+          app_role: "user",
+          deleted_at: null,
+          banned_until_db: null,
+          organizer_count: 0,
+          pending_claim_count: 0,
+        },
+      ),
     );
 
-    rows = applyPostEnrichmentFilters(rows, { role, hasOrganizer, banned });
+    rows = applyListFilters(rows, { role, hasOrganizer, banned, lastLogin, status });
     rows = sortByCreatedDesc(rows);
 
     const total = rows.length;

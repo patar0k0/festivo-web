@@ -3,8 +3,8 @@
 ## Два слоя (съвместими)
 
 1. **По-стари job маршрути** — пишат директно в `user_notifications`; push през `/api/jobs/push`.
-2. **MVP опашка (notification_jobs)** — планиране, дедупликация, одит в `notification_logs`; изпращане от `/api/notifications/run` чрез FCM (същият `FCM_SERVER_KEY`).
-3. **Transactional email (email_jobs)** — отделна опашка за имейл през Resend; enqueue от приложния код (или dev-only `GET /api/test-email`), batch processor `GET /api/jobs/email` с `x-job-secret: JOBS_SECRET` или `x-vercel-cron` (график и Vercel Hobby: виж „Scheduling model (production-safe)“ по-долу); не смесва push payload-и с FCM. Без конфигуриран `RESEND_API_KEY` job-ът не остава зависнал в `processing` — отива в обичайния retry/fail с `last_error` (напр. `resend_not_configured`); непознат `type` → `unknown_job_type:…`; невалиден payload при рендер → `render_failed:…`. Регистър и валидация: `lib/email/emailRegistry.ts`, `lib/email/emailSchemas.ts`, `lib/email/renderEmailJob.ts`; UI шаблони: `emails/components/*`, `emails/templates/*`. Абсолютни URL се подават в payload при enqueue (база: `NEXT_PUBLIC_SITE_URL` / `getBaseUrl()` в `lib/seo.ts`). **`EMAIL_ADMIN`** (опционално): inbox за админ-only типове (`admin-new-claim`, `admin-new-submission`); ако липсва — enqueue се пропуска с `console.info`, без да се чупи основният flow. **`EMAIL_REPLY_TO`** (опционално): Reply-To към Resend `emails.send`.
+2. **MVP опашка (notification_jobs)** — планиране, дедупликация, одит в `notification_logs`; изпращане от `/api/notifications/run` през **`lib/push/sendPush.ts`** (`sendPushToUser`). Runner-ът **не** се прекратява глобално при липса на FCM: опашката и reminder → `email_jobs` enqueue винаги се обработват; push е опционален и не маркира неуспех на целия job, ако reminder имейлът вече е enqueue-нат. **Push env:** `PUSH_ENABLED` — при точно `false` push се пропуска (лог `[push][skipped]`), подразбиране изпращане разрешено; `PUSH_PROVIDER` — `fcm` (подразбиране) или `expo` (изпращане през `POST https://exp.host/--/api/v2/push/send`, до 100 съобщения на заявка; токени без префикс `ExponentPushToken` се пропускат; `DeviceNotRegistered` → `device_tokens.invalidated_at`); FCM ключ: `FCM_SERVER_KEY` (legacy HTTP `fcm/send`).
+3. **Transactional email (email_jobs)** — отделна опашка за имейл през Resend; enqueue от приложния код (или dev-only `GET /api/test-email`), batch processor `GET /api/jobs/email` с `x-job-secret: JOBS_SECRET` или (TEMP) `User-Agent` съдържащ `vercel-cron` за Vercel Cron без custom secret (график и Vercel Hobby: виж „Scheduling model (production-safe)“ по-долу); не смесва push payload-и с FCM. Без конфигуриран `RESEND_API_KEY` job-ът не остава зависнал в `processing` — отива в обичайния retry/fail с `last_error` (напр. `resend_not_configured`); непознат `type` → `unknown_job_type:…`; невалиден payload при рендер → `render_failed:…`. Регистър и валидация: `lib/email/emailRegistry.ts`, `lib/email/emailSchemas.ts`, `lib/email/renderEmailJob.ts`; UI шаблони: `emails/components/*`, `emails/templates/*`. Абсолютни URL се подават в payload при enqueue (база: `NEXT_PUBLIC_SITE_URL` / `getBaseUrl()` в `lib/seo.ts`). **`EMAIL_ADMIN`** (опционално): inbox за админ-only типове (`admin-new-claim`, `admin-new-submission`); ако липсва — enqueue се пропуска с `console.info`, без да се чупи основният flow. **`EMAIL_REPLY_TO`** (опционално): Reply-To към Resend `emails.send`. **Приоритет на опашката:** колона `priority` (`high` / `normal` / `low`, подразбиране `normal`); `claim_due_email_jobs` взима pending по ред high → normal → low, после `scheduled_at`. **`EMAIL_ENABLED`:** ако е точно `false`, процесорът маркира изпратено без повикване на Resend (`provider_message_id=disabled-mode`); опашката и ретраите не се спират. **Dead letter:** оперативно `status=failed` и `attempts >= max_attempts`; филтър в `/admin/email-jobs` (`dead_letter=1`) и badge „dead letter“ в списъка/детайла (`lib/email/isDeadLetter.ts`).
 
 **Типове `email_jobs.type` (Phase 2 + reminder channel):**
 
@@ -13,8 +13,9 @@
 | `test` | dev `GET /api/test-email` | query `to` |
 | `organizer-claim-received` | `POST /api/organizer/claims` (след успех) | `contact_email` от заявката |
 | `admin-new-claim` | същият route | `EMAIL_ADMIN` (ако е зададен) |
-| `organizer-claim-approved` | `POST /admin/api/organizer-members/[id]/approve` | имейл от Supabase Auth за `user_id`, иначе `contact_email` |
-| `organizer-claim-rejected` | `POST /admin/api/organizer-members/[id]/reject` | същото |
+| `organizer-claim-approved` | `POST /admin/api/organizer-members/[id]/approve` — `email_jobs` с `dedupe_key` от `lib/email/emailDedupeKeys.ts` (само опашка) | имейл от Supabase Auth за `user_id`, иначе `contact_email` |
+| `organizer-claim-rejected` | `POST /admin/api/organizer-members/[id]/reject` — същото (само опашка) | същото |
+| `contact-form` | `POST /api/contact` — `email_jobs` към `EMAIL_ADMIN` или fallback inbox | админ inbox |
 | `festival-submission-received` | `POST /api/organizer/pending-festivals` | Auth имейл на подателя |
 | `admin-new-submission` | същият route | `EMAIL_ADMIN` (ако е зададен) |
 | `festival-approved` | `POST /admin/api/pending-festivals/[id]/approve` | само при `submission_source=organizer_portal` — Auth имейл на `submitted_by_user_id` |
@@ -49,9 +50,9 @@
 
 | Тип | Приоритет | Тригер | Правила |
 |-----|-----------|--------|---------|
-| `reminder` | high | Потребител добавя фестивал в плана (`user_plan_festivals` чрез `POST /api/plan/festivals`) | Според `user_plan_reminders` за този фестивал (инициализиран от `default_plan_reminder_type` при добавяне): или ~24 ч преди начало, или ~2 ч преди начало (локално Europe/Sofia; инстант от `start_date` + опционално `start_time`, иначе 09:00 на същия календарен ден при липса на час); при `none` — без нови reminder jobs; само бъдещи слотове; при махане от плана — отменяне на pending reminder jobs. Без time-window dedupe. Legacy `/api/jobs/reminders` може да ползва и двата слота по стара логика; MVP `notification_jobs` следва изричното предпочитание. |
+| `reminder` | high | Потребител добавя фестивал в плана (`user_plan_festivals` чрез `POST /api/plan/festivals`) | **Два push job-а** на запазен фестивал (когато напомнянията не са изключени): **~24 ч** и **~2 ч** преди начало (Europe/Sofia; инстант от `start_date` + опционално `start_time`, иначе 09:00 локално при date-only). Само бъдещи `scheduled_for`. Единствен вход за планиране: `syncReminderJobsForPreference` (отменя pending, после upsert с `dedupe_key` + `ignoreDuplicates`). При `none` — без pending reminder jobs; при махане от плана — `syncReminderJobsForPreference(…, "none")`. Без time-window dedupe за reminder. Legacy `/api/jobs/reminders` не пипа `notification_jobs`. |
 | `update` | high | Админ `PATCH /admin/api/festivals/[id]` с **смислена** промяна | Само потребители със запис в `user_plan_festivals`. Уведомление само при: промяна на `start_date`, значима промяна на `end_date` (≥1 ден), `city`, `address`, или архивиране (`status`). Игнор: описание, снимки, тагове, `occurrence_dates` и др. Pending ъпдейт се заменя при нова редакция извън dedupe прозореца. |
-| `weekend` | normal | Cron: `/api/notifications/weekend-trigger/fri_18` или `.../sat_09` | Фестивали с `start_date` в следващите до 3 дни; потребител с `notify_weekend_digest`, без `only_saved`, с поне един последван град (`user_followed_cities` ↔ slug на фестивала); минимум 2 фестивала; макс. 1 на потребител на слот (dedupe_key). |
+| `weekend` | normal | `GET /api/cron/worker` (прозорец Europe/Sofia според предишните `fri_18` / `sat_09` слотове) или директно `/api/notifications/weekend-trigger/fri_18` / `.../sat_09` | Фестивали с `start_date` в следващите до 3 дни; потребител с `notify_weekend_digest`, без `only_saved`, с поне един последван град (`user_followed_cities` ↔ slug на фестивала); минимум 2 фестивала; макс. 1 на потребител на слот (dedupe_key). |
 | `new_city` | normal | След успешно одобряване на pending (`POST .../approve`) | Само последователи на града (`user_followed_cities`); качество: заглавие, slug, `start_date`; макс. 1 `new_festival` на потребител за календарен ден (София). |
 
 ### Time-window дедупликация (освен `dedupe_key`)
@@ -94,16 +95,16 @@
 
 ## Scheduling model (production-safe)
 
-- High-frequency execution (`GET /api/notifications/run` every ~5 minutes) is expected from an **external scheduler** (Railway/worker/cron service), not from Vercel Cron.
-- **`GET /api/jobs/email`:** on Vercel Hobby there is no sub-daily Vercel cron in `vercel.json`—call it from an external scheduler with `x-job-secret: JOBS_SECRET`.
-- Vercel can keep only low-frequency schedules (for example daily reminders and optional weekend slots) to stay compatible with Hobby limits.
-- Weekend slots remain callable by URL (`/api/notifications/weekend-trigger/fri_18`, `/api/notifications/weekend-trigger/sat_09`) and are safe for external scheduler triggering.
-- Job routes use `cron_locks` to prevent parallel execution: `notifications_run`, `reminders_job`, `notifications_weekend_{slot}`.
+- **`vercel.json`** declares a **single** cron: `GET /api/cron/worker` on a five-minute schedule. It runs `processDueNotificationJobs` (same batching as `GET /api/notifications/run`), `processDueEmailJobs` (same as `GET /api/jobs/email`), calls `GET /api/jobs/reminders` and **`GET /api/jobs/push`** (always scheduled; missing FCM/global push off yields skipped rows, not a skipped cron subtask) with `x-job-secret: JOBS_SECRET`, runs weekend digest scheduling when Europe/Sofia time matches the historical `fri_18` / `sat_09` windows, and triggers `GET /api/jobs/user-sweep-retry` at most once per 60 minutes (marker in `cron_locks`). Individual job URLs remain available for external schedulers or manual runs with the same auth headers.
+- External schedulers can still call `GET /api/notifications/run`, `GET /api/jobs/email`, or weekend URLs directly with `x-job-secret: JOBS_SECRET` when higher frequency or isolation is required.
+- Job routes use `cron_locks` to prevent parallel execution: `notifications_run`, `reminders_job`, `email_jobs_run`, `notifications_weekend_{slot}`, `user_sweep_retry`.
 
 ## Автентикация на jobs
 
-- `x-job-secret: JOBS_SECRET` (primary for external schedulers)
-- `x-vercel-cron` (still accepted for optional Vercel low-frequency calls)
+(`lib/jobs/auth.ts` — `isAuthorizedJobRequest`)
+
+- `x-job-secret: JOBS_SECRET` (primary for external schedulers and internal worker fetches)
+- (TEMP) `User-Agent` съдържа `vercel-cron` — Vercel Cron без secret (Hobby plan limitation)
 
 ## Таблици
 
@@ -119,8 +120,8 @@
 
 ## Reminder preference sync (public detail)
 
-- `POST /api/plan/reminders` пази `user_plan_reminders` (`none`, `24h`, `same_day_09`) и синхронизира pending `notification_jobs` (`job_type=reminder`) за същия потребител/фестивал; с `applyToAllSaved: true` — същото за всеки `user_plan_festivals` ред на потребителя. `GET /api/plan/reminders` връща `savedFestivalCount` и единно `timing` или `mixed`.
-- Глобален default за *бъдещи* запазвания: `user_notification_settings.default_plan_reminder_type` (API: `GET/POST /api/notification-settings`). `syncReminderJobsForPreference` → `scheduleSavedFestivalReminders` насрочва само съответния reminder слот (`24h` или `2h`), не и двата наведнъж.
+- `POST /api/plan/reminders` пази `user_plan_reminders` (`none`, `default`, `24h`, `same_day_09`) и синхронизира pending `notification_jobs` (`job_type=reminder`) за същия потребител/фестивал; с `applyToAllSaved: true` — същото за всеки `user_plan_festivals` ред на потребителя. `GET /api/plan/reminders` връща `savedFestivalCount` и единно `timing` или `mixed`.
+- Глобален default за *бъдещи* запазвания: `user_notification_settings.default_plan_reminder_type` (`none` | `default` | legacy `24h` | `same_day_09`; SQL: `scripts/sql/20260506_plan_reminder_default_type.sql`). При запазване с включени напомняния: `user_plan_reminders.reminder_type = default` и `syncReminderJobsForPreference(…, "default")` — **два** job-а (24h + 2h преди старт), ако слотовете са в бъдеще. Не се ползва отделен enqueue път; `lib/notifications/scheduler.ts` — `computeSavedFestivalReminderTimes`.
 - Локално преглед на шаблоните за reminder имейл: `GET /api/test-email` (не е наличен в production) с `type=reminder-1-day-before` или `reminder-same-day` и URL-encoded JSON в `payload` (полета като при enqueue: `userId`, `festivalId`, `festivalTitle`, `festivalSlug`, `festivalUrl`, `cityDisplay`, `locationSummary`, `startDateDisplay`, `startTimeDisplay`, `reminderKind`: `1_day_before` | `two_hours_before`; за `reminder-same-day` ползвай `two_hours_before` — `same_day` се приема още като legacy алиас към същото). Опционално за footer: `unsubscribeUrl`, `managePreferencesUrl` (напр. `https://…/unsubscribe/<uuid>`, `https://…/profile`).
 - При `none`: pending reminder jobs се отменят (`status=cancelled`).
-- При `24h`/`same_day_09`: съществуващите pending reminder jobs първо се отменят, после се насрочват наново чрез текущия scheduler поток.
+- При всеки тип различен от `none`: pending reminder jobs първо се отменят, после се насрочват наново (24h + 2h слотове).

@@ -33,6 +33,8 @@ export const FESTIVAL_PATCH_ALLOWED_KEYS = [
   "lat",
   "longitude",
   "lng",
+  "coords_override",
+  "place_id",
   "start_date",
   "end_date",
   "start_time",

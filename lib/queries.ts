@@ -22,7 +22,7 @@ import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { parseProgramDraftUnknown, programDraftToDetailSchedule } from "@/lib/festival/programDraft";
 
 export const FESTIVAL_SELECT_MIN =
-  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
+  "id,title,slug,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,hero_image,image_url,is_free,status,is_verified,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,lat,lng,place_id,description,ticket_url,price_range,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank)";
 
 /** Same as `FESTIVAL_SELECT_MIN` plus global plan save counts (`user_plan_festivals` is not readable under anon RLS; use service role for accurate counts). */
 const FESTIVAL_SELECT_MIN_WITH_PLAN_SAVES = `${FESTIVAL_SELECT_MIN},user_plan_festivals(count)`;
@@ -71,7 +71,7 @@ export function normalizePublicFestivalSlugParam(raw: string): string {
 }
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,location_name,address,organizer_id,organizer_name,lat,lng,place_id,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,is_verified,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,program_draft,cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug))";
+  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,location_name,address,organizer_id,organizer_name,lat,lng,place_id,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,is_verified,category,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,program_draft,cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!left(id,name,slug,logo_url,verified,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug,logo_url,verified))";
 
 const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -141,12 +141,30 @@ function throwOnSelectError(context: string, error: { message: string } | null |
 
 type FestivalOrganizerLinkRow = {
   sort_order?: number | null;
-  organizers?: { id?: string | null; name?: string | null; slug?: string | null } | null;
+  organizers?: {
+    id?: string | null;
+    name?: string | null;
+    slug?: string | null;
+    logo_url?: string | null;
+    verified?: boolean | null;
+  } | null;
   /** PostgREST често връща ед. число за FK към organizers */
-  organizer?: { id?: string | null; name?: string | null; slug?: string | null } | null;
+  organizer?: {
+    id?: string | null;
+    name?: string | null;
+    slug?: string | null;
+    logo_url?: string | null;
+    verified?: boolean | null;
+  } | null;
 };
 
-function nestedOrganizerFromLink(link: FestivalOrganizerLinkRow): { id?: string | null; name?: string | null; slug?: string | null } | null {
+function nestedOrganizerFromLink(link: FestivalOrganizerLinkRow): {
+  id?: string | null;
+  name?: string | null;
+  slug?: string | null;
+  logo_url?: string | null;
+  verified?: boolean | null;
+} | null {
   const raw = link.organizers ?? link.organizer;
   if (!raw) return null;
   if (Array.isArray(raw)) {
@@ -156,7 +174,14 @@ function nestedOrganizerFromLink(link: FestivalOrganizerLinkRow): { id?: string 
   return raw;
 }
 
-function getFestivalOrganizers(festival: Festival): Array<{ id?: string | null; name?: string | null; slug?: string | null; sort_order?: number | null }> {
+function getFestivalOrganizers(festival: Festival): Array<{
+  id?: string | null;
+  name?: string | null;
+  slug?: string | null;
+  logo_url?: string | null;
+  verified?: boolean | null;
+  sort_order?: number | null;
+}> {
   const links = (festival as Festival & { festival_organizers?: FestivalOrganizerLinkRow[] | null }).festival_organizers;
 
   return (links ?? [])
@@ -166,6 +191,8 @@ function getFestivalOrganizers(festival: Festival): Array<{ id?: string | null; 
         id: org?.id ?? null,
         name: org?.name ?? null,
         slug: org?.slug ?? null,
+        logo_url: org?.logo_url ?? null,
+        verified: typeof org?.verified === "boolean" ? org.verified : null,
         sort_order: typeof link.sort_order === "number" ? link.sort_order : null,
       };
     })
@@ -212,7 +239,7 @@ async function mergeFestivalOrganizersFromJoinTable(supabase: SupabaseClient, fe
     return festival;
   }
 
-  const { data: orgRows, error: orgError } = await db.from("organizers").select("id,name,slug").in("id", ids);
+  const { data: orgRows, error: orgError } = await db.from("organizers").select("id,name,slug,logo_url,verified").in("id", ids);
 
   if (orgError) {
     console.error("[queries] organizers by id lookup failed", { festivalId, message: orgError.message });
@@ -228,7 +255,13 @@ async function mergeFestivalOrganizersFromJoinTable(supabase: SupabaseClient, fe
       if (!org || !name) return null;
       return {
         sort_order: link.sort_order,
-        organizers: { id: org.id, name: org.name, slug: org.slug },
+        organizers: {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          logo_url: org.logo_url ?? null,
+          verified: org.verified ?? null,
+        },
       };
     })
     .filter((row): row is FestivalOrganizerLinkRow => row !== null);

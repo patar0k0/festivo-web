@@ -122,7 +122,44 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       };
     });
 
-    return NextResponse.json({ organizer, festivals: festivalItems }, { status: 200 });
+    let followersCount: number | null = null;
+    let isFollowing = false;
+
+    const countRes = await db
+      .from("user_followed_organizers")
+      .select("organizer_id", { count: "exact", head: true })
+      .eq("organizer_id", organizer.id);
+
+    if (countRes.error) {
+      throw new Error(countRes.error.message);
+    }
+    followersCount = typeof countRes.count === "number" ? countRes.count : null;
+
+    if (auth.user) {
+      const followRes = await auth.supabase
+        .from("user_followed_organizers")
+        .select("organizer_id")
+        .eq("user_id", auth.user.id)
+        .eq("organizer_id", organizer.id)
+        .maybeSingle();
+
+      if (followRes.error) {
+        throw new Error(followRes.error.message);
+      }
+      isFollowing = Boolean(followRes.data);
+    }
+
+    return NextResponse.json(
+      {
+        organizer: {
+          ...organizer,
+          followers_count: followersCount,
+          is_following: isFollowing,
+        },
+        festivals: festivalItems,
+      },
+      { status: 200 },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[api/mobile/organizers/[slug]] Lookup failed", {

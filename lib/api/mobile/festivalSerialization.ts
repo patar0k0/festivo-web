@@ -9,6 +9,12 @@ export type MobileFestivalListItem = {
   end_date: string | null;
   image_url: string | null;
   is_saved: boolean;
+  /** WGS84 when present — map markers */
+  lat?: number | null;
+  lng?: number | null;
+  category?: string | null;
+  is_verified?: boolean | null;
+  is_promoted?: boolean | null;
 };
 
 export type MobileFestivalDetailJson = {
@@ -31,12 +37,40 @@ export type MobileFestivalDetailJson = {
     sort_order: number | null;
     is_hero: boolean | null;
   }>;
-  organizer: { id: string | null; name: string | null; slug: string | null } | null;
+  organizer: {
+    id: string | null;
+    name: string | null;
+    slug: string | null;
+    logo_url: string | null;
+    verified: boolean | null;
+  } | null;
   is_saved: boolean;
+  category?: string | null;
+  tags?: string[] | null;
+  is_verified?: boolean | null;
+  is_promoted?: boolean | null;
+  location?: {
+    lat: number | null;
+    lng: number | null;
+    address: string | null;
+    location_name: string | null;
+    place_id: string | null;
+  } | null;
 };
+
+function pickCoord(festival: Festival): { lat: number | null; lng: number | null } {
+  const latRaw = festival.lat ?? festival.latitude;
+  const lngRaw = festival.lng ?? festival.longitude;
+  const lat = typeof latRaw === "number" && Number.isFinite(latRaw) ? latRaw : null;
+  const lng = typeof lngRaw === "number" && Number.isFinite(lngRaw) ? lngRaw : null;
+  return { lat, lng };
+}
 
 export function serializeMobileFestivalListItem(festival: Festival, isSaved: boolean): MobileFestivalListItem {
   const imageUrl = festival.hero_image ?? festival.image_url ?? null;
+  const coords = pickCoord(festival);
+  const cat = typeof festival.category === "string" && festival.category.trim() ? festival.category.trim() : null;
+  const promoted = festival.promotion_status === "promoted";
   return {
     id: String(festival.id),
     slug: festival.slug,
@@ -46,6 +80,11 @@ export function serializeMobileFestivalListItem(festival: Festival, isSaved: boo
     end_date: festival.end_date ?? null,
     image_url: typeof imageUrl === "string" && imageUrl.trim() ? imageUrl.trim() : null,
     is_saved: isSaved,
+    lat: coords.lat,
+    lng: coords.lng,
+    category: cat,
+    is_verified: festival.is_verified ?? null,
+    is_promoted: promoted || undefined,
   };
 }
 
@@ -79,15 +118,50 @@ export function serializeMobileFestivalDetail(
   isSaved: boolean,
 ): MobileFestivalDetailJson {
   const organizers = festival.organizers?.filter((o) => String(o.id ?? "").trim() && String(o.name ?? "").trim()) ?? [];
+  const o0 = organizers[0];
+  const fromEmbed = festival.organizer;
   const primary =
-    organizers[0] ??
-    (festival.organizer?.name
+    o0 ??
+    (fromEmbed?.name
       ? {
-          id: festival.organizer.id ?? null,
-          name: festival.organizer.name,
-          slug: festival.organizer.slug ?? null,
+          id: fromEmbed.id ?? null,
+          name: fromEmbed.name,
+          slug: fromEmbed.slug ?? null,
+          logo_url: (fromEmbed as { logo_url?: string | null }).logo_url ?? null,
+          verified: (fromEmbed as { verified?: boolean | null }).verified ?? null,
         }
       : null);
+
+  const coords = pickCoord(festival);
+  const hasCoords = coords.lat != null && coords.lng != null;
+  const addr = typeof festival.address === "string" && festival.address.trim() ? festival.address.trim() : null;
+  const locName =
+    typeof festival.location_name === "string" && festival.location_name.trim() ? festival.location_name.trim() : null;
+  const tags =
+    Array.isArray(festival.tags) && festival.tags.length
+      ? festival.tags.map((t) => String(t).trim()).filter(Boolean)
+      : null;
+
+  const organizerOut =
+    primary && primary.name
+      ? {
+          id: primary.id != null ? String(primary.id) : null,
+          name: primary.name ?? null,
+          slug: primary.slug ?? null,
+          logo_url:
+            (o0 as { logo_url?: string | null } | undefined)?.logo_url != null
+              ? String((o0 as { logo_url?: string | null }).logo_url)
+              : (fromEmbed as { logo_url?: string | null } | null)?.logo_url != null
+                ? String((fromEmbed as { logo_url?: string | null }).logo_url)
+                : null,
+          verified:
+            typeof (o0 as { verified?: boolean | null } | undefined)?.verified === "boolean"
+              ? (o0 as { verified?: boolean | null }).verified!
+              : typeof (fromEmbed as { verified?: boolean | null } | null)?.verified === "boolean"
+                ? (fromEmbed as { verified?: boolean | null }).verified!
+                : null,
+        }
+      : null;
 
   return {
     id: String(festival.id),
@@ -103,13 +177,20 @@ export function serializeMobileFestivalDetail(
       occurrence_dates: festival.occurrence_dates?.length ? festival.occurrence_dates : null,
     },
     images: buildMobileGalleryImages(festival, media),
-    organizer: primary
+    organizer: organizerOut,
+    is_saved: isSaved,
+    category: typeof festival.category === "string" && festival.category.trim() ? festival.category.trim() : null,
+    tags: tags?.length ? tags : null,
+    is_verified: festival.is_verified ?? null,
+    is_promoted: festival.promotion_status === "promoted" || undefined,
+    location: hasCoords || addr || locName || festival.place_id
       ? {
-          id: primary.id != null ? String(primary.id) : null,
-          name: primary.name ?? null,
-          slug: primary.slug ?? null,
+          lat: coords.lat,
+          lng: coords.lng,
+          address: addr,
+          location_name: locName,
+          place_id: typeof festival.place_id === "string" && festival.place_id.trim() ? festival.place_id.trim() : null,
         }
       : null,
-    is_saved: isSaved,
   };
 }

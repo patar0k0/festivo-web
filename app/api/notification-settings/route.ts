@@ -12,6 +12,8 @@ type NotificationSettings = {
   notify_new_festivals_category: boolean;
   notify_followed_organizers: boolean;
   notify_weekend_digest: boolean;
+  notify_nearby_discovery: boolean;
+  notify_trending_alerts: boolean;
   push_enabled: boolean;
   only_saved: boolean;
   quiet_hours_start: string | null;
@@ -28,10 +30,12 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   notify_new_festivals_category: false,
   notify_followed_organizers: true,
   notify_weekend_digest: false,
+  notify_nearby_discovery: true,
+  notify_trending_alerts: true,
   push_enabled: true,
   only_saved: false,
-  quiet_hours_start: null,
-  quiet_hours_end: null,
+  quiet_hours_start: "22:00",
+  quiet_hours_end: "09:00",
   default_plan_reminder_type: "default",
 };
 
@@ -52,6 +56,12 @@ function normalizePayload(payload: PartialNotificationSettings): PartialNotifica
   }
   if (typeof payload.notify_weekend_digest === "boolean") {
     normalized.notify_weekend_digest = payload.notify_weekend_digest;
+  }
+  if (typeof payload.notify_nearby_discovery === "boolean") {
+    normalized.notify_nearby_discovery = payload.notify_nearby_discovery;
+  }
+  if (typeof payload.notify_trending_alerts === "boolean") {
+    normalized.notify_trending_alerts = payload.notify_trending_alerts;
   }
   if (typeof payload.push_enabled === "boolean") {
     normalized.push_enabled = payload.push_enabled;
@@ -88,7 +98,7 @@ function mergeSettingsRow(data: Record<string, unknown> | null): NotificationSet
 }
 
 const NOTIFICATION_SETTINGS_COLUMNS =
-  "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest,push_enabled,only_saved,quiet_hours_start,quiet_hours_end,default_plan_reminder_type" as const;
+  "notify_plan_reminders,notify_new_festivals_city,notify_new_festivals_category,notify_followed_organizers,notify_weekend_digest,notify_nearby_discovery,notify_trending_alerts,push_enabled,only_saved,quiet_hours_start,quiet_hours_end,default_plan_reminder_type" as const;
 
 export async function GET(request: Request) {
   let supabase;

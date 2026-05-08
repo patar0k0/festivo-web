@@ -15,6 +15,9 @@ import { isInQuietHours, nextAllowedSendAfterQuietHours, nowSofia } from "./time
 
 const MAX_RETRIES = PUSH_SEND_MAX_RETRIES;
 const BACKOFF_MS = [5 * 60 * 1000, 15 * 60 * 1000, 60 * 60 * 1000];
+const DEFAULT_QUIET_HOURS_START = "22:00";
+const DEFAULT_QUIET_HOURS_END = "09:00";
+const AUDIT_BATCH_SIZE = 500;
 
 function reminderCancelledLastErrorForEmailSkip(
   result: SavedFestivalReminderEmailEnqueueResult,
@@ -143,6 +146,31 @@ export async function processDueNotificationJobs(
   let rescheduled = 0;
   let skipped = 0;
   let skippedQuiet = 0;
+  const auditRows: Array<{
+    notification_job_id: string;
+    notification_type: string;
+    user_id: string;
+    device_token: string | null;
+    device_platform: string | null;
+    payload_summary: string;
+    deep_link: string | null;
+    send_status: "sent" | "failed" | "skipped";
+    provider_name: string | null;
+    provider_response: Record<string, unknown>;
+    created_at: string;
+  }> = [];
+
+  const flushAuditRows = async () => {
+    if (!auditRows.length) return;
+    for (let i = 0; i < auditRows.length; i += AUDIT_BATCH_SIZE) {
+      const chunk = auditRows.slice(i, i + AUDIT_BATCH_SIZE);
+      const { error: auditErr } = await supabase.from("push_delivery_audit").insert(chunk);
+      if (auditErr) {
+        console.warn("[notifications] push audit insert failed", { message: auditErr.message, rows: chunk.length });
+      }
+    }
+    auditRows.length = 0;
+  };
 
   for (const job of rows) {
     const { data: settings } = await supabase
@@ -162,25 +190,18 @@ export async function processDueNotificationJobs(
     }
 
     const qh = settings as { quiet_hours_start?: string | null; quiet_hours_end?: string | null } | null;
+    const quietStart = qh?.quiet_hours_start ?? DEFAULT_QUIET_HOURS_START;
+    const quietEnd = qh?.quiet_hours_end ?? DEFAULT_QUIET_HOURS_END;
     const now = new Date();
-    if (isInQuietHours(now, qh?.quiet_hours_start, qh?.quiet_hours_end)) {
+    if (isInQuietHours(now, quietStart, quietEnd)) {
       if (job.job_type === "reminder") {
-        await supabase
-          .from("notification_jobs")
-          .update({
-            status: "cancelled",
-            updated_at: nowIso,
-            last_error: "quiet_hours_skip",
-          })
-          .eq("id", job.id);
-        skippedQuiet += 1;
+        // Saved festival reminders are higher-priority and bypass quiet-hours suppression.
+      } else {
+        const nextIso = nextAllowedSendAfterQuietHours(now, quietStart, quietEnd).toISOString();
+        await supabase.from("notification_jobs").update({ scheduled_for: nextIso, updated_at: nowIso }).eq("id", job.id);
+        rescheduled += 1;
         continue;
       }
-
-      const nextIso = nextAllowedSendAfterQuietHours(now, qh?.quiet_hours_start, qh?.quiet_hours_end).toISOString();
-      await supabase.from("notification_jobs").update({ scheduled_for: nextIso, updated_at: nowIso }).eq("id", job.id);
-      rescheduled += 1;
-      continue;
     }
 
     const payload = job.payload_json as NotificationPayloadV1;
@@ -245,6 +266,19 @@ export async function processDueNotificationJobs(
 
     if (pushResult.error) {
       await retryJobOrFail(supabase, job, nowIso, pushResult.error);
+      auditRows.push({
+        notification_job_id: job.id,
+        notification_type: notifType,
+        user_id: job.user_id,
+        device_token: null,
+        device_platform: null,
+        payload_summary: `${payload.title} — ${payload.body}`.slice(0, 300),
+        deep_link: payload.deep_link ?? null,
+        send_status: "failed",
+        provider_name: (process.env.PUSH_PROVIDER || "fcm").toLowerCase(),
+        provider_response: { error: pushResult.error },
+        created_at: nowIso,
+      });
       failed += 1;
       continue;
     }
@@ -308,6 +342,19 @@ export async function processDueNotificationJobs(
           updated_at: nowIso,
         })
         .eq("id", job.id);
+      auditRows.push({
+        notification_job_id: job.id,
+        notification_type: notifType,
+        user_id: job.user_id,
+        device_token: null,
+        device_platform: null,
+        payload_summary: `${payload.title} — ${payload.body}`.slice(0, 300),
+        deep_link: payload.deep_link ?? null,
+        send_status: "skipped",
+        provider_name: (process.env.PUSH_PROVIDER || "fcm").toLowerCase(),
+        provider_response: { reason: "no_tokens" },
+        created_at: nowIso,
+      });
       failed += 1;
       continue;
     }
@@ -340,6 +387,21 @@ export async function processDueNotificationJobs(
         priority: priorityVal,
         notification_type: notifType,
       });
+      for (const token of pushResult.tokens ?? []) {
+        auditRows.push({
+          notification_job_id: job.id,
+          notification_type: notifType,
+          user_id: job.user_id,
+          device_token: token,
+          device_platform: null,
+          payload_summary: `${payload.title} — ${payload.body}`.slice(0, 300),
+          deep_link: payload.deep_link ?? null,
+          send_status: "failed",
+          provider_name: (process.env.PUSH_PROVIDER || "fcm").toLowerCase(),
+          provider_response: (pushResult.raw ?? {}) as Record<string, unknown>,
+          created_at: nowIso,
+        });
+      }
       failed += 1;
       continue;
     }
@@ -375,9 +437,30 @@ export async function processDueNotificationJobs(
     if (unErr) {
       console.warn("[notifications] user_notifications upsert failed", { job_id: job.id, message: unErr.message });
     }
+    const tokensForAudit = pushResult.tokens?.length ? pushResult.tokens : [null];
+    for (const token of tokensForAudit) {
+      auditRows.push({
+        notification_job_id: job.id,
+        notification_type: notifType,
+        user_id: job.user_id,
+        device_token: token,
+        device_platform: null,
+        payload_summary: `${payload.title} — ${payload.body}`.slice(0, 300),
+        deep_link: payload.deep_link ?? null,
+        send_status: "sent",
+        provider_name: (process.env.PUSH_PROVIDER || "fcm").toLowerCase(),
+        provider_response: (pushResult.raw ?? {}) as Record<string, unknown>,
+        created_at: nowIso,
+      });
+    }
 
     sent += 1;
+    if (auditRows.length >= AUDIT_BATCH_SIZE) {
+      await flushAuditRows();
+    }
   }
+
+  await flushAuditRows();
 
   console.info("[notifications] run", {
     processed: rows.length,

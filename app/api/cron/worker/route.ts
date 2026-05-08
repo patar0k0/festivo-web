@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { isAuthorizedJobRequest } from "@/lib/jobs/auth";
 import { acquireCronLock, releaseCronLock } from "@/lib/jobs/locks";
 import { TZ } from "@/lib/notifications/time";
-import { scheduleWeekendNearbyJobs, type WeekendRunSlot } from "@/lib/notifications/triggers";
+import { scheduleWeekendNearbyJobs, scheduleWeeklyTrendingJobs, type WeekendRunSlot } from "@/lib/notifications/triggers";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -178,6 +178,26 @@ export async function GET(request: Request) {
     }
   }
 
+  let trending: Record<string, unknown> | null = null;
+  if (shouldRunWeekendSlot(now, "sat_09")) {
+    const lockName = "notifications_trending_weekly";
+    const lock = await acquireCronLock(supabase, lockName, now, 60);
+    if (!lock.ok && lock.reason === "lock_active") {
+      trending = { skipped: true, reason: "lock_active" };
+    } else if (!lock.ok) {
+      trending = { error: "message" in lock ? lock.message : "lock error" };
+    } else {
+      try {
+        trending = await scheduleWeeklyTrendingJobs();
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "unexpected";
+        trending = { error: message };
+      } finally {
+        await releaseCronLock(supabase, lockName, lock.ok ? lock.lockToken : undefined);
+      }
+    }
+  }
+
   const cleanup = await maybeRunCleanup(supabase, callJob, now);
 
   const subtasksOk =
@@ -196,6 +216,7 @@ export async function GET(request: Request) {
     push,
     push_http_ok,
     weekend,
+    trending,
     cleanup,
   });
 }

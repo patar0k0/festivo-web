@@ -8,7 +8,7 @@ export type UserNotificationRates24h = {
 
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/** Counts sent notification_logs in last 24h; promo = weekend + new_city jobs. */
+/** Counts sent notification_logs in last 24h; promo = weekend/new_city/trending jobs. */
 export async function getUserNotificationRates24h(
   supabase: SupabaseClient,
   userId: string,
@@ -62,7 +62,7 @@ export async function getUsersNotificationRates24hBatch(
     const uid = row.user_id;
     totals.set(uid, (totals.get(uid) ?? 0) + 1);
     const jt = jobTypeById.get(row.job_id);
-    if (jt === "weekend" || jt === "new_city") {
+    if (jt === "weekend" || jt === "new_city" || jt === "trending") {
       promos.set(uid, (promos.get(uid) ?? 0) + 1);
     }
   }
@@ -77,7 +77,7 @@ export async function getUsersNotificationRates24hBatch(
   return map;
 }
 
-/** Reminders are exempt. Promo (weekend, new_city) also capped at 1 per 24h. */
+/** Reminders are exempt. Promo (weekend/new_city/trending) is capped at 1 per 24h. */
 export function shouldSkipScheduleForRateLimit(
   jobType: NotificationJobType,
   rates: UserNotificationRates24h,
@@ -88,7 +88,7 @@ export function shouldSkipScheduleForRateLimit(
   if (rates.totalSent >= 2) {
     return true;
   }
-  if ((jobType === "weekend" || jobType === "new_city") && rates.promoSent >= 1) {
+  if ((jobType === "weekend" || jobType === "new_city" || jobType === "trending") && rates.promoSent >= 1) {
     return true;
   }
   return false;

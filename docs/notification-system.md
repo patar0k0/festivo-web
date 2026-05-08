@@ -54,6 +54,8 @@
 | `update` | high | Админ `PATCH /admin/api/festivals/[id]` с **смислена** промяна | Само потребители със запис в `user_plan_festivals`. Уведомление само при: промяна на `start_date`, значима промяна на `end_date` (≥1 ден), `city`, `address`, или архивиране (`status`). Игнор: описание, снимки, тагове, `occurrence_dates` и др. Pending ъпдейт се заменя при нова редакция извън dedupe прозореца. |
 | `weekend` | normal | `GET /api/cron/worker` (прозорец Europe/Sofia според предишните `fri_18` / `sat_09` слотове) или директно `/api/notifications/weekend-trigger/fri_18` / `.../sat_09` | Фестивали с `start_date` в следващите до 3 дни; потребител с `notify_weekend_digest`, без `only_saved`, с поне един последван град (`user_followed_cities` ↔ slug на фестивала); минимум 2 фестивала; макс. 1 на потребител на слот (dedupe_key). |
 | `new_city` | normal | След успешно одобряване на pending (`POST .../approve`) | Само последователи на града (`user_followed_cities`); качество: заглавие, slug, `start_date`; макс. 1 `new_festival` на потребител за календарен ден (София). |
+| `followed_organizer` | normal | След успешно одобряване на pending (`POST .../approve`) | Мачва `festival_organizers` + fallback `festivals.organizer_id` към `user_followed_organizers`; уважава `notify_followed_organizers` + `push_enabled`; dedupe по `user_id+festival_id`. |
+| `trending` | normal | `GET /api/cron/worker` в `sat_09` слот (weekly) | Една седмична препоръка на потребител: лек score (saves + freshness + proximity + promoted/trending flags), регионален boost по следвани градове, и preference gate `notify_trending_alerts`. |
 
 ### Time-window дедупликация (освен `dedupe_key`)
 
@@ -64,6 +66,8 @@
 | `update` | 60 мин |
 | `weekend` | 6 ч |
 | `new_city` | 24 ч |
+| `followed_organizer` | 12 ч |
+| `trending` | 7 дни |
 | `reminder` | — (няма прозорец) |
 
 ### Rate limit (при планиране)
@@ -71,12 +75,12 @@
 По `notification_logs` (успешни `sent` в последните 24 ч), чрез join към `notification_jobs` за `job_type`:
 
 - Напомнянията (`reminder`) **не** се лимитират от този глобален брой.
-- За останалите: макс. **2** изпращания на потребител за 24 ч; макс. **1** „промо“ (`weekend` или `new_city` комбинирано) за 24 ч.
+- За останалите: макс. **2** изпращания на потребител за 24 ч; макс. **1** „промо“ (`weekend`, `new_city` или `trending`) комбинирано за 24 ч.
 
 ### Изпълнение (`GET /api/notifications/run`)
 
 - Избор на pending: `priority` ascending (`high` преди `normal`), после `scheduled_for` ascending; batch до ~75.
-- Тихи часове: `reminder` — **не** се препланира; job се **отменя** (`cancelled`, `quiet_hours_skip`). `weekend` / `new_city` — препланиране на следващ момент извън прозореца (стъпка 15 мин).
+- Тихи часове: по подразбиране `22:00 -> 09:00` (локално време), когато няма explicit `quiet_hours_*` в `user_notification_settings`. `reminder` (saved festivals) е high-priority и не се quiet-skip-ва; `weekend` / `new_city` / `followed_organizer` / `trending` се препланират на следващ момент извън quiet window (стъпка 15 мин).
 - Retry при грешка: `retry_count`, макс. 3 неуспеха, backoff 5 мин → 15 мин → 1 ч.
 - FCM data: `notification_id`, `type`, `festival_id`, `slug`, `deep_link`, `title`, `body`, `source: push`, `notification_type`, `priority`.
 - Логове: `notification_logs` с `duration_ms`, `priority`, `notification_type`; конзолен ред с processed/sent/failed/…
@@ -85,12 +89,12 @@
 
 Всички изпращания включват в `data`: `notification_id`, `type`, `festival_id`, `slug`, `deep_link` (`festivo://festival/[slug]`), `title`, `body`.
 
-Типове в payload: например `festival_reminder`, `festival_updated`, `weekend_nearby`, `new_festival_in_city`.
+Типове в payload: например `festival_reminder`, `festival_updated`, `weekend_nearby`, `new_festival_in_city`, `followed_organizer_new_festival`, `trending_festival`.
 
 ## Дедупликация
 
 - Уникален ключ: `notification_jobs.dedupe_key` (upsert с `ignoreDuplicates`).
-- Допълнително: time-window дедупликация по тип (виж таблицата по-горе).
+- Допълнително: time-window дедупликация + cooldown по тип (виж таблицата по-горе). Практически лимити: trending ≤ 1 / 48h, nearby (`new_city`) ≤ 1 / 24h, organizer (`followed_organizer`) ≤ 1 / 12h per organizer (`payload_json.scope_key=organizer:<id>`).
 - `user_notifications`: upsert по `(user_id, festival_id, type)` след успешен push; типове за reminder: `saved_festival_reminder_24h` / `saved_festival_reminder_2h`.
 
 ## Scheduling model (production-safe)
@@ -110,9 +114,10 @@
 
 - `device_tokens` — `platform`, `invalidated_at` при невалиден FCM токен (NotRegistered, InvalidRegistration, MismatchSenderId, InvalidPackageName и подобни).
 - Mobile push token registration: `POST /api/push/register` (writes to `device_tokens` under authenticated user).
-- `user_notification_settings` — `push_enabled`, `only_saved`, `quiet_hours_*`.
+- `user_notification_settings` — `push_enabled`, `only_saved`, `quiet_hours_*`, `notify_nearby_discovery`, `notify_trending_alerts`.
 - `user_email_preferences` — `reminder_emails_enabled`, `organizer_update_emails_enabled`, `marketing_emails_enabled`, `unsubscribed_all_optional`, `unsubscribe_token` (Phase 5; SQL `scripts/sql/20260405_user_email_preferences.sql`).
 - `notification_jobs`, `notification_logs` — `scripts/sql/20260326_notification_jobs_mvp.sql` + `scripts/sql/20260326_notification_jobs_hardening.sql`.
+- `push_delivery_audit` — durable send/open audit за push (`notification_type`, `user_id`, `device_token`, payload summary, `deep_link`, send status, provider response, `opened_at`, `created_at`), плюс source за mobile inbox и admin diagnostics (`scripts/sql/20260508_push_delivery_audit_table.sql`).
 
 ## Legacy reminder pipeline
 

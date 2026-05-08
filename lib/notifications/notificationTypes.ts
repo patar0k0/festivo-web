@@ -17,5 +17,11 @@ export function notificationTypeForJob(
   if (jobType === "new_city") {
     return "new_festival";
   }
+  if (jobType === "followed_organizer") {
+    return "followed_organizer_new_festival";
+  }
+  if (jobType === "trending") {
+    return "trending_festival";
+  }
   return jobType;
 }

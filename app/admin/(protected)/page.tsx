@@ -574,6 +574,11 @@ export default async function AdminDashboardPage() {
               Кликове (outbound)
             </Link>
           </li>
+          <li>
+            <Link href="/admin/notifications" className="font-medium text-[#0c0e14] underline-offset-2 hover:underline">
+              Push диагностика
+            </Link>
+          </li>
         </ul>
       </section>
     </div>

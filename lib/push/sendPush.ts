@@ -24,6 +24,7 @@ export type PushSendResult = {
   duration_ms?: number;
   /** Supabase / token query failure — caller should retry the job. */
   error?: string;
+  tokens?: string[];
 };
 
 /** Aggregated outcome from Expo Push API (also attached under `raw` for `sendPushToUser`). */
@@ -461,24 +462,26 @@ export async function sendPushToUser(
   const { tokens, error: tokenErr } = await getUserPushTokens(supabase, userId);
   if (tokenErr) {
     console.error("[push][failed]", { userId, reason: "token_load", message: tokenErr });
-    return { ok: false, skipped: false, error: tokenErr };
+    return { ok: false, skipped: false, error: tokenErr, tokens: [] };
   }
 
   if (!tokens.length) {
     console.info("[push][skipped]", { userId, reason: "no_tokens" });
-    return { ok: false, skipped: true, reason: "no_tokens" };
+    return { ok: false, skipped: true, reason: "no_tokens", tokens: [] };
   }
 
   const provider = (process.env.PUSH_PROVIDER || "fcm").toLowerCase().trim();
 
   if (provider === "expo") {
-    return sendViaExpo(supabase, userId, tokens, payload);
+    const res = await sendViaExpo(supabase, userId, tokens, payload);
+    return { ...res, tokens };
   }
 
   if (provider === "fcm") {
-    return sendViaFcm(supabase, userId, tokens, payload);
+    const res = await sendViaFcm(supabase, userId, tokens, payload);
+    return { ...res, tokens };
   }
 
   console.warn("[push][skipped]", { userId, reason: "unknown_provider", provider });
-  return { ok: false, skipped: true, reason: "unknown_provider", raw: { provider } };
+  return { ok: false, skipped: true, reason: "unknown_provider", raw: { provider }, tokens };
 }

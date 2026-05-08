@@ -185,6 +185,50 @@ export function buildNewInCityPayload(args: { slug: string; festivalId: string; 
   };
 }
 
+export function buildFollowedOrganizerPayload(args: {
+  slug: string;
+  festivalId: string;
+  festivalTitle: string;
+  organizerName: string;
+  organizerId: string;
+}): NotificationPayloadV1 {
+  const pr = priorityForJobType("followed_organizer");
+  return {
+    type: "followed_organizer_new_festival",
+    festival_id: args.festivalId,
+    slug: args.slug.trim(),
+    deep_link: buildDeepLink(args.slug),
+    title: `Нов фестивал от ${args.organizerName}`,
+    body: args.festivalTitle,
+    source: "push",
+    notification_type: "followed_organizer_new_festival",
+    priority: pr,
+    organizer_id: args.organizerId,
+    scope_key: `organizer:${args.organizerId}`,
+  };
+}
+
+export function buildTrendingPayload(args: {
+  slug: string;
+  festivalId: string;
+  cityLabel: string | null;
+  teaser: string;
+}): NotificationPayloadV1 {
+  const pr = priorityForJobType("trending");
+  const cityPart = args.cityLabel ? ` в ${args.cityLabel}` : "";
+  return {
+    type: "trending_festival",
+    festival_id: args.festivalId,
+    slug: args.slug.trim(),
+    deep_link: buildDeepLink(args.slug),
+    title: `Популярен фестивал${cityPart}`,
+    body: args.teaser,
+    source: "push",
+    notification_type: "trending_festival",
+    priority: pr,
+  };
+}
+
 export type InsertJob = {
   user_id: string;
   festival_id: string | null;
@@ -239,7 +283,20 @@ export async function insertNotificationJobs(
         continue;
       }
 
-      if (await hasRecentWindowDuplicate(supabase, { user_id: row.user_id, festival_id: row.festival_id, job_type: row.job_type })) {
+      const scopeKey =
+        row.job_type === "followed_organizer"
+          ? typeof row.payload_json.scope_key === "string"
+            ? row.payload_json.scope_key
+            : null
+          : null;
+      if (
+        await hasRecentWindowDuplicate(supabase, {
+          user_id: row.user_id,
+          festival_id: row.festival_id,
+          job_type: row.job_type,
+          scope_key: scopeKey,
+        })
+      ) {
         skippedDedupe += 1;
         continue;
       }

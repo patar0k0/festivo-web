@@ -10,6 +10,10 @@ export function dedupeWindowMinutes(jobType: NotificationJobType): number | null
       return 6 * 60;
     case "new_city":
       return 24 * 60;
+    case "followed_organizer":
+      return 12 * 60;
+    case "trending":
+      return 48 * 60;
     case "reminder":
       return null;
     default:
@@ -24,6 +28,7 @@ export async function hasRecentWindowDuplicate(
     user_id: string;
     festival_id: string | null;
     job_type: NotificationJobType;
+    scope_key?: string | null;
   },
 ): Promise<boolean> {
   const windowMin = dedupeWindowMinutes(args.job_type);
@@ -41,7 +46,9 @@ export async function hasRecentWindowDuplicate(
     .in("status", ["pending", "sent"])
     .limit(1);
 
-  if (args.festival_id) {
+  if (args.scope_key) {
+    q = q.filter("payload_json->>scope_key", "eq", args.scope_key);
+  } else if (args.festival_id) {
     q = q.eq("festival_id", args.festival_id);
   } else {
     q = q.is("festival_id", null);

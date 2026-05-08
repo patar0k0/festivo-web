@@ -18,9 +18,17 @@ export type NotificationPayloadV1 = {
   source?: "push";
   notification_type?: string;
   priority?: "high" | "normal";
+  organizer_id?: string;
+  scope_key?: string;
 };
 
-export type NotificationJobType = "reminder" | "update" | "weekend" | "new_city";
+export type NotificationJobType =
+  | "reminder"
+  | "update"
+  | "weekend"
+  | "new_city"
+  | "followed_organizer"
+  | "trending";
 
 export type NotificationPriority = "high" | "normal";
 

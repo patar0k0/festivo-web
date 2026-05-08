@@ -577,6 +577,8 @@ export type Database = {
           notify_new_festivals_category: boolean
           notify_followed_organizers: boolean
           notify_weekend_digest: boolean
+          notify_nearby_discovery: boolean
+          notify_trending_alerts: boolean
           push_enabled: boolean
           only_saved: boolean
           quiet_hours_start: string | null
@@ -591,6 +593,8 @@ export type Database = {
           notify_new_festivals_category?: boolean
           notify_followed_organizers?: boolean
           notify_weekend_digest?: boolean
+          notify_nearby_discovery?: boolean
+          notify_trending_alerts?: boolean
           push_enabled?: boolean
           only_saved?: boolean
           quiet_hours_start?: string | null
@@ -605,6 +609,8 @@ export type Database = {
           notify_new_festivals_category?: boolean
           notify_followed_organizers?: boolean
           notify_weekend_digest?: boolean
+          notify_nearby_discovery?: boolean
+          notify_trending_alerts?: boolean
           push_enabled?: boolean
           only_saved?: boolean
           quiet_hours_start?: string | null

@@ -322,6 +322,21 @@ erDiagram
     text notification_type
   }
 
+  push_delivery_audit {
+    uuid id PK
+    uuid notification_job_id FK
+    uuid user_id FK
+    text notification_type
+    text device_token
+    text device_platform
+    text payload_summary
+    text deep_link
+    text send_status
+    jsonb provider_response
+    timestamptz opened_at
+    timestamptz created_at
+  }
+
   cron_locks {
     text name PK
     timestamptz locked_at
@@ -344,6 +359,8 @@ erDiagram
   auth_users ||--o{ user_email_preferences : email_prefs
   email_jobs ||--o{ email_events : delivery_audit
   notification_jobs ||--o{ notification_logs : has
+  notification_jobs ||--o{ push_delivery_audit : delivery_audit
+  auth_users ||--o{ push_delivery_audit : push_delivery_events
 
   cities ||--o{ pending_festivals : moderation_city_fk
   organizers ||--o{ pending_festivals : portal_submitter_org
@@ -374,5 +391,7 @@ erDiagram
 
 Notes:
 - `user_notification_settings` (not drawn) includes `default_plan_reminder_type` (`none` | `24h` | `same_day_09`) for auto-applying reminder timing when a user saves a festival to their plan; see `scripts/sql/20260406_user_notification_default_plan_reminder_type.sql`.
+- `user_notification_settings` also includes personalization flags `notify_nearby_discovery` and `notify_trending_alerts` for regional/trending push categories.
+- `notification_jobs.job_type` extends with `followed_organizer` and `trending` (in addition to `reminder`, `update`, `weekend`, `new_city`).
 - `ingest_jobs -> pending_festivals` and `pending_festivals -> festivals` are workflow links via `source_url`/approval logic, not strict FK constraints.
 - Pending AI guess columns are omitted from the diagram to keep relationships readable; column-level detail lives in Supabase, `scripts/sql/` migrations, and application types/queries—not in a static schema markdown snapshot.

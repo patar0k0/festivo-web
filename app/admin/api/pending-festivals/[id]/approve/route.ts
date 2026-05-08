@@ -11,7 +11,7 @@ import { pendingRowToOrganizerEntries } from "@/lib/admin/pendingOrganizerEntrie
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { syncFestivalOrganizers } from "@/lib/festivalOrganizers";
-import { scheduleNewFestivalFollowCityJobs } from "@/lib/notifications/triggers";
+import { scheduleFollowedOrganizerFestivalJobs, scheduleNewFestivalFollowCityJobs } from "@/lib/notifications/triggers";
 import { insertFestivalMediaFromPending } from "@/lib/festival/insertFestivalMediaFromPending";
 import {
   type ProgramDraft,
@@ -634,6 +634,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     void scheduleNewFestivalFollowCityJobs(insertedFestival.id).catch((err) =>
       console.warn("[notifications] scheduleNewFestivalFollowCityJobs", err),
+    );
+    void scheduleFollowedOrganizerFestivalJobs(insertedFestival.id).catch((err) =>
+      console.warn("[notifications] scheduleFollowedOrganizerFestivalJobs", err),
     );
 
     try {

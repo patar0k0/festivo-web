@@ -5,7 +5,7 @@
 ### festivo-web (this repository)
 Next.js application responsible for:
 - public festival pages and queries
-- mobile JSON endpoints (`/api/mobile/festivals`, `/api/mobile/festivals/[slug]`, `/api/mobile/recommendations`)
+- mobile JSON endpoints (`/api/mobile/festivals`, `/api/mobile/festivals/[slug]`, `/api/mobile/recommendations`, `/api/mobile/onboarding/suggestions`)
 - admin ingestion/moderation UI
 - admin API routes for pending/festival/ingest management
 - reminder/follow/push job endpoints under `/api/jobs/*`

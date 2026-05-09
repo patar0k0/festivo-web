@@ -18,7 +18,8 @@ export type MobilePlanStateDto = {
   savedScheduleItemIds: string[];
   reminders: Record<string, MobilePlanReminderDto>;
   stats: MobilePlanStatsDto;
-  updated_at: string;
+  /** Max of known row timestamps; null when nothing to aggregate (mobile parser treats null like missing). */
+  updated_at: string | null;
 };
 
 function asIsoString(value: string | null | undefined): string | null {
@@ -36,12 +37,14 @@ export function normalizeReminderType(raw: unknown): PlanReminderWireType {
 }
 
 export function normalizeReminderRecord(
-  festivalId: string,
+  festivalId: unknown,
   reminderType: unknown,
   updatedAt: string | null | undefined,
-): [string, MobilePlanReminderDto] {
+): [string, MobilePlanReminderDto] | null {
+  const id = String(festivalId ?? "").trim();
+  if (!id) return null;
   return [
-    String(festivalId),
+    id,
     {
       type: normalizeReminderType(reminderType),
       updated_at: asIsoString(updatedAt) ?? new Date(0).toISOString(),
@@ -63,7 +66,7 @@ export function normalizePlanStats(stats: Partial<MobilePlanStatsDto>): MobilePl
   };
 }
 
-export function computeSnapshotUpdatedAt(values: Array<string | null | undefined>): string {
+export function computeSnapshotUpdatedAt(values: Array<string | null | undefined>): string | null {
   const timestamps = values
     .map((value) => asIsoString(value))
     .filter((value): value is string => Boolean(value))
@@ -71,7 +74,7 @@ export function computeSnapshotUpdatedAt(values: Array<string | null | undefined
     .filter((value) => Number.isFinite(value));
 
   if (!timestamps.length) {
-    return new Date(0).toISOString();
+    return null;
   }
 
   return new Date(Math.max(...timestamps)).toISOString();

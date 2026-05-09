@@ -328,7 +328,7 @@ export type SavedFestivalBasicRow = {
   category: string | null;
   is_verified: boolean;
   organizer_name: string | null;
-  cities: { name_bg: string } | null;
+  cities: { name_bg: string | null }[] | { name_bg: string | null } | null;
 };
 
 export async function fetchSavedFestivalsBasicData(

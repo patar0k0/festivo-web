@@ -108,7 +108,7 @@ function normalizeSavedFestivals(rows: SavedFestivalBasicRow[]): SavedFestivalBa
     festivalId: row.id,
     slug: row.slug,
     title: row.title,
-    city: row.cities?.name_bg ?? null,
+    city: (Array.isArray(row.cities) ? row.cities[0]?.name_bg : row.cities?.name_bg) ?? null,
     start_date: row.start_date,
     end_date: row.end_date,
     image_url: row.image_url,

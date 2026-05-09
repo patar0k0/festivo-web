@@ -4,6 +4,7 @@ import { getFestivals } from "@/lib/queries";
 import { scoreFestivalForUser, type ScoredFestival } from "@/lib/recommendations/scorer";
 import { serializeMobileFestivalListItem } from "@/lib/api/mobile/festivalSerialization";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBounds";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,14 @@ type SectionPayload = {
   title: string;
   items: ReturnType<typeof serializeMobileFestivalListItem>[];
 };
+
+function sectionPayload(
+  key: SectionKey,
+  title: string,
+  items: ReturnType<typeof serializeMobileFestivalListItem>[],
+): SectionPayload {
+  return { key, title, items };
+}
 
 function pageFromSearch(url: URL): number {
   const raw = url.searchParams.get("page");
@@ -64,9 +73,10 @@ export async function GET(request: Request) {
     const page = pageFromSearch(url);
     const perSection = 8;
 
+    const { weekendStart, weekendEnd } = festivalDiscoveryCalendarBounds();
     const [pool, weekPool, trendingPool] = await Promise.all([
       getFestivals({ when: "all" }, 1, 120, { listingSort: "trending" }),
-      getFestivals({ when: "this_week" }, 1, 60, { listingSort: "trending" }),
+      getFestivals({ from: weekendStart, to: weekendEnd }, 1, 60, { listingSort: "trending" }),
       getFestivals({ when: "all" }, 1, 40, { listingSort: "popular" }),
     ]);
 
@@ -129,7 +139,11 @@ export async function GET(request: Request) {
     };
 
     const forYouAll = sortStable(scored);
-    const nearYouAll = sortStable(scored.filter((row) => followedCities.has(String(row.festival.city_slug ?? "").toLowerCase())));
+    const nearYouAll = sortStable(
+      scored.filter((row) =>
+        followedCities.has(String((row.festival as { city_slug?: string | null }).city_slug ?? "").toLowerCase()),
+      ),
+    );
     const fromFollowedAll = sortStable(
       scored.filter((row) => {
         const orgId = row.festival.organizer_id ? String(row.festival.organizer_id).trim() : "";
@@ -162,15 +176,19 @@ export async function GET(request: Request) {
     );
 
     const sections: SectionPayload[] = [
-      { key: "for_you", title: "For You", items: toSerialized(takeUnique(chunkForPage(forYouAll, page, perSection))) },
-      { key: "near_you", title: "Near You", items: toSerialized(takeUnique(chunkForPage(nearYouAll, page, perSection))) },
-      { key: "trending", title: "Trending", items: toSerialized(takeUnique(chunkForPage(trendingAll, page, perSection))) },
-      { key: "this_weekend", title: "This Weekend", items: toSerialized(takeUnique(chunkForPage(weekendAll, page, perSection))) },
-      {
-        key: "from_followed_organizers",
-        title: "From Organizers You Follow",
-        items: toSerialized(takeUnique(chunkForPage(fromFollowedAll, page, perSection))),
-      },
+      sectionPayload("for_you", "For You", toSerialized(takeUnique(chunkForPage(forYouAll, page, perSection)))),
+      sectionPayload("near_you", "Near You", toSerialized(takeUnique(chunkForPage(nearYouAll, page, perSection)))),
+      sectionPayload("trending", "Trending", toSerialized(takeUnique(chunkForPage(trendingAll, page, perSection)))),
+      sectionPayload(
+        "this_weekend",
+        "This Weekend",
+        toSerialized(takeUnique(chunkForPage(weekendAll, page, perSection))),
+      ),
+      sectionPayload(
+        "from_followed_organizers",
+        "From Organizers You Follow",
+        toSerialized(takeUnique(chunkForPage(fromFollowedAll, page, perSection))),
+      ),
     ].filter((section) => section.items.length > 0);
 
     return NextResponse.json({ page, per_section: perSection, sections });

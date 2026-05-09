@@ -43,7 +43,7 @@ function recencyBoostDays(startDate: string, nowIsoDate: string): number {
 }
 
 function cityKey(festival: Festival): string {
-  return String(festival.city_slug ?? "").trim().toLowerCase();
+  return String((festival as { city_slug?: string | null }).city_slug ?? "").trim().toLowerCase();
 }
 
 function categoryKey(festival: Festival): string {
@@ -93,7 +93,8 @@ export function scoreFestivalForUser(festival: Festival, inputs: RecommendationI
 
   if (festival.promotion_status === "promoted") score += 0.45;
   if (festival.is_verified) score += 0.25;
-  score += recencyBoostDays(festival.start_date, inputs.nowIsoDate);
+  const startDate = typeof festival.start_date === "string" && festival.start_date.trim() ? festival.start_date : inputs.nowIsoDate;
+  score += recencyBoostDays(startDate, inputs.nowIsoDate);
 
   if (inputs.recentlyViewedFestivalIds.has(String(festival.id))) {
     score += 0.35;

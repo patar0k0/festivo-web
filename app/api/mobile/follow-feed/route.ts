@@ -139,7 +139,7 @@ export async function GET(request: Request) {
       const organizerId = festival.organizer_id ? String(festival.organizer_id) : null;
       const organizerSlug = festival.organizer?.slug ?? null;
       const organizerName = festival.organizer_name ?? festival.organizer?.name ?? null;
-      const citySlug = String(festival.city_slug ?? "").toLowerCase();
+      const citySlug = String((festival as { city_slug?: string | null }).city_slug ?? "").toLowerCase();
       const saves = Number(festival.saves_count ?? 0);
 
       if (organizerId && followedOrganizers.has(organizerId)) {

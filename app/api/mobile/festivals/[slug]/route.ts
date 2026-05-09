@@ -29,7 +29,10 @@ export async function GET(request: Request, context: RouteContext) {
       isSaved = await isFestivalInUserPlan(auth.supabase, auth.user.id, String(detail.festival.id));
     }
 
-    const body = serializeMobileFestivalDetail(detail.festival, detail.media, isSaved);
+    const body = serializeMobileFestivalDetail(detail.festival, detail.media, isSaved, {
+      days: detail.days,
+      scheduleItems: detail.scheduleItems,
+    });
     return NextResponse.json(body);
   } catch (e) {
     console.error("[api/mobile/festivals/[slug]]", e);

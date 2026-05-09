@@ -1,4 +1,5 @@
-import type { Festival, FestivalMediaItem } from "@/lib/types";
+import type { Festival, FestivalDay, FestivalMediaItem, FestivalScheduleItem } from "@/lib/types";
+import { buildMobileFestivalScheduleDto, type MobileFestivalScheduleDto } from "@/lib/api/mobile/mobileScheduleDto";
 
 export type MobileFestivalListItem = {
   id: string;
@@ -56,6 +57,8 @@ export type MobileFestivalDetailJson = {
     location_name: string | null;
     place_id: string | null;
   } | null;
+  /** Canonical program: stable ids, per-day ordering, ISO instants (UTC) from Europe/Sofia wall times. */
+  schedule: MobileFestivalScheduleDto;
 };
 
 function pickCoord(festival: Festival): { lat: number | null; lng: number | null } {
@@ -116,6 +119,7 @@ export function serializeMobileFestivalDetail(
   festival: Festival,
   media: FestivalMediaItem[],
   isSaved: boolean,
+  program: { days: FestivalDay[]; scheduleItems: FestivalScheduleItem[] },
 ): MobileFestivalDetailJson {
   const organizers = festival.organizers?.filter((o) => String(o.id ?? "").trim() && String(o.name ?? "").trim()) ?? [];
   const o0 = organizers[0];
@@ -192,5 +196,6 @@ export function serializeMobileFestivalDetail(
           place_id: typeof festival.place_id === "string" && festival.place_id.trim() ? festival.place_id.trim() : null,
         }
       : null,
+    schedule: buildMobileFestivalScheduleDto(program.days, program.scheduleItems),
   };
 }

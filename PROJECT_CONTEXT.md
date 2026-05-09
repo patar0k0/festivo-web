@@ -10,7 +10,7 @@ Public users browse verified/published festivals, while ingestion inputs first l
 **Backend:** Next.js API routes + worker-side ingestion helpers
 **Database:** Supabase Postgres
 **Auth:** Supabase Auth (signup/login + password recovery via `/reset-password`)
-**Mobile:** Flutter; read-only catalog JSON: `GET /api/mobile/festivals`, `GET /api/mobile/festivals/[slug]`, personalized mixed sections via `GET /api/mobile/recommendations`, and onboarding personalization suggestions via `GET /api/mobile/onboarding/suggestions` (`lib/api/mobile/*`, `lib/recommendations/*`), optional `Authorization: Bearer` for user-specific fields (`is_saved`, follow/recent-view boosts, onboarding ranking signals).
+**Mobile:** Flutter; read-only catalog JSON: `GET /api/mobile/festivals`, `GET /api/mobile/festivals/[slug]` (detail includes additive `schedule`: days + items with stable ids, `sort_index` per day, `starts_at`/`ends_at` as ISO-8601 UTC from Europe/Sofia wall clock + calendar `date`), personalized mixed sections via `GET /api/mobile/recommendations`, and onboarding personalization suggestions via `GET /api/mobile/onboarding/suggestions` (`lib/api/mobile/*`, `lib/recommendations/*`), optional `Authorization: Bearer` for user-specific fields (`is_saved`, follow/recent-view boosts, onboarding ranking signals).
 **Deployment:** Vercel
 
 **API edge hardening:** `middleware.ts` applies Upstash rate limits to **`POST` / `PATCH` / `PUT` / `DELETE`** on **`/api/*`** and **`/admin/api/*`**, and an Origin/Referer allowlist to **`POST /api/*`** only (details, buckets, env vars: `docs/system-architecture.md`, section *Edge middleware: API POST hardening*).

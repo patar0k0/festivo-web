@@ -64,7 +64,7 @@ function parsePageSize(searchParams: URLSearchParams): number {
   if (!Number.isFinite(n) || n < 1) {
     return 20;
   }
-  return Math.min(50, n);
+  return Math.min(200, n);
 }
 
 export async function GET(request: Request) {

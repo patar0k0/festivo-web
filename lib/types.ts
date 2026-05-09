@@ -4,6 +4,8 @@ export type Festival = {
   title: string;
   description?: string | null;
   city_id?: number | null;
+  /** Normalized settlement slug (matches `cities.slug`); used for filters and map fallbacks. */
+  city_slug?: string | null;
   city_name_display?: string | null;
   location_name?: string | null;
   /** Optional venue label when present in API responses / selects. */

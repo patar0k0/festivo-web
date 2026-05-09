@@ -1,5 +1,6 @@
 import type { Festival, FestivalDay, FestivalMediaItem, FestivalScheduleItem } from "@/lib/types";
 import { buildMobileFestivalScheduleDto, type MobileFestivalScheduleDto } from "@/lib/api/mobile/mobileScheduleDto";
+import { deterministicSettlementJitter, getBulgariaSettlementCentroid } from "@/lib/api/mobile/bulgariaSettlementCentroids";
 
 export type MobileFestivalListItem = {
   id: string;
@@ -69,9 +70,29 @@ function pickCoord(festival: Festival): { lat: number | null; lng: number | null
   return { lat, lng };
 }
 
+/** Listing/map coords: real lat/lng only; otherwise approximate settlement center (+ jitter) from city slug. */
+function pickMapListingCoords(festival: Festival): { lat: number | null; lng: number | null } {
+  const direct = pickCoord(festival);
+  if (direct.lat != null && direct.lng != null) {
+    return direct;
+  }
+  const slug =
+    (typeof festival.cities?.slug === "string" && festival.cities.slug.trim()
+      ? festival.cities.slug.trim().toLowerCase()
+      : null) ??
+    (typeof festival.city_slug === "string" && festival.city_slug.trim()
+      ? festival.city_slug.trim().toLowerCase()
+      : null);
+  if (!slug) return { lat: null, lng: null };
+  const centroid = getBulgariaSettlementCentroid(slug);
+  if (!centroid) return { lat: null, lng: null };
+  const j = deterministicSettlementJitter(String(festival.id));
+  return { lat: centroid.lat + j.dLat, lng: centroid.lng + j.dLng };
+}
+
 export function serializeMobileFestivalListItem(festival: Festival, isSaved: boolean): MobileFestivalListItem {
   const imageUrl = festival.hero_image ?? festival.image_url ?? null;
-  const coords = pickCoord(festival);
+  const coords = pickMapListingCoords(festival);
   const cat = typeof festival.category === "string" && festival.category.trim() ? festival.category.trim() : null;
   const promoted = festival.promotion_status === "promoted";
   return {

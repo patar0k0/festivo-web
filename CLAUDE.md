@@ -385,6 +385,57 @@ Full list with descriptions: `README.md`.
 
 ---
 
+## Deployment
+
+**Проектът е свързан с Vercel** (`patar0k0s-projects/festivo-web`, project ID `prj_1G3NDM87gFdYUfUwqDdHs9msSi8a`) чрез GitHub интеграция.
+
+### Как работи автоматичният деплой
+
+| Събитие | Резултат |
+|---|---|
+| Push / merge към `main` | Production деплой (автоматично) |
+| Push на feature branch | Preview деплой (автоматично) |
+
+**Не е нужно да се изпълнява ръчен деплой след всеки merge** — Vercel засича промените в GitHub и деплойва сам.
+
+### `/deploy` команда
+
+Когато потребителят напише `/deploy`:
+
+1. Увери се, че всички промени са commit-нати и push-нати към `main`.
+2. Провери статуса на последния деплой:
+   ```
+   vercel ls --scope patar0k0s-projects
+   ```
+3. Ако деплоят е `● Ready` — готово. Докладвай URL-а на production деплоя.
+4. Ако деплоят е `● Error` или `● Building` — провери логовете:
+   ```
+   vercel inspect <deployment-url> --logs
+   ```
+5. При нужда от принудителен ръчен деплой:
+   ```
+   cd C:\Project\festivo-web && vercel --prod
+   ```
+
+### Полезни Vercel CLI команди
+
+```bash
+vercel ls                          # последни деплои
+vercel inspect <url> --logs        # build логове на конкретен деплой
+vercel rollback                    # връщане към предишен production деплой
+vercel env ls                      # преглед на env vars в Vercel
+vercel env add <NAME> production   # добавяне на env var
+```
+
+### Важно за env vars
+
+Vercel production env vars се управляват от Vercel dashboard или CLI — **не** от локалния `.env.local`. При добавяне на нова задължителна env var:
+1. Добави я в `C:\Project\festivo-web\.env.local` (за локална разработка).
+2. Добави я в Vercel: `vercel env add <NAME> production`.
+3. Документирай я в таблицата с env vars в CLAUDE.md.
+
+---
+
 ## PR change template
 
 Include this in PR descriptions for any non-trivial change:

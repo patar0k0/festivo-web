@@ -1,5 +1,11 @@
 # Festivo — Claude Development Guide
 
+## Language
+
+Always respond in **Bulgarian**. This applies to all messages, explanations, code comments, and commit messages. Only exception: code identifiers, API names, and technical strings stay in English as they appear in the codebase.
+
+---
+
 ## Keeping this file current
 
 Update `CLAUDE.md` in the same PR/commit whenever a change introduces or modifies:

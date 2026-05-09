@@ -19,6 +19,9 @@ export const PLANNER_TABLE_SELECT = {
   userPlanReminders: "festival_id,reminder_type",
   /** Fields required for `getFestivalTemporalState` on saved festivals. */
   festivalsTemporal: "id,start_date,end_date,start_time,end_time,occurrence_dates",
+  /** Minimal festival fields for mobile plan screen display. */
+  festivalsBasic:
+    "id,slug,title,start_date,end_date,image_url,category,is_verified,organizer_name,cities:cities!festivals_city_id_fkey(name_bg)",
 } as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -315,9 +318,37 @@ export function deriveSnapshotRevision(args: {
   return `v1:${createHash("sha256").update(payload).digest("hex").slice(0, 24)}`;
 }
 
+export type SavedFestivalBasicRow = {
+  id: string;
+  slug: string;
+  title: string;
+  start_date: string | null;
+  end_date: string | null;
+  image_url: string | null;
+  category: string | null;
+  is_verified: boolean;
+  organizer_name: string | null;
+  cities: { name_bg: string } | null;
+};
+
+export async function fetchSavedFestivalsBasicData(
+  supabase: SupabaseClient,
+  festivalIds: string[],
+): Promise<{ rows: SavedFestivalBasicRow[]; meta: PlannerQuerySliceMeta }> {
+  if (!festivalIds.length) return { rows: [], meta: {} };
+  const { data, error } = await supabase
+    .from("festivals")
+    .select(PLANNER_TABLE_SELECT.festivalsBasic)
+    .in("id", festivalIds)
+    .order("start_date", { ascending: true });
+  if (error) return { rows: [], meta: { errorMessage: error.message } };
+  return { rows: (data ?? []) as SavedFestivalBasicRow[], meta: {} };
+}
+
 export type MobilePlannerBundle = {
   savedFestivalRows: NormalizedPlanFestivalRow[];
   savedFestivalIds: string[];
+  savedFestivalBasicRows: SavedFestivalBasicRow[];
   savedScheduleItemIds: string[];
   reminderRows: NormalizedPlanReminderRow[];
   stats: MobilePlanStatsDto;
@@ -384,7 +415,10 @@ export async function loadMobilePlannerBundle(
   const savedScheduleItemIds = sortDedupedIds(itemRes.rows.map((r) => r.schedule_item_id));
 
   const festivalIdsForTemporal = savedFestivalIds.filter((id) => UUID_RE.test(id));
-  const temporal = await fetchFestivalTemporalRowsForPlanStats(supabase, festivalIdsForTemporal);
+  const [temporal, basicRes] = await Promise.all([
+    fetchFestivalTemporalRowsForPlanStats(supabase, festivalIdsForTemporal),
+    fetchSavedFestivalsBasicData(supabase, festivalIdsForTemporal),
+  ]);
 
   if (temporal.meta.errorMessage) {
     logPlannerEvent({
@@ -430,6 +464,7 @@ export async function loadMobilePlannerBundle(
   return {
     savedFestivalRows,
     savedFestivalIds,
+    savedFestivalBasicRows: basicRes.rows,
     savedScheduleItemIds,
     reminderRows,
     stats,

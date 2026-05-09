@@ -1,5 +1,5 @@
 import type { ReminderType } from "@/lib/plan/server";
-import { aggregateSnapshotUpdatedAtIso } from "@/lib/plan/queries";
+import { aggregateSnapshotUpdatedAtIso, type SavedFestivalBasicRow } from "@/lib/plan/queries";
 
 type PlanReminderWireType = ReminderType;
 
@@ -22,8 +22,22 @@ export type MobilePlanPartialFailures = {
   stats?: boolean;
 };
 
+export type SavedFestivalBasicDto = {
+  festivalId: string;
+  slug: string;
+  title: string;
+  city: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  image_url: string | null;
+  category: string | null;
+  is_verified: boolean;
+  organizer_name: string | null;
+};
+
 export type MobilePlanStateDto = {
   savedFestivalIds: string[];
+  savedFestivals: SavedFestivalBasicDto[];
   savedScheduleItemIds: string[];
   reminders: Record<string, MobilePlanReminderDto>;
   stats: MobilePlanStatsDto;
@@ -89,8 +103,24 @@ function compactPartialFailures(p: MobilePlanPartialFailures): MobilePlanPartial
   return Object.keys(out).length ? out : undefined;
 }
 
+function normalizeSavedFestivals(rows: SavedFestivalBasicRow[]): SavedFestivalBasicDto[] {
+  return rows.map((row) => ({
+    festivalId: row.id,
+    slug: row.slug,
+    title: row.title,
+    city: row.cities?.name_bg ?? null,
+    start_date: row.start_date,
+    end_date: row.end_date,
+    image_url: row.image_url,
+    category: row.category,
+    is_verified: Boolean(row.is_verified),
+    organizer_name: row.organizer_name,
+  }));
+}
+
 export function buildMobilePlanSnapshot(args: {
   savedFestivalIds: string[];
+  savedFestivalBasicRows: SavedFestivalBasicRow[];
   savedScheduleItemIds: string[];
   reminders: Record<string, MobilePlanReminderDto>;
   stats: Partial<MobilePlanStatsDto>;
@@ -100,6 +130,7 @@ export function buildMobilePlanSnapshot(args: {
   const partial = args.partialFailures ? compactPartialFailures(args.partialFailures) : undefined;
   const base: MobilePlanStateDto = {
     savedFestivalIds: normalizeStableIds(args.savedFestivalIds),
+    savedFestivals: normalizeSavedFestivals(args.savedFestivalBasicRows),
     savedScheduleItemIds: normalizeStableIds(args.savedScheduleItemIds),
     reminders: args.reminders,
     stats: normalizePlanStats(args.stats),

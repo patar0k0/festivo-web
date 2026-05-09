@@ -579,6 +579,11 @@ export default async function AdminDashboardPage() {
               Push диагностика
             </Link>
           </li>
+          <li>
+            <Link href="/admin/observability" className="font-medium text-[#0c0e14] underline-offset-2 hover:underline">
+              Observability
+            </Link>
+          </li>
         </ul>
       </section>
     </div>

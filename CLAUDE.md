@@ -23,9 +23,17 @@ When in doubt: if it changes how future code should be written in this project, 
 
 ## Git workflow
 
-This is a solo project — push directly to `main`. Never open PRs or work on feature branches.
+Use feature branches for all work. Merge to `main` via PR — create the PR immediately after pushing and merge it straight away (no waiting for review).
 
-After every completed task: **commit and push to main**. Never leave finished work uncommitted.
+After every completed task: **commit, push, open PR, merge**. Never leave finished work uncommitted.
+
+### Branch naming
+
+```
+<type>/<short-description>
+```
+
+Examples: `feat/trending-notifications`, `fix/city-resolution-approve`, `docs/update-claude-md`
 
 ### Commit message format (Conventional Commits)
 
@@ -54,10 +62,13 @@ chore(db): add migration for push_delivery_audit table
 
 ### Workflow steps
 
-1. Complete the task and verify it works.
-2. Stage only the files changed for this task (`git add <files>` — avoid blanket `git add .` that may include unintended files).
-3. Commit with a conventional message.
-4. `git push origin HEAD:main`
+1. Create a feature branch off `main`: `git checkout -b <type>/<description>`
+2. Complete the task and verify it works.
+3. Stage only the files changed for this task (`git add <files>` — avoid blanket `git add .`).
+4. Commit with a conventional message.
+5. Push the branch: `git push -u origin <branch>`
+6. Open a PR: `gh pr create --title "..." --body "..."` (use the PR template below)
+7. Merge immediately: `gh pr merge --merge --delete-branch`
 
 ### Rules
 

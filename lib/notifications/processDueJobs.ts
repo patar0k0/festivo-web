@@ -145,7 +145,7 @@ export async function processDueNotificationJobs(
   let failed = 0;
   let rescheduled = 0;
   let skipped = 0;
-  let skippedQuiet = 0;
+  const skippedQuiet = 0;
   const auditRows: Array<{
     notification_job_id: string;
     notification_type: string;

@@ -413,7 +413,18 @@ export async function buildOnboardingSuggestions(input: BuilderInput): Promise<O
       return a.slug.localeCompare(b.slug);
     })
     .slice(0, ORGANIZER_LIMIT)
-    .map(({ score: _score, ...rest }) => rest);
+    .map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      logo_url: row.logo_url,
+      verified: row.verified,
+      city: row.city,
+      followers_count: row.followers_count,
+      upcoming_festival_count: row.upcoming_festival_count,
+      categories: row.categories,
+      explanation: row.explanation,
+    }));
 
   return { categories, cities, organizers };
 }

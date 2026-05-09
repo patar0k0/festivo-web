@@ -12,6 +12,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import { useDebouncedSave } from "@/lib/hooks/useDebouncedSave";
@@ -771,9 +772,12 @@ export default function OrganizerProfileEditForm({
                     />
                   </div>
                   {previewLogoUrl ? (
-                    <img
+                    <Image
                       src={previewLogoUrl}
                       alt="Преглед на лого"
+                      width={80}
+                      height={80}
+                      unoptimized
                       className="h-20 w-20 rounded-lg border border-black/10 object-cover"
                     />
                   ) : (

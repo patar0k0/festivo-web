@@ -3,6 +3,7 @@ import { mobileAuthErrorResponse, resolveMobileRequestAuth } from "@/lib/api/mob
 import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
 import { syncReminderJobsForPreference } from "@/lib/notifications/triggers";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
+import { PLANNER_TABLE_SELECT } from "@/lib/plan/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
 
     const { data: festival, error: festivalError } = await auth.supabase
       .from("festivals")
-      .select("id,start_date,end_date,start_time,end_time,occurrence_dates")
+      .select(PLANNER_TABLE_SELECT.festivalsTemporal)
       .eq("id", festivalId)
       .maybeSingle<FestivalTemporalRow>();
 

@@ -1,4 +1,5 @@
 import type { ReminderType } from "@/lib/plan/server";
+import { aggregateSnapshotUpdatedAtIso } from "@/lib/plan/queries";
 
 type PlanReminderWireType = ReminderType;
 
@@ -13,6 +14,14 @@ export type MobilePlanStatsDto = {
   upcomingCount: number;
 };
 
+/** Optional: present only when one or more planner slices degraded (query-level). */
+export type MobilePlanPartialFailures = {
+  festivals?: boolean;
+  schedule_items?: boolean;
+  reminders?: boolean;
+  stats?: boolean;
+};
+
 export type MobilePlanStateDto = {
   savedFestivalIds: string[];
   savedScheduleItemIds: string[];
@@ -20,6 +29,7 @@ export type MobilePlanStateDto = {
   stats: MobilePlanStatsDto;
   /** Max of known row timestamps; null when nothing to aggregate (mobile parser treats null like missing). */
   updated_at: string | null;
+  partial_failures?: MobilePlanPartialFailures;
 };
 
 function asIsoString(value: string | null | undefined): string | null {
@@ -67,17 +77,16 @@ export function normalizePlanStats(stats: Partial<MobilePlanStatsDto>): MobilePl
 }
 
 export function computeSnapshotUpdatedAt(values: Array<string | null | undefined>): string | null {
-  const timestamps = values
-    .map((value) => asIsoString(value))
-    .filter((value): value is string => Boolean(value))
-    .map((value) => new Date(value).getTime())
-    .filter((value) => Number.isFinite(value));
+  return aggregateSnapshotUpdatedAtIso(values);
+}
 
-  if (!timestamps.length) {
-    return null;
-  }
-
-  return new Date(Math.max(...timestamps)).toISOString();
+function compactPartialFailures(p: MobilePlanPartialFailures): MobilePlanPartialFailures | undefined {
+  const out: MobilePlanPartialFailures = {};
+  if (p.festivals) out.festivals = true;
+  if (p.schedule_items) out.schedule_items = true;
+  if (p.reminders) out.reminders = true;
+  if (p.stats) out.stats = true;
+  return Object.keys(out).length ? out : undefined;
 }
 
 export function buildMobilePlanSnapshot(args: {
@@ -86,12 +95,18 @@ export function buildMobilePlanSnapshot(args: {
   reminders: Record<string, MobilePlanReminderDto>;
   stats: Partial<MobilePlanStatsDto>;
   updatedAtCandidates: Array<string | null | undefined>;
+  partialFailures?: MobilePlanPartialFailures;
 }): MobilePlanStateDto {
-  return {
+  const partial = args.partialFailures ? compactPartialFailures(args.partialFailures) : undefined;
+  const base: MobilePlanStateDto = {
     savedFestivalIds: normalizeStableIds(args.savedFestivalIds),
     savedScheduleItemIds: normalizeStableIds(args.savedScheduleItemIds),
     reminders: args.reminders,
     stats: normalizePlanStats(args.stats),
     updated_at: computeSnapshotUpdatedAt(args.updatedAtCandidates),
   };
+  if (partial) {
+    base.partial_failures = partial;
+  }
+  return base;
 }

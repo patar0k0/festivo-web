@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import { syncReminderJobsForPreference } from "@/lib/notifications/triggers";
+import { PLANNER_TABLE_SELECT } from "@/lib/plan/queries";
 import type { ReminderType } from "@/lib/plan/server";
 
 export type SavedReminderTimingSummary = {
@@ -18,7 +19,7 @@ export async function getSavedReminderTimingSummary(
 ): Promise<SavedReminderTimingSummary | { error: string }> {
   const { data: planRows, error: planErr } = await supabase
     .from("user_plan_festivals")
-    .select("festival_id")
+    .select(PLANNER_TABLE_SELECT.userPlanFestivals.idsOnly)
     .eq("user_id", userId);
 
   if (planErr) {
@@ -32,7 +33,7 @@ export async function getSavedReminderTimingSummary(
 
   const { data: remRows, error: remErr } = await supabase
     .from("user_plan_reminders")
-    .select("festival_id,reminder_type")
+    .select(PLANNER_TABLE_SELECT.userPlanReminders)
     .eq("user_id", userId)
     .in("festival_id", festivalIds);
 
@@ -65,7 +66,7 @@ export async function applyReminderTypeToAllSavedFestivals(
 ): Promise<{ ok: true; festivalCount: number } | { ok: false; error: string }> {
   const { data: planRows, error: planErr } = await supabase
     .from("user_plan_festivals")
-    .select("festival_id")
+    .select(PLANNER_TABLE_SELECT.userPlanFestivals.idsOnly)
     .eq("user_id", userId);
 
   if (planErr) {

@@ -1,7 +1,13 @@
 import { type SupabaseClient, type User } from "@supabase/supabase-js";
+import { normalizeReminderType } from "@/lib/api/mobile/planSerialization";
 import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  fetchSavedPlanFestivalIdsForUser,
+  fetchSavedPlanItemsForUser,
+  fetchPlanRemindersForUser,
+} from "@/lib/plan/queries";
 
 /** `default` = both push reminders (24h + 2h before start) for this saved festival. */
 export type ReminderType = "none" | "24h" | "same_day_09" | "default";
@@ -23,19 +29,6 @@ export type PlanEntry = {
   endTime: string | null;
   stage: string | null;
   title: string;
-};
-
-type UserPlanItemRow = {
-  schedule_item_id: string | number;
-};
-
-type UserPlanReminderRow = {
-  festival_id: string | number;
-  reminder_type: ReminderType;
-};
-
-type UserPlanFestivalRow = {
-  festival_id: string | number;
 };
 
 type FestivalDayRow = {
@@ -91,29 +84,17 @@ export async function getPlanStateByUser(): Promise<PlanState> {
   }
 
   const [itemsResult, remindersResult, festivalsResult] = await Promise.all([
-    ctx.supabase
-      .from("user_plan_items")
-      .select("schedule_item_id")
-      .eq("user_id", ctx.user.id)
-      .returns<UserPlanItemRow[]>(),
-    ctx.supabase
-      .from("user_plan_reminders")
-      .select("festival_id,reminder_type")
-      .eq("user_id", ctx.user.id)
-      .returns<UserPlanReminderRow[]>(),
-    ctx.supabase
-      .from("user_plan_festivals")
-      .select("festival_id")
-      .eq("user_id", ctx.user.id)
-      .returns<UserPlanFestivalRow[]>(),
+    fetchSavedPlanItemsForUser(ctx.supabase, ctx.user.id),
+    fetchPlanRemindersForUser(ctx.supabase, ctx.user.id),
+    fetchSavedPlanFestivalIdsForUser(ctx.supabase, ctx.user.id),
   ]);
 
-  const scheduleItemIds = (itemsResult.data ?? []).map((row) => String(row.schedule_item_id));
-  const festivalIds = (festivalsResult.data ?? []).map((row) => String(row.festival_id));
+  const scheduleItemIds = itemsResult.rows.map((row) => row.schedule_item_id);
+  const festivalIds = festivalsResult.festivalIds;
   const reminders: Record<string, ReminderType> = {};
 
-  (remindersResult.data ?? []).forEach((row) => {
-    reminders[String(row.festival_id)] = row.reminder_type;
+  remindersResult.rows.forEach((row) => {
+    reminders[row.festival_id] = normalizeReminderType(row.reminder_type);
   });
 
   return { scheduleItemIds, festivalIds, reminders };
@@ -178,13 +159,9 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
 
   const db = ctx.supabase;
 
-  const { data: itemRows } = await db
-    .from("user_plan_items")
-    .select("schedule_item_id")
-    .eq("user_id", ctx.user.id)
-    .returns<UserPlanItemRow[]>();
+  const { rows: itemRows } = await fetchSavedPlanItemsForUser(db, ctx.user.id);
 
-  const scheduleIds = (itemRows ?? []).map((row) => String(row.schedule_item_id));
+  const scheduleIds = itemRows.map((row) => row.schedule_item_id);
   if (!scheduleIds.length) return [];
 
   const { data: scheduleRows } = await db

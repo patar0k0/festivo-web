@@ -3,6 +3,7 @@ import { resolveMobileRequestAuth, mobileAuthErrorResponse } from "@/lib/api/mob
 import { getFestivals } from "@/lib/queries";
 import { scoreFestivalForUser, type ScoredFestival } from "@/lib/recommendations/scorer";
 import { serializeMobileFestivalListItem } from "@/lib/api/mobile/festivalSerialization";
+import { fetchUserSavedFestivalIdSet } from "@/lib/api/mobile/planSaved";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBounds";
 
@@ -124,9 +125,18 @@ export async function GET(request: Request) {
       }),
     );
 
+    const savedFestivalIds = new Set<string>();
+    if (auth.user) {
+      const candidateIds = [...all, ...week, ...trending].map((festival) => String(festival.id));
+      const savedSet = await fetchUserSavedFestivalIdSet(auth.supabase, auth.user.id, candidateIds);
+      for (const id of savedSet) {
+        savedFestivalIds.add(id);
+      }
+    }
+
     const seen = new Set<string>();
     const toSerialized = (items: ScoredFestival[]) =>
-      items.map((entry) => serializeMobileFestivalListItem(entry.festival, false));
+      items.map((entry) => serializeMobileFestivalListItem(entry.festival, savedFestivalIds.has(String(entry.festival.id))));
     const takeUnique = (items: ScoredFestival[]): ScoredFestival[] => {
       const out: ScoredFestival[] = [];
       for (const item of items) {

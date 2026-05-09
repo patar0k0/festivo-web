@@ -60,12 +60,14 @@ type OrganizerRow = {
   logo_url: string | null;
   verified: boolean | null;
   cities?: { name_bg?: string | null } | Array<{ name_bg?: string | null }> | null;
+  city_id?: number | null;
 };
 
 const ORGANIZER_LIMIT = 12;
 const CITY_LIMIT = 12;
 const CATEGORY_LIMIT = 12;
 const UPCOMING_POOL_LIMIT = 300;
+const EMPTY_PAYLOAD: OnboardingSuggestionsPayload = { categories: [], cities: [], organizers: [] };
 
 const CATEGORY_LABELS_BG: Record<string, { label: string; icon: string }> = {
   music: { label: "Музика", icon: "music" },
@@ -112,9 +114,28 @@ function categoryMeta(rawCategory: string): { slug: string; label_bg: string; ic
   };
 }
 
-function toCount(rel: Array<{ count?: number }> | null | undefined): number {
-  const count = rel?.[0]?.count;
-  return typeof count === "number" ? count : 0;
+function logOnboardingSuggestionsDev(event: string, details: Record<string, unknown>): void {
+  if (process.env.NODE_ENV !== "development") return;
+  console.error("[onboarding-suggestions][dev]", { event, ...details });
+}
+
+function safeCountValue(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function toCount(rel: unknown): number {
+  if (Array.isArray(rel)) {
+    return safeCountValue(rel[0]?.count);
+  }
+  if (rel && typeof rel === "object") {
+    return safeCountValue((rel as { count?: unknown }).count);
+  }
+  return 0;
 }
 
 function cityName(joined: OrganizerRow["cities"]): string | null {
@@ -190,11 +211,14 @@ export async function buildOnboardingSuggestions(input: BuilderInput): Promise<O
     .limit(UPCOMING_POOL_LIMIT)
     .returns<FestivalLiteRow[]>();
   if (festivalsError) {
-    throw new Error(festivalsError.message);
+    logOnboardingSuggestionsDev("festivals_query_failed", { message: festivalsError.message });
+    return EMPTY_PAYLOAD;
   }
 
-  const upcomingFestivals = festivalRows ?? [];
-  const festivalIds = upcomingFestivals.map((row) => row.id).filter(Boolean);
+  const upcomingFestivals = (festivalRows ?? []).filter(
+    (row): row is FestivalLiteRow => Boolean(row && typeof row.id === "string" && row.id.trim()),
+  );
+  const festivalIds = upcomingFestivals.map((row) => row.id.trim()).filter(Boolean);
 
   const { data: festivalOrganizerLinks, error: linksError } = festivalIds.length
     ? await input.supabase
@@ -204,7 +228,7 @@ export async function buildOnboardingSuggestions(input: BuilderInput): Promise<O
         .returns<FestivalOrganizerLinkRow[]>()
     : { data: [], error: null };
   if (linksError) {
-    throw new Error(linksError.message);
+    logOnboardingSuggestionsDev("festival_organizers_query_failed", { message: linksError.message, festivalCount: festivalIds.length });
   }
 
   const organizerIds = new Set<string>();
@@ -217,18 +241,61 @@ export async function buildOnboardingSuggestions(input: BuilderInput): Promise<O
     }
   }
 
-  const organizerIdList = [...organizerIds];
-  const { data: organizerRows, error: organizersError } = organizerIdList.length
-    ? await input.supabase
+  const organizerIdList = [...organizerIds].sort((a, b) => a.localeCompare(b));
+  let organizerRows: OrganizerRow[] = [];
+  if (organizerIdList.length) {
+    const withCityJoin = await input.supabase
+      .from("organizers")
+      .select("id,slug,name,logo_url,verified,city_id,cities:cities!organizers_city_id_fkey(name_bg)")
+      .eq("is_active", true)
+      .eq("verified", true)
+      .in("id", organizerIdList)
+      .returns<OrganizerRow[]>();
+
+    if (withCityJoin.error) {
+      logOnboardingSuggestionsDev("organizers_query_with_city_join_failed", {
+        message: withCityJoin.error.message,
+        organizerCount: organizerIdList.length,
+      });
+      const fallback = await input.supabase
         .from("organizers")
-        .select("id,slug,name,logo_url,verified,cities:cities!organizers_city_id_fkey(name_bg)")
+        .select("id,slug,name,logo_url,verified,city_id")
         .eq("is_active", true)
         .eq("verified", true)
         .in("id", organizerIdList)
-        .returns<OrganizerRow[]>()
-    : { data: [], error: null };
-  if (organizersError) {
-    throw new Error(organizersError.message);
+        .returns<OrganizerRow[]>();
+      if (fallback.error) {
+        logOnboardingSuggestionsDev("organizers_fallback_query_failed", { message: fallback.error.message });
+      } else {
+        organizerRows = fallback.data ?? [];
+        const cityIds = organizerRows
+          .map((row) => (typeof row.city_id === "number" ? row.city_id : null))
+          .filter((value): value is number => Number.isFinite(value));
+        if (cityIds.length) {
+          const cityLookup = await input.supabase
+            .from("cities")
+            .select("id,name_bg")
+            .in("id", cityIds)
+            .returns<Array<{ id: number | null; name_bg: string | null }>>();
+          if (!cityLookup.error) {
+            const cityNameById = new Map<number, string>();
+            for (const city of cityLookup.data ?? []) {
+              if (typeof city.id === "number" && typeof city.name_bg === "string" && city.name_bg.trim()) {
+                cityNameById.set(city.id, city.name_bg.trim());
+              }
+            }
+            organizerRows = organizerRows.map((row) => {
+              const cityNameValue = typeof row.city_id === "number" ? cityNameById.get(row.city_id) ?? null : null;
+              return cityNameValue ? { ...row, cities: { name_bg: cityNameValue } } : row;
+            });
+          } else {
+            logOnboardingSuggestionsDev("organizer_city_lookup_failed", { message: cityLookup.error.message });
+          }
+        }
+      }
+    } else {
+      organizerRows = withCityJoin.data ?? [];
+    }
   }
 
   const { data: followerRows, error: followerError } = organizerIdList.length
@@ -238,7 +305,7 @@ export async function buildOnboardingSuggestions(input: BuilderInput): Promise<O
         .in("organizer_id", organizerIdList)
     : { data: [], error: null };
   if (followerError) {
-    throw new Error(followerError.message);
+    logOnboardingSuggestionsDev("follower_rows_query_failed", { message: followerError.message });
   }
 
   const userSignals =
@@ -330,7 +397,7 @@ export async function buildOnboardingSuggestions(input: BuilderInput): Promise<O
         .returns<Array<{ slug: string | null; name_bg: string | null }>>()
     : { data: [], error: null };
   if (cityNameError) {
-    throw new Error(cityNameError.message);
+    logOnboardingSuggestionsDev("city_names_query_failed", { message: cityNameError.message, cityCount: cityStats.size });
   }
   const cityNameBySlug = new Map<string, string>();
   for (const row of cityNameRows ?? []) {

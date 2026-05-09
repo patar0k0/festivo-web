@@ -48,6 +48,7 @@ export async function GET(request: Request) {
     try {
       body = buildMobilePlanSnapshot({
         savedFestivalIds: bundle.savedFestivalIds,
+        savedFestivalBasicRows: bundle.savedFestivalBasicRows,
         savedScheduleItemIds: bundle.savedScheduleItemIds,
         reminders,
         stats: bundle.stats,

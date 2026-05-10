@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const auth = await resolveMobileRequestAuth(request);
     const authErr = mobileAuthErrorResponse(auth);
     if (authErr) {
-      console.warn("[api/mobile/plan/festivals] POST auth error", auth.error);
+      console.warn("[api/mobile/plan/festivals] POST auth rejected", { bearerMalformed: auth.bearerMalformed, hadBearer: auth.hadBearerScheme, hasUser: Boolean(auth.user) });
       return authErr;
     }
     if (!auth.user) return jsonError("Unauthorized", 401);
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     if (festivalIdOrResponse instanceof Response) return festivalIdOrResponse;
     const festivalId = festivalIdOrResponse;
 
-    console.log("[api/mobile/plan/festivals] POST", { userId: auth.user.id, festivalId });
+    console.log("[api/mobile/plan/festivals] POST start", { userId: auth.user.id, festivalId });
 
     const adminDb = createSupabaseAdmin();
     const { data: festival, error: festivalError } = await adminDb
@@ -153,7 +153,7 @@ export async function DELETE(request: Request) {
     const auth = await resolveMobileRequestAuth(request);
     const authErr = mobileAuthErrorResponse(auth);
     if (authErr) {
-      console.warn("[api/mobile/plan/festivals] DELETE auth error", auth.error);
+      console.warn("[api/mobile/plan/festivals] DELETE auth rejected", { bearerMalformed: auth.bearerMalformed, hadBearer: auth.hadBearerScheme, hasUser: Boolean(auth.user) });
       return authErr;
     }
     if (!auth.user) return jsonError("Unauthorized", 401);
@@ -162,7 +162,7 @@ export async function DELETE(request: Request) {
     if (festivalIdOrResponse instanceof Response) return festivalIdOrResponse;
     const festivalId = festivalIdOrResponse;
 
-    console.log("[api/mobile/plan/festivals] DELETE", { userId: auth.user.id, festivalId });
+    console.log("[api/mobile/plan/festivals] DELETE start", { userId: auth.user.id, festivalId });
 
     const adminDb = createSupabaseAdmin();
     const { error: deleteError } = await adminDb

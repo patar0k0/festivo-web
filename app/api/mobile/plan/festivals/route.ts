@@ -45,15 +45,18 @@ export async function POST(request: Request) {
   try {
     const auth = await resolveMobileRequestAuth(request);
     const authErr = mobileAuthErrorResponse(auth);
-    if (authErr) return authErr;
+    if (authErr) {
+      console.warn("[api/mobile/plan/festivals] POST auth error", auth.error);
+      return authErr;
+    }
     if (!auth.user) return jsonError("Unauthorized", 401);
 
     const festivalIdOrResponse = await parseFestivalId(request);
     if (festivalIdOrResponse instanceof Response) return festivalIdOrResponse;
     const festivalId = festivalIdOrResponse;
 
-    // Use admin client to bypass RLS — we only read public festival metadata
-    // to validate that the festival exists and is not past.
+    console.log("[api/mobile/plan/festivals] POST", { userId: auth.user.id, festivalId });
+
     const adminDb = createSupabaseAdmin();
     const { data: festival, error: festivalError } = await adminDb
       .from("festivals")
@@ -70,15 +73,19 @@ export async function POST(request: Request) {
       return jsonError("Cannot save past festival", 400);
     }
 
-    // Use admin client so the insert works regardless of UPDATE RLS policy absence.
-    // We scope the write to the authenticated user explicitly.
     const { error: upsertError } = await adminDb
       .from("user_plan_festivals")
-      .insert({ user_id: auth.user.id, festival_id: festivalId })
-      .select()
-      .maybeSingle();
+      .insert({ user_id: auth.user.id, festival_id: festivalId });
 
     if (upsertError && upsertError.code !== "23505") {
+      console.error("[api/mobile/plan/festivals] insert error", {
+        code: upsertError.code,
+        message: upsertError.message,
+        hint: upsertError.hint,
+        details: upsertError.details,
+        userId: auth.user.id,
+        festivalId,
+      });
       if (upsertError.code === "23503") return jsonError("Festival not found", 404);
       return jsonError(upsertError.message, 500);
     }
@@ -145,12 +152,17 @@ export async function DELETE(request: Request) {
   try {
     const auth = await resolveMobileRequestAuth(request);
     const authErr = mobileAuthErrorResponse(auth);
-    if (authErr) return authErr;
+    if (authErr) {
+      console.warn("[api/mobile/plan/festivals] DELETE auth error", auth.error);
+      return authErr;
+    }
     if (!auth.user) return jsonError("Unauthorized", 401);
 
     const festivalIdOrResponse = await parseFestivalId(request);
     if (festivalIdOrResponse instanceof Response) return festivalIdOrResponse;
     const festivalId = festivalIdOrResponse;
+
+    console.log("[api/mobile/plan/festivals] DELETE", { userId: auth.user.id, festivalId });
 
     const adminDb = createSupabaseAdmin();
     const { error: deleteError } = await adminDb
@@ -159,7 +171,17 @@ export async function DELETE(request: Request) {
       .eq("user_id", auth.user.id)
       .eq("festival_id", festivalId);
 
-    if (deleteError) return jsonError(deleteError.message, 500);
+    if (deleteError) {
+      console.error("[api/mobile/plan/festivals] delete error", {
+        code: deleteError.code,
+        message: deleteError.message,
+        hint: deleteError.hint,
+        details: deleteError.details,
+        userId: auth.user.id,
+        festivalId,
+      });
+      return jsonError(deleteError.message, 500);
+    }
 
     // Cancel reminders best-effort — must not block the unsave response.
     void syncReminderJobsForPreference(auth.user.id, festivalId, "none").catch((err: unknown) => {

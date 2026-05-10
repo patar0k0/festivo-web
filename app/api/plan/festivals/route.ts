@@ -169,7 +169,7 @@ export async function POST(request: Request) {
       console.warn("[notifications] syncReminderJobsForPreference", err),
     );
 
-    return NextResponse.json({ saved: false });
+    return NextResponse.json({ saved: false, inPlan: false });
   }
 
   const { data: festival, error: festivalError } = await supabase
@@ -259,5 +259,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ saved: true });
+  return NextResponse.json({ saved: true, inPlan: true });
 }

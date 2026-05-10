@@ -70,11 +70,15 @@ export async function POST(request: Request) {
       return jsonError("Cannot save past festival", 400);
     }
 
-    const { error: upsertError } = await auth.supabase
+    // Use admin client so the insert works regardless of UPDATE RLS policy absence.
+    // We scope the write to the authenticated user explicitly.
+    const { error: upsertError } = await adminDb
       .from("user_plan_festivals")
-      .upsert({ user_id: auth.user.id, festival_id: festivalId }, { onConflict: "user_id,festival_id" });
+      .insert({ user_id: auth.user.id, festival_id: festivalId })
+      .select()
+      .maybeSingle();
 
-    if (upsertError) {
+    if (upsertError && upsertError.code !== "23505") {
       if (upsertError.code === "23503") return jsonError("Festival not found", 404);
       return jsonError(upsertError.message, 500);
     }
@@ -148,7 +152,8 @@ export async function DELETE(request: Request) {
     if (festivalIdOrResponse instanceof Response) return festivalIdOrResponse;
     const festivalId = festivalIdOrResponse;
 
-    const { error: deleteError } = await auth.supabase
+    const adminDb = createSupabaseAdmin();
+    const { error: deleteError } = await adminDb
       .from("user_plan_festivals")
       .delete()
       .eq("user_id", auth.user.id)

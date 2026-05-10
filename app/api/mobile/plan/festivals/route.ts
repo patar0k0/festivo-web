@@ -4,6 +4,7 @@ import { parseDefaultPlanReminderType } from "@/lib/plan/planReminderDefault";
 import { syncReminderJobsForPreference } from "@/lib/notifications/triggers";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { PLANNER_TABLE_SELECT } from "@/lib/plan/queries";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -51,13 +52,19 @@ export async function POST(request: Request) {
     if (festivalIdOrResponse instanceof Response) return festivalIdOrResponse;
     const festivalId = festivalIdOrResponse;
 
-    const { data: festival, error: festivalError } = await auth.supabase
+    // Use admin client to bypass RLS — we only read public festival metadata
+    // to validate that the festival exists and is not past.
+    const adminDb = createSupabaseAdmin();
+    const { data: festival, error: festivalError } = await adminDb
       .from("festivals")
       .select(PLANNER_TABLE_SELECT.festivalsTemporal)
       .eq("id", festivalId)
       .maybeSingle<FestivalTemporalRow>();
 
-    if (festivalError) return jsonError(festivalError.message, 500);
+    if (festivalError) {
+      console.error("[api/mobile/plan/festivals] festival lookup error", festivalError.message);
+      return jsonError(festivalError.message, 500);
+    }
     if (!festival) return jsonError("Festival not found", 404);
     if (getFestivalTemporalState(festival) === "past") {
       return jsonError("Cannot save past festival", 400);

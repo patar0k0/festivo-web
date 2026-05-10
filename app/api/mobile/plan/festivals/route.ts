@@ -72,46 +72,55 @@ export async function POST(request: Request) {
       return jsonError(upsertError.message, 500);
     }
 
-    const { data: settingsRow, error: settingsError } = await auth.supabase
-      .from("user_notification_settings")
-      .select("default_plan_reminder_type")
-      .eq("user_id", auth.user.id)
-      .maybeSingle();
-    if (settingsError) {
-      console.warn("[api/mobile/plan/festivals] default_plan_reminder_type", settingsError.message);
-    }
+    // Reminder sync is best-effort — a failure must not block the save response.
+    const userId = auth.user.id;
+    const supabaseForReminder = auth.supabase;
+    void (async () => {
+      try {
+        const { data: settingsRow, error: settingsError } = await supabaseForReminder
+          .from("user_notification_settings")
+          .select("default_plan_reminder_type")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (settingsError) {
+          console.warn("[api/mobile/plan/festivals] default_plan_reminder_type", settingsError.message);
+        }
 
-    const defaultReminderType = parseDefaultPlanReminderType(settingsRow?.default_plan_reminder_type);
-    if (defaultReminderType === "none") {
-      const { error: deleteReminderError } = await auth.supabase
-        .from("user_plan_reminders")
-        .delete()
-        .eq("user_id", auth.user.id)
-        .eq("festival_id", festivalId);
-      if (deleteReminderError) {
-        console.warn("[api/mobile/plan/festivals] delete reminder", deleteReminderError.message);
+        const defaultReminderType = parseDefaultPlanReminderType(settingsRow?.default_plan_reminder_type);
+        if (defaultReminderType === "none") {
+          const { error: deleteReminderError } = await supabaseForReminder
+            .from("user_plan_reminders")
+            .delete()
+            .eq("user_id", userId)
+            .eq("festival_id", festivalId);
+          if (deleteReminderError) {
+            console.warn("[api/mobile/plan/festivals] delete reminder", deleteReminderError.message);
+          }
+          const syncResult = await syncReminderJobsForPreference(userId, festivalId, "none");
+          if (!syncResult.ok) {
+            console.warn("[api/mobile/plan/festivals] reminder sync (none):", syncResult.error);
+          }
+        } else {
+          const { error: upsertReminderError } = await supabaseForReminder.from("user_plan_reminders").upsert(
+            {
+              user_id: userId,
+              festival_id: festivalId,
+              reminder_type: "default",
+            },
+            { onConflict: "user_id,festival_id" },
+          );
+          if (upsertReminderError) {
+            console.warn("[api/mobile/plan/festivals] upsert reminder", upsertReminderError.message);
+          }
+          const syncResult = await syncReminderJobsForPreference(userId, festivalId, "default");
+          if (!syncResult.ok) {
+            console.warn("[api/mobile/plan/festivals] reminder sync (default):", syncResult.error);
+          }
+        }
+      } catch (reminderErr) {
+        console.warn("[api/mobile/plan/festivals] reminder sync exception", reminderErr);
       }
-      const syncResult = await syncReminderJobsForPreference(auth.user.id, festivalId, "none");
-      if (!syncResult.ok) {
-        return jsonError(syncResult.error ?? "Failed to sync reminders", 500);
-      }
-    } else {
-      const { error: upsertReminderError } = await auth.supabase.from("user_plan_reminders").upsert(
-        {
-          user_id: auth.user.id,
-          festival_id: festivalId,
-          reminder_type: "default",
-        },
-        { onConflict: "user_id,festival_id" },
-      );
-      if (upsertReminderError) {
-        console.warn("[api/mobile/plan/festivals] upsert reminder", upsertReminderError.message);
-      }
-      const syncResult = await syncReminderJobsForPreference(auth.user.id, festivalId, "default");
-      if (!syncResult.ok) {
-        return jsonError(syncResult.error ?? "Failed to sync reminders", 500);
-      }
-    }
+    })();
 
     return NextResponse.json({ saved: true, festivalId });
   } catch (error) {
@@ -140,10 +149,10 @@ export async function DELETE(request: Request) {
 
     if (deleteError) return jsonError(deleteError.message, 500);
 
-    const syncResult = await syncReminderJobsForPreference(auth.user.id, festivalId, "none");
-    if (!syncResult.ok) {
-      return jsonError(syncResult.error ?? "Failed to sync reminders", 500);
-    }
+    // Cancel reminders best-effort — must not block the unsave response.
+    void syncReminderJobsForPreference(auth.user.id, festivalId, "none").catch((err: unknown) => {
+      console.warn("[api/mobile/plan/festivals] DELETE reminder sync", err);
+    });
 
     return NextResponse.json({ saved: false, festivalId });
   } catch (error) {

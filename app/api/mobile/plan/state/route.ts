@@ -37,15 +37,6 @@ export async function GET(request: Request) {
 
     const bundle = await loadMobilePlannerBundle(auth.supabase, auth.user.id, { authed: true, startedAt });
 
-    // Diagnose: is the row count from the DB query consistent with what we are
-    // about to serialize? If admin sees 0 matching rows for a festival_id but
-    // this list still includes it, something is serving cached data.
-    console.log("[api/mobile/plan/state] bundle.savedFestivalIds", {
-      userId: auth.user.id,
-      savedFestivalIds: bundle.savedFestivalIds,
-      rawSavedFestivalRowCount: bundle.savedFestivalRows.length,
-    });
-
     const reminders: Record<string, MobilePlanReminderDto> = {};
     for (const row of bundle.reminderRows) {
       try {

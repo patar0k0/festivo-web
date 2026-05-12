@@ -14,6 +14,12 @@ export function createSupabaseAdmin() {
 
   return createClient(url, serviceRole, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      // Opt out of Next.js's default fetch cache so admin reads always hit
+      // Postgres directly. Caching here would let just-written rows be
+      // invisible to the very next read in the same request.
+      fetch: (input, init) => fetch(input, { ...(init ?? {}), cache: "no-store" }),
+    },
   });
 }
 

@@ -73,10 +73,9 @@ export async function POST(request: Request) {
       return jsonError("Cannot save past festival", 400);
     }
 
-    const { data: insertedRows, error: upsertError } = await adminDb
+    const { error: upsertError } = await adminDb
       .from("user_plan_festivals")
-      .insert({ user_id: auth.user.id, festival_id: festivalId })
-      .select("user_id, festival_id");
+      .insert({ user_id: auth.user.id, festival_id: festivalId });
 
     if (upsertError && upsertError.code !== "23505") {
       console.error("[api/mobile/plan/festivals] insert error", {
@@ -90,20 +89,6 @@ export async function POST(request: Request) {
       if (upsertError.code === "23503") return jsonError("Festival not found", 404);
       return jsonError(upsertError.message, 500);
     }
-
-    // Read back to confirm the row is actually visible from admin's POV.
-    const { data: verifyRows } = await adminDb
-      .from("user_plan_festivals")
-      .select("user_id, festival_id")
-      .eq("user_id", auth.user.id)
-      .eq("festival_id", festivalId);
-    console.log("[api/mobile/plan/festivals] POST insert result", {
-      userId: auth.user.id,
-      festivalId,
-      conflictIgnored: upsertError?.code === "23505",
-      insertedCount: insertedRows?.length ?? 0,
-      verifyVisibleAfterInsert: (verifyRows?.length ?? 0) > 0,
-    });
 
     // Reminder sync is best-effort — a failure must not block the save response.
     const userId = auth.user.id;
@@ -180,10 +165,8 @@ export async function DELETE(request: Request) {
     console.log("[api/mobile/plan/festivals] DELETE start", { userId: auth.user.id, festivalId });
 
     const adminDb = createSupabaseAdmin();
-    // `.select()` makes Supabase return the deleted rows so we can confirm
-    // the delete actually matched. Without it a no-op delete (wrong user_id,
-    // wrong festival_id, or RLS-filtered row) still returns 200 and the
-    // mobile client wrongly believes the festival was removed.
+    // `.select()` so the response can report deletedCount and the client can
+    // detect a no-op delete (wrong user_id, wrong festival_id, or RLS hide).
     const { data: deletedRows, error: deleteError } = await adminDb
       .from("user_plan_festivals")
       .delete()
@@ -204,34 +187,6 @@ export async function DELETE(request: Request) {
     }
 
     const deletedCount = deletedRows?.length ?? 0;
-    if (deletedCount === 0) {
-      // Diagnose: does the row exist under this user, or at all?
-      const [{ data: forUser }, { data: anyRow }] = await Promise.all([
-        adminDb
-          .from("user_plan_festivals")
-          .select("user_id, festival_id, created_at")
-          .eq("user_id", auth.user.id)
-          .eq("festival_id", festivalId)
-          .limit(1),
-        adminDb
-          .from("user_plan_festivals")
-          .select("user_id, festival_id, created_at")
-          .eq("festival_id", festivalId)
-          .limit(5),
-      ]);
-      console.warn("[api/mobile/plan/festivals] DELETE matched 0 rows", {
-        userId: auth.user.id,
-        festivalId,
-        rowExistsForUser: (forUser?.length ?? 0) > 0,
-        rowsForFestivalAnyUser: anyRow ?? [],
-      });
-    } else {
-      console.log("[api/mobile/plan/festivals] DELETE ok", {
-        userId: auth.user.id,
-        festivalId,
-        deletedCount,
-      });
-    }
 
     // Cancel reminders best-effort — must not block the unsave response.
     void syncReminderJobsForPreference(auth.user.id, festivalId, "none").catch((err: unknown) => {

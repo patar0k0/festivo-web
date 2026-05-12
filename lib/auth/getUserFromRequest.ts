@@ -57,9 +57,18 @@ export async function getUserFromRequest(req?: Request): Promise<GetUserFromRequ
   const authHeader = req?.headers.get("authorization") ?? null;
   const bearer = parseBearerAuthorization(authHeader);
 
+  // Force Next.js / Vercel to bypass its built-in fetch cache for every
+  // Supabase HTTP call made via this client. Without this, the App Router's
+  // default fetch caching can serve stale rows even after a successful
+  // mutation, which corrupted the mobile plan screen (deleted rows kept
+  // re-appearing on the next GET /state until the cache expired).
+  const noStoreFetch: typeof fetch = (input, init) =>
+    fetch(input, { ...(init ?? {}), cache: "no-store" });
+
   if (bearer === "invalid") {
     const supabase = createClient(url, anon, {
       auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch: noStoreFetch },
     });
     return { supabase, user: null, bearerMalformed: true };
   }
@@ -69,6 +78,7 @@ export async function getUserFromRequest(req?: Request): Promise<GetUserFromRequ
       auth: { persistSession: false, autoRefreshToken: false },
       global: {
         headers: { Authorization: `Bearer ${bearer}` },
+        fetch: noStoreFetch,
       },
     });
 

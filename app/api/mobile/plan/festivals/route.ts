@@ -73,9 +73,10 @@ export async function POST(request: Request) {
       return jsonError("Cannot save past festival", 400);
     }
 
-    const { error: upsertError } = await adminDb
+    const { data: insertedRows, error: upsertError } = await adminDb
       .from("user_plan_festivals")
-      .insert({ user_id: auth.user.id, festival_id: festivalId });
+      .insert({ user_id: auth.user.id, festival_id: festivalId })
+      .select("user_id, festival_id");
 
     if (upsertError && upsertError.code !== "23505") {
       console.error("[api/mobile/plan/festivals] insert error", {
@@ -89,6 +90,20 @@ export async function POST(request: Request) {
       if (upsertError.code === "23503") return jsonError("Festival not found", 404);
       return jsonError(upsertError.message, 500);
     }
+
+    // Read back to confirm the row is actually visible from admin's POV.
+    const { data: verifyRows } = await adminDb
+      .from("user_plan_festivals")
+      .select("user_id, festival_id")
+      .eq("user_id", auth.user.id)
+      .eq("festival_id", festivalId);
+    console.log("[api/mobile/plan/festivals] POST insert result", {
+      userId: auth.user.id,
+      festivalId,
+      conflictIgnored: upsertError?.code === "23505",
+      insertedCount: insertedRows?.length ?? 0,
+      verifyVisibleAfterInsert: (verifyRows?.length ?? 0) > 0,
+    });
 
     // Reminder sync is best-effort — a failure must not block the save response.
     const userId = auth.user.id;

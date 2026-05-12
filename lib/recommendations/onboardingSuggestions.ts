@@ -68,9 +68,34 @@ const CITY_LIMIT = 12;
 const CATEGORY_LIMIT = 12;
 const UPCOMING_POOL_LIMIT = 300;
 /**
- * Minimum number of verified organizers in the pool before we restrict
- * suggestions to verified-only. Below this threshold all active organizers
- * are eligible so the screen doesn't feel empty while the platform grows.
+ * Minimum number of verified organizers in the festival pool before we
+ * restrict suggestions to verified-only.
+ *
+ * RATIONALE
+ * ---------
+ * Early on the platform has few verified organizers, so a verified-only
+ * filter would leave the onboarding screen almost empty or surface poor
+ * suggestions (e.g. a village reading club with 1 follower that happens
+ * to be the only verified organizer with an upcoming event).
+ *
+ * Below the threshold ALL active organizers in the pool are eligible.
+ * Once we exceed the threshold the filter turns on automatically — no
+ * code change required.
+ *
+ * Verified organizers still rank higher via the +20 score bonus even in
+ * mixed mode, so they naturally appear first.
+ *
+ * ORGANIZER SCORE FORMULA (higher = better rank)
+ * -----------------------------------------------
+ *   categoryOverlap   × 10   (user selected matching category)
+ *   cityOverlap        × 8   (user selected matching city)
+ *   upcomingFestivals  × 6   (each upcoming festival)
+ *   trendingPoints    max 40  (total plan-saves on their festivals)
+ *   followerScore     max 50  (√followers × 8 — sqrt gives better spread
+ *                              than linear: 1→8, 10→25, 100→50 pts)
+ *   logoBonus          + 12   (has a logo_url — signals professionalism)
+ *   verifiedBonus      + 20   (organizer.verified = true)
+ *   alreadyFollowed    + 15   (logged-in user already follows them)
  */
 const VERIFIED_ONLY_THRESHOLD = 30;
 const EMPTY_PAYLOAD: OnboardingSuggestionsPayload = { categories: [], cities: [], organizers: [] };

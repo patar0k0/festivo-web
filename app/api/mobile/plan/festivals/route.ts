@@ -165,11 +165,16 @@ export async function DELETE(request: Request) {
     console.log("[api/mobile/plan/festivals] DELETE start", { userId: auth.user.id, festivalId });
 
     const adminDb = createSupabaseAdmin();
-    const { error: deleteError } = await adminDb
+    // `.select()` makes Supabase return the deleted rows so we can confirm
+    // the delete actually matched. Without it a no-op delete (wrong user_id,
+    // wrong festival_id, or RLS-filtered row) still returns 200 and the
+    // mobile client wrongly believes the festival was removed.
+    const { data: deletedRows, error: deleteError } = await adminDb
       .from("user_plan_festivals")
       .delete()
       .eq("user_id", auth.user.id)
-      .eq("festival_id", festivalId);
+      .eq("festival_id", festivalId)
+      .select("festival_id");
 
     if (deleteError) {
       console.error("[api/mobile/plan/festivals] delete error", {
@@ -183,12 +188,42 @@ export async function DELETE(request: Request) {
       return jsonError(deleteError.message, 500);
     }
 
+    const deletedCount = deletedRows?.length ?? 0;
+    if (deletedCount === 0) {
+      // Diagnose: does the row exist under this user, or at all?
+      const [{ data: forUser }, { data: anyRow }] = await Promise.all([
+        adminDb
+          .from("user_plan_festivals")
+          .select("user_id, festival_id, created_at")
+          .eq("user_id", auth.user.id)
+          .eq("festival_id", festivalId)
+          .limit(1),
+        adminDb
+          .from("user_plan_festivals")
+          .select("user_id, festival_id, created_at")
+          .eq("festival_id", festivalId)
+          .limit(5),
+      ]);
+      console.warn("[api/mobile/plan/festivals] DELETE matched 0 rows", {
+        userId: auth.user.id,
+        festivalId,
+        rowExistsForUser: (forUser?.length ?? 0) > 0,
+        rowsForFestivalAnyUser: anyRow ?? [],
+      });
+    } else {
+      console.log("[api/mobile/plan/festivals] DELETE ok", {
+        userId: auth.user.id,
+        festivalId,
+        deletedCount,
+      });
+    }
+
     // Cancel reminders best-effort — must not block the unsave response.
     void syncReminderJobsForPreference(auth.user.id, festivalId, "none").catch((err: unknown) => {
       console.warn("[api/mobile/plan/festivals] DELETE reminder sync", err);
     });
 
-    return NextResponse.json({ saved: false, festivalId });
+    return NextResponse.json({ saved: false, festivalId, deletedCount });
   } catch (error) {
     console.error("[api/mobile/plan/festivals] DELETE", error);
     const message = error instanceof Error ? error.message : "Failed to unsave festival";

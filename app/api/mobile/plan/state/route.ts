@@ -19,7 +19,12 @@ export async function GET(request: Request) {
   const startedAt = Date.now();
   let authed = false;
 
-  const withRid = (res: Response) => attachRequestIdHeader(res, requestId);
+  const withRid = (res: Response) => {
+    // Defeat any Vercel/Next.js/CDN caching for plan state — must always be live.
+    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    res.headers.set("Pragma", "no-cache");
+    return attachRequestIdHeader(res, requestId);
+  };
 
   try {
     const auth = await resolveMobileRequestAuth(request);
@@ -31,6 +36,15 @@ export async function GET(request: Request) {
     authed = true;
 
     const bundle = await loadMobilePlannerBundle(auth.supabase, auth.user.id, { authed: true, startedAt });
+
+    // Diagnose: is the row count from the DB query consistent with what we are
+    // about to serialize? If admin sees 0 matching rows for a festival_id but
+    // this list still includes it, something is serving cached data.
+    console.log("[api/mobile/plan/state] bundle.savedFestivalIds", {
+      userId: auth.user.id,
+      savedFestivalIds: bundle.savedFestivalIds,
+      rawSavedFestivalRowCount: bundle.savedFestivalRows.length,
+    });
 
     const reminders: Record<string, MobilePlanReminderDto> = {};
     for (const row of bundle.reminderRows) {

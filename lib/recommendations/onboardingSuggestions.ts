@@ -67,6 +67,12 @@ const ORGANIZER_LIMIT = 12;
 const CITY_LIMIT = 12;
 const CATEGORY_LIMIT = 12;
 const UPCOMING_POOL_LIMIT = 300;
+/**
+ * Minimum number of verified organizers in the pool before we restrict
+ * suggestions to verified-only. Below this threshold all active organizers
+ * are eligible so the screen doesn't feel empty while the platform grows.
+ */
+const VERIFIED_ONLY_THRESHOLD = 30;
 const EMPTY_PAYLOAD: OnboardingSuggestionsPayload = { categories: [], cities: [], organizers: [] };
 
 const CATEGORY_LABELS_BG: Record<string, { label: string; icon: string }> = {
@@ -244,11 +250,13 @@ export async function buildOnboardingSuggestions(input: BuilderInput): Promise<O
   const organizerIdList = [...organizerIds].sort((a, b) => a.localeCompare(b));
   let organizerRows: OrganizerRow[] = [];
   if (organizerIdList.length) {
+    // Fetch ALL active organizers in the festival pool (verified or not).
+    // We decide below whether to restrict to verified-only based on how many
+    // verified organizers are available.
     const withCityJoin = await input.supabase
       .from("organizers")
       .select("id,slug,name,logo_url,verified,city_id,cities:cities!organizers_city_id_fkey(name_bg)")
       .eq("is_active", true)
-      .eq("verified", true)
       .in("id", organizerIdList)
       .returns<OrganizerRow[]>();
 
@@ -261,7 +269,6 @@ export async function buildOnboardingSuggestions(input: BuilderInput): Promise<O
         .from("organizers")
         .select("id,slug,name,logo_url,verified,city_id")
         .eq("is_active", true)
-        .eq("verified", true)
         .in("id", organizerIdList)
         .returns<OrganizerRow[]>();
       if (fallback.error) {
@@ -295,6 +302,17 @@ export async function buildOnboardingSuggestions(input: BuilderInput): Promise<O
       }
     } else {
       organizerRows = withCityJoin.data ?? [];
+    }
+
+    // If there are enough verified organizers in the pool, restrict to verified-only.
+    // Below the threshold we keep everyone so the screen stays useful while
+    // the platform grows. Verified organizers still rank higher via the score bonus.
+    const verifiedCount = organizerRows.filter((r) => Boolean(r.verified)).length;
+    if (verifiedCount >= VERIFIED_ONLY_THRESHOLD) {
+      organizerRows = organizerRows.filter((r) => Boolean(r.verified));
+      logOnboardingSuggestionsDev("verified_only_mode", { verifiedCount, threshold: VERIFIED_ONLY_THRESHOLD });
+    } else {
+      logOnboardingSuggestionsDev("mixed_mode", { verifiedCount, total: organizerRows.length, threshold: VERIFIED_ONLY_THRESHOLD });
     }
   }
 
@@ -455,7 +473,13 @@ export async function buildOnboardingSuggestions(input: BuilderInput): Promise<O
       score += stats.cityOverlap * 8;
       score += stats.upcomingFestivalCount * 6;
       score += Math.min(40, stats.trendingPoints);
-      score += Math.min(30, followerCount);
+      // Sqrt scaling gives a much better spread: 1 follower→8pts, 10→25pts, 100→50pts
+      // vs the old linear cap where 1→1 and 30+→30 (barely distinguishable).
+      score += Math.min(50, Math.round(Math.sqrt(followerCount) * 8));
+      // Professionalism signals
+      if (organizer.logo_url) score += 12;
+      // Verified organizers rank higher when we're in mixed mode.
+      if (organizer.verified) score += 20;
       if (input.user && userSignals.followedOrganizerIds.has(organizerId)) score += 15;
 
       return {

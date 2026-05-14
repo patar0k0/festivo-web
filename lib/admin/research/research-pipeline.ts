@@ -291,6 +291,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
   const searchQueries = buildGeminiPipelineQueries(query);
   const hitMap = new Map<string, SearchHit>();
 
+  // Step 1: Gemini grounding (Google Search tool)
   const minSourcesBeforeStop = 5;
   for (const sq of searchQueries) {
     if (hitMap.size >= minSourcesBeforeStop) break;
@@ -301,6 +302,39 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
       }
     } catch (e) {
       warnings.push(`Grounded search failed for «${sq}»: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  // Step 2: fall back to web search provider if grounding returned nothing
+  if (hitMap.size === 0) {
+    const webSearchUrl = process.env.WEB_RESEARCH_SEARCH_URL;
+    const webApiKey = process.env.WEB_RESEARCH_API_KEY;
+    if (webSearchUrl && webApiKey) {
+      warnings.push("Gemini grounding returned 0 results; using web search fallback for URL discovery.");
+      for (const sq of searchQueries.slice(0, 4)) {
+        if (hitMap.size >= minSourcesBeforeStop) break;
+        try {
+          const resp = await fetch(webSearchUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${webApiKey}` },
+            body: JSON.stringify({ q: sq, limit: 8 }),
+            signal: AbortSignal.timeout(8_000),
+          });
+          if (!resp.ok) continue;
+          const data = (await resp.json()) as { results?: unknown; items?: unknown };
+          const rawItems = Array.isArray(data.results) ? data.results : Array.isArray(data.items) ? data.items : [];
+          for (const item of rawItems) {
+            if (!item || typeof item !== "object") continue;
+            const i = item as { url?: string; link?: string; title?: string };
+            const url = (i.url ?? i.link ?? "").trim();
+            const title = (typeof i.title === "string" ? i.title : "").trim();
+            if (!url.startsWith("http") || hitMap.has(url)) continue;
+            hitMap.set(url, { url, title: title || url, snippet: title });
+          }
+        } catch {
+          // ignore individual search failures
+        }
+      }
     }
   }
 
@@ -328,7 +362,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
       candidates: { titles: [], dates: [], cities: [], locations: [], organizers: [] },
       sources: [],
       confidence: buildConfidence("low"),
-      warnings: [...warnings, "No web results from Gemini grounding."],
+      warnings: [...warnings, "No web results from Gemini grounding or web search fallback."],
       evidence: [],
       metadata: {
         provider: "gemini_pipeline",

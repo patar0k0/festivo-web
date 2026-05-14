@@ -1,6 +1,6 @@
 /**
  * Server-only Gemini via @google/generative-ai. Web discovery uses Google Search grounding.
- * Env: GEMINI_API_KEY (or GOOGLE_AI_API_KEY). Optional: GEMINI_RESEARCH_MODEL (default gemini-1.5-flash).
+ * Env: GEMINI_API_KEY (or GOOGLE_AI_API_KEY). Optional: GEMINI_RESEARCH_MODEL (default gemini-2.0-flash).
  * Gemini 1.5 models use googleSearchRetrieval; 2.x+ use google_search per Google API docs.
  */
 
@@ -8,7 +8,7 @@ import "server-only";
 
 import { GoogleGenerativeAI, type Tool } from "@google/generative-ai";
 
-const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-1.5-flash";
+const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-2.0-flash";
 const DEFAULT_TIMEOUT_MS = Math.min(Math.max(Number.parseInt(process.env.GEMINI_RESEARCH_TIMEOUT_MS ?? "120000", 10) || 120_000, 15_000), 180_000);
 
 export type GeminiGroundingChunk = {

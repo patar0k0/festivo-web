@@ -492,6 +492,14 @@ export default async function AdminDiscoveryPage({
         <p className="mt-2 text-sm text-black/65">Monitor discovery sources and recent discovery runs from admin.</p>
       </div>
 
+      <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+        <span className="mt-0.5 text-lg leading-none">🚧</span>
+        <div>
+          <p className="text-sm font-semibold text-amber-900">В процес на разработка</p>
+          <p className="mt-0.5 text-xs text-amber-800/70">Тази секция се разработва активно. Функционалността може да се промени.</p>
+        </div>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-black/45">Total sources</p>

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = (await request.json().catch(() => null)) as { query?: unknown } | null;
+  const body = (await request.json().catch(() => ({}))) as { query?: unknown };
   const query = typeof body?.query === "string" ? body.query.trim() : "";
 
   if (!query) {

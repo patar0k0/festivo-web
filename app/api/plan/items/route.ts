@@ -99,5 +99,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, inPlan: true });
+  // Auto-add the parent festival to the user's plan when they pick a schedule
+  // item from it. Without this, the festival is missing from the mobile plan
+  // tab's list of saved festivals, the planner never fetches its detail, and
+  // the "Програма" view can't render the item — stats show "Точки: N" but the
+  // calendar stays empty. Ignore unique-violation (23505) when the row is
+  // already there; everything else is a real error but non-fatal (the
+  // schedule item save already succeeded).
+  const { error: festivalUpsertError } = await supabase
+    .from("user_plan_festivals")
+    .insert({ user_id: user.id, festival_id: festivalId });
+  if (festivalUpsertError && festivalUpsertError.code !== "23505") {
+    console.warn("[plan/items] auto-add festival failed", {
+      code: festivalUpsertError.code,
+      message: festivalUpsertError.message,
+      userId: user.id,
+      festivalId,
+    });
+  }
+
+  return NextResponse.json({ ok: true, inPlan: true, festivalId });
 }

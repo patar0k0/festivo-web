@@ -75,10 +75,15 @@ export async function GET(request: Request) {
     const perSection = 8;
 
     const { weekendStart, weekendEnd } = festivalDiscoveryCalendarBounds();
+    // Default `when` (omitted) applies `end_date >= today` so past festivals
+    // never enter the recommendation pool. Previously this used `when: "all"`
+    // which explicitly disables that filter, and past festivals leaked into
+    // "Може да ти хареса", "Набира скорост" and "Популярни сега" on the
+    // mobile home screen.
     const [pool, weekPool, trendingPool] = await Promise.all([
-      getFestivals({ when: "all" }, 1, 120, { listingSort: "trending" }),
+      getFestivals({}, 1, 120, { listingSort: "trending" }),
       getFestivals({ from: weekendStart, to: weekendEnd }, 1, 60, { listingSort: "trending" }),
-      getFestivals({ when: "all" }, 1, 40, { listingSort: "popular" }),
+      getFestivals({}, 1, 40, { listingSort: "popular" }),
     ]);
 
     const all = pool.data;

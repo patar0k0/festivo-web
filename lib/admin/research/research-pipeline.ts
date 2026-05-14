@@ -7,6 +7,7 @@ import { extractDomain, fetchSourceDocument } from "@/lib/admin/research/source-
 import { getSourceAuthorityTier } from "@/lib/admin/research/source-ranking";
 import { normalizeResearchResult } from "@/lib/admin/research/normalize";
 import { programDraftFromGeminiProgram, programDraftHasContent, type ProgramDraft } from "@/lib/festival/programDraft";
+import { googleSearch } from "@/lib/research/googleSearch";
 import type {
   ResearchCandidates,
   ResearchConfidence,
@@ -305,31 +306,45 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
     }
   }
 
-  // Step 2: fall back to web search provider if grounding returned nothing
+  // Step 2: fall back to Google Search (SerpAPI) if grounding returned nothing
   if (hitMap.size === 0) {
-    const webSearchUrl = process.env.WEB_RESEARCH_SEARCH_URL;
-    const webApiKey = process.env.WEB_RESEARCH_API_KEY;
-    if (webSearchUrl && webApiKey) {
-      warnings.push("Gemini grounding returned 0 results; using web search fallback for URL discovery.");
+    const hasSerpApi = Boolean(process.env.SERPAPI_KEY?.trim());
+    const hasWebProvider = Boolean(process.env.WEB_RESEARCH_SEARCH_URL && process.env.WEB_RESEARCH_API_KEY);
+
+    if (hasSerpApi || hasWebProvider) {
+      warnings.push("Gemini grounding returned 0 results; using Google Search fallback for URL discovery.");
+
       for (const sq of searchQueries.slice(0, 4)) {
         if (hitMap.size >= minSourcesBeforeStop) break;
         try {
-          const resp = await fetch(webSearchUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${webApiKey}` },
-            body: JSON.stringify({ q: sq, limit: 8 }),
-            signal: AbortSignal.timeout(8_000),
-          });
-          if (!resp.ok) continue;
-          const data = (await resp.json()) as { results?: unknown; items?: unknown };
-          const rawItems = Array.isArray(data.results) ? data.results : Array.isArray(data.items) ? data.items : [];
-          for (const item of rawItems) {
-            if (!item || typeof item !== "object") continue;
-            const i = item as { url?: string; link?: string; title?: string };
-            const url = (i.url ?? i.link ?? "").trim();
-            const title = (typeof i.title === "string" ? i.title : "").trim();
-            if (!url.startsWith("http") || hitMap.has(url)) continue;
-            hitMap.set(url, { url, title: title || url, snippet: title });
+          let hits: Array<{ url: string; title: string | null; snippet: string | null }> = [];
+
+          if (hasSerpApi) {
+            // Preferred: real Google results in Bulgarian locale
+            hits = await googleSearch(sq);
+          } else {
+            // Generic web search provider fallback
+            const resp = await fetch(process.env.WEB_RESEARCH_SEARCH_URL!, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.WEB_RESEARCH_API_KEY}` },
+              body: JSON.stringify({ q: sq, limit: 8 }),
+              signal: AbortSignal.timeout(8_000),
+            });
+            if (resp.ok) {
+              const data = (await resp.json()) as { results?: unknown; items?: unknown };
+              const rawItems = Array.isArray(data.results) ? data.results : Array.isArray(data.items) ? data.items : [];
+              hits = rawItems
+                .filter((item): item is object => Boolean(item) && typeof item === "object")
+                .map((item) => {
+                  const i = item as { url?: string; link?: string; title?: string; snippet?: string };
+                  return { url: (i.url ?? i.link ?? "").trim(), title: i.title ?? null, snippet: i.snippet ?? null };
+                });
+            }
+          }
+
+          for (const h of hits) {
+            if (!h.url.startsWith("http") || hitMap.has(h.url)) continue;
+            hitMap.set(h.url, { url: h.url, title: h.title || h.url, snippet: h.snippet || h.title || h.url });
           }
         } catch {
           // ignore individual search failures

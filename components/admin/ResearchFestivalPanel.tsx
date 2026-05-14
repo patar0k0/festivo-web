@@ -119,9 +119,9 @@ function confidenceBadgeStyle(confidence: AiResearchConfidence): string {
 }
 
 function confidenceLabel(confidence: AiResearchConfidence): string {
-  if (confidence === "high") return "High";
-  if (confidence === "medium") return "Medium";
-  return "Low";
+  if (confidence === "high") return "Висока";
+  if (confidence === "medium") return "Средна";
+  return "Ниска";
 }
 
 function getDomainLabel(url: string): string {
@@ -610,7 +610,7 @@ export default function ResearchFestivalPanel() {
     }
   };
 
-  const summaryEyebrow = "Admin · Research festival";
+  const summaryEyebrow = "Админ · Изследване";
 
   const summaryTitle = useMemo(() => {
     if (aiDraft?.title?.trim()) return aiDraft.title.trim();
@@ -925,7 +925,7 @@ export default function ResearchFestivalPanel() {
           disabled={!canCreate}
           className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
         >
-          {isCreating ? "Sending..." : "Send to pipeline"}
+          {isCreating ? "Изпраща…" : "Изпрати в pipeline"}
         </button>
         <button
           type="button"
@@ -934,8 +934,8 @@ export default function ResearchFestivalPanel() {
           className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
         >
           {isAiResearching
-            ? "Researching..."
-            : `Research again (${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})`}
+            ? "Изследва…"
+            : `Изследвай отново (${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})`}
         </button>
       </div>
     );
@@ -949,7 +949,7 @@ export default function ResearchFestivalPanel() {
           disabled={!canCreate}
           className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
         >
-          {isCreating ? "Sending..." : "Send to pipeline"}
+          {isCreating ? "Изпраща…" : "Изпрати в pipeline"}
         </button>
       </div>
     );
@@ -968,7 +968,7 @@ export default function ResearchFestivalPanel() {
 
   const renderTextCandidates = (field: keyof EditableFinalValues, candidates: ResearchFieldCandidate[]) => {
     if (candidates.length === 0) {
-      return <p className="text-xs text-black/50">No alternatives extracted for this field.</p>;
+      return <p className="text-xs text-black/50">Без алтернативни стойности.</p>;
     }
 
     return (
@@ -992,7 +992,7 @@ export default function ResearchFestivalPanel() {
 
   const renderDateCandidates = (candidates: ResearchDateCandidate[]) => {
     if (candidates.length === 0) {
-      return <p className="text-xs text-black/50">No alternative date ranges extracted.</p>;
+      return <p className="text-xs text-black/50">Без алтернативни дати.</p>;
     }
 
     return (
@@ -1020,14 +1020,14 @@ export default function ResearchFestivalPanel() {
 
       <AdminFieldSection
         title={ADMIN_ENTITY_SECTION.researchQueries.title}
-        description={`Search with ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)}, pick one URL to extract (controlled mode), or use multi-source / ${getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)} below.`}
+        description="Търси в интернет, избери URL за преглед или merge — или изследвай директно с AI."
         variant={ADMIN_ENTITY_SECTION.researchQueries.variant}
       >
         <div className="grid gap-8 lg:grid-cols-[1fr_minmax(260px,340px)] xl:grid-cols-[1fr_minmax(280px,380px)]">
           <div className="space-y-4">
             <div className="space-y-1.5">
               <label htmlFor="source-web-search" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
-                Search the web
+                Търси в интернет
               </label>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input
@@ -1067,7 +1067,7 @@ export default function ResearchFestivalPanel() {
                     disabled={selectedUrls.length === 0 || isMerging}
                     className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    {isMerging ? "Merging…" : "Merge selected"}
+                    {isMerging ? "Обединява…" : "Обедини избраните"}
                   </button>
                   <button
                     type="button"
@@ -1075,7 +1075,7 @@ export default function ResearchFestivalPanel() {
                     disabled={!aiDraft || isSendingPending}
                     className="rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    {isSendingPending ? "Creating…" : "Send to pending"}
+                    {isSendingPending ? "Създава…" : "Изпрати в чакащи"}
                   </button>
                   <button
                     type="button"
@@ -1088,7 +1088,7 @@ export default function ResearchFestivalPanel() {
                 </div>
                 {selectedUrls.length > 0 && selectedUrls.length < 2 ? (
                   <p className="text-xs text-amber-800/90">
-                    Select two or more sources to get the most from merge (single URL uses merge rules with one extraction).
+                    Избери поне два URL за по-добър merge (единичен URL се обработва с едно извличане).
                   </p>
                 ) : null}
                 {mergeError ? (
@@ -1128,7 +1128,7 @@ export default function ResearchFestivalPanel() {
                                 disabled={selectingUrl !== null}
                                 className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-white disabled:cursor-not-allowed disabled:opacity-45"
                               >
-                                {selectingUrl === hit.url ? "Working…" : "Select"}
+                                {selectingUrl === hit.url ? "Зарежда…" : "Избери"}
                               </button>
                               <button
                                 type="button"
@@ -1136,7 +1136,7 @@ export default function ResearchFestivalPanel() {
                                 disabled={previewLoading}
                                 className="rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:cursor-not-allowed disabled:opacity-45"
                               >
-                                Preview
+                                Преглед
                               </button>
                             </div>
                           </div>
@@ -1152,7 +1152,7 @@ export default function ResearchFestivalPanel() {
           <div className="rounded-xl border border-black/[0.08] bg-black/[0.02] p-4 lg:min-h-[220px]">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">Preview</p>
             {!previewHit ? (
-              <p className="mt-3 text-sm text-black/55">Choose a result and click Preview to extract fields from that URL.</p>
+              <p className="mt-3 text-sm text-black/55">Избери резултат и натисни Преглед за бързо извличане на данни.</p>
             ) : (
               <div className="mt-3 space-y-3 text-sm">
                 {previewLoading ? <p className="text-black/60">Extracting…</p> : null}
@@ -1171,11 +1171,11 @@ export default function ResearchFestivalPanel() {
                   </a>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">Title</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">Заглавие</p>
                   <p className="font-medium text-black/85">{previewExtract?.title ?? previewHit.title ?? "—"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">Extracted</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-black/45">Извлечено</p>
                   <ul className="mt-1 list-none space-y-1 text-black/75">
                     <li>
                       <span className="text-black/45">date:</span>{" "}
@@ -1213,55 +1213,72 @@ export default function ResearchFestivalPanel() {
           </div>
         </div>
 
-        <div className="mt-8 space-y-2">
-          <div className="h-px bg-black/[0.08]" />
-          <div className="space-y-1.5 pt-6">
-            <label htmlFor="ai-research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
-              Multi-source merge ({getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})
-            </label>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <input
-                id="ai-research-query"
-                value={aiQuery}
-                onChange={(event) => setAiQuery(event.target.value)}
-                placeholder="сурва 2026"
-                className={ADMIN_ENTITY_CONTROL_CLASS}
-              />
-              <button
-                type="button"
-                onClick={runAiResearch}
-                disabled={!canAiResearch}
-                className="h-8 shrink-0 rounded-lg bg-[#0c0e14] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                {isAiResearching ? "Researching..." : `Research (${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})`}
-              </button>
-            </div>
-            {aiError ? <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{aiError}</p> : null}
-            {aiSuccess ? <p className="rounded-xl border border-[#0e7a45]/20 bg-[#f0fbf4] px-3 py-2 text-sm text-[#0e7a45]">{aiSuccess}</p> : null}
+        <div className="mt-8 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-black/[0.08]" />
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-black/35">или директно с AI</span>
+            <div className="h-px flex-1 bg-black/[0.08]" />
           </div>
 
-          <div className="h-px bg-black/[0.08]" />
+          <div className="rounded-xl border border-black/[0.08] bg-black/[0.015] p-4 space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
+                Пълен pipeline ({getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)})
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  id="research-query"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      if (canResearch) void runResearch();
+                    }
+                  }}
+                  placeholder="Сурва 2026"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                />
+                <button
+                  type="button"
+                  onClick={runResearch}
+                  disabled={!canResearch}
+                  className="h-8 shrink-0 rounded-lg bg-[#0c0e14] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {isResearching ? "Изследва…" : `Изследвай (${getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)})`}
+                </button>
+              </div>
+            </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
-              Festival query ({getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)})
-            </label>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <input
-                id="research-query"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Сурва 2026"
-                className={ADMIN_ENTITY_CONTROL_CLASS}
-              />
-              <button
-                type="button"
-                onClick={runResearch}
-                disabled={!canResearch}
-                className="h-8 shrink-0 rounded-lg border border-black/[0.1] bg-white px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                {isResearching ? "Researching..." : `Research (${getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)})`}
-              </button>
+            <div className="space-y-1.5 border-t border-black/[0.06] pt-4">
+              <label htmlFor="ai-research-query" className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">
+                Директно изследване ({getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  id="ai-research-query"
+                  value={aiQuery}
+                  onChange={(event) => setAiQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      if (canAiResearch) void runAiResearch();
+                    }
+                  }}
+                  placeholder="Сурва 2026, Перник"
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                />
+                <button
+                  type="button"
+                  onClick={runAiResearch}
+                  disabled={!canAiResearch}
+                  className="h-8 shrink-0 rounded-lg border border-black/[0.1] bg-white px-4 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {isAiResearching ? "Изследва…" : `Изследвай (${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)})`}
+                </button>
+              </div>
+              {aiError ? <p className="rounded-xl border border-[#c23c1f]/25 bg-[#fff4ef] px-3 py-2 text-sm text-[#b13a1a]">{aiError}</p> : null}
+              {aiSuccess ? <p className="rounded-xl border border-[#0e7a45]/20 bg-[#f0fbf4] px-3 py-2 text-sm text-[#0e7a45]">{aiSuccess}</p> : null}
             </div>
           </div>
         </div>
@@ -1271,14 +1288,14 @@ export default function ResearchFestivalPanel() {
         <>
           <AdminFieldSection
             title={ADMIN_ENTITY_SECTION.mainInfo.title}
-            description={`Confidence reflects extraction certainty for the ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} pass.`}
+            description={`Увереност от извличането — ${getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)}.`}
             variant={ADMIN_ENTITY_SECTION.mainInfo.variant}
           >
             <div className="flex flex-wrap items-center gap-2">
               <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${confidenceBadgeStyle(aiDraft.confidence)}`}>
                 Confidence: {confidenceLabel(aiDraft.confidence)}
               </span>
-              <span className="text-xs text-black/55">{aiResult?.source_urls.length ?? 0} source(s) reviewed</span>
+              <span className="text-xs text-black/55">{aiResult?.source_urls.length ?? 0} {(aiResult?.source_urls.length ?? 0) === 1 ? "източник" : "източника"} прегледани</span>
             </div>
             <AdminFieldGrid className="mt-1.5">{renderAiFieldsForKeys(AI_MAIN_KEYS, aiDraft, setAiDraftField)}</AdminFieldGrid>
           </AdminFieldSection>
@@ -1358,7 +1375,7 @@ export default function ResearchFestivalPanel() {
             <div className="mt-2 space-y-1.5 border-t border-black/[0.06] pt-2">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">{ADMIN_FIELD_LABEL.sourceUrl}s</p>
               {aiDraft.source_urls.length === 0 ? (
-                <p className="text-sm text-black/60">No sources returned.</p>
+                <p className="text-sm text-black/60">Без намерени източници.</p>
               ) : (
                 <div className="space-y-1.5">
                   {aiDraft.source_urls.map((url) => (
@@ -1413,12 +1430,12 @@ export default function ResearchFestivalPanel() {
                 onChange={(event) => setAiDraft((prev) => (prev ? { ...prev, is_free: event.target.checked ? true : null } : prev))}
                 className="h-4 w-4 rounded border-black/20"
               />
-              Festival is free
+              Фестивалът е безплатен
             </label>
             <div className="mt-2 space-y-1.5">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Missing fields</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/55">Липсващи полета</p>
               {aiDraft.missing_fields.length === 0 ? (
-                <p className="text-sm text-black/60">No missing fields flagged.</p>
+                <p className="text-sm text-black/60">Всички полета са попълнени.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {aiDraft.missing_fields.map((field) => (
@@ -1464,10 +1481,23 @@ export default function ResearchFestivalPanel() {
       {success ? <p className="rounded-xl border border-[#0e7a45]/20 bg-[#f0fbf4] px-3 py-2 text-sm text-[#0e7a45]">{success}</p> : null}
 
       {!aiDraft && !result ? (
-        <p className="text-sm text-black/55">
-          No extraction result yet. Run {getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} research or the{" "}
-          {getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)} pipeline to preview festival data.
-        </p>
+        <div className="rounded-2xl border border-black/[0.07] bg-white/60 p-6">
+          <p className="text-sm font-semibold text-black/70">Как да изследваш фестивал</p>
+          <ol className="mt-3 space-y-2.5 text-sm text-black/60">
+            <li className="flex gap-3">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/[0.07] text-[11px] font-bold text-black/50">1</span>
+              <span><strong className="font-semibold text-black/75">Търси в интернет</strong> — въведи фестивал + година, избери URL и натисни <em>Избери</em> или маркирай няколко и натисни <em>Обедини избраните</em>.</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/[0.07] text-[11px] font-bold text-black/50">2</span>
+              <span><strong className="font-semibold text-black/75">Или директно с AI</strong> — напиши заявка в {getAIProviderLabel(RESEARCH_PROVIDER_GEMINI)} (пълен pipeline) или {getAIProviderLabel(RESEARCH_PROVIDER_PERPLEXITY)} (бързо).</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black/[0.07] text-[11px] font-bold text-black/50">3</span>
+              <span>Прегледай извлечените данни, редактирай при нужда и <strong className="font-semibold text-black/75">изпрати в чакащи</strong> за модерация.</span>
+            </li>
+          </ol>
+        </div>
       ) : null}
 
       {result ? (

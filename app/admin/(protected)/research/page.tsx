@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAdminContext } from "@/lib/admin/isAdmin";
-import ResearchFestivalPanel from "@/components/admin/ResearchFestivalPanel";
+import ResearchPageTabs from "@/components/admin/ResearchPageTabs";
 
 export default async function AdminResearchPage() {
   const ctx = await getAdminContext();
@@ -8,5 +8,5 @@ export default async function AdminResearchPage() {
     redirect("/login?next=/admin/research");
   }
 
-  return <ResearchFestivalPanel />;
+  return <ResearchPageTabs />;
 }

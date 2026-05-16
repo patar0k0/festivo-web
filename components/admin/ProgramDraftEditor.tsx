@@ -3,12 +3,12 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { DatePickerButton, TimePickerButton } from "@/components/admin/DateTimePickerButtons";
+import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
 import {
   isScheduleTimeOrderInvalid,
   parseHmInputToDbTime,
   sortByStartTime,
 } from "@/lib/festival/festivalTimeFields";
-import { ADMIN_NATIVE_TIME_INPUT_CLASS } from "@/lib/admin/adminNativeDateTimeClasses";
 import {
   compactProgramDraft,
   emptyProgramDraft,
@@ -242,14 +242,9 @@ const ProgramDraftEditor = forwardRef<ProgramDraftEditorHandle, Props>(function 
                         <label className="shrink-0">
                           <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">Начало</span>
                           <div className="mt-1 flex items-center gap-1.5">
-                            <input
-                              type="time"
-                              step={60}
+                            <AdminTimeInput
                               value={safeTimeValue(row.start_time)}
-                              onChange={(e) =>
-                                updateItem(block.id, row.id, { start_time: e.target.value || null })
-                              }
-                              className={`${ADMIN_NATIVE_TIME_INPUT_CLASS} !w-[7rem] shrink-0 tabular-nums`}
+                              onChange={(e) => updateItem(block.id, row.id, { start_time: e.target.value || null })}
                               aria-label="Начало"
                             />
                             <TimePickerButton
@@ -261,14 +256,9 @@ const ProgramDraftEditor = forwardRef<ProgramDraftEditorHandle, Props>(function 
                         <label className="shrink-0">
                           <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/40">Край</span>
                           <div className="mt-1 flex items-center gap-1.5">
-                            <input
-                              type="time"
-                              step={60}
+                            <AdminTimeInput
                               value={safeTimeValue(row.end_time)}
-                              onChange={(e) =>
-                                updateItem(block.id, row.id, { end_time: e.target.value || null })
-                              }
-                              className={`${ADMIN_NATIVE_TIME_INPUT_CLASS} !w-[7rem] shrink-0 tabular-nums`}
+                              onChange={(e) => updateItem(block.id, row.id, { end_time: e.target.value || null })}
                               aria-label="Край"
                             />
                             <TimePickerButton

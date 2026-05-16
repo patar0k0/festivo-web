@@ -604,7 +604,6 @@ export default function PendingFestivalEditForm({
     });
   }, [organizerOptions, organizerSearch, selectedOrganizerIds]);
 
-  const orgLabel = organizerEntries.length <= 1 ? "Организатор" : "Организатори";
 
   const addOrganizerById = (id: string) => {
     const row = organizerOptions.find((o) => o.id === id);

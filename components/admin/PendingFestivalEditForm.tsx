@@ -1684,93 +1684,140 @@ export default function PendingFestivalEditForm({
           description="Catalog links, manual names, or inline organizer creation."
           variant={ADMIN_ENTITY_SECTION.organizer.variant}
         >
-              <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] p-2.5">
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">{orgLabel}</span>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {organizerEntries.map((entry, index) => (
-                    <span
-                      key={`${entry.organizer_id}-${index}-${entry.name}`}
-                      className="inline-flex items-center gap-1 rounded-full border border-black/[0.12] bg-white px-2.5 py-1 text-sm text-black/85"
-                    >
-                      <input
-                        value={entry.name}
-                        onChange={(e) => updateOrganizerNameAt(index, e.target.value)}
-                        className="max-w-[220px] border-0 bg-transparent p-0 text-sm outline-none"
-                        aria-label={`Име организатор ${index + 1}`}
-                      />
-                      {entry.organizer_id ? (
-                        <Link href={`/admin/organizers/${entry.organizer_id}`} className="text-[11px] font-semibold text-[#0e7a45]">
-                          профил
-                        </Link>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => removeOrganizerAt(index)}
-                        className="text-xs text-black/45 hover:text-[#b13a1a]"
-                        aria-label="Премахни"
+              <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] p-3 space-y-4">
+
+                {/* ── Текущи организатори ── */}
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45">{orgLabel}</span>
+                  <div className="mt-2 flex min-h-[2rem] flex-wrap gap-1.5">
+                    {organizerEntries.length === 0 ? (
+                      <span className="text-sm text-black/30 italic">Няма добавен организатор</span>
+                    ) : organizerEntries.map((entry, index) => (
+                      <span
+                        key={`${entry.organizer_id}-${index}-${entry.name}`}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.12] bg-white px-3 py-1 text-sm text-black/85 shadow-sm"
                       >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                  <input
-                    value={organizerSearch}
-                    onChange={(e) => setOrganizerSearch(e.target.value)}
-                    placeholder="Търсене в каталога…"
-                    className="w-full min-w-[180px] flex-1 rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm sm:max-w-xs"
-                  />
-                  <select
-                    value={pendingOrganizerPickId}
-                    onChange={(e) => setPendingOrganizerPickId(e.target.value)}
-                    className="w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-2 text-sm sm:w-auto"
-                  >
-                    <option value="">Избери организатор…</option>
-                    {availableOrganizerOptions.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
-                      </option>
+                        <input
+                          value={entry.name}
+                          onChange={(e) => updateOrganizerNameAt(index, e.target.value)}
+                          className="max-w-[220px] border-0 bg-transparent p-0 text-sm outline-none"
+                          aria-label={`Име организатор ${index + 1}`}
+                        />
+                        {entry.organizer_id ? (
+                          <Link href={`/admin/organizers/${entry.organizer_id}`} className="text-[11px] font-semibold text-[#0e7a45] hover:underline">
+                            профил
+                          </Link>
+                        ) : (
+                          <span className="text-[11px] text-black/30">без профил</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeOrganizerAt(index)}
+                          className="ml-0.5 text-sm leading-none text-black/35 hover:text-[#b13a1a]"
+                          aria-label="Премахни"
+                        >
+                          ×
+                        </button>
+                      </span>
                     ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => pendingOrganizerPickId && addOrganizerById(pendingOrganizerPickId)}
-                    disabled={!pendingOrganizerPickId}
-                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] disabled:opacity-40"
-                  >
-                    Добави избрания
-                  </button>
+                  </div>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <input
-                    value={manualOrganizerName}
-                    onChange={(e) => setManualOrganizerName(e.target.value)}
-                    placeholder="Име без запис в каталога"
-                    className={`min-w-[200px] flex-1 ${ADMIN_ENTITY_CONTROL_BASE}`}
-                  />
-                  <button type="button" onClick={addManualOrganizer} className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold text-white">
-                    Добави по име
-                  </button>
+
+                {/* ── Метод 1: Свърши с каталог ── */}
+                <div className="rounded-lg border border-black/[0.07] bg-white p-3">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-black/40">
+                    Свържи с профил от каталога
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      value={organizerSearch}
+                      onChange={(e) => setOrganizerSearch(e.target.value)}
+                      placeholder="Филтрирай по ime…"
+                      className="min-w-[140px] flex-1 rounded-lg border border-black/[0.1] bg-[#fafafa] px-2.5 py-2 text-sm outline-none focus:border-black/25 sm:max-w-[200px]"
+                    />
+                    <select
+                      value={pendingOrganizerPickId}
+                      onChange={(e) => setPendingOrganizerPickId(e.target.value)}
+                      className="flex-1 rounded-lg border border-black/[0.1] bg-[#fafafa] px-2.5 py-2 text-sm sm:flex-none"
+                    >
+                      <option value="">Избери…</option>
+                      {availableOrganizerOptions.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => pendingOrganizerPickId && addOrganizerById(pendingOrganizerPickId)}
+                      disabled={!pendingOrganizerPickId}
+                      className="shrink-0 rounded-lg border border-black/[0.12] bg-white px-3 py-2 text-xs font-semibold text-black/70 transition hover:border-black/25 hover:text-black disabled:opacity-35"
+                    >
+                      + Добави
+                    </button>
+                  </div>
                 </div>
-                <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-black/[0.06] pt-3">
-                  <label className="flex min-w-[200px] flex-1 flex-col text-xs font-semibold uppercase tracking-[0.1em] text-black/55">
-                    Нов организатор (каталог)
+
+                {/* ── ИЛИ ── */}
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-black/[0.07]" />
+                  <span className="text-[11px] font-semibold tracking-widest text-black/25">ИЛИ</span>
+                  <div className="h-px flex-1 bg-black/[0.07]" />
+                </div>
+
+                {/* ── Метод 2: Само по ime ── */}
+                <div className="rounded-lg border border-black/[0.07] bg-white p-3">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-black/40">
+                    Добави само по ime <span className="normal-case font-normal text-black/30">(без профил в каталога)</span>
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      value={manualOrganizerName}
+                      onChange={(e) => setManualOrganizerName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addManualOrganizer()}
+                      placeholder="Напр. Община Пловдив"
+                      className={`flex-1 ${ADMIN_ENTITY_CONTROL_BASE}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={addManualOrganizer}
+                      disabled={!manualOrganizerName.trim()}
+                      className="shrink-0 rounded-lg border border-black/[0.12] bg-white px-3 py-2 text-xs font-semibold text-black/70 transition hover:border-black/25 hover:text-black disabled:opacity-35"
+                    >
+                      + Добави
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── ИЛИ ── */}
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-black/[0.07]" />
+                  <span className="text-[11px] font-semibold tracking-widest text-black/25">ИЛИ</span>
+                  <div className="h-px flex-1 bg-black/[0.07]" />
+                </div>
+
+                {/* ── Метод 3: Създай нов ── */}
+                <div className="rounded-lg border border-black/[0.07] bg-white p-3">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-black/40">
+                    Създай нов организатор в каталога
+                  </p>
+                  <div className="flex gap-2">
                     <input
                       value={newOrganizerName}
                       onChange={(e) => setNewOrganizerName(e.target.value)}
-                      className={`mt-1 ${ADMIN_ENTITY_CONTROL_CLASS} font-normal normal-case`}
+                      onKeyDown={(e) => e.key === "Enter" && !creatingOrganizer && onCreateOrganizerInline()}
+                      placeholder="Ново ime на организатора…"
+                      className={`flex-1 ${ADMIN_ENTITY_CONTROL_CLASS}`}
                     />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={onCreateOrganizerInline}
-                    disabled={creatingOrganizer || !newOrganizerName.trim()}
-                    className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
-                  >
-                    {creatingOrganizer ? "…" : "Създай и добави"}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={onCreateOrganizerInline}
+                      disabled={creatingOrganizer || !newOrganizerName.trim()}
+                      className="shrink-0 rounded-lg bg-[#0c0e14] px-3 py-2 text-xs font-semibold text-white transition hover:bg-black disabled:opacity-40"
+                    >
+                      {creatingOrganizer ? "Създава се…" : "Създай и добави"}
+                    </button>
+                  </div>
                 </div>
+
               </div>
         </AdminFieldSection>
 

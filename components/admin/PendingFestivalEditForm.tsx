@@ -32,7 +32,6 @@ import {
   AdminFieldSection,
   AdminSummaryStrip,
   ADMIN_ENTITY_SECTION,
-  ADMIN_ENTITY_CONTROL_BASE,
   ADMIN_ENTITY_CONTROL_CLASS,
   ADMIN_ENTITY_CONTROL_READONLY_CLASS,
   ADMIN_ENTITY_TEXTAREA_READONLY_CLASS,
@@ -448,8 +447,6 @@ export default function PendingFestivalEditForm({
   const [organizerEntries, setOrganizerEntries] = useState(() => buildInitialOrganizerEntries(pendingFestival));
   const [organizerOptions, setOrganizerOptions] = useState<OrganizerOption[]>(organizers);
   const [organizerSearch, setOrganizerSearch] = useState("");
-  const [pendingOrganizerPickId, setPendingOrganizerPickId] = useState("");
-  const [manualOrganizerName, setManualOrganizerName] = useState("");
   const [creatingOrganizer, setCreatingOrganizer] = useState(false);
   const [newOrganizerName, setNewOrganizerName] = useState("");
   /** Entry keys (organizer_id||name) confirmed as text-only — hides reconciliation card */
@@ -613,7 +610,6 @@ export default function PendingFestivalEditForm({
     const row = organizerOptions.find((o) => o.id === id);
     if (!row) return;
     setOrganizerEntries((prev) => [...prev, { organizer_id: row.id, name: row.name }]);
-    setPendingOrganizerPickId("");
     setOrganizerSearch("");
   };
 
@@ -629,12 +625,6 @@ export default function PendingFestivalEditForm({
     setOrganizerEntries((prev) => prev.map((e, i) => (i === index ? { ...e, name } : e)));
   };
 
-  const addManualOrganizer = () => {
-    const t = manualOrganizerName.trim();
-    if (!t) return;
-    setOrganizerEntries((prev) => [...prev, { organizer_id: "", name: t }]);
-    setManualOrganizerName("");
-  };
 
   const onCreateOrganizerInline = async (nameParam?: string, replaceIndex?: number) => {
     const name = (nameParam ?? newOrganizerName).trim();

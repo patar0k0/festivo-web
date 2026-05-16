@@ -83,12 +83,19 @@ function ConfidenceChip({ level }: { level: "high" | "medium" | "low" }) {
   );
 }
 
+function formatIsoDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}.${m}.${y}`;
+}
+
 function DateRange({ fields }: { fields: SmartResearchFields }) {
   const { start_date, end_date, start_time, end_time } = fields;
   if (!start_date) return null;
 
-  let dateStr = start_date;
-  if (end_date && end_date !== start_date) dateStr = `${start_date} – ${end_date}`;
+  const fmtStart = formatIsoDate(start_date);
+  const fmtEnd = end_date && end_date !== start_date ? formatIsoDate(end_date) : null;
+  const dateStr = fmtEnd ? `${fmtStart} – ${fmtEnd}` : fmtStart;
 
   let timeStr = "";
   if (start_time) timeStr = start_time;

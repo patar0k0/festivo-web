@@ -83,7 +83,7 @@ export default async function FestivalsPage({ searchParams }: { searchParams: Pa
     Number(Boolean(filters.from || filters.to)) +
     Number(Boolean(filters.cat?.length)) +
     Number(Boolean(filters.when && filters.when !== "all")) +
-    Number(filters.free === false);
+    Number(filters.free !== undefined);
 
   const clearHref = "/festivals";
 

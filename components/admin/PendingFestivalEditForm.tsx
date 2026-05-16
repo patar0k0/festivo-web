@@ -200,6 +200,21 @@ function normalizeOptionalText(value: unknown) {
 
 type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug" | "plan" | "plan_started_at" | "plan_expires_at">;
 
+/** Fuzzy name match against catalog — returns up to 4 candidates */
+function findCatalogSuggestions(name: string, options: OrganizerOption[], excludeIds: Set<string>): OrganizerOption[] {
+  const q = name.toLowerCase().trim();
+  if (q.length < 2) return [];
+  const words = q.split(/\s+/).filter((w) => w.length >= 4);
+  return options
+    .filter((o) => !excludeIds.has(o.id))
+    .filter((o) => {
+      const n = o.name.toLowerCase();
+      if (n === q || n.includes(q) || q.includes(n)) return true;
+      return words.some((w) => n.includes(w));
+    })
+    .slice(0, 4);
+}
+
 function buildInitialOrganizerEntries(p: PendingFestivalRecord): Array<{ organizer_id: string; name: string }> {
   const rows = pendingRowToOrganizerEntries({
     organizer_entries: p.organizer_entries,
@@ -437,6 +452,8 @@ export default function PendingFestivalEditForm({
   const [manualOrganizerName, setManualOrganizerName] = useState("");
   const [creatingOrganizer, setCreatingOrganizer] = useState(false);
   const [newOrganizerName, setNewOrganizerName] = useState("");
+  /** Entry keys (organizer_id||name) confirmed as text-only — hides reconciliation card */
+  const [confirmedTextOrganizers, setConfirmedTextOrganizers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setOrganizerEntries(buildInitialOrganizerEntries(pendingFestival));
@@ -600,6 +617,10 @@ export default function PendingFestivalEditForm({
     setOrganizerSearch("");
   };
 
+  const linkOrganizerEntryAt = (index: number, catalog: OrganizerOption) => {
+    setOrganizerEntries((prev) => prev.map((e, i) => i === index ? { organizer_id: catalog.id, name: catalog.name } : e));
+  };
+
   const removeOrganizerAt = (index: number) => {
     setOrganizerEntries((prev) => prev.filter((_, i) => i !== index));
   };
@@ -615,7 +636,7 @@ export default function PendingFestivalEditForm({
     setManualOrganizerName("");
   };
 
-  const onCreateOrganizerInline = async (nameParam?: string) => {
+  const onCreateOrganizerInline = async (nameParam?: string, replaceIndex?: number) => {
     const name = (nameParam ?? newOrganizerName).trim();
     if (!name || creatingOrganizer) return;
     setCreatingOrganizer(true);
@@ -634,7 +655,11 @@ export default function PendingFestivalEditForm({
       const created = payload?.row;
       if (created?.id) {
         setOrganizerOptions((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, "bg")));
-        setOrganizerEntries((prev) => [...prev, { organizer_id: created.id, name: created.name }]);
+        if (replaceIndex !== undefined) {
+          setOrganizerEntries((prev) => prev.map((e, i) => i === replaceIndex ? { organizer_id: created.id, name: created.name } : e));
+        } else {
+          setOrganizerEntries((prev) => [...prev, { organizer_id: created.id, name: created.name }]);
+        }
         if (!nameParam) setNewOrganizerName("");
         setOrganizerSearch("");
         toast.success("Организаторът е създаден успешно.");
@@ -1692,109 +1717,184 @@ export default function PendingFestivalEditForm({
           description="Catalog links, manual names, or inline organizer creation."
           variant={ADMIN_ENTITY_SECTION.organizer.variant}
         >
-              <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] p-3 space-y-3">
+              {(() => {
+                const linkedEntries = organizerEntries.filter((e) => e.organizer_id.trim());
+                const unresolvedEntries = organizerEntries
+                  .map((e, i) => ({ entry: e, index: i }))
+                  .filter(({ entry }) => !entry.organizer_id.trim());
+                const linkedIds = new Set(linkedEntries.map((e) => e.organizer_id));
 
-                {/* ── Текущи организатори ── */}
-                <div>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45">{orgLabel}</span>
-                  <div className="mt-2 flex min-h-[2rem] flex-wrap gap-1.5">
-                    {organizerEntries.length === 0 ? (
-                      <span className="text-sm text-black/30 italic">Няма добавен организатор</span>
-                    ) : organizerEntries.map((entry, index) => (
-                      <span
-                        key={`${entry.organizer_id}-${index}-${entry.name}`}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.12] bg-white px-3 py-1 text-sm text-black/85 shadow-sm"
-                      >
-                        <input
-                          value={entry.name}
-                          onChange={(e) => updateOrganizerNameAt(index, e.target.value)}
-                          className="max-w-[220px] border-0 bg-transparent p-0 text-sm outline-none"
-                          aria-label={`Име организатор ${index + 1}`}
-                        />
-                        {entry.organizer_id ? (
-                          <Link href={`/admin/organizers/${entry.organizer_id}`} className="text-[11px] font-semibold text-[#0e7a45] hover:underline">
-                            профил
-                          </Link>
-                        ) : (
-                          <span className="text-[11px] text-black/30">без профил</span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removeOrganizerAt(index)}
-                          className="ml-0.5 text-sm leading-none text-black/35 hover:text-[#b13a1a]"
-                          aria-label="Премахни"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                return (
+                  <div className="rounded-xl border border-black/[0.08] bg-[#fafafa] p-3 space-y-3">
 
-                {/* ── Search ── */}
-                <div>
-                  <input
-                    value={organizerSearch}
-                    onChange={(e) => setOrganizerSearch(e.target.value)}
-                    placeholder="Търси организатор…"
-                    className="w-full rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-sm outline-none focus:border-black/30"
-                  />
-                </div>
+                    {/* ── Свързани организатори (chips) ── */}
+                    {linkedEntries.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {organizerEntries.map((entry, index) => {
+                          if (!entry.organizer_id.trim()) return null;
+                          return (
+                            <span
+                              key={`linked-${entry.organizer_id}-${index}`}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[#0e7a45]/25 bg-[#0e7a45]/[0.06] px-3 py-1 text-sm text-black/85"
+                            >
+                              <input
+                                value={entry.name}
+                                onChange={(e) => updateOrganizerNameAt(index, e.target.value)}
+                                className="max-w-[220px] border-0 bg-transparent p-0 text-sm outline-none"
+                                aria-label={`Организатор ${index + 1}`}
+                              />
+                              <Link href={`/admin/organizers/${entry.organizer_id}`} className="text-[11px] font-semibold text-[#0e7a45] hover:underline">
+                                профил ↗
+                              </Link>
+                              <button type="button" onClick={() => removeOrganizerAt(index)} className="text-sm leading-none text-black/30 hover:text-[#b13a1a]" aria-label="Премахни">×</button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
 
-                {/* ── Резултати (само при активно търсене) ── */}
-                {organizerSearch.trim() ? (
-                  <div className="overflow-hidden rounded-lg border border-black/[0.08] bg-white">
+                    {/* ── Reconciliation cards за unresolved организатори ── */}
+                    {unresolvedEntries.map(({ entry, index }) => {
+                      const entryKey = `${index}:${entry.name}`;
+                      const isConfirmed = confirmedTextOrganizers.has(entryKey);
 
-                    {/* Мачове от каталога */}
-                    {availableOrganizerOptions.length > 0 ? (
-                      <ul>
-                        {availableOrganizerOptions.slice(0, 6).map((o) => (
-                          <li key={o.id} className="flex items-center justify-between gap-3 border-b border-black/[0.05] px-3 py-2 last:border-0 hover:bg-black/[0.02]">
-                            <span className="text-sm text-black/80">{o.name}</span>
+                      if (isConfirmed) {
+                        // Показва като прост chip — потвърден само по ime
+                        return (
+                          <span key={entryKey} className="inline-flex items-center gap-1.5 rounded-full border border-black/[0.12] bg-white px-3 py-1 text-sm text-black/70">
+                            <input
+                              value={entry.name}
+                              onChange={(e) => updateOrganizerNameAt(index, e.target.value)}
+                              className="max-w-[220px] border-0 bg-transparent p-0 text-sm outline-none"
+                              aria-label={`Организатор ${index + 1}`}
+                            />
+                            <span className="text-[11px] text-black/30">без профил</span>
+                            <button type="button" onClick={() => removeOrganizerAt(index)} className="text-sm leading-none text-black/30 hover:text-[#b13a1a]" aria-label="Премахни">×</button>
+                          </span>
+                        );
+                      }
+
+                      const suggestions = findCatalogSuggestions(entry.name, organizerOptions, linkedIds);
+
+                      return (
+                        <div key={entryKey} className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                          <div className="mb-2 flex items-start justify-between gap-2">
+                            <div>
+                              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-700/80">Намерен от проучване</span>
+                              <p className="mt-0.5 text-sm font-medium text-black/80">{entry.name}</p>
+                            </div>
+                            <button type="button" onClick={() => removeOrganizerAt(index)} className="shrink-0 text-sm leading-none text-black/30 hover:text-[#b13a1a]" aria-label="Премахни">×</button>
+                          </div>
+
+                          {suggestions.length > 0 ? (
+                            <div className="mb-2.5">
+                              <p className="mb-1.5 text-[11px] text-black/45">Намерено в каталога:</p>
+                              <ul className="space-y-1">
+                                {suggestions.map((s) => (
+                                  <li key={s.id} className="flex items-center justify-between gap-2 rounded-md border border-black/[0.08] bg-white px-2.5 py-1.5">
+                                    <span className="text-sm text-black/75">{s.name}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => linkOrganizerEntryAt(index, s)}
+                                      className="shrink-0 rounded-md bg-[#0e7a45]/10 px-2.5 py-1 text-[11px] font-semibold text-[#0e7a45] transition hover:bg-[#0e7a45]/20"
+                                    >
+                                      Свържи →
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : (
+                            <p className="mb-2.5 text-[11px] text-black/40">Не е намерен в каталога.</p>
+                          )}
+
+                          <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
-                              onClick={() => addOrganizerById(o.id)}
-                              className="shrink-0 rounded-md bg-[#0e7a45]/10 px-2.5 py-1 text-[11px] font-semibold text-[#0e7a45] transition hover:bg-[#0e7a45]/20"
+                              onClick={() => setConfirmedTextOrganizers((prev) => new Set([...prev, entryKey]))}
+                              className="rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-black/60 transition hover:border-black/20 hover:text-black"
                             >
-                              Свържи
+                              Запази само по ime
                             </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
+                            <button
+                              type="button"
+                              onClick={() => onCreateOrganizerInline(entry.name, index)}
+                              disabled={creatingOrganizer}
+                              className="rounded-lg bg-[#0c0e14] px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-black disabled:opacity-40"
+                            >
+                              {creatingOrganizer ? "Създава се…" : "Създай нов профил"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
 
-                    {/* Fallback действия с търсения текст */}
-                    <div className={`px-3 py-2.5 ${availableOrganizerOptions.length > 0 ? "border-t border-black/[0.06] bg-black/[0.015]" : ""}`}>
-                      {availableOrganizerOptions.length === 0 ? (
-                        <p className="mb-2 text-xs text-black/45">
-                          <span className="font-medium text-black/60">&ldquo;{organizerSearch.trim()}&rdquo;</span> не е намерен в каталога
-                        </p>
-                      ) : (
-                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-black/35">Или добави по друг начин:</p>
-                      )}
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={addOrganizerFromSearch}
-                          className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold text-black/65 transition hover:border-black/20 hover:text-black"
-                        >
-                          + Добави само по ime
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onCreateOrganizerInline(organizerSearch.trim())}
-                          disabled={creatingOrganizer}
-                          className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-black disabled:opacity-40"
-                        >
-                          {creatingOrganizer ? "Създава се…" : "+ Създай нов профил"}
-                        </button>
-                      </div>
+                    {/* ── Показва "Няма организатор" само ако списъкът е напълно празен ── */}
+                    {organizerEntries.length === 0 && (
+                      <p className="text-sm italic text-black/30">Няма добавен организатор</p>
+                    )}
+
+                    {/* ── Manual search — за добавяне на допълнителни ── */}
+                    <div>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-black/35">
+                        {organizerEntries.length > 0 ? "Добави още организатор" : "Добави организатор"}
+                      </p>
+                      <input
+                        value={organizerSearch}
+                        onChange={(e) => setOrganizerSearch(e.target.value)}
+                        placeholder="Търси в каталога…"
+                        className="w-full rounded-lg border border-black/[0.1] bg-white px-3 py-2 text-sm outline-none focus:border-black/30"
+                      />
                     </div>
 
-                  </div>
-                ) : null}
+                    {organizerSearch.trim() ? (
+                      <div className="overflow-hidden rounded-lg border border-black/[0.08] bg-white">
+                        {availableOrganizerOptions.length > 0 ? (
+                          <ul>
+                            {availableOrganizerOptions.slice(0, 6).map((o) => (
+                              <li key={o.id} className="flex items-center justify-between gap-3 border-b border-black/[0.05] px-3 py-2 last:border-0 hover:bg-black/[0.02]">
+                                <span className="text-sm text-black/80">{o.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => addOrganizerById(o.id)}
+                                  className="shrink-0 rounded-md bg-[#0e7a45]/10 px-2.5 py-1 text-[11px] font-semibold text-[#0e7a45] transition hover:bg-[#0e7a45]/20"
+                                >
+                                  Свържи
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                        <div className={`px-3 py-2.5 ${availableOrganizerOptions.length > 0 ? "border-t border-black/[0.06] bg-black/[0.015]" : ""}`}>
+                          {availableOrganizerOptions.length === 0 && (
+                            <p className="mb-2 text-xs text-black/45">
+                              <span className="font-medium text-black/60">&ldquo;{organizerSearch.trim()}&rdquo;</span> не е намерен в каталога
+                            </p>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={addOrganizerFromSearch}
+                              className="rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-black/65 transition hover:border-black/20 hover:text-black"
+                            >
+                              + Добави само по ime
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onCreateOrganizerInline(organizerSearch.trim())}
+                              disabled={creatingOrganizer}
+                              className="rounded-lg bg-[#0c0e14] px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-black disabled:opacity-40"
+                            >
+                              {creatingOrganizer ? "Създава се…" : "+ Създай нов профил"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
 
-              </div>
+                  </div>
+                );
+              })()}
         </AdminFieldSection>
 
         <AdminFieldSection

@@ -2,6 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
+import { DatePickerButton, TimePickerButton } from "@/components/admin/DateTimePickerButtons";
 import {
   isScheduleTimeOrderInvalid,
   parseHmInputToDbTime,
@@ -192,15 +193,18 @@ const ProgramDraftEditor = forwardRef<ProgramDraftEditorHandle, Props>(function 
         {blocks.map((block) => (
           <li key={block.id} className="rounded-xl border border-black/[0.08] bg-white/90 p-3 shadow-sm shadow-black/[0.02]">
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2 border-b border-black/[0.06] pb-3">
-              <label className="min-w-[10rem] max-w-[14rem] flex-1">
+              <label className="min-w-[10rem] max-w-[16rem] flex-1">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">{datePlaceholder}</span>
-                <DdMmYyyyDateInput
-                  value={block.date}
-                  onChange={(iso) => updateDay(block.id, { date: iso })}
-                  className={`${ADMIN_ENTITY_CONTROL_CLASS} mt-1`}
-                  placeholder={datePlaceholder}
-                  visualVariant="dots"
-                />
+                <div className="mt-1 flex items-center gap-1.5">
+                  <DdMmYyyyDateInput
+                    value={block.date}
+                    onChange={(iso) => updateDay(block.id, { date: iso })}
+                    className={ADMIN_ENTITY_CONTROL_CLASS}
+                    placeholder={datePlaceholder}
+                    visualVariant="dots"
+                  />
+                  <DatePickerButton value={block.date} onChange={(iso) => updateDay(block.id, { date: iso })} />
+                </div>
               </label>
               <button
                 type="button"
@@ -235,31 +239,43 @@ const ProgramDraftEditor = forwardRef<ProgramDraftEditorHandle, Props>(function 
                   <li key={row.id} className="rounded-lg border border-black/[0.06] bg-black/[0.02] p-2.5">
                     <div className="grid gap-2.5 md:grid-cols-12 md:items-start">
                       <div className="flex flex-wrap items-end gap-2 md:col-span-3">
-                        <label className="w-[7rem] shrink-0">
+                        <label className="shrink-0">
                           <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/45">Начало</span>
-                          <input
-                            type="time"
-                            step={60}
-                            value={safeTimeValue(row.start_time)}
-                            onChange={(e) =>
-                              updateItem(block.id, row.id, { start_time: e.target.value || null })
-                            }
-                            className={`${ADMIN_NATIVE_TIME_INPUT_CLASS} mt-1 !w-[7rem] shrink-0 tabular-nums`}
-                            aria-label="Начало"
-                          />
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <input
+                              type="time"
+                              step={60}
+                              value={safeTimeValue(row.start_time)}
+                              onChange={(e) =>
+                                updateItem(block.id, row.id, { start_time: e.target.value || null })
+                              }
+                              className={`${ADMIN_NATIVE_TIME_INPUT_CLASS} !w-[7rem] shrink-0 tabular-nums`}
+                              aria-label="Начало"
+                            />
+                            <TimePickerButton
+                              value={safeTimeValue(row.start_time)}
+                              onChange={(hhmm) => updateItem(block.id, row.id, { start_time: hhmm || null })}
+                            />
+                          </div>
                         </label>
-                        <label className="w-[7rem] shrink-0">
+                        <label className="shrink-0">
                           <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-black/40">Край</span>
-                          <input
-                            type="time"
-                            step={60}
-                            value={safeTimeValue(row.end_time)}
-                            onChange={(e) =>
-                              updateItem(block.id, row.id, { end_time: e.target.value || null })
-                            }
-                            className={`${ADMIN_NATIVE_TIME_INPUT_CLASS} mt-1 !w-[7rem] shrink-0 tabular-nums`}
-                            aria-label="Край"
-                          />
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <input
+                              type="time"
+                              step={60}
+                              value={safeTimeValue(row.end_time)}
+                              onChange={(e) =>
+                                updateItem(block.id, row.id, { end_time: e.target.value || null })
+                              }
+                              className={`${ADMIN_NATIVE_TIME_INPUT_CLASS} !w-[7rem] shrink-0 tabular-nums`}
+                              aria-label="Край"
+                            />
+                            <TimePickerButton
+                              value={safeTimeValue(row.end_time)}
+                              onChange={(hhmm) => updateItem(block.id, row.id, { end_time: hhmm || null })}
+                            />
+                          </div>
                         </label>
                         {orderInvalid ? (
                           <p className="w-full text-[11px] font-medium text-[#b13a1a] md:col-span-2">Краят трябва да е след началото.</p>

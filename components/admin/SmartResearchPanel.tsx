@@ -260,6 +260,7 @@ export default function SmartResearchPanel() {
         title: titleWithYear,
         description: fields.description,
         category: fields.category,
+        tags: fields.tags,
         start_date: fields.start_date,
         end_date: fields.end_date,
         city: fields.city,

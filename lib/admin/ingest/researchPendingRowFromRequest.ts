@@ -330,6 +330,9 @@ export async function buildResearchPendingRowFromRequest(
       ticket_url: sanitizeNullableString(ai.ticket_url),
       ...heroResolved.patch,
       is_free: isFreeAi,
+      tags: Array.isArray((ai as { tags?: unknown }).tags)
+        ? ((ai as { tags: unknown[] }).tags as unknown[]).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
+        : [],
       source_url: sourcePrimaryUrl,
       source_primary_url: sourcePrimaryUrl,
       source_count: sourceUrls.length,

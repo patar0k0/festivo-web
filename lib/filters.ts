@@ -99,9 +99,6 @@ export function parseFilters(searchParams: Record<string, string | string[] | un
 }
 
 export function withDefaultFilters(filters: Filters): Filters {
-  if (filters.free === undefined) {
-    return { ...filters, free: true };
-  }
   return filters;
 }
 

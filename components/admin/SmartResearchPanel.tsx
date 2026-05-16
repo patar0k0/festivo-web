@@ -392,16 +392,28 @@ export default function SmartResearchPanel() {
             )}
           </div>
 
-          {/* Send to pipeline */}
-          <div className="flex items-center gap-3">
+          {/* Add to review */}
+          <div className="flex flex-col gap-2">
             <button
               onClick={sendToPipeline}
               disabled={isSending}
-              className="rounded-xl border border-black/15 bg-white px-5 py-2.5 text-sm font-medium text-black/80 shadow-sm transition hover:bg-black/[0.03] disabled:opacity-40"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-black px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-black/80 disabled:opacity-40"
             >
-              {isSending ? "Изпращане..." : "Изпрати в pipeline →"}
+              {isSending ? (
+                <>
+                  <span className="size-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  Създавам...
+                </>
+              ) : (
+                <>
+                  Добави за преглед
+                  <span className="text-white/50">→</span>
+                </>
+              )}
             </button>
-            {sendStatus && <p className="text-sm text-black/60">{sendStatus}</p>}
+            {sendStatus && (
+              <p className="text-center text-xs text-red-600">{sendStatus}</p>
+            )}
           </div>
 
           {/* Warnings (debug) */}

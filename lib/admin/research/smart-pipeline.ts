@@ -3,8 +3,32 @@ import { serpApiSearch } from "@/lib/research/serpApiSearch";
 import { researchFestival } from "@/lib/research/perplexity";
 import { extractFestivalFieldsFromEvidence } from "@/lib/admin/research/gemini-extract";
 import { isGeminiConfigured } from "@/lib/admin/research/gemini-provider";
+import { fetchSourceDocument } from "@/lib/admin/research/source-extract";
 import { programDraftFromGeminiProgram } from "@/lib/festival/programDraft";
 import type { ProgramDraft } from "@/lib/festival/programDraft";
+
+/** Домейни, от които е безсмислено да извличаме пълно съдържание */
+const SKIP_FETCH_DOMAINS = new Set([
+  "facebook.com",
+  "instagram.com",
+  "youtube.com",
+  "twitter.com",
+  "x.com",
+  "tiktok.com",
+  "linkedin.com",
+  "google.com",
+  "wikipedia.org",
+  "pdf",
+]);
+
+function shouldFetchDomain(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+    return !SKIP_FETCH_DOMAINS.has(host) && !url.toLowerCase().endsWith(".pdf");
+  } catch {
+    return false;
+  }
+}
 
 export type SmartResearchSource = {
   url: string;
@@ -81,9 +105,18 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   const aiOverviewText = enResult.ai_overview_text;
   const organic = bgResult.organic;
 
+  // Step 1.5: fetch full page content for top organic results (parallel, best-effort)
+  const fetchCandidates = organic.filter((r) => shouldFetchDomain(r.url)).slice(0, 3);
+  const fetchedDocs = (
+    await Promise.allSettled(fetchCandidates.map((r) => fetchSourceDocument(r.url)))
+  )
+    .map((res) => (res.status === "fulfilled" ? res.value : null))
+    .filter((doc): doc is NonNullable<typeof doc> => doc !== null && doc.excerpt.length > 100);
+
   // Step 2: quality check — Perplexity fallback when results are thin
   const bgDomainCount = organic.filter((r) => r.url.toLowerCase().includes(".bg")).length;
-  const hasGoodResults = Boolean(aiOverviewText) || bgDomainCount >= 3;
+  const hasFullContent = fetchedDocs.length >= 1;
+  const hasGoodResults = Boolean(aiOverviewText) || bgDomainCount >= 3 || hasFullContent;
 
   let perplexityContext: string | null = null;
   if (!hasGoodResults && process.env.PERPLEXITY_API_KEY?.trim()) {
@@ -107,15 +140,25 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   }
 
   // Step 3: build combined evidence for Gemini
+  // Priority: AI Overview → full page text (up to 5 000 chars each) → remaining snippets → Perplexity
   const evidenceParts: string[] = [];
   if (aiOverviewText) {
     evidenceParts.push(`=== Google AI Overview ===\n${aiOverviewText}`);
   }
-  for (const r of organic.slice(0, 5)) {
-    if (r.snippet) {
+
+  // Full page content for fetched docs (much richer than snippets)
+  const fetchedUrls = new Set(fetchedDocs.map((d) => d.url));
+  for (const doc of fetchedDocs) {
+    evidenceParts.push(`=== ${doc.title} (${doc.url}) ===\n${doc.excerpt}`);
+  }
+
+  // Fallback snippets for organic results that weren't fetched
+  for (const r of organic.slice(0, 6)) {
+    if (!fetchedUrls.has(r.url) && r.snippet) {
       evidenceParts.push(`=== ${r.title ?? r.url} (${r.url}) ===\n${r.snippet}`);
     }
   }
+
   if (perplexityContext) {
     evidenceParts.push(`=== Perplexity Research ===\n${perplexityContext}`);
   }

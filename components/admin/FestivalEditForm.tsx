@@ -36,7 +36,7 @@ import { ADMIN_FIELD_LABEL, getAdminFieldLabel } from "@/lib/admin/entitySchema"
 import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
 import ProgramDraftEditor, { type ProgramDraftEditorHandle } from "@/components/admin/ProgramDraftEditor";
 import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
-import AdminDateTimeLocalInput from "@/components/admin/inputs/AdminDateTimeLocalInput";
+import { DatePickerButton } from "@/components/admin/DateTimePickerButtons";
 import { emptyProgramDraft, programDraftToPublishPayload, type ProgramDraft } from "@/lib/festival/programDraft";
 import { parseGoogleMapsUrl } from "@/lib/location/parseGoogleMapsUrl";
 import { extractPlaceIdFromGoogleMapsUrl } from "@/lib/location/extractPlaceIdFromGoogleMapsUrl";
@@ -251,8 +251,8 @@ export default function FestivalEditForm({
     description: festival.description ?? "",
     short_description: getListingShortFromEvidenceJson(festival.evidence_json),
     promotion_status: festival.promotion_status === "promoted" ? "promoted" : "normal",
-    promotion_started_at: asDatetimeLocalInput(festival.promotion_started_at),
-    promotion_expires_at: asDatetimeLocalInput(festival.promotion_expires_at),
+    promotion_started_at: asDateInput(festival.promotion_started_at ?? null),
+    promotion_expires_at: asDateInput(festival.promotion_expires_at ?? null),
     promotion_rank: festival.promotion_rank != null ? String(festival.promotion_rank) : "0",
     coords_override: festival.coords_override ?? false,
   });
@@ -1687,20 +1687,33 @@ export default function FestivalEditForm({
             />
           </label>
           {isPromotionEnabled ? (
-            <div className="flex w-full flex-col gap-3">
-              <label className="block w-full">
-                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Промотиран от</span>
-                <AdminDateTimeLocalInput value={form.promotion_started_at} onChange={(e) => updateField("promotion_started_at", e.target.value)} />
-                <p className="mt-1.5 text-xs text-black/50">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/45">Промотиран от (по избор)</span>
+                <div className="flex items-center gap-1.5">
+                  <DdMmYyyyDateInput
+                    value={form.promotion_started_at}
+                    onChange={(iso) => updateField("promotion_started_at", iso)}
+                    className={ADMIN_ENTITY_CONTROL_CLASS}
+                    visualVariant="dots"
+                  />
+                  <DatePickerButton value={form.promotion_started_at} onChange={(iso) => updateField("promotion_started_at", iso)} />
+                </div>
+                <p className="mt-1.5 text-xs text-black/40">
                   Информативно — промоцията е активна веднага след включване.
                 </p>
               </label>
-              <label className="block w-full">
+              <label className="block">
                 <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">Край на промоцията</span>
-                <AdminDateTimeLocalInput
-                  value={form.promotion_expires_at}
-                  onChange={(e) => updateField("promotion_expires_at", e.target.value)}
-                />
+                <div className="flex items-center gap-1.5">
+                  <DdMmYyyyDateInput
+                    value={form.promotion_expires_at}
+                    onChange={(iso) => updateField("promotion_expires_at", iso)}
+                    className={ADMIN_ENTITY_CONTROL_CLASS}
+                    visualVariant="dots"
+                  />
+                  <DatePickerButton value={form.promotion_expires_at} onChange={(iso) => updateField("promotion_expires_at", iso)} />
+                </div>
               </label>
             </div>
           ) : null}

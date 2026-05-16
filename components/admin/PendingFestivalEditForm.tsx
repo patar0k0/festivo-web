@@ -13,6 +13,45 @@ import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/
 import { extractNormalizationSuggestions, type SuggestionField } from "@/lib/festival/normalizationSuggestions";
 import { listFilledPendingRecordFields, type PendingFestivalQuality } from "@/lib/admin/pendingFestivalQuality";
 import { resolvePendingDraftEditorOpenAction } from "@/lib/festival/editorOpenAction";
+
+// Inline picker helpers — calendar icon for dates, clock icon for times
+function DatePickerButton({ value, onChange }: { value: string; onChange: (iso: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <span className="relative inline-flex shrink-0">
+      <button
+        type="button"
+        title="Избери от календар"
+        onClick={() => ref.current?.showPicker?.()}
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/10 bg-white text-black/35 transition hover:border-black/20 hover:text-black/70"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </button>
+      <input ref={ref} type="date" value={value} onChange={(e) => onChange(e.target.value)} tabIndex={-1} aria-hidden="true" style={{ position: "absolute", opacity: 0, width: 1, height: 1, pointerEvents: "none" }} />
+    </span>
+  );
+}
+
+function TimePickerButton({ value, onChange }: { value: string; onChange: (hhmm: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <span className="relative inline-flex shrink-0">
+      <button
+        type="button"
+        title="Избери час"
+        onClick={() => ref.current?.showPicker?.()}
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-black/10 bg-white text-black/35 transition hover:border-black/20 hover:text-black/70"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+      </button>
+      <input ref={ref} type="time" value={value} onChange={(e) => onChange(e.target.value)} tabIndex={-1} aria-hidden="true" style={{ position: "absolute", opacity: 0, width: 1, height: 1, pointerEvents: "none" }} />
+    </span>
+  );
+}
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import { getVideoEmbedSrcFromPageUrl, isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
@@ -1521,28 +1560,38 @@ export default function PendingFestivalEditForm({
         <AdminFieldSection title={ADMIN_ENTITY_SECTION.dateTime.title} variant={ADMIN_ENTITY_SECTION.dateTime.variant}>
           <AdminFieldGrid>
             <AdminFieldInlineRow field="startDate">
-              <DdMmYyyyDateInput
-                value={form.start_date ?? ""}
-                onChange={(iso) => updateField("start_date", iso)}
-                className={ADMIN_ENTITY_CONTROL_CLASS}
-                visualVariant="dots"
-              />
+              <div className="flex items-center gap-1.5">
+                <DdMmYyyyDateInput
+                  value={form.start_date ?? ""}
+                  onChange={(iso) => updateField("start_date", iso)}
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                  visualVariant="dots"
+                />
+                <DatePickerButton value={form.start_date ?? ""} onChange={(iso) => updateField("start_date", iso)} />
+              </div>
             </AdminFieldInlineRow>
             <AdminFieldInlineRow field="endDate">
-              <DdMmYyyyDateInput
-                value={form.end_date ?? ""}
-                onChange={(iso) => updateField("end_date", iso)}
-                className={ADMIN_ENTITY_CONTROL_CLASS}
-                visualVariant="dots"
-              />
+              <div className="flex items-center gap-1.5">
+                <DdMmYyyyDateInput
+                  value={form.end_date ?? ""}
+                  onChange={(iso) => updateField("end_date", iso)}
+                  className={ADMIN_ENTITY_CONTROL_CLASS}
+                  visualVariant="dots"
+                />
+                <DatePickerButton value={form.end_date ?? ""} onChange={(iso) => updateField("end_date", iso)} />
+              </div>
             </AdminFieldInlineRow>
             <AdminFieldInlineRow field="startTime">
-              <span className="sr-only">HH:mm</span>
-              <AdminTimeInput value={form.start_time} onChange={(e) => updateField("start_time", e.target.value)} />
+              <div className="flex items-center gap-1.5">
+                <AdminTimeInput value={form.start_time} onChange={(e) => updateField("start_time", e.target.value)} />
+                <TimePickerButton value={form.start_time ?? ""} onChange={(hhmm) => updateField("start_time", hhmm)} />
+              </div>
             </AdminFieldInlineRow>
             <AdminFieldInlineRow field="endTime">
-              <span className="sr-only">HH:mm</span>
-              <AdminTimeInput value={form.end_time} onChange={(e) => updateField("end_time", e.target.value)} />
+              <div className="flex items-center gap-1.5">
+                <AdminTimeInput value={form.end_time} onChange={(e) => updateField("end_time", e.target.value)} />
+                <TimePickerButton value={form.end_time ?? ""} onChange={(hhmm) => updateField("end_time", hhmm)} />
+              </div>
             </AdminFieldInlineRow>
             <div className="md:col-span-2">
               <AdminFieldLabel field="occurrenceDays" />

@@ -55,14 +55,17 @@ export function MediaLightbox({ items, index, onClose, onChange }: Props) {
             : embed;
           return (
             <div className="flex h-full w-full items-center justify-center bg-black">
-              <iframe
-                src={iframeSrc}
-                className="aspect-video max-h-[80vh] w-full"
-                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-                allowFullScreen
-                title="Видео"
-                style={{ border: "none", overflow: "hidden" }}
-              />
+              {/* h-[80vh] + aspect-video keeps correct 16:9 ratio; max-w-[90vw] prevents overflow on narrow screens */}
+              <div className="aspect-video h-[80vh] max-w-[90vw]">
+                <iframe
+                  src={iframeSrc}
+                  className="h-full w-full"
+                  allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  title="Видео"
+                  style={{ border: "none", overflow: "hidden" }}
+                />
+              </div>
             </div>
           );
         })()

@@ -124,6 +124,8 @@ function asDateInput(value: string | null) {
 
 function asDatetimeLocalInput(value: string | null | undefined) {
   if (!value) return "";
+  // Date-only string (YYYY-MM-DD) — return as-is so splitDatetimeLocalValue gets an empty time.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return value.trim();
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");

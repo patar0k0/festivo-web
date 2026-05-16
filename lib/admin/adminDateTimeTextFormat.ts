@@ -55,9 +55,13 @@ export function splitDatetimeLocalValue(v: string | null | undefined): { date: s
   return { date: formatIsoYyyyMmDdToDdMmYyyyDots(datePart), time: hm };
 }
 
-/** Builds `YYYY-MM-DDTHH:mm` for API / form state when both parts are valid. */
+/** Builds `YYYY-MM-DDTHH:mm` for API / form state when date is valid.
+ *  When time is empty, returns just `YYYY-MM-DD` (date-only is acceptable). */
 export function joinLocalDatetime(dateDdMmYyyy: string, timeHm: string): string {
   const iso = parseFlexibleDateToIso(dateDdMmYyyy.trim());
-  if (!iso || !isValidTime(timeHm.trim())) return "";
-  return `${iso}T${timeHm.trim()}`;
+  if (!iso) return "";
+  const t = timeHm.trim();
+  if (!t) return iso; // date-only — valid
+  if (!isValidTime(t)) return ""; // partial / invalid time — wait for more input
+  return `${iso}T${t}`;
 }

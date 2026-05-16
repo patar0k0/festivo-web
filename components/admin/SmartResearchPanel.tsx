@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { SmartResearchResult, SmartResearchFields } from "@/lib/admin/research/smart-pipeline";
 
 type LoadingStep = "idle" | "searching" | "analyzing" | "done" | "error";
@@ -106,6 +107,7 @@ function LinkLine({ label, url }: { label: string; url: string | null }) {
 }
 
 export default function SmartResearchPanel() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [step, setStep] = useState<LoadingStep>("idle");
   const [result, setResult] = useState<SmartResearchResult | null>(null);
@@ -152,7 +154,8 @@ export default function SmartResearchPanel() {
     setSendStatus("");
     try {
       const { fields, sources, confidence } = result;
-      const ai_result = {
+      const confidenceScore = confidence === "high" ? 90 : confidence === "medium" ? 60 : 30;
+      const data = {
         title: fields.title,
         description: fields.description,
         category: fields.category,
@@ -175,18 +178,16 @@ export default function SmartResearchPanel() {
         missing_fields: [],
       };
 
-      const res = await fetch("/admin/api/ingest-jobs", {
+      const res = await fetch("/admin/api/pending-festivals/direct-create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source_type: "research", ai_result }),
+        body: JSON.stringify({ data, confidence_score: confidenceScore }),
       });
-      const payload = (await res.json().catch(() => null)) as { job_id?: string; id?: string; error?: string } | null;
-      if (!res.ok) throw new Error(payload?.error ?? "Неуспешно изпращане.");
-      const jobId = payload?.job_id ?? payload?.id;
-      setSendStatus(`✓ Изпратено — job ${jobId}. Работникът ще създаде pending фестивал.`);
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; id?: string; error?: string } | null;
+      if (!res.ok || !payload?.id) throw new Error(payload?.error ?? "Неуспешно създаване.");
+      router.push(`/admin/pending-festivals/${payload.id}`);
     } catch (e) {
       setSendStatus(`Грешка: ${e instanceof Error ? e.message : "Неочаквана грешка."}`);
-    } finally {
       setIsSending(false);
     }
   };

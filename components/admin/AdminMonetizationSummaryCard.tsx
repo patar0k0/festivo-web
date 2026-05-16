@@ -6,8 +6,16 @@ import { hasActivePromotion } from "@/lib/monetization";
 function formatPromotionExpiry(raw: string | null | undefined): string | null {
   const trimmed = raw?.trim();
   if (!trimmed) return null;
+  // Date-only string or UTC midnight → show date only (no local-time offset).
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [y, m, d] = trimmed.split("-");
+    return `${d}.${m}.${y}`;
+  }
   const d = new Date(trimmed);
   if (Number.isNaN(d.getTime())) return null;
+  if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) {
+    return format(d, "dd.MM.yyyy", { useAdditionalDayOfYearTokens: false });
+  }
   return format(d, "dd.MM.yyyy HH:mm");
 }
 

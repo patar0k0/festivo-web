@@ -12,7 +12,8 @@ import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import { getAIProviderLabel } from "@/lib/ai/providerUi";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import OrganizerOwnershipSection, { type OrganizerOwnershipMember } from "@/components/admin/OrganizerOwnershipSection";
-import AdminDateTimeLocalInput from "@/components/admin/inputs/AdminDateTimeLocalInput";
+import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
+import { DatePickerButton } from "@/components/admin/DateTimePickerButtons";
 
 const ORGANIZER_RESEARCH_PROVIDER = "perplexity";
 
@@ -38,19 +39,6 @@ type OrganizerRecord = {
   created_at: string | null;
 };
 
-function toDatetimeLocalValue(value: string | null): string {
-  if (!value) return "";
-  // Date-only string (YYYY-MM-DD) — return as-is to avoid timezone shift.
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return value.trim();
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  // UTC midnight → entered as date-only; avoid showing the +3h local offset.
-  if (date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0) {
-    return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
-  }
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 type OrganizerAiResearchResult = {
   name: string | null;
@@ -137,8 +125,8 @@ export default function OrganizerEditForm({
     phone: organizer.phone ?? "",
     verified: Boolean(organizer.verified),
     plan: organizer.plan === "vip" ? "vip" : "free",
-    plan_started_at: toDatetimeLocalValue(organizer.plan_started_at),
-    plan_expires_at: toDatetimeLocalValue(organizer.plan_expires_at),
+    plan_started_at: organizer.plan_started_at?.slice(0, 10) ?? "",
+    plan_expires_at: organizer.plan_expires_at?.slice(0, 10) ?? "",
     included_promotions_per_year: organizer.included_promotions_per_year != null ? String(organizer.included_promotions_per_year) : "0",
     organizer_rank: organizer.organizer_rank != null ? String(organizer.organizer_rank) : "0",
   });
@@ -752,20 +740,28 @@ export default function OrganizerEditForm({
                 />
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">plan_started_at</span>
-                <AdminDateTimeLocalInput
-                  value={form.plan_started_at}
-                  onChange={(e) => updateField("plan_started_at", e.target.value)}
-                  className="mt-2 rounded-xl"
-                />
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">VIP от</span>
+                <div className="mt-2 flex items-center gap-1.5">
+                  <DdMmYyyyDateInput
+                    value={form.plan_started_at}
+                    onChange={(iso) => updateField("plan_started_at", iso)}
+                    className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+                    visualVariant="dots"
+                  />
+                  <DatePickerButton value={form.plan_started_at} onChange={(iso) => updateField("plan_started_at", iso)} />
+                </div>
               </label>
               <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">plan_expires_at</span>
-                <AdminDateTimeLocalInput
-                  value={form.plan_expires_at}
-                  onChange={(e) => updateField("plan_expires_at", e.target.value)}
-                  className="mt-2 rounded-xl"
-                />
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">VIP до</span>
+                <div className="mt-2 flex items-center gap-1.5">
+                  <DdMmYyyyDateInput
+                    value={form.plan_expires_at}
+                    onChange={(iso) => updateField("plan_expires_at", iso)}
+                    className="w-full rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-sm"
+                    visualVariant="dots"
+                  />
+                  <DatePickerButton value={form.plan_expires_at} onChange={(iso) => updateField("plan_expires_at", iso)} />
+                </div>
               </label>
               <label className="md:col-span-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">included_promotions_per_year</span>

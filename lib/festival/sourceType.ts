@@ -1,6 +1,7 @@
 const CANONICAL_FESTIVAL_SOURCE_TYPES = new Set([
   "scraped",
   "manual",
+  "research",
   "claimed",
   "facebook",
   "facebook_event",
@@ -8,11 +9,10 @@ const CANONICAL_FESTIVAL_SOURCE_TYPES = new Set([
 ]);
 
 const SOURCE_TYPE_ALIASES: Record<string, string> = {
-  ai_research: "manual",
-  web_research: "manual",
-  research: "manual",
-  admin_research: "manual",
-  pipeline: "manual",
+  ai_research: "research",
+  web_research: "research",
+  admin_research: "research",
+  pipeline: "research",
 };
 
 function sanitizeSourceType(value: string | null | undefined): string | null {
@@ -37,7 +37,7 @@ export function normalizeFestivalSourceType(value: string | null | undefined): s
   if (aliased) return aliased;
 
   if (isResearchLikeSourceType(normalized)) {
-    return "manual";
+    return "research";
   }
 
   return normalized;

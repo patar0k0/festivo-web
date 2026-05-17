@@ -19,7 +19,7 @@ function stripBulgarianPrefix(value: string): string {
     const suffix = value.slice(prefix.length).trimStart();
     if (!suffix) return value;
 
-    const withoutConnector = suffix.replace(/^[-–—:\.\]\s*/, "");
+    const withoutConnector = suffix.replace(/^[-–—:\.]\s*/, "");
     const withoutQuotes = stripWrapperQuotes(withoutConnector);
     if (withoutQuotes) {
       return withoutQuotes;

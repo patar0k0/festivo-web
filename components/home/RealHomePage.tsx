@@ -120,7 +120,7 @@ export default function RealHomePage({
           href="/festivals"
           className={cn(pub.chip, pub.focusRing)}
         >
-          Избери град
+          Избери място
         </Link>
       )}
       <Link

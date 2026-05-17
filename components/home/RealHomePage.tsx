@@ -151,11 +151,9 @@ export default function RealHomePage({
                     Открий безплатни фестивали в България
                   </h1>
                   <p className={cn(pub.body, "mt-1.5")}>Бързо намери събития по град, дата и интерес.</p>
-                  <p className="mt-1.5 text-xs text-amber-900/50 md:text-sm">
+                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-900/[0.07] px-3 py-1 text-xs font-medium text-amber-900/70">
+                    <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-700/60" aria-hidden />
                     {publishedFestivalsBulgariaLabel(totalFestivalsCount)}
-                  </p>
-                  <p className="mt-1.5 text-xs text-black/45 md:text-sm">
-                    Събития от организатори и проверени публични източници
                   </p>
                 </div>
 

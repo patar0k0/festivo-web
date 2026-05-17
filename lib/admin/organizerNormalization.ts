@@ -3,6 +3,9 @@ const BULGARIAN_PREFIXES = ["сдружение", "фондация"];
 function stripWrapperQuotes(value: string): string {
   let result = value;
   for (let i = 0; i < 3; i += 1) {
+    // Only strip trailing quotes when the string also starts with a quote.
+    // This prevents names like `НЧ „Искра-1912"` from losing their closing mark.
+    if (!/^["'„“”«»]/.test(result)) break;
     result = result.replace(/^["'„“”«»]+/, "").replace(/["'„“”«»]+$/, "").trim();
   }
   return result;

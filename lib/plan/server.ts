@@ -204,7 +204,7 @@ export async function getPlanEntriesByUser(): Promise<PlanEntry[]> {
     const joined = normalizePlanCityJoin(festival.cities);
     const cityLabel =
       joined?.name_bg?.trim() != null && joined.name_bg.trim() !== ""
-        ? getCityLabel({ name_bg: fixMojibakeBG(joined.name_bg) })
+        ? getCityLabel({ name_bg: fixMojibakeBG(joined.name_bg), is_village: joined.is_village })
         : null;
     entries.push({
       scheduleItemId: String(schedule.id),

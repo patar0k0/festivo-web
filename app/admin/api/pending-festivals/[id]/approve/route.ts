@@ -662,7 +662,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const cityDisplay =
       cityById.name_bg?.trim() != null && cityById.name_bg.trim() !== ""
-        ? getCityLabel({ name_bg: fixMojibakeBG(cityById.name_bg) })
+        ? getCityLabel({ name_bg: fixMojibakeBG(cityById.name_bg), is_village: cityById.is_village })
         : pending.city_name_display?.trim() ?? null;
 
     if (pending.submission_source === "organizer_portal" && pending.submitted_by_user_id) {

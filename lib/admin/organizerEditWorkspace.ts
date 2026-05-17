@@ -58,7 +58,7 @@ function pendingCityLabel(row: {
 }): string {
   const nested = row.city_row;
   const nb = nested?.name_bg?.trim();
-  return nb ? getCityLabel({ name_bg: fixMojibakeBG(nb) }) : "—";
+  return nb ? getCityLabel({ name_bg: fixMojibakeBG(nb), is_village: nested?.is_village }) : "—";
 }
 
 export async function loadOrganizerEditWorkspace(

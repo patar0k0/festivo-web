@@ -163,7 +163,7 @@ async function fetchHomePublishedCityOptionsWithCounts(): Promise<HomeCityOption
     const slug = joined?.slug?.trim();
     if (!joined || !slug) continue;
 
-    const displayName = getCityLabel({ name_bg: fixMojibakeBG(joined.name_bg ?? slug) });
+    const displayName = getCityLabel({ name_bg: fixMojibakeBG(joined.name_bg ?? slug), is_village: joined.is_village });
 
     const existing = map.get(slug);
     if (!existing) {

@@ -794,7 +794,7 @@ export async function getCityLinks(): Promise<Array<{ name: string; slug: string
       Boolean(row.name_bg && row.slug),
     )
     .map((row) => ({
-      name: getCityLabel({ name_bg: fixMojibakeBG(row.name_bg) }),
+      name: getCityLabel({ name_bg: fixMojibakeBG(row.name_bg), is_village: row.is_village }),
       slug: row.slug,
     }));
 }
@@ -838,6 +838,7 @@ export async function getHomeCitySelectOptions(): Promise<
 
     const name = getCityLabel({
       name_bg: fixMojibakeBG(joined.name_bg ?? slug),
+      is_village: joined.is_village,
     });
     map.set(slug, { name, slug });
   }

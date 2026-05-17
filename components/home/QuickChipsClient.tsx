@@ -62,7 +62,7 @@ export default function QuickChipsClient({ chips }: QuickChipsClientProps) {
     return { nonCategoryChips: non, categoryChips: cats };
   }, [chips]);
 
-  const { firstSliceCategoryChips, selectedExtraChip, hasMoreCategories } = useMemo(() => {
+  const { firstSliceCategoryChips, selectedExtraChip, hasMoreCategories, hiddenCount } = useMemo(() => {
     const firstSlice = categoryChips.slice(0, CATEGORY_CHIPS_DEFAULT_VISIBLE_COUNT);
     const selectedTag = activeTag?.trim() ? activeTag.trim() : null;
     const selectedChip =
@@ -79,7 +79,12 @@ export default function QuickChipsClient({ chips }: QuickChipsClientProps) {
       (c) => !collapsedVisibleCategories.some((cc) => cc.href === c.href)
     );
 
-    return { firstSliceCategoryChips: firstSlice, selectedExtraChip, hasMoreCategories };
+    const hiddenCount =
+      categoryChips.length -
+      firstSlice.length -
+      (selectedChip && !isSelectedInFirstSlice ? 1 : 0);
+
+    return { firstSliceCategoryChips: firstSlice, selectedExtraChip, hasMoreCategories, hiddenCount };
   }, [activeTag, categoryChips]);
 
   const showToggle = expanded || hasMoreCategories;
@@ -137,7 +142,7 @@ export default function QuickChipsClient({ chips }: QuickChipsClientProps) {
 
           {hasMoreCategories ? (
             <button type="button" onClick={() => setExpanded(true)} className={chipClassName(false)}>
-              Още →
+              + {hiddenCount}
             </button>
           ) : null}
         </>

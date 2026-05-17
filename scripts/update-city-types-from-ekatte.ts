@@ -85,6 +85,8 @@ async function main() {
   const lookup = new Map<string, EkLookupEntry[]>();
 
   for (const entry of ekatte) {
+    // Skip metadata rows (the JSON includes a trailing metadata object without name/t_v_m)
+    if (!entry.name || !entry.t_v_m) continue;
     const key = entry.name.toLowerCase().trim();
     if (!lookup.has(key)) lookup.set(key, []);
     lookup.get(key)!.push({

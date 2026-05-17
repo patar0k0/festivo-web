@@ -56,6 +56,9 @@ export default async function AdminOrganizersPage() {
         <h1 className="text-2xl font-black tracking-tight">Organizers</h1>
         <p className="mt-1 text-sm text-black/65">Manage organizer profiles for post-approval enrichment.</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Link href="/admin/organizers/new" className="inline-flex items-center rounded-lg bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white hover:bg-black/80">
+            + Добави
+          </Link>
           <Link href="/admin/organizers/duplicates" className="inline-flex items-center rounded-lg border border-black/[0.12] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] hover:bg-black/[0.04]">
             Duplicate detection
           </Link>

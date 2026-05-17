@@ -82,7 +82,7 @@ export default function QuickChipsClient({ chips }: QuickChipsClientProps) {
     const hiddenCount =
       categoryChips.length -
       firstSlice.length -
-      (selectedChip && !isSelectedInFirstSlice ? 1 : 0);
+      (selectedExtraChip ? 1 : 0);
 
     return { firstSliceCategoryChips: firstSlice, selectedExtraChip, hasMoreCategories, hiddenCount };
   }, [activeTag, categoryChips]);
@@ -142,7 +142,7 @@ export default function QuickChipsClient({ chips }: QuickChipsClientProps) {
 
           {hasMoreCategories ? (
             <button type="button" onClick={() => setExpanded(true)} className={chipClassName(false)}>
-              + {hiddenCount}
+              Още +{hiddenCount}
             </button>
           ) : null}
         </>

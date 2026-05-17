@@ -501,6 +501,9 @@ export async function buildResearchPendingRowFromRequest(
     organizer_entries: orgEntriesResearch,
     organizer_name: primaryNameFromEntries(orgEntriesResearch, finalValues.organizer),
     ...heroResolvedLegacy.patch,
+    tags: Array.isArray(finalValues.tags)
+      ? finalValues.tags.map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
+      : [],
     tags_guess: finalValues.tags,
     start_date: startDateGemini,
     end_date: endDateGemini,

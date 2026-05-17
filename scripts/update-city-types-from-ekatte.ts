@@ -186,7 +186,7 @@ async function main() {
   });
   rl.close();
 
-  if (answer.trim().toLowerCase() !== "yes") {
+  if (!["yes", "y"].includes(answer.trim().toLowerCase())) {
     console.log("Aborted.");
     return;
   }

@@ -154,9 +154,12 @@ export default function PromotionsOverviewClient({ data }: { data: PromotedFesti
                     </td>
 
                     <td>
-                      <button type="button" className="text-sm text-blue-600 hover:underline">
+                      <a
+                        href={`/admin/festivals/${f.id}`}
+                        className="text-sm text-blue-600 hover:underline"
+                      >
                         Управление
-                      </button>
+                      </a>
                     </td>
                   </tr>
                 );

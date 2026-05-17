@@ -75,10 +75,11 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
 
   const qualityDiagnostics = assessPendingFestivalQuality(pendingFestival);
 
+  const serviceSupabase = createSupabaseAdmin();
+
   let organizers: Pick<OrganizerProfile, "id" | "name" | "slug">[] = [];
   try {
-    const adminClient = createSupabaseAdmin();
-    const { data: organizersData, error: organizersError } = await adminClient
+    const { data: organizersData, error: organizersError } = await serviceSupabase
       .from("organizers")
       .select("id,name,slug,plan,plan_started_at,plan_expires_at")
       .eq("is_active", true)
@@ -98,7 +99,7 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
 
   const sourceUrlForIngest = typeof pendingFestival.source_url === "string" ? pendingFestival.source_url.trim() : "";
   if (sourceUrlForIngest) {
-    const { data: ingestJob, error: ingestJobError } = await ctx.supabase
+    const { data: ingestJob, error: ingestJobError } = await serviceSupabase
       .from("ingest_jobs")
       .select("status,fb_browser_context,finished_at")
       .eq("source_url", sourceUrlForIngest)

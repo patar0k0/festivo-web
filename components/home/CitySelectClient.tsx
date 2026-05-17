@@ -164,7 +164,7 @@ export default function CitySelectClient({
         aria-controls="city-menu"
         className={cn(pub.chip, pub.focusRing)}
       >
-        Избери град
+        Избери място
       </button>
       {mounted && menu ? createPortal(menu, document.body) : null}
     </div>

@@ -35,7 +35,7 @@ export default function FestivalsListingDiscovery({
             pub.focusRing,
           )}
         >
-          Избери град
+          Избери място
         </Link>
       )}
       <Link

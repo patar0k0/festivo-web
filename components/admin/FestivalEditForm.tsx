@@ -122,20 +122,6 @@ function asDateInput(value: string | null) {
   return value ? value.slice(0, 10) : "";
 }
 
-function asDatetimeLocalInput(value: string | null | undefined) {
-  if (!value) return "";
-  // Date-only string (YYYY-MM-DD) — return as-is so splitDatetimeLocalValue shows an empty time field.
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return value.trim();
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  // If stored as UTC midnight it was entered as date-only; return just the date to avoid showing a
-  // confusing +3h local-time offset (e.g. 2026-05-24T00:00Z → "03:00" Sofia time).
-  if (date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0) {
-    return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
-  }
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 function validateCoords(latRaw: string, lngRaw: string) {
   if (!latRaw && !lngRaw) {

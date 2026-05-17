@@ -13,7 +13,7 @@
 - **Sprint ден:** 1 / 14
 - **Launch стабилност:** 🟡 в подготовка
 - **Блокери в момента:** —
-- **Последно обновяване:** 17 май 2026
+- **Последно обновяване:** 18 май 2026
 
 ---
 
@@ -23,7 +23,8 @@
 
 #### Ден 1–2: Мониторинг + Pixel (НАЙ-ВАЖНОТО)
 
-- [ ] **Sentry** setup — `npm i @sentry/nextjs && npx @sentry/wizard`
+- [x] **Sentry** setup — `npm i @sentry/nextjs && npx @sentry/wizard`
+> 💡 Claude Code note (18 май): Инсталиран `@sentry/nextjs`. Wizard + Vercel integration минаха успешно. DSN в env vars. Конфигурирано: `tracesSampleRate: 0.1`, `replaysSessionSampleRate: 0.0`, `replaysOnErrorSampleRate: 1.0`, `sendDefaultPii: false` (GDPR). `generateMetadata()` в `app/layout.tsx` включва `Sentry.getTraceData()` за distributed tracing.
 - [ ] **Plausible** или **Umami** instalation — script tag в `layout.tsx`
 - [ ] **Meta Pixel** инсталиран — започва да събира data веднага
 - [ ] **GA4** + Google Tag Manager — за по-късно Google Ads
@@ -336,4 +337,4 @@
 
 ---
 
-_Last updated: 17 май 2026 от Експерта_
+_Last updated: 18 май 2026 от Claude Code_

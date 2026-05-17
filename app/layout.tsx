@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Fraunces, Manrope } from "next/font/google";
+import * as Sentry from "@sentry/nextjs";
 import ConsentGatedAnalytics from "@/components/ConsentGatedAnalytics";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import LayoutShell from "@/components/LayoutShell";
@@ -23,17 +24,22 @@ const cormorantGaramond = Cormorant_Garamond({
   weight: ["600", "700"],
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://festivo.bg"),
-  title: {
-    default: "Festivo — Discover festivals in Bulgaria",
-    template: "%s · Festivo",
-  },
-  description: "Browse published festivals, find dates, and plan weekends across Bulgaria.",
-  icons: {
-    icon: "/brand/festivo-icon.svg",
-  },
-};
+export function generateMetadata(): Metadata {
+  return {
+    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://festivo.bg"),
+    title: {
+      default: "Festivo — Discover festivals in Bulgaria",
+      template: "%s · Festivo",
+    },
+    description: "Browse published festivals, find dates, and plan weekends across Bulgaria.",
+    icons: {
+      icon: "/brand/festivo-icon.svg",
+    },
+    other: {
+      ...Sentry.getTraceData(),
+    },
+  };
+}
 
 export default function RootLayout({
   children,

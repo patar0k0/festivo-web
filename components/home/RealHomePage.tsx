@@ -118,20 +118,14 @@ export default function RealHomePage({
       ) : (
         <Link
           href="/festivals"
-          className={cn(
-            "rounded-2xl border border-amber-200/40 bg-white/92 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] shadow-sm ring-1 ring-amber-100/30 transition hover:border-amber-300/55 hover:bg-white",
-            pub.focusRing,
-          )}
+          className={cn(pub.chip, pub.focusRing)}
         >
           Избери град
         </Link>
       )}
       <Link
         href="/calendar"
-        className={cn(
-          "rounded-2xl border border-amber-200/40 bg-white/92 px-4 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#0c0e14] shadow-sm ring-1 ring-amber-100/30 transition hover:border-amber-300/55 hover:bg-white",
-          pub.focusRing,
-        )}
+        className={cn(pub.chip, pub.focusRing)}
       >
         Избери дата
       </Link>

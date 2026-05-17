@@ -1,5 +1,19 @@
 # Festivo — Claude Development Guide
 
+## Launch Sprint (активен)
+
+Festivo.bg е в активен 14-дневен launch sprint. Преди ВСЯКА задача:
+
+1. Прочети `LAUNCH_CHECKLIST.md` в root-а
+2. Провери дали задачата е част от sprint-а
+3. Ако е — маркирай я като `[~]` преди да започнеш
+4. След като приключиш — маркирай я като `[x]` и добави бележка
+5. Обнови `Sprint ден` и `Последно обновяване` в горната секция
+
+Следвай инструкциите в секцията „🤖 Инструкции за Claude Code" в самия файл.
+
+---
+
 ## Language
 
 Always respond in **Bulgarian**. This applies to all messages, explanations, code comments, and commit messages. Only exception: code identifiers, API names, and technical strings stay in English as they appear in the codebase.

@@ -363,9 +363,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const normalizedAddress = normalizeSettlementInput(canonicalApproved.address ?? "");
 
+    const serviceSupabase = createSupabaseAdmin();
+
     let rawSourceType: string | null = null;
     if (pending.source_url) {
-      const { data: ingestJob, error: ingestJobError } = await adminCtx.supabase
+      const { data: ingestJob, error: ingestJobError } = await serviceSupabase
         .from("ingest_jobs")
         .select("source_type")
         .eq("source_url", pending.source_url)
@@ -390,7 +392,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     let publishedOrganizerIds: string[] = [];
 
     const entries = pendingRowToOrganizerEntries(pending);
-    const serviceSupabase = createSupabaseAdmin();
 
     if (entries.length > 0) {
       try {

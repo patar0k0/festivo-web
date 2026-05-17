@@ -58,7 +58,7 @@ function mapPlanFestivalRow(row: {
     id: String(row.id),
     slug: row.slug,
     title: row.title,
-    city: joined?.name_bg?.trim() ? getCityLabel({ name_bg: fixMojibakeBG(joined.name_bg) }) : null,
+    city: joined?.name_bg?.trim() ? getCityLabel({ name_bg: fixMojibakeBG(joined.name_bg), is_village: joined.is_village }) : null,
     start_date: row.start_date,
     end_date: row.end_date,
     occurrence_dates: row.occurrence_dates ?? null,

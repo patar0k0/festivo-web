@@ -1,15 +1,18 @@
 import { normalizeFestivalLocationText } from "@/lib/festival/publicLocationDisplay";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
+import { settlementPrefix } from "@/lib/settlements/getCityLabel";
 
 export type FestivalLocationDisplayInput = {
   location_name?: string | null;
-  cities?: { name_bg?: string | null } | null;
+  cities?: { name_bg?: string | null; is_village?: boolean | null } | null;
 };
 
 export function getFestivalLocationDisplay(festival: FestivalLocationDisplayInput) {
   const locationName = festival.location_name?.trim() || null;
   const rawCity = festival.cities?.name_bg?.trim() || null;
-  const city = rawCity ? fixMojibakeBG(rawCity) : null;
+  const city = rawCity
+    ? settlementPrefix(festival.cities?.is_village) + fixMojibakeBG(rawCity)
+    : null;
 
   return {
     title: locationName,

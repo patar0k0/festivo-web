@@ -82,7 +82,7 @@ function locationSummaryFromFestival(row: FestivalRowForReminderEmail): string |
 function cityDisplayFromFestival(row: FestivalRowForReminderEmail): string | null {
   const c = normalizeCityJoin(row.cities);
   if (c?.name_bg?.trim()) {
-    return getCityLabel({ name_bg: fixMojibakeBG(c.name_bg) });
+    return getCityLabel({ name_bg: fixMojibakeBG(c.name_bg), is_village: c.is_village });
   }
   return null;
 }

@@ -331,7 +331,7 @@ export default function OrganizerEditForm({
     const rel = pickedCity ?? workspace.initialCity;
     if (!rel?.name_bg?.trim()) return null;
     const nb = rel.name_bg?.trim();
-    return nb ? getCityLabel({ name_bg: nb }) : null;
+    return nb ? getCityLabel({ name_bg: nb, is_village: rel.is_village }) : null;
   })();
 
   const previewWebsiteHref = normalizeExternalHttpHref(form.website_url);

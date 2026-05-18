@@ -69,10 +69,11 @@
 - [ ] Email confirmation шаблон
 - [ ] Unsubscribe линк във всички marketing имейли
 - [ ] **Supabase RLS** audit на всички таблици
-- [ ] **CSP headers** в `next.config.js`
-- [ ] `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`
+- [x] **CSP headers** в `next.config.js`
+- [x] `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`
+> 💡 Claude Code note (19 май): CSP + Permissions-Policy добавени в PR #321. securityheaders.com → Grade A. Всички 6 headers зелени.
 - [ ] Всички production env vars в Vercel (нищо в git)
-- [ ] Тест в https://securityheaders.com/ → цел A grade
+- [x] Тест в https://securityheaders.com/ → цел A grade
 - [ ] **CORS** на `/api/mobile/*` — само за production app domain
 - [ ] Rate limiting на public endpoints (Upstash)
 

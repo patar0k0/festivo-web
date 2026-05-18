@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { serializeMobileFestivalDetail } from "@/lib/api/mobile/festivalSerialization";
+import { fetchFestivalLikesCount, isFestivalLikedByUser } from "@/lib/api/mobile/festivalLikes";
 import { isFestivalInUserPlan } from "@/lib/api/mobile/planSaved";
 import { mobileAuthErrorResponse, resolveMobileRequestAuth } from "@/lib/api/mobile/resolveMobileAuth";
 import { getFestivalDetail, normalizePublicFestivalSlugParam } from "@/lib/queries";
@@ -24,14 +25,18 @@ export async function GET(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    let isSaved = false;
-    if (auth.user) {
-      isSaved = await isFestivalInUserPlan(auth.supabase, auth.user.id, String(detail.festival.id));
-    }
+    const festivalId = String(detail.festival.id);
+    const [isSaved, isLiked, likesCount] = await Promise.all([
+      auth.user ? isFestivalInUserPlan(auth.supabase, auth.user.id, festivalId) : Promise.resolve(false),
+      auth.user ? isFestivalLikedByUser(auth.supabase, auth.user.id, festivalId) : Promise.resolve(false),
+      fetchFestivalLikesCount(auth.supabase, festivalId),
+    ]);
 
     const body = serializeMobileFestivalDetail(detail.festival, detail.media, isSaved, {
       days: detail.days,
       scheduleItems: detail.scheduleItems,
+      isLiked,
+      likesCount,
     });
     return NextResponse.json(body);
   } catch (e) {

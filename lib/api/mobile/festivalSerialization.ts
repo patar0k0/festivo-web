@@ -48,6 +48,8 @@ export type MobileFestivalDetailJson = {
     verified: boolean | null;
   } | null;
   is_saved: boolean;
+  is_liked: boolean;
+  likes_count: number;
   category?: string | null;
   tags?: string[] | null;
   is_verified?: boolean | null;
@@ -141,7 +143,12 @@ export function serializeMobileFestivalDetail(
   festival: Festival,
   media: FestivalMediaItem[],
   isSaved: boolean,
-  program: { days: FestivalDay[]; scheduleItems: FestivalScheduleItem[] },
+  program: {
+    days: FestivalDay[];
+    scheduleItems: FestivalScheduleItem[];
+    isLiked?: boolean;
+    likesCount?: number;
+  },
 ): MobileFestivalDetailJson {
   const organizers = festival.organizers?.filter((o) => String(o.id ?? "").trim() && String(o.name ?? "").trim()) ?? [];
   const o0 = organizers[0];
@@ -205,6 +212,10 @@ export function serializeMobileFestivalDetail(
     images: buildMobileGalleryImages(festival, media),
     organizer: organizerOut,
     is_saved: isSaved,
+    is_liked: Boolean(program.isLiked),
+    likes_count: typeof program.likesCount === "number" && Number.isFinite(program.likesCount)
+      ? Math.max(0, Math.floor(program.likesCount))
+      : 0,
     category: typeof festival.category === "string" && festival.category.trim() ? festival.category.trim() : null,
     tags: tags?.length ? tags : null,
     is_verified: festival.is_verified ?? null,

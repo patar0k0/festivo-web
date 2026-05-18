@@ -10,7 +10,7 @@
 
 ## 📍 Текущ статус
 
-- **Sprint ден:** 2 / 14
+- **Sprint ден:** 5 / 14
 - **Launch стабилност:** 🟡 в подготовка
 - **Блокери в момента:** —
 - **Последно обновяване:** 19 май 2026
@@ -58,10 +58,12 @@
 
 #### Ден 5: Email + сигурност
 
-- [ ] **DKIM** запис в DNS на festivo.bg (от Resend dashboard)
-- [ ] **SPF** запис в DNS
-- [ ] **DMARC** запис в DNS (поне `v=DMARC1; p=none`)
-- [ ] Тест в https://www.mail-tester.com/ → цел 9/10+
+- [x] **DKIM** запис в DNS на festivo.bg (от Resend dashboard)
+- [x] **SPF** запис в DNS
+- [x] **DMARC** запис в DNS (поне `v=DMARC1; p=none`)
+> 💡 Claude Code note (19 май): DKIM + SPF вече бяха в Cloudflare (Resend verified). DMARC добавен като `TXT _dmarc v=DMARC1; p=none`. След 2-3 седмици смени на `p=quarantine`.
+- [x] Тест в https://www.mail-tester.com/ → цел 9/10+
+> 💡 Claude Code note (19 май): Резултат 9/10. -1 за DMARC p=none (нормално за старт). SPF, DKIM, не сме в блокиращи списъци — всичко зелено.
 - [ ] Welcome email шаблон
 - [x] Password reset шаблон
 - [ ] Email confirmation шаблон

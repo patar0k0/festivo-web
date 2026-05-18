@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Fraunces, Manrope } from "next/font/google";
 import * as Sentry from "@sentry/nextjs";
 import { Analytics } from "@vercel/analytics/next";
+import MetaPixel from "@/components/MetaPixel";
 import ConsentGatedAnalytics from "@/components/ConsentGatedAnalytics";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import LayoutShell from "@/components/LayoutShell";
@@ -59,6 +60,7 @@ export default function RootLayout({
           <LayoutShell>{children}</LayoutShell>
         </ClientProviders>
         <Analytics />
+        <MetaPixel />
         <ConsentGatedAnalytics />
         <CookieConsentBanner />
       </body>

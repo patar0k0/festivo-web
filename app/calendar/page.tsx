@@ -41,12 +41,24 @@ export async function generateMetadata({
   const month = resolveMonth(searchParams);
   const meta = calendarMeta(month);
 
+  const canonical = `${getBaseUrl()}/calendar`;
   return {
     ...meta,
     title: "Календар на фестивалите | Festivo",
-    description: "Виж фестивалите по дати и планирай.",
-    alternates: {
-      canonical: `${getBaseUrl()}/calendar`,
+    description: "Виж фестивалите по дати и планирай уикенда си.",
+    alternates: { canonical },
+    openGraph: {
+      title: "Календар на фестивалите в България | Festivo",
+      description: "Виж фестивалите по дати и планирай уикенда си.",
+      url: canonical,
+      siteName: "Festivo",
+      locale: "bg_BG",
+      type: "website",
+    },
+    twitter: {
+      card: "summary",
+      title: "Календар на фестивалите в България | Festivo",
+      description: "Виж фестивалите по дати и планирай уикенда си.",
     },
   };
 }

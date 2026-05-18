@@ -10,10 +10,10 @@
 
 ## 📍 Текущ статус
 
-- **Sprint ден:** 1 / 14
+- **Sprint ден:** 2 / 14
 - **Launch стабилност:** 🟡 в подготовка
 - **Блокери в момента:** —
-- **Последно обновяване:** 18 май 2026
+- **Последно обновяване:** 19 май 2026
 
 ---
 
@@ -29,9 +29,11 @@
 - [x] **Meta Pixel** инсталиран — започва да събира data веднага
 > 💡 Claude Code note (18 май): Pixel ID `1381183357170093`. `MetaPixel` компонент с `next/script strategy=afterInteractive`. Env var `NEXT_PUBLIC_META_PIXEL_ID` добавен в Vercel.
 - [ ] **GA4** + Google Tag Manager — за по-късно Google Ads
-- [ ] **UptimeRobot** — добави festivo.bg homepage + `/api/health`
+- [x] **UptimeRobot** — добави festivo.bg homepage + `/api/health`
+> 💡 Claude Code note (19 май): Monitor добавен на dashboard.uptimerobot.com — HTTP/S, festivo.bg, на всеки 5 мин. `/api/health` edge endpoint добавен (PR #318).
 - [x] **Vercel Analytics** включен от dashboard
-- [ ] **Slack/Discord webhook** за критични Sentry alerts
+- [x] **Slack/Discord webhook** за критични Sentry alerts
+> 💡 Claude Code note (19 май): Email alert настроен в Sentry — "A new issue is created" → Notify Suggested Assignees. Вече има и default "high priority" alert.
 
 > ⏰ Защо първо това: мониторингът трябва да върви ПРЕДИ да има потребители. Pixel-ът има нужда от 14 дни data — стартирай го веднага.
 
@@ -338,4 +340,4 @@
 
 ---
 
-_Last updated: 18 май 2026 от Claude Code_
+_Last updated: 19 май 2026 от Claude Code_

@@ -2,6 +2,7 @@ import type { Festival, FestivalDay, FestivalMediaItem, FestivalScheduleItem } f
 import { buildMobileFestivalScheduleDto, type MobileFestivalScheduleDto } from "@/lib/api/mobile/mobileScheduleDto";
 import { deterministicSettlementJitter, getBulgariaSettlementCentroid } from "@/lib/api/mobile/bulgariaSettlementCentroids";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 
 export type MobileFestivalListItem = {
   id: string;
@@ -102,7 +103,7 @@ export function serializeMobileFestivalListItem(festival: Festival, isSaved: boo
     id: String(festival.id),
     slug: festival.slug,
     title: festival.title,
-    city: festival.city_name_display ?? null,
+    city: getFestivalLocationDisplay(festival).city ?? festival.city_name_display ?? null,
     start_date: festival.start_date ?? null,
     end_date: festival.end_date ?? null,
     image_url: typeof imageUrl === "string" && imageUrl.trim() ? imageUrl.trim() : null,
@@ -201,7 +202,7 @@ export function serializeMobileFestivalDetail(
     slug: festival.slug,
     title: festival.title,
     description: festival.description ?? null,
-    city: festival.city_name_display ?? null,
+    city: getFestivalLocationDisplay(festival).city ?? festival.city_name_display ?? null,
     dates: {
       start_date: festival.start_date ?? null,
       end_date: festival.end_date ?? null,

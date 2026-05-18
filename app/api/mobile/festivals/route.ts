@@ -81,6 +81,12 @@ export async function GET(request: Request) {
     const page = parsePage(url.searchParams);
     const pageSize = parsePageSize(url.searchParams);
 
+    if (url.searchParams.get("_debug") === "1") {
+      return NextResponse.json({
+        debug: { filters, listingSort, page, pageSize },
+      });
+    }
+
     const result = await getFestivals(filters, page, pageSize, { listingSort });
     const ids = result.data.map((f) => String(f.id));
 

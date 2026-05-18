@@ -29,7 +29,7 @@
 - [ ] **Meta Pixel** инсталиран — започва да събира data веднага
 - [ ] **GA4** + Google Tag Manager — за по-късно Google Ads
 - [ ] **UptimeRobot** — добави festivo.bg homepage + `/api/health`
-- [ ] **Vercel Analytics** включен от dashboard
+- [x] **Vercel Analytics** включен от dashboard
 - [ ] **Slack/Discord webhook** за критични Sentry alerts
 
 > ⏰ Защо първо това: мониторингът трябва да върви ПРЕДИ да има потребители. Pixel-ът има нужда от 14 дни data — стартирай го веднага.

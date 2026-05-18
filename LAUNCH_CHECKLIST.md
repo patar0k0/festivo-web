@@ -39,21 +39,24 @@
 
 #### Ден 3–4: SEO + Social meta
 
-- [ ] `robots.txt` в `/public/robots.txt`
-- [ ] `sitemap.xml` — автоматично през `app/sitemap.ts`
-- [ ] Уникален `<title>` и `meta description` на всяка route (home, /festivals, /calendar, /map, /за-организатори, [slug])
-- [ ] `canonical` URL на всяка страница
-- [ ] `lang="bg"` на `<html>`
-- [ ] **Schema.org `Event` JSON-LD** на festival detail (критично за Google rich results)
-- [ ] **Schema.org `Organization`** на homepage
-- [ ] OG картинка за homepage (1200×630)
-- [ ] Динамичен OG за festival страници (`opengraph-image.tsx`)
-- [ ] `og:title`, `og:description`, `og:image`, `og:url`, `og:type` на всяка страница
-- [ ] Twitter Card (`twitter:card="summary_large_image"`)
+- [x] `robots.txt` в `/public/robots.txt`
+- [x] `sitemap.xml` — автоматично през `app/sitemap.ts`
+- [x] Уникален `<title>` и `meta description` на всяка route (home, /festivals, /calendar, /map, /за-организатори, [slug])
+- [x] `canonical` URL на всяка страница
+- [x] `lang="bg"` на `<html>`
+- [x] **Schema.org `Event` JSON-LD** на festival detail (критично за Google rich results)
+- [x] **Schema.org `Organization`** на homepage
+- [ ] OG картинка за homepage (1200×630) — нужна е ръчна картинка в `public/og-home.jpg`
+- [x] Динамичен OG за festival страници (`opengraph-image.tsx`)
+- [x] `og:title`, `og:description`, `og:image`, `og:url`, `og:type` на всяка страница
+- [x] Twitter Card (`twitter:card="summary_large_image"`)
 - [ ] Favicons — пълен сет (16, 32, 180, 512) през realfavicongenerator.net
-- [ ] `manifest.json` с цветове `#7c2d12`, `#f6f5f1`
-- [ ] Регистрация в **Google Search Console** + submit sitemap
-- [ ] Регистрация в **Bing Webmaster Tools**
+- [x] `manifest.json` с цветове `#7c2d12`, `#f6f5f1`
+> 💡 Claude Code note (19 май): robots.txt, sitemap, OG тагове, JSON-LD, manifest добавени в PR #319. OG image за homepage предстои (нужен ръчен дизайн 1200×630).
+- [x] Регистрация в **Google Search Console** + submit sitemap
+> 💡 Claude Code note (19 май): Верифициран домейн. Sitemap submitted — статус "Processing" (24-48ч).
+- [x] Регистрация в **Bing Webmaster Tools**
+> 💡 Claude Code note (19 май): Импортиран от Google Search Console. Sitemap submitted — Processing.
 - [ ] Тест с https://www.opengraph.xyz/
 
 #### Ден 5: Email + сигурност

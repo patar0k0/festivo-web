@@ -26,7 +26,8 @@
 - [x] **Sentry** setup — `npm i @sentry/nextjs && npx @sentry/wizard`
 > 💡 Claude Code note (18 май): Инсталиран `@sentry/nextjs`. Wizard + Vercel integration минаха успешно. DSN в env vars. Конфигурирано: `tracesSampleRate: 0.1`, `replaysSessionSampleRate: 0.0`, `replaysOnErrorSampleRate: 1.0`, `sendDefaultPii: false` (GDPR). `generateMetadata()` в `app/layout.tsx` включва `Sentry.getTraceData()` за distributed tracing.
 - [ ] **Plausible** или **Umami** instalation — script tag в `layout.tsx`
-- [ ] **Meta Pixel** инсталиран — започва да събира data веднага
+- [x] **Meta Pixel** инсталиран — започва да събира data веднага
+> 💡 Claude Code note (18 май): Pixel ID `1381183357170093`. `MetaPixel` компонент с `next/script strategy=afterInteractive`. Env var `NEXT_PUBLIC_META_PIXEL_ID` добавен в Vercel.
 - [ ] **GA4** + Google Tag Manager — за по-късно Google Ads
 - [ ] **UptimeRobot** — добави festivo.bg homepage + `/api/health`
 - [x] **Vercel Analytics** включен от dashboard

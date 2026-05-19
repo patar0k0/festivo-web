@@ -10,6 +10,7 @@ export const EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION = "admin-new-submission" as con
 export const EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE = "reminder-1-day-before" as const;
 export const EMAIL_JOB_TYPE_REMINDER_SAME_DAY = "reminder-same-day" as const;
 export const EMAIL_JOB_TYPE_CONTACT_FORM = "contact-form" as const;
+export const EMAIL_JOB_TYPE_WELCOME = "welcome" as const;
 
 export type EmailJobPriority = "high" | "normal" | "low";
 
@@ -22,6 +23,7 @@ export function normalizeEmailJobPriority(value: unknown): EmailJobPriority {
 
 export const EMAIL_JOB_TYPES = [
   EMAIL_JOB_TYPE_TEST,
+  EMAIL_JOB_TYPE_WELCOME,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_RECEIVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED,

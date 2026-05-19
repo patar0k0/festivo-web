@@ -19,6 +19,11 @@ export type MobileFestivalListItem = {
   category?: string | null;
   is_verified?: boolean | null;
   is_promoted?: boolean | null;
+  /** Primary organizer when available — lets mobile route to /organizer/{slug}. */
+  organizer?: {
+    slug: string | null;
+    name: string | null;
+  } | null;
 };
 
 export type MobileFestivalDetailJson = {
@@ -94,6 +99,21 @@ function pickMapListingCoords(festival: Festival): { lat: number | null; lng: nu
   return { lat: centroid.lat + j.dLat, lng: centroid.lng + j.dLng };
 }
 
+function pickPrimaryOrganizerSummary(festival: Festival): { slug: string | null; name: string | null } | null {
+  const embed = festival.organizer;
+  const embedSlug = typeof embed?.slug === "string" && embed.slug.trim() ? embed.slug.trim() : null;
+  const embedName = typeof embed?.name === "string" && embed.name.trim() ? embed.name.trim() : null;
+  if (embedSlug || embedName) {
+    return { slug: embedSlug, name: embedName };
+  }
+  const first = festival.organizers?.find((o) => (o?.slug || o?.name)?.toString().trim());
+  if (!first) return null;
+  const slug = typeof first.slug === "string" && first.slug.trim() ? first.slug.trim() : null;
+  const name = typeof first.name === "string" && first.name.trim() ? first.name.trim() : null;
+  if (!slug && !name) return null;
+  return { slug, name };
+}
+
 export function serializeMobileFestivalListItem(festival: Festival, isSaved: boolean): MobileFestivalListItem {
   const imageUrl = getFestivalHeroImage(festival);
   const coords = pickMapListingCoords(festival);
@@ -113,6 +133,7 @@ export function serializeMobileFestivalListItem(festival: Festival, isSaved: boo
     category: cat,
     is_verified: festival.is_verified ?? null,
     is_promoted: promoted || undefined,
+    organizer: pickPrimaryOrganizerSummary(festival) ?? undefined,
   };
 }
 

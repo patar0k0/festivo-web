@@ -33,6 +33,8 @@ export type SavedFestivalBasicDto = {
   category: string | null;
   is_verified: boolean;
   organizer_name: string | null;
+  /** Primary organizer summary for the mobile chip → /organizer/{slug}. */
+  organizer: { slug: string | null; name: string | null } | null;
 };
 
 export type MobilePlanStateDto = {
@@ -103,6 +105,17 @@ function compactPartialFailures(p: MobilePlanPartialFailures): MobilePlanPartial
   return Object.keys(out).length ? out : undefined;
 }
 
+function pickFirstOrganizer(
+  raw: SavedFestivalBasicRow["organizer"],
+): { slug: string | null; name: string | null } | null {
+  const o = Array.isArray(raw) ? raw[0] : raw;
+  if (!o) return null;
+  const slug = typeof o.slug === "string" && o.slug.trim() ? o.slug.trim() : null;
+  const name = typeof o.name === "string" && o.name.trim() ? o.name.trim() : null;
+  if (!slug && !name) return null;
+  return { slug, name };
+}
+
 function normalizeSavedFestivals(rows: SavedFestivalBasicRow[]): SavedFestivalBasicDto[] {
   return rows.map((row) => ({
     festivalId: row.id,
@@ -115,6 +128,7 @@ function normalizeSavedFestivals(rows: SavedFestivalBasicRow[]): SavedFestivalBa
     category: row.category,
     is_verified: Boolean(row.is_verified),
     organizer_name: row.organizer_name,
+    organizer: pickFirstOrganizer(row.organizer),
   }));
 }
 

@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserIdReadOnly } from "@/lib/middlewareSession";
 import { canBypassJobsRateLimit, checkRateLimit } from "@/lib/rateLimit";
+import { guardMobileApiRequest } from "@/lib/mobileApiGuard";
 import { verifyApiPostOrigin } from "@/lib/postOriginGuard";
 import { getSupabaseEnv } from "@/lib/supabaseServer";
 import { getCachedUserGate, setCachedUserGate } from "@/lib/middlewareUserGateCache";
@@ -66,16 +67,25 @@ function withPathnameHeaders(request: NextRequest): Headers {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Mobile API: handle OPTIONS preflight and reject browser cross-origin
+  // requests before any other work. Native (Origin-less) requests fall through.
+  const mobileGuardResponse = guardMobileApiRequest(request);
+  if (mobileGuardResponse) {
+    return mobileGuardResponse;
+  }
+
   // Apply rate limiting to all write operations on /api/* and /admin/api/*
-  // (POST, PATCH, PUT, DELETE). GET requests are intentionally excluded.
+  // (POST, PATCH, PUT, DELETE). GET requests are intentionally excluded —
+  // EXCEPT for /api/mobile/* where reads are also limited (anti-scraping).
   const isApiWriteMethod = ["POST", "PATCH", "PUT", "DELETE"].includes(
     request.method,
   );
+  const isMobileApiPath = pathname.startsWith("/api/mobile/");
 
   const isApiPath =
     pathname.startsWith("/api/") || pathname.startsWith("/admin/api/");
 
-  if (isApiWriteMethod && isApiPath) {
+  if ((isApiWriteMethod || isMobileApiPath) && isApiPath) {
     const skipRateLimitForPath =
       pathname.startsWith("/admin/api/discovery") || pathname === "/api/email/webhook";
     const shouldApplyRateLimit = !skipRateLimitForPath && !canBypassJobsRateLimit(request);

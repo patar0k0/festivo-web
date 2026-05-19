@@ -71,14 +71,17 @@
 - [x] Password reset шаблон
 - [ ] Email confirmation шаблон
 - [ ] Unsubscribe линк във всички marketing имейли
-- [ ] **Supabase RLS** audit на всички таблици
+- [x] **Supabase RLS** audit на всички таблици
+> 💡 Claude Code note (19 май): Audit чрез `scripts/sql/audit_rls.sql`. Намерени: 9 таблици без RLS (admin/internal) + 1 overpermissive policy на `organizers`. Fix-нати с миграции `20260519_enable_rls_admin_internal_tables.sql` и `20260519_drop_organizers_public_read_overpermissive.sql`. Set 1 (NO RLS) сега е празен. Остава post-launch: `festival_likes` privacy check + duplicate SELECT policies consolidation.
 - [x] **CSP headers** в `next.config.js`
 - [x] `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`
 > 💡 Claude Code note (19 май): CSP + Permissions-Policy добавени в PR #321. securityheaders.com → Grade A. Всички 6 headers зелени.
 - [ ] Всички production env vars в Vercel (нищо в git)
 - [x] Тест в https://securityheaders.com/ → цел A grade
-- [ ] **CORS** на `/api/mobile/*` — само за production app domain
-- [ ] Rate limiting на public endpoints (Upstash)
+- [x] **CORS** на `/api/mobile/*` — само за production app domain
+> 💡 Claude Code note (19 май): `lib/mobileApiGuard.ts` + middleware integration. Native React Native (без Origin header) → allow. Browser cross-origin → 403. Allowlist чрез `MOBILE_API_ALLOWED_ORIGINS` env (празно в prod, dev само за Expo web). OPTIONS preflight handled.
+- [x] Rate limiting на public endpoints (Upstash)
+> 💡 Claude Code note (19 май): Mobile API сега има buckets `mobile-read: 120 req/60s` (GET) и `mobile-write: 30 req/60s`. Middleware ги прилага и за GET (anti-scraping). Останалите public endpoints вече ползваха buckets (`user-actions`, `auth`, `api-post`).
 
 #### Ден 6–7: Lighthouse + полиране
 
@@ -95,6 +98,36 @@
 - [ ] ESLint clean
 - [ ] Health check endpoint `/api/health`
 - [ ] **Supabase backups** включени (Pro план — point-in-time recovery)
+
+---
+
+### 📱 Mobile touchpoints (паралелно с уеб sprint-а)
+
+> ⏰ **Стратегия:** мобилното приложение НЕ launch-ва на 28 май заедно със сайта. App Store / Play review е 3–7 дни и непредвидим — bind-ването на двата launch-а е риск. Submit в stores ден 14–15, публичен mobile launch ден 21+ заедно с paid ads. Този секция покрива само touchpoint-ите от страна на уеб сайта.
+
+#### На сайта (преди web launch)
+
+- [ ] **CORS на `/api/mobile/*`** — само за production app domain (вече в Ден 5)
+- [ ] **Rate limiting** на mobile endpoints (вече в Ден 5)
+- [ ] Load test на mobile API endpoints (k6 или Artillery, baseline за prod traffic)
+- [ ] **Deep links / Universal Links:**
+  - [ ] `public/.well-known/apple-app-site-association` (iOS)
+  - [ ] `public/.well-known/assetlinks.json` (Android)
+  - [ ] Тест с https://branch.io/resources/aasa-validator/
+- [ ] **"Изтегли приложението"** CTA в footer + smart app banner (само когато mobile app е в stores)
+- [ ] OG / meta тагове да съдържат `al:ios:url` и `al:android:url` за app-linking
+- [ ] Privacy policy + Terms покриват и мобилното (един документ за двете платформи)
+
+#### Mobile app (отделен mini-sprint, ден 14–21)
+
+- [ ] App Store Connect listing — screenshots, описание, ключови думи (BG + EN)
+- [ ] Google Play Console listing — screenshots, описание (BG + EN)
+- [ ] App icons финални (1024×1024 + adaptive)
+- [ ] Privacy nutrition labels (App Store) + Data Safety (Play)
+- [ ] TestFlight beta с 10–15 души (паралелно със soft launch на уеб)
+- [ ] Sentry за React Native инсталиран
+- [ ] Submit за review (цел: ден 14–15)
+- [ ] Push notification credentials (APNs + FCM) в production
 
 ---
 

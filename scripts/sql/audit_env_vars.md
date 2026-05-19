@@ -29,6 +29,7 @@
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile (anti-bot) | 🔐 |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Turnstile client | публична |
 | `CSRF_ALLOWED_HOSTS` | напр. `festivo.bg,www.festivo.bg` | |
+| `MOBILE_API_ALLOWED_ORIGINS` | Comma-separated browser origins позволени на `/api/mobile/*`. Native iOS/Android не пращат Origin → винаги минават. Остави **празно** в Production. За Expo web dev: `http://localhost:19006`. | |
 | `GOOGLE_MAPS_API_KEY` | Maps на сайта | 🔐 (restrict by domain) |
 | `GOOGLE_GEOCODING_API_KEY` | Geocoding | 🔐 |
 | `NEXT_PUBLIC_META_PIXEL_ID` | Meta Pixel | публична |

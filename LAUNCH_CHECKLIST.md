@@ -78,8 +78,10 @@
 > 💡 Claude Code note (19 май): CSP + Permissions-Policy добавени в PR #321. securityheaders.com → Grade A. Всички 6 headers зелени.
 - [ ] Всички production env vars в Vercel (нищо в git)
 - [x] Тест в https://securityheaders.com/ → цел A grade
-- [ ] **CORS** на `/api/mobile/*` — само за production app domain
-- [ ] Rate limiting на public endpoints (Upstash)
+- [x] **CORS** на `/api/mobile/*` — само за production app domain
+> 💡 Claude Code note (19 май): `lib/mobileApiGuard.ts` + middleware integration. Native React Native (без Origin header) → allow. Browser cross-origin → 403. Allowlist чрез `MOBILE_API_ALLOWED_ORIGINS` env (празно в prod, dev само за Expo web). OPTIONS preflight handled.
+- [x] Rate limiting на public endpoints (Upstash)
+> 💡 Claude Code note (19 май): Mobile API сега има buckets `mobile-read: 120 req/60s` (GET) и `mobile-write: 30 req/60s`. Middleware ги прилага и за GET (anti-scraping). Останалите public endpoints вече ползваха buckets (`user-actions`, `auth`, `api-post`).
 
 #### Ден 6–7: Lighthouse + полиране
 

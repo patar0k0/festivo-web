@@ -200,6 +200,16 @@ export function parseSavedFestivalReminderEmailPayload(
   };
 }
 
+export type WelcomeEmailPayload = {
+  firstName?: string | null;
+};
+
+export function parseWelcomeEmailPayload(raw: Record<string, unknown>): WelcomeEmailPayload {
+  return {
+    firstName: optString(raw, "firstName", 200),
+  };
+}
+
 export type ContactFormPayload = {
   visitorName: string;
   visitorEmail: string;

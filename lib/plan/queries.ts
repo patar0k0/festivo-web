@@ -21,7 +21,7 @@ export const PLANNER_TABLE_SELECT = {
   festivalsTemporal: "id,start_date,end_date,start_time,end_time,occurrence_dates",
   /** Minimal festival fields for mobile plan screen display. */
   festivalsBasic:
-    "id,slug,title,start_date,end_date,image_url,category,is_verified,organizer_name,cities:cities!festivals_city_id_fkey(name_bg)",
+    "id,slug,title,start_date,end_date,image_url,category,is_verified,organizer_name,cities:cities!festivals_city_id_fkey(name_bg),organizer:organizers!left(slug,name)",
 } as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -329,6 +329,10 @@ export type SavedFestivalBasicRow = {
   is_verified: boolean;
   organizer_name: string | null;
   cities: { name_bg: string | null }[] | { name_bg: string | null } | null;
+  organizer:
+    | { slug: string | null; name: string | null }
+    | { slug: string | null; name: string | null }[]
+    | null;
 };
 
 export async function fetchSavedFestivalsBasicData(

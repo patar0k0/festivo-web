@@ -71,7 +71,8 @@
 - [x] Password reset шаблон
 - [ ] Email confirmation шаблон
 - [ ] Unsubscribe линк във всички marketing имейли
-- [ ] **Supabase RLS** audit на всички таблици
+- [x] **Supabase RLS** audit на всички таблици
+> 💡 Claude Code note (19 май): Audit чрез `scripts/sql/audit_rls.sql`. Намерени: 9 таблици без RLS (admin/internal) + 1 overpermissive policy на `organizers`. Fix-нати с миграции `20260519_enable_rls_admin_internal_tables.sql` и `20260519_drop_organizers_public_read_overpermissive.sql`. Set 1 (NO RLS) сега е празен. Остава post-launch: `festival_likes` privacy check + duplicate SELECT policies consolidation.
 - [x] **CSP headers** в `next.config.js`
 - [x] `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`
 > 💡 Claude Code note (19 май): CSP + Permissions-Policy добавени в PR #321. securityheaders.com → Grade A. Всички 6 headers зелени.

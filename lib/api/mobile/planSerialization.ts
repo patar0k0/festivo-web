@@ -1,5 +1,8 @@
 import type { ReminderType } from "@/lib/plan/server";
 import { aggregateSnapshotUpdatedAtIso, type SavedFestivalBasicRow } from "@/lib/plan/queries";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { settlementPrefix } from "@/lib/settlements/getCityLabel";
+import type { Festival } from "@/lib/types";
 
 type PlanReminderWireType = ReminderType;
 
@@ -116,20 +119,37 @@ function pickFirstOrganizer(
   return { slug, name };
 }
 
+function buildCityLabel(row: SavedFestivalBasicRow): string | null {
+  const c = Array.isArray(row.cities) ? row.cities[0] : row.cities;
+  const name = c?.name_bg?.trim();
+  if (!name) return null;
+  return settlementPrefix(c?.is_village) + name;
+}
+
 function normalizeSavedFestivals(rows: SavedFestivalBasicRow[]): SavedFestivalBasicDto[] {
-  return rows.map((row) => ({
-    festivalId: row.id,
-    slug: row.slug,
-    title: row.title,
-    city: (Array.isArray(row.cities) ? row.cities[0]?.name_bg : row.cities?.name_bg) ?? null,
-    start_date: row.start_date,
-    end_date: row.end_date,
-    image_url: row.image_url,
-    category: row.category,
-    is_verified: Boolean(row.is_verified),
-    organizer_name: row.organizer_name,
-    organizer: pickFirstOrganizer(row.organizer),
-  }));
+  return rows.map((row) => {
+    // Plan rows hold a thin subset of `Festival`; `getFestivalHeroImage` reads only
+    // the fields we select (`hero_image`, `image_url`, `festival_media[]`).
+    const heroInput = {
+      hero_image: row.hero_image ?? null,
+      image_url: row.image_url,
+      festival_media: row.festival_media ?? null,
+    } as unknown as Festival;
+    const imageUrl = getFestivalHeroImage(heroInput);
+    return {
+      festivalId: row.id,
+      slug: row.slug,
+      title: row.title,
+      city: buildCityLabel(row),
+      start_date: row.start_date,
+      end_date: row.end_date,
+      image_url: imageUrl ?? null,
+      category: row.category,
+      is_verified: Boolean(row.is_verified),
+      organizer_name: row.organizer_name,
+      organizer: pickFirstOrganizer(row.organizer),
+    };
+  });
 }
 
 export function buildMobilePlanSnapshot(args: {

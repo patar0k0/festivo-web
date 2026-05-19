@@ -13,7 +13,10 @@
 - **Sprint ден:** 5 / 14
 - **Launch стабилност:** 🟡 в подготовка
 - **Блокери в момента:** —
-- **Последно обновяване:** 19 май 2026
+- **Последно обновяване:** 19 май 2026 (вечер)
+- **Прогрес:** 36 ✅ / 103 ⏳
+- **Ден 5 остава:** Plausible/Umami, GA4/GTM, welcome + confirmation email шаблони, unsubscribe link, env vars review във Vercel
+- **Следва (Ден 6–7):** Lighthouse polish, image/font optimization, 404/error/loading states, cross-browser, build clean, Supabase backups
 
 ---
 
@@ -96,7 +99,7 @@
 - [ ] `npm run build` без warnings
 - [ ] `tsc --noEmit` без errors
 - [ ] ESLint clean
-- [ ] Health check endpoint `/api/health`
+- [x] Health check endpoint `/api/health`
 - [ ] **Supabase backups** включени (Pro план — point-in-time recovery)
 
 ---
@@ -107,8 +110,8 @@
 
 #### На сайта (преди web launch)
 
-- [ ] **CORS на `/api/mobile/*`** — само за production app domain (вече в Ден 5)
-- [ ] **Rate limiting** на mobile endpoints (вече в Ден 5)
+- [x] **CORS на `/api/mobile/*`** — само за production app domain (вече в Ден 5)
+- [x] **Rate limiting** на mobile endpoints (вече в Ден 5)
 - [ ] Load test на mobile API endpoints (k6 или Artillery, baseline за prod traffic)
 - [ ] **Deep links / Universal Links:**
   - [ ] `public/.well-known/apple-app-site-association` (iOS)
@@ -213,7 +216,7 @@
 ### Meta Ads setup (ден 21+)
 
 - [ ] Facebook Business Manager верифициран
-- [ ] Meta Pixel инсталиран (ден 1)
+- [x] Meta Pixel инсталиран (ден 1)
 - [ ] Conversions API (server-side tracking)
 - [ ] Custom audience: посетители на сайта (180 дни)
 - [ ] Custom audience: добавили към „Моят план"

@@ -98,6 +98,36 @@
 
 ---
 
+### 📱 Mobile touchpoints (паралелно с уеб sprint-а)
+
+> ⏰ **Стратегия:** мобилното приложение НЕ launch-ва на 28 май заедно със сайта. App Store / Play review е 3–7 дни и непредвидим — bind-ването на двата launch-а е риск. Submit в stores ден 14–15, публичен mobile launch ден 21+ заедно с paid ads. Този секция покрива само touchpoint-ите от страна на уеб сайта.
+
+#### На сайта (преди web launch)
+
+- [ ] **CORS на `/api/mobile/*`** — само за production app domain (вече в Ден 5)
+- [ ] **Rate limiting** на mobile endpoints (вече в Ден 5)
+- [ ] Load test на mobile API endpoints (k6 или Artillery, baseline за prod traffic)
+- [ ] **Deep links / Universal Links:**
+  - [ ] `public/.well-known/apple-app-site-association` (iOS)
+  - [ ] `public/.well-known/assetlinks.json` (Android)
+  - [ ] Тест с https://branch.io/resources/aasa-validator/
+- [ ] **"Изтегли приложението"** CTA в footer + smart app banner (само когато mobile app е в stores)
+- [ ] OG / meta тагове да съдържат `al:ios:url` и `al:android:url` за app-linking
+- [ ] Privacy policy + Terms покриват и мобилното (един документ за двете платформи)
+
+#### Mobile app (отделен mini-sprint, ден 14–21)
+
+- [ ] App Store Connect listing — screenshots, описание, ключови думи (BG + EN)
+- [ ] Google Play Console listing — screenshots, описание (BG + EN)
+- [ ] App icons финални (1024×1024 + adaptive)
+- [ ] Privacy nutrition labels (App Store) + Data Safety (Play)
+- [ ] TestFlight beta с 10–15 души (паралелно със soft launch на уеб)
+- [ ] Sentry за React Native инсталиран
+- [ ] Submit за review (цел: ден 14–15)
+- [ ] Push notification credentials (APNs + FCM) в production
+
+---
+
 ### Седмица 2 — Съдържание + soft launch (дни 8–14)
 
 #### Ден 8–9: Финализиране на съдържанието

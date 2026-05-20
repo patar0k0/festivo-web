@@ -36,6 +36,7 @@ export default function SiteFooter() {
     { href: "/privacy", label: "Политика за поверителност" },
     { href: "/cookies", label: "Политика за бисквитки" },
     { href: "/terms", label: "Общи условия" },
+    { href: "/terms-organizers", label: "Условия за организатори" },
   ];
 
   const socialLinks = [

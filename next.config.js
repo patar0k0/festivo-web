@@ -102,9 +102,12 @@ module.exports = withSentryConfig(module.exports, {
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
   tunnelRoute: "/monitoring",
 
-  // Automatically instrument Vercel Cron Monitors
-  automaticVercelMonitors: true,
-
-  // Tree-shake Sentry logger statements to reduce bundle size
-  disableLogger: true,
+  webpack: {
+    // Tree-shake Sentry logger statements to reduce bundle size (replaces deprecated disableLogger)
+    treeshake: {
+      removeDebugLogging: true,
+    },
+    // Automatically instrument Vercel Cron Monitors (replaces deprecated automaticVercelMonitors)
+    automaticVercelMonitors: true,
+  },
 });

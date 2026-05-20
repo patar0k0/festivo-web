@@ -36,23 +36,25 @@ const nextConfig = {
     // - *.vercel-insights.com + *.vercel-scripts.com: Vercel Analytics
     // - www.youtube.com + youtube.com: YouTube embeds (map section)
     // - www.google.com + maps.google.com: Google Maps embeds
+    // - challenges.cloudflare.com: Cloudflare Turnstile (anti-bot on signup/organizer forms)
     // Sentry uses tunnelRoute="/monitoring" → same origin, no external CSP entry needed
     // Fonts are self-hosted via next/font → no fonts.googleapis.com needed
     const csp = [
       "default-src 'self'",
-      // Next.js App Router requires 'unsafe-inline' for streaming/hydration scripts
-      // Meta Pixel base code loads from connect.facebook.net
-      "script-src 'self' 'unsafe-inline' connect.facebook.net",
+      // Next.js App Router requires 'unsafe-inline' for streaming/hydration scripts.
+      // Meta Pixel base code loads from connect.facebook.net.
+      // Turnstile loads its widget script from challenges.cloudflare.com.
+      "script-src 'self' 'unsafe-inline' connect.facebook.net challenges.cloudflare.com",
       // Tailwind CSS uses inline styles
       "style-src 'self' 'unsafe-inline'",
       // Images: Supabase storage, Facebook CDN, YouTube thumbnails, Unsplash, FB pixel noscript
       "img-src 'self' data: blob: *.supabase.co *.fbcdn.net img.youtube.com images.unsplash.com www.facebook.com",
       // Fonts self-hosted via next/font/google (downloaded at build time)
       "font-src 'self'",
-      // API calls: Supabase, Vercel Analytics beacons, Facebook pixel events
-      "connect-src 'self' *.supabase.co *.vercel-insights.com *.vercel-scripts.com www.facebook.com",
-      // Embeds: YouTube videos, Google Maps
-      "frame-src www.youtube.com youtube.com www.google.com maps.google.com",
+      // API calls: Supabase, Vercel Analytics beacons, Facebook pixel events, Turnstile token verification
+      "connect-src 'self' *.supabase.co *.vercel-insights.com *.vercel-scripts.com www.facebook.com challenges.cloudflare.com",
+      // Embeds: YouTube videos, Google Maps, Turnstile challenge iframe
+      "frame-src www.youtube.com youtube.com www.google.com maps.google.com challenges.cloudflare.com",
       "media-src 'self' blob:",
       "worker-src blob:",
       "object-src 'none'",

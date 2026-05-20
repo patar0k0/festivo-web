@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(vercel ls *)",
+      "Bash(vercel logs *)",
+      "Bash(vercel inspect *)",
+      "Bash(railway logs *)"
+    ]
+  }
+}

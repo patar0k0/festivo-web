@@ -33,6 +33,10 @@
 | `GOOGLE_MAPS_API_KEY` | Maps на сайта | 🔐 (restrict by domain) |
 | `GOOGLE_GEOCODING_API_KEY` | Geocoding | 🔐 |
 | `NEXT_PUBLIC_META_PIXEL_ID` | Meta Pixel | публична |
+| `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | Umami Cloud Website ID (UUID-формат). Без него Umami не зарежда. | публична |
+| `NEXT_PUBLIC_UMAMI_SCRIPT_URL` | По желание — за self-hosted Umami. Default = `https://cloud.umami.is/script.js`. | публична |
+| `NEXT_PUBLIC_GA4_MEASUREMENT_ID` | GA4 Measurement ID `G-XXXXXXXXXX`. Само ако GTM не се ползва. | публична |
+| `NEXT_PUBLIC_GTM_ID` | Google Tag Manager container `GTM-XXXXXXX`. Препоръчителен — зарежда GA4 + бъдещи pixels през GTM. | публична |
 
 ## Optional / feature-gated
 

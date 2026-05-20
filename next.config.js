@@ -37,6 +37,8 @@ const nextConfig = {
     // - www.youtube.com + youtube.com: YouTube embeds (map section)
     // - www.google.com + maps.google.com: Google Maps embeds
     // - challenges.cloudflare.com: Cloudflare Turnstile (anti-bot on signup/organizer forms)
+    // - cloud.umami.is: Umami Cloud analytics (script + beacons)
+    // - *.googletagmanager.com + *.google-analytics.com: GA4 / Tag Manager
     // Sentry uses tunnelRoute="/monitoring" → same origin, no external CSP entry needed
     // Fonts are self-hosted via next/font → no fonts.googleapis.com needed
     const csp = [
@@ -44,17 +46,19 @@ const nextConfig = {
       // Next.js App Router requires 'unsafe-inline' for streaming/hydration scripts.
       // Meta Pixel base code loads from connect.facebook.net.
       // Turnstile loads its widget script from challenges.cloudflare.com.
-      "script-src 'self' 'unsafe-inline' connect.facebook.net challenges.cloudflare.com",
+      // Umami script: cloud.umami.is. GA4/GTM scripts: *.googletagmanager.com.
+      "script-src 'self' 'unsafe-inline' connect.facebook.net challenges.cloudflare.com cloud.umami.is *.googletagmanager.com",
       // Tailwind CSS uses inline styles
       "style-src 'self' 'unsafe-inline'",
-      // Images: Supabase storage, Facebook CDN, YouTube thumbnails, Unsplash, FB pixel noscript
-      "img-src 'self' data: blob: *.supabase.co *.fbcdn.net img.youtube.com images.unsplash.com www.facebook.com",
+      // Images: Supabase storage, Facebook CDN, YouTube thumbnails, Unsplash, FB pixel noscript, GA collect pixel
+      "img-src 'self' data: blob: *.supabase.co *.fbcdn.net img.youtube.com images.unsplash.com www.facebook.com *.google-analytics.com *.googletagmanager.com",
       // Fonts self-hosted via next/font/google (downloaded at build time)
       "font-src 'self'",
-      // API calls: Supabase, Vercel Analytics beacons, Facebook pixel events, Turnstile token verification
-      "connect-src 'self' *.supabase.co *.vercel-insights.com *.vercel-scripts.com www.facebook.com challenges.cloudflare.com",
-      // Embeds: YouTube videos, Google Maps, Turnstile challenge iframe
-      "frame-src www.youtube.com youtube.com www.google.com maps.google.com challenges.cloudflare.com",
+      // API calls: Supabase, Vercel Analytics beacons, Facebook pixel events, Turnstile token verification,
+      //            Umami event beacons, GA4 measurement protocol
+      "connect-src 'self' *.supabase.co *.vercel-insights.com *.vercel-scripts.com www.facebook.com challenges.cloudflare.com cloud.umami.is *.google-analytics.com *.analytics.google.com *.googletagmanager.com",
+      // Embeds: YouTube videos, Google Maps, Turnstile challenge iframe, GTM noscript iframe
+      "frame-src www.youtube.com youtube.com www.google.com maps.google.com challenges.cloudflare.com www.googletagmanager.com",
       "media-src 'self' blob:",
       "worker-src blob:",
       "object-src 'none'",

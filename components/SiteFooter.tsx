@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { NewsletterSignup } from "@/components/NewsletterSignup";
 import Container from "@/components/ui/Container";
 import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
@@ -90,6 +91,10 @@ export default function SiteFooter() {
                     {item.icon}
                   </Link>
                 ))}
+              </div>
+
+              <div className="pt-2">
+                <NewsletterSignup source="footer" />
               </div>
             </div>
           </div>

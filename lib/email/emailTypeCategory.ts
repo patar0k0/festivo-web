@@ -11,6 +11,7 @@ import {
   EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE,
   EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
   EMAIL_JOB_TYPE_TEST,
+  EMAIL_JOB_TYPE_WELCOME,
   type EmailJobType,
 } from "./emailJobTypes";
 
@@ -34,6 +35,7 @@ const CATEGORY_BY_TYPE: Record<EmailJobType, EmailTypeCategory> = {
   [EMAIL_JOB_TYPE_CONTACT_FORM]: "admin_alert",
   [EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE]: "optional_reminder",
   [EMAIL_JOB_TYPE_REMINDER_SAME_DAY]: "optional_reminder",
+  [EMAIL_JOB_TYPE_WELCOME]: "optional_marketing",
 };
 
 export function getEmailTypeCategory(type: EmailJobType): EmailTypeCategory {

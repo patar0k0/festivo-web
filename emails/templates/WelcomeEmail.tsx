@@ -8,6 +8,8 @@ import { EmailSection } from "@/emails/components/EmailSection";
 type Props = {
   siteUrl: string;
   firstName?: string | null;
+  unsubscribeUrl?: string | null;
+  managePreferencesUrl?: string | null;
 };
 
 const FEATURES = [
@@ -28,11 +30,16 @@ const FEATURES = [
   },
 ] as const;
 
-export function WelcomeEmail({ siteUrl, firstName }: Props) {
+export function WelcomeEmail({ siteUrl, firstName, unsubscribeUrl, managePreferencesUrl }: Props) {
   const greeting = firstName?.trim() ? `Здравей, ${firstName.trim()}!` : "Здравей!";
 
+  const optionalEmailLinks =
+    unsubscribeUrl?.trim() && managePreferencesUrl?.trim()
+      ? { unsubscribeUrl: unsubscribeUrl.trim(), managePreferencesUrl: managePreferencesUrl.trim() }
+      : null;
+
   return (
-    <BaseLayout siteUrl={siteUrl}>
+    <BaseLayout siteUrl={siteUrl} optionalEmailLinks={optionalEmailLinks}>
       {/* Hero accent bar */}
       <div style={accentBar} />
 

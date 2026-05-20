@@ -28,10 +28,12 @@
 
 - [x] **Sentry** setup — `npm i @sentry/nextjs && npx @sentry/wizard`
 > 💡 Claude Code note (18 май): Инсталиран `@sentry/nextjs`. Wizard + Vercel integration минаха успешно. DSN в env vars. Конфигурирано: `tracesSampleRate: 0.1`, `replaysSessionSampleRate: 0.0`, `replaysOnErrorSampleRate: 1.0`, `sendDefaultPii: false` (GDPR). `generateMetadata()` в `app/layout.tsx` включва `Sentry.getTraceData()` за distributed tracing.
-- [ ] **Plausible** или **Umami** instalation — script tag в `layout.tsx`
+- [x] **Plausible** или **Umami** instalation — script tag в `layout.tsx`
+> 💡 Claude Code note (20 май): Избран Umami Cloud (free tier, GDPR-friendly без cookies). `components/UmamiAnalytics.tsx` зарежда script-а без consent gate. Чака се регистрация в Umami Cloud + `NEXT_PUBLIC_UMAMI_WEBSITE_ID` env var във Vercel.
 - [x] **Meta Pixel** инсталиран — започва да събира data веднага
 > 💡 Claude Code note (18 май): Pixel ID `1381183357170093`. `MetaPixel` компонент с `next/script strategy=afterInteractive`. Env var `NEXT_PUBLIC_META_PIXEL_ID` добавен в Vercel.
-- [ ] **GA4** + Google Tag Manager — за по-късно Google Ads
+- [x] **GA4** + Google Tag Manager — за по-късно Google Ads
+> 💡 Claude Code note (20 май): `components/GoogleAnalytics.tsx` зарежда GTM ако `NEXT_PUBLIC_GTM_ID` е set (предпочитан вариант — GTM е централна точка за всички pixels). Иначе fallback на директно gtag.js с `NEXT_PUBLIC_GA4_MEASUREMENT_ID`. Cookie-based → gated зад `ConsentGatedAnalytics`. Чака се регистрация в GA4 + GTM + env vars във Vercel.
 - [x] **UptimeRobot** — добави festivo.bg homepage + `/api/health`
 > 💡 Claude Code note (19 май): Monitor добавен на dashboard.uptimerobot.com — HTTP/S, festivo.bg, на всеки 5 мин. `/api/health` edge endpoint добавен (PR #318).
 - [x] **Vercel Analytics** включен от dashboard

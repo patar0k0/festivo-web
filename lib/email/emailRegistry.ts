@@ -68,7 +68,12 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
       const p = parseWelcomeEmailPayload(payload as Record<string, unknown>);
       const siteUrl = siteOrigin();
       const { html, text } = await renderEmail(
-        createElement(WelcomeEmail, { siteUrl, firstName: p.firstName }),
+        createElement(WelcomeEmail, {
+          siteUrl,
+          firstName: p.firstName,
+          unsubscribeUrl: p.unsubscribeUrl ?? undefined,
+          managePreferencesUrl: p.managePreferencesUrl ?? undefined,
+        }),
       );
       return { subject: "Добре дошъл в Festivo 🎉", html, text };
     },

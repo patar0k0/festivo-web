@@ -13,9 +13,9 @@
 - **Sprint ден:** 5 / 14
 - **Launch стабилност:** 🟡 в подготовка
 - **Блокери в момента:** —
-- **Последно обновяване:** 19 май 2026 (вечер)
-- **Прогрес:** 36 ✅ / 103 ⏳
-- **Ден 5 остава:** Plausible/Umami, GA4/GTM, welcome + confirmation email шаблони, unsubscribe link, env vars review във Vercel
+- **Последно обновяване:** 19 май 2026 (късно вечер)
+- **Прогрес:** 38 ✅ / 101 ⏳
+- **Ден 5 остава:** Plausible/Umami, GA4/GTM, Email confirmation темплейт в Supabase Dashboard, env vars review във Vercel
 - **Следва (Ден 6–7):** Lighthouse polish, image/font optimization, 404/error/loading states, cross-browser, build clean, Supabase backups
 
 ---
@@ -70,10 +70,12 @@
 > 💡 Claude Code note (19 май): DKIM + SPF вече бяха в Cloudflare (Resend verified). DMARC добавен като `TXT _dmarc v=DMARC1; p=none`. След 2-3 седмици смени на `p=quarantine`.
 - [x] Тест в https://www.mail-tester.com/ → цел 9/10+
 > 💡 Claude Code note (19 май): Резултат 9/10. -1 за DMARC p=none (нормално за старт). SPF, DKIM, не сме в блокиращи списъци — всичко зелено.
-- [ ] Welcome email шаблон
+- [x] Welcome email шаблон
+> 💡 Claude Code note (20 май): Темплейтът дойде от PR #330 (другия компютър) — `WelcomeEmail.tsx` + registry/schemas. PR #331 добави enqueue логиката: DB trigger `trg_enqueue_welcome_email` (миграция `20260519_welcome_email_on_user_insert.sql`) на INSERT в `public.users`, idempotent с `welcome:<userId>` dedupe. Шаблонът сега приема `unsubscribeUrl` + `managePreferencesUrl`, които се резолват автоматично от `renderEmailJob` чрез `resolveOptionalEmailLinks`.
 - [x] Password reset шаблон
-- [ ] Email confirmation шаблон
-- [ ] Unsubscribe линк във всички marketing имейли
+- [ ] Email confirmation шаблон — HTML темплейтът е готов в `docs/email-templates/supabase-confirmation.html` (PR #330). Остава: копирай в Supabase Dashboard → Auth → Email Templates → "Confirm signup".
+- [x] Unsubscribe линк във всички marketing имейли
+> 💡 Claude Code note (19 май): Reminder имейлите вече имаха unsubscribe. Welcome го получи чрез нов `lib/email/resolveOptionalEmailLinks.ts` + `renderEmailJob` enrichment. `OPTIONAL_LINK_TYPES` set позволява лесно разширяване и за други marketing типове (напр. бъдещ newsletter).
 - [x] **Supabase RLS** audit на всички таблици
 > 💡 Claude Code note (19 май): Audit чрез `scripts/sql/audit_rls.sql`. Намерени: 9 таблици без RLS (admin/internal) + 1 overpermissive policy на `organizers`. Fix-нати с миграции `20260519_enable_rls_admin_internal_tables.sql` и `20260519_drop_organizers_public_read_overpermissive.sql`. Set 1 (NO RLS) сега е празен. Остава post-launch: `festival_likes` privacy check + duplicate SELECT policies consolidation.
 - [x] **CSP headers** в `next.config.js`

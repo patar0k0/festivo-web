@@ -202,11 +202,16 @@ export function parseSavedFestivalReminderEmailPayload(
 
 export type WelcomeEmailPayload = {
   firstName?: string | null;
+  /** Optional footer links (resolved at render-time from user_email_preferences). */
+  unsubscribeUrl?: string | null;
+  managePreferencesUrl?: string | null;
 };
 
 export function parseWelcomeEmailPayload(raw: Record<string, unknown>): WelcomeEmailPayload {
   return {
     firstName: optString(raw, "firstName", 200),
+    unsubscribeUrl: optString(raw, "unsubscribeUrl", 2000),
+    managePreferencesUrl: optString(raw, "managePreferencesUrl", 2000),
   };
 }
 

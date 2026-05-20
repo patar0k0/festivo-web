@@ -10,13 +10,20 @@
 
 ## 📍 Текущ статус
 
-- **Sprint ден:** 5 / 14
+- **Sprint ден:** 6 / 14
 - **Launch стабилност:** 🟡 в подготовка
-- **Блокери в момента:** —
-- **Последно обновяване:** 19 май 2026 (късно вечер)
-- **Прогрес:** 38 ✅ / 101 ⏳
-- **Ден 5 остава:** Plausible/Umami, GA4/GTM, Email confirmation темплейт в Supabase Dashboard, env vars review във Vercel
-- **Следва (Ден 6–7):** Lighthouse polish, image/font optimization, 404/error/loading states, cross-browser, build clean, Supabase backups
+- **Блокери в момента:** Umami beacon не пристига от incognito браузър (probable tracker-blocker; ще се верифицира от normal browser); Railway email cron deploy чака peak-hours да приключат (след 21:00 София).
+- **Последно обновяване:** 20 май 2026 (следобед)
+- **Прогрес:** 41 ✅ / 98 ⏳
+- **Свършено днес:** Welcome email auto-enqueue (DB trigger), Unsubscribe link plumbing, CSP fix за Turnstile (signup unblocked), Umami Cloud + GA4 + GTM инсталация (env vars във Vercel, GTM container публикуван, Google Tag → All Pages свързан с G-3K82DMFWQ5).
+- **Ден 5 остава:** Email confirmation темплейт паста в Supabase Dashboard (HTML вече готов в `docs/email-templates/supabase-confirmation.html`), env vars review във Vercel (ръчно).
+- **Следва (Ден 6–7):** Lighthouse polish, image/font optimization, 404/error/loading states, cross-browser, build clean, Supabase backups.
+
+### 🔄 PENDING VERIFICATION
+
+- **Email cron** (Railway service `festivo-email-cron`): create-нат с правилни variables; deploy блокиран до 21:00 София (free-tier peak hours). Очаквай welcome email за `tsanislav.tsankov1@gmail.com` да мине от `pending` към `sent`.
+- **Umami pageviews:** скриптът зарежда (script.js status 200, `data-website-id` в DOM), GTM зарежда — но beacon `/api/send` не пристига от incognito browser. Тестване: отвори festivo.bg в нормален Chrome → обнови `cloud.umami.is` → Realtime трябва да покаже visitor.
+- **GA4:** Realtime data появява ~30-60 сек след analytics consent в cookie banner-а.
 
 ---
 

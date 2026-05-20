@@ -13,9 +13,9 @@
 - **Sprint ден:** 6 / 14
 - **Launch стабилност:** 🟡 в подготовка
 - **Блокери в момента:** Umami beacon не пристига от incognito браузър (probable tracker-blocker; ще се верифицира от normal browser); Railway email cron deploy чака peak-hours да приключат (след 21:00 София).
-- **Последно обновяване:** 20 май 2026 (следобед)
-- **Прогрес:** 41 ✅ / 98 ⏳
-- **Свършено днес:** Welcome email auto-enqueue (DB trigger), Unsubscribe link plumbing, CSP fix за Turnstile (signup unblocked), Umami Cloud + GA4 + GTM инсталация (env vars във Vercel, GTM container публикуван, Google Tag → All Pages свързан с G-3K82DMFWQ5).
+- **Последно обновяване:** 20 май 2026 (вечер)
+- **Прогрес:** 42 ✅ / 97 ⏳
+- **Свършено днес:** Welcome email auto-enqueue (DB trigger), Unsubscribe link plumbing, CSP fix за Turnstile (signup unblocked), Umami Cloud + GA4 + GTM инсталация (env vars във Vercel, GTM container публикуван, Google Tag → All Pages свързан с G-3K82DMFWQ5), **dynamic homepage OG image (`app/opengraph-image.tsx`)**.
 - **Ден 5 остава:** Email confirmation темплейт паста в Supabase Dashboard (HTML вече готов в `docs/email-templates/supabase-confirmation.html`), env vars review във Vercel (ръчно).
 - **Следва (Ден 6–7):** Lighthouse polish, image/font optimization, 404/error/loading states, cross-browser, build clean, Supabase backups.
 
@@ -58,7 +58,8 @@
 - [x] `lang="bg"` на `<html>`
 - [x] **Schema.org `Event` JSON-LD** на festival detail (критично за Google rich results)
 - [x] **Schema.org `Organization`** на homepage
-- [ ] OG картинка за homepage (1200×630) — нужна е ръчна картинка в `public/og-home.jpg`
+- [x] OG картинка за homepage (1200×630) — динамична през `app/opengraph-image.tsx`
+> 💡 Claude Code note (20 май): Вместо ръчна картинка в Canva — създадена динамична OG чрез Next.js `ImageResponse` (edge runtime). Дизайн в стила на Festivo: dark background, accent #d97706, slogan „Открий. Планирай. Посети.", 3 feature chips. Махнати ръчните `og-home.jpg` референции от `app/page.tsx` — Next.js auto-injects route-level OG.
 - [x] Динамичен OG за festival страници (`opengraph-image.tsx`)
 - [x] `og:title`, `og:description`, `og:image`, `og:url`, `og:type` на всяка страница
 - [x] Twitter Card (`twitter:card="summary_large_image"`)
@@ -393,4 +394,4 @@
 
 ---
 
-_Last updated: 19 май 2026 от Claude Code_
+_Last updated: 20 май 2026 от Claude Code_

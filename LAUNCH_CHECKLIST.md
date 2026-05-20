@@ -73,7 +73,7 @@
 - [x] Welcome email шаблон
 > 💡 Claude Code note (19 май): Welcome шаблонът съществуваше но не се пращаше. Добавен DB trigger `trg_enqueue_welcome_email` (миграция `20260519_welcome_email_on_user_insert.sql`) който enqueue-ва welcome имейл при INSERT в `public.users`. Idempotent (dedupe key `welcome:<userId>`). Шаблонът сега включва unsubscribe + manage preferences линкове, които се резолват автоматично при render.
 - [x] Password reset шаблон
-- [ ] Email confirmation шаблон — конфигурира се в Supabase Dashboard → Auth → Email Templates (използваме built-in Supabase confirmation flow; custom HTML темплейт се пейства там)
+- [ ] Email confirmation шаблон — HTML темплейтът е готов в `docs/email-templates/supabase-confirmation.html` (PR #330). Остава: копирай в Supabase Dashboard → Auth → Email Templates → "Confirm signup".
 - [x] Unsubscribe линк във всички marketing имейли
 > 💡 Claude Code note (19 май): Reminder имейлите вече имаха unsubscribe. Welcome го получи чрез нов `lib/email/resolveOptionalEmailLinks.ts` + `renderEmailJob` enrichment. `OPTIONAL_LINK_TYPES` set позволява лесно разширяване и за други marketing типове (напр. бъдещ newsletter).
 - [x] **Supabase RLS** audit на всички таблици

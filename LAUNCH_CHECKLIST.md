@@ -10,12 +10,12 @@
 
 ## 📍 Текущ статус
 
-- **Sprint ден:** 5 / 14
+- **Sprint ден:** 6 / 14
 - **Launch стабилност:** 🟡 в подготовка
 - **Блокери в момента:** —
-- **Последно обновяване:** 19 май 2026 (вечер)
-- **Прогрес:** 36 ✅ / 103 ⏳
-- **Ден 5 остава:** Plausible/Umami, GA4/GTM, welcome + confirmation email шаблони, unsubscribe link, env vars review във Vercel
+- **Последно обновяване:** 20 май 2026
+- **Прогрес:** 37 ✅ / 102 ⏳
+- **Ден 5 остава (на друг комп):** Plausible/Umami, GA4/GTM, welcome trigger, confirmation template paste, unsubscribe link, env vars review във Vercel
 - **Следва (Ден 6–7):** Lighthouse polish, image/font optimization, 404/error/loading states, cross-browser, build clean, Supabase backups
 
 ---
@@ -49,7 +49,8 @@
 - [x] `lang="bg"` на `<html>`
 - [x] **Schema.org `Event` JSON-LD** на festival detail (критично за Google rich results)
 - [x] **Schema.org `Organization`** на homepage
-- [ ] OG картинка за homepage (1200×630) — нужна е ръчна картинка в `public/og-home.jpg`
+- [x] OG картинка за homepage (1200×630) — динамична през `app/opengraph-image.tsx`
+> 💡 Claude Code note (20 май): Вместо ръчна картинка в Canva — създадена динамична OG чрез Next.js `ImageResponse` (edge runtime). Дизайн в стила на Festivo: dark background, accent #d97706, slogan „Открий. Планирай. Посети.", 3 feature chips. Махнати ръчните `og-home.jpg` референции от `app/page.tsx` — Next.js auto-injects route-level OG.
 - [x] Динамичен OG за festival страници (`opengraph-image.tsx`)
 - [x] `og:title`, `og:description`, `og:image`, `og:url`, `og:type` на всяка страница
 - [x] Twitter Card (`twitter:card="summary_large_image"`)
@@ -382,4 +383,4 @@
 
 ---
 
-_Last updated: 19 май 2026 от Claude Code_
+_Last updated: 20 май 2026 от Claude Code_

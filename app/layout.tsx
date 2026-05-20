@@ -3,6 +3,7 @@ import { Cormorant_Garamond, Fraunces, Manrope } from "next/font/google";
 import * as Sentry from "@sentry/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 import MetaPixel from "@/components/MetaPixel";
+import UmamiAnalytics from "@/components/UmamiAnalytics";
 import ConsentGatedAnalytics from "@/components/ConsentGatedAnalytics";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import LayoutShell from "@/components/LayoutShell";
@@ -60,6 +61,7 @@ export default function RootLayout({
           <LayoutShell>{children}</LayoutShell>
         </ClientProviders>
         <Analytics />
+        <UmamiAnalytics />
         <MetaPixel />
         <ConsentGatedAnalytics />
         <CookieConsentBanner />

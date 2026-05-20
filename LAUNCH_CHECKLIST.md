@@ -12,11 +12,18 @@
 
 - **Sprint ден:** 6 / 14
 - **Launch стабилност:** 🟡 в подготовка
-- **Блокери в момента:** —
-- **Последно обновяване:** 20 май 2026
-- **Прогрес:** 37 ✅ / 102 ⏳
-- **Ден 5 остава (на друг комп):** Plausible/Umami, GA4/GTM, welcome trigger, confirmation template paste, unsubscribe link, env vars review във Vercel
-- **Следва (Ден 6–7):** Lighthouse polish, image/font optimization, 404/error/loading states, cross-browser, build clean, Supabase backups
+- **Блокери в момента:** Umami beacon не пристига от incognito браузър (probable tracker-blocker; ще се верифицира от normal browser); Railway email cron deploy чака peak-hours да приключат (след 21:00 София).
+- **Последно обновяване:** 20 май 2026 (вечер)
+- **Прогрес:** 42 ✅ / 97 ⏳
+- **Свършено днес:** Welcome email auto-enqueue (DB trigger), Unsubscribe link plumbing, CSP fix за Turnstile (signup unblocked), Umami Cloud + GA4 + GTM инсталация (env vars във Vercel, GTM container публикуван, Google Tag → All Pages свързан с G-3K82DMFWQ5), **dynamic homepage OG image (`app/opengraph-image.tsx`)**.
+- **Ден 5 остава:** Email confirmation темплейт паста в Supabase Dashboard (HTML вече готов в `docs/email-templates/supabase-confirmation.html`), env vars review във Vercel (ръчно).
+- **Следва (Ден 6–7):** Lighthouse polish, image/font optimization, 404/error/loading states, cross-browser, build clean, Supabase backups.
+
+### 🔄 PENDING VERIFICATION
+
+- **Email cron** (Railway service `festivo-email-cron`): create-нат с правилни variables; deploy блокиран до 21:00 София (free-tier peak hours). Очаквай welcome email за `tsanislav.tsankov1@gmail.com` да мине от `pending` към `sent`.
+- **Umami pageviews:** скриптът зарежда (script.js status 200, `data-website-id` в DOM), GTM зарежда — но beacon `/api/send` не пристига от incognito browser. Тестване: отвори festivo.bg в нормален Chrome → обнови `cloud.umami.is` → Realtime трябва да покаже visitor.
+- **GA4:** Realtime data появява ~30-60 сек след analytics consent в cookie banner-а.
 
 ---
 
@@ -28,10 +35,12 @@
 
 - [x] **Sentry** setup — `npm i @sentry/nextjs && npx @sentry/wizard`
 > 💡 Claude Code note (18 май): Инсталиран `@sentry/nextjs`. Wizard + Vercel integration минаха успешно. DSN в env vars. Конфигурирано: `tracesSampleRate: 0.1`, `replaysSessionSampleRate: 0.0`, `replaysOnErrorSampleRate: 1.0`, `sendDefaultPii: false` (GDPR). `generateMetadata()` в `app/layout.tsx` включва `Sentry.getTraceData()` за distributed tracing.
-- [ ] **Plausible** или **Umami** instalation — script tag в `layout.tsx`
+- [x] **Plausible** или **Umami** instalation — script tag в `layout.tsx`
+> 💡 Claude Code note (20 май): Избран Umami Cloud (free tier, GDPR-friendly без cookies). `components/UmamiAnalytics.tsx` зарежда script-а без consent gate. Чака се регистрация в Umami Cloud + `NEXT_PUBLIC_UMAMI_WEBSITE_ID` env var във Vercel.
 - [x] **Meta Pixel** инсталиран — започва да събира data веднага
 > 💡 Claude Code note (18 май): Pixel ID `1381183357170093`. `MetaPixel` компонент с `next/script strategy=afterInteractive`. Env var `NEXT_PUBLIC_META_PIXEL_ID` добавен в Vercel.
-- [ ] **GA4** + Google Tag Manager — за по-късно Google Ads
+- [x] **GA4** + Google Tag Manager — за по-късно Google Ads
+> 💡 Claude Code note (20 май): `components/GoogleAnalytics.tsx` зарежда GTM ако `NEXT_PUBLIC_GTM_ID` е set (предпочитан вариант — GTM е централна точка за всички pixels). Иначе fallback на директно gtag.js с `NEXT_PUBLIC_GA4_MEASUREMENT_ID`. Cookie-based → gated зад `ConsentGatedAnalytics`. Чака се регистрация в GA4 + GTM + env vars във Vercel.
 - [x] **UptimeRobot** — добави festivo.bg homepage + `/api/health`
 > 💡 Claude Code note (19 май): Monitor добавен на dashboard.uptimerobot.com — HTTP/S, festivo.bg, на всеки 5 мин. `/api/health` edge endpoint добавен (PR #318).
 - [x] **Vercel Analytics** включен от dashboard
@@ -71,10 +80,12 @@
 > 💡 Claude Code note (19 май): DKIM + SPF вече бяха в Cloudflare (Resend verified). DMARC добавен като `TXT _dmarc v=DMARC1; p=none`. След 2-3 седмици смени на `p=quarantine`.
 - [x] Тест в https://www.mail-tester.com/ → цел 9/10+
 > 💡 Claude Code note (19 май): Резултат 9/10. -1 за DMARC p=none (нормално за старт). SPF, DKIM, не сме в блокиращи списъци — всичко зелено.
-- [ ] Welcome email шаблон
+- [x] Welcome email шаблон
+> 💡 Claude Code note (20 май): Темплейтът дойде от PR #330 (другия компютър) — `WelcomeEmail.tsx` + registry/schemas. PR #331 добави enqueue логиката: DB trigger `trg_enqueue_welcome_email` (миграция `20260519_welcome_email_on_user_insert.sql`) на INSERT в `public.users`, idempotent с `welcome:<userId>` dedupe. Шаблонът сега приема `unsubscribeUrl` + `managePreferencesUrl`, които се резолват автоматично от `renderEmailJob` чрез `resolveOptionalEmailLinks`.
 - [x] Password reset шаблон
-- [ ] Email confirmation шаблон
-- [ ] Unsubscribe линк във всички marketing имейли
+- [ ] Email confirmation шаблон — HTML темплейтът е готов в `docs/email-templates/supabase-confirmation.html` (PR #330). Остава: копирай в Supabase Dashboard → Auth → Email Templates → "Confirm signup".
+- [x] Unsubscribe линк във всички marketing имейли
+> 💡 Claude Code note (19 май): Reminder имейлите вече имаха unsubscribe. Welcome го получи чрез нов `lib/email/resolveOptionalEmailLinks.ts` + `renderEmailJob` enrichment. `OPTIONAL_LINK_TYPES` set позволява лесно разширяване и за други marketing типове (напр. бъдещ newsletter).
 - [x] **Supabase RLS** audit на всички таблици
 > 💡 Claude Code note (19 май): Audit чрез `scripts/sql/audit_rls.sql`. Намерени: 9 таблици без RLS (admin/internal) + 1 overpermissive policy на `organizers`. Fix-нати с миграции `20260519_enable_rls_admin_internal_tables.sql` и `20260519_drop_organizers_public_read_overpermissive.sql`. Set 1 (NO RLS) сега е празен. Остава post-launch: `festival_likes` privacy check + duplicate SELECT policies consolidation.
 - [x] **CSP headers** в `next.config.js`

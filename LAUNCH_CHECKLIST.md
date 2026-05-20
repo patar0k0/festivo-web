@@ -71,7 +71,7 @@
 - [x] Тест в https://www.mail-tester.com/ → цел 9/10+
 > 💡 Claude Code note (19 май): Резултат 9/10. -1 за DMARC p=none (нормално за старт). SPF, DKIM, не сме в блокиращи списъци — всичко зелено.
 - [x] Welcome email шаблон
-> 💡 Claude Code note (19 май): Welcome шаблонът съществуваше но не се пращаше. Добавен DB trigger `trg_enqueue_welcome_email` (миграция `20260519_welcome_email_on_user_insert.sql`) който enqueue-ва welcome имейл при INSERT в `public.users`. Idempotent (dedupe key `welcome:<userId>`). Шаблонът сега включва unsubscribe + manage preferences линкове, които се резолват автоматично при render.
+> 💡 Claude Code note (20 май): Темплейтът дойде от PR #330 (другия компютър) — `WelcomeEmail.tsx` + registry/schemas. PR #331 добави enqueue логиката: DB trigger `trg_enqueue_welcome_email` (миграция `20260519_welcome_email_on_user_insert.sql`) на INSERT в `public.users`, idempotent с `welcome:<userId>` dedupe. Шаблонът сега приема `unsubscribeUrl` + `managePreferencesUrl`, които се резолват автоматично от `renderEmailJob` чрез `resolveOptionalEmailLinks`.
 - [x] Password reset шаблон
 - [ ] Email confirmation шаблон — HTML темплейтът е готов в `docs/email-templates/supabase-confirmation.html` (PR #330). Остава: копирай в Supabase Dashboard → Auth → Email Templates → "Confirm signup".
 - [x] Unsubscribe линк във всички marketing имейли

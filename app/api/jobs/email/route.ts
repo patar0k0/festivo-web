@@ -7,6 +7,13 @@ import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
+// Railway worker (festivo-email-cron) triggers this endpoint via POST.
+// We accept both POST and GET so a manual `curl -H "Authorization: ..."` and the
+// scheduled worker both work without coordinating method choice across repos.
+export async function POST(request: Request) {
+  return GET(request);
+}
+
 export async function GET(request: Request) {
   if (!isAuthorizedJobRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

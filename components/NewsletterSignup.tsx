@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useRef, useState } from "react";
-import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/TurnstileWidget";
+import { FormEvent, useState } from "react";
 import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
 
@@ -19,13 +18,6 @@ export function NewsletterSignup({ source = "footer", compact = false }: Props) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState("");
-  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
-  const needsTurnstile = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
-
-  const onTurnstileSuccess = useCallback((token: string) => setTurnstileToken(token), []);
-  const onTurnstileError = useCallback(() => setTurnstileToken(""), []);
-  const onTurnstileExpire = useCallback(() => setTurnstileToken(""), []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -40,7 +32,6 @@ export function NewsletterSignup({ source = "footer", compact = false }: Props) 
           email: email.trim(),
           source,
           website: honeypot,
-          turnstileToken: needsTurnstile ? turnstileToken : "",
         }),
       });
       const payload = (await res.json().catch(() => null)) as {
@@ -50,20 +41,14 @@ export function NewsletterSignup({ source = "footer", compact = false }: Props) 
 
       if (!res.ok) {
         setError(payload?.error?.trim() || "Възникна грешка. Опитай отново.");
-        turnstileRef.current?.reset();
-        setTurnstileToken("");
         return;
       }
 
       setOk(true);
       setEmail("");
       setHoneypot("");
-      turnstileRef.current?.reset();
-      setTurnstileToken("");
     } catch {
       setError("Мрежова грешка. Опитай отново.");
-      turnstileRef.current?.reset();
-      setTurnstileToken("");
     } finally {
       setBusy(false);
     }
@@ -125,22 +110,11 @@ export function NewsletterSignup({ source = "footer", compact = false }: Props) 
         <button
           type="submit"
           className={cn(pub.btnPrimarySm, pub.focusRing, "shrink-0 sm:min-w-[120px]")}
-          disabled={busy || ok || (needsTurnstile && !turnstileToken)}
+          disabled={busy || ok}
         >
           {busy ? "Записва…" : ok ? "Записан ✓" : "Запиши се"}
         </button>
       </div>
-
-      {needsTurnstile && !ok ? (
-        <div className="mt-3">
-          <TurnstileWidget
-            ref={turnstileRef}
-            onSuccess={onTurnstileSuccess}
-            onError={onTurnstileError}
-            onExpire={onTurnstileExpire}
-          />
-        </div>
-      ) : null}
 
       {error ? (
         <p

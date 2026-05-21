@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-import {
-  getRequestClientIp,
-  shouldEnforceTurnstile,
-  verifyTurnstileToken,
-} from "@/lib/turnstile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,13 +7,29 @@ export const dynamic = "force-dynamic";
 type Body = {
   email?: string;
   source?: string;
-  turnstileToken?: string;
   /** Honeypot — must stay empty. */
   website?: string;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ALLOWED_SOURCES = new Set(["footer", "popup", "landing"]);
+
+// Anti-abuse stack on this route (Turnstile intentionally NOT used — newsletter
+// signup is low-stakes UX and a visible challenge clashes with the warm footer
+// design):
+//   1) Honeypot field below (bots fill all fields → silent success, no signal).
+//   2) Strict email regex + 320-char cap.
+//   3) Middleware rate limit (`user-actions` bucket: 30 req/60s per IP/user).
+//   4) DB unique index on `email_lower` → upsert collapses duplicates.
+
+function getClientIp(request: Request): string | null {
+  const xff = request.headers.get("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return request.headers.get("x-real-ip") || null;
+}
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as Body;
@@ -27,18 +38,6 @@ export async function POST(request: Request) {
   const hp = typeof body.website === "string" ? body.website.trim() : "";
   if (hp.length > 0) {
     return NextResponse.json({ ok: true });
-  }
-
-  // Turnstile (skipped if not configured in env).
-  const token = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
-  if (shouldEnforceTurnstile()) {
-    const ok = await verifyTurnstileToken(token, getRequestClientIp(request));
-    if (!ok) {
-      return NextResponse.json(
-        { error: "Проверката срещу ботове не мина. Опитай отново." },
-        { status: 403 },
-      );
-    }
   }
 
   const email = typeof body.email === "string" ? body.email.trim() : "";
@@ -58,7 +57,7 @@ export async function POST(request: Request) {
   }
 
   const userAgent = request.headers.get("user-agent")?.slice(0, 500) ?? null;
-  const ip = getRequestClientIp(request);
+  const ip = getClientIp(request);
 
   try {
     const supabase = createSupabaseAdmin();

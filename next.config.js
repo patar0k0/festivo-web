@@ -50,8 +50,10 @@ const nextConfig = {
       "script-src 'self' 'unsafe-inline' connect.facebook.net challenges.cloudflare.com cloud.umami.is *.googletagmanager.com",
       // Tailwind CSS uses inline styles
       "style-src 'self' 'unsafe-inline'",
-      // Images: Supabase storage, Facebook CDN, YouTube thumbnails, Unsplash, FB pixel noscript, GA collect pixel
-      "img-src 'self' data: blob: *.supabase.co *.fbcdn.net img.youtube.com images.unsplash.com www.facebook.com *.google-analytics.com *.googletagmanager.com",
+      // Images: Supabase storage, Facebook CDN, YouTube thumbnails, Unsplash,
+      // FB pixel noscript, GA collect pixel, OpenStreetMap raster tiles
+      // (sub-domains a/b/c.tile.openstreetmap.org — used by /map page).
+      "img-src 'self' data: blob: *.supabase.co *.fbcdn.net img.youtube.com images.unsplash.com www.facebook.com *.google-analytics.com *.googletagmanager.com *.tile.openstreetmap.org",
       // Fonts self-hosted via next/font/google (downloaded at build time)
       "font-src 'self'",
       // API calls: Supabase, Vercel Analytics beacons, Facebook pixel events, Turnstile token verification,

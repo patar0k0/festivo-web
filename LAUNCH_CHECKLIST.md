@@ -31,7 +31,7 @@
 ### 🔄 PENDING VERIFICATION
 
 - **Email cron** (Railway service `festivo-email-cron`): create-нат с правилни variables; deploy блокиран до 21:00 София (free-tier peak hours). Очаквай welcome email за `tsanislav.tsankov1@gmail.com` да мине от `pending` към `sent`.
-- **Umami pageviews:** скриптът зарежда (script.js status 200, `data-website-id` в DOM), GTM зарежда — но beacon `/api/send` не пристига от incognito browser. Тестване: отвори festivo.bg в нормален Chrome → обнови `cloud.umami.is` → Realtime трябва да покаже visitor.
+- ~~**Umami pageviews:** beacon блокиран от CSP — Umami праща към `api-gateway.umami.dev` не към `cloud.umami.is`. Фикс в PR #345 (21 май).~~ ✅ Работи — beacons минават с 200.
 - **GA4:** Realtime data появява ~30-60 сек след analytics consent в cookie banner-а.
 
 ### 📦 Merged PRs от тази сесия (20-21 май)

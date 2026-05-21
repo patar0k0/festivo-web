@@ -131,9 +131,9 @@ export function NewsletterSignup({ source = "footer", compact = false }: Props) 
         </p>
       ) : null}
 
-      <p className="mt-3 text-[11px] leading-relaxed text-black/50">
+      <p className="mt-3 text-[11px] leading-relaxed text-black/65">
         С абонирането приемаш{" "}
-        <Link href="/privacy" className="font-medium underline underline-offset-2 hover:text-black/75">
+        <Link href="/privacy" className="font-medium underline underline-offset-2 hover:text-black/80">
           политиката за поверителност
         </Link>
         . Можеш да се отпишеш по всяко време.

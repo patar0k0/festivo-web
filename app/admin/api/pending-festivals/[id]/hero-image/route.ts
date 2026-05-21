@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { rehostHeroImageIfRemote } from "@/lib/admin/rehostHeroImageFromUrl";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { STORAGE_UPLOAD_CACHE_CONTROL } from "@/lib/storage/cacheControl";
 
 const HERO_IMAGES_BUCKET = process.env.SUPABASE_HERO_IMAGES_BUCKET || "festival-hero-images";
 const MAX_HERO_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -108,7 +109,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { error: uploadError } = await supabaseAdmin.storage.from(HERO_IMAGES_BUCKET).upload(objectPath, imageBuffer, {
       upsert: false,
       contentType: file.type,
-      cacheControl: "3600",
+      cacheControl: STORAGE_UPLOAD_CACHE_CONTROL,
     });
 
     if (uploadError) {

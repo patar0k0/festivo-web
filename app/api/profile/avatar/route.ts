@@ -4,6 +4,7 @@ import {
   requireActiveUserWithSupabase,
 } from "@/lib/auth/requireActiveUser";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { STORAGE_UPLOAD_CACHE_CONTROL } from "@/lib/storage/cacheControl";
 
 const AVATARS_BUCKET = "avatars";
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -82,6 +83,7 @@ export async function POST(request: Request) {
   const { error: uploadError } = await admin.storage.from(AVATARS_BUCKET).upload(objectPath, buffer, {
     contentType: mime,
     upsert: true,
+    cacheControl: STORAGE_UPLOAD_CACHE_CONTROL,
   });
   if (uploadError) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });

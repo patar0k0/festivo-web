@@ -42,7 +42,7 @@ export default function MapResultsList({
 
   return (
     <div className="space-y-3">
-      {festivals.map((festival) => {
+      {festivals.map((festival, index) => {
         const key = String(festival.id);
         const selected = selectedKey === key;
         return (
@@ -55,6 +55,8 @@ export default function MapResultsList({
             className={cn("cursor-pointer rounded-2xl transition", selected && pub.selectionRing)}
           >
             <EventCard
+              // Първият festival в списъка е above-the-fold на /map → LCP candidate.
+              priority={index === 0}
               title={festival.title}
               city={getFestivalLocationDisplay(festival).city ?? ""}
               category={festival.category}

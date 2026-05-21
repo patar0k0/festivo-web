@@ -155,9 +155,14 @@ export default async function FestivalsPage({ searchParams }: { searchParams: Pa
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:gap-6">
-                  {festivals.map((festival) => (
+                  {festivals.map((festival, index) => (
                     <EventCard
                       key={festival.slug}
+                      // Първият card е LCP candidate на mobile (1-column grid).
+                      // На таблет/desktop горните 2-3 cards са above-the-fold,
+                      // но `priority` на повече от един дава warning от next/image —
+                      // приоритизираме само първия като най-сигурен win.
+                      priority={index === 0}
                       title={festival.title}
                       city={getFestivalLocationDisplay(festival).city ?? ""}
                       category={festival.category}

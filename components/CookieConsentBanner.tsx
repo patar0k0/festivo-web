@@ -19,6 +19,29 @@ export type FestivoCookieConsent = {
   timestamp: string;
 };
 
+/**
+ * Anonymous visitors have no Supabase auth session — `auth.getUser()` rejects
+ * with `AuthSessionMissingError`. That is the *expected* steady-state for the
+ * majority of festivo.bg traffic (only ~5% of visitors are logged in), so we
+ * must not surface it as a `console.error`. Lighthouse Best Practices flags any
+ * console.error as a real problem, and noisy logs make true regressions harder
+ * to spot in Sentry. We treat the missing-session case as a normal "no user"
+ * branch and continue.
+ *
+ * Detection uses both `name` (set by `@supabase/auth-js` ≥ 2.x) and a substring
+ * check of the message, so this keeps working if the upstream class name
+ * changes.
+ */
+function isExpectedAnonymousAuthError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { name?: unknown; message?: unknown };
+  if (e.name === "AuthSessionMissingError") return true;
+  if (typeof e.message === "string" && /auth session missing/i.test(e.message)) {
+    return true;
+  }
+  return false;
+}
+
 function readStoredConsent(): FestivoCookieConsent | null {
   if (typeof window === "undefined") return null;
   try {
@@ -143,7 +166,7 @@ export default function CookieConsentBanner() {
           error: userError,
         } = await supabase.auth.getUser();
 
-        if (userError) {
+        if (userError && !isExpectedAnonymousAuthError(userError)) {
           console.error("[CookieConsentBanner] getUser failed", userError);
         }
 
@@ -202,7 +225,9 @@ export default function CookieConsentBanner() {
           error: userError,
         } = await supabase.auth.getUser();
         if (userError) {
-          console.error("[CookieConsentBanner] getUser failed on save", userError);
+          if (!isExpectedAnonymousAuthError(userError)) {
+            console.error("[CookieConsentBanner] getUser failed on save", userError);
+          }
           return;
         }
         if (!user) return;

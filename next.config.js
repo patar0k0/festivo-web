@@ -55,8 +55,9 @@ const nextConfig = {
       // Fonts self-hosted via next/font/google (downloaded at build time)
       "font-src 'self'",
       // API calls: Supabase, Vercel Analytics beacons, Facebook pixel events, Turnstile token verification,
-      //            Umami event beacons, GA4 measurement protocol
-      "connect-src 'self' *.supabase.co *.vercel-insights.com *.vercel-scripts.com www.facebook.com challenges.cloudflare.com cloud.umami.is *.google-analytics.com *.analytics.google.com *.googletagmanager.com",
+      //            Umami event beacons (script loaded from cloud.umami.is BUT sends to api-gateway.umami.dev),
+      //            GA4 measurement protocol
+      "connect-src 'self' *.supabase.co *.vercel-insights.com *.vercel-scripts.com www.facebook.com challenges.cloudflare.com cloud.umami.is api-gateway.umami.dev *.google-analytics.com *.analytics.google.com *.googletagmanager.com",
       // Embeds: YouTube videos, Google Maps, Turnstile challenge iframe, GTM noscript iframe
       "frame-src www.youtube.com youtube.com www.google.com maps.google.com challenges.cloudflare.com www.googletagmanager.com",
       "media-src 'self' blob:",

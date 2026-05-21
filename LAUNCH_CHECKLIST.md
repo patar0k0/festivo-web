@@ -10,20 +10,42 @@
 
 ## 📍 Текущ статус
 
-- **Sprint ден:** 6 / 14
+- **Sprint ден:** 7 / 14
 - **Launch стабилност:** 🟡 в подготовка
 - **Блокери в момента:** Umami beacon не пристига от incognito браузър (probable tracker-blocker; ще се верифицира от normal browser); Railway email cron deploy чака peak-hours да приключат (след 21:00 София).
-- **Последно обновяване:** 20 май 2026 (вечер)
-- **Прогрес:** 42 ✅ / 97 ⏳
-- **Свършено днес:** Welcome email auto-enqueue (DB trigger), Unsubscribe link plumbing, CSP fix за Turnstile (signup unblocked), Umami Cloud + GA4 + GTM инсталация (env vars във Vercel, GTM container публикуван, Google Tag → All Pages свързан с G-3K82DMFWQ5), **dynamic homepage OG image (`app/opengraph-image.tsx`)**.
-- **Ден 5 остава:** Email confirmation темплейт паста в Supabase Dashboard (HTML вече готов в `docs/email-templates/supabase-confirmation.html`), env vars review във Vercel (ръчно).
-- **Следва (Ден 6–7):** Lighthouse polish, image/font optimization, 404/error/loading states, cross-browser, build clean, Supabase backups.
+- **Последно обновяване:** 21 май 2026 (сутрин)
+- **Прогрес:** 50 ✅ / 89 ⏳
+- **Свършено на 20 май (вечер):**
+  - 404 + Error + Festival detail loading страници (PR #336)
+  - Build cleanup — `npm run build`, `tsc --noEmit`, `next lint` всички clean (PR #337)
+  - Премахнат broken `app/api/debug/test-auth` route
+  - Sentry deprecations премахнати (`disableLogger`, `automaticVercelMonitors` → `webpack.{treeshake.removeDebugLogging, automaticVercelMonitors}`)
+  - Image optimization в `FestivalMedia` (PR #338) — gallery thumbnails вече lazy-load
+  - Условия за организатори `/terms-organizers` (PR #339) — 15 секции, добавен в footer
+  - Newsletter signup форма в footer (PR #340) — Supabase storage, Turnstile + honeypot
+  - `.claude/settings.json` с read-only command allowlist (PR #335)
+- **🚨 Преди следващ деплой:** Run миграция `scripts/sql/20260520_newsletter_subscribers.sql` в Supabase Dashboard → newsletter formата ще работи
+- **Ден 5 остава (на друг комп):** Email confirmation темплейт паста в Supabase Dashboard (HTML вече готов в `docs/email-templates/supabase-confirmation.html`), env vars review във Vercel (ръчно).
+- **Следва (Ден 7+):** Lighthouse audit + fix, font optimization, favicons, cross-browser test, Supabase backups, launch комуникация drafts (Reddit/HN/LinkedIn/FB), email шаблон към 50 организатора, 10 FB групи списък.
 
 ### 🔄 PENDING VERIFICATION
 
+- **Newsletter table:** Migration `20260520_newsletter_subscribers.sql` чака да се run-не в Supabase Dashboard. Без нея — footer формата ще връща 502 при submit.
 - **Email cron** (Railway service `festivo-email-cron`): create-нат с правилни variables; deploy блокиран до 21:00 София (free-tier peak hours). Очаквай welcome email за `tsanislav.tsankov1@gmail.com` да мине от `pending` към `sent`.
 - **Umami pageviews:** скриптът зарежда (script.js status 200, `data-website-id` в DOM), GTM зарежда — но beacon `/api/send` не пристига от incognito browser. Тестване: отвори festivo.bg в нормален Chrome → обнови `cloud.umami.is` → Realtime трябва да покаже visitor.
 - **GA4:** Realtime data появява ~30-60 сек след analytics consent в cookie banner-а.
+
+### 📦 Merged PRs от тази сесия (20-21 май)
+
+| PR | Title | Status |
+|---|---|---|
+| #334 | feat(seo): dynamic homepage OG image | ✅ Merged |
+| #335 | chore(claude): read-only command allowlist | ✅ Merged |
+| #336 | feat(ui): styled 404, error, festival loading | ✅ Merged |
+| #337 | chore(build): clean build + Sentry deprecations | ✅ Merged |
+| #338 | perf(festival): optimize gallery images | ✅ Merged |
+| #339 | feat(legal): organizer-specific terms page | ✅ Merged |
+| #340 | feat(newsletter): footer email signup → Supabase | ✅ Merged (миграция предстои) |
 
 ---
 
@@ -101,16 +123,20 @@
 #### Ден 6–7: Lighthouse + полиране
 
 - [ ] Lighthouse audit на 5 ключови страници (mobile-first): 90+ на Performance, Accessibility, SEO, Best Practices
-- [ ] Image optimization (всички с `next/image`, `alt`, lazy loading)
+- [x] Image optimization (всички с `next/image`, `alt`, lazy loading)
+> 💡 Claude Code note (20 май): Audit на 12 `<img>` тага в 7 файла. Конвертирани 3 в `FestivalMedia.tsx` (gallery main + thumbnails + YouTube thumbs) към `FallbackImage` с lazy loading и responsive `sizes` prop (PR #338). Hero, Meta Pixel noscript, lightbox и admin форми — обосновано оставени (explicit eslint-disable + LCP-critical с eager loading).
 - [ ] Font loading optimization
 - [ ] Unused JS / CSS removal
-- [ ] `404.tsx` и `error.tsx` стилизирани
-- [ ] Loading states (`loading.tsx`) на всички routes
+- [x] `404.tsx` и `error.tsx` стилизирани
+> 💡 Claude Code note (20 май): Branded 404 (`app/not-found.tsx`), error boundary (`app/error.tsx`) с Sentry capture и festival-specific 404 (`app/festivals/[slug]/not-found.tsx`) — всички с accent bar #7c2d12, Festivo brand стил, CTAs към home + festivals, `robots: noindex` (PR #336).
+- [x] Loading states (`loading.tsx`) на всички routes
+> 💡 Claude Code note (20 май): Festival detail skeleton (`app/festivals/[slug]/loading.tsx`) добавен в PR #336. Останалите ключови routes (festivals, calendar, map) вече имаха.
 - [ ] Cross-browser тест: Chrome, Safari iOS, Firefox, Edge
 - [ ] Real mobile тест на iPhone + Android
-- [ ] `npm run build` без warnings
-- [ ] `tsc --noEmit` без errors
-- [ ] ESLint clean
+- [x] `npm run build` без warnings
+> 💡 Claude Code note (20 май): Премахнат broken debug route `app/api/debug/test-auth` (имаше `PASTE_REAL_TOKEN_HERE` hardcode). Sentry deprecations fix-нати (PR #337). Build clean.
+- [x] `tsc --noEmit` без errors
+- [x] ESLint clean
 - [x] Health check endpoint `/api/health`
 - [ ] **Supabase backups** включени (Pro план — point-in-time recovery)
 
@@ -157,7 +183,8 @@
 - [x] Cookie banner със Supabase sync
 - [x] Privacy policy на български
 - [x] Terms of service на български
-- [ ] Условия за организатори (отделна страница)
+- [x] Условия за организатори (отделна страница)
+> 💡 Claude Code note (20 май): `/terms-organizers` страница, 15 секции — кой може да бъде организатор, claim/approval flow, изисквания към съдържанието, права (organizer запазва, дава неизкл. лиценз), VIP план + promotion credits, refund policy, прекратяване, БГ юрисдикция (PR #339). Link в footer-а под „Условия за организатори". ⚠️ Препоръчителен правен преглед преди launch.
 - [ ] DPA преглед със Supabase, Resend, Upstash
 - [ ] Contact email за GDPR (`privacy@festivo.bg`)
 
@@ -177,7 +204,8 @@
 - [ ] Дай им **VIP early adopter access** (3 месеца безплатно)
 - [ ] **Daily Sentry check** — fix всички errors в рамките на 24h
 - [ ] Поправи топ 3 UX проблема от feedback
-- [ ] Newsletter signup форма (footer + popup след 30 сек)
+- [~] Newsletter signup форма (footer + popup след 30 сек)
+> 💡 Claude Code note (20 май, вечер): Footer форма готова (PR #340). Storage: Supabase `newsletter_subscribers` (source of truth, RLS deny anon/auth). API: `POST /api/newsletter/subscribe` с Turnstile + honeypot + idempotent upsert. Component готов и за popup/landing (`source` prop). **🚨 Преди формата да работи в production — run миграция `scripts/sql/20260520_newsletter_subscribers.sql` в Supabase Dashboard.** Popup след 30s остава.
 
 #### Ден 13: Подготовка на launch комуникация
 
@@ -394,4 +422,4 @@
 
 ---
 
-_Last updated: 20 май 2026 от Claude Code_
+_Last updated: 21 май 2026 от Claude Code_

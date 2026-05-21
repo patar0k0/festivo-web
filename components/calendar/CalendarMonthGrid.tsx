@@ -69,7 +69,7 @@ export default function CalendarMonthGrid({
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
+      <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-[0.14em] text-black/65">
         {WEEK_DAYS.map((name) => (
           <span key={name}>{name}</span>
         ))}
@@ -95,7 +95,10 @@ export default function CalendarMonthGrid({
               key={cell.key}
               type="button"
               onClick={() => onSelectDay(dayKey)}
-              aria-label={`${dateLabel}, ${count} фестивала`}
+              // WCAG 2.5.3 Label in Name: accessible name must start with the
+              // visible text (the day number) so voice-control users can say
+              // "click 22" and screen reader users hear the visible label first.
+              aria-label={`${format(cell.date, "d")} — ${dateLabel}, ${count} фестивала`}
               className={cn(
                 "flex h-20 flex-col items-start justify-between rounded-xl border px-2.5 py-2 text-left transition",
                 pub.focusRing,

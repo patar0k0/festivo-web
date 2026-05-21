@@ -62,7 +62,7 @@ export const pub = {
   /** Typography */
   eyebrow: "text-xs font-semibold uppercase tracking-[0.14em] text-amber-900/50",
 
-  eyebrowMuted: "text-xs font-semibold uppercase tracking-[0.2em] text-black/40",
+  eyebrowMuted: "text-xs font-semibold uppercase tracking-[0.2em] text-black/65",
 
   displayH1: "font-[var(--font-display)] text-3xl font-bold tracking-tight text-[#0c0e14] md:text-4xl",
 

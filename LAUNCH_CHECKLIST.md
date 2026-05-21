@@ -24,13 +24,12 @@
   - Условия за организатори `/terms-organizers` (PR #339) — 15 секции, добавен в footer
   - Newsletter signup форма в footer (PR #340) — Supabase storage, Turnstile + honeypot
   - `.claude/settings.json` с read-only command allowlist (PR #335)
-- **🚨 Преди следващ деплой:** Run миграция `scripts/sql/20260520_newsletter_subscribers.sql` в Supabase Dashboard → newsletter formата ще работи
+- **✅ Newsletter миграция приложена** (21 май): `newsletter_subscribers` таблица в production, footer form submit-ва успешно, count = 1 след първи test.
 - **Ден 5 остава (на друг комп):** Email confirmation темплейт паста в Supabase Dashboard (HTML вече готов в `docs/email-templates/supabase-confirmation.html`), env vars review във Vercel (ръчно).
 - **Следва (Ден 7+):** Lighthouse audit + fix, font optimization, favicons, cross-browser test, Supabase backups, launch комуникация drafts (Reddit/HN/LinkedIn/FB), email шаблон към 50 организатора, 10 FB групи списък.
 
 ### 🔄 PENDING VERIFICATION
 
-- **Newsletter table:** Migration `20260520_newsletter_subscribers.sql` чака да се run-не в Supabase Dashboard. Без нея — footer формата ще връща 502 при submit.
 - **Email cron** (Railway service `festivo-email-cron`): create-нат с правилни variables; deploy блокиран до 21:00 София (free-tier peak hours). Очаквай welcome email за `tsanislav.tsankov1@gmail.com` да мине от `pending` към `sent`.
 - **Umami pageviews:** скриптът зарежда (script.js status 200, `data-website-id` в DOM), GTM зарежда — но beacon `/api/send` не пристига от incognito browser. Тестване: отвори festivo.bg в нормален Chrome → обнови `cloud.umami.is` → Realtime трябва да покаже visitor.
 - **GA4:** Realtime data появява ~30-60 сек след analytics consent в cookie banner-а.
@@ -45,7 +44,8 @@
 | #337 | chore(build): clean build + Sentry deprecations | ✅ Merged |
 | #338 | perf(festival): optimize gallery images | ✅ Merged |
 | #339 | feat(legal): organizer-specific terms page | ✅ Merged |
-| #340 | feat(newsletter): footer email signup → Supabase | ✅ Merged (миграция предстои) |
+| #340 | feat(newsletter): footer email signup → Supabase | ✅ Merged + миграция приложена |
+| #342 | fix(legal): unblock Vercel deploy (ESLint quotes) | ✅ Merged |
 
 ---
 

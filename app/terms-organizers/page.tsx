@@ -60,7 +60,7 @@ export default function OrganizerTermsPage() {
           <section className="mt-10">
             <h2 className="mt-8 mb-2 text-lg font-semibold">1. Кой може да бъде организатор</h2>
             <p className={cn(pub.body, "mt-3 leading-relaxed")}>
-              Като „организатор" може да се регистрира физическо или юридическо лице,
+              Като „организатор“ може да се регистрира физическо или юридическо лице,
               което организира фестивали или културни събития в България.
             </p>
             <ul className={listClass}>
@@ -73,7 +73,7 @@ export default function OrganizerTermsPage() {
           <section className="mt-10">
             <h2 className="mt-8 mb-2 text-lg font-semibold">2. Регистрация и одобрение на профил</h2>
             <p className={cn(pub.body, "mt-3 leading-relaxed")}>
-              Организаторски профил се създава чрез процес на „claim" (заявка за достъп до
+              Организаторски профил се създава чрез процес на „claim“ (заявка за достъп до
               съществуващ профил) или подаване на нов фестивал чрез публичната форма.
             </p>
             <ul className={listClass}>

@@ -48,6 +48,12 @@ type EventCardProps = {
   occurrenceDates?: unknown;
   startTime?: string | null;
   endTime?: string | null;
+  /**
+   * When true, the hero image is loaded eagerly with `fetchpriority="high"` —
+   * use ONLY for the LCP candidate (e.g. the first card in the first visible
+   * section above the fold). Defaults to false (lazy).
+   */
+  priority?: boolean;
 };
 
 function getDateBadge(date?: string | null) {
@@ -109,6 +115,7 @@ export default function EventCard({
   occurrenceDates,
   startTime,
   endTime,
+  priority = false,
 }: EventCardProps) {
   const badge = getDateBadge(startDate);
   const dateText = dateLine?.trim() ? dateLine : formatContinuousFestivalRangeBg(startDate, endDate);
@@ -150,6 +157,7 @@ export default function EventCard({
                 sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
                 className="object-cover transition-transform duration-300 ease-out group-hover/image:scale-105"
                 resetKey={festivalId}
+                priority={priority}
               />
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#f2efe9] text-sm text-black/45">
@@ -174,6 +182,7 @@ export default function EventCard({
             sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
             className="object-cover"
             resetKey={festivalId}
+            priority={priority}
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#f2efe9] text-sm text-black/45">

@@ -37,11 +37,18 @@ function EventsSection({
   title,
   festivals,
   seeAllHref,
+  priorityFirst = false,
 }: {
   id?: string;
   title: string;
   festivals: Festival[];
   seeAllHref: string;
+  /**
+   * When the section above (CurrentFestivalsSection) is hidden because there
+   * are < 3 current festivals, this section's first card becomes the LCP
+   * candidate. Set `priorityFirst` only on the topmost rendered section.
+   */
+  priorityFirst?: boolean;
 }) {
   return (
     <section id={id} className="scroll-mt-24 space-y-4">
@@ -61,9 +68,10 @@ function EventsSection({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:gap-6">
-          {festivals.map((festival) => (
+          {festivals.map((festival, index) => (
             <EventCard
               key={festival.slug}
+              priority={priorityFirst && index === 0}
               title={festival.title}
               city={getFestivalLocationDisplay(festival).city ?? ""}
               category={festival.category}
@@ -173,6 +181,9 @@ export default function RealHomePage({
               title="Предстоящи"
               festivals={nearestFestivals}
               seeAllHref="/festivals?when=upcoming"
+              // Когато CurrentFestivalsSection е скрита (< 3 текущи фестивала),
+              // първият card тук става LCP — даваме му priority.
+              priorityFirst={currentFestivals.length < 3}
             />
             <EventsSection title="Този уикенд" festivals={weekendFestivals} seeAllHref="/festivals?when=weekend" />
             {monthFestivals.length > 0 ? (

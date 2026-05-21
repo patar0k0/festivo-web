@@ -40,7 +40,11 @@ export default function MapPickerLeaflet({ center, zoom, marker, onMapClick, onM
 
   return (
     <MapContainer center={center} zoom={zoom} className="z-0 h-[min(360px,50vh)] w-full rounded-lg" scrollWheelZoom>
-      <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <TileLayer
+        attribution="&copy; OpenStreetMap"
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        detectRetina
+      />
       <MapClickLayer onClick={onMapClick} />
       {marker ? (
         <Marker

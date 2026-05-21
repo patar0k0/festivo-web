@@ -93,7 +93,16 @@ export default function MapView({
       <MapContainer center={center} zoom={DEFAULT_ZOOM} className="h-full w-full" whenReady={() => setHasMoved(false)}>
         <MapMoveWatcher onMove={() => setHasMoved(true)} />
         <MapViewportController focusCoords={focusCoords} resetViewToken={resetViewToken} />
-        <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer
+          attribution="&copy; OpenStreetMap"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          // detectRetina makes Leaflet request tiles at one zoom level higher
+          // for devices with devicePixelRatio > 1 (most mobile phones).
+          // Without it Lighthouse flags the 256×256 PNGs as "lower than the
+          // natural resolution" (~384×384 expected at DPR 1.75) — and the map
+          // looks visibly soft on retina screens. OSM's TOS permit this usage.
+          detectRetina
+        />
         {festivals.map((festival) => (
           <Marker
             key={festival.id}

@@ -47,10 +47,12 @@ export default function FallbackImage({
     resetKey,
   );
 
-  const isRemote =
-    Boolean(normalizedSrc) &&
-    (normalizedSrc!.startsWith("http://") || normalizedSrc!.startsWith("https://"));
-  const unoptimized = unoptimizedProp ?? isRemote;
+  // Remote images (Supabase storage, fbcdn) are routed through Next.js image
+  // optimizer by default — generates AVIF/WebP + srcset per `sizes`, cuts LCP
+  // payload ~10x. Callers that need to bypass the optimizer (e.g. avatar / logo
+  // upload previews, or images on hosts not in `remotePatterns`) should pass
+  // `unoptimized` explicitly. See `next.config.js` for the allowed remote hosts.
+  const unoptimized = unoptimizedProp ?? false;
 
   const resolvedSrc = useMemo(() => {
     if (!normalizedSrc) return null;

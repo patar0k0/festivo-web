@@ -205,7 +205,29 @@
 - [ ] **Daily Sentry check** — fix всички errors в рамките на 24h
 - [ ] Поправи топ 3 UX проблема от feedback
 - [~] Newsletter signup форма (footer + popup след 30 сек)
-> 💡 Claude Code note (20 май, вечер): Footer форма готова (PR #340). Storage: Supabase `newsletter_subscribers` (source of truth, RLS deny anon/auth). API: `POST /api/newsletter/subscribe` с Turnstile + honeypot + idempotent upsert. Component готов и за popup/landing (`source` prop). **🚨 Преди формата да работи в production — run миграция `scripts/sql/20260520_newsletter_subscribers.sql` в Supabase Dashboard.** Popup след 30s остава.
+> 💡 Claude Code note (20 май, вечер): Footer форма готова (PR #340). Storage: Supabase `newsletter_subscribers` (source of truth, RLS deny anon/auth). API: `POST /api/newsletter/subscribe` с honeypot + idempotent upsert. Component готов и за popup/landing (`source` prop). Popup след 30s остава.
+> 💡 Claude Code note (21 май): Миграцията `scripts/sql/20260520_newsletter_subscribers.sql` приложена в production. Footer формата работи (test count = 1). Turnstile премахнат (PR #343) — clash с warm footer theme; останалата защита (honeypot + email regex + rate limit + DB unique) е достатъчна за low-stakes signup.
+
+##### 📮 Newsletter sending strategy — РЕШЕНИЕ: Опция A (Resend Audiences)
+
+**Защо A:** 15 мин setup vs 2-3 часа custom код. Built-in admin UI, open/click analytics, A/B testing на subjects. 3000 имейли/мес безплатно. Resend вече е инсталиран за transactional — DKIM/SPF/DMARC настроени.
+
+**Stack:**
+- Source of truth: Supabase `newsletter_subscribers` (винаги)
+- Изпращащ канал: Resend **Audiences** + **Broadcasts**
+- Sync: cron script който push-ва нови subscribers към Resend Audience през API
+- Unsubscribe: Resend handle-ва native (one-click unsub link); локалния `unsubscribe_token` остава за бъдеще
+
+**TODO (post-launch, ден 21+):**
+- [ ] Създай Resend Audience `Festivo Newsletter` → копирай Audience ID
+- [ ] Env var: `RESEND_NEWSLETTER_AUDIENCE_ID` във Vercel + Railway
+- [ ] Скрипт `scripts/sync-newsletter-to-resend.mjs` — чете нови subscribers (`synced_to_resend_at IS NULL`), POST към Resend Audience contacts API, marks-ва timestamp
+- [ ] Миграция: add column `synced_to_resend_at timestamptz` на `newsletter_subscribers`
+- [ ] Railway cron service `festivo-newsletter-sync` — daily schedule `0 6 * * *` (06:00 UTC = 09:00 София)
+- [ ] First newsletter (~12 юни): „Добре дошли в Festivo — топ фестивали за юли"
+- [ ] React Email template `NewsletterBaseTemplate` (потенциално за бъдещ swap към Опция B)
+
+**Кога да се mъжdame към Опция B (custom email_jobs):** ако имаме 5000+ subscribers, или искаме персонализация по град/любими, или Resend цена надхвърли $20/мес.
 
 #### Ден 13: Подготовка на launch комуникация
 

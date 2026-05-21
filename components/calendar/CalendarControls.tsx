@@ -114,7 +114,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
     <div className="space-y-4">
       <form onSubmit={onApply} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_10rem_10rem_auto_auto]">
         <label className="flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/45">Град</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/65">Град</span>
           <input
             value={city}
             onChange={(event) => setCity(event.target.value)}
@@ -124,7 +124,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
         </label>
 
         <label className="flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/45">Категория</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/65">Категория</span>
           <select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
@@ -140,7 +140,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
         </label>
 
         <label className="flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/45">От</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/65">От</span>
           <DdMmYyyyDateInput
             value={from}
             onChange={setFrom}
@@ -149,7 +149,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
         </label>
 
         <label className="flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/45">До</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/65">До</span>
           <DdMmYyyyDateInput
             value={to}
             onChange={setTo}

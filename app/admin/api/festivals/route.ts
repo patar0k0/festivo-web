@@ -3,6 +3,22 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 
 const STATUS_OPTIONS = ["draft", "verified", "rejected", "archived"] as const;
 
+const SORT_OPTIONS = [
+  "start_date_asc",
+  "start_date_desc",
+  "updated_desc",
+  "created_desc",
+] as const;
+type SortOption = (typeof SORT_OPTIONS)[number];
+const DEFAULT_SORT: SortOption = "start_date_asc";
+
+function asSort(value: string | null): SortOption {
+  if (value && (SORT_OPTIONS as readonly string[]).includes(value)) {
+    return value as SortOption;
+  }
+  return DEFAULT_SORT;
+}
+
 function asString(value: string | null) {
   return typeof value === "string" ? value : "";
 }
@@ -50,13 +66,36 @@ export async function GET(request: Request) {
     const free = asString(url.searchParams.get("free"));
     const q = asString(url.searchParams.get("q"));
 
+    const sort = asSort(url.searchParams.get("sort"));
+
     let query = ctx.supabase
       .from("festivals")
       .select(
-        "id,title,city,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,is_free,status,updated_at,source_type,cities:cities!festivals_city_id_fkey(id,name_bg,slug)",
+        "id,title,city,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,is_free,status,updated_at,created_at,source_type,cities:cities!festivals_city_id_fkey(id,name_bg,slug)",
       )
-      .order("updated_at", { ascending: false })
       .limit(200);
+
+    // Default: chronological — what's coming next, freshest within each day.
+    // `nullsFirst: false` so festivals without start_date (rare) don't crowd the top.
+    switch (sort) {
+      case "start_date_desc":
+        query = query
+          .order("start_date", { ascending: false, nullsFirst: false })
+          .order("updated_at", { ascending: false });
+        break;
+      case "updated_desc":
+        query = query.order("updated_at", { ascending: false });
+        break;
+      case "created_desc":
+        query = query.order("created_at", { ascending: false, nullsFirst: false });
+        break;
+      case "start_date_asc":
+      default:
+        query = query
+          .order("start_date", { ascending: true, nullsFirst: false })
+          .order("updated_at", { ascending: false });
+        break;
+    }
 
     if (STATUS_OPTIONS.includes(status as (typeof STATUS_OPTIONS)[number])) {
       query = query.eq("status", status);

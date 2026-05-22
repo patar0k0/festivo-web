@@ -41,7 +41,7 @@ export default function PrivacyPolicyPage() {
         <article className="mx-auto max-w-2xl">
           <p className={cn(pub.eyebrowMuted, "leading-relaxed")}>Festivo.bg</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Политика за поверителност</h1>
-          <p className={cn(pub.body, "mt-5 leading-relaxed")}>В сила от: 12 април 2026 г.</p>
+          <p className={cn(pub.body, "mt-5 leading-relaxed")}>В сила от: 28 май 2026 г.</p>
 
           <section className="mt-10">
             <h2 className="mt-8 mb-2 text-lg font-semibold">1. Администратор на данни</h2>

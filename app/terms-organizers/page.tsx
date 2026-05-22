@@ -42,7 +42,7 @@ export default function OrganizerTermsPage() {
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             Условия за организатори
           </h1>
-          <p className={cn(pub.body, "mt-5 leading-relaxed")}>В сила от: 20 май 2026 г.</p>
+          <p className={cn(pub.body, "mt-5 leading-relaxed")}>В сила от: 28 май 2026 г.</p>
 
           <p className={cn(pub.body, "mt-6 leading-relaxed")}>
             Тези условия се прилагат за всички организатори, които използват festivo.bg за

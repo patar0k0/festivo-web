@@ -29,9 +29,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Server misconfiguration" }, { status: 503 });
   }
 
+  // Tables that may not exist in every environment (legacy/phantom refs in code).
+  const OPTIONAL_TABLES = new Set(["profiles", "cookie_consents", "user_favorites"]);
   const del = async (table: string, column = "user_id") => {
     const { error } = await admin.from(table).delete().eq(column, userId);
     if (error) {
+      if (OPTIONAL_TABLES.has(table) && /does not exist/i.test(error.message)) {
+        console.warn(`[account/delete] skipping ${table} (not present in this env): ${error.message}`);
+        return;
+      }
       console.error(`[account/delete] ${table}`, error);
       throw new Error(`${table}: ${error.message}`);
     }
@@ -86,17 +92,8 @@ export async function POST(request: Request) {
     await del("organizer_members");
     await del("user_favorites");
 
-    const { error: profErr } = await admin.from("profiles").delete().eq("user_id", userId);
-    if (profErr) {
-      console.error("[account/delete] profiles", profErr);
-      throw new Error(`profiles: ${profErr.message}`);
-    }
-
-    const { error: cookieErr } = await admin.from("cookie_consents").delete().eq("user_id", userId);
-    if (cookieErr) {
-      console.error("[account/delete] cookie_consents", cookieErr);
-      throw new Error(`cookie_consents: ${cookieErr.message}`);
-    }
+    await del("profiles");
+    await del("cookie_consents");
 
     await del("analytics_events");
     await del("outbound_clicks");

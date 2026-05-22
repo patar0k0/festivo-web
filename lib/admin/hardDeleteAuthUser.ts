@@ -11,10 +11,26 @@ import {
  * Remove application data for a user (everything except the post-auth RPC sweep).
  * Safe to run when auth user is already gone.
  */
+/** Tables that may not exist in every environment (legacy/phantom references in code). */
+const OPTIONAL_TABLES = new Set([
+  "profiles",
+  "cookie_consents",
+  "user_favorites",
+]);
+
+function isMissingRelationOrColumnError(message: string): boolean {
+  // PostgREST surface for: relation "x" does not exist  |  column "x.y" does not exist
+  return /does not exist/i.test(message);
+}
+
 export async function purgeUserApplicationData(admin: SupabaseClient, userId: string): Promise<void> {
   const del = async (table: string, column = "user_id") => {
     const { error } = await admin.from(table).delete().eq(column, userId);
     if (error) {
+      if (OPTIONAL_TABLES.has(table) && isMissingRelationOrColumnError(error.message)) {
+        console.warn(`[purgeUserApplicationData] skipping ${table} (not present in this env): ${error.message}`);
+        return;
+      }
       throw new Error(`${table}: ${error.message}`);
     }
   };
@@ -62,15 +78,8 @@ export async function purgeUserApplicationData(admin: SupabaseClient, userId: st
   await del("organizer_members");
   await del("user_favorites");
 
-  const { error: profErr } = await admin.from("profiles").delete().eq("user_id", userId);
-  if (profErr) {
-    throw new Error(`profiles: ${profErr.message}`);
-  }
-
-  const { error: cookieErr } = await admin.from("cookie_consents").delete().eq("user_id", userId);
-  if (cookieErr) {
-    throw new Error(`cookie_consents: ${cookieErr.message}`);
-  }
+  await del("profiles");
+  await del("cookie_consents");
 
   await del("analytics_events");
   await del("outbound_clicks");

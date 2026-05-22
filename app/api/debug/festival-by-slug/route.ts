@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 export async function GET(req: Request) {
+  // Debug endpoint — disabled in production (matches /api/debug/cookies pattern).
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug") ?? "";
 

@@ -281,7 +281,7 @@ export function SignupForm({ next }: SignupFormProps) {
       </div>
 
       <p className="mt-4 text-center text-xs leading-relaxed text-black/65">
-        С натискане на „Създай профил" или вход с Google/Apple приемаш{" "}
+        {'С натискане на „Създай профил" или вход с Google/Apple приемаш '}
         <Link href="/terms" className="font-semibold text-[#7c2d12] underline decoration-black/20 underline-offset-[3px] hover:decoration-[#7c2d12]/60">
           Общите условия
         </Link>{" "}

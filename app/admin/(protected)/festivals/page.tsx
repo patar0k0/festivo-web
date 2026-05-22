@@ -11,6 +11,22 @@ import { headers } from "next/headers";
 const STATUS_OPTIONS = ["draft", "verified", "rejected", "archived"] as const;
 const STATUS_FILTER_OPTIONS = ["all", ...STATUS_OPTIONS] as const;
 
+const SORT_OPTIONS = [
+  { value: "start_date_asc", label: "Дата (възх.) — какво идва" },
+  { value: "start_date_desc", label: "Дата (низх.) — скорошно минали" },
+  { value: "updated_desc", label: "Последно редактиран" },
+  { value: "created_desc", label: "Скоро добавени" },
+] as const;
+type SortValue = (typeof SORT_OPTIONS)[number]["value"];
+const DEFAULT_SORT: SortValue = "start_date_asc";
+
+function asSort(raw: string): SortValue {
+  if ((SORT_OPTIONS as readonly { value: string }[]).some((opt) => opt.value === raw)) {
+    return raw as SortValue;
+  }
+  return DEFAULT_SORT;
+}
+
 type SearchParams = Record<string, string | string[] | undefined>;
 
 type AdminFestivalRow = {
@@ -50,6 +66,7 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
   const category = asString(params.category);
   const free = asString(params.free);
   const q = asString(params.q);
+  const sort = asSort(asString(params.sort));
   const deleted = asString(params.deleted) === "1";
 
   const statusScope = statusToFilterScope(status);
@@ -64,6 +81,7 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
   if (category) queryString.set("category", category);
   if (free) queryString.set("free", free);
   if (q) queryString.set("q", q);
+  if (sort !== DEFAULT_SORT) queryString.set("sort", sort);
 
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
@@ -150,7 +168,7 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
               </select>
             </label>
 
-            <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50 lg:col-span-2">
+            <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
               Search title
               <input
                 name="q"
@@ -158,6 +176,21 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
                 className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm"
                 placeholder="Title contains…"
               />
+            </label>
+
+            <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
+              Sort
+              <select
+                name="sort"
+                defaultValue={sort}
+                className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 

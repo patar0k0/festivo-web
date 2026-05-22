@@ -75,11 +75,40 @@ export default function PrivacyPolicyPage() {
 
           <section className="mt-10">
             <h2 className="mt-8 mb-2 text-lg font-semibold">4. Трети страни и обработващи</h2>
+            <p className={cn(pub.body, "mt-3 leading-relaxed")}>
+              Festivo използва ограничен набор от утвърдени доставчици, които обработват данни от наше име. Маркетинговите
+              и допълнителните аналитични инструменти се зареждат само със съгласие през банера за бисквитки.
+            </p>
             <ul className={listClass}>
-              <li>Supabase – база данни и authentication</li>
-              <li>Vercel – хостинг и инфраструктура</li>
-              <li>Resend – имейл нотификации</li>
-              <li>Vercel Analytics – анонимизирана статистика</li>
+              <li>
+                <span className="font-semibold text-[#0c0e14]/88">Supabase</span> — база данни, authentication и storage за
+                файлове на потребители/организатори
+              </li>
+              <li>
+                <span className="font-semibold text-[#0c0e14]/88">Vercel</span> — хостинг, edge инфраструктура и
+                анонимизирана посетителска статистика (Vercel Analytics)
+              </li>
+              <li>
+                <span className="font-semibold text-[#0c0e14]/88">Resend</span> — доставка на транзакционни и
+                маркетингови имейли
+              </li>
+              <li>
+                <span className="font-semibold text-[#0c0e14]/88">Cloudflare Turnstile</span> — anti-bot защита при
+                регистрация и подаване на форми
+              </li>
+              <li>
+                <span className="font-semibold text-[#0c0e14]/88">Google</span> (Analytics + Tag Manager) и{" "}
+                <span className="font-semibold text-[#0c0e14]/88">Meta</span> (Pixel) — измерване на ефективност и реклами;
+                зареждат се само със съгласие
+              </li>
+              <li>
+                <span className="font-semibold text-[#0c0e14]/88">Umami</span> — допълнителна анонимна аналитика без лични
+                идентификатори
+              </li>
+              <li>
+                <span className="font-semibold text-[#0c0e14]/88">Sentry</span> — наблюдение на технически грешки;
+                IP-адресите се анонимизират и не се пазят лични данни
+              </li>
             </ul>
           </section>
 

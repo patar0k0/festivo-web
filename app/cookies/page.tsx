@@ -81,14 +81,55 @@ export default function CookiesPolicyPage() {
             <h3 className={cn(pub.sectionTitleMd, "mt-8")}>Аналитични</h3>
             <p className={cn(pub.body, "mt-2 leading-relaxed")}>
               Помагат ни да разберем агрегирано как се ползва сайтът (например посещения и навигация), за да го
-              подобряваме:
+              подобряваме. Базовата аналитика работи без съгласие защото е анонимизирана; разширените аналитични
+              инструменти на Google се активират само със съгласие чрез банера за бисквитки.
             </p>
             <ul className={listClass}>
               <li>
-                <span className="font-semibold text-[#0c0e14]/88">Vercel Analytics</span> — анонимизирана статистика
-                за посещения (без лични данни).
+                <span className="font-semibold text-[#0c0e14]/88">Vercel Analytics</span> и{" "}
+                <span className="font-semibold text-[#0c0e14]/88">Umami</span> — анонимизирана статистика за посещения,
+                без лични данни и без cross-site проследяване
+              </li>
+              <li>
+                <span className="font-semibold text-[#0c0e14]/88">Google Analytics + Google Tag Manager</span> — измерване
+                на трафик и поведение; зарежда се само със съгласие
               </li>
             </ul>
+
+            <h3 className={cn(pub.sectionTitleMd, "mt-8")}>Маркетингови</h3>
+            <p className={cn(pub.body, "mt-2 leading-relaxed")}>
+              Използваме се за измерване на реклами и ретаргетиране. Зареждат се само със съгласие чрез банера за
+              бисквитки:
+            </p>
+            <ul className={listClass}>
+              <li>
+                <span className="font-semibold text-[#0c0e14]/88">Meta Pixel</span> — измерване на ефективност на реклами
+                във Facebook и Instagram
+              </li>
+            </ul>
+
+            <h3 className={cn(pub.sectionTitleMd, "mt-8")}>Технически и сигурност</h3>
+            <p className={cn(pub.body, "mt-2 leading-relaxed")}>
+              Зареждат се по необходимост за защита и стабилност на платформата:
+            </p>
+            <ul className={listClass}>
+              <li>
+                <span className="font-semibold text-[#0c0e14]/88">Cloudflare Turnstile</span> — anti-bot защита при
+                регистрация и подаване на форми
+              </li>
+              <li>
+                <span className="font-semibold text-[#0c0e14]/88">Sentry</span> — наблюдение на технически грешки;
+                IP-адресите се анонимизират
+              </li>
+            </ul>
+
+            <p className={cn(pub.body, "mt-6 leading-relaxed")}>
+              Пълен списък на доставчиците, които обработват данни, виж в{" "}
+              <Link href="/privacy" className={externalLinkClass}>
+                Политиката за поверителност
+              </Link>{" "}
+              (раздел 4).
+            </p>
           </section>
 
           <section className="mt-10">
@@ -157,7 +198,7 @@ export default function CookiesPolicyPage() {
           </section>
 
           <p className={cn(pub.caption, "mt-12 border-t border-black/[0.08] pt-6 leading-relaxed")}>
-            Последна актуализация: април 2026
+            Последна актуализация: май 2026
           </p>
         </article>
       </Container>

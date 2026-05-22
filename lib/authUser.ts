@@ -5,6 +5,10 @@ export type OptionalUser = {
   email: string | null;
   /** Public profile image URL from `auth.users` `user_metadata.avatar_url`. */
   avatarUrl: string | null;
+  /** Display name from `auth.users` `user_metadata.full_name` (OAuth providers populate this; null otherwise). */
+  displayName: string | null;
+  /** ISO timestamp from `auth.users.created_at` — used for "member since" greeting. */
+  createdAt: string | null;
 } | null;
 
 export async function getOptionalUser(): Promise<OptionalUser> {
@@ -37,5 +41,18 @@ export async function getOptionalUser(): Promise<OptionalUser> {
 
   const rawAvatar = user.user_metadata?.avatar_url;
   const avatarUrl = typeof rawAvatar === "string" && rawAvatar.length > 0 ? rawAvatar : null;
-  return { id: user.id, email: user.email ?? null, avatarUrl };
+
+  const rawFullName = user.user_metadata?.full_name;
+  const displayName =
+    typeof rawFullName === "string" && rawFullName.trim().length > 0
+      ? rawFullName.trim()
+      : null;
+
+  return {
+    id: user.id,
+    email: user.email ?? null,
+    avatarUrl,
+    displayName,
+    createdAt: user.created_at ?? null,
+  };
 }

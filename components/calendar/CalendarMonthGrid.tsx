@@ -48,24 +48,43 @@ export default function CalendarMonthGrid({
 
   const prevMonth = format(addMonths(monthStart, -1), "yyyy-MM");
   const nextMonth = format(addMonths(monthStart, 1), "yyyy-MM");
+  const todayMonth = format(new Date(), "yyyy-MM");
+  const isOnCurrentMonth = month === todayMonth;
 
   return (
     <div className={cn(pub.panelMuted, "p-4 md:p-5")}>
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onChangeMonth(prevMonth)}
+            className={cn(pub.btnSecondarySm, "px-3 py-2 hover:bg-[#f7f6f3]", pub.focusRing)}
+            aria-label="Предишен месец"
+          >
+            ‹
+          </button>
+          <p className="text-lg font-bold capitalize tracking-tight text-[#0c0e14]">{monthLabel}</p>
+          <button
+            type="button"
+            onClick={() => onChangeMonth(nextMonth)}
+            className={cn(pub.btnSecondarySm, "px-3 py-2 hover:bg-[#f7f6f3]", pub.focusRing)}
+            aria-label="Следващ месец"
+          >
+            ›
+          </button>
+        </div>
         <button
           type="button"
-          onClick={() => onChangeMonth(prevMonth)}
-          className={cn(pub.btnSecondarySm, "px-3 py-2 hover:bg-[#f7f6f3]", pub.focusRing)}
+          onClick={() => onChangeMonth(todayMonth)}
+          disabled={isOnCurrentMonth}
+          className={cn(
+            pub.btnSecondarySm,
+            "px-3 py-2 hover:bg-[#f7f6f3] disabled:cursor-not-allowed disabled:opacity-50",
+            pub.focusRing,
+          )}
+          aria-label="Към днешния месец"
         >
-          Prev
-        </button>
-        <p className="text-lg font-bold capitalize tracking-tight text-[#0c0e14]">{monthLabel}</p>
-        <button
-          type="button"
-          onClick={() => onChangeMonth(nextMonth)}
-          className={cn(pub.btnSecondarySm, "px-3 py-2 hover:bg-[#f7f6f3]", pub.focusRing)}
-        >
-          Next
+          Днес
         </button>
       </div>
 
@@ -90,6 +109,7 @@ export default function CalendarMonthGrid({
             year: "numeric",
           }).format(cell.date);
 
+          const hasEvents = count > 0;
           return (
             <button
               key={cell.key}
@@ -98,29 +118,35 @@ export default function CalendarMonthGrid({
               // WCAG 2.5.3 Label in Name: accessible name must start with the
               // visible text (the day number) so voice-control users can say
               // "click 22" and screen reader users hear the visible label first.
-              aria-label={`${format(cell.date, "d")} — ${dateLabel}, ${count} фестивала`}
+              aria-label={
+                hasEvents
+                  ? `${format(cell.date, "d")} — ${dateLabel}, ${count} ${count === 1 ? "фестивал" : "фестивала"}`
+                  : `${format(cell.date, "d")} — ${dateLabel}, без фестивали`
+              }
               className={cn(
                 "flex h-20 flex-col items-start justify-between rounded-xl border px-2.5 py-2 text-left transition",
                 pub.focusRing,
                 selected
                   ? "border-[#7c2d12] bg-[#7c2d12] text-white"
-                  : "border-black/[0.08] bg-white/80 text-[#0c0e14] hover:border-amber-200/60",
+                  : hasEvents
+                    ? "border-amber-200/50 bg-amber-50/40 text-[#0c0e14] hover:border-amber-300/70"
+                    : "border-black/[0.05] bg-white/50 text-black/55 hover:border-black/[0.12]",
               )}
             >
-              <span className="text-sm font-semibold">{format(cell.date, "d")}</span>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                  selected ? "bg-white/20 text-white" : "bg-black/[0.06] text-black/65"
-                }`}
-              >
+              <span className={cn("text-sm font-semibold", !selected && !hasEvents && "font-medium")}>
+                {format(cell.date, "d")}
+              </span>
+              {hasEvents ? (
                 <span
                   className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    selected ? "bg-white" : count > 0 ? "bg-[#7c2d12]" : "bg-black/20",
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    selected ? "bg-white/20 text-white" : "bg-[#7c2d12]/10 text-[#7c2d12]",
                   )}
-                />
-                {count}
-              </span>
+                >
+                  <span className={cn("h-1.5 w-1.5 rounded-full", selected ? "bg-white" : "bg-[#7c2d12]")} />
+                  {count}
+                </span>
+              ) : null}
             </button>
           );
         })}

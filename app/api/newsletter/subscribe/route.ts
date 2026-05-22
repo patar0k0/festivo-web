@@ -12,7 +12,15 @@ type Body = {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALLOWED_SOURCES = new Set(["footer", "popup", "landing"]);
+const ALLOWED_SOURCES = new Set([
+  "footer",
+  "popup",
+  "landing",
+  // Mobile app launch waitlist — collected from the profile page promo
+  // banner. After app launches, run a one-time send to this segment via
+  // `SELECT email FROM newsletter_subscribers WHERE source = 'mobile_waitlist'`.
+  "mobile_waitlist",
+]);
 
 // Anti-abuse stack on this route (Turnstile intentionally NOT used — newsletter
 // signup is low-stakes UX and a visible challenge clashes with the warm footer

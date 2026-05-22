@@ -5,7 +5,7 @@ export function EmailHeader() {
   return (
     <Text style={brand}>
       <span style={brandStrong}>Festivo</span>
-      <span style={brandMuted}> · фестивали в България</span>
+      <span style={brandMuted}> · Открий. Планирай. Посети.</span>
     </Text>
   );
 }

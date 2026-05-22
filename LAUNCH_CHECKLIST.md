@@ -10,31 +10,56 @@
 
 ## 📍 Текущ статус
 
-- **Sprint ден:** 7 / 14
-- **Launch стабилност:** 🟡 в подготовка
-- **Блокери в момента:** Umami beacon не пристига от incognito браузър (probable tracker-blocker; ще се верифицира от normal browser); Railway email cron deploy чака peak-hours да приключат (след 21:00 София).
-- **Последно обновяване:** 21 май 2026 (сутрин)
-- **Прогрес:** 50 ✅ / 89 ⏳
-- **Свършено на 20 май (вечер):**
-  - 404 + Error + Festival detail loading страници (PR #336)
-  - Build cleanup — `npm run build`, `tsc --noEmit`, `next lint` всички clean (PR #337)
-  - Премахнат broken `app/api/debug/test-auth` route
-  - Sentry deprecations премахнати (`disableLogger`, `automaticVercelMonitors` → `webpack.{treeshake.removeDebugLogging, automaticVercelMonitors}`)
-  - Image optimization в `FestivalMedia` (PR #338) — gallery thumbnails вече lazy-load
-  - Условия за организатори `/terms-organizers` (PR #339) — 15 секции, добавен в footer
-  - Newsletter signup форма в footer (PR #340) — Supabase storage, Turnstile + honeypot
-  - `.claude/settings.json` с read-only command allowlist (PR #335)
-- **✅ Newsletter миграция приложена** (21 май): `newsletter_subscribers` таблица в production, footer form submit-ва успешно, count = 1 след първи test.
-- **Ден 5 остава (на друг комп):** Email confirmation темплейт паста в Supabase Dashboard (HTML вече готов в `docs/email-templates/supabase-confirmation.html`), env vars review във Vercel (ръчно).
-- **Следва (Ден 7+):** Lighthouse audit + fix, font optimization, favicons, cross-browser test, Supabase backups, launch комуникация drafts (Reddit/HN/LinkedIn/FB), email шаблон към 50 организатора, 10 FB групи списък.
+- **Sprint ден:** 7 / 14 — последен ден от Седмица 1
+- **Launch стабилност:** 🟢 готов за soft launch
+- **Блокери в момента:** няма (всички известни production issues са fix-нати на 22 май)
+- **Последно обновяване:** 22 май 2026 (вечер)
+- **Прогрес:** 62 ✅ / 89 ⏳
+- **Следва (Седмица 2):** покритие на 10 фестивала с богато съдържание (Ден 8-9), social profiles (Ден 10), soft launch с 10-15 приятели (Ден 11-12), launch comms drafts (Ден 13), **PUBLIC LAUNCH сряда 28 май** (Ден 14).
 
-### 🔄 PENDING VERIFICATION
+### Свършено на 22 май 2026 (Ден 7 — 13 PRs + infrastructure)
 
-- **Email cron** (Railway service `festivo-email-cron`): create-нат с правилни variables; deploy блокиран до 21:00 София (free-tier peak hours). Очаквай welcome email за `tsanislav.tsankov1@gmail.com` да мине от `pending` към `sent`.
-- ~~**Umami pageviews:** beacon блокиран от CSP — Umami праща към `api-gateway.umami.dev` не към `cloud.umami.is`. Фикс в PR #345 (21 май).~~ ✅ Работи — beacons минават с 200.
-- **GA4:** Realtime data появява ~30-60 сек след analytics consent в cookie banner-а.
+**Lighthouse / a11y polish:**
+- Calendar contrast + Label-in-Name fixes (PR #355)
+- POST handler на `/api/jobs/email` — Railway worker crash fix (PR #356)
 
-### 📦 Merged PRs от тази сесия (20-21 май)
+**Email surface (брандиран confirmation flow + админ@):**
+- Refined confirmation email design (PR #357)
+- Brand slogan „Открий. Планирай. Посети." в всички email headers (PR #358)
+- Effective dates 28 май 2026 + signup implicit consent (PR #361)
+- Unified contact addresses → `admin@festivo.bg` (PR #363)
+
+**Legal compliance:**
+- Третите страни в /privacy §4 + /cookies (Meta, GA4, Umami, Sentry, Cloudflare) (PR #362)
+- Unescaped quote fix който блокираше Vercel build (PR #365)
+
+**Admin tools:**
+- Hard delete достъпен в production с double confirmation (PR #359)
+- Phantom tables не блокират hard delete (PR #360)
+- Admin festivals — default sort start_date ASC + Sort dropdown (PR #367)
+
+**Security:**
+- Debug endpoints gated в production (PR #366)
+- Full security audit — A-grade headers, no leaked secrets, no critical vulns
+
+**Docs:**
+- `docs/launch-flip-procedure.md` runbook за launch ден (PR #364)
+
+**Infrastructure (off-code):**
+- ✅ Cloudflare Email Routing — catch-all `*@festivo.bg` → твоя Gmail
+- ✅ Gmail "Send mail as" с Resend SMTP — изпращане от `admin@festivo.bg`
+- ✅ Supabase auth e-mails минават през Resend SMTP (no rate limits)
+
+### Свършено на 20-21 май (предишни сесии)
+
+- 404 + Error + Festival detail loading страници (PR #336)
+- Build cleanup — `npm run build`, `tsc --noEmit`, `next lint` всички clean (PR #337)
+- Image optimization в `FestivalMedia` (PR #338)
+- Условия за организатори `/terms-organizers` (PR #339) — 15 секции
+- Newsletter signup форма в footer (PR #340) + production миграция приложена
+- Sentry deprecations премахнати
+
+### 📦 Merged PRs от стартирането на sprint-а
 
 | PR | Title | Status |
 |---|---|---|
@@ -44,8 +69,66 @@
 | #337 | chore(build): clean build + Sentry deprecations | ✅ Merged |
 | #338 | perf(festival): optimize gallery images | ✅ Merged |
 | #339 | feat(legal): organizer-specific terms page | ✅ Merged |
-| #340 | feat(newsletter): footer email signup → Supabase | ✅ Merged + миграция приложена |
+| #340 | feat(newsletter): footer email signup → Supabase | ✅ Merged + миграция |
 | #342 | fix(legal): unblock Vercel deploy (ESLint quotes) | ✅ Merged |
+| #355 | a11y(calendar): WCAG AA contrast + Label in Name | ✅ Merged |
+| #356 | fix(jobs): accept POST on /api/jobs/email | ✅ Merged |
+| #357 | polish(email): refine Supabase confirmation template | ✅ Merged |
+| #358 | polish(email): brand slogan в email headers | ✅ Merged |
+| #359 | fix(admin/users): enable hard delete в production | ✅ Merged |
+| #360 | fix(admin/users): hard delete tolerates phantom tables | ✅ Merged |
+| #361 | chore(legal): signup consent + effective dates | ✅ Merged |
+| #362 | chore(legal): all active third-party processors | ✅ Merged |
+| #363 | chore(contact): unify to admin@festivo.bg | ✅ Merged |
+| #364 | docs: launch flip procedure runbook | ✅ Merged |
+| #365 | fix(signup): escape Bulgarian quote (Vercel build) | ✅ Merged |
+| #366 | security: gate debug routes в production | ✅ Merged |
+| #367 | polish(admin/festivals): default sort + Sort dropdown | ✅ Merged |
+
+---
+
+## 🔮 Post-launch backlog (след 28 май)
+
+Списък на полиращи задачи отложени за след launch — за да не правим рискови промени в последните дни преди публикуване.
+
+### Admin tools polish
+- [ ] **Sortable column headers** в `/admin/festivals` (click на колона → sort, ▲▼ indicator)
+- [ ] **Visual grouping by status** — divider секции "Pending review", "Upcoming", "Ongoing", "Past"
+- [ ] **Quick filter chips** — „Този weekend", „Pending review", „Без снимки", „VIP"
+- [ ] **Bold за edited recently** (< 7 дни) — subtle visual cue
+- [ ] **Badge „❗ No content"** за фестивали без описание/снимки
+- [ ] **Row hover preview** със снимка + описание
+- [ ] Same pattern в `/admin/users`, `/admin/organizers`, `/admin/pending-festivals`
+
+### Security hardening
+- [ ] CSP nonces — премахни `'unsafe-inline'` за scripts
+- [ ] Penetration test (3rd party security pro)
+- [ ] Bug bounty на HackerOne / Bugcrowd
+- [ ] Cloudflare WAF rules
+- [ ] Periodic `npm audit` (monthly cadence)
+- [ ] Secrets rotation policy (6-month cycle)
+
+### Legal & UX gaps
+- [ ] Add `privacy@festivo.bg` алиас explicit в /privacy (catch-all вече го хваща)
+- [ ] /privacy — Children's data (GDPR Art. 8) + Automated decision-making (Art. 22)
+- [ ] /terms — Force majeure + indemnification + DSA notice-and-action
+- [ ] Конкретни cookie names + durations в /cookies (gold standard)
+- [ ] /terms-organizers — payment terms (методи, ДДС, фактуриране) при стартиране на paid plans
+- [ ] Add legal entity info в /privacy (EOOD име + EIK + регистриран адрес) — GDPR Art. 13 mandate
+
+### Performance
+- [ ] Font loading optimization (`display: swap`, preload)
+- [ ] Unused JS / CSS removal
+- [ ] Lighthouse audit + fix за `/signup`, `/login`, `/festival-detail`
+- [ ] Favicons full set (16/32/180/512) през realfavicongenerator.net
+
+### Operational
+- [ ] Supabase backups — GitHub Actions → Cloudflare R2 daily pg_dump
+- [ ] Cross-browser test (Chrome, Safari iOS, Firefox, Edge)
+- [ ] Real mobile test (iPhone + Android)
+- [ ] Newsletter sending strategy — Resend Audiences + Broadcasts setup
+- [ ] DPA преглед със Supabase, Resend, Upstash
+- [ ] Supabase Auth Hook — route confirmation/magic-link emails през email_jobs за unified admin view
 
 ---
 
@@ -105,7 +188,7 @@
 - [x] Welcome email шаблон
 > 💡 Claude Code note (20 май): Темплейтът дойде от PR #330 (другия компютър) — `WelcomeEmail.tsx` + registry/schemas. PR #331 добави enqueue логиката: DB trigger `trg_enqueue_welcome_email` (миграция `20260519_welcome_email_on_user_insert.sql`) на INSERT в `public.users`, idempotent с `welcome:<userId>` dedupe. Шаблонът сега приема `unsubscribeUrl` + `managePreferencesUrl`, които се резолват автоматично от `renderEmailJob` чрез `resolveOptionalEmailLinks`.
 - [x] Password reset шаблон
-- [ ] Email confirmation шаблон — HTML темплейтът е готов в `docs/email-templates/supabase-confirmation.html` (PR #330). Остава: копирай в Supabase Dashboard → Auth → Email Templates → "Confirm signup".
+- [x] Email confirmation шаблон — paste-нат в Supabase Dashboard, тестван end-to-end. Polished design + brand slogan + admin@ contact (PR #357, #358, #363).
 - [x] Unsubscribe линк във всички marketing имейли
 > 💡 Claude Code note (19 май): Reminder имейлите вече имаха unsubscribe. Welcome го получи чрез нов `lib/email/resolveOptionalEmailLinks.ts` + `renderEmailJob` enrichment. `OPTIONAL_LINK_TYPES` set позволява лесно разширяване и за други marketing типове (напр. бъдещ newsletter).
 - [x] **Supabase RLS** audit на всички таблици

@@ -113,7 +113,10 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
     ? formatDistanceToNow(new Date(detail.last_sign_in_at), { addSuffix: true, locale: bg })
     : null;
 
-  const showHardDelete = process.env.NODE_ENV === "development";
+  // Hard delete is gated server-side (see app/admin/api/users/[id]/hard/route.ts) —
+  // admin role + double confirmation (DELETE phrase + email match) + audit log.
+  // We surface the button to all admins; the action itself is what's protected.
+  const showHardDelete = true;
   const isDeleted = Boolean(detail.deleted_at);
 
   return (

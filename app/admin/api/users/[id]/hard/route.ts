@@ -10,9 +10,14 @@ import { hardDeleteAuthUser } from "@/lib/admin/hardDeleteAuthUser";
 import { invalidateCachedUserGateSafe } from "@/lib/middlewareUserGateCache";
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
-  if (process.env.NODE_ENV !== "development") {
-    return NextResponse.json({ error: "Недостъпно извън development." }, { status: 403 });
-  }
+  // Production access is gated by:
+  //  1. getAdminContext (admin role required)
+  //  2. assertCanApplyDestructiveUserAction (no self-delete, no super_admin → super_admin)
+  //  3. Double confirmation: client must send confirm_phrase === "DELETE" AND
+  //     confirm_email matching the user's email in public.users
+  //  4. Audit log entry (user_hard_delete) for every successful invocation
+  // The earlier `NODE_ENV !== "development"` guard was a belt-and-suspenders
+  // safeguard from early development; the above protections are sufficient.
 
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {

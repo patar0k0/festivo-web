@@ -28,7 +28,7 @@ export default function OrganizerBenefitsPage() {
             </ul>
 
             <TrackedAnchor
-              href="mailto:hello@festivo.bg?subject=Заявка за промотиране на фестивал"
+              href="mailto:admin@festivo.bg?subject=Заявка за промотиране на фестивал"
               className="mt-4 inline-flex rounded-lg bg-black px-4 py-2 text-sm text-white transition hover:bg-black/90"
               eventType="click-promotion-request"
             >

@@ -2,6 +2,19 @@ import { NextResponse } from "next/server";
 import { getOptionalUser } from "@/lib/authUser";
 import { getPlanStateByUser } from "@/lib/plan/server";
 
+// Explicit — this endpoint reads auth cookies and must never be statically
+// generated or edge-cached. Without this, Next.js auto-detects dynamic via the
+// cookies() call, but declaring it is cheap insurance against future refactors
+// accidentally making it static.
+export const dynamic = "force-dynamic";
+
+const EMPTY_GUEST_PAYLOAD = {
+  authenticated: false,
+  scheduleItemIds: [],
+  festivalIds: [],
+  reminders: {},
+} as const;
+
 export async function GET(request: Request) {
   const ua = request.headers.get("user-agent") || "";
 
@@ -12,10 +25,25 @@ export async function GET(request: Request) {
     ua.includes("undici");
 
   if (isInternal) {
-    return Response.json({ ok: true });
+    // Internal probes (Vercel build, monitoring) still get a *valid* plan-state
+    // shape. Previously we returned `{ ok: true }` which, if a real browser ever
+    // hit this branch (e.g. a future UA contains "node"), would crash the client
+    // applyState() call (`undefined.map`) and leave the user stuck in guest UI.
+    return NextResponse.json(EMPTY_GUEST_PAYLOAD);
   }
 
-  const user = await getOptionalUser();
+  // We deliberately catch errors from getOptionalUser here. If the optional
+  // soft-delete check throws (transient DB error, RLS hiccup), we'd otherwise
+  // 500 — which the client treats as "skip update", leaving logged-in users
+  // stuck in guest view on the festival detail / plan page. Safer to degrade
+  // to the guest payload; mutating endpoints still enforce auth properly.
+  let user;
+  try {
+    user = await getOptionalUser();
+  } catch (err) {
+    console.error("[/api/plan/state] getOptionalUser failed", err);
+    return NextResponse.json(EMPTY_GUEST_PAYLOAD);
+  }
 
   if (!user) {
     // Anonymous visitors are a *normal* state for this endpoint, not an error
@@ -31,9 +59,22 @@ export async function GET(request: Request) {
     // Mutating endpoints (`/api/plan/items`, `/api/plan/festivals`,
     // `/api/plan/reminders`) keep their 401 — they *do* require an actual
     // identity.
-    return NextResponse.json({ authenticated: false, scheduleItemIds: [], festivalIds: [], reminders: {} });
+    return NextResponse.json(EMPTY_GUEST_PAYLOAD);
   }
 
-  const state = await getPlanStateByUser();
-  return NextResponse.json({ authenticated: true, ...state });
+  try {
+    const state = await getPlanStateByUser();
+    return NextResponse.json({ authenticated: true, ...state });
+  } catch (err) {
+    // If plan-state fetch fails for a logged-in user, return authenticated:true
+    // with empty arrays. The UI still shows the correct "logged in" state and
+    // can refetch later — much better than reverting to guest view.
+    console.error("[/api/plan/state] getPlanStateByUser failed", err);
+    return NextResponse.json({
+      authenticated: true,
+      scheduleItemIds: [],
+      festivalIds: [],
+      reminders: {},
+    });
+  }
 }

@@ -77,8 +77,8 @@ export function WelcomeEmail({ siteUrl, firstName, unsubscribeUrl, managePrefere
 
       <Text style={footer}>
         Имаш въпроси? Пиши ни на{" "}
-        <a href="mailto:hello@festivo.bg" style={link}>
-          hello@festivo.bg
+        <a href="mailto:admin@festivo.bg" style={link}>
+          admin@festivo.bg
         </a>{" "}
         — отговаряме бързо.
       </Text>

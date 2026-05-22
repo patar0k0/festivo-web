@@ -55,10 +55,10 @@ export default function NotFound() {
             <p className="mt-8 text-xs text-black/50">
               Ако смяташ че това е грешка, пиши ни на{" "}
               <a
-                href="mailto:hello@festivo.bg"
+                href="mailto:admin@festivo.bg"
                 className="font-medium text-[#0c0e14] underline underline-offset-2"
               >
-                hello@festivo.bg
+                admin@festivo.bg
               </a>
             </p>
           </div>

@@ -13,14 +13,44 @@ type Props = {
 };
 
 /**
- * Админ зоната (/admin/*) без публичен хедър/футър — един изход и по-малко шум.
- * Хедърът се подава от сървърен родител, за да не влиза next/headers в client bundle.
+ * Routes that render their own internal workspace chrome (WorkspaceShell with
+ * top bar + sidebar). Public SiteHeader/SiteFooter would just duplicate
+ * navigation and steal vertical real estate, so we suppress them.
+ *
+ * Matches the route groups under app/:
+ *   - /admin/*                  (AdminShell)
+ *   - /organizer/dashboard      \
+ *   - /organizer/submissions/*  } organizer (workspace) route group
+ *   - /organizer/festivals/*    /
+ *
+ * NOTE: Other /organizer routes intentionally KEEP public chrome:
+ *   - /organizer            (marketing landing)
+ *   - /organizer/benefits   (info page)
+ *   - /organizer/claim      (onboarding for non-owners)
+ *   - /organizer/profile/new (onboarding for non-owners)
+ *   - /organizer/organizations/[id]/edit (single edit form, no shell)
+ */
+function isInternalWorkspaceRoute(pathname: string | null): boolean {
+  if (!pathname) return false;
+  if (pathname.startsWith("/admin")) return true;
+  if (pathname === "/organizer/dashboard" || pathname.startsWith("/organizer/dashboard/")) return true;
+  if (pathname === "/organizer/submissions" || pathname.startsWith("/organizer/submissions/")) return true;
+  if (pathname === "/organizer/festivals" || pathname.startsWith("/organizer/festivals/")) return true;
+  return false;
+}
+
+/**
+ * Internal workspaces (admin + organizer dashboard) hide the public chrome to
+ * avoid double navigation. The page renders its own WorkspaceShell with
+ * topbar + sidebar; the public SiteHeader/SiteFooter would be redundant.
+ * Header is passed in from a server parent so next/headers stays out of the
+ * client bundle.
  */
 export default function ConditionalSiteChrome({ children, header, footer, minimalChrome }: Props) {
   const pathname = usePathname();
-  const isAdminRoute = pathname?.startsWith("/admin") ?? false;
+  const isWorkspaceRoute = isInternalWorkspaceRoute(pathname);
 
-  if (minimalChrome || isAdminRoute) {
+  if (minimalChrome || isWorkspaceRoute) {
     return <main className="min-h-screen">{children}</main>;
   }
 

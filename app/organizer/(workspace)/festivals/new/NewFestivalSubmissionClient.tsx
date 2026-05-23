@@ -151,7 +151,7 @@ function buildInitialFormData(initialDraft: NewFestivalDraftInitial | null, preO
     endTime: initialDraft?.end_time ?? "",
     locationName: initialDraft?.location_name ?? "",
     address: initialDraft?.address ?? "",
-    category: initialDraft?.category ?? "festival",
+    category: initialDraft?.category ?? "",
     tagsInput: initialDraft?.tagsInput ?? "",
     websiteUrl: initialDraft?.website_url ?? "",
     facebookUrl: initialDraft?.facebook_url ?? "",
@@ -924,30 +924,43 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                     <label htmlFor="wizard-field-category" className={LABEL_TEXT_CLASS}>
                       Категория <span className="text-[#7c2d12]">*</span>
                     </label>
-                    <select
+                    <input
                       id="wizard-field-category"
+                      type="text"
+                      list="organizer-category-suggestions"
                       value={formData.category}
                       onChange={(ev) => patchForm("category", ev.target.value)}
+                      placeholder="напр. Фолклорен или избери от списъка"
+                      maxLength={80}
                       className={FIELD_CLASS}
-                    >
-                      <option value="festival">Общ фестивал</option>
-                      <option value="folk">Фолклорен</option>
-                      <option value="music">Музикален</option>
-                      <option value="wine">Винен</option>
-                      <option value="food">Гастрономически / кулинарен</option>
-                      <option value="art">Изкуство</option>
-                      <option value="film">Филмов</option>
-                      <option value="theatre">Театрален</option>
-                      <option value="traditional">Традиционен / събор</option>
-                      <option value="religious">Религиозен</option>
-                      <option value="children">Детски / семеен</option>
-                      <option value="sport">Спортен</option>
-                      <option value="craft">Занаятчийски</option>
-                      <option value="other">Друго</option>
-                    </select>
+                    />
+                    {/* Native <datalist> combo: позволява free text ИЛИ избор от
+                        предложенията. Браузърът показва падащо меню при focus
+                        с тези опции, но user-ът може и да въведе нещо ново. */}
+                    <datalist id="organizer-category-suggestions">
+                      <option value="Фолклорен" />
+                      <option value="Музикален" />
+                      <option value="Винен" />
+                      <option value="Гастрономически" />
+                      <option value="Кулинарен" />
+                      <option value="Изкуство" />
+                      <option value="Филмов" />
+                      <option value="Театрален" />
+                      <option value="Традиционен" />
+                      <option value="Събор" />
+                      <option value="Религиозен" />
+                      <option value="Детски" />
+                      <option value="Семеен" />
+                      <option value="Спортен" />
+                      <option value="Занаятчийски" />
+                      <option value="Литературен" />
+                      <option value="Танцов" />
+                      <option value="Етно" />
+                      <option value="Уличен" />
+                    </datalist>
                     <p className={HELPER_CLASS}>
-                      Изберете категория която най-добре описва фестивала. Екипът може да я
-                      нормализира при преглед.
+                      Можеш да избереш от списъка или да напишеш своя категория.
+                      Екипът може да я нормализира при преглед.
                     </p>
                   </div>
                 </div>

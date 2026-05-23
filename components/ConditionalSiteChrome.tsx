@@ -18,17 +18,17 @@ type Props = {
  * navigation and steal vertical real estate, so we suppress them.
  *
  * Matches the route groups under app/:
- *   - /admin/*                  (AdminShell)
- *   - /organizer/dashboard      \
- *   - /organizer/submissions/*  } organizer (workspace) route group
- *   - /organizer/festivals/*    /
+ *   - /admin/*                       (AdminShell)
+ *   - /organizer/dashboard           \
+ *   - /organizer/submissions/*       } organizer (workspace) route group
+ *   - /organizer/festivals/*         /
+ *   - /organizer/organizations/*    (edit organizer profile — workspace, not marketing)
  *
  * NOTE: Other /organizer routes intentionally KEEP public chrome:
  *   - /organizer            (marketing landing)
  *   - /organizer/benefits   (info page)
  *   - /organizer/claim      (onboarding for non-owners)
  *   - /organizer/profile/new (onboarding for non-owners)
- *   - /organizer/organizations/[id]/edit (single edit form, no shell)
  */
 function isInternalWorkspaceRoute(pathname: string | null): boolean {
   if (!pathname) return false;
@@ -36,6 +36,7 @@ function isInternalWorkspaceRoute(pathname: string | null): boolean {
   if (pathname === "/organizer/dashboard" || pathname.startsWith("/organizer/dashboard/")) return true;
   if (pathname === "/organizer/submissions" || pathname.startsWith("/organizer/submissions/")) return true;
   if (pathname === "/organizer/festivals" || pathname.startsWith("/organizer/festivals/")) return true;
+  if (pathname === "/organizer/organizations" || pathname.startsWith("/organizer/organizations/")) return true;
   return false;
 }
 

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import NewFestivalSubmissionClient, { type NewFestivalDraftInitial } from "./NewFestivalSubmissionClient";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import {
@@ -88,5 +89,67 @@ export default async function NewFestivalSubmissionPage({
     }
   }
 
-  return <NewFestivalSubmissionClient initialDraft={initialDraft} />;
+  // Fetch existing categories from published festivals — these become combo suggestions
+  // for the organizer. We sort by frequency (most common first) so popular categories
+  // surface to the top. Falls back to a built-in list if nothing exists yet.
+  const categorySuggestions = await loadCategorySuggestions(admin);
+
+  return (
+    <NewFestivalSubmissionClient
+      initialDraft={initialDraft}
+      categorySuggestions={categorySuggestions}
+    />
+  );
+}
+
+async function loadCategorySuggestions(admin: SupabaseClient): Promise<string[]> {
+  // Fallback used when there are no festivals yet (early production days).
+  const fallback = [
+    "Фолклорен",
+    "Музикален",
+    "Винен",
+    "Гастрономически",
+    "Кулинарен",
+    "Изкуство",
+    "Филмов",
+    "Театрален",
+    "Традиционен",
+    "Събор",
+    "Религиозен",
+    "Детски",
+    "Семеен",
+    "Спортен",
+    "Занаятчийски",
+  ];
+
+  try {
+    const { data, error } = await admin
+      .from("festivals")
+      .select("category")
+      .eq("status", "verified")
+      .eq("is_active", true)
+      .not("category", "is", null)
+      .limit(500);
+
+    if (error || !Array.isArray(data) || data.length === 0) {
+      return fallback;
+    }
+
+    // Tally usage; sort by count desc, then alphabetically.
+    const counts = new Map<string, number>();
+    for (const row of data) {
+      const raw = (row as { category?: unknown }).category;
+      if (typeof raw !== "string") continue;
+      const v = raw.trim();
+      if (!v) continue;
+      counts.set(v, (counts.get(v) ?? 0) + 1);
+    }
+    const sorted = [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "bg"))
+      .map(([k]) => k);
+
+    return sorted.length > 0 ? sorted.slice(0, 24) : fallback;
+  } catch {
+    return fallback;
+  }
 }

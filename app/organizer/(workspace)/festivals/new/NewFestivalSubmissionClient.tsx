@@ -250,7 +250,13 @@ function buildPortalPayload(data: NewFestivalFormData, heroImage: string | null,
 
 const SUBMISSIONS_SUCCESS_REDIRECT = "/organizer/submissions?submitted=1";
 
-function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestivalDraftInitial | null }) {
+function NewFestivalSubmissionInner({
+  initialDraft,
+  categorySuggestions,
+}: {
+  initialDraft: NewFestivalDraftInitial | null;
+  categorySuggestions: string[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preOrg = searchParams.get("organizer_id") ?? "";
@@ -935,32 +941,19 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                       className={FIELD_CLASS}
                     />
                     {/* Native <datalist> combo: позволява free text ИЛИ избор от
-                        предложенията. Браузърът показва падащо меню при focus
-                        с тези опции, но user-ът може и да въведе нещо ново. */}
+                        предложенията. Списъкът идва от сървъра — distinct categories
+                        от съществуващи verified фестивали, сортирани по честота.
+                        Така популярните категории излизат най-отгоре, а новите
+                        предложения от организаторите се добавят естествено в pool-а
+                        след admin verification. */}
                     <datalist id="organizer-category-suggestions">
-                      <option value="Фолклорен" />
-                      <option value="Музикален" />
-                      <option value="Винен" />
-                      <option value="Гастрономически" />
-                      <option value="Кулинарен" />
-                      <option value="Изкуство" />
-                      <option value="Филмов" />
-                      <option value="Театрален" />
-                      <option value="Традиционен" />
-                      <option value="Събор" />
-                      <option value="Религиозен" />
-                      <option value="Детски" />
-                      <option value="Семеен" />
-                      <option value="Спортен" />
-                      <option value="Занаятчийски" />
-                      <option value="Литературен" />
-                      <option value="Танцов" />
-                      <option value="Етно" />
-                      <option value="Уличен" />
+                      {categorySuggestions.map((c) => (
+                        <option key={c} value={c} />
+                      ))}
                     </datalist>
                     <p className={HELPER_CLASS}>
-                      Можеш да избереш от списъка или да напишеш своя категория.
-                      Екипът може да я нормализира при преглед.
+                      Можеш да избереш от вече използваните или да напишеш своя
+                      категория. Екипът може да я нормализира при преглед.
                     </p>
                   </div>
                 </div>
@@ -1190,24 +1183,9 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                       />
 
                       <div className="block min-w-0 flex-1 space-y-2.5">
-                        <button
-                          type="button"
-                          onClick={() => heroFileInputRef.current?.click()}
-                          disabled={heroUploadBusy}
-                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#7c2d12] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5c200d] disabled:cursor-wait disabled:opacity-60 sm:w-auto"
-                        >
-                          {heroUploadBusy ? (
-                            <>
-                              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                              Качване…
-                            </>
-                          ) : (
-                            <>📤 Качи от компютъра</>
-                          )}
-                        </button>
-
-                        <p className="text-[11px] text-black/45">
-                          или
+                        <p className="text-xs text-black/55">
+                          Натисни <strong>квадратчето вляво</strong> за да качиш снимка
+                          от компютъра си, или постави линк по-долу.
                         </p>
 
                         <div>
@@ -1570,12 +1548,17 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
 
 export default function NewFestivalSubmissionClient({
   initialDraft = null,
+  categorySuggestions = [],
 }: {
   initialDraft?: NewFestivalDraftInitial | null;
+  categorySuggestions?: string[];
 }) {
   return (
     <Suspense fallback={<div className="py-16 text-center text-sm text-black/55">Зареждане…</div>}>
-      <NewFestivalSubmissionInner initialDraft={initialDraft} />
+      <NewFestivalSubmissionInner
+        initialDraft={initialDraft}
+        categorySuggestions={categorySuggestions}
+      />
     </Suspense>
   );
 }

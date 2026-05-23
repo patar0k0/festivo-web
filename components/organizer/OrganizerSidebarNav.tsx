@@ -25,9 +25,13 @@ function linkActive(pathname: string | null, href: string) {
 export default function OrganizerSidebarNav({
   isOrganizerOwner,
   hasSubmissions,
+  draftCount = 0,
 }: {
   isOrganizerOwner: boolean;
   hasSubmissions: boolean;
+  /** Number of draft pending_festivals for the current user — shown as a badge on the
+   *  "Моите подавания" item so users can find abandoned work without leaving the portal. */
+  draftCount?: number;
 }) {
   const pathname = usePathname();
   const links = isOrganizerOwner ? ORGANIZER_PORTAL_LINKS_OWNER : ORGANIZER_PORTAL_LINKS_NON_OWNER;
@@ -77,7 +81,23 @@ export default function OrganizerSidebarNav({
                 </span>
               ) : null}
               <span className="truncate">{item.label}</span>
-              {active && !primaryNewFestival ? (
+
+              {/* Draft count badge on "Моите подавания" — only when there are drafts
+                  and the user is not currently on the submissions page (to keep things
+                  quiet when they're already looking at them). */}
+              {item.href === "/organizer/submissions" && draftCount > 0 ? (
+                <span
+                  className={cn(
+                    "ml-auto inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold",
+                    active
+                      ? "bg-[#7c2d12] text-white"
+                      : "bg-amber-200/80 text-[#5c200d]",
+                  )}
+                  aria-label={`${draftCount} чернова${draftCount === 1 ? "" : draftCount < 5 ? "и" : ""}`}
+                >
+                  {draftCount}
+                </span>
+              ) : active && !primaryNewFestival ? (
                 <span aria-hidden="true" className="ml-auto text-xs text-[#7c2d12]">
                   •
                 </span>

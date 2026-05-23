@@ -169,12 +169,16 @@ export async function POST(request: Request) {
     source_url: null as string | null,
     source_type: normalizeFestivalSourceType("organizer_portal"),
     source_primary_url: null as string | null,
-    source_count: null as number | null,
-    evidence_json: null as unknown,
+    // Production DB has NOT NULL constraint on several research-pipeline columns
+    // (source_count, verification_score, evidence_json) despite migrations allowing
+    // null. For organizer-submitted rows we provide sane defaults explicitly so
+    // PostgreSQL doesn't 23502 on INSERT:
+    //   - source_count = 1 (organizer = single source)
+    //   - verification_score = 0 (low confidence, admin will review)
+    //   - evidence_json = {} (no automated evidence collected for manual submissions)
+    source_count: 1,
+    evidence_json: {} as Record<string, unknown>,
     verification_status: "needs_review" as const,
-    // Default for organizer-submitted (manual) — low confidence, needs admin review.
-    // Production DB has NOT NULL constraint on this column despite migration default
-    // allowing null; supply 0 explicitly to avoid 23502.
     verification_score: 0,
     extraction_version: null as string | null,
     website_url: optionalTrimmedUrl(body.website_url),

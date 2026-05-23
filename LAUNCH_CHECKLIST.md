@@ -17,6 +17,10 @@
 - **Прогрес:** 62 ✅ / 89 ⏳ (TikTok прехвърлен от ✅ на 🟡 — handle резервиран, но profile неоптимизиран)
 - **Следва (Седмица 2):** покритие на 10 фестивала с богато съдържание (Ден 8-9), social profiles (Ден 10), soft launch с 10-15 приятели (Ден 11-12), launch comms drafts (Ден 13), **PUBLIC LAUNCH сряда 28 май** (Ден 14).
 
+### 📌 За утре (23 май, продължение)
+
+- [ ] **Pro UX за `/organizer/submissions`** — следваща страница в organizer redesign sprint-а. Pattern: header card + sticky info sidebar + status badges + relative dates (като /organizer/dashboard). Reference: PRs #372-#378 за подобни pages.
+
 ### Свършено на 22 май 2026 (Ден 7 — 13 PRs + infrastructure)
 
 **Lighthouse / a11y polish:**

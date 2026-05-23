@@ -11,6 +11,14 @@ import {
   WizardProgressInline,
   type WizardStepMeta,
 } from "@/components/organizer/new-festival-wizard/StepNavigation";
+import OrganizerProgramEditor from "./OrganizerProgramEditor";
+import {
+  emptyProgramDraft,
+  parseProgramDraftUnknown,
+  programDraftHasContent,
+  programDraftToPublishPayload,
+  type ProgramDraft,
+} from "@/lib/festival/programDraft";
 
 export type NewFestivalDraftInitial = {
   id: string;
@@ -32,6 +40,7 @@ export type NewFestivalDraftInitial = {
   ticket_url: string;
   hero_image: string;
   is_free: boolean;
+  program_draft: unknown;
 };
 
 export type NewFestivalFormData = {
@@ -53,6 +62,7 @@ export type NewFestivalFormData = {
   ticketUrl: string;
   heroImageUrl: string;
   isFree: boolean;
+  programDraft: ProgramDraft;
 };
 
 type OrgOption = { id: string; name: string; slug: string };
@@ -95,8 +105,11 @@ const WIZARD_STEPS: WizardStepMeta[] = [
   { id: 1, label: "Основна информация", shortLabel: "Основна" },
   { id: 2, label: "Локация", shortLabel: "Локация" },
   { id: 3, label: "Дати и време", shortLabel: "Дати" },
-  { id: 4, label: "Медия и допълнително", shortLabel: "Медия" },
+  { id: 4, label: "Програма (по избор)", shortLabel: "Програма" },
+  { id: 5, label: "Медия и допълнително", shortLabel: "Медия" },
 ];
+
+const LAST_STEP = WIZARD_STEPS.length;
 
 const TITLE_MAX = 200;
 const DESCRIPTION_MAX = 1000;
@@ -115,6 +128,12 @@ const HELPER_CLASS = "mt-1 text-[11px] text-black/55";
 
 const CARD_CLASS =
   "w-full max-w-2xl rounded-2xl border border-amber-200/50 bg-white/95 px-5 py-6 shadow-sm ring-1 ring-amber-100/35 sm:px-7";
+
+function hydrateInitialProgramDraft(value: unknown): ProgramDraft {
+  if (!value) return emptyProgramDraft();
+  const parsed = parseProgramDraftUnknown(value);
+  return parsed.ok ? parsed.value : emptyProgramDraft();
+}
 
 function buildInitialFormData(initialDraft: NewFestivalDraftInitial | null, preOrg: string): NewFestivalFormData {
   return {
@@ -136,6 +155,7 @@ function buildInitialFormData(initialDraft: NewFestivalDraftInitial | null, preO
     ticketUrl: initialDraft?.ticket_url ?? "",
     heroImageUrl: initialDraft?.hero_image ?? "",
     isFree: initialDraft?.is_free ?? true,
+    programDraft: hydrateInitialProgramDraft(initialDraft?.program_draft),
   };
 }
 
@@ -177,6 +197,7 @@ function isStepValid(step: number, data: NewFestivalFormData): boolean {
       return Boolean(data.city.trim());
     case 3:
     case 4:
+    case 5:
       return true;
     default:
       return false;
@@ -190,6 +211,12 @@ function canSubmitFestival(data: NewFestivalFormData): boolean {
 }
 
 function buildPortalPayload(data: NewFestivalFormData, heroImage: string | null, tags: string[]) {
+  // Strip program_draft to canonical shape (publish payload). If empty → null
+  // so the server clears any prior draft data.
+  const programDraftOut = programDraftHasContent(data.programDraft)
+    ? programDraftToPublishPayload(data.programDraft)
+    : null;
+
   return {
     organizer_id: data.organizerId,
     title: data.title,
@@ -209,6 +236,7 @@ function buildPortalPayload(data: NewFestivalFormData, heroImage: string | null,
     ticket_url: data.ticketUrl || null,
     hero_image: heroImage,
     is_free: data.isFree,
+    program_draft: programDraftOut,
   };
 }
 
@@ -382,6 +410,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
             ticket_url: base.ticket_url,
             hero_image: base.hero_image,
             is_free: base.is_free,
+            program_draft: base.program_draft,
             status: "pending",
           };
           const res = await fetch(`/api/organizer/pending-festivals/${draftId}`, {
@@ -476,6 +505,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
           ticket_url: base.ticket_url,
           hero_image: base.hero_image,
           is_free: base.is_free,
+          program_draft: base.program_draft,
         };
         const res = await fetch(`/api/organizer/pending-festivals/${draftId}`, {
           method: "PATCH",
@@ -536,7 +566,8 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
   }
 
   function focusHeroImageUrlField() {
-    setCurrentStep(4);
+    // Hero image lives on the last step (Медия и допълнително).
+    setCurrentStep(LAST_STEP);
     setTimeout(() => {
       heroImageUrlInputRef.current?.focus();
       heroImageUrlInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -550,7 +581,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
       window.requestAnimationFrame(() => scrollFocusFirstInvalidFieldForStep(currentStep, formData));
       return;
     }
-    setCurrentStep((s) => Math.min(4, s + 1));
+    setCurrentStep((s) => Math.min(LAST_STEP, s + 1));
   }
 
   function goBack() {
@@ -586,7 +617,8 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
     1: "Име, описание, категория и организатор.",
     2: "Град, адрес и място. Координатите се уточняват при модерация при нужда.",
     3: "Начална и крайна дата и час.",
-    4: "Снимка, връзки към сайт и социални мрежи, тагове.",
+    4: "Дни и събития от програмата. Помага на посетителите да запазват конкретни часове в плана си.",
+    5: "Снимка, връзки към сайт и социални мрежи, тагове.",
   };
 
   return (
@@ -940,6 +972,27 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
               ) : null}
 
               {currentStep === 4 ? (
+                <div className="space-y-5">
+                  <div className="rounded-xl border border-amber-200/45 bg-amber-50/30 px-4 py-3 text-xs leading-relaxed text-[#5c200d]/90">
+                    💡 <strong>По избор.</strong> Добави програмата с конкретни събития и
+                    часове, за да могат посетителите да запазват отделни събития в
+                    плана си и да получават напомняния.
+                  </div>
+
+                  <OrganizerProgramEditor
+                    value={formData.programDraft}
+                    onChange={(next) => patchForm("programDraft", next)}
+                    defaultDate={formData.startDate}
+                  />
+
+                  <p className={HELPER_CLASS}>
+                    Можеш да добавиш няколко дни и за всеки — няколко събития с
+                    часове. Празни събития (без заглавие) ще бъдат игнорирани.
+                  </p>
+                </div>
+              ) : null}
+
+              {currentStep === 5 ? (
                 <div className="space-y-7">
                   {/* Hero image */}
                   <div>
@@ -1119,7 +1172,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
 
             <StepNavigation
               showBack={currentStep > 1}
-              isLastStep={currentStep === 4}
+              isLastStep={currentStep === LAST_STEP}
               busy={busy}
               disableNext={!isStepValid(currentStep, formData)}
               disableSubmit={busy || !orgs.length || !canSubmitFestival(formData)}
@@ -1127,7 +1180,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
               onNext={goNext}
               onSubmit={requestFinalSubmit}
               submitPrepSlot={
-                currentStep === 4 ? (
+                currentStep === LAST_STEP ? (
                   <div className="w-full space-y-1 text-sm text-gray-600 sm:text-right">
                     <p className="font-medium">След изпращане:</p>
                     <ul className="list-none space-y-0.5 sm:ml-0">
@@ -1138,7 +1191,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                 ) : null
               }
               previewSlot={
-                currentStep === 4 ? (
+                currentStep === LAST_STEP ? (
                   <button
                     type="button"
                     onClick={() => void handlePreview()}

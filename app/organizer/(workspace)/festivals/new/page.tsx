@@ -42,7 +42,7 @@ export default async function NewFestivalSubmissionPage({
         const { data: row, error } = await admin
           .from("pending_festivals")
           .select(
-            "id,organizer_id,title,description,category,tags,city_id,city_name_display,location_name,address,start_date,end_date,start_time,end_time,website_url,facebook_url,instagram_url,ticket_url,hero_image,is_free,city:cities(name_bg,slug)",
+            "id,organizer_id,title,description,category,tags,city_id,city_name_display,location_name,address,start_date,end_date,start_time,end_time,website_url,facebook_url,instagram_url,ticket_url,hero_image,is_free,program_draft,city:cities(name_bg,slug)",
           )
           .eq("id", draftParam)
           .maybeSingle();
@@ -76,6 +76,7 @@ export default async function NewFestivalSubmissionPage({
             ticket_url: row.ticket_url ?? "",
             hero_image: row.hero_image ?? "",
             is_free: row.is_free ?? true,
+            program_draft: row.program_draft ?? null,
           };
         }
       }

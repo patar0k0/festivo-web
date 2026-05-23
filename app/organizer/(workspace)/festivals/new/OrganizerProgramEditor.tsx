@@ -157,11 +157,13 @@ export default function OrganizerProgramEditor({ value, onChange, defaultDate }:
             <div className="grid flex-1 gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor={`day-date-${di}`} className={LABEL_CLASS}>
-                  Дата на деня <span className="text-[#7c2d12]">*</span>
+                  Дата на деня
                 </label>
                 <input
                   id={`day-date-${di}`}
                   type="date"
+                  min="2024-01-01"
+                  max="2030-12-31"
                   value={day.date}
                   onChange={(ev) => patchDay(di, { date: ev.target.value })}
                   className={FIELD_CLASS}
@@ -221,7 +223,7 @@ export default function OrganizerProgramEditor({ value, onChange, defaultDate }:
                 <div className="mt-2 space-y-3">
                   <div>
                     <label htmlFor={`item-title-${di}-${ii}`} className={LABEL_CLASS}>
-                      Заглавие <span className="text-[#7c2d12]">*</span>
+                      Заглавие на събитието
                     </label>
                     <input
                       id={`item-title-${di}-${ii}`}
@@ -240,8 +242,11 @@ export default function OrganizerProgramEditor({ value, onChange, defaultDate }:
                       </label>
                       <input
                         id={`item-start-${di}-${ii}`}
-                        type="time"
-                        step={60}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-2][0-9]:[0-5][0-9]"
+                        maxLength={5}
+                        placeholder="напр. 18:30"
                         value={item.start_time ?? ""}
                         onChange={(ev) =>
                           patchItem(di, ii, { start_time: ev.target.value || null })
@@ -255,8 +260,11 @@ export default function OrganizerProgramEditor({ value, onChange, defaultDate }:
                       </label>
                       <input
                         id={`item-end-${di}-${ii}`}
-                        type="time"
-                        step={60}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-2][0-9]:[0-5][0-9]"
+                        maxLength={5}
+                        placeholder="напр. 21:00"
                         value={item.end_time ?? ""}
                         onChange={(ev) =>
                           patchItem(di, ii, { end_time: ev.target.value || null })

@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { mergeOccurrenceDatesWithRange } from "@/lib/festival/occurrenceDates";
 import { pendingPatchFromCanonicalPartial } from "@/lib/festival/mappers";
+import {
+  parseProgramDraftUnknown,
+  programDraftHasContent,
+  programDraftToPublishPayload,
+} from "@/lib/festival/programDraft";
 import { canonicalPatchFromUnknown } from "@/lib/festival/validators";
 import { enqueueOrganizerPortalSubmissionEmails } from "@/lib/organizer/enqueuePendingFestivalSubmissionEmails";
 import {
@@ -144,6 +149,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     patch.occurrence_dates = merged.occurrence_dates;
     patch.start_date = merged.start_date;
     patch.end_date = merged.end_date;
+  }
+
+  // Optional program draft. Pass null to clear, valid shape to overwrite. Reject malformed.
+  if ("program_draft" in body) {
+    const rawPd = body.program_draft;
+    if (rawPd === null) {
+      patch.program_draft = null;
+    } else {
+      const parsedPd = parseProgramDraftUnknown(rawPd);
+      if (!parsedPd.ok) {
+        return NextResponse.json({ error: `Програма: ${parsedPd.error}` }, { status: 400 });
+      }
+      patch.program_draft = programDraftHasContent(parsedPd.value)
+        ? programDraftToPublishPayload(parsedPd.value)
+        : null;
+    }
   }
 
   const transitionDraftToPending = submitPendingRequested && pending.status === "draft";

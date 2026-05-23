@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
+import {
+  parseProgramDraftUnknown,
+  programDraftHasContent,
+  programDraftToPublishPayload,
+} from "@/lib/festival/programDraft";
 import { enqueueOrganizerPortalSubmissionEmails } from "@/lib/organizer/enqueuePendingFestivalSubmissionEmails";
 import { getPortalAdminClient, getPortalSessionUser, hasActiveOrganizerMembership } from "@/lib/organizer/portal";
 import { slugify } from "@/lib/utils";
@@ -26,6 +31,8 @@ type Body = {
   category?: string | null;
   tags?: string[] | string;
   hero_image?: string | null;
+  /** Optional schedule (days + program items) — shape from `lib/festival/programDraft`. */
+  program_draft?: unknown;
   /** When `"draft"`, creates a persisted preview row without moderation emails. */
   status?: string;
 };
@@ -110,6 +117,18 @@ export async function POST(request: Request) {
   const wantsDraft = body.status === "draft";
   const recordStatus = wantsDraft ? ("draft" as const) : ("pending" as const);
 
+  // Optional program draft (days + items). Reject malformed; accept empty silently.
+  let programDraftForInsert: unknown = null;
+  if (body.program_draft !== undefined && body.program_draft !== null) {
+    const parsed = parseProgramDraftUnknown(body.program_draft);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: `Програма: ${parsed.error}` }, { status: 400 });
+    }
+    if (programDraftHasContent(parsed.value)) {
+      programDraftForInsert = programDraftToPublishPayload(parsed.value);
+    }
+  }
+
   const pendingPayload = {
     title,
     slug: null as string | null,
@@ -144,6 +163,7 @@ export async function POST(request: Request) {
     is_free: typeof body.is_free === "boolean" ? body.is_free : true,
     hero_image: optionalTrimmedUrl(body.hero_image),
     tags,
+    program_draft: programDraftForInsert,
     status: recordStatus,
     submitted_by_user_id: session.user.id,
     submission_source: "organizer_portal" as const,

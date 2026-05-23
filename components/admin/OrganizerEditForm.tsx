@@ -113,6 +113,12 @@ export default function OrganizerEditForm({
   const [researchSuccess, setResearchSuccess] = useState<string | null>(null);
   const [researchQuery, setResearchQuery] = useState(organizer.name ?? "");
   const [researchResult, setResearchResult] = useState<OrganizerAiResearchResult | null>(null);
+  // Logo upload state — separate from form save so admin can re-upload
+  // without dirtying the whole form. The endpoint mutates the row directly
+  // and returns the new public URL which we sync into the form.
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
+  const [logoUploadBusy, setLogoUploadBusy] = useState(false);
+  const [logoUploadError, setLogoUploadError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: organizer.name ?? "",
     slug: organizer.slug ?? "",
@@ -145,6 +151,36 @@ export default function OrganizerEditForm({
 
   function updateField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleLogoFileUpload(file: File) {
+    setLogoUploadError(null);
+    setLogoUploadBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/organizers/${organizer.id}/logo`, {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      const payload = (await res.json().catch(() => null)) as {
+        url?: string;
+        error?: string;
+      } | null;
+      if (!res.ok || !payload?.url) {
+        throw new Error(payload?.error ?? "Качването не успя.");
+      }
+      // Sync the new URL into form state. The server has already persisted
+      // it on the organizer row, but we update the local form so the preview
+      // refreshes immediately and the user sees the change.
+      updateField("logo_url", payload.url);
+    } catch (err) {
+      setLogoUploadError(err instanceof Error ? err.message : "Качването не успя.");
+    } finally {
+      setLogoUploadBusy(false);
+      if (logoFileInputRef.current) logoFileInputRef.current.value = "";
+    }
   }
 
   useEffect(() => {
@@ -451,14 +487,93 @@ export default function OrganizerEditForm({
                   className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2 text-sm"
                 />
               </label>
-              <label>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Лого (URL)</span>
-                <input
-                  value={form.logo_url}
-                  onChange={(e) => updateField("logo_url", e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-black/[0.1] px-3 py-2 text-sm"
-                />
-              </label>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Лого</span>
+
+                {/* File-upload row — uploads to organizer-logos Supabase bucket via
+                    /api/organizers/[id]/logo (admin path now accepted, see permission
+                    check in the route). Files end up on the whitelisted CDN domain
+                    so `next/image` in OrganizerProfileLogo loads them reliably; this
+                    is the recommended path over pasting arbitrary external URLs
+                    which can fail due to hotlink protection, CORS, or 404s. */}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input
+                    ref={logoFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="sr-only"
+                    onChange={(ev) => {
+                      const file = ev.target.files?.[0];
+                      if (file) void handleLogoFileUpload(file);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => logoFileInputRef.current?.click()}
+                    disabled={logoUploadBusy}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#7c2d12] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#5c200d] disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {logoUploadBusy ? (
+                      <>
+                        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Качване…
+                      </>
+                    ) : (
+                      <>📤 Качи от компютъра</>
+                    )}
+                  </button>
+                  {form.logo_url ? (
+                    <button
+                      type="button"
+                      onClick={() => updateField("logo_url", "")}
+                      className="text-[11px] font-medium text-red-700 underline decoration-red-300/40 underline-offset-2 hover:decoration-red-500/60"
+                    >
+                      Премахни
+                    </button>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-[11px] text-black/45">
+                  JPG, PNG, WebP или GIF. Максимум 2 MB.
+                </p>
+
+                {logoUploadError ? (
+                  <p
+                    role="alert"
+                    className="mt-1.5 text-[11px] text-red-700"
+                  >
+                    ⚠️ {logoUploadError}
+                  </p>
+                ) : null}
+
+                {/* URL field — kept as alternative for paste / debugging.
+                    External URLs may fail in the preview if the host blocks
+                    hotlinking; the open-in-new-tab link below lets admin verify
+                    whether the URL itself works. */}
+                <label className="mt-3 block">
+                  <span className="text-[11px] font-medium text-black/55">
+                    или директен линк
+                  </span>
+                  <input
+                    value={form.logo_url}
+                    onChange={(e) => updateField("logo_url", e.target.value)}
+                    placeholder="https://…/logo.png"
+                    className="mt-1 w-full rounded-xl border border-black/[0.1] px-3 py-2 text-sm"
+                  />
+                </label>
+                {form.logo_url.trim() ? (
+                  <p className="mt-1 text-[11px]">
+                    <a
+                      href={form.logo_url.trim()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-[#7c2d12] underline decoration-amber-700/30 underline-offset-2 hover:decoration-[#7c2d12]/60"
+                    >
+                      🔗 Отвори линка в нов tab
+                    </a>{" "}
+                    <span className="text-black/45">— за да провериш дали се зарежда</span>
+                  </p>
+                ) : null}
+              </div>
               <label>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Уебсайт</span>
                 <input

@@ -6,7 +6,7 @@ export default function AdminShell({ children, email }: { children: React.ReactN
   return (
     <WorkspaceShell
       density="admin-c"
-      eyebrow="Festivo админ"
+      eyebrow="Админ"
       email={email ?? "admin"}
       sidebar={<AdminSidebarNav />}
     >

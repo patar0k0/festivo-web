@@ -10,6 +10,43 @@ import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
 import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { Festival } from "@/lib/types";
 
+// ── Branded festival pin (replaces Leaflet's default blue droplet) ─────────
+//
+// Custom divIcon = HTML/CSS pin in brand red (#7c2d12). Selected state gets
+// a larger inner circle and an animated ring so the active pin is obvious
+// against a sea of similar pins. Pure CSS — no extra image fetch, no extra
+// dependency.
+//
+// shape: outer drop (24×32) → inner circle (8×8 default / 12×12 selected).
+const PIN_NORMAL_HTML = `
+<div class="festivo-pin">
+  <span class="festivo-pin__drop"></span>
+  <span class="festivo-pin__dot"></span>
+</div>`;
+
+const PIN_SELECTED_HTML = `
+<div class="festivo-pin festivo-pin--selected">
+  <span class="festivo-pin__ring"></span>
+  <span class="festivo-pin__drop"></span>
+  <span class="festivo-pin__dot"></span>
+</div>`;
+
+const festivalIcon = L.divIcon({
+  html: PIN_NORMAL_HTML,
+  className: "festivo-pin-wrap",
+  iconSize: [28, 36],
+  iconAnchor: [14, 34],
+  popupAnchor: [0, -32],
+});
+
+const festivalIconSelected = L.divIcon({
+  html: PIN_SELECTED_HTML,
+  className: "festivo-pin-wrap festivo-pin-wrap--selected",
+  iconSize: [32, 40],
+  iconAnchor: [16, 38],
+  popupAnchor: [0, -36],
+});
+
 type FocusCoords = {
   lat: number;
   lng: number;
@@ -33,13 +70,8 @@ type MapViewProps = {
 const DEFAULT_CENTER: [number, number] = [42.6977, 23.3219];
 const DEFAULT_ZOOM = 7;
 
-const icon = new L.Icon({
-  iconUrl: "/leaflet/marker-icon.png",
-  shadowUrl: "/leaflet/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
-
+// User location pin — blue dot (different colour from festival pins so it
+// stands out at a glance: brand red = events, blue = "you are here").
 const userIcon = L.divIcon({
   html: '<span style="display:block;width:14px;height:14px;border-radius:9999px;background:#2d7dff;border:2px solid #ffffff;box-shadow:0 0 0 2px rgba(45,125,255,0.35);"></span>',
   className: "festivo-user-location-marker",
@@ -61,16 +93,10 @@ export default function MapView({
     [festivals, selectedFestivalId]
   );
 
-  useEffect(() => {
-    const defaultIcon = L.Icon.Default as typeof L.Icon.Default & {
-      prototype: { _getIconUrl?: () => string };
-    };
-    delete defaultIcon.prototype._getIconUrl;
-    defaultIcon.mergeOptions({
-      iconUrl: "/leaflet/marker-icon.png",
-      shadowUrl: "/leaflet/marker-shadow.png",
-    });
-  }, []);
+  // We no longer rely on Leaflet's default raster icon — replaced by a CSS
+  // div-icon (festivalIcon). The previous useEffect that monkey-patched
+  // L.Icon.Default has been removed because nothing else in this view uses
+  // the default any more.
 
   if (!festivals.length) {
     return (
@@ -103,30 +129,27 @@ export default function MapView({
           // looks visibly soft on retina screens. OSM's TOS permit this usage.
           detectRetina
         />
-        {festivals.map((festival) => (
-          <Marker
-            key={festival.id}
-            position={[
-              Number(festival.latitude ?? festival.lat ?? 0),
-              Number(festival.longitude ?? festival.lng ?? 0),
-            ]}
-            icon={icon}
-            eventHandlers={{
-              click: () => onSelectFestival(festival),
-            }}
-          >
-            <Popup>
-              <div className="space-y-1">
-                <p className="text-sm font-semibold">{festival.title}</p>
-                <p className="text-xs text-muted">{getFestivalLocationDisplay(festival).city ?? ""}</p>
-                <p className="text-xs text-muted">{formatFestivalDateLineShort(festival)}</p>
-                <Link href={`/festivals/${festival.slug}`} className="text-xs font-semibold text-ink">
-                  Виж
-                </Link>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {festivals.map((festival) => {
+          const isSelected = String(festival.id) === String(selectedFestivalId);
+          return (
+            <Marker
+              key={festival.id}
+              position={[
+                Number(festival.latitude ?? festival.lat ?? 0),
+                Number(festival.longitude ?? festival.lng ?? 0),
+              ]}
+              // Selected pin uses an enlarged variant with an animated ring so
+              // it pops above sibling pins. No more duplicate Leaflet popup —
+              // the details card at the bottom of the map shows the same info
+              // (and more, e.g. plan-add button), avoiding double UI.
+              icon={isSelected ? festivalIconSelected : festivalIcon}
+              eventHandlers={{
+                click: () => onSelectFestival(festival),
+              }}
+              zIndexOffset={isSelected ? 1000 : 0}
+            />
+          );
+        })}
         {userCoords ? (
           <Marker position={[userCoords.lat, userCoords.lng]} icon={userIcon}>
             <Popup>

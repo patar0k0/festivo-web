@@ -3,7 +3,6 @@
 import { useCallback, useMemo } from "react";
 import {
   emptyProgramDraft,
-  parseProgramDraftUnknown,
   type ProgramDraft,
   type ProgramDraftDay,
   type ProgramDraftItem,
@@ -35,16 +34,33 @@ function blankDay(date: string): EditorDay {
   return { date, title: null, items: [blankItem()] };
 }
 
-/** Hydrate from possibly-malformed input; never throws. */
+/**
+ * Hydrate editor state from a ProgramDraft.
+ *
+ * IMPORTANT: We intentionally do NOT use `parseProgramDraftUnknown` here —
+ * its strict validation drops items without a title, which would erase an
+ * empty work-in-progress item the user just inserted (causing the day to
+ * also be dropped because days with zero items are filtered).
+ *
+ * The strict normalization is correctly applied at submit time in
+ * `buildPortalPayload` (via `programDraftToPublishPayload`). During editing,
+ * we trust the shape since this component is the only writer.
+ */
 function hydrateDraft(value: ProgramDraft | null | undefined): EditorDay[] {
-  if (!value) return [];
-  const parsed = parseProgramDraftUnknown(value);
-  if (!parsed.ok) return [];
-  // Hydrate empty items so the editor never shows an empty day card.
-  return parsed.value.days.map((d) => ({
-    date: d.date,
-    title: d.title ?? null,
-    items: d.items.length > 0 ? d.items.slice() : [blankItem()],
+  if (!value || !Array.isArray(value.days)) return [];
+  return value.days.map((d) => ({
+    date: typeof d.date === "string" ? d.date : "",
+    title: typeof d.title === "string" ? d.title : null,
+    items:
+      Array.isArray(d.items) && d.items.length > 0
+        ? d.items.map((it) => ({
+            title: typeof it.title === "string" ? it.title : "",
+            start_time: it.start_time ?? null,
+            end_time: it.end_time ?? null,
+            stage: it.stage ?? null,
+            description: it.description ?? null,
+          }))
+        : [blankItem()],
   }));
 }
 

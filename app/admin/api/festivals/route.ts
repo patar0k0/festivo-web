@@ -2,6 +2,24 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 
 const STATUS_OPTIONS = ["draft", "verified", "rejected", "archived"] as const;
+const TIME_OPTIONS = ["upcoming", "past", "all"] as const;
+type TimeOption = (typeof TIME_OPTIONS)[number];
+
+function asTime(value: string | null): TimeOption {
+  if (value && (TIME_OPTIONS as readonly string[]).includes(value)) {
+    return value as TimeOption;
+  }
+  return "upcoming";
+}
+
+/** YYYY-MM-DD in UTC for use with DATE columns (no TZ ambiguity for whole-day comparisons). */
+function todayIsoDate(): string {
+  const d = new Date();
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 const SORT_OPTIONS = [
   "start_date_asc",
@@ -67,6 +85,7 @@ export async function GET(request: Request) {
     const q = asString(url.searchParams.get("q"));
 
     const sort = asSort(url.searchParams.get("sort"));
+    const time = asTime(url.searchParams.get("time"));
 
     let query = ctx.supabase
       .from("festivals")
@@ -126,6 +145,28 @@ export async function GET(request: Request) {
 
     if (q) {
       query = query.ilike("title", `%${q}%`);
+    }
+
+    // Time filter — by default admin only sees upcoming + ongoing festivals so
+    // past events don't crowd the list (Bulgaria has ~hundreds of festivals
+    // per year; past dataset grows unboundedly). Switch to "past" or "all"
+    // explicitly when needed for moderation/audit.
+    //
+    // Logic: a festival is "upcoming/ongoing" iff COALESCE(end_date, start_date)
+    // is today or later. PostgREST doesn't support COALESCE in filters, so we
+    // express it as: (end_date >= today) OR (end_date IS NULL AND start_date >= today).
+    if (time !== "all") {
+      const today = todayIsoDate();
+      if (time === "upcoming") {
+        query = query.or(
+          `end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`,
+        );
+      } else {
+        // past
+        query = query.or(
+          `end_date.lt.${today},and(end_date.is.null,start_date.lt.${today})`,
+        );
+      }
     }
 
     const { data, error } = await query;

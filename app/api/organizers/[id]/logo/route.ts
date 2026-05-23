@@ -4,6 +4,7 @@ import {
   uploadOrganizerLogoFromUploadedBuffer,
   takeOrganizerLogoUploadRateLimit,
 } from "@/lib/admin/normalizeImageToLocalStorage";
+import { getAdminContext } from "@/lib/admin/isAdmin";
 import { assertCanEditOrganizer } from "@/lib/organizer/permissions";
 import { getPortalAdminClient, getPortalSessionUser } from "@/lib/organizer/portal";
 
@@ -31,14 +32,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { id } = await params;
 
-  try {
-    await assertCanEditOrganizer(admin, session.user.id, id);
-  } catch (error) {
-    if (error instanceof Error && error.name === "OrganizerPermissionError") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  // Permission: admin OR organizer owner.
+  // Admin context comes from `app_metadata.role` JWT claim — checked first
+  // because admins legitimately edit any organizer (moderation, support).
+  // For non-admins, fall through to the organizer membership check (owner role).
+  const adminCtx = await getAdminContext();
+  const isAdmin = Boolean(adminCtx?.isAdmin);
+  if (!isAdmin) {
+    try {
+      await assertCanEditOrganizer(admin, session.user.id, id);
+    } catch (error) {
+      if (error instanceof Error && error.name === "OrganizerPermissionError") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      console.error("[api/organizers/[id]/logo] permission check failed", error);
+      return NextResponse.json({ error: "Failed" }, { status: 500 });
     }
-    console.error("[api/organizers/[id]/logo] permission check failed", error);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 
   const { data: current, error: currentError } = await admin.from("organizers").select("logo_url").eq("id", id).single();

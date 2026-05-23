@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
+// Marker clustering — wraps groups of nearby pins into a single count bubble
+// when zoomed out. Avoids pin-soup at country level; expands to individual
+// pins on zoom-in. Uses leaflet.markercluster under the hood (peer dep
+// installed with --legacy-peer-deps; react-leaflet 4 compat).
+import MarkerClusterGroup from "react-leaflet-cluster";
 import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
 import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
@@ -12,14 +17,18 @@ import { Festival } from "@/lib/types";
 
 // ── Branded festival pin (replaces Leaflet's default blue droplet) ─────────
 //
-// Custom divIcon = HTML/CSS pin in brand red (#7c2d12). Selected state gets
-// a larger inner circle and an animated ring so the active pin is obvious
-// against a sea of similar pins. Pure CSS — no extra image fetch, no extra
-// dependency.
-//
-// shape: outer drop (24×32) → inner circle (8×8 default / 12×12 selected).
+// Custom divIcon = HTML/CSS pin in brand red (#7c2d12). Three states:
+//   • normal  — drop shape with inner white dot
+//   • hovered — same drop, slightly darker, no ring (light affordance only)
+//   • selected — enlarged with animated pulse ring
 const PIN_NORMAL_HTML = `
 <div class="festivo-pin">
+  <span class="festivo-pin__drop"></span>
+  <span class="festivo-pin__dot"></span>
+</div>`;
+
+const PIN_HOVERED_HTML = `
+<div class="festivo-pin festivo-pin--hovered">
   <span class="festivo-pin__drop"></span>
   <span class="festivo-pin__dot"></span>
 </div>`;
@@ -39,6 +48,14 @@ const festivalIcon = L.divIcon({
   popupAnchor: [0, -32],
 });
 
+const festivalIconHovered = L.divIcon({
+  html: PIN_HOVERED_HTML,
+  className: "festivo-pin-wrap festivo-pin-wrap--hovered",
+  iconSize: [30, 38],
+  iconAnchor: [15, 36],
+  popupAnchor: [0, -34],
+});
+
 const festivalIconSelected = L.divIcon({
   html: PIN_SELECTED_HTML,
   className: "festivo-pin-wrap festivo-pin-wrap--selected",
@@ -46,6 +63,18 @@ const festivalIconSelected = L.divIcon({
   iconAnchor: [16, 38],
   popupAnchor: [0, -36],
 });
+
+// Branded cluster icon — circle in brand red with count, sized by member
+// count for visual weight. Pure divIcon HTML + CSS, no extra assets.
+function clusterIcon(cluster: { getChildCount: () => number }): L.DivIcon {
+  const count = cluster.getChildCount();
+  const sizeClass = count < 10 ? "sm" : count < 50 ? "md" : "lg";
+  return L.divIcon({
+    html: `<div class="festivo-cluster festivo-cluster--${sizeClass}"><span>${count}</span></div>`,
+    className: "festivo-cluster-wrap",
+    iconSize: [40, 40],
+  });
+}
 
 type FocusCoords = {
   lat: number;
@@ -61,7 +90,13 @@ type UserCoords = {
 type MapViewProps = {
   festivals: Festival[];
   selectedFestivalId: string | number | null;
+  hoveredFestivalId: string | number | null;
   onSelectFestival: (festival: Festival) => void;
+  /** Called after every map move/zoom end with the new view state. Caller can
+   *  use this to persist lat/lng/zoom into the URL for shareable links. */
+  onViewportChange?: (view: { lat: number; lng: number; zoom: number }) => void;
+  /** Initial center + zoom; if omitted we centre on first festival or Bulgaria. */
+  initialView?: { lat: number; lng: number; zoom: number } | null;
   focusCoords: FocusCoords | null;
   userCoords: UserCoords | null;
   resetViewToken: number;
@@ -79,10 +114,19 @@ const userIcon = L.divIcon({
   iconAnchor: [7, 7],
 });
 
+function pickIcon(isSelected: boolean, isHovered: boolean): L.DivIcon {
+  if (isSelected) return festivalIconSelected;
+  if (isHovered) return festivalIconHovered;
+  return festivalIcon;
+}
+
 export default function MapView({
   festivals,
   selectedFestivalId,
+  hoveredFestivalId,
   onSelectFestival,
+  onViewportChange,
+  initialView,
   focusCoords,
   userCoords,
   resetViewToken,
@@ -92,11 +136,6 @@ export default function MapView({
     () => festivals.find((festival) => String(festival.id) === String(selectedFestivalId)) ?? null,
     [festivals, selectedFestivalId]
   );
-
-  // We no longer rely on Leaflet's default raster icon — replaced by a CSS
-  // div-icon (festivalIcon). The previous useEffect that monkey-patched
-  // L.Icon.Default has been removed because nothing else in this view uses
-  // the default any more.
 
   if (!festivals.length) {
     return (
@@ -108,48 +147,56 @@ export default function MapView({
     );
   }
 
-  const first = festivals[0];
-  const center = [
-    Number(first.latitude ?? first.lat ?? DEFAULT_CENTER[0]),
-    Number(first.longitude ?? first.lng ?? DEFAULT_CENTER[1]),
-  ] as [number, number];
+  const initialCenter: [number, number] = initialView
+    ? [initialView.lat, initialView.lng]
+    : [
+        Number(festivals[0].latitude ?? festivals[0].lat ?? DEFAULT_CENTER[0]),
+        Number(festivals[0].longitude ?? festivals[0].lng ?? DEFAULT_CENTER[1]),
+      ];
+  const initialZoom = initialView?.zoom ?? DEFAULT_ZOOM;
 
   return (
     <div className="relative h-full min-h-[360px] overflow-hidden rounded-xl">
-      <MapContainer center={center} zoom={DEFAULT_ZOOM} className="h-full w-full" whenReady={() => setHasMoved(false)}>
-        <MapMoveWatcher onMove={() => setHasMoved(true)} />
+      <MapContainer center={initialCenter} zoom={initialZoom} className="h-full w-full" whenReady={() => setHasMoved(false)}>
+        <MapMoveWatcher
+          onMove={() => setHasMoved(true)}
+          onViewportChange={onViewportChange}
+        />
         <MapViewportController focusCoords={focusCoords} resetViewToken={resetViewToken} />
         <TileLayer
           attribution="&copy; OpenStreetMap"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          // detectRetina makes Leaflet request tiles at one zoom level higher
-          // for devices with devicePixelRatio > 1 (most mobile phones).
-          // Without it Lighthouse flags the 256×256 PNGs as "lower than the
-          // natural resolution" (~384×384 expected at DPR 1.75) — and the map
-          // looks visibly soft on retina screens. OSM's TOS permit this usage.
           detectRetina
         />
-        {festivals.map((festival) => {
-          const isSelected = String(festival.id) === String(selectedFestivalId);
-          return (
-            <Marker
-              key={festival.id}
-              position={[
-                Number(festival.latitude ?? festival.lat ?? 0),
-                Number(festival.longitude ?? festival.lng ?? 0),
-              ]}
-              // Selected pin uses an enlarged variant with an animated ring so
-              // it pops above sibling pins. No more duplicate Leaflet popup —
-              // the details card at the bottom of the map shows the same info
-              // (and more, e.g. plan-add button), avoiding double UI.
-              icon={isSelected ? festivalIconSelected : festivalIcon}
-              eventHandlers={{
-                click: () => onSelectFestival(festival),
-              }}
-              zIndexOffset={isSelected ? 1000 : 0}
-            />
-          );
-        })}
+        {/* MarkerClusterGroup wraps the pins so leaflet.markercluster groups
+            nearby ones at low zoom. Selected pin is hoisted via zIndexOffset
+            and stays prominent even inside a cluster's expanded view. */}
+        <MarkerClusterGroup
+          chunkedLoading
+          iconCreateFunction={clusterIcon}
+          maxClusterRadius={50}
+          spiderfyOnMaxZoom
+          showCoverageOnHover={false}
+        >
+          {festivals.map((festival) => {
+            const isSelected = String(festival.id) === String(selectedFestivalId);
+            const isHovered = !isSelected && String(festival.id) === String(hoveredFestivalId);
+            return (
+              <Marker
+                key={festival.id}
+                position={[
+                  Number(festival.latitude ?? festival.lat ?? 0),
+                  Number(festival.longitude ?? festival.lng ?? 0),
+                ]}
+                icon={pickIcon(isSelected, isHovered)}
+                eventHandlers={{
+                  click: () => onSelectFestival(festival),
+                }}
+                zIndexOffset={isSelected ? 1000 : isHovered ? 500 : 0}
+              />
+            );
+          })}
+        </MarkerClusterGroup>
         {userCoords ? (
           <Marker position={[userCoords.lat, userCoords.lng]} icon={userIcon}>
             <Popup>
@@ -193,9 +240,27 @@ export default function MapView({
   );
 }
 
-function MapMoveWatcher({ onMove }: { onMove: () => void }) {
+function MapMoveWatcher({
+  onMove,
+  onViewportChange,
+}: {
+  onMove: () => void;
+  onViewportChange?: (view: { lat: number; lng: number; zoom: number }) => void;
+}) {
   useMapEvents({
-    moveend: () => onMove(),
+    moveend: (e) => {
+      onMove();
+      if (onViewportChange) {
+        const c = e.target.getCenter();
+        onViewportChange({ lat: c.lat, lng: c.lng, zoom: e.target.getZoom() });
+      }
+    },
+    zoomend: (e) => {
+      if (onViewportChange) {
+        const c = e.target.getCenter();
+        onViewportChange({ lat: c.lat, lng: c.lng, zoom: e.target.getZoom() });
+      }
+    },
   });
   return null;
 }
@@ -214,4 +279,3 @@ function MapViewportController({ focusCoords, resetViewToken }: { focusCoords: F
 
   return null;
 }
-

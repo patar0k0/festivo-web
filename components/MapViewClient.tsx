@@ -17,7 +17,10 @@ type UserCoords = {
 type MapViewClientProps = {
   festivals: Festival[];
   selectedFestivalId: string | number | null;
+  hoveredFestivalId: string | number | null;
   onSelectFestival: (festival: Festival) => void;
+  onViewportChange?: (view: { lat: number; lng: number; zoom: number }) => void;
+  initialView?: { lat: number; lng: number; zoom: number } | null;
   focusCoords: FocusCoords | null;
   userCoords: UserCoords | null;
   resetViewToken: number;

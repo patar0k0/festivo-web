@@ -3,6 +3,8 @@
 @tailwind utilities;
 
 @import "leaflet/dist/leaflet.css";
+@import "leaflet.markercluster/dist/MarkerCluster.css";
+@import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 
 /* ========================================
    ROOT VARIABLES
@@ -172,6 +174,11 @@ a {
   height: 40px;
 }
 
+.festivo-pin--hovered {
+  width: 30px;
+  height: 38px;
+}
+
 .festivo-pin__drop {
   position: absolute;
   left: 50%;
@@ -192,6 +199,14 @@ a {
   margin-left: -14px;
   background: #5c200d;
   box-shadow: 0 6px 14px rgba(92, 32, 13, 0.45);
+}
+
+.festivo-pin--hovered .festivo-pin__drop {
+  width: 26px;
+  height: 26px;
+  margin-left: -13px;
+  background: #9a3914;
+  box-shadow: 0 5px 12px rgba(124, 45, 18, 0.4);
 }
 
 .festivo-pin__dot {
@@ -243,4 +258,53 @@ a {
     animation: none;
     opacity: 0.45;
   }
+}
+
+/* ========================================
+   Festivo branded cluster bubble
+   ========================================
+   Overrides leaflet.markercluster's default green/yellow/orange bubbles
+   with brand red circles, sized by member count. Three sizes:
+   • sm: < 10 markers (32×32)
+   • md: 10–49 markers (40×40)
+   • lg: 50+ markers (48×48) */
+
+.festivo-cluster-wrap {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.festivo-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  background: #7c2d12;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(124, 45, 18, 0.4);
+  transition: transform 0.15s ease;
+}
+
+.festivo-cluster:hover {
+  transform: scale(1.05);
+}
+
+.festivo-cluster--sm {
+  width: 32px;
+  height: 32px;
+  font-size: 11px;
+}
+
+.festivo-cluster--md {
+  width: 40px;
+  height: 40px;
+}
+
+.festivo-cluster--lg {
+  width: 48px;
+  height: 48px;
+  font-size: 14px;
 }

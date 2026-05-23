@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { endOfMonth, format, nextSaturday, nextSunday, startOfMonth } from "date-fns";
 import Container from "@/components/ui/Container";
@@ -10,7 +10,6 @@ import ViewToggle from "@/components/ViewToggle";
 import MapFiltersSheet from "@/components/MapFiltersSheet";
 import MapViewClient from "@/components/MapViewClient";
 import MapResultsList from "@/components/MapResultsList";
-import MapMobileResultsSheet from "@/components/MapMobileResultsSheet";
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { pub } from "@/lib/public-ui/styles";
 import { Festival, Filters } from "@/lib/types";
@@ -117,13 +116,60 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
     return { lat, lng };
   }, [searchParams]);
 
+  // Initial map viewport from URL (lat/lng/zoom). Lets shareable links
+  // restore the exact camera position. Read once on mount; subsequent
+  // updates are written back via onViewportChange (debounced).
+  const initialView = useMemo(() => {
+    const lat = parseUrlCoord(searchParams.get("lat"));
+    const lng = parseUrlCoord(searchParams.get("lng"));
+    const zoom = parseUrlCoord(searchParams.get("zoom"));
+    if (lat == null || lng == null || zoom == null) return null;
+    return { lat, lng, zoom };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [selectedFestivalId, setSelectedFestivalId] = useState<string | number | null>(null);
+  const [hoveredFestivalId, setHoveredFestivalId] = useState<string | number | null>(null);
   const [focusCoords, setFocusCoords] = useState<FocusCoords | null>(
     initialUserCoords ? { ...initialUserCoords, zoom: 11 } : null
   );
   const [userCoords, setUserCoords] = useState<UserCoords | null>(initialUserCoords);
   const [resetViewToken, setResetViewToken] = useState(0);
   const [geoMessage, setGeoMessage] = useState<string | null>(null);
+  // Mobile-only: tab between map and list. Default "map" because that's the
+  // hero of /map. On lg+ both panes are shown side-by-side and this state is
+  // ignored.
+  const [mobileTab, setMobileTab] = useState<"map" | "list">("map");
+
+  // Debounced URL writer for lat/lng/zoom. Without debounce, every pan
+  // would trigger a router.replace which thrashes history.
+  const viewportWriteRef = useRef<number | null>(null);
+  const onViewportChange = useCallback(
+    (view: { lat: number; lng: number; zoom: number }) => {
+      if (viewportWriteRef.current !== null) {
+        window.clearTimeout(viewportWriteRef.current);
+      }
+      viewportWriteRef.current = window.setTimeout(() => {
+        viewportWriteRef.current = null;
+        const params = new URLSearchParams(window.location.search);
+        params.set("lat", view.lat.toFixed(4));
+        params.set("lng", view.lng.toFixed(4));
+        params.set("zoom", String(Math.round(view.zoom)));
+        // history.replaceState keeps the URL in sync without adding entries —
+        // Back button still returns to the page they came from, not every pan.
+        window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+      }, 500);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (viewportWriteRef.current !== null) {
+        window.clearTimeout(viewportWriteRef.current);
+      }
+    };
+  }, []);
 
   const festivalsSortedByDistance = useMemo(() => {
     if (!userCoords) return festivals;
@@ -384,35 +430,74 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
               <p className="rounded-2xl border border-red-200 bg-red-50/90 px-4 py-3 text-xs text-[#b13a1a]">{geoMessage}</p>
             ) : null}
 
+            {/* ── Mobile/tablet tab toggle (< lg) ──────────────
+                Single full-width tabs row above the active pane. Avoids the
+                "where did the list go?" confusion of bottom-sheet patterns —
+                explicit toggle is more discoverable for casual users. */}
+            <div className="flex rounded-full border border-black/[0.1] bg-white p-1 lg:hidden" role="tablist" aria-label="Изглед">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobileTab === "map"}
+                onClick={() => setMobileTab("map")}
+                className={cn(
+                  "flex-1 rounded-full px-4 py-1.5 text-xs font-semibold transition",
+                  mobileTab === "map"
+                    ? "bg-[#7c2d12] text-white shadow-sm"
+                    : "text-black/65 hover:text-[#0c0e14]",
+                )}
+              >
+                📍 Карта
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mobileTab === "list"}
+                onClick={() => setMobileTab("list")}
+                className={cn(
+                  "flex-1 rounded-full px-4 py-1.5 text-xs font-semibold transition",
+                  mobileTab === "list"
+                    ? "bg-[#7c2d12] text-white shadow-sm"
+                    : "text-black/65 hover:text-[#0c0e14]",
+                )}
+              >
+                📋 Списък ({festivals.length})
+              </button>
+            </div>
+
             {/* ── 2-COLUMN LAYOUT (xl+): list left (40%) / map right (60%, sticky)
-                Below xl: stacked — list collapsed into a sheet button +
-                map full-width. Same Airbnb-style discovery pattern. */}
-            <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-              {/* ── List column (hidden < xl) ──────────── */}
-              <div className="hidden xl:block">
+                On lg: same split. On <lg: only the active mobile tab is shown. */}
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+              {/* ── List column ──────────── */}
+              <div className={cn(mobileTab === "list" ? "block" : "hidden", "lg:block")}>
                 <div className={cn(pub.panelMuted, "max-h-[calc(100vh-10.5rem)] overflow-y-auto p-3")}>
                   <MapResultsList
                     festivals={festivalsSortedByDistance}
                     selectedFestivalId={selectedFestivalId}
+                    hoveredFestivalId={hoveredFestivalId}
                     onSelectFestival={onSelectFestival}
+                    onHoverFestival={setHoveredFestivalId}
                   />
                 </div>
               </div>
 
               {/* ── Map column ──────────── */}
-              <div className="min-w-0 space-y-4">
+              <div className={cn(mobileTab === "map" ? "block" : "hidden", "min-w-0 space-y-4 lg:block")}>
                 {userCoords ? (
                   <p className="rounded-xl border border-amber-200/45 bg-amber-50/40 px-4 py-2 text-xs font-medium text-[#5c200d]">
                     {COPY.locationActive}
                   </p>
                 ) : null}
 
-                <div className={cn(pub.panelMuted, "relative overflow-hidden xl:sticky xl:top-[84px]")}>
-                  <div className="h-[58vh] min-h-[360px] md:h-[62vh] xl:h-[calc(100vh-10.5rem)]">
+                <div className={cn(pub.panelMuted, "relative overflow-hidden lg:sticky lg:top-[84px]")}>
+                  <div className="h-[58vh] min-h-[360px] md:h-[62vh] lg:h-[calc(100vh-10.5rem)]">
                     <MapViewClient
                       festivals={mapPoints}
                       selectedFestivalId={selectedFestivalId}
+                      hoveredFestivalId={hoveredFestivalId}
                       onSelectFestival={onSelectFestival}
+                      onViewportChange={onViewportChange}
+                      initialView={initialView}
                       focusCoords={focusCoords}
                       userCoords={userCoords}
                       resetViewToken={resetViewToken}
@@ -433,41 +518,7 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
                     </button>
                   ) : null}
                 </div>
-
-                {/* lg-only collapsible list (between mobile sheet and xl side-by-side).
-                    Avoids hiding results behind a sheet on medium screens where
-                    there's space for an inline disclosure. */}
-                <div className={cn(pub.panelMuted, "hidden p-3 lg:block xl:hidden")}>
-                  <details>
-                    <summary
-                      className={cn(
-                        "cursor-pointer list-none rounded-xl border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold text-[#0c0e14]",
-                        pub.focusRing,
-                      )}
-                    >
-                      {COPY.results} ({festivals.length})
-                    </summary>
-                    <div className="mt-3 max-h-[50vh] overflow-y-auto">
-                      <MapResultsList
-                        festivals={festivalsSortedByDistance}
-                        selectedFestivalId={selectedFestivalId}
-                        onSelectFestival={onSelectFestival}
-                      />
-                    </div>
-                  </details>
-                </div>
               </div>
-            </div>
-
-            {/* ── Mobile (< lg): floating sheets + buttons ────── */}
-            <div className="lg:hidden">
-              <MapMobileResultsSheet count={festivals.length}>
-                <MapResultsList
-                  festivals={festivalsSortedByDistance}
-                  selectedFestivalId={selectedFestivalId}
-                  onSelectFestival={onSelectFestival}
-                />
-              </MapMobileResultsSheet>
             </div>
 
             {festivals.length === 0 ? (

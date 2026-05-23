@@ -31,11 +31,30 @@ type Body = {
   category?: string | null;
   tags?: string[] | string;
   hero_image?: string | null;
+  /** YouTube/Facebook URL — not a file upload. */
+  video_url?: string | null;
+  /** Array of hosted image URLs. */
+  gallery_image_urls?: unknown;
   /** Optional schedule (days + program items) — shape from `lib/festival/programDraft`. */
   program_draft?: unknown;
   /** When `"draft"`, creates a persisted preview row without moderation emails. */
   status?: string;
 };
+
+function normalizeGalleryUrls(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const trimmed = item.trim();
+    if (!trimmed) continue;
+    if (!/^https?:\/\//i.test(trimmed)) continue;
+    if (trimmed.length > 2000) continue;
+    out.push(trimmed);
+    if (out.length >= 24) break; // hard cap to avoid bloated payloads
+  }
+  return out;
+}
 
 function optionalTrimmedUrl(value: unknown): string | null {
   if (value === null || value === undefined) return null;
@@ -162,6 +181,8 @@ export async function POST(request: Request) {
     price_range: typeof body.price_range === "string" ? body.price_range.trim() || null : null,
     is_free: typeof body.is_free === "boolean" ? body.is_free : true,
     hero_image: optionalTrimmedUrl(body.hero_image),
+    video_url: optionalTrimmedUrl(body.video_url),
+    gallery_image_urls: normalizeGalleryUrls(body.gallery_image_urls),
     tags,
     program_draft: programDraftForInsert,
     status: recordStatus,

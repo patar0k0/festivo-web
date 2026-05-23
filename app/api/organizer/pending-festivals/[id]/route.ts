@@ -151,6 +151,37 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     patch.end_date = merged.end_date;
   }
 
+  // video_url — YouTube/Facebook URL, no upload involved here.
+  if ("video_url" in body) {
+    const v = body.video_url;
+    if (v === null) {
+      patch.video_url = null;
+    } else if (typeof v === "string") {
+      const t = v.trim();
+      patch.video_url = t || null;
+    }
+  }
+
+  // gallery_image_urls — array of hosted URLs (already uploaded via upload API).
+  if ("gallery_image_urls" in body) {
+    const raw = body.gallery_image_urls;
+    if (raw === null) {
+      patch.gallery_image_urls = [];
+    } else if (Array.isArray(raw)) {
+      const out: string[] = [];
+      for (const item of raw) {
+        if (typeof item !== "string") continue;
+        const trimmed = item.trim();
+        if (!trimmed) continue;
+        if (!/^https?:\/\//i.test(trimmed)) continue;
+        if (trimmed.length > 2000) continue;
+        out.push(trimmed);
+        if (out.length >= 24) break;
+      }
+      patch.gallery_image_urls = out;
+    }
+  }
+
   // Optional program draft. Pass null to clear, valid shape to overwrite. Reject malformed.
   if ("program_draft" in body) {
     const rawPd = body.program_draft;

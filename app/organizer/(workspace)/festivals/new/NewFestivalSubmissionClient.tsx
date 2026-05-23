@@ -39,6 +39,8 @@ export type NewFestivalDraftInitial = {
   instagram_url: string;
   ticket_url: string;
   hero_image: string;
+  video_url: string;
+  gallery_image_urls: string[];
   is_free: boolean;
   program_draft: unknown;
 };
@@ -61,6 +63,8 @@ export type NewFestivalFormData = {
   instagramUrl: string;
   ticketUrl: string;
   heroImageUrl: string;
+  videoUrl: string;
+  galleryImageUrls: string[];
   isFree: boolean;
   programDraft: ProgramDraft;
 };
@@ -154,6 +158,8 @@ function buildInitialFormData(initialDraft: NewFestivalDraftInitial | null, preO
     instagramUrl: initialDraft?.instagram_url ?? "",
     ticketUrl: initialDraft?.ticket_url ?? "",
     heroImageUrl: initialDraft?.hero_image ?? "",
+    videoUrl: initialDraft?.video_url ?? "",
+    galleryImageUrls: initialDraft?.gallery_image_urls ?? [],
     isFree: initialDraft?.is_free ?? true,
     programDraft: hydrateInitialProgramDraft(initialDraft?.program_draft),
   };
@@ -235,6 +241,8 @@ function buildPortalPayload(data: NewFestivalFormData, heroImage: string | null,
     instagram_url: data.instagramUrl || null,
     ticket_url: data.ticketUrl || null,
     hero_image: heroImage,
+    video_url: data.videoUrl.trim() || null,
+    gallery_image_urls: data.galleryImageUrls,
     is_free: data.isFree,
     program_draft: programDraftOut,
   };
@@ -260,6 +268,12 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
   const [imageMissingModalOpen, setImageMissingModalOpen] = useState(false);
   const [thumbLoadFailed, setThumbLoadFailed] = useState(false);
   const heroImageUrlInputRef = useRef<HTMLInputElement>(null);
+  const heroFileInputRef = useRef<HTMLInputElement>(null);
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
+  const [heroUploadBusy, setHeroUploadBusy] = useState(false);
+  const [heroUploadError, setHeroUploadError] = useState("");
+  const [galleryUploadBusy, setGalleryUploadBusy] = useState(false);
+  const [galleryUploadError, setGalleryUploadError] = useState("");
   const topAnchorRef = useRef<HTMLDivElement>(null);
   const skipLocalDraftPersistenceRef = useRef(Boolean(initialDraft?.id));
   const formDataRef = useRef(formData);
@@ -409,6 +423,8 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
             instagram_url: base.instagram_url,
             ticket_url: base.ticket_url,
             hero_image: base.hero_image,
+            video_url: base.video_url,
+            gallery_image_urls: base.gallery_image_urls,
             is_free: base.is_free,
             program_draft: base.program_draft,
             status: "pending",
@@ -504,6 +520,8 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
           instagram_url: base.instagram_url,
           ticket_url: base.ticket_url,
           hero_image: base.hero_image,
+          video_url: base.video_url,
+          gallery_image_urls: base.gallery_image_urls,
           is_free: base.is_free,
           program_draft: base.program_draft,
         };
@@ -563,6 +581,88 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
       return;
     }
     void performSubmit();
+  }
+
+  async function handleHeroFileUpload(file: File) {
+    setHeroUploadError("");
+    setHeroUploadBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/organizer/uploads/hero-image", {
+        method: "POST",
+        credentials: "include",
+        body: fd,
+      });
+      const payload = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        url?: string;
+        error?: string;
+      } | null;
+      if (!res.ok || !payload?.url) {
+        throw new Error(payload?.error ?? "Качването не успя.");
+      }
+      patchForm("heroImageUrl", payload.url);
+      setThumbLoadFailed(false);
+    } catch (err) {
+      setHeroUploadError(err instanceof Error ? err.message : "Качването не успя.");
+    } finally {
+      setHeroUploadBusy(false);
+      // Reset input so same file can be re-selected if needed.
+      if (heroFileInputRef.current) heroFileInputRef.current.value = "";
+    }
+  }
+
+  async function handleGalleryFilesUpload(files: FileList | File[]) {
+    setGalleryUploadError("");
+    setGalleryUploadBusy(true);
+    const list = Array.from(files);
+    const newUrls: string[] = [];
+    try {
+      for (const file of list) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/organizer/uploads/gallery-image", {
+          method: "POST",
+          credentials: "include",
+          body: fd,
+        });
+        const payload = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          url?: string;
+          error?: string;
+        } | null;
+        if (!res.ok || !payload?.url) {
+          throw new Error(payload?.error ?? "Качването не успя.");
+        }
+        newUrls.push(payload.url);
+      }
+      if (newUrls.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          galleryImageUrls: [...prev.galleryImageUrls, ...newUrls].slice(0, 24),
+        }));
+      }
+    } catch (err) {
+      setGalleryUploadError(err instanceof Error ? err.message : "Качването не успя.");
+      // Still keep successfully uploaded ones from this batch.
+      if (newUrls.length > 0) {
+        setFormData((prev) => ({
+          ...prev,
+          galleryImageUrls: [...prev.galleryImageUrls, ...newUrls].slice(0, 24),
+        }));
+      }
+    } finally {
+      setGalleryUploadBusy(false);
+      if (galleryFileInputRef.current) galleryFileInputRef.current.value = "";
+    }
+  }
+
+  function removeGalleryImage(url: string) {
+    setFormData((prev) => ({
+      ...prev,
+      galleryImageUrls: prev.galleryImageUrls.filter((u) => u !== url),
+    }));
   }
 
   function focusHeroImageUrlField() {
@@ -994,33 +1094,38 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
 
               {currentStep === 5 ? (
                 <div className="space-y-7">
-                  {/* Hero image */}
+                  {/* Hero image — upload file OR paste URL */}
                   <div>
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className={LABEL_TEXT_CLASS}>Снимка</span>
+                      <span className={LABEL_TEXT_CLASS}>Основна снимка</span>
                       <span className="text-[10px] font-semibold uppercase tracking-wide text-[#7c2d12]/70">
                         Препоръчително
                       </span>
                     </div>
                     <p className={HELPER_CLASS}>
-                      Фестивалите със снимка получават до 3× повече посещения. Линк
-                      към публично достъпен .jpg, .png или .webp.
+                      Фестивалите със снимка получават до 3× повече посещения. Качи от
+                      компютъра или постави линк.
                     </p>
+
                     <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-stretch">
+                      {/* Preview tile (clickable → opens file picker) */}
                       <button
                         type="button"
-                        onClick={() => {
-                          heroImageUrlInputRef.current?.focus();
-                          heroImageUrlInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                        }}
-                        className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#fafaf8] transition-all duration-150 hover:bg-amber-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/25 ${
+                        onClick={() => heroFileInputRef.current?.click()}
+                        disabled={heroUploadBusy}
+                        className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#fafaf8] transition-all duration-150 hover:bg-amber-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/25 disabled:cursor-wait disabled:opacity-70 ${
                           hasHeroPreview
                             ? "h-36 w-full border border-amber-200/55 sm:h-auto sm:w-44 sm:min-h-[9rem]"
                             : "h-36 w-full border-2 border-dashed border-amber-300/60 sm:w-44"
                         }`}
-                        aria-label="Превю на снимката"
+                        aria-label="Качи снимка"
                       >
-                        {hasHeroPreview ? (
+                        {heroUploadBusy ? (
+                          <span className="flex flex-col items-center gap-1 px-3 text-center">
+                            <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#7c2d12]/30 border-t-[#7c2d12]" />
+                            <span className="text-xs font-semibold text-[#7c2d12]">Качване…</span>
+                          </span>
+                        ) : hasHeroPreview ? (
                           // eslint-disable-next-line @next/next/no-img-element -- arbitrary URL paste (no remotePatterns guarantee)
                           <img
                             src={trimmedHeroImageUrl}
@@ -1031,33 +1136,180 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                         ) : (
                           <span className="flex flex-col items-center gap-1 px-3 text-center">
                             <span className="text-2xl" aria-hidden="true">📷</span>
-                            <span className="text-xs font-semibold text-[#7c2d12]">+ Добави снимка</span>
+                            <span className="text-xs font-semibold text-[#7c2d12]">+ Качи снимка</span>
                           </span>
                         )}
                       </button>
-                      <div className="block min-w-0 flex-1">
-                        <label htmlFor="wizard-field-hero" className={LABEL_TEXT_CLASS}>
-                          Линк към снимка
-                        </label>
-                        <input
-                          id="wizard-field-hero"
-                          ref={heroImageUrlInputRef}
-                          value={formData.heroImageUrl}
-                          onChange={(ev) => patchForm("heroImageUrl", ev.target.value)}
-                          type="url"
-                          placeholder="https://…/poster.jpg"
-                          className={FIELD_CLASS}
-                        />
-                        <p className={HELPER_CLASS}>
-                          Поддържани формати: .jpg, .jpeg, .png, .webp.
+
+                      {/* Hidden file input — triggered by tile click OR upload button */}
+                      <input
+                        ref={heroFileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                        className="sr-only"
+                        onChange={(ev) => {
+                          const file = ev.target.files?.[0];
+                          if (file) void handleHeroFileUpload(file);
+                        }}
+                      />
+
+                      <div className="block min-w-0 flex-1 space-y-2.5">
+                        <button
+                          type="button"
+                          onClick={() => heroFileInputRef.current?.click()}
+                          disabled={heroUploadBusy}
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#7c2d12] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#5c200d] disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+                        >
+                          {heroUploadBusy ? (
+                            <>
+                              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                              Качване…
+                            </>
+                          ) : (
+                            <>📤 Качи от компютъра</>
+                          )}
+                        </button>
+
+                        <p className="text-[11px] text-black/45">
+                          или
                         </p>
+
+                        <div>
+                          <label htmlFor="wizard-field-hero" className={LABEL_TEXT_CLASS}>
+                            Линк към снимка
+                          </label>
+                          <input
+                            id="wizard-field-hero"
+                            ref={heroImageUrlInputRef}
+                            value={formData.heroImageUrl}
+                            onChange={(ev) => patchForm("heroImageUrl", ev.target.value)}
+                            type="url"
+                            placeholder="https://…/poster.jpg"
+                            className={FIELD_CLASS}
+                            disabled={heroUploadBusy}
+                          />
+                        </div>
+
+                        {formData.heroImageUrl.trim() ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              patchForm("heroImageUrl", "");
+                              setThumbLoadFailed(false);
+                            }}
+                            className="text-[11px] font-medium text-red-700 underline decoration-red-300/40 underline-offset-2 hover:decoration-red-500/60"
+                          >
+                            Премахни снимката
+                          </button>
+                        ) : null}
+
+                        <p className={HELPER_CLASS}>
+                          Формати: .jpg, .png, .webp, .gif. Максимум 8 MB.
+                        </p>
+                        {heroUploadError ? (
+                          <p className="text-[11px] text-red-700" role="alert">
+                            ⚠️ {heroUploadError}
+                          </p>
+                        ) : null}
                         {thumbLoadFailed && trimmedHeroImageUrl ? (
-                          <p className="mt-1.5 text-[11px] text-red-700">
+                          <p className="text-[11px] text-red-700">
                             ⚠️ Снимката не може да се зареди. Провери линка.
                           </p>
                         ) : null}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Gallery — multiple files */}
+                  <div className="border-t border-black/[0.06] pt-6">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className={LABEL_TEXT_CLASS}>Галерия (по избор)</span>
+                      <span className="text-[10px] text-black/45">
+                        {formData.galleryImageUrls.length}/24
+                      </span>
+                    </div>
+                    <p className={HELPER_CLASS}>
+                      Допълнителни снимки от фестивала. Може да качиш няколко наведнъж.
+                    </p>
+
+                    {formData.galleryImageUrls.length > 0 ? (
+                      <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                        {formData.galleryImageUrls.map((url) => (
+                          <div
+                            key={url}
+                            className="group relative aspect-square overflow-hidden rounded-lg border border-amber-200/55 bg-[#fafaf8]"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element -- arbitrary URL */}
+                            <img
+                              src={url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeGalleryImage(url)}
+                              className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-xs font-bold text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-visible:opacity-100"
+                              aria-label="Премахни снимка"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    <input
+                      ref={galleryFileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                      className="sr-only"
+                      onChange={(ev) => {
+                        const files = ev.target.files;
+                        if (files && files.length > 0) void handleGalleryFilesUpload(files);
+                      }}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => galleryFileInputRef.current?.click()}
+                      disabled={galleryUploadBusy || formData.galleryImageUrls.length >= 24}
+                      className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-amber-300/60 bg-amber-50/30 px-4 py-2 text-sm font-semibold text-[#7c2d12] transition hover:bg-amber-50/60 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {galleryUploadBusy ? (
+                        <>
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#7c2d12]/30 border-t-[#7c2d12]" />
+                          Качване…
+                        </>
+                      ) : (
+                        <>📤 Качи снимки</>
+                      )}
+                    </button>
+
+                    {galleryUploadError ? (
+                      <p className="mt-2 text-[11px] text-red-700" role="alert">
+                        ⚠️ {galleryUploadError}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {/* Video URL */}
+                  <div className="border-t border-black/[0.06] pt-6">
+                    <label htmlFor="wizard-field-video" className={LABEL_TEXT_CLASS}>
+                      🎬 Видео (по избор)
+                    </label>
+                    <input
+                      id="wizard-field-video"
+                      value={formData.videoUrl}
+                      onChange={(ev) => patchForm("videoUrl", ev.target.value)}
+                      type="url"
+                      placeholder="https://www.youtube.com/watch?v=…"
+                      className={FIELD_CLASS}
+                    />
+                    <p className={HELPER_CLASS}>
+                      YouTube или Facebook линк. Видеата се вграждат в страницата на
+                      фестивала.
+                    </p>
                   </div>
 
                   {/* Links */}

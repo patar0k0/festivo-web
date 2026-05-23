@@ -924,18 +924,30 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                     <label htmlFor="wizard-field-category" className={LABEL_TEXT_CLASS}>
                       Категория <span className="text-[#7c2d12]">*</span>
                     </label>
-                    <input
+                    <select
                       id="wizard-field-category"
                       value={formData.category}
                       onChange={(ev) => patchForm("category", ev.target.value)}
-                      placeholder="festival"
                       className={FIELD_CLASS}
-                    />
+                    >
+                      <option value="festival">Общ фестивал</option>
+                      <option value="folk">Фолклорен</option>
+                      <option value="music">Музикален</option>
+                      <option value="wine">Винен</option>
+                      <option value="food">Гастрономически / кулинарен</option>
+                      <option value="art">Изкуство</option>
+                      <option value="film">Филмов</option>
+                      <option value="theatre">Театрален</option>
+                      <option value="traditional">Традиционен / събор</option>
+                      <option value="religious">Религиозен</option>
+                      <option value="children">Детски / семеен</option>
+                      <option value="sport">Спортен</option>
+                      <option value="craft">Занаятчийски</option>
+                      <option value="other">Друго</option>
+                    </select>
                     <p className={HELPER_CLASS}>
-                      Напр. <code className="rounded bg-amber-50 px-1 text-[10px] text-[#5c200d]">festival</code>,{" "}
-                      <code className="rounded bg-amber-50 px-1 text-[10px] text-[#5c200d]">wine</code>,{" "}
-                      <code className="rounded bg-amber-50 px-1 text-[10px] text-[#5c200d]">folk</code>,{" "}
-                      <code className="rounded bg-amber-50 px-1 text-[10px] text-[#5c200d]">food</code>. Екипът може да я нормализира.
+                      Изберете категория която най-добре описва фестивала. Екипът може да я
+                      нормализира при преглед.
                     </p>
                   </div>
                 </div>
@@ -1010,10 +1022,13 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                         <input
                           id="wizard-field-start-date"
                           type="date"
+                          min="2024-01-01"
+                          max="2030-12-31"
                           value={formData.startDate}
                           onChange={(ev) => patchForm("startDate", ev.target.value)}
                           className={FIELD_CLASS}
                         />
+                        <p className={HELPER_CLASS}>Натисни иконата 📅 за календар.</p>
                       </div>
                       <div>
                         <label htmlFor="wizard-field-end-date" className={LABEL_TEXT_CLASS}>
@@ -1022,11 +1037,13 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                         <input
                           id="wizard-field-end-date"
                           type="date"
+                          min="2024-01-01"
+                          max="2030-12-31"
                           value={formData.endDate}
                           onChange={(ev) => patchForm("endDate", ev.target.value)}
                           className={FIELD_CLASS}
                         />
-                        <p className={HELPER_CLASS}>Остави празно за еднодневен фестивал.</p>
+                        <p className={HELPER_CLASS}>Празно за еднодневен фестивал.</p>
                       </div>
                     </div>
                   </div>
@@ -1042,8 +1059,11 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                         </label>
                         <input
                           id="wizard-field-start-time"
-                          type="time"
-                          step={60}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-2][0-9]:[0-5][0-9]"
+                          maxLength={5}
+                          placeholder="напр. 18:30"
                           value={formData.startTime}
                           onChange={(ev) => patchForm("startTime", ev.target.value)}
                           className={FIELD_CLASS}
@@ -1055,8 +1075,11 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                         </label>
                         <input
                           id="wizard-field-end-time"
-                          type="time"
-                          step={60}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-2][0-9]:[0-5][0-9]"
+                          maxLength={5}
+                          placeholder="напр. 23:00"
                           value={formData.endTime}
                           onChange={(ev) => patchForm("endTime", ev.target.value)}
                           className={FIELD_CLASS}
@@ -1317,7 +1340,7 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                     <div>
                       <h3 className="text-sm font-semibold text-[#0c0e14]">Връзки</h3>
                       <p className={HELPER_CLASS}>
-                        Всички по избор. Помагат на посетителите да научат повече и да си купят билет.
+                        Всички по избор. Помагат на посетителите да научат повече.
                       </p>
                     </div>
 
@@ -1363,48 +1386,26 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                       />
                     </div>
 
-                    <div>
-                      <label htmlFor="wizard-field-ticket" className={LABEL_TEXT_CLASS}>
-                        🎟️ Билети
-                      </label>
-                      <input
-                        id="wizard-field-ticket"
-                        value={formData.ticketUrl}
-                        onChange={(ev) => patchForm("ticketUrl", ev.target.value)}
-                        type="url"
-                        placeholder="https://…"
-                        className={FIELD_CLASS}
-                      />
-                      <p className={HELPER_CLASS}>
-                        Линк към сайт за билети, ако е платено събитие.
-                      </p>
-                    </div>
                   </div>
 
-                  {/* Tags + free */}
-                  <div className="space-y-5 border-t border-black/[0.06] pt-6">
-                    <div>
-                      <label htmlFor="wizard-field-tags" className={LABEL_TEXT_CLASS}>
-                        Тагове
-                      </label>
-                      <input
-                        id="wizard-field-tags"
-                        value={formData.tagsInput}
-                        onChange={(ev) => patchForm("tagsInput", ev.target.value)}
-                        placeholder="фолклор, музика, винен, семейство"
-                        className={FIELD_CLASS}
-                      />
-                      <p className={HELPER_CLASS}>
-                        Отделени със запетая. Помагат на хората да открият фестивала
-                        по тема.
-                      </p>
-                    </div>
+                  {/* Билети + безплатно */}
+                  <div className="space-y-4 border-t border-black/[0.06] pt-6">
+                    <h3 className="text-sm font-semibold text-[#0c0e14]">🎟️ Билети</h3>
 
+                    {/* Free checkbox first — controls whether ticket URL is editable */}
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-emerald-200/55 bg-emerald-50/30 px-4 py-3 transition hover:bg-emerald-50/55">
                       <input
                         type="checkbox"
                         checked={formData.isFree}
-                        onChange={(ev) => patchForm("isFree", ev.target.checked)}
+                        onChange={(ev) => {
+                          const next = ev.target.checked;
+                          patchForm("isFree", next);
+                          // Когато потребителят избере 'безплатно', изчистваме евентуален
+                          // ticket URL — иначе той ще се запази в DB докато полето е disabled.
+                          if (next && formData.ticketUrl.trim()) {
+                            patchForm("ticketUrl", "");
+                          }
+                        }}
                         className="mt-0.5 h-4 w-4 shrink-0 rounded border-emerald-300 accent-emerald-700 focus:ring-2 focus:ring-emerald-500/30"
                       />
                       <span className="min-w-0">
@@ -1412,11 +1413,52 @@ function NewFestivalSubmissionInner({ initialDraft }: { initialDraft: NewFestiva
                           Безплатно събитие
                         </span>
                         <span className="mt-0.5 block text-[11px] text-black/55">
-                          Маркирай ако вход е свободен. Платените събития показват
-                          цена / линк към билети.
+                          Маркирай ако входът е свободен. Премахни отметката, ако
+                          събитието е платено — тогава ще можеш да добавиш линк за билети.
                         </span>
                       </span>
                     </label>
+
+                    {/* Ticket URL — disabled when free */}
+                    <div>
+                      <label
+                        htmlFor="wizard-field-ticket"
+                        className={`${LABEL_TEXT_CLASS} ${formData.isFree ? "text-black/35" : ""}`}
+                      >
+                        Линк за билети
+                      </label>
+                      <input
+                        id="wizard-field-ticket"
+                        value={formData.ticketUrl}
+                        onChange={(ev) => patchForm("ticketUrl", ev.target.value)}
+                        type="url"
+                        placeholder={formData.isFree ? "—" : "https://…"}
+                        disabled={formData.isFree}
+                        className={`${FIELD_CLASS} disabled:cursor-not-allowed disabled:bg-black/[0.03] disabled:text-black/35`}
+                      />
+                      <p className={HELPER_CLASS}>
+                        {formData.isFree
+                          ? "Не е приложимо за безплатни събития."
+                          : "Сайт за билети, eventim, ticketportal или собствен линк."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Тагове */}
+                  <div className="border-t border-black/[0.06] pt-6">
+                    <label htmlFor="wizard-field-tags" className={LABEL_TEXT_CLASS}>
+                      Тагове
+                    </label>
+                    <input
+                      id="wizard-field-tags"
+                      value={formData.tagsInput}
+                      onChange={(ev) => patchForm("tagsInput", ev.target.value)}
+                      placeholder="фолклор, музика, винен, семейство"
+                      className={FIELD_CLASS}
+                    />
+                    <p className={HELPER_CLASS}>
+                      Отделени със запетая. Помагат на хората да открият фестивала по тема.
+                    </p>
                   </div>
                 </div>
               ) : null}

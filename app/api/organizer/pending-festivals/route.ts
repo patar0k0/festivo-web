@@ -172,7 +172,10 @@ export async function POST(request: Request) {
     source_count: null as number | null,
     evidence_json: null as unknown,
     verification_status: "needs_review" as const,
-    verification_score: null as number | null,
+    // Default for organizer-submitted (manual) — low confidence, needs admin review.
+    // Production DB has NOT NULL constraint on this column despite migration default
+    // allowing null; supply 0 explicitly to avoid 23502.
+    verification_score: 0,
     extraction_version: null as string | null,
     website_url: optionalTrimmedUrl(body.website_url),
     facebook_url: optionalTrimmedUrl(body.facebook_url),

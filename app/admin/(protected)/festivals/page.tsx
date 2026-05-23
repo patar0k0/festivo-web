@@ -11,6 +11,23 @@ import { headers } from "next/headers";
 const STATUS_OPTIONS = ["draft", "verified", "rejected", "archived"] as const;
 const STATUS_FILTER_OPTIONS = ["all", ...STATUS_OPTIONS] as const;
 
+// Time filter: by default the admin list hides past festivals so the active
+// workload stays focused on what needs moderation. "Past" + "All" are
+// available for audit / cleanup tasks.
+const TIME_OPTIONS = [
+  { value: "upcoming", label: "Предстоящи (включително текущи)" },
+  { value: "past", label: "Минали" },
+  { value: "all", label: "Всички" },
+] as const;
+type TimeValue = (typeof TIME_OPTIONS)[number]["value"];
+const DEFAULT_TIME: TimeValue = "upcoming";
+
+function asTime(raw: string): TimeValue {
+  return (TIME_OPTIONS as readonly { value: string }[]).some((o) => o.value === raw)
+    ? (raw as TimeValue)
+    : DEFAULT_TIME;
+}
+
 const SORT_OPTIONS = [
   { value: "start_date_asc", label: "Дата (възх.) — какво идва" },
   { value: "start_date_desc", label: "Дата (низх.) — скорошно минали" },
@@ -67,6 +84,7 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
   const free = asString(params.free);
   const q = asString(params.q);
   const sort = asSort(asString(params.sort));
+  const time = asTime(asString(params.time));
   const deleted = asString(params.deleted) === "1";
 
   const statusScope = statusToFilterScope(status);
@@ -82,6 +100,7 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
   if (free) queryString.set("free", free);
   if (q) queryString.set("q", q);
   if (sort !== DEFAULT_SORT) queryString.set("sort", sort);
+  if (time !== DEFAULT_TIME) queryString.set("time", time);
 
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
@@ -111,6 +130,38 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
         <p className="mt-1 text-sm text-black/65">Филтрирай и управлявай фестивалите в системата.</p>
 
         <form className="mt-3 space-y-2">
+          {/* Time scope chips — primary "view mode" toggle.
+              Visually separated from the form filter grid below because it's
+              a different concept: status/city/category narrow the dataset,
+              while "time" decides which slice of time is shown. */}
+          <div className="flex flex-wrap items-center gap-1.5 pb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
+              Изглед:
+            </span>
+            {TIME_OPTIONS.map((opt) => {
+              const active = time === opt.value;
+              return (
+                <label
+                  key={opt.value}
+                  className={`cursor-pointer rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                    active
+                      ? "border-[#0c0e14] bg-[#0c0e14] text-white"
+                      : "border-black/[0.12] bg-white text-black/70 hover:bg-black/[0.04]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="time"
+                    value={opt.value}
+                    defaultChecked={active}
+                    className="sr-only"
+                  />
+                  {opt.label}
+                </label>
+              );
+            })}
+          </div>
+
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
             <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
               Status

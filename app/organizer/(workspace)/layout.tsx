@@ -58,7 +58,7 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
   return (
     <WorkspaceShell
       density="organizer-b"
-      eyebrow="Festivo · организатори"
+      eyebrow="Организатори"
       email={session?.user?.email ?? null}
       headerSummary={headerSummary}
       sidebar={<OrganizerSidebarNav isOrganizerOwner={isOrganizerOwner} hasSubmissions={hasSubmissions} />}

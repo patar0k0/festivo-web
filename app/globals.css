@@ -147,3 +147,100 @@ a {
 .leaflet-container {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
+
+/* ========================================
+   Festivo branded map pin
+   ========================================
+   Used by `components/MapView.tsx` festivalIcon / festivalIconSelected.
+   Pure CSS drop-shaped pin in brand red (#7c2d12). Selected variant adds
+   a pulsing ring + larger inner dot to highlight the active festival
+   without relying on a different sprite. */
+
+.festivo-pin-wrap {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.festivo-pin {
+  position: relative;
+  width: 28px;
+  height: 36px;
+}
+
+.festivo-pin--selected {
+  width: 32px;
+  height: 40px;
+}
+
+.festivo-pin__drop {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  background: #7c2d12;
+  border: 2px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 4px 10px rgba(124, 45, 18, 0.35);
+}
+
+.festivo-pin--selected .festivo-pin__drop {
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  background: #5c200d;
+  box-shadow: 0 6px 14px rgba(92, 32, 13, 0.45);
+}
+
+.festivo-pin__dot {
+  position: absolute;
+  left: 50%;
+  top: 7px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  background: #fff;
+  border-radius: 9999px;
+}
+
+.festivo-pin--selected .festivo-pin__dot {
+  width: 10px;
+  height: 10px;
+  top: 8px;
+  margin-left: -5px;
+}
+
+.festivo-pin__ring {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  width: 36px;
+  height: 36px;
+  margin-left: -18px;
+  border: 2px solid rgba(124, 45, 18, 0.45);
+  border-radius: 9999px;
+  animation: festivo-pin-pulse 1.4s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes festivo-pin-pulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+/* Respect users who prefer reduced motion — keep the ring visible without
+   pulsing so the selected state is still recognisable. */
+@media (prefers-reduced-motion: reduce) {
+  .festivo-pin__ring {
+    animation: none;
+    opacity: 0.45;
+  }
+}

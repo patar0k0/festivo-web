@@ -36,7 +36,9 @@ export function getVideoEmbedSrcFromPageUrl(pageUrl: string): string | null {
     }
 
     if (host === "fb.watch" || host.endsWith("facebook.com")) {
-      return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(raw)}&show_text=false&width=1280`;
+      const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID ?? "";
+      const appIdParam = appId ? `&appId=${encodeURIComponent(appId)}` : "";
+      return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(raw)}&show_text=false&width=1280${appIdParam}`;
     }
 
     return null;

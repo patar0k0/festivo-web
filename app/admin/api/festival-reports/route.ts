@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   let query = admin
     .from("festival_reports")
     .select(
-      "id, festival_id, category, message, reporter_ip, created_at, reviewed, reviewed_at, festival:festivals(id, name, slug)",
+      "id, festival_id, category, message, reporter_ip, created_at, reviewed, reviewed_at, festival:festivals(id, title, slug)",
       { count: "exact" },
     )
     .order("created_at", { ascending: false })

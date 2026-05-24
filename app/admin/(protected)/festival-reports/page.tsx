@@ -61,7 +61,7 @@ export default async function AdminFestivalReportsPage({
       reporter_ip: string | null;
       created_at: string;
       reviewed: boolean;
-      festival: { id: string; name: string; slug: string | null } | null;
+      festival: { id: string; title: string; slug: string | null } | null;
     }>;
     total?: number;
     page?: number;
@@ -141,7 +141,7 @@ export default async function AdminFestivalReportsPage({
                         className="hover:underline"
                         target="_blank"
                       >
-                        {row.festival.name}
+                        {row.festival.title}
                       </Link>
                     ) : (
                       <span className="text-black/40">—</span>

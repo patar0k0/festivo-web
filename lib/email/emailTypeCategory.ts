@@ -1,4 +1,5 @@
 import {
+  EMAIL_JOB_TYPE_ADMIN_FESTIVAL_REPORT,
   EMAIL_JOB_TYPE_ADMIN_NEW_CLAIM,
   EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION,
   EMAIL_JOB_TYPE_CONTACT_FORM,
@@ -33,6 +34,7 @@ const CATEGORY_BY_TYPE: Record<EmailJobType, EmailTypeCategory> = {
   [EMAIL_JOB_TYPE_ADMIN_NEW_CLAIM]: "admin_alert",
   [EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION]: "admin_alert",
   [EMAIL_JOB_TYPE_CONTACT_FORM]: "admin_alert",
+  [EMAIL_JOB_TYPE_ADMIN_FESTIVAL_REPORT]: "admin_alert",
   [EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE]: "optional_reminder",
   [EMAIL_JOB_TYPE_REMINDER_SAME_DAY]: "optional_reminder",
   [EMAIL_JOB_TYPE_WELCOME]: "optional_marketing",

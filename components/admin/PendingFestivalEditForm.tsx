@@ -1914,7 +1914,13 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                           ) : (
                             <button
                               type="button"
-                              onClick={() => updateField("hero_image", u)}
+                              onClick={() => {
+                                // If the current hero is not yet in galleryUrls (synthetic card), preserve it
+                                if (heroHasImage && !heroAlreadyInGallery) {
+                                  setGalleryUrls((prev) => [...prev, heroImageUrl]);
+                                }
+                                updateField("hero_image", u);
+                              }}
                               disabled={saving || Boolean(runningAction) || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
                               className="rounded-md border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] disabled:opacity-50"
                             >

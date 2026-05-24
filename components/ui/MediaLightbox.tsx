@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { getEmbedUrl } from "@/lib/media/getEmbedUrl";
+import { getEmbedUrl, isFacebookVideoUrl } from "@/lib/media/getEmbedUrl";
 
 export type MediaItem = { type: "image"; url: string } | { type: "video"; url: string };
 
@@ -39,8 +39,23 @@ export function MediaLightbox({ items, index, onClose, onChange }: Props) {
         <img src={item.url} alt="" className="max-h-[85vh] max-w-[90vw] object-contain" />
       ) : (
         (() => {
-          if (process.env.NODE_ENV === "development") {
-            console.log(item.type, item.url);
+          if (isFacebookVideoUrl(item.url)) {
+            return (
+              <div className="flex flex-col items-center justify-center gap-5 p-8 text-center">
+                <svg viewBox="0 0 24 24" fill="#1877f2" className="h-14 w-14">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                </svg>
+                <p className="text-lg font-semibold text-white">Facebook видео</p>
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg bg-[#1877f2] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#166fe5]"
+                >
+                  Гледай във Facebook ↗
+                </a>
+              </div>
+            );
           }
           const embed = getEmbedUrl(item.url);
           if (!embed) {
@@ -50,9 +65,7 @@ export function MediaLightbox({ items, index, onClose, onChange }: Props) {
               </div>
             );
           }
-          const iframeSrc = embed.includes("youtube.com/embed")
-            ? `${embed}${embed.includes("?") ? "&" : "?"}autoplay=1&rel=0`
-            : embed;
+          const iframeSrc = `${embed}${embed.includes("?") ? "&" : "?"}autoplay=1&rel=0`;
           return (
             <div className="flex h-full w-full items-center justify-center bg-black">
               {/* h-[80vh] + aspect-video keeps correct 16:9 ratio; max-w-[90vw] prevents overflow on narrow screens */}

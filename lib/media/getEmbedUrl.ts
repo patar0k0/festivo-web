@@ -12,15 +12,26 @@ export function getYouTubeVideoId(url: string): string | null {
 }
 
 /**
- * iframe src for supported video hosts (Facebook Reels/watch, YouTube).
+ * Returns true if the URL is a Facebook video link.
+ * Facebook iframe embeds require Meta App Review — use a link card instead.
+ */
+export function isFacebookVideoUrl(url: string): boolean {
+  if (!url?.trim()) return false;
+  try {
+    const host = new URL(url.trim()).hostname.toLowerCase();
+    return host === "fb.watch" || host.endsWith("facebook.com");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * iframe src for YouTube videos only.
+ * Facebook videos are not embedded via iframe — use isFacebookVideoUrl() + a link card.
  */
 export function getEmbedUrl(url: string): string | null {
   if (!url?.trim()) return null;
   const u = url.trim();
-
-  if (u.includes("facebook.com")) {
-    return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(u)}`;
-  }
 
   if (u.includes("youtube.com") || u.includes("youtu.be")) {
     const id = getYouTubeVideoId(u);

@@ -11,7 +11,7 @@ import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
 import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorOpenAction";
-import { getVideoEmbedSrcFromPageUrl, isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
+import { getVideoEmbedSrcFromPageUrl, isFacebookVideoUrl, isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 import {
   MEDIA_LIMITS,
@@ -340,6 +340,7 @@ export default function FestivalEditForm({
   }, [festival.id, initialProgramDraftKey]);
 
   const videoEmbedSrc = useMemo(() => getVideoEmbedSrcFromPageUrl(videoUrl.trim()), [videoUrl]);
+  const videoIsFacebook = useMemo(() => isFacebookVideoUrl(videoUrl.trim()), [videoUrl]);
 
   const videoCount = videoUrl.trim() ? 1 : 0;
 
@@ -1623,7 +1624,22 @@ export default function FestivalEditForm({
               {videoBusy ? "Запис..." : "Премахни видео"}
             </button>
           </div>
-          {videoEmbedSrc ? (
+          {videoIsFacebook ? (
+            <a
+              href={videoUrl.trim()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center gap-3 rounded-xl border border-[#1877f2]/30 bg-[#1877f2]/5 px-4 py-3 text-sm text-[#1877f2] hover:bg-[#1877f2]/10"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5 shrink-0">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+              <span>Гледай видеото във Facebook</span>
+              <svg viewBox="0 0 20 20" fill="currentColor" className="ml-auto h-4 w-4 shrink-0 opacity-50">
+                <path fillRule="evenodd" d="M5.22 14.78a.75.75 0 001.06 0l7.22-7.22v5.69a.75.75 0 001.5 0v-7.5a.75.75 0 00-.75-.75h-7.5a.75.75 0 000 1.5h5.69l-7.22 7.22a.75.75 0 000 1.06z" clipRule="evenodd" />
+              </svg>
+            </a>
+          ) : videoEmbedSrc ? (
             <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.08] bg-black">
               <div className="relative aspect-video w-full">
                 <iframe

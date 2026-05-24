@@ -1,5 +1,6 @@
 import { createElement } from "react";
 
+import { AdminFestivalReportEmail } from "@/emails/templates/AdminFestivalReportEmail";
 import { AdminNewClaimEmail } from "@/emails/templates/AdminNewClaimEmail";
 import { AdminNewSubmissionEmail } from "@/emails/templates/AdminNewSubmissionEmail";
 import { FestivalApprovedEmail } from "@/emails/templates/FestivalApprovedEmail";
@@ -14,6 +15,7 @@ import { TestEmail } from "@/emails/templates/TestEmail";
 import { getBaseUrl } from "@/lib/config/baseUrl";
 
 import {
+  EMAIL_JOB_TYPE_ADMIN_FESTIVAL_REPORT,
   EMAIL_JOB_TYPE_ADMIN_NEW_CLAIM,
   EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION,
   EMAIL_JOB_TYPE_CONTACT_FORM,
@@ -29,6 +31,7 @@ import {
   type EmailJobType,
 } from "./emailJobTypes";
 import {
+  parseAdminFestivalReportPayload,
   parseAdminNewClaimPayload,
   parseAdminNewSubmissionPayload,
   parseContactFormPayload,
@@ -262,6 +265,29 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
           startTimeDisplay: p.startTimeDisplay,
           unsubscribeUrl: p.unsubscribeUrl ?? undefined,
           managePreferencesUrl: p.managePreferencesUrl ?? undefined,
+        }),
+      );
+      return { subject, html, text };
+    },
+  },
+
+  [EMAIL_JOB_TYPE_ADMIN_FESTIVAL_REPORT]: {
+    buildDefaultSubject: (pl) => {
+      const p = parseAdminFestivalReportPayload(pl as Record<string, unknown>);
+      return `⚑ Сигнал за проблем: ${p.festivalName.slice(0, 80)}`;
+    },
+    build: async (payload) => {
+      const p = parseAdminFestivalReportPayload(payload as Record<string, unknown>);
+      const origin = siteOrigin();
+      const subject = `⚑ Сигнал за проблем: ${p.festivalName.slice(0, 80)}`;
+      const { html, text } = await renderEmail(
+        createElement(AdminFestivalReportEmail, {
+          siteUrl: origin,
+          festivalName: p.festivalName,
+          festivalUrl: p.festivalUrl,
+          categoryLabel: p.categoryLabel,
+          message: p.message,
+          reportedAt: p.reportedAt,
         }),
       );
       return { subject, html, text };

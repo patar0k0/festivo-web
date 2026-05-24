@@ -157,6 +157,7 @@ type HeroImageUploadResponse = {
   ok?: boolean;
   hero_image?: string | null;
   hero_image_source?: string | null;
+  gallery_image_urls?: string[];
   error?: string;
 };
 
@@ -1158,6 +1159,9 @@ export default function PendingFestivalEditForm({
       const uploadedHeroImage = typeof payload.hero_image === "string" ? payload.hero_image : "";
       updateField("hero_image", uploadedHeroImage);
       setHeroImageSourceState(typeof payload.hero_image_source === "string" ? payload.hero_image_source : "manual_upload");
+      if (Array.isArray(payload.gallery_image_urls)) {
+        setGalleryUrls(payload.gallery_image_urls);
+      }
       toast.success("Hero image uploaded successfully.");
       router.refresh();
 
@@ -1191,6 +1195,9 @@ export default function PendingFestivalEditForm({
       const importedHeroImage = typeof payload.hero_image === "string" ? payload.hero_image : "";
       updateField("hero_image", importedHeroImage);
       setHeroImageSourceState(typeof payload.hero_image_source === "string" ? payload.hero_image_source : "url_import");
+      if (Array.isArray(payload.gallery_image_urls)) {
+        setGalleryUrls(payload.gallery_image_urls);
+      }
       toast.success(successMessage);
       router.refresh();
     } catch (importUrlError) {
@@ -1949,10 +1956,20 @@ export default function PendingFestivalEditForm({
                 </label>
                 <div className="mt-3 rounded-xl border border-black/[0.08] bg-white px-3 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <input ref={fileInputRef} type="file" accept="image/*" className="text-xs" />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (f) void uploadHeroImage();
+                      }}
+                    />
                     <button
                       type="button"
-                      onClick={uploadHeroImage}
+                      onClick={() => fileInputRef.current?.click()}
                       disabled={
                         saving ||
                         Boolean(runningAction) ||

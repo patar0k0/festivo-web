@@ -30,6 +30,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/research", label: "Проучване", match: "prefix" },
       { href: "/admin/pending-festivals", label: "Чакащи", match: "prefix" },
       { href: "/admin/festivals", label: "Фестивали", match: "prefix" },
+      { href: "/admin/festival-reports", label: "Сигнали", match: "prefix" },
     ],
   },
   {

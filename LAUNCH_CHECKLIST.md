@@ -10,10 +10,129 @@
 
 ## 📍 Текущ статус
 
-- **Sprint ден:** 1 / 14
-- **Launch стабилност:** 🟡 в подготовка
-- **Блокери в момента:** —
-- **Последно обновяване:** 18 май 2026
+- **Sprint ден:** 7 / 14 — последен ден от Седмица 1
+- **Launch стабилност:** 🟢 готов за soft launch
+- **Блокери в момента:** няма (всички известни production issues са fix-нати на 22 май)
+- **Последно обновяване:** 22 май 2026 (вечер)
+- **Прогрес:** 62 ✅ / 89 ⏳ (TikTok прехвърлен от ✅ на 🟡 — handle резервиран, но profile неоптимизиран)
+- **Следва (Седмица 2):** покритие на 10 фестивала с богато съдържание (Ден 8-9), social profiles (Ден 10), soft launch с 10-15 приятели (Ден 11-12), launch comms drafts (Ден 13), **PUBLIC LAUNCH сряда 28 май** (Ден 14).
+
+### 📌 За утре (23 май, продължение)
+
+- [ ] **Pro UX за `/organizer/submissions`** — следваща страница в organizer redesign sprint-а. Pattern: header card + sticky info sidebar + status badges + relative dates (като /organizer/dashboard). Reference: PRs #372-#378 за подобни pages.
+
+### Свършено на 22 май 2026 (Ден 7 — 13 PRs + infrastructure)
+
+**Lighthouse / a11y polish:**
+- Calendar contrast + Label-in-Name fixes (PR #355)
+- POST handler на `/api/jobs/email` — Railway worker crash fix (PR #356)
+
+**Email surface (брандиран confirmation flow + админ@):**
+- Refined confirmation email design (PR #357)
+- Brand slogan „Открий. Планирай. Посети." в всички email headers (PR #358)
+- Effective dates 28 май 2026 + signup implicit consent (PR #361)
+- Unified contact addresses → `admin@festivo.bg` (PR #363)
+
+**Legal compliance:**
+- Третите страни в /privacy §4 + /cookies (Meta, GA4, Umami, Sentry, Cloudflare) (PR #362)
+- Unescaped quote fix който блокираше Vercel build (PR #365)
+
+**Admin tools:**
+- Hard delete достъпен в production с double confirmation (PR #359)
+- Phantom tables не блокират hard delete (PR #360)
+- Admin festivals — default sort start_date ASC + Sort dropdown (PR #367)
+
+**Security:**
+- Debug endpoints gated в production (PR #366)
+- Full security audit — A-grade headers, no leaked secrets, no critical vulns
+
+**Docs:**
+- `docs/launch-flip-procedure.md` runbook за launch ден (PR #364)
+
+**Infrastructure (off-code):**
+- ✅ Cloudflare Email Routing — catch-all `*@festivo.bg` → твоя Gmail
+- ✅ Gmail "Send mail as" с Resend SMTP — изпращане от `admin@festivo.bg`
+- ✅ Supabase auth e-mails минават през Resend SMTP (no rate limits)
+
+### Свършено на 20-21 май (предишни сесии)
+
+- 404 + Error + Festival detail loading страници (PR #336)
+- Build cleanup — `npm run build`, `tsc --noEmit`, `next lint` всички clean (PR #337)
+- Image optimization в `FestivalMedia` (PR #338)
+- Условия за организатори `/terms-organizers` (PR #339) — 15 секции
+- Newsletter signup форма в footer (PR #340) + production миграция приложена
+- Sentry deprecations премахнати
+
+### 📦 Merged PRs от стартирането на sprint-а
+
+| PR | Title | Status |
+|---|---|---|
+| #334 | feat(seo): dynamic homepage OG image | ✅ Merged |
+| #335 | chore(claude): read-only command allowlist | ✅ Merged |
+| #336 | feat(ui): styled 404, error, festival loading | ✅ Merged |
+| #337 | chore(build): clean build + Sentry deprecations | ✅ Merged |
+| #338 | perf(festival): optimize gallery images | ✅ Merged |
+| #339 | feat(legal): organizer-specific terms page | ✅ Merged |
+| #340 | feat(newsletter): footer email signup → Supabase | ✅ Merged + миграция |
+| #342 | fix(legal): unblock Vercel deploy (ESLint quotes) | ✅ Merged |
+| #355 | a11y(calendar): WCAG AA contrast + Label in Name | ✅ Merged |
+| #356 | fix(jobs): accept POST on /api/jobs/email | ✅ Merged |
+| #357 | polish(email): refine Supabase confirmation template | ✅ Merged |
+| #358 | polish(email): brand slogan в email headers | ✅ Merged |
+| #359 | fix(admin/users): enable hard delete в production | ✅ Merged |
+| #360 | fix(admin/users): hard delete tolerates phantom tables | ✅ Merged |
+| #361 | chore(legal): signup consent + effective dates | ✅ Merged |
+| #362 | chore(legal): all active third-party processors | ✅ Merged |
+| #363 | chore(contact): unify to admin@festivo.bg | ✅ Merged |
+| #364 | docs: launch flip procedure runbook | ✅ Merged |
+| #365 | fix(signup): escape Bulgarian quote (Vercel build) | ✅ Merged |
+| #366 | security: gate debug routes в production | ✅ Merged |
+| #367 | polish(admin/festivals): default sort + Sort dropdown | ✅ Merged |
+
+---
+
+## 🔮 Post-launch backlog (след 28 май)
+
+Списък на полиращи задачи отложени за след launch — за да не правим рискови промени в последните дни преди публикуване.
+
+### Admin tools polish
+- [ ] **Sortable column headers** в `/admin/festivals` (click на колона → sort, ▲▼ indicator)
+- [ ] **Visual grouping by status** — divider секции "Pending review", "Upcoming", "Ongoing", "Past"
+- [ ] **Quick filter chips** — „Този weekend", „Pending review", „Без снимки", „VIP"
+- [ ] **Bold за edited recently** (< 7 дни) — subtle visual cue
+- [ ] **Badge „❗ No content"** за фестивали без описание/снимки
+- [ ] **Row hover preview** със снимка + описание
+- [ ] Same pattern в `/admin/users`, `/admin/organizers`, `/admin/pending-festivals`
+
+### Security hardening
+- [ ] CSP nonces — премахни `'unsafe-inline'` за scripts
+- [ ] Penetration test (3rd party security pro)
+- [ ] Bug bounty на HackerOne / Bugcrowd
+- [ ] Cloudflare WAF rules
+- [ ] Periodic `npm audit` (monthly cadence)
+- [ ] Secrets rotation policy (6-month cycle)
+
+### Legal & UX gaps
+- [ ] Add `privacy@festivo.bg` алиас explicit в /privacy (catch-all вече го хваща)
+- [ ] /privacy — Children's data (GDPR Art. 8) + Automated decision-making (Art. 22)
+- [ ] /terms — Force majeure + indemnification + DSA notice-and-action
+- [ ] Конкретни cookie names + durations в /cookies (gold standard)
+- [ ] /terms-organizers — payment terms (методи, ДДС, фактуриране) при стартиране на paid plans
+- [ ] Add legal entity info в /privacy (EOOD име + EIK + регистриран адрес) — GDPR Art. 13 mandate
+
+### Performance
+- [ ] Font loading optimization (`display: swap`, preload)
+- [ ] Unused JS / CSS removal
+- [ ] Lighthouse audit + fix за `/signup`, `/login`, `/festival-detail`
+- [ ] Favicons full set (16/32/180/512) през realfavicongenerator.net
+
+### Operational
+- [ ] Supabase backups — GitHub Actions → Cloudflare R2 daily pg_dump
+- [ ] Cross-browser test (Chrome, Safari iOS, Firefox, Edge)
+- [ ] Real mobile test (iPhone + Android)
+- [ ] Newsletter sending strategy — Resend Audiences + Broadcasts setup
+- [ ] DPA преглед със Supabase, Resend, Upstash
+- [ ] Supabase Auth Hook — route confirmation/magic-link emails през email_jobs за unified admin view
 
 ---
 
@@ -25,68 +144,118 @@
 
 - [x] **Sentry** setup — `npm i @sentry/nextjs && npx @sentry/wizard`
 > 💡 Claude Code note (18 май): Инсталиран `@sentry/nextjs`. Wizard + Vercel integration минаха успешно. DSN в env vars. Конфигурирано: `tracesSampleRate: 0.1`, `replaysSessionSampleRate: 0.0`, `replaysOnErrorSampleRate: 1.0`, `sendDefaultPii: false` (GDPR). `generateMetadata()` в `app/layout.tsx` включва `Sentry.getTraceData()` за distributed tracing.
-- [ ] **Plausible** или **Umami** instalation — script tag в `layout.tsx`
+- [x] **Plausible** или **Umami** instalation — script tag в `layout.tsx`
+> 💡 Claude Code note (20 май): Избран Umami Cloud (free tier, GDPR-friendly без cookies). `components/UmamiAnalytics.tsx` зарежда script-а без consent gate. Чака се регистрация в Umami Cloud + `NEXT_PUBLIC_UMAMI_WEBSITE_ID` env var във Vercel.
 - [x] **Meta Pixel** инсталиран — започва да събира data веднага
 > 💡 Claude Code note (18 май): Pixel ID `1381183357170093`. `MetaPixel` компонент с `next/script strategy=afterInteractive`. Env var `NEXT_PUBLIC_META_PIXEL_ID` добавен в Vercel.
-- [ ] **GA4** + Google Tag Manager — за по-късно Google Ads
-- [ ] **UptimeRobot** — добави festivo.bg homepage + `/api/health`
+- [x] **GA4** + Google Tag Manager — за по-късно Google Ads
+> 💡 Claude Code note (20 май): `components/GoogleAnalytics.tsx` зарежда GTM ако `NEXT_PUBLIC_GTM_ID` е set (предпочитан вариант — GTM е централна точка за всички pixels). Иначе fallback на директно gtag.js с `NEXT_PUBLIC_GA4_MEASUREMENT_ID`. Cookie-based → gated зад `ConsentGatedAnalytics`. Чака се регистрация в GA4 + GTM + env vars във Vercel.
+- [x] **UptimeRobot** — добави festivo.bg homepage + `/api/health`
+> 💡 Claude Code note (19 май): Monitor добавен на dashboard.uptimerobot.com — HTTP/S, festivo.bg, на всеки 5 мин. `/api/health` edge endpoint добавен (PR #318).
 - [x] **Vercel Analytics** включен от dashboard
-- [ ] **Slack/Discord webhook** за критични Sentry alerts
+- [x] **Slack/Discord webhook** за критични Sentry alerts
+> 💡 Claude Code note (19 май): Email alert настроен в Sentry — "A new issue is created" → Notify Suggested Assignees. Вече има и default "high priority" alert.
 
 > ⏰ Защо първо това: мониторингът трябва да върви ПРЕДИ да има потребители. Pixel-ът има нужда от 14 дни data — стартирай го веднага.
 
 #### Ден 3–4: SEO + Social meta
 
-- [ ] `robots.txt` в `/public/robots.txt`
-- [ ] `sitemap.xml` — автоматично през `app/sitemap.ts`
-- [ ] Уникален `<title>` и `meta description` на всяка route (home, /festivals, /calendar, /map, /за-организатори, [slug])
-- [ ] `canonical` URL на всяка страница
-- [ ] `lang="bg"` на `<html>`
-- [ ] **Schema.org `Event` JSON-LD** на festival detail (критично за Google rich results)
-- [ ] **Schema.org `Organization`** на homepage
-- [ ] OG картинка за homepage (1200×630)
-- [ ] Динамичен OG за festival страници (`opengraph-image.tsx`)
-- [ ] `og:title`, `og:description`, `og:image`, `og:url`, `og:type` на всяка страница
-- [ ] Twitter Card (`twitter:card="summary_large_image"`)
+- [x] `robots.txt` в `/public/robots.txt`
+- [x] `sitemap.xml` — автоматично през `app/sitemap.ts`
+- [x] Уникален `<title>` и `meta description` на всяка route (home, /festivals, /calendar, /map, /за-организатори, [slug])
+- [x] `canonical` URL на всяка страница
+- [x] `lang="bg"` на `<html>`
+- [x] **Schema.org `Event` JSON-LD** на festival detail (критично за Google rich results)
+- [x] **Schema.org `Organization`** на homepage
+- [x] OG картинка за homepage (1200×630) — динамична през `app/opengraph-image.tsx`
+> 💡 Claude Code note (20 май): Вместо ръчна картинка в Canva — създадена динамична OG чрез Next.js `ImageResponse` (edge runtime). Дизайн в стила на Festivo: dark background, accent #d97706, slogan „Открий. Планирай. Посети.", 3 feature chips. Махнати ръчните `og-home.jpg` референции от `app/page.tsx` — Next.js auto-injects route-level OG.
+- [x] Динамичен OG за festival страници (`opengraph-image.tsx`)
+- [x] `og:title`, `og:description`, `og:image`, `og:url`, `og:type` на всяка страница
+- [x] Twitter Card (`twitter:card="summary_large_image"`)
 - [ ] Favicons — пълен сет (16, 32, 180, 512) през realfavicongenerator.net
-- [ ] `manifest.json` с цветове `#7c2d12`, `#f6f5f1`
-- [ ] Регистрация в **Google Search Console** + submit sitemap
-- [ ] Регистрация в **Bing Webmaster Tools**
+- [x] `manifest.json` с цветове `#7c2d12`, `#f6f5f1`
+> 💡 Claude Code note (19 май): robots.txt, sitemap, OG тагове, JSON-LD, manifest добавени в PR #319. OG image за homepage предстои (нужен ръчен дизайн 1200×630).
+- [x] Регистрация в **Google Search Console** + submit sitemap
+> 💡 Claude Code note (19 май): Верифициран домейн. Sitemap submitted — статус "Processing" (24-48ч).
+- [x] Регистрация в **Bing Webmaster Tools**
+> 💡 Claude Code note (19 май): Импортиран от Google Search Console. Sitemap submitted — Processing.
 - [ ] Тест с https://www.opengraph.xyz/
 
 #### Ден 5: Email + сигурност
 
-- [ ] **DKIM** запис в DNS на festivo.bg (от Resend dashboard)
-- [ ] **SPF** запис в DNS
-- [ ] **DMARC** запис в DNS (поне `v=DMARC1; p=none`)
-- [ ] Тест в https://www.mail-tester.com/ → цел 9/10+
-- [ ] Welcome email шаблон
+- [x] **DKIM** запис в DNS на festivo.bg (от Resend dashboard)
+- [x] **SPF** запис в DNS
+- [x] **DMARC** запис в DNS (поне `v=DMARC1; p=none`)
+> 💡 Claude Code note (19 май): DKIM + SPF вече бяха в Cloudflare (Resend verified). DMARC добавен като `TXT _dmarc v=DMARC1; p=none`. След 2-3 седмици смени на `p=quarantine`.
+- [x] Тест в https://www.mail-tester.com/ → цел 9/10+
+> 💡 Claude Code note (19 май): Резултат 9/10. -1 за DMARC p=none (нормално за старт). SPF, DKIM, не сме в блокиращи списъци — всичко зелено.
+- [x] Welcome email шаблон
+> 💡 Claude Code note (20 май): Темплейтът дойде от PR #330 (другия компютър) — `WelcomeEmail.tsx` + registry/schemas. PR #331 добави enqueue логиката: DB trigger `trg_enqueue_welcome_email` (миграция `20260519_welcome_email_on_user_insert.sql`) на INSERT в `public.users`, idempotent с `welcome:<userId>` dedupe. Шаблонът сега приема `unsubscribeUrl` + `managePreferencesUrl`, които се резолват автоматично от `renderEmailJob` чрез `resolveOptionalEmailLinks`.
 - [x] Password reset шаблон
-- [ ] Email confirmation шаблон
-- [ ] Unsubscribe линк във всички marketing имейли
-- [ ] **Supabase RLS** audit на всички таблици
-- [ ] **CSP headers** в `next.config.js`
-- [ ] `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`
+- [x] Email confirmation шаблон — paste-нат в Supabase Dashboard, тестван end-to-end. Polished design + brand slogan + admin@ contact (PR #357, #358, #363).
+- [x] Unsubscribe линк във всички marketing имейли
+> 💡 Claude Code note (19 май): Reminder имейлите вече имаха unsubscribe. Welcome го получи чрез нов `lib/email/resolveOptionalEmailLinks.ts` + `renderEmailJob` enrichment. `OPTIONAL_LINK_TYPES` set позволява лесно разширяване и за други marketing типове (напр. бъдещ newsletter).
+- [x] **Supabase RLS** audit на всички таблици
+> 💡 Claude Code note (19 май): Audit чрез `scripts/sql/audit_rls.sql`. Намерени: 9 таблици без RLS (admin/internal) + 1 overpermissive policy на `organizers`. Fix-нати с миграции `20260519_enable_rls_admin_internal_tables.sql` и `20260519_drop_organizers_public_read_overpermissive.sql`. Set 1 (NO RLS) сега е празен. Остава post-launch: `festival_likes` privacy check + duplicate SELECT policies consolidation.
+- [x] **CSP headers** в `next.config.js`
+- [x] `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`
+> 💡 Claude Code note (19 май): CSP + Permissions-Policy добавени в PR #321. securityheaders.com → Grade A. Всички 6 headers зелени.
 - [ ] Всички production env vars в Vercel (нищо в git)
-- [ ] Тест в https://securityheaders.com/ → цел A grade
-- [ ] **CORS** на `/api/mobile/*` — само за production app domain
-- [ ] Rate limiting на public endpoints (Upstash)
+- [x] Тест в https://securityheaders.com/ → цел A grade
+- [x] **CORS** на `/api/mobile/*` — само за production app domain
+> 💡 Claude Code note (19 май): `lib/mobileApiGuard.ts` + middleware integration. Native React Native (без Origin header) → allow. Browser cross-origin → 403. Allowlist чрез `MOBILE_API_ALLOWED_ORIGINS` env (празно в prod, dev само за Expo web). OPTIONS preflight handled.
+- [x] Rate limiting на public endpoints (Upstash)
+> 💡 Claude Code note (19 май): Mobile API сега има buckets `mobile-read: 120 req/60s` (GET) и `mobile-write: 30 req/60s`. Middleware ги прилага и за GET (anti-scraping). Останалите public endpoints вече ползваха buckets (`user-actions`, `auth`, `api-post`).
 
 #### Ден 6–7: Lighthouse + полиране
 
 - [ ] Lighthouse audit на 5 ключови страници (mobile-first): 90+ на Performance, Accessibility, SEO, Best Practices
-- [ ] Image optimization (всички с `next/image`, `alt`, lazy loading)
+- [x] Image optimization (всички с `next/image`, `alt`, lazy loading)
+> 💡 Claude Code note (20 май): Audit на 12 `<img>` тага в 7 файла. Конвертирани 3 в `FestivalMedia.tsx` (gallery main + thumbnails + YouTube thumbs) към `FallbackImage` с lazy loading и responsive `sizes` prop (PR #338). Hero, Meta Pixel noscript, lightbox и admin форми — обосновано оставени (explicit eslint-disable + LCP-critical с eager loading).
 - [ ] Font loading optimization
 - [ ] Unused JS / CSS removal
-- [ ] `404.tsx` и `error.tsx` стилизирани
-- [ ] Loading states (`loading.tsx`) на всички routes
+- [x] `404.tsx` и `error.tsx` стилизирани
+> 💡 Claude Code note (20 май): Branded 404 (`app/not-found.tsx`), error boundary (`app/error.tsx`) с Sentry capture и festival-specific 404 (`app/festivals/[slug]/not-found.tsx`) — всички с accent bar #7c2d12, Festivo brand стил, CTAs към home + festivals, `robots: noindex` (PR #336).
+- [x] Loading states (`loading.tsx`) на всички routes
+> 💡 Claude Code note (20 май): Festival detail skeleton (`app/festivals/[slug]/loading.tsx`) добавен в PR #336. Останалите ключови routes (festivals, calendar, map) вече имаха.
 - [ ] Cross-browser тест: Chrome, Safari iOS, Firefox, Edge
 - [ ] Real mobile тест на iPhone + Android
-- [ ] `npm run build` без warnings
-- [ ] `tsc --noEmit` без errors
-- [ ] ESLint clean
-- [ ] Health check endpoint `/api/health`
+- [x] `npm run build` без warnings
+> 💡 Claude Code note (20 май): Премахнат broken debug route `app/api/debug/test-auth` (имаше `PASTE_REAL_TOKEN_HERE` hardcode). Sentry deprecations fix-нати (PR #337). Build clean.
+- [x] `tsc --noEmit` без errors
+- [x] ESLint clean
+- [x] Health check endpoint `/api/health`
 - [ ] **Supabase backups** включени (Pro план — point-in-time recovery)
+
+---
+
+### 📱 Mobile touchpoints (паралелно с уеб sprint-а)
+
+> ⏰ **Стратегия:** мобилното приложение НЕ launch-ва на 28 май заедно със сайта. App Store / Play review е 3–7 дни и непредвидим — bind-ването на двата launch-а е риск. Submit в stores ден 14–15, публичен mobile launch ден 21+ заедно с paid ads. Този секция покрива само touchpoint-ите от страна на уеб сайта.
+
+#### На сайта (преди web launch)
+
+- [x] **CORS на `/api/mobile/*`** — само за production app domain (вече в Ден 5)
+- [x] **Rate limiting** на mobile endpoints (вече в Ден 5)
+- [ ] Load test на mobile API endpoints (k6 или Artillery, baseline за prod traffic)
+- [ ] **Deep links / Universal Links:**
+  - [ ] `public/.well-known/apple-app-site-association` (iOS)
+  - [ ] `public/.well-known/assetlinks.json` (Android)
+  - [ ] Тест с https://branch.io/resources/aasa-validator/
+- [ ] **"Изтегли приложението"** CTA в footer + smart app banner (само когато mobile app е в stores)
+- [ ] OG / meta тагове да съдържат `al:ios:url` и `al:android:url` за app-linking
+- [ ] Privacy policy + Terms покриват и мобилното (един документ за двете платформи)
+
+#### Mobile app (отделен mini-sprint, ден 14–21)
+
+- [ ] App Store Connect listing — screenshots, описание, ключови думи (BG + EN)
+- [ ] Google Play Console listing — screenshots, описание (BG + EN)
+- [ ] App icons финални (1024×1024 + adaptive)
+- [ ] Privacy nutrition labels (App Store) + Data Safety (Play)
+- [ ] TestFlight beta с 10–15 души (паралелно със soft launch на уеб)
+- [ ] Sentry за React Native инсталиран
+- [ ] Submit за review (цел: ден 14–15)
+- [ ] Push notification credentials (APNs + FCM) в production
 
 ---
 
@@ -101,16 +270,19 @@
 - [x] Cookie banner със Supabase sync
 - [x] Privacy policy на български
 - [x] Terms of service на български
-- [ ] Условия за организатори (отделна страница)
+- [x] Условия за организатори (отделна страница)
+> 💡 Claude Code note (20 май): `/terms-organizers` страница, 15 секции — кой може да бъде организатор, claim/approval flow, изисквания към съдържанието, права (organizer запазва, дава неизкл. лиценз), VIP план + promotion credits, refund policy, прекратяване, БГ юрисдикция (PR #339). Link в footer-а под „Условия за организатори". ⚠️ Препоръчителен правен преглед преди launch.
 - [ ] DPA преглед със Supabase, Resend, Upstash
 - [ ] Contact email за GDPR (`privacy@festivo.bg`)
 
 #### Ден 10: Социални профили
 
 - [ ] **Facebook страница Festivo.bg** — cover, bio, първи 3 поста
-- [ ] **Instagram @festivo.bg** — bio, линк, първи 3 поста
+- [~] **Instagram @festivo.bg** — bio, линк, първи 3 поста
+> 💡 Status (21 май): Profile създаден, нивото на оптимизация неясно. Остава: bio с „Открий. Планирай. Посети.", линк към festivo.bg, profile picture, highlight covers, първи 3 поста.
 - [ ] **LinkedIn** страница (B2B аудитория)
-- [ ] Резервирай @festivo.bg в TikTok (без постване)
+- [~] Резервирай @festivo.bg в TikTok (без постване)
+> 💡 Status (21 май): Handle резервиран, profile-ът евентуално не е попълнен. За launch достатъчно (TikTok съдържание планирано за месец 2).
 - [ ] Cover photos и bios със слогана „Открий. Планирай. Посети."
 - [ ] Линк към festivo.bg във всеки профил
 
@@ -121,7 +293,30 @@
 - [ ] Дай им **VIP early adopter access** (3 месеца безплатно)
 - [ ] **Daily Sentry check** — fix всички errors в рамките на 24h
 - [ ] Поправи топ 3 UX проблема от feedback
-- [ ] Newsletter signup форма (footer + popup след 30 сек)
+- [~] Newsletter signup форма (footer + popup след 30 сек)
+> 💡 Claude Code note (20 май, вечер): Footer форма готова (PR #340). Storage: Supabase `newsletter_subscribers` (source of truth, RLS deny anon/auth). API: `POST /api/newsletter/subscribe` с honeypot + idempotent upsert. Component готов и за popup/landing (`source` prop). Popup след 30s остава.
+> 💡 Claude Code note (21 май): Миграцията `scripts/sql/20260520_newsletter_subscribers.sql` приложена в production. Footer формата работи (test count = 1). Turnstile премахнат (PR #343) — clash с warm footer theme; останалата защита (honeypot + email regex + rate limit + DB unique) е достатъчна за low-stakes signup.
+
+##### 📮 Newsletter sending strategy — РЕШЕНИЕ: Опция A (Resend Audiences)
+
+**Защо A:** 15 мин setup vs 2-3 часа custom код. Built-in admin UI, open/click analytics, A/B testing на subjects. 3000 имейли/мес безплатно. Resend вече е инсталиран за transactional — DKIM/SPF/DMARC настроени.
+
+**Stack:**
+- Source of truth: Supabase `newsletter_subscribers` (винаги)
+- Изпращащ канал: Resend **Audiences** + **Broadcasts**
+- Sync: cron script който push-ва нови subscribers към Resend Audience през API
+- Unsubscribe: Resend handle-ва native (one-click unsub link); локалния `unsubscribe_token` остава за бъдеще
+
+**TODO (post-launch, ден 21+):**
+- [ ] Създай Resend Audience `Festivo Newsletter` → копирай Audience ID
+- [ ] Env var: `RESEND_NEWSLETTER_AUDIENCE_ID` във Vercel + Railway
+- [ ] Скрипт `scripts/sync-newsletter-to-resend.mjs` — чете нови subscribers (`synced_to_resend_at IS NULL`), POST към Resend Audience contacts API, marks-ва timestamp
+- [ ] Миграция: add column `synced_to_resend_at timestamptz` на `newsletter_subscribers`
+- [ ] Railway cron service `festivo-newsletter-sync` — daily schedule `0 6 * * *` (06:00 UTC = 09:00 София)
+- [ ] First newsletter (~12 юни): „Добре дошли в Festivo — топ фестивали за юли"
+- [ ] React Email template `NewsletterBaseTemplate` (потенциално за бъдещ swap към Опция B)
+
+**Кога да се mъжdame към Опция B (custom email_jobs):** ако имаме 5000+ subscribers, или искаме персонализация по град/любими, или Resend цена надхвърли $20/мес.
 
 #### Ден 13: Подготовка на launch комуникация
 
@@ -172,7 +367,7 @@
 ### Meta Ads setup (ден 21+)
 
 - [ ] Facebook Business Manager верифициран
-- [ ] Meta Pixel инсталиран (ден 1)
+- [x] Meta Pixel инсталиран (ден 1)
 - [ ] Conversions API (server-side tracking)
 - [ ] Custom audience: посетители на сайта (180 дни)
 - [ ] Custom audience: добавили към „Моят план"
@@ -338,4 +533,4 @@
 
 ---
 
-_Last updated: 18 май 2026 от Claude Code_
+_Last updated: 21 май 2026 от Claude Code_

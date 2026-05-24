@@ -8,14 +8,14 @@ import {
   organizerLogo,
   organizerLogoFromValidatedStoragePath,
 } from "@/lib/storage/paths";
+import { STORAGE_UPLOAD_CACHE_CONTROL } from "@/lib/storage/cacheControl";
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 25_000;
 const MAX_REDIRECTS = 5;
 const LOGO_MAX_WIDTH_PX = 512;
 const LOGO_MAX_HEIGHT_PX = 512;
 const WEBP_QUALITY = 80;
-/** Versioned object URLs: long cache is safe; URL changes when the file changes. */
-const UPLOAD_CACHE_CONTROL = "public, max-age=31536000, immutable";
+const UPLOAD_CACHE_CONTROL = STORAGE_UPLOAD_CACHE_CONTROL;
 const LOGO_UPLOAD_RATE_LIMIT_MAX_PER_MINUTE = 10;
 
 const logoUploadRateLimitMap = new Map<string, number>();

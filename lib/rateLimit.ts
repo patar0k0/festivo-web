@@ -150,6 +150,13 @@ function getBucket(pathname: string, method: string): RateLimitBucket {
     return { id: "user-actions", requests: 30, window: "60 s" };
   }
 
+  // Mobile API. Generous on reads (a single screen can fetch several endpoints
+  // on cold start) but throttled on writes (likes, plan changes, follows).
+  if (pathname.startsWith("/api/mobile/")) {
+    if (m === "GET") return { id: "mobile-read", requests: 120, window: "60 s" };
+    return { id: "mobile-write", requests: 30, window: "60 s" };
+  }
+
   return { id: "api-post", requests: 20, window: "10 s" };
 }
 

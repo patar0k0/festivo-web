@@ -66,7 +66,9 @@ export function FestivalHeroActionBar({
 
   const isGuest = !isAuthenticated;
   const primaryClass = isGuest
-    ? "inline-flex min-h-[56px] w-full flex-[1.2] items-center justify-center gap-2 rounded-xl bg-black/10 px-4 py-3 text-center text-[15px] font-semibold text-black/40 shadow-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15 sm:min-w-[12rem]"
+    // Guest CTA still looks muted (login required) but `text-black/65` clears
+    // WCAG AA — `text-black/40` was 2.76:1 on `bg-black/10`, a serious fail.
+    ? "inline-flex min-h-[56px] w-full flex-[1.2] items-center justify-center gap-2 rounded-xl bg-black/10 px-4 py-3 text-center text-[15px] font-semibold text-black/65 shadow-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15 sm:min-w-[12rem]"
     : "inline-flex min-h-[56px] w-full flex-[1.2] items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#ff5c32] to-[#ff4c1f] px-4 py-3 text-center text-[15px] font-semibold text-white shadow-sm transition-all duration-200 hover:scale-[1.02] hover:from-[#ff6438] hover:to-[#f2491c] hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/40 sm:min-w-[12rem]";
   const secondaryClass =
     "inline-flex min-h-[44px] w-full flex-1 items-center justify-center gap-2 rounded-xl border border-black/[0.1] bg-white px-4 py-2.5 text-center text-sm font-semibold text-black/90 transition-all duration-150 hover:bg-black/[0.04] hover:opacity-[0.98] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 sm:min-w-[10rem]";

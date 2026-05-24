@@ -8,12 +8,24 @@ export const revalidate = 3600;
 
 export async function generateMetadata() {
   const meta = listMeta();
+  const canonical = `${getBaseUrl()}/map`;
   return {
     ...meta,
     title: "Карта на фестивалите | Festivo",
     description: "Виж какво има около теб и филтрирай по град, дата и категория.",
-    alternates: {
-      canonical: `${getBaseUrl()}/map`,
+    alternates: { canonical },
+    openGraph: {
+      title: "Карта на фестивалите в България | Festivo",
+      description: "Виж какво има около теб и филтрирай по град, дата и категория.",
+      url: canonical,
+      siteName: "Festivo",
+      locale: "bg_BG",
+      type: "website",
+    },
+    twitter: {
+      card: "summary",
+      title: "Карта на фестивалите в България | Festivo",
+      description: "Виж какво има около теб и филтрирай по град, дата и категория.",
     },
   };
 }

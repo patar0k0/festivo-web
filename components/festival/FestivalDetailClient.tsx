@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
@@ -563,15 +564,17 @@ export default function FestivalDetailClient({
         <div className="relative h-[260px] sm:h-[320px] md:h-[360px]">
           {heroImage && !heroImageFailed ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element -- Hero image URL can be external/unknown at runtime and needs direct fallback handling via onError. */}
-              <img
+              {/* LCP candidate — `priority` + `fetchpriority="high"` come from next/image's `priority` prop.
+                  Routed through the Vercel image optimizer (AVIF/WebP + srcset) — keeps payload ~10x smaller
+                  than serving the raw Supabase JPG. Retry on transient failure preserved via heroLoadAttempt. */}
+              <Image
                 key={`${festival.id}-${heroDisplayUrl}-ng${navigationGeneration}`}
                 src={heroDisplayUrl ?? heroImage}
                 alt={festival.title || "Festival"}
-                className="h-full w-full object-cover"
-                loading="eager"
-                fetchPriority="high"
-                decoding="async"
+                fill
+                sizes="(min-width: 768px) 720px, 100vw"
+                priority
+                className="object-cover"
                 onError={() => {
                   setHeroLoadAttempt((c) => {
                     if (c < 2) return c + 1;

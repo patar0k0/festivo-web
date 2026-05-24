@@ -12,6 +12,7 @@ import { OrganizerClaimReceivedEmail } from "@/emails/templates/OrganizerClaimRe
 import { OrganizerClaimRejectedEmail } from "@/emails/templates/OrganizerClaimRejectedEmail";
 import { ContactFormEmail } from "@/emails/templates/ContactFormEmail";
 import { TestEmail } from "@/emails/templates/TestEmail";
+import { WelcomeEmail } from "@/emails/templates/WelcomeEmail";
 import { getBaseUrl } from "@/lib/config/baseUrl";
 
 import {
@@ -28,6 +29,7 @@ import {
   EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE,
   EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
   EMAIL_JOB_TYPE_TEST,
+  EMAIL_JOB_TYPE_WELCOME,
   type EmailJobType,
 } from "./emailJobTypes";
 import {
@@ -43,6 +45,7 @@ import {
   parseOrganizerClaimRejectedPayload,
   parseSavedFestivalReminderEmailPayload,
   parseTestEmailPayload,
+  parseWelcomeEmailPayload,
 } from "./emailSchemas";
 import { renderEmail } from "./render";
 
@@ -62,6 +65,23 @@ function siteOrigin(): string {
 }
 
 const REGISTRY: Record<EmailJobType, RegistryEntry> = {
+  [EMAIL_JOB_TYPE_WELCOME]: {
+    buildDefaultSubject: () => "Добре дошъл в Festivo 🎉",
+    build: async (payload) => {
+      const p = parseWelcomeEmailPayload(payload as Record<string, unknown>);
+      const siteUrl = siteOrigin();
+      const { html, text } = await renderEmail(
+        createElement(WelcomeEmail, {
+          siteUrl,
+          firstName: p.firstName,
+          unsubscribeUrl: p.unsubscribeUrl ?? undefined,
+          managePreferencesUrl: p.managePreferencesUrl ?? undefined,
+        }),
+      );
+      return { subject: "Добре дошъл в Festivo 🎉", html, text };
+    },
+  },
+
   [EMAIL_JOB_TYPE_TEST]: {
     buildDefaultSubject: () => "Festivo — тестов имейл",
     build: async (payload) => {

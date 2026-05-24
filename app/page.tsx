@@ -13,6 +13,21 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://festivo.bg/",
   },
+  openGraph: {
+    title: "Festivo — Фестивалите на България на едно място",
+    description: "Открий безплатни фестивали в България по град, дата и интерес. Проверени събития от организатори и публични източници.",
+    url: "https://festivo.bg/",
+    siteName: "Festivo",
+    locale: "bg_BG",
+    type: "website",
+    // OG image автоматично се инжектира от app/opengraph-image.tsx (dynamic edge-rendered PNG).
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Festivo — Фестивалите на България на едно място",
+    description: "Открий безплатни фестивали в България по град, дата и интерес.",
+    // Twitter image автоматично се инжектира от app/opengraph-image.tsx.
+  },
 };
 
 type HomeSearchParams = Record<string, string | string[] | undefined>;
@@ -34,9 +49,28 @@ export default async function HomePage({
 
   const props = await loadHomePageData(city);
 
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Festivo",
+    url: "https://festivo.bg",
+    logo: "https://festivo.bg/brand/festivo-logo.svg",
+    description: "Каталог на фестивалите в България — открий, планирай и посети.",
+    sameAs: [
+      "https://www.facebook.com/festivo.bg",
+      "https://www.instagram.com/festivo.bg",
+    ],
+  };
+
   return (
-    <div className="mx-auto max-w-6xl px-4">
-      <RealHomePage {...props} />
-    </div>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
+      <div className="mx-auto max-w-6xl px-4">
+        <RealHomePage {...props} />
+      </div>
+    </>
   );
 }

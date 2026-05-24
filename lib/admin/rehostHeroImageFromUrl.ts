@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { isIPv4, isIPv6 } from "node:net";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { STORAGE_UPLOAD_CACHE_CONTROL } from "@/lib/storage/cacheControl";
 
 const HERO_IMAGES_BUCKET = process.env.SUPABASE_HERO_IMAGES_BUCKET || "festival-hero-images";
 const MAX_HERO_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -321,7 +322,7 @@ export async function rehostHeroImageIfRemote(
     const { error: uploadError } = await supabase.storage.from(HERO_IMAGES_BUCKET).upload(objectPath, buffer, {
       upsert: false,
       contentType: contentType.split(";")[0]?.trim() || `image/${extension}`,
-      cacheControl: "3600",
+      cacheControl: STORAGE_UPLOAD_CACHE_CONTROL,
     });
 
     if (uploadError) {

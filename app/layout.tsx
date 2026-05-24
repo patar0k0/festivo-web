@@ -3,10 +3,12 @@ import { Cormorant_Garamond, Fraunces, Manrope } from "next/font/google";
 import * as Sentry from "@sentry/nextjs";
 import { Analytics } from "@vercel/analytics/next";
 import MetaPixel from "@/components/MetaPixel";
+import UmamiAnalytics from "@/components/UmamiAnalytics";
 import ConsentGatedAnalytics from "@/components/ConsentGatedAnalytics";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import LayoutShell from "@/components/LayoutShell";
 import ClientProviders from "@/components/providers/ClientProviders";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import "./globals.css";
 import "./landing.css";
 
@@ -43,11 +45,28 @@ export function generateMetadata(): Metadata {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Resolve auth server-side so PlanStateProvider can render the correct
+  // initial UI for logged-in users without waiting on a client-side fetch.
+  // We use the lightweight `supabase.auth.getUser()` call directly (rather
+  // than `getOptionalUser`) to keep this resilient — if the users-table
+  // soft-delete check fails, we still want the layout to render. The plan
+  // state fetch in PlanStateProvider will catch the truly-deleted case.
+  let initialIsAuthenticated = false;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    initialIsAuthenticated = Boolean(user?.id);
+  } catch {
+    initialIsAuthenticated = false;
+  }
+
   return (
     <html lang="bg">
       <head>
@@ -56,10 +75,11 @@ export default function RootLayout({
       <body
         className={`${manrope.variable} ${fraunces.variable} ${cormorantGaramond.variable} landing-bg min-h-screen text-[#0c0e14] antialiased`}
       >
-        <ClientProviders>
+        <ClientProviders initialIsAuthenticated={initialIsAuthenticated}>
           <LayoutShell>{children}</LayoutShell>
         </ClientProviders>
         <Analytics />
+        <UmamiAnalytics />
         <MetaPixel />
         <ConsentGatedAnalytics />
         <CookieConsentBanner />

@@ -215,7 +215,7 @@ export async function processOneEmailJob(
 
   let built: { subject: string; html: string; text: string };
   try {
-    built = await renderEmailJob(job, jobType);
+    built = await renderEmailJob(supabase, job, jobType);
   } catch (err) {
     const message = err instanceof Error ? err.message : "render_failed";
     console.error("[email_jobs] render failed", { job_id: job.id, type: job.type, message });

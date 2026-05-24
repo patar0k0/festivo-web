@@ -1,6 +1,8 @@
 import type { Festival, FestivalDay, FestivalMediaItem, FestivalScheduleItem } from "@/lib/types";
 import { buildMobileFestivalScheduleDto, type MobileFestivalScheduleDto } from "@/lib/api/mobile/mobileScheduleDto";
 import { deterministicSettlementJitter, getBulgariaSettlementCentroid } from "@/lib/api/mobile/bulgariaSettlementCentroids";
+import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 
 export type MobileFestivalListItem = {
   id: string;
@@ -17,6 +19,11 @@ export type MobileFestivalListItem = {
   category?: string | null;
   is_verified?: boolean | null;
   is_promoted?: boolean | null;
+  /** Primary organizer when available — lets mobile route to /organizer/{slug}. */
+  organizer?: {
+    slug: string | null;
+    name: string | null;
+  } | null;
 };
 
 export type MobileFestivalDetailJson = {
@@ -47,6 +54,8 @@ export type MobileFestivalDetailJson = {
     verified: boolean | null;
   } | null;
   is_saved: boolean;
+  is_liked: boolean;
+  likes_count: number;
   category?: string | null;
   tags?: string[] | null;
   is_verified?: boolean | null;
@@ -90,8 +99,23 @@ function pickMapListingCoords(festival: Festival): { lat: number | null; lng: nu
   return { lat: centroid.lat + j.dLat, lng: centroid.lng + j.dLng };
 }
 
+function pickPrimaryOrganizerSummary(festival: Festival): { slug: string | null; name: string | null } | null {
+  const embed = festival.organizer;
+  const embedSlug = typeof embed?.slug === "string" && embed.slug.trim() ? embed.slug.trim() : null;
+  const embedName = typeof embed?.name === "string" && embed.name.trim() ? embed.name.trim() : null;
+  if (embedSlug || embedName) {
+    return { slug: embedSlug, name: embedName };
+  }
+  const first = festival.organizers?.find((o) => (o?.slug || o?.name)?.toString().trim());
+  if (!first) return null;
+  const slug = typeof first.slug === "string" && first.slug.trim() ? first.slug.trim() : null;
+  const name = typeof first.name === "string" && first.name.trim() ? first.name.trim() : null;
+  if (!slug && !name) return null;
+  return { slug, name };
+}
+
 export function serializeMobileFestivalListItem(festival: Festival, isSaved: boolean): MobileFestivalListItem {
-  const imageUrl = festival.hero_image ?? festival.image_url ?? null;
+  const imageUrl = getFestivalHeroImage(festival);
   const coords = pickMapListingCoords(festival);
   const cat = typeof festival.category === "string" && festival.category.trim() ? festival.category.trim() : null;
   const promoted = festival.promotion_status === "promoted";
@@ -99,7 +123,7 @@ export function serializeMobileFestivalListItem(festival: Festival, isSaved: boo
     id: String(festival.id),
     slug: festival.slug,
     title: festival.title,
-    city: festival.city_name_display ?? null,
+    city: getFestivalLocationDisplay(festival).city ?? festival.city_name_display ?? null,
     start_date: festival.start_date ?? null,
     end_date: festival.end_date ?? null,
     image_url: typeof imageUrl === "string" && imageUrl.trim() ? imageUrl.trim() : null,
@@ -109,6 +133,7 @@ export function serializeMobileFestivalListItem(festival: Festival, isSaved: boo
     category: cat,
     is_verified: festival.is_verified ?? null,
     is_promoted: promoted || undefined,
+    organizer: pickPrimaryOrganizerSummary(festival) ?? undefined,
   };
 }
 
@@ -140,7 +165,12 @@ export function serializeMobileFestivalDetail(
   festival: Festival,
   media: FestivalMediaItem[],
   isSaved: boolean,
-  program: { days: FestivalDay[]; scheduleItems: FestivalScheduleItem[] },
+  program: {
+    days: FestivalDay[];
+    scheduleItems: FestivalScheduleItem[];
+    isLiked?: boolean;
+    likesCount?: number;
+  },
 ): MobileFestivalDetailJson {
   const organizers = festival.organizers?.filter((o) => String(o.id ?? "").trim() && String(o.name ?? "").trim()) ?? [];
   const o0 = organizers[0];
@@ -193,7 +223,7 @@ export function serializeMobileFestivalDetail(
     slug: festival.slug,
     title: festival.title,
     description: festival.description ?? null,
-    city: festival.city_name_display ?? null,
+    city: getFestivalLocationDisplay(festival).city ?? festival.city_name_display ?? null,
     dates: {
       start_date: festival.start_date ?? null,
       end_date: festival.end_date ?? null,
@@ -204,6 +234,10 @@ export function serializeMobileFestivalDetail(
     images: buildMobileGalleryImages(festival, media),
     organizer: organizerOut,
     is_saved: isSaved,
+    is_liked: Boolean(program.isLiked),
+    likes_count: typeof program.likesCount === "number" && Number.isFinite(program.likesCount)
+      ? Math.max(0, Math.floor(program.likesCount))
+      : 0,
     category: typeof festival.category === "string" && festival.category.trim() ? festival.category.trim() : null,
     tags: tags?.length ? tags : null,
     is_verified: festival.is_verified ?? null,

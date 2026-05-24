@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { NewsletterSignup } from "@/components/NewsletterSignup";
 import Container from "@/components/ui/Container";
 import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
@@ -36,11 +37,16 @@ export default function SiteFooter() {
     { href: "/privacy", label: "Политика за поверителност" },
     { href: "/cookies", label: "Политика за бисквитки" },
     { href: "/terms", label: "Общи условия" },
+    { href: "/terms-organizers", label: "Условия за организатори" },
   ];
 
+  // aria-label MUST contain the visible text (icon) to satisfy WCAG 2.5.3
+  // "Label in Name" — screen readers and voice control rely on the
+  // accessible name matching what users see. Hence "FB (Facebook)" rather
+  // than just "Facebook".
   const socialLinks = [
-    { href: "#", label: "Facebook", icon: "FB" },
-    { href: "#", label: "Instagram", icon: "IG" },
+    { href: "#", label: "FB (Facebook)", icon: "FB" },
+    { href: "#", label: "IG (Instagram)", icon: "IG" },
   ] as const;
 
   const year = new Date().getFullYear();
@@ -89,6 +95,10 @@ export default function SiteFooter() {
                     {item.icon}
                   </Link>
                 ))}
+              </div>
+
+              <div className="pt-2">
+                <NewsletterSignup source="footer" />
               </div>
             </div>
           </div>
@@ -141,7 +151,7 @@ export default function SiteFooter() {
         </div>
 
         <div className="mt-12 flex flex-col gap-3 border-t border-black/[0.06] pt-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          <p className="text-[11px] leading-relaxed text-black/50">
+          <p className="text-[11px] leading-relaxed text-black/65">
             © {year} Festivo. Всички права запазени.
           </p>
           <Link

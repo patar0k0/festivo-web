@@ -21,7 +21,7 @@ export const PLANNER_TABLE_SELECT = {
   festivalsTemporal: "id,start_date,end_date,start_time,end_time,occurrence_dates",
   /** Minimal festival fields for mobile plan screen display. */
   festivalsBasic:
-    "id,slug,title,start_date,end_date,image_url,category,is_verified,organizer_name,cities:cities!festivals_city_id_fkey(name_bg)",
+    "id,slug,title,start_date,end_date,image_url,hero_image,category,is_verified,organizer_name,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,is_village),organizer:organizers!left(slug,name)",
 } as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -325,10 +325,26 @@ export type SavedFestivalBasicRow = {
   start_date: string | null;
   end_date: string | null;
   image_url: string | null;
+  hero_image?: string | null;
   category: string | null;
   is_verified: boolean;
   organizer_name: string | null;
-  cities: { name_bg: string | null }[] | { name_bg: string | null } | null;
+  festival_media?:
+    | Array<{
+        url?: string | null;
+        type?: string | null;
+        sort_order?: number | null;
+        is_hero?: boolean | null;
+      }>
+    | null;
+  cities:
+    | { name_bg: string | null; is_village?: boolean | null }[]
+    | { name_bg: string | null; is_village?: boolean | null }
+    | null;
+  organizer:
+    | { slug: string | null; name: string | null }
+    | { slug: string | null; name: string | null }[]
+    | null;
 };
 
 export async function fetchSavedFestivalsBasicData(

@@ -3,6 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 
 
 export async function GET() {
+  // Debug endpoint — disabled in production (matches /api/debug/cookies pattern).
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 

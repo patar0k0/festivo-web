@@ -26,16 +26,59 @@ const nextConfig = {
     ],
   },
   async headers() {
+    // Domains used by Festivo:
+    // - connect.facebook.net: Meta Pixel script
+    // - www.facebook.com: Meta Pixel beacon
+    // - *.supabase.co: Supabase API + Storage
+    // - *.fbcdn.net: Facebook CDN (organizer/festival images from FB)
+    // - img.youtube.com: YouTube thumbnails
+    // - images.unsplash.com: Unsplash images
+    // - *.vercel-insights.com + *.vercel-scripts.com: Vercel Analytics
+    // - www.youtube.com + youtube.com: YouTube embeds (map section)
+    // - www.google.com + maps.google.com: Google Maps embeds
+    // - challenges.cloudflare.com: Cloudflare Turnstile (anti-bot on signup/organizer forms)
+    // - cloud.umami.is: Umami Cloud analytics (script + beacons)
+    // - *.googletagmanager.com + *.google-analytics.com: GA4 / Tag Manager
+    // Sentry uses tunnelRoute="/monitoring" → same origin, no external CSP entry needed
+    // Fonts are self-hosted via next/font → no fonts.googleapis.com needed
+    const csp = [
+      "default-src 'self'",
+      // Next.js App Router requires 'unsafe-inline' for streaming/hydration scripts.
+      // Meta Pixel base code loads from connect.facebook.net.
+      // Turnstile loads its widget script from challenges.cloudflare.com.
+      // Umami script: cloud.umami.is. GA4/GTM scripts: *.googletagmanager.com.
+      "script-src 'self' 'unsafe-inline' connect.facebook.net challenges.cloudflare.com cloud.umami.is *.googletagmanager.com",
+      // Tailwind CSS uses inline styles
+      "style-src 'self' 'unsafe-inline'",
+      // Images: Supabase storage, Facebook CDN, YouTube thumbnails, Unsplash,
+      // FB pixel noscript, GA collect pixel, OpenStreetMap raster tiles
+      // (sub-domains a/b/c.tile.openstreetmap.org — used by /map page).
+      "img-src 'self' data: blob: *.supabase.co *.fbcdn.net img.youtube.com images.unsplash.com www.facebook.com *.google-analytics.com *.googletagmanager.com *.tile.openstreetmap.org",
+      // Fonts self-hosted via next/font/google (downloaded at build time)
+      "font-src 'self'",
+      // API calls: Supabase, Vercel Analytics beacons, Facebook pixel events, Turnstile token verification,
+      //            Umami event beacons (script loaded from cloud.umami.is BUT sends to api-gateway.umami.dev),
+      //            GA4 measurement protocol
+      "connect-src 'self' *.supabase.co *.vercel-insights.com *.vercel-scripts.com www.facebook.com challenges.cloudflare.com cloud.umami.is api-gateway.umami.dev *.google-analytics.com *.analytics.google.com *.googletagmanager.com",
+      // Embeds: YouTube videos, Google Maps, Turnstile challenge iframe, GTM noscript iframe
+      "frame-src www.youtube.com youtube.com www.google.com maps.google.com challenges.cloudflare.com www.googletagmanager.com",
+      "media-src 'self' blob:",
+      "worker-src blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join("; ");
+
     return [
       {
         source: "/:path*",
         headers: [
+          { key: "Content-Security-Policy", value: csp },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
-          {
-            key: "Referrer-Policy",
-            value: "strict-origin-when-cross-origin",
-          },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" },
         ],
       },
     ];
@@ -62,9 +105,12 @@ module.exports = withSentryConfig(module.exports, {
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
   tunnelRoute: "/monitoring",
 
-  // Automatically instrument Vercel Cron Monitors
-  automaticVercelMonitors: true,
-
-  // Tree-shake Sentry logger statements to reduce bundle size
-  disableLogger: true,
+  webpack: {
+    // Tree-shake Sentry logger statements to reduce bundle size (replaces deprecated disableLogger)
+    treeshake: {
+      removeDebugLogging: true,
+    },
+    // Automatically instrument Vercel Cron Monitors (replaces deprecated automaticVercelMonitors)
+    automaticVercelMonitors: true,
+  },
 });

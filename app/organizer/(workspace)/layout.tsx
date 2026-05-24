@@ -14,22 +14,34 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
   let isOrganizerOwner = false;
   let headerSummary: React.ReactNode = null;
   let hasSubmissions = false;
+  let draftCount = 0;
 
   if (session?.user?.id) {
     const summary = await fetchOrganizerPortalMembershipSummaryCached(session.user.id);
     isOrganizerOwner = summary.isOrganizerOwner;
     if (summary.activeOrganizerIds.length > 0) {
       const admin = getPortalAdminClient();
-      const { count: submissionCountRaw, error: submissionsErr } = await admin
-        .from("pending_festivals")
-        .select("id", { count: "exact", head: true })
-        .eq("submitted_by_user_id", session.user.id)
-        .eq("submission_source", "organizer_portal");
-      if (submissionsErr) {
-        throw new Error(submissionsErr.message);
+      // Fetch total + draft-specific counts in parallel — the draft count
+      // surfaces in the sidebar badge so abandoned work is discoverable.
+      const [submissionsRes, draftsRes] = await Promise.all([
+        admin
+          .from("pending_festivals")
+          .select("id", { count: "exact", head: true })
+          .eq("submitted_by_user_id", session.user.id)
+          .eq("submission_source", "organizer_portal"),
+        admin
+          .from("pending_festivals")
+          .select("id", { count: "exact", head: true })
+          .eq("submitted_by_user_id", session.user.id)
+          .eq("submission_source", "organizer_portal")
+          .eq("status", "draft"),
+      ]);
+      if (submissionsRes.error) {
+        throw new Error(submissionsRes.error.message);
       }
-      const submissionCount = submissionCountRaw ?? 0;
+      const submissionCount = submissionsRes.count ?? 0;
       hasSubmissions = submissionCount > 0;
+      draftCount = draftsRes.error ? 0 : draftsRes.count ?? 0;
 
       const renderPromotionBlock = () => (
         <div className="max-w-md rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
@@ -58,10 +70,16 @@ export default async function OrganizerWorkspaceLayout({ children }: { children:
   return (
     <WorkspaceShell
       density="organizer-b"
-      eyebrow="Festivo · организатори"
+      eyebrow="Организатори"
       email={session?.user?.email ?? null}
       headerSummary={headerSummary}
-      sidebar={<OrganizerSidebarNav isOrganizerOwner={isOrganizerOwner} hasSubmissions={hasSubmissions} />}
+      sidebar={
+        <OrganizerSidebarNav
+          isOrganizerOwner={isOrganizerOwner}
+          hasSubmissions={hasSubmissions}
+          draftCount={draftCount}
+        />
+      }
     >
       <div className="mx-auto w-full max-w-3xl">{children}</div>
     </WorkspaceShell>

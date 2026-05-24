@@ -280,6 +280,18 @@ export function SignupForm({ next }: SignupFormProps) {
         </div>
       </div>
 
+      <p className="mt-4 text-center text-xs leading-relaxed text-black/65">
+        {'С натискане на „Създай профил" или вход с Google/Apple приемаш '}
+        <Link href="/terms" className="font-semibold text-[#7c2d12] underline decoration-black/20 underline-offset-[3px] hover:decoration-[#7c2d12]/60">
+          Общите условия
+        </Link>{" "}
+        и{" "}
+        <Link href="/privacy" className="font-semibold text-[#7c2d12] underline decoration-black/20 underline-offset-[3px] hover:decoration-[#7c2d12]/60">
+          Политиката за поверителност
+        </Link>
+        .
+      </p>
+
       <p className="mt-4 text-center text-xs text-black/50">
         Имаш профил?{" "}
         <Link href="/login" className="text-[#7c2d12]">

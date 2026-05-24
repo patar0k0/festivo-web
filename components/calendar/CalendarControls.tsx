@@ -42,8 +42,6 @@ export default function CalendarControls({ month, initialFilters, categoryOption
 
   const currentFrom = searchParams.get("from") ?? "";
   const currentTo = searchParams.get("to") ?? "";
-  const freeParam = searchParams.get("free");
-  const freeActive = freeParam === null ? true : freeParam === "1" || freeParam === "true";
 
   const pushParams = (mutate: (params: URLSearchParams) => void) => {
     const current = new URLSearchParams(searchParams.toString());
@@ -73,12 +71,6 @@ export default function CalendarControls({ month, initialFilters, categoryOption
       setOrDelete(params, "from", from || undefined);
       setOrDelete(params, "to", to || undefined);
       setOrDelete(params, "free", freeOnly ? "1" : "0");
-    });
-  };
-
-  const toggleFree = () => {
-    pushParams((params) => {
-      params.set("free", freeActive ? "0" : "1");
     });
   };
 
@@ -114,7 +106,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
     <div className="space-y-4">
       <form onSubmit={onApply} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_12rem_10rem_10rem_auto_auto]">
         <label className="flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/45">Град</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/65">Град</span>
           <input
             value={city}
             onChange={(event) => setCity(event.target.value)}
@@ -124,7 +116,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
         </label>
 
         <label className="flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/45">Категория</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/65">Категория</span>
           <select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
@@ -140,7 +132,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
         </label>
 
         <label className="flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/45">От</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/65">От</span>
           <DdMmYyyyDateInput
             value={from}
             onChange={setFrom}
@@ -149,7 +141,7 @@ export default function CalendarControls({ month, initialFilters, categoryOption
         </label>
 
         <label className="flex flex-col">
-          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/45">До</span>
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-black/65">До</span>
           <DdMmYyyyDateInput
             value={to}
             onChange={setTo}
@@ -174,18 +166,10 @@ export default function CalendarControls({ month, initialFilters, categoryOption
 
       <div className="-mx-1 overflow-x-auto px-1 pb-1">
         <div className="flex min-w-max gap-2">
-          <button
-            type="button"
-            onClick={toggleFree}
-            className={cn(
-              "rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
-              pub.focusRing,
-              freeActive ? pub.toggleActive : pub.toggleInactive,
-            )}
-          >
-            Само безплатни
-          </button>
-
+          {/*
+            "Само безплатни" chip removed — duplicated the form checkbox above and confused users
+            about which control is the source of truth. The checkbox in the form is now sole.
+          */}
           <button
             type="button"
             onClick={toggleWeekend}

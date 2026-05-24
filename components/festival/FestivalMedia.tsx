@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import FallbackImage from "@/components/ui/FallbackImage";
 import { MediaLightbox, type MediaItem } from "@/components/ui/MediaLightbox";
 import { getEmbedUrl, getYouTubeVideoId } from "@/lib/media/getEmbedUrl";
 
@@ -22,8 +23,13 @@ function VideoThumb({ url, compact }: { url: string; compact?: boolean }) {
     const thumbnail = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
     return (
       <>
-        {/* eslint-disable-next-line @next/next/no-img-element -- YouTube thumbnail is external runtime URL. */}
-        <img src={thumbnail} alt="" className="h-full w-full object-cover" />
+        <FallbackImage
+          src={thumbnail}
+          alt=""
+          fill
+          sizes={compact ? "80px" : "(min-width: 768px) 600px, 100vw"}
+          className="object-cover"
+        />
         <div className="absolute inset-0 bg-black/30 transition group-hover:bg-black/40" />
         {playOverlay}
       </>
@@ -58,8 +64,13 @@ export function FestivalMedia({ items }: Props) {
         onClick={() => setLightboxIndex(activeIndex)}
       >
         {active.type === "image" ? (
-          // eslint-disable-next-line @next/next/no-img-element -- Runtime media URLs are external/user-provided.
-          <img src={active.url} alt="" className="h-full w-full object-cover" />
+          <FallbackImage
+            src={active.url}
+            alt=""
+            fill
+            sizes="(min-width: 768px) 600px, 100vw"
+            className="object-cover"
+          />
         ) : (
           <div className="relative h-full w-full">
             <VideoThumb url={active.url} />
@@ -81,11 +92,16 @@ export function FestivalMedia({ items }: Props) {
                 <button
                   key={item.url}
                   onClick={() => setActiveIndex(i)}
-                  className="h-14 w-20 overflow-hidden rounded-md"
+                  className="relative h-14 w-20 overflow-hidden rounded-md"
                   aria-label={`Превю ${i + 1}`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- Runtime media URLs are external/user-provided. */}
-                  <img src={item.url} alt="" className="h-full w-full object-cover" />
+                  <FallbackImage
+                    src={item.url}
+                    alt=""
+                    fill
+                    sizes="80px"
+                    className="object-cover"
+                  />
                 </button>
               );
             }

@@ -90,6 +90,34 @@ function confidenceLevel(fields: SmartResearchFields, sourcesCount: number): "hi
   return "low";
 }
 
+/**
+ * Returns the first non-null og:image candidate from a list of fetched source
+ * documents. We trust the first-found because `fetchedDocs` ordering reflects
+ * SerpAPI's organic ranking — the top result's social preview is the most
+ * representative image for the festival.
+ *
+ * Skips obvious non-image URLs (no extension OR wrong extension) since some
+ * sites declare an og:image that points to an HTML "share" endpoint.
+ */
+function pickFirstHeroCandidate(
+  docs: ReadonlyArray<{ hero_image_candidate: string | null }>,
+): string | null {
+  for (const doc of docs) {
+    const candidate = doc.hero_image_candidate;
+    if (!candidate) continue;
+    // Filter out clearly non-image URLs. Real images either have a recognised
+    // extension OR pass through a known image CDN path (cloudinary, supabase
+    // storage, fbcdn, etc.). We're lenient — `rehostHeroImageFromUrl` validates
+    // content-type when it downloads.
+    if (/\.(jpe?g|png|webp|gif|avif)(\?|$|#)/i.test(candidate)) return candidate;
+    if (/\/(image|img|photo|media|upload|cdn)\b/i.test(candidate)) return candidate;
+    // Last-resort: still return the URL — the rehost step will reject it
+    // gracefully if it's not actually an image.
+    return candidate;
+  }
+  return null;
+}
+
 export async function runSmartResearchPipeline(query: string): Promise<SmartResearchResult> {
   if (!isGeminiConfigured()) throw new Error("GEMINI_API_KEY is not configured");
 
@@ -226,7 +254,12 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
     facebook_url: str(extraction?.facebook_url),
     instagram_url: str(extraction?.instagram_url),
     ticket_url: str(extraction?.ticket_url),
-    hero_image: str(extraction?.hero_image),
+    // LLM almost always returns null for hero_image because excerpt-cleaning
+    // strips <meta og:image> + <img> tags before the model sees the evidence.
+    // Fall back to the deterministically-extracted og:image from the first
+    // fetched source document that has one. The admin form still surfaces
+    // this as a "candidate" — moderator can override or remove on review.
+    hero_image: str(extraction?.hero_image) ?? pickFirstHeroCandidate(fetchedDocs),
     program_draft: extraction?.program ? programDraftFromGeminiProgram(extraction.program) : null,
   };
 

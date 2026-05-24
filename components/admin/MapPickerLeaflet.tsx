@@ -5,8 +5,8 @@ import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 
 const markerIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconUrl: "/leaflet/marker-icon.png",
+  shadowUrl: "/leaflet/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
 });
@@ -33,14 +33,18 @@ export default function MapPickerLeaflet({ center, zoom, marker, onMapClick, onM
     const defaultIcon = L.Icon.Default as typeof L.Icon.Default & { prototype: { _getIconUrl?: () => string } };
     delete defaultIcon.prototype._getIconUrl;
     defaultIcon.mergeOptions({
-      iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-      shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+      iconUrl: "/leaflet/marker-icon.png",
+      shadowUrl: "/leaflet/marker-shadow.png",
     });
   }, []);
 
   return (
     <MapContainer center={center} zoom={zoom} className="z-0 h-[min(360px,50vh)] w-full rounded-lg" scrollWheelZoom>
-      <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <TileLayer
+        attribution="&copy; OpenStreetMap"
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        detectRetina
+      />
       <MapClickLayer onClick={onMapClick} />
       {marker ? (
         <Marker

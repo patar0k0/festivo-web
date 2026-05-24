@@ -1,7 +1,7 @@
 "use client";
 
-import { Analytics } from "@vercel/analytics/next";
 import { useEffect, useState } from "react";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 import { FESTIVO_COOKIE_CONSENT_CHANGED_EVENT, FESTIVO_COOKIE_CONSENT_KEY } from "@/components/CookieConsentBanner";
 
 function readAnalyticsAllowed(): boolean {
@@ -18,6 +18,14 @@ function readAnalyticsAllowed(): boolean {
   }
 }
 
+/**
+ * Cookie-based analytics that REQUIRE user consent under GDPR.
+ * Currently gates: Google Analytics 4 / Tag Manager.
+ *
+ * Note: Vercel Analytics is loaded unconditionally in `layout.tsx` because it
+ * does not set cookies and is GDPR-compliant out of the box.
+ * Umami is also unconditional (no cookies, anonymized).
+ */
 export default function ConsentGatedAnalytics() {
   const [allowed, setAllowed] = useState(false);
 
@@ -33,5 +41,5 @@ export default function ConsentGatedAnalytics() {
   }, []);
 
   if (!allowed) return null;
-  return <Analytics />;
+  return <GoogleAnalytics />;
 }

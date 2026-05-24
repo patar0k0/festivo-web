@@ -61,7 +61,7 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
   let query = adminClient
     .schema("public")
     .from("organizers")
-    .select("id,name,slug,verified,claimed_events_count,created_at,organizer_members(status)", { count: "exact" })
+    .select("id,name,slug,verified,created_at,organizer_members(status),festivals(count)", { count: "exact" })
     .eq("is_active", true);
 
   if (q) {
@@ -82,11 +82,12 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
 
   let rows = (data ?? []).map((row) => {
     const members = row.organizer_members as { status: string }[] | null | undefined;
+    const festivalsRaw = row.festivals as { count: number }[] | null | undefined;
     return {
       ...row,
       members,
       origin: classifyOrganizerOriginFromMembers(members),
-      activeMemberCount: (members ?? []).filter((m) => m.status === "active").length,
+      festivalCount: festivalsRaw?.[0]?.count ?? 0,
     };
   });
 
@@ -186,10 +187,9 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
             <tr>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Тип</th>
-              <th className="px-4 py-3">Членове</th>
+              <th className="px-4 py-3">Фестивали</th>
               <th className="px-4 py-3">Slug</th>
               <th className="px-4 py-3">Verified</th>
-              <th className="px-4 py-3">Claimed events</th>
               <th className="px-4 py-3">Created</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
@@ -213,12 +213,15 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
                       {badge.label}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-black/70 tabular-nums">
-                    {row.activeMemberCount > 0 ? row.activeMemberCount : "—"}
+                  <td className="px-4 py-3 tabular-nums">
+                    {row.festivalCount > 0 ? (
+                      <span className="font-semibold text-black/80">{row.festivalCount}</span>
+                    ) : (
+                      <span className="text-black/30">0</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-black/70">{row.slug ?? "-"}</td>
                   <td className="px-4 py-3 text-black/70">{row.verified ? "Yes" : "No"}</td>
-                  <td className="px-4 py-3 text-black/70">{row.claimed_events_count ?? 0}</td>
                   <td className="px-4 py-3 text-black/70">
                     {row.created_at ? new Date(row.created_at).toLocaleDateString("bg-BG") : "-"}
                   </td>
@@ -249,7 +252,7 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-black/60">
+                <td colSpan={7} className="px-4 py-8 text-center text-black/60">
                   {q ? `Няма резултати за „${q}".` : "No organizers found."}
                 </td>
               </tr>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
+import { getUserAppRole, persistUserAppRole } from "@/lib/admin/adminUserRole";
 
 const ORG_ROLES = new Set(["owner", "admin", "editor", "viewer"]);
 
@@ -171,6 +172,25 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     if (updErr) {
       console.error("[admin/api/organizer-members/[id]] revoke failed", { message: updErr.message, id });
       return NextResponse.json({ error: updErr.message }, { status: 400 });
+    }
+
+    try {
+      const { data: remaining } = await adminClient
+        .from("organizer_members")
+        .select("id")
+        .eq("user_id", row.user_id)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle();
+
+      if (!remaining) {
+        const currentRole = await getUserAppRole(adminClient, row.user_id as string);
+        if (currentRole === "organizer") {
+          await persistUserAppRole(adminClient, row.user_id as string, "user");
+        }
+      }
+    } catch (roleErr) {
+      console.error("[organizer_member] role revert to user failed", roleErr);
     }
 
     try {

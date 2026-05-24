@@ -8,6 +8,7 @@ import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { absoluteSiteUrl } from "@/lib/email/emailUrls";
 import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { getUserAppRole, persistUserAppRole } from "@/lib/admin/adminUserRole";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
@@ -81,6 +82,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   if (!updatedRows?.length) {
     return NextResponse.json({ error: "Заявката вече е обработена." }, { status: 409 });
+  }
+
+  try {
+    const currentRole = await getUserAppRole(admin, row.user_id);
+    if (currentRole === "user") {
+      await persistUserAppRole(admin, row.user_id, "organizer");
+    }
+  } catch (roleErr) {
+    console.error("[organizer_claim] role sync to organizer failed", roleErr);
   }
 
   {

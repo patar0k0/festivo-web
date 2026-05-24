@@ -207,12 +207,18 @@ function findCatalogSuggestions(name: string, options: OrganizerOption[], exclud
   const words = q.split(/\s+/).filter((w) => w.length >= 4);
   return options
     .filter((o) => !excludeIds.has(o.id))
-    .filter((o) => {
+    .map((o) => {
       const n = o.name.toLowerCase();
-      if (n === q || n.includes(q) || q.includes(n)) return true;
-      return words.some((w) => n.includes(w));
+      let score = 0;
+      if (n === q || n.includes(q) || q.includes(n)) score = 3;
+      else if (words.length > 1 && words.every((w) => n.includes(w))) score = 2;
+      else if (words.some((w) => n.includes(w))) score = 1;
+      return { o, score };
     })
-    .slice(0, 4);
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4)
+    .map(({ o }) => o);
 }
 
 function buildInitialOrganizerEntries(p: PendingFestivalRecord): Array<{ organizer_id: string; name: string }> {

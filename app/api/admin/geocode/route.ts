@@ -8,6 +8,8 @@ type GeocodeBody = {
   location_name?: unknown;
   city?: unknown;
   place_id?: unknown;
+  /** Festival title — used as fallback location query when location_name is empty */
+  title?: unknown;
   coords_override?: unknown;
   existing_lat?: unknown;
   existing_lng?: unknown;
@@ -64,14 +66,18 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as GeocodeBody | null;
   const locationName = normalizeBgLocation(asOptionalString(body?.location_name));
   const city = normalizeBgLocation(asOptionalString(body?.city));
+  const title = asOptionalString(body?.title);
   const placeId = asOptionalString(body?.place_id);
   const coordsOverride = body?.coords_override === true;
   const existingLat = asFiniteNumber(body?.existing_lat);
   const existingLng = asFiniteNumber(body?.existing_lng);
 
+  // When location_name is empty, fall back to title + city as the geocoding query
+  const effectiveLocationName = locationName || (title && city ? `${title}, ${city}` : title) || null;
+
   const resolved = await resolveEventCoordinates({
     placeId,
-    locationName,
+    locationName: effectiveLocationName,
     cityName: city,
     coordsOverride: coordsOverride && existingLat !== null && existingLng !== null,
     existingLat,

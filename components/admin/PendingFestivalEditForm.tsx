@@ -202,13 +202,15 @@ type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug" | "plan" | 
 
 /** Fuzzy name match against catalog — returns up to 4 candidates */
 function findCatalogSuggestions(name: string, options: OrganizerOption[], excludeIds: Set<string>): OrganizerOption[] {
-  const q = name.toLowerCase().trim();
+  // Strip punctuation (quotes „", dashes, dots, etc.) so „пробуда → пробуда
+  const clean = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  const q = clean(name);
   if (q.length < 2) return [];
   const words = q.split(/\s+/).filter((w) => w.length >= 4);
   return options
     .filter((o) => !excludeIds.has(o.id))
     .map((o) => {
-      const n = o.name.toLowerCase();
+      const n = clean(o.name);
       let score = 0;
       if (n === q || n.includes(q) || q.includes(n)) score = 3;
       else if (words.length > 1 && words.every((w) => n.includes(w))) score = 2;

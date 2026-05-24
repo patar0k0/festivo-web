@@ -11,6 +11,7 @@ export type GeocodeLocationResult = {
 };
 
 const GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
+const GOOGLE_PLACES_TEXT_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json";
 const OSM_GEOCODE_URL = "https://nominatim.openstreetmap.org/search";
 
 function getGoogleApiKey(): string | null {
@@ -125,6 +126,62 @@ async function geocodeWithOsm(query: string): Promise<GeocodeLocationResult | nu
   }
 }
 
+/**
+ * Google Places Text Search — better than Geocoding API for venue/event names
+ * (e.g. "Стадион Христо Ботев, Враца, България" or "Фестивал X, Ветринци").
+ * Falls back silently when the key is absent or Places API is not enabled.
+ */
+async function geocodeWithGooglePlacesTextSearch(query: string): Promise<GeocodeLocationResult | null> {
+  const apiKey = getGoogleApiKey();
+  if (!apiKey) return null;
+
+  const params = new URLSearchParams({
+    query,
+    language: "bg",
+    region: "bg",
+    key: apiKey,
+  });
+
+  try {
+    const response = await fetch(`${GOOGLE_PLACES_TEXT_SEARCH_URL}?${params.toString()}`);
+    if (!response.ok) return null;
+
+    const payload = (await response.json().catch(() => null)) as
+      | {
+          status?: string;
+          results?: Array<{
+            place_id?: string;
+            formatted_address?: string;
+            name?: string;
+            geometry?: { location?: { lat?: unknown; lng?: unknown } };
+          }>;
+        }
+      | null;
+
+    if (!payload || payload.status !== "OK" || !Array.isArray(payload.results) || payload.results.length === 0) {
+      return null;
+    }
+
+    const first = payload.results[0];
+    const lat = asFiniteNumber(first?.geometry?.location?.lat);
+    const lng = asFiniteNumber(first?.geometry?.location?.lng);
+    if (lat === null || lng === null) return null;
+
+    return {
+      lat,
+      lng,
+      placeId: typeof first.place_id === "string" && first.place_id.trim() ? first.place_id.trim() : null,
+      provider: "google",
+      name: typeof first.name === "string" && first.name.trim() ? first.name.trim() : null,
+      formattedAddress: typeof first.formatted_address === "string" && first.formatted_address.trim()
+        ? first.formatted_address.trim()
+        : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function geocodeLocation(query: string | null | undefined): Promise<GeocodeLocationResult | null> {
   if (typeof query !== "string") return null;
 
@@ -133,6 +190,10 @@ export async function geocodeLocation(query: string | null | undefined): Promise
 
   const fromGoogle = await geocodeWithGoogle(trimmed);
   if (fromGoogle) return fromGoogle;
+
+  // Places Text Search handles venue/event names much better than the Geocoding API
+  const fromPlaces = await geocodeWithGooglePlacesTextSearch(trimmed);
+  if (fromPlaces) return fromPlaces;
 
   return geocodeWithOsm(trimmed);
 }

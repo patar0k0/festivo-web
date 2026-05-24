@@ -1008,8 +1008,9 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
     const city = form.city_id.trim();
     const venue = form.venue_name.trim();
     const existingPlaceId = form.place_id.trim();
-    if (!venue && !existingPlaceId) {
-      toast.error("Попълнете място (venue) или place_id, за да търсите координати.");
+    const title = form.title.trim();
+    if (!venue && !existingPlaceId && !title && !city) {
+      toast.error("Попълнете поне заглавие или град, за да търсите координати.");
       return;
     }
 
@@ -1020,9 +1021,10 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          location_name: form.venue_name.trim() || null,
-          city,
-          place_id: form.place_id.trim() || null,
+          location_name: venue || null,
+          city: city || null,
+          title: title || null,
+          place_id: existingPlaceId || null,
         }),
       });
 

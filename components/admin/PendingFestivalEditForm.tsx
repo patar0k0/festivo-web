@@ -1950,10 +1950,6 @@ export default function PendingFestivalEditForm({
                 ) : (
                   <p className="mt-2 text-xs text-black/45">Няма избрано главно изображение.</p>
                 )}
-                <label className="mt-3 block">
-                  <AdminFieldLabel field="heroImage" />
-                  <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
-                </label>
                 <div className="mt-3 rounded-xl border border-black/[0.08] bg-white px-3 py-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <input

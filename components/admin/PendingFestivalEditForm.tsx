@@ -1022,6 +1022,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           location_name: venue || null,
+          address: form.address.trim() || null,
           city: city || null,
           title: title || null,
           place_id: existingPlaceId || null,

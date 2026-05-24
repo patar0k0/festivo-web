@@ -9,8 +9,8 @@ import "server-only";
 
 import { GoogleGenerativeAI, type Tool } from "@google/generative-ai";
 
-const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-2.5-flash";
-// gemini-3.1-flash-lite has 500 RPD on the free tier (vs 20 for 2.5-flash, 0 for 2.0-flash)
+const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-3.5-flash";
+// gemini-3.1-flash-lite has 500 RPD on the free tier (vs 20 for 3.5-flash, 0 for 2.0-flash)
 const FALLBACK_MODEL = "gemini-3.1-flash-lite";
 
 function is429(err: unknown): boolean {

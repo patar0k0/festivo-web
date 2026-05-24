@@ -60,8 +60,8 @@ const nextConfig = {
       //            Umami event beacons (script loaded from cloud.umami.is BUT sends to api-gateway.umami.dev),
       //            GA4 measurement protocol
       "connect-src 'self' *.supabase.co *.vercel-insights.com *.vercel-scripts.com www.facebook.com challenges.cloudflare.com cloud.umami.is api-gateway.umami.dev *.google-analytics.com *.analytics.google.com *.googletagmanager.com",
-      // Embeds: YouTube videos, Google Maps, Turnstile challenge iframe, GTM noscript iframe
-      "frame-src www.youtube.com youtube.com www.google.com maps.google.com challenges.cloudflare.com www.googletagmanager.com",
+      // Embeds: YouTube videos (youtube-nocookie.com used by videoEmbed.ts), Google Maps, Turnstile challenge iframe, GTM noscript iframe
+      "frame-src www.youtube.com youtube.com www.youtube-nocookie.com youtube-nocookie.com www.google.com maps.google.com challenges.cloudflare.com www.googletagmanager.com",
       "media-src 'self' blob:",
       "worker-src blob:",
       "object-src 'none'",

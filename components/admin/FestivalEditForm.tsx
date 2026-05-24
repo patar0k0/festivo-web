@@ -296,6 +296,7 @@ export default function FestivalEditForm({
   /** Plan image cap includes the hero slot when `festivals.hero_image` is set. */
   const heroHasImage = Boolean(form.hero_image.trim());
   const heroIsMediaRow = initialMedia.some((m) => Boolean(m.is_hero));
+  const heroAlreadyInGallery = heroHasImage && displayGalleryRows.some((r) => r.url.trim() === form.hero_image.trim());
   const totalGallerySlotsUsed = galleryImageCount + (heroIsMediaRow ? 1 : 0);
   const galleryAtLimit = totalGallerySlotsUsed >= mediaLimits.gallery;
 
@@ -1507,6 +1508,19 @@ export default function FestivalEditForm({
             }}
           />
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {heroHasImage && !heroAlreadyInGallery && (
+              <div className="group relative overflow-hidden rounded-xl border border-[#ff4c1f]/50 bg-black/[0.02] ring-2 ring-[#ff4c1f]/25">
+                <div className="aspect-square w-full overflow-hidden bg-black/[0.04]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={form.hero_image.trim()} alt="" className="h-full w-full object-cover" />
+                </div>
+                <div className="flex flex-col gap-1 border-t border-black/[0.06] bg-white/95 p-1.5">
+                  <span className="rounded-md border border-[#ff4c1f]/40 bg-[#ff4c1f]/10 px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-[#c43a1a]">
+                    Главна
+                  </span>
+                </div>
+              </div>
+            )}
             {displayGalleryRows.map((row) => {
               const isHero = form.hero_image.trim() === row.url.trim();
               return (
@@ -1581,7 +1595,7 @@ export default function FestivalEditForm({
           {mediaPlan === "free" && galleryAtLimit ? (
             <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.gallery} снимки.</p>
           ) : null}
-          {!displayGalleryRows.length ? <p className="mt-2 text-xs text-black/45">Няма снимки в галерията.</p> : null}
+          {!displayGalleryRows.length && !heroHasImage ? <p className="mt-2 text-xs text-black/45">Няма снимки в галерията.</p> : null}
         </div>
 
         {/* Video (external URL only — not uploaded to gallery storage) */}

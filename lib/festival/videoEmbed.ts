@@ -1,6 +1,22 @@
 /**
- * Build an iframe embed URL for YouTube or Facebook watch URLs.
- * Returns null if the URL is not a supported public video page.
+ * Returns true if the URL is a Facebook or fb.watch video link.
+ * Facebook iframe embeds require Meta App Review — use a link card instead.
+ */
+export function isFacebookVideoUrl(pageUrl: string): boolean {
+  const raw = pageUrl.trim();
+  if (!raw || !/^https?:\/\//i.test(raw)) return false;
+  try {
+    const host = new URL(raw).hostname.toLowerCase();
+    return host === "fb.watch" || host.endsWith("facebook.com");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Build an iframe embed URL for YouTube URLs only.
+ * Facebook videos are not embedded via iframe — use isFacebookVideoUrl() + link card instead.
+ * Returns null if the URL is not embeddable.
  */
 export function getVideoEmbedSrcFromPageUrl(pageUrl: string): string | null {
   const raw = pageUrl.trim();
@@ -35,12 +51,6 @@ export function getVideoEmbedSrcFromPageUrl(pageUrl: string): string | null {
       return null;
     }
 
-    if (host === "fb.watch" || host.endsWith("facebook.com")) {
-      const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID ?? "";
-      const appIdParam = appId ? `&appId=${encodeURIComponent(appId)}` : "";
-      return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(raw)}&show_text=false&width=1280${appIdParam}`;
-    }
-
     return null;
   } catch {
     return null;
@@ -48,5 +58,5 @@ export function getVideoEmbedSrcFromPageUrl(pageUrl: string): string | null {
 }
 
 export function isSupportedVideoPageUrl(pageUrl: string): boolean {
-  return getVideoEmbedSrcFromPageUrl(pageUrl) !== null;
+  return isFacebookVideoUrl(pageUrl) || getVideoEmbedSrcFromPageUrl(pageUrl) !== null;
 }

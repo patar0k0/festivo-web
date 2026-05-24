@@ -693,8 +693,7 @@ export default function PendingFestivalEditForm({
   const heroImageUrl = form.hero_image.trim();
   const heroImageSource = heroImageSourceState;
   const heroImageOriginalUrl = normalizeOptionalText(form.hero_image_original_url);
-  const ingestOriginalHeroUrl = form.hero_image_original_url.trim();
-  const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
+const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   const hasHeroImageDiagnostics = heroImageSource !== null || heroImageScore !== null || heroImageOriginalUrl !== null;
   const heroImageStatus = !heroImageUrl
     ? "No hero image selected by ingestion"

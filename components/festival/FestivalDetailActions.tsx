@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { logGoogleMapsOpenDebug } from "@/lib/location/buildGoogleMapsUrl";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";
+
+const ReportFestivalModal = lazy(() => import("@/components/festival/ReportFestivalModal"));
 
 type HeroProps = {
   festivalId: string;
@@ -106,6 +108,7 @@ export function FestivalRailActionBar({
 }: RailProps) {
   const { isAuthenticated, requireAuthForPlan, toggleFestivalPlan, festivalIds } = usePlanState();
   const [planBusy, setPlanBusy] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const isGuest = !isAuthenticated;
   const festivalInPlan = festivalIds.includes(festivalId);
@@ -163,6 +166,25 @@ export function FestivalRailActionBar({
           Отвори в Google Maps
         </a>
       ) : null}
+
+      <div className="pt-1 text-center">
+        <button
+          type="button"
+          onClick={() => setReportOpen(true)}
+          className="text-xs text-black/35 hover:text-black/60 hover:underline"
+        >
+          ⚑ Сигнализирай за проблем
+        </button>
+      </div>
+
+      {reportOpen && (
+        <Suspense fallback={null}>
+          <ReportFestivalModal
+            festivalId={festivalId}
+            onClose={() => setReportOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

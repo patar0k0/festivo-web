@@ -158,6 +158,7 @@ export default function SmartResearchPanel() {
   const [isSending, setIsSending] = useState(false);
   const [sendStatus, setSendStatus] = useState("");
   const [selectedHeroImage, setSelectedHeroImage] = useState<string | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const updateStep = (id: string, patch: Partial<PipelineStep>) =>
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -169,6 +170,7 @@ export default function SmartResearchPanel() {
     setSendStatus("");
     setIsDone(false);
     setSteps(INITIAL_STEPS);
+    setFailedImages(new Set());
     setIsLoading(true);
 
     // Step 1: Google running immediately
@@ -371,15 +373,18 @@ export default function SmartResearchPanel() {
               </div>
             )}
 
-            {/* Hero image candidates */}
-            {result.fields.hero_image_candidates.length > 0 && (
+            {/* Hero image candidates — hidden when all images fail to load */}
+            {result.fields.hero_image_candidates.length > 0 &&
+              result.fields.hero_image_candidates.some((u) => !failedImages.has(u)) && (
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-wide text-black/35">
-                  Снимки {result.fields.hero_image_candidates.length > 1 ? `(избери главна)` : ""}
+                  Снимки {result.fields.hero_image_candidates.length > 1 ? "(избери главна)" : ""}
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {result.fields.hero_image_candidates.map((url) => {
                     const isSelected = selectedHeroImage === url;
+                    const hasFailed = failedImages.has(url);
+                    if (hasFailed) return null;
                     return (
                       <button
                         key={url}
@@ -396,7 +401,10 @@ export default function SmartResearchPanel() {
                           src={url}
                           alt=""
                           className="aspect-video w-full object-cover"
-                          onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+                          onError={() => {
+                            setFailedImages((prev) => new Set(prev).add(url));
+                            if (selectedHeroImage === url) setSelectedHeroImage(null);
+                          }}
                         />
                         {isSelected && (
                           <span className="absolute bottom-1 right-1 rounded-md bg-[#ff4c1f] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">

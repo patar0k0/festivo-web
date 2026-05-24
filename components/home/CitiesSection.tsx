@@ -4,13 +4,8 @@ import { pub } from "@/lib/public-ui/styles";
 import { cityHref } from "@/lib/cities";
 import type { HomeCityOption } from "@/lib/home/loadHomePageData";
 
-/** Strips settlement-type prefixes like "ГР. ", "С. ", "ОБЩ. " from display names. */
-function stripSettlementPrefix(name: string): string {
-  return name.replace(/^(ГР\.|С\.|ОБЩ\.|ОБЩ|КВ\.|М\.)\s*/i, "").trim();
-}
-
 export default function CitiesSection({ cities }: { cities: HomeCityOption[] }) {
-  const top = cities.slice(0, 8);
+  const top = cities.slice(0, 15);
 
   return (
     <section id="home-cities" className={cn(pub.panelMuted, "p-5 md:p-6")}>
@@ -25,7 +20,7 @@ export default function CitiesSection({ cities }: { cities: HomeCityOption[] }) 
               }
               className={cn(pub.chip, pub.focusRing, "hover:bg-[#f7f6f3]")}
             >
-              <span>{stripSettlementPrefix(city.name)}</span>
+              <span>{city.name}</span>
               <span className="text-amber-900/50"> ({city.publishedFestivalCount})</span>
             </Link>
           ))

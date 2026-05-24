@@ -9,6 +9,14 @@ import "server-only";
 import { GoogleGenerativeAI, type Tool } from "@google/generative-ai";
 
 const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-2.0-flash";
+const FALLBACK_MODEL = "gemini-2.0-flash"; // 1500 req/day free tier vs 20 for 2.5-flash
+
+function is429(err: unknown): boolean {
+  if (err instanceof Error) {
+    return err.message.includes("429") || err.message.toLowerCase().includes("quota") || err.message.toLowerCase().includes("too many requests");
+  }
+  return false;
+}
 const DEFAULT_TIMEOUT_MS = Math.min(Math.max(Number.parseInt(process.env.GEMINI_RESEARCH_TIMEOUT_MS ?? "120000", 10) || 120_000, 15_000), 180_000);
 
 export type GeminiGroundingChunk = {
@@ -332,26 +340,34 @@ export async function geminiExtractJson<T>(options: GeminiJsonExtractOptions): P
   }
 
   const genAI = getGenAI();
-  const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
 
-  const result = await model.generateContent(
-    {
-      systemInstruction: options.systemInstruction,
-      contents: [{ role: "user", parts: [{ text: options.userText }] }],
-      generationConfig: generationConfig as never,
-    },
-    { timeout: DEFAULT_TIMEOUT_MS },
-  );
-
-  const json = toGeminiGenerateResponse(result);
-  const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-  if (!text.trim()) {
-    throw new Error("Gemini returned empty JSON");
+  async function runWithModel(modelId: string): Promise<T> {
+    const model = genAI.getGenerativeModel({ model: modelId });
+    const result = await model.generateContent(
+      {
+        systemInstruction: options.systemInstruction,
+        contents: [{ role: "user", parts: [{ text: options.userText }] }],
+        generationConfig: generationConfig as never,
+      },
+      { timeout: DEFAULT_TIMEOUT_MS },
+    );
+    const json = toGeminiGenerateResponse(result);
+    const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+    if (!text.trim()) throw new Error("Gemini returned empty JSON");
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new Error("Gemini JSON parse failed");
+    }
   }
 
   try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new Error("Gemini JSON parse failed");
+    return await runWithModel(DEFAULT_MODEL);
+  } catch (err) {
+    if (is429(err) && DEFAULT_MODEL !== FALLBACK_MODEL) {
+      console.warn(`[gemini] 429 on ${DEFAULT_MODEL}, retrying with fallback ${FALLBACK_MODEL}`);
+      return await runWithModel(FALLBACK_MODEL);
+    }
+    throw err;
   }
 }

@@ -525,11 +525,10 @@ export default function PendingFestivalEditForm({
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [mapsUrlInput, setMapsUrlInput] = useState("");
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
-  const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
-  const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
+  const uploadingHeroImage = false;
+  const importingHeroFromUrl = false;
   const [removingHeroImage, setRemovingHeroImage] = useState(false);
   const [heroImageSourceState, setHeroImageSourceState] = useState<string | null>(normalizeOptionalText(pendingFestival.hero_image_source));
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const galleryExtraInputRef = useRef<HTMLInputElement | null>(null);
   const resolvedPlaceRef = useRef<string | null>(null);
   const [galleryUrls, setGalleryUrls] = useState<string[]>(() => parseGalleryUrls(pendingFestival.gallery_image_urls));
@@ -695,7 +694,6 @@ export default function PendingFestivalEditForm({
   const heroImageSource = heroImageSourceState;
   const heroImageOriginalUrl = normalizeOptionalText(form.hero_image_original_url);
   const ingestOriginalHeroUrl = form.hero_image_original_url.trim();
-  const canImportFromIngestOriginal = /^https?:\/\//i.test(ingestOriginalHeroUrl);
   const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   const hasHeroImageDiagnostics = heroImageSource !== null || heroImageScore !== null || heroImageOriginalUrl !== null;
   const heroImageStatus = !heroImageUrl
@@ -1118,135 +1116,6 @@ export default function PendingFestivalEditForm({
     } finally {
       setRunningAction(null);
     }
-  };
-
-  const uploadHeroImage = async () => {
-    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
-    if (!heroHasImage && galleryImageCount >= mediaLimits.gallery) {
-      toast.error("Лимитът за галерия е достигнат. Използвайте полето за URL или ъпгрейд към VIP за повече снимки.");
-      return;
-    }
-
-    const selectedFile = fileInputRef.current?.files?.[0] ?? null;
-    if (!selectedFile) {
-      toast.error("Select an image file before uploading.");
-      return;
-    }
-
-    if (!selectedFile.type.toLowerCase().startsWith("image/")) {
-      toast.error("Only image files are allowed.");
-      return;
-    }
-
-    setUploadingHeroImage(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-
-      const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/hero-image`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-
-      const payload = (await response.json().catch(() => null)) as HeroImageUploadResponse | null;
-
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error ?? "Failed to upload hero image.");
-      }
-
-      const uploadedHeroImage = typeof payload.hero_image === "string" ? payload.hero_image : "";
-      updateField("hero_image", uploadedHeroImage);
-      setHeroImageSourceState(typeof payload.hero_image_source === "string" ? payload.hero_image_source : "manual_upload");
-      if (Array.isArray(payload.gallery_image_urls)) {
-        setGalleryUrls(payload.gallery_image_urls);
-      }
-      toast.success("Hero image uploaded successfully.");
-      router.refresh();
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    } catch (uploadError) {
-      toast.error(uploadError instanceof Error ? uploadError.message : "Unexpected hero image upload error.");
-    } finally {
-      setUploadingHeroImage(false);
-    }
-  };
-
-  const runHeroImportFromUrl = async (url: string, successMessage: string) => {
-    setImportingHeroFromUrl(true);
-
-    try {
-      const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/hero-image`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source_url: url }),
-      });
-
-      const payload = (await response.json().catch(() => null)) as HeroImageUploadResponse | null;
-
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error ?? "Failed to import hero image from URL.");
-      }
-
-      const importedHeroImage = typeof payload.hero_image === "string" ? payload.hero_image : "";
-      updateField("hero_image", importedHeroImage);
-      setHeroImageSourceState(typeof payload.hero_image_source === "string" ? payload.hero_image_source : "url_import");
-      if (Array.isArray(payload.gallery_image_urls)) {
-        setGalleryUrls(payload.gallery_image_urls);
-      }
-      toast.success(successMessage);
-      router.refresh();
-    } catch (importUrlError) {
-      toast.error(importUrlError instanceof Error ? importUrlError.message : "Unexpected hero image import error.");
-    } finally {
-      setImportingHeroFromUrl(false);
-    }
-  };
-
-  const importHeroImageFromUrl = async () => {
-    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
-    if (galleryAtLimit && !heroHasImage) {
-      toast.error("Лимитът за снимки е достигнат (включително главното изображение). VIP планът увеличава лимита.");
-      return;
-    }
-
-    const url = form.hero_image.trim();
-    if (!url) {
-      toast.error("Paste an image URL in the Hero image field first.");
-      return;
-    }
-    if (!/^https?:\/\//i.test(url)) {
-      toast.error("Hero image URL must start with http:// or https://.");
-      return;
-    }
-
-    await runHeroImportFromUrl(url, "Hero image downloaded and saved to storage (external URL was not stored).");
-  };
-
-  const importHeroImageFromIngestOriginal = async () => {
-    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
-    if (galleryAtLimit && !heroHasImage) {
-      toast.error("Лимитът за снимки е достигнат (включително главното изображение). VIP планът увеличава лимита.");
-      return;
-    }
-
-    if (!ingestOriginalHeroUrl) {
-      toast.error("Няма записан Original URL от ingest.");
-      return;
-    }
-    if (!/^https?:\/\//i.test(ingestOriginalHeroUrl)) {
-      toast.error("Original URL трябва да започва с http:// или https://.");
-      return;
-    }
-
-    await runHeroImportFromUrl(
-      ingestOriginalHeroUrl,
-      "Качено от Original URL (ingest).",
-    );
   };
 
   const removeHeroImage = async () => {

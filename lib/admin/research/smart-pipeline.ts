@@ -58,6 +58,7 @@ export type SmartResearchFields = {
   instagram_url: string | null;
   ticket_url: string | null;
   hero_image: string | null;
+  hero_image_candidates: string[];
   program_draft: ProgramDraft | null;
 };
 
@@ -91,31 +92,37 @@ function confidenceLevel(fields: SmartResearchFields, sourcesCount: number): "hi
 }
 
 /**
- * Returns the first non-null og:image candidate from a list of fetched source
- * documents. We trust the first-found because `fetchedDocs` ordering reflects
- * SerpAPI's organic ranking — the top result's social preview is the most
- * representative image for the festival.
+ * Returns up to `max` non-null og:image candidates from a list of fetched
+ * source documents, deduplicated by URL. Ordering reflects SerpAPI's organic
+ * ranking so the top result's social preview comes first.
  *
  * Skips obvious non-image URLs (no extension OR wrong extension) since some
  * sites declare an og:image that points to an HTML "share" endpoint.
  */
-function pickFirstHeroCandidate(
+function pickTopHeroCandidates(
   docs: ReadonlyArray<{ hero_image_candidate: string | null }>,
-): string | null {
+  max = 3,
+): string[] {
+  const seen = new Set<string>();
+  const results: string[] = [];
   for (const doc of docs) {
+    if (results.length >= max) break;
     const candidate = doc.hero_image_candidate;
-    if (!candidate) continue;
+    if (!candidate || seen.has(candidate)) continue;
+    seen.add(candidate);
     // Filter out clearly non-image URLs. Real images either have a recognised
     // extension OR pass through a known image CDN path (cloudinary, supabase
     // storage, fbcdn, etc.). We're lenient — `rehostHeroImageFromUrl` validates
     // content-type when it downloads.
-    if (/\.(jpe?g|png|webp|gif|avif)(\?|$|#)/i.test(candidate)) return candidate;
-    if (/\/(image|img|photo|media|upload|cdn)\b/i.test(candidate)) return candidate;
-    // Last-resort: still return the URL — the rehost step will reject it
-    // gracefully if it's not actually an image.
-    return candidate;
+    if (
+      /\.(jpe?g|png|webp|gif|avif)(\?|$|#)/i.test(candidate) ||
+      /\/(image|img|photo|media|upload|cdn)\b/i.test(candidate) ||
+      results.length === 0 // last-resort: include at least one candidate
+    ) {
+      results.push(candidate);
+    }
   }
-  return null;
+  return results;
 }
 
 export async function runSmartResearchPipeline(query: string): Promise<SmartResearchResult> {
@@ -256,10 +263,10 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
     ticket_url: str(extraction?.ticket_url),
     // LLM almost always returns null for hero_image because excerpt-cleaning
     // strips <meta og:image> + <img> tags before the model sees the evidence.
-    // Fall back to the deterministically-extracted og:image from the first
-    // fetched source document that has one. The admin form still surfaces
-    // this as a "candidate" — moderator can override or remove on review.
-    hero_image: str(extraction?.hero_image) ?? pickFirstHeroCandidate(fetchedDocs),
+    // Fall back to the deterministically-extracted og:images from the fetched
+    // source documents (up to 3). The admin form lets the moderator pick one.
+    hero_image_candidates: pickTopHeroCandidates(fetchedDocs, 3),
+    hero_image: str(extraction?.hero_image) ?? pickTopHeroCandidates(fetchedDocs, 1)[0] ?? null,
     program_draft: extraction?.program ? programDraftFromGeminiProgram(extraction.program) : null,
   };
 

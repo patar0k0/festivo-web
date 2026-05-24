@@ -157,6 +157,7 @@ export default function SmartResearchPanel() {
   const [error, setError] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [sendStatus, setSendStatus] = useState("");
+  const [selectedHeroImage, setSelectedHeroImage] = useState<string | null>(null);
 
   const updateStep = (id: string, patch: Partial<PipelineStep>) =>
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -230,6 +231,7 @@ export default function SmartResearchPanel() {
       ]);
 
       setResult(r);
+      setSelectedHeroImage(r.fields.hero_image_candidates[0] ?? r.fields.hero_image ?? null);
       setIsDone(true);
     } catch (e) {
       clearTimeout(perplexityTimer);
@@ -272,7 +274,7 @@ export default function SmartResearchPanel() {
         facebook_url: fields.facebook_url,
         instagram_url: fields.instagram_url,
         ticket_url: fields.ticket_url,
-        hero_image: fields.hero_image,
+        hero_image: selectedHeroImage,
         is_free: fields.is_free,
         program_draft: fields.program_draft,
         source_urls: sources.filter((s) => !s.is_ai_overview).map((s) => s.url),
@@ -364,6 +366,45 @@ export default function SmartResearchPanel() {
               <div className="space-y-1">
                 <p className="text-xs font-medium uppercase tracking-wide text-black/35">Описание</p>
                 <p className="text-sm text-black/70 leading-relaxed">{result.fields.description}</p>
+              </div>
+            )}
+
+            {/* Hero image candidates */}
+            {result.fields.hero_image_candidates.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-black/35">
+                  Снимки {result.fields.hero_image_candidates.length > 1 ? `(избери главна)` : ""}
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {result.fields.hero_image_candidates.map((url) => {
+                    const isSelected = selectedHeroImage === url;
+                    return (
+                      <button
+                        key={url}
+                        type="button"
+                        onClick={() => setSelectedHeroImage(isSelected ? null : url)}
+                        className={`relative overflow-hidden rounded-lg border-2 transition ${
+                          isSelected
+                            ? "border-[#ff4c1f] ring-2 ring-[#ff4c1f]/30"
+                            : "border-black/[0.1] hover:border-black/30"
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={url}
+                          alt=""
+                          className="aspect-video w-full object-cover"
+                          onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+                        />
+                        {isSelected && (
+                          <span className="absolute bottom-1 right-1 rounded-md bg-[#ff4c1f] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                            Главна
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 

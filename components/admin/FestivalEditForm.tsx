@@ -1120,7 +1120,18 @@ export default function FestivalEditForm({
             <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} required />
           </label>
           <AdminFieldInlineRow field="slug">
-            <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
+            <div className="flex gap-2">
+              <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className={`${ADMIN_ENTITY_CONTROL_CLASS} flex-1`} />
+              {!form.slug.trim() && form.title.trim() && (
+                <button
+                  type="button"
+                  onClick={() => updateField("slug", transliteratedSlug(form.title))}
+                  className="shrink-0 rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] hover:bg-black/[0.03]"
+                >
+                  Генерирай
+                </button>
+              )}
+            </div>
           </AdminFieldInlineRow>
           <AdminFieldInlineRow field="category">
             <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />

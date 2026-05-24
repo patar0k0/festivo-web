@@ -8,7 +8,7 @@ import "server-only";
 
 import { GoogleGenerativeAI, type Tool } from "@google/generative-ai";
 
-const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-2.0-flash";
+const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-2.5-flash";
 const FALLBACK_MODEL = "gemini-2.0-flash"; // 1500 req/day free tier vs 20 for 2.5-flash
 
 function is429(err: unknown): boolean {
@@ -323,6 +323,8 @@ export type GeminiJsonExtractOptions = {
   userText: string;
   /** Optional JSON schema (Gemini structured output); omitted uses JSON mode only. */
   responseSchema?: Record<string, unknown>;
+  /** Called with the actual model ID that produced the successful response. */
+  onModelUsed?: (modelId: string) => void;
 };
 
 /**
@@ -355,7 +357,9 @@ export async function geminiExtractJson<T>(options: GeminiJsonExtractOptions): P
     const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
     if (!text.trim()) throw new Error("Gemini returned empty JSON");
     try {
-      return JSON.parse(text) as T;
+      const parsed = JSON.parse(text) as T;
+      options.onModelUsed?.(modelId);
+      return parsed;
     } catch {
       throw new Error("Gemini JSON parse failed");
     }

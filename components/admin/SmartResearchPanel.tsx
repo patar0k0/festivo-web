@@ -226,7 +226,9 @@ export default function SmartResearchPanel() {
           id: "gemini",
           label: "Gemini extraction",
           status: used.includes("gemini") ? "done" : warns.some((w) => w.toLowerCase().includes("gemini")) ? "error" : "skipped",
-          detail: used.includes("gemini") ? `увереност: ${r.confidence}` : warns.find((w) => w.toLowerCase().includes("gemini"))?.slice(0, 60),
+          detail: used.includes("gemini")
+            ? [r.gemini_model, `увереност: ${r.confidence}`].filter(Boolean).join(" · ")
+            : warns.find((w) => w.toLowerCase().includes("gemini"))?.slice(0, 80),
         },
       ]);
 

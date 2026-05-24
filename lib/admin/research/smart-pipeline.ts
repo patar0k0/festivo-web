@@ -68,6 +68,8 @@ export type SmartResearchResult = {
   confidence: "high" | "medium" | "low";
   providers_used: string[];
   warnings: string[];
+  /** Actual Gemini model ID used for extraction (e.g. "gemini-2.5-flash" or "gemini-2.0-flash" on fallback). */
+  gemini_model: string | null;
 };
 
 function str(v: unknown): string | null {
@@ -201,6 +203,7 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
 
   // Step 4: single Gemini extraction call
   let extraction = null;
+  let geminiModelUsed: string | null = null;
   if (combinedEvidence.trim()) {
     try {
       extraction = await extractFestivalFieldsFromEvidence({
@@ -208,6 +211,7 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
         sourceUrl: "combined-smart-research",
         pageTitle: query,
         excerpt: combinedEvidence,
+        onModelUsed: (m) => { geminiModelUsed = m; },
       });
       providers_used.push("gemini");
     } catch (e) {
@@ -276,5 +280,6 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
     confidence: confidenceLevel(fields, sources.length),
     providers_used,
     warnings,
+    gemini_model: geminiModelUsed,
   };
 }

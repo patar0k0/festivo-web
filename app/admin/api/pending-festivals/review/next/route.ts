@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { buildFastReviewItem } from "@/lib/admin/pendingFestivalReviewPayload";
 import { countPendingFestivals, fetchNextPendingReviewId } from "@/lib/admin/pendingFestivalReviewQueue";

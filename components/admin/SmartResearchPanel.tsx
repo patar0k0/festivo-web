@@ -269,6 +269,8 @@ export default function SmartResearchPanel() {
         tags: fields.tags,
         start_date: fields.start_date,
         end_date: fields.end_date,
+        start_time: fields.start_time,
+        end_time: fields.end_time,
         city: fields.city,
         location_name: fields.location_name,
         address: fields.address,

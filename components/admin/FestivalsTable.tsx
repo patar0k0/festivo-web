@@ -380,8 +380,14 @@ export default function FestivalsTable({
                       <span className="inline-flex rounded-full border border-[#0c0e14]/20 bg-[#f5f4f0] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[#0c0e14]">
                         Организатор
                       </span>
+                    ) : row.source_type === "manual" ? (
+                      <span className="inline-flex rounded-full border border-black/[0.12] bg-black/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-black/55">
+                        Ръчен
+                      </span>
                     ) : row.source_type ? (
-                      <span className="text-xs text-black/55">{row.source_type}</span>
+                      <span className="inline-flex rounded-full border border-black/[0.1] bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-black/50">
+                        {row.source_type}
+                      </span>
                     ) : (
                       <span className="text-black/30">—</span>
                     )}

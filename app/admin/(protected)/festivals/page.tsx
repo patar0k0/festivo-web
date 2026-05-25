@@ -280,6 +280,9 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
             </label>
           </div>
 
+          {/* Preserve quality filter across form submissions */}
+          {qualityFilter ? <input type="hidden" name="quality" value={qualityFilter} /> : null}
+
           <div className="flex flex-wrap items-center gap-2 pt-0.5">
             <button
               type="submit"

@@ -75,16 +75,16 @@ export async function POST(request: Request) {
   const existingLat = asFiniteNumber(body?.existing_lat);
   const existingLng = asFiniteNumber(body?.existing_lng);
 
-  // Priority: venue name → physical address → title+city → title alone
-  const effectiveLocationName =
+  // venue name = location_name field; when empty fall back to title+city as venue query
+  const effectiveVenueName =
     locationName ||
-    address ||
     (title && city ? `${title}, ${city}` : title) ||
     null;
 
   const resolved = await resolveEventCoordinates({
     placeId,
-    locationName: effectiveLocationName,
+    locationName: effectiveVenueName,
+    address: address,          // physical address passed separately for smart query chaining
     cityName: city,
     coordsOverride: coordsOverride && existingLat !== null && existingLng !== null,
     existingLat,
@@ -98,5 +98,6 @@ export async function POST(request: Request) {
     place_id: resolved?.placeId ?? null,
     provider: resolved?.provider ?? null,
     coords_source: resolved?.source ?? null,
+    query_used: resolved?.queryUsed ?? null,
   });
 }

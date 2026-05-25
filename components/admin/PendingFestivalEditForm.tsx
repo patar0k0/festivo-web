@@ -1030,7 +1030,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
       });
 
       const payload = (await response.json().catch(() => null)) as
-        | { ok?: boolean; lat?: number | null; lng?: number | null; place_id?: string | null; error?: string }
+        | { ok?: boolean; lat?: number | null; lng?: number | null; place_id?: string | null; query_used?: string | null; coords_source?: string | null; error?: string }
         | null;
 
       if (!response.ok || !payload?.ok) {
@@ -1051,8 +1051,9 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
         }
         updateField("coords_override", false);
         const coords = { lat: payload.lat, lng: payload.lng };
-        toast.success("Координатите са намерени");
-        console.info("[coords] source=geocode", coords);
+        const sourceHint = payload.query_used ? ` · ${payload.query_used}` : "";
+        toast.success(`Координатите са намерени${sourceHint}`);
+        console.info("[coords] source=geocode", { coords, query_used: payload.query_used, coords_source: payload.coords_source });
       } else if (mapsFailed) {
         toast.error("Не можахме да извлечем координати от линка");
       } else {

@@ -4,9 +4,13 @@ import { normalizeLocationKey } from "@/lib/location/normalizeLocationKey";
 import { scoreGeocodeResult, type GeocodeMeta } from "@/lib/location/scoreGeocodeResult";
 import { shouldAcceptCoordinates } from "@/lib/location/shouldAcceptCoordinates";
 
-export type EventCoordsSource = "place_id" | "venue+city" | "venue_only" | "cache" | "manual";
+export type EventCoordsSource = "place_id" | "venue+city" | "venue+address" | "address" | "venue_only" | "cache" | "manual";
 
-export type ResolvedEventCoordinates = GeocodeLocationResult & { source: EventCoordsSource };
+export type ResolvedEventCoordinates = GeocodeLocationResult & {
+  source: EventCoordsSource;
+  /** Human-readable description of the query that produced this result (for UI feedback). */
+  queryUsed?: string;
+};
 
 async function geocodeByQuery(query: string | null | undefined): Promise<GeocodeLocationResult | null> {
   return geocodeLocation(query);
@@ -92,6 +96,8 @@ function asFiniteCoord(value: unknown): number | null {
 
 export async function resolveEventCoordinates(params: {
   locationName: string | null | undefined;
+  /** Physical address string (e.g. "Лозен, общ. Любимец, обл. Хасково") — tried as a separate geocoding query. */
+  address?: string | null | undefined;
   cityName: string | null | undefined;
   placeId: string | null | undefined;
   /** When true and existing lat/lng are valid, skip cache and geocoding (admin manual pin). */
@@ -100,6 +106,7 @@ export async function resolveEventCoordinates(params: {
   existingLng?: number | string | null | undefined;
 }): Promise<ResolvedEventCoordinates | null> {
   const { locationName, cityName, placeId } = params;
+  const rawAddress = typeof params.address === "string" ? params.address.trim() : "";
 
   if (params.coordsOverride === true) {
     const lat = asFiniteCoord(params.existingLat);
@@ -143,6 +150,7 @@ export async function resolveEventCoordinates(params: {
     }
   }
 
+  // 1. place_id — most precise
   if (placeId && String(placeId).trim()) {
     const trimmedPlaceId = String(placeId).trim();
     const coords = await geocodeByPlaceId(trimmedPlaceId);
@@ -151,27 +159,51 @@ export async function resolveEventCoordinates(params: {
       const { resolved, score } = evaluateAndGateGeocode("place_id", queryForScore, coords);
       if (resolved) {
         await persistLearnedCoords({ key, locationName, cityName, resolved, score });
-        return resolved;
+        return { ...resolved, queryUsed: queryForScore };
       }
     }
   }
 
+  // 2. venue + city — classic combination
   if (venue && city) {
     const query = `${venue}, ${city}, България`;
     const coords = await geocodeByQuery(query);
     const { resolved, score } = evaluateAndGateGeocode("venue+city", query, coords);
     if (resolved) {
       await persistLearnedCoords({ key, locationName, cityName, resolved, score });
-      return resolved;
+      return { ...resolved, queryUsed: `${venue}, ${city}` };
     }
   }
 
+  // 3. venue + address — specific venue at a specific physical address
+  if (venue && rawAddress) {
+    const query = `${venue}, ${rawAddress}, България`;
+    const coords = await geocodeByQuery(query);
+    const { resolved, score } = evaluateAndGateGeocode("venue+address", query, coords);
+    if (resolved) {
+      await persistLearnedCoords({ key: normalizeLocationKey(venue, rawAddress), locationName: venue, cityName: rawAddress, resolved, score });
+      return { ...resolved, queryUsed: `${venue} @ ${rawAddress}` };
+    }
+  }
+
+  // 4. address alone — e.g. "Лозен, общ. Любимец, обл. Хасково" often geocodes precisely
+  if (rawAddress) {
+    const query = `${rawAddress}, България`;
+    const coords = await geocodeByQuery(query);
+    const { resolved, score } = evaluateAndGateGeocode("address", query, coords);
+    if (resolved) {
+      await persistLearnedCoords({ key: normalizeLocationKey(rawAddress, cityName), locationName: rawAddress, cityName, resolved, score });
+      return { ...resolved, queryUsed: rawAddress };
+    }
+  }
+
+  // 5. venue alone — last resort for known venue names
   if (venue) {
     const coords = await geocodeByQuery(venue);
     const { resolved, score } = evaluateAndGateGeocode("venue_only", venue, coords);
     if (resolved) {
       await persistLearnedCoords({ key, locationName, cityName, resolved, score });
-      return resolved;
+      return { ...resolved, queryUsed: venue };
     }
   }
 

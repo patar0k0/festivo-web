@@ -1,6 +1,6 @@
 /**
  * Server-only Gemini via @google/generative-ai. Web discovery uses Google Search grounding.
- * Env: GEMINI_API_KEY (or GOOGLE_AI_API_KEY). Optional: GEMINI_RESEARCH_MODEL (default gemini-2.5-flash).
+ * Env: GEMINI_API_KEY (or GOOGLE_AI_API_KEY). Optional: GEMINI_RESEARCH_MODEL (default gemini-3.5-flash).
  * Gemini 1.5 models use googleSearchRetrieval; 2.x+ use google_search per Google API docs.
  * Fallback chain on 429: DEFAULT_MODEL → gemini-3.1-flash-lite (500 RPD free tier).
  */

@@ -90,7 +90,7 @@ export async function GET(request: Request) {
     let query = ctx.supabase
       .from("festivals")
       .select(
-        "id,title,city,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,is_free,status,updated_at,created_at,source_type,cities:cities!festivals_city_id_fkey(id,name_bg,slug)",
+        "id,title,description,city,city_id,start_date,end_date,start_time,end_time,occurrence_dates,category,is_free,status,updated_at,created_at,source_type,location_name,organizer_name,hero_image,tags,cities:cities!festivals_city_id_fkey(id,name_bg,slug)",
       )
       .limit(200);
 

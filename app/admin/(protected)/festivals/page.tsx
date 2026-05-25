@@ -6,14 +6,20 @@ import {
 } from "@/lib/admin/festivalListFilterOptions";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
+import { assessPendingFestivalQuality, type PendingQualityBucket } from "@/lib/admin/pendingFestivalQuality";
 import { headers } from "next/headers";
 
 const STATUS_OPTIONS = ["draft", "verified", "rejected", "archived"] as const;
 const STATUS_FILTER_OPTIONS = ["all", ...STATUS_OPTIONS] as const;
 
-// Time filter: by default the admin list hides past festivals so the active
-// workload stays focused on what needs moderation. "Past" + "All" are
-// available for audit / cleanup tasks.
+const STATUS_LABELS: Record<string, string> = {
+  all: "Всички",
+  draft: "Чернова",
+  verified: "Потвърден",
+  rejected: "Отхвърлен",
+  archived: "Архивиран",
+};
+
 const TIME_OPTIONS = [
   { value: "upcoming", label: "Предстоящи (включително текущи)" },
   { value: "past", label: "Минали" },
@@ -46,20 +52,29 @@ function asSort(raw: string): SortValue {
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-type AdminFestivalRow = {
+export type AdminFestivalRow = {
   id: string;
   title: string;
+  description: string | null;
   city: string | null;
+  city_id: number | null;
   start_date: string | null;
   end_date: string | null;
   start_time?: string | null;
   end_time?: string | null;
   occurrence_dates?: unknown;
+  location_name: string | null;
+  organizer_name: string | null;
+  hero_image: string | null;
+  tags: unknown;
   category: string | null;
   is_free: boolean | null;
   status: "draft" | "verified" | "rejected" | "archived" | null;
   updated_at: string | null;
   source_type: string | null;
+  quality_score: number;
+  quality_bucket: PendingQualityBucket;
+  missing_fields: string[];
 };
 
 function asString(value: string | string[] | undefined) {
@@ -86,6 +101,7 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
   const sort = asSort(asString(params.sort));
   const time = asTime(asString(params.time));
   const deleted = asString(params.deleted) === "1";
+  const qualityFilter = asString(params.quality) as PendingQualityBucket | "";
 
   const statusScope = statusToFilterScope(status);
 
@@ -119,21 +135,40 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
     admin ? loadAdminFestivalCityOptions(admin.supabase, statusScope) : Promise.resolve([]),
   ]);
 
-  const payload = (await listResponse.json().catch(() => ({}))) as { error?: string; rows?: AdminFestivalRow[] };
+  type RawRow = Omit<AdminFestivalRow, "quality_score" | "quality_bucket" | "missing_fields">;
+  const payload = (await listResponse.json().catch(() => ({}))) as { error?: string; rows?: RawRow[] };
   const apiError = payload.error;
-  const rows = payload.rows ?? [];
+
+  const allRows: AdminFestivalRow[] = (payload.rows ?? []).map((row) => {
+    const quality = assessPendingFestivalQuality({
+      ...row,
+      city_name_display: row.city,
+    });
+    return {
+      ...row,
+      quality_score: quality.quality_score,
+      quality_bucket: quality.quality_bucket,
+      missing_fields: quality.missing_fields,
+    };
+  });
+
+  const qualityCounts = allRows.reduce<Record<PendingQualityBucket, number>>(
+    (acc, row) => {
+      acc[row.quality_bucket] += 1;
+      return acc;
+    },
+    { ready: 0, needs_fix: 0, weak: 0 },
+  );
+
+  const rows = qualityFilter ? allRows.filter((row) => row.quality_bucket === qualityFilter) : allRows;
 
   return (
     <div className="space-y-3">
       <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-4 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
-        <h1 className="text-2xl font-black tracking-tight">Festivals</h1>
+        <h1 className="text-2xl font-black tracking-tight">Фестивали</h1>
         <p className="mt-1 text-sm text-black/65">Филтрирай и управлявай фестивалите в системата.</p>
 
         <form className="mt-3 space-y-2">
-          {/* Time scope chips — primary "view mode" toggle.
-              Visually separated from the form filter grid below because it's
-              a different concept: status/city/category narrow the dataset,
-              while "time" decides which slice of time is shown. */}
           <div className="flex flex-wrap items-center gap-1.5 pb-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
               Изглед:
@@ -164,7 +199,7 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
             <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
-              Status
+              Статус
               <select
                 name="status"
                 defaultValue={status}
@@ -172,20 +207,20 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
               >
                 {STATUS_FILTER_OPTIONS.map((item) => (
                   <option key={item} value={item}>
-                    {item}
+                    {STATUS_LABELS[item] ?? item}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
-              City
+              Град
               <select
                 name="city_id"
                 defaultValue={cityId}
                 className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm"
               >
-                <option value="">All</option>
+                <option value="">Всички</option>
                 {cityOptions.map((c) => (
                   <option key={c.id} value={String(c.id)}>
                     {c.label}
@@ -195,13 +230,13 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
             </label>
 
             <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
-              Category
+              Категория
               <select
                 name="category"
                 defaultValue={category}
                 className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm"
               >
-                <option value="">All</option>
+                <option value="">Всички</option>
                 {categoryOptions.map((slug) => (
                   <option key={slug} value={slug}>
                     {labelForPublicCategory(slug)}
@@ -211,26 +246,26 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
             </label>
 
             <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
-              Free
+              Вход
               <select name="free" defaultValue={free} className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm">
-                <option value="">All</option>
-                <option value="1">Yes</option>
-                <option value="0">No</option>
+                <option value="">Всички</option>
+                <option value="1">Безплатен</option>
+                <option value="0">Платен</option>
               </select>
             </label>
 
             <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
-              Search title
+              Търси заглавие
               <input
                 name="q"
                 defaultValue={q}
                 className="mt-1 w-full rounded-lg border border-black/[0.1] bg-white px-2.5 py-1.5 text-sm"
-                placeholder="Title contains…"
+                placeholder="Съдържа…"
               />
             </label>
 
             <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
-              Sort
+              Сортиране
               <select
                 name="sort"
                 defaultValue={sort}
@@ -250,26 +285,26 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
               type="submit"
               className="rounded-lg bg-[#0c0e14] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-white"
             >
-              Apply filters
+              Приложи
             </button>
             <a
               href="/admin/festivals"
               className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]"
             >
-              Reset
+              Изчисти
             </a>
           </div>
         </form>
       </div>
 
       {deleted ? (
-        <div className="rounded-xl border border-[#18a05e]/20 bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">Festival deleted successfully.</div>
+        <div className="rounded-xl border border-[#18a05e]/20 bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">Фестивалът е изтрит успешно.</div>
       ) : null}
 
       {!listResponse.ok ? (
-        <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-4 text-sm text-[#b13a1a]">{apiError ?? "Failed to load festivals."}</div>
+        <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-4 text-sm text-[#b13a1a]">{apiError ?? "Грешка при зареждане на фестивали."}</div>
       ) : (
-        <FestivalsTable rows={rows} />
+        <FestivalsTable rows={rows} qualityFilter={qualityFilter} qualityCounts={qualityCounts} />
       )}
     </div>
   );

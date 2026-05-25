@@ -142,6 +142,12 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   const aiOverviewText = enResult.ai_overview_text;
   const organic = bgResult.organic;
 
+  // Warn when SerpAPI returns no organic results — usually means quota exhausted.
+  // Free tier = 100 searches/month; each pipeline call uses 2 (EN + BG).
+  if (organic.length === 0 && !aiOverviewText) {
+    warnings.push("SerpAPI върна 0 органични резултата — вероятно изчерпана квота (100 търсения/месец). Проверете акаунта на serpapi.com.");
+  }
+
   // Step 1.5: fetch full page content for top organic results (parallel, best-effort)
   const fetchCandidates = organic.filter((r) => shouldFetchDomain(r.url)).slice(0, 3);
   const fetchedDocs = (

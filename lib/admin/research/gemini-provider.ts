@@ -2,16 +2,16 @@
  * Server-only Gemini via @google/generative-ai. Web discovery uses Google Search grounding.
  * Env: GEMINI_API_KEY (or GOOGLE_AI_API_KEY). Optional: GEMINI_RESEARCH_MODEL (default gemini-2.5-flash).
  * Gemini 1.5 models use googleSearchRetrieval; 2.x+ use google_search per Google API docs.
- * Fallback chain on 429: DEFAULT_MODEL → gemini-3.1-flash-lite (500 RPD free tier).
+ * Fallback chain on 429: DEFAULT_MODEL → gemini-2.0-flash-lite (500 RPD free tier).
  */
 
 import "server-only";
 
 import { GoogleGenerativeAI, type Tool } from "@google/generative-ai";
 
-const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-3.5-flash";
-// gemini-3.1-flash-lite has 500 RPD on the free tier (vs 20 for 3.5-flash, 0 for 2.0-flash)
-const FALLBACK_MODEL = "gemini-3.1-flash-lite";
+const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-2.5-flash";
+// gemini-2.0-flash-lite has 1500 RPD on the free tier — most resilient fallback on 429
+const FALLBACK_MODEL = "gemini-2.0-flash-lite";
 
 function is429(err: unknown): boolean {
   if (err instanceof Error) {

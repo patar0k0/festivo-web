@@ -20,12 +20,16 @@ const manrope = Manrope({
 const fraunces = Fraunces({
   variable: "--font-display",
   subsets: ["latin"],
+  // Non-critical font (organizer portal + coming-soon only) — don't block render.
+  // First-visit users get a system fallback; font loads silently in the background.
+  display: "optional",
 });
 
 const cormorantGaramond = Cormorant_Garamond({
   variable: "--font-hero-warm-serif",
   subsets: ["latin", "cyrillic"],
-  weight: ["600", "700"],
+  // Only weight 700 is used (homepage h1 uses font-bold via pub.displayH1).
+  weight: ["700"],
 });
 
 export function generateMetadata(): Metadata {

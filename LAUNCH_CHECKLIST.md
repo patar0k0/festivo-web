@@ -10,12 +10,12 @@
 
 ## 📍 Текущ статус
 
-- **Sprint ден:** 7 / 14 — последен ден от Седмица 1
-- **Launch стабилност:** 🟢 готов за soft launch
-- **Блокери в момента:** няма (всички известни production issues са fix-нати на 22 май)
-- **Последно обновяване:** 22 май 2026 (вечер)
-- **Прогрес:** 62 ✅ / 89 ⏳ (TikTok прехвърлен от ✅ на 🟡 — handle резервиран, но profile неоптимизиран)
-- **Следва (Седмица 2):** покритие на 10 фестивала с богато съдържание (Ден 8-9), social profiles (Ден 10), soft launch с 10-15 приятели (Ден 11-12), launch comms drafts (Ден 13), **PUBLIC LAUNCH сряда 28 май** (Ден 14).
+- **Sprint ден:** 11 / 14 — Седмица 2 в ход
+- **Launch стабилност:** 🟢 готов за launch — build clean, favicons готови
+- **Блокери в момента:** няма технически блокери
+- **Последно обновяване:** 26 май 2026 (вечер)
+- **Прогрес:** 65 ✅ / 89 ⏳
+- **Следва:** launch comms drafts (Ден 13), **PUBLIC LAUNCH сряда 28 май** (Ден 14).
 
 ### 📌 За утре (23 май, продължение)
 
@@ -172,7 +172,8 @@
 - [x] Динамичен OG за festival страници (`opengraph-image.tsx`)
 - [x] `og:title`, `og:description`, `og:image`, `og:url`, `og:type` на всяка страница
 - [x] Twitter Card (`twitter:card="summary_large_image"`)
-- [ ] Favicons — пълен сет (16, 32, 180, 512) през realfavicongenerator.net
+- [x] Favicons — пълен сет (16, 32, 180, 192, 512px PNG + apple-touch-icon + SVG)
+> 💡 Claude Code note (26 май): Генерирани с sharp от brand SVG. PR #435. Manifest обновен с 192/512 за PWA. layout.tsx — explicit icon tags.
 - [x] `manifest.json` с цветове `#7c2d12`, `#f6f5f1`
 > 💡 Claude Code note (19 май): robots.txt, sitemap, OG тагове, JSON-LD, manifest добавени в PR #319. OG image за homepage предстои (нужен ръчен дизайн 1200×630).
 - [x] Регистрация в **Google Search Console** + submit sitemap
@@ -210,6 +211,7 @@
 #### Ден 6–7: Lighthouse + полиране
 
 - [ ] Lighthouse audit на 5 ключови страници (mobile-first): 90+ на Performance, Accessibility, SEO, Best Practices
+> ⚠️ Трябва да се пусне срещу production (festivo.bg) — не може локално (Supabase env). Ползвай PageSpeed Insights: https://pagespeed.web.dev/
 - [x] Image optimization (всички с `next/image`, `alt`, lazy loading)
 > 💡 Claude Code note (20 май): Audit на 12 `<img>` тага в 7 файла. Конвертирани 3 в `FestivalMedia.tsx` (gallery main + thumbnails + YouTube thumbs) към `FallbackImage` с lazy loading и responsive `sizes` prop (PR #338). Hero, Meta Pixel noscript, lightbox и admin форми — обосновано оставени (explicit eslint-disable + LCP-critical с eager loading).
 - [ ] Font loading optimization

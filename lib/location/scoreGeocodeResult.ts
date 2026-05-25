@@ -1,5 +1,5 @@
 export type GeocodeMeta = {
-  source: "place_id" | "venue+city" | "venue_only";
+  source: "place_id" | "venue+city" | "venue+address" | "address" | "venue_only";
   query: string;
   resultName?: string;
   resultAddress?: string;
@@ -13,8 +13,10 @@ export function scoreGeocodeResult(meta: GeocodeMeta): number {
 
   // source weight
   if (meta.source === "place_id") score += 50;
-  if (meta.source === "venue+city") score += 40;
-  if (meta.source === "venue_only") score += 20;
+  else if (meta.source === "venue+city") score += 40;
+  else if (meta.source === "venue+address") score += 40;
+  else if (meta.source === "address") score += 35;
+  else if (meta.source === "venue_only") score += 20;
 
   const query = meta.query.toLowerCase();
   const result = (meta.resultName ?? "").toLowerCase();

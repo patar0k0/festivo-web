@@ -157,6 +157,18 @@ export default async function CityLandingPage({
   ];
   const activeWhen = filters.when ?? "all";
 
+  const sectionTitle =
+    activeWhen === "past" ? `Минали фестивали в ${cityName}` :
+    activeWhen === "upcoming" ? `Предстоящи фестивали в ${cityName}` :
+    activeWhen === "ongoing" ? `Текущи фестивали в ${cityName}` :
+    `Фестивали в ${cityName}`;
+
+  const emptyStateMessage =
+    activeWhen === "past" ? "Няма регистрирани минали фестивали за това място." :
+    activeWhen === "upcoming" ? "Няма предстоящи фестивали. Провери в раздел \"Всички\" за минали издания." :
+    activeWhen === "ongoing" ? "Няма текущи фестивали в момента." :
+    "Все още няма публикувани фестивали за това място.";
+
   return (
     <div className={pub.page}>
       <Section className={pub.section}>
@@ -215,7 +227,7 @@ export default async function CityLandingPage({
 
             <section className="space-y-5">
               <div className="flex flex-wrap items-end justify-between gap-3">
-                <h2 className={cn(pub.pageTitle, "text-2xl")}>Предстоящи фестивали</h2>
+                <h2 className={cn(pub.pageTitle, "text-2xl")}>{sectionTitle}</h2>
                 <Link
                   href={`/festivals?city=${encodeURIComponent(citySlug)}`}
                   className="text-sm font-semibold text-[#0c0e14] transition hover:text-black/65"
@@ -253,13 +265,31 @@ export default async function CityLandingPage({
                 </>
               ) : (
                 <div className={cn(pub.sectionCardSoft, "border-dashed px-5 py-10 text-center")}>
-                  <p className="text-sm text-black/55">Още няма публикувани фестивали за този град.</p>
-                  <Link
-                    href="/festivals"
-                    className={cn("mt-4 inline-flex", pub.chip, pub.focusRing)}
-                  >
-                    Разгледай всички фестивали
-                  </Link>
+                  <p className="text-sm text-black/55">{emptyStateMessage}</p>
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    {activeWhen !== "all" && (
+                      <Link
+                        href={`${cityHref(citySlug)}${serializeFilters({ ...filters, city: [citySlug], when: "all" })}`}
+                        className={cn("inline-flex", pub.chip, pub.focusRing)}
+                      >
+                        Виж всички фестивали
+                      </Link>
+                    )}
+                    {activeWhen !== "past" && (
+                      <Link
+                        href={`${cityHref(citySlug)}${serializeFilters({ ...filters, city: [citySlug], when: "past" })}`}
+                        className={cn("inline-flex", pub.chip, pub.focusRing)}
+                      >
+                        Виж минали фестивали
+                      </Link>
+                    )}
+                    <Link
+                      href="/festivals"
+                      className={cn("inline-flex", pub.chip, pub.focusRing)}
+                    >
+                      Разгледай всички в България
+                    </Link>
+                  </div>
                 </div>
               )}
             </section>

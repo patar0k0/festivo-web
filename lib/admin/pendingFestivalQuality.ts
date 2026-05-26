@@ -7,6 +7,10 @@ type PendingQualityInput = {
   description?: unknown;
   start_date?: unknown;
   end_date?: unknown;
+  lat?: unknown;
+  lng?: unknown;
+  latitude?: unknown;
+  longitude?: unknown;
   city_id?: unknown;
   city_guess?: unknown;
   location_name?: unknown;
@@ -82,6 +86,20 @@ function sameText(a: string | null, b: string | null) {
   return a.toLocaleLowerCase("bg-BG") === b.toLocaleLowerCase("bg-BG");
 }
 
+function finiteNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function hasValidCoordinatePair(row: PendingQualityInput): boolean {
+  const lat = finiteNumber(row.lat);
+  const lng = finiteNumber(row.lng);
+  const latitude = finiteNumber(row.latitude);
+  const longitude = finiteNumber(row.longitude);
+  const hasLatLng = lat !== null && lng !== null;
+  const hasLatitudeLongitude = latitude !== null && longitude !== null;
+  return hasLatLng || hasLatitudeLongitude;
+}
+
 export function assessPendingFestivalQuality(row: PendingQualityInput): PendingFestivalQuality {
   const title = normalizeText(row.title);
   const description = normalizeText(row.description);
@@ -109,6 +127,7 @@ export function assessPendingFestivalQuality(row: PendingQualityInput): PendingF
   const heroImage = normalizeText(row.hero_image);
   const category = normalizeText(row.category);
   const tags = normalizeTags(row.tags);
+  const hasCoordinates = hasValidCoordinatePair(row);
   const dateGuess = normalizeDateValue(row.date_guess);
   const titleClean = normalizeText(row.title_clean);
   const descriptionClean = normalizeText(row.description_clean);
@@ -121,20 +140,22 @@ export function assessPendingFestivalQuality(row: PendingQualityInput): PendingF
   if (!endDate) missingFields.push("end_date");
   if (!cityId && !effectiveCityText) missingFields.push("city");
   if (!locationName && !locationGuess) missingFields.push("location_name");
+  if (!hasCoordinates) missingFields.push("coordinates");
   if (!organizerName) missingFields.push("organizer_name");
   if (!heroImage) missingFields.push("hero_image");
   if (!category && tags.length === 0) missingFields.push("category_or_tags");
 
   let score = 0;
-  if (title) score += 16;
-  if (description) score += 14;
-  if (startDate) score += 16;
+  if (title) score += 15;
+  if (description) score += 13;
+  if (startDate) score += 15;
   if (endDate) score += 8;
-  if (cityId || effectiveCityText) score += cityId ? 12 : 8;
-  if (locationName || locationGuess) score += locationName ? 10 : 7;
+  if (cityId || effectiveCityText) score += cityId ? 11 : 8;
+  if (locationName || locationGuess) score += locationName ? 9 : 6;
+  if (hasCoordinates) score += 8;
   if (organizerName) score += 8;
-  if (heroImage) score += 8;
-  if (category || tags.length > 0) score += 8;
+  if (heroImage) score += 7;
+  if (category || tags.length > 0) score += 6;
 
   if (!startDate && dateGuess) {
     score += 4;

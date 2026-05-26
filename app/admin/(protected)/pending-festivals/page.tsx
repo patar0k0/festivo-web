@@ -10,6 +10,8 @@ export type PendingFestivalRow = {
   description: string | null;
   city_id: number | null;
   city_guess: string | null;
+  latitude: number | null;
+  longitude: number | null;
   location_name: string | null;
   location_guess: string | null;
   organizer_name: string | null;
@@ -63,7 +65,7 @@ export default async function AdminPendingFestivalsPage({
 
   const { data, error } = await ctx.supabase
     .from("pending_festivals")
-    .select("id,title,description,city_id,city_guess,location_name,location_guess,organizer_name,hero_image,category,tags,date_guess,start_date,end_date,source_url,source_count,evidence_json,submission_source,created_at")
+    .select("id,title,description,city_id,city_guess,latitude,longitude,location_name,location_guess,organizer_name,hero_image,category,tags,date_guess,start_date,end_date,source_url,source_count,evidence_json,submission_source,created_at")
     .eq("status", "pending")
     .order("created_at", { ascending: false })
     .limit(200);
@@ -80,6 +82,8 @@ export default async function AdminPendingFestivalsPage({
       description: row.description ?? null,
       city_id: row.city_id ?? null,
       city_guess: row.city_guess ?? null,
+      latitude: typeof row.latitude === "number" ? row.latitude : null,
+      longitude: typeof row.longitude === "number" ? row.longitude : null,
       location_name: row.location_name ?? null,
       location_guess: row.location_guess ?? null,
       organizer_name: row.organizer_name ?? null,

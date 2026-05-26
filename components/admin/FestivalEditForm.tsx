@@ -734,11 +734,13 @@ export default function FestivalEditForm({
       }
     }
 
-    const city = form.city.trim();
+    const city = (form.city || "").trim();
     const venue = (form.location_name || "").trim();
+    const address = (form.address || "").trim();
+    const title = (form.title || "").trim();
     const existingPlaceId = (form.place_id || "").trim();
-    if (!venue && !existingPlaceId) {
-      toast.error("Попълнете място (локация) или place_id, за да търсите координати.");
+    if (!venue && !existingPlaceId && !address && !title && !city) {
+      toast.error("Попълнете поне място, адрес, заглавие или град, за да търсите координати.");
       return;
     }
 
@@ -750,7 +752,9 @@ export default function FestivalEditForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           location_name: venue || null,
+          address: address || null,
           city: city || null,
+          title: title || null,
           place_id: existingPlaceId || null,
         }),
       });
@@ -777,7 +781,8 @@ export default function FestivalEditForm({
         }
         updateField("coords_override", false);
         const coords = { lat: payload.lat, lng: payload.lng };
-        toast.success("Координатите са намерени");
+        const sourceHint = typeof payload.place_id === "string" && payload.place_id.trim() ? " (точен match)" : "";
+        toast.success(`Координатите са намерени${sourceHint}`);
         console.info("[coords] source=geocode", coords);
       } else if (mapsFailed) {
         toast.error("Не можахме да извлечем координати от линка");

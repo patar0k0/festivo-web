@@ -64,6 +64,54 @@ const CENTROIDS: Record<string, readonly [number, number]> = {
   chepelare: [41.7167, 24.6833],
   bansko: [41.8333, 23.4833],
   razlog: [41.8833, 23.4667],
+
+  // --- Extended: villages and smaller towns that appear as festival venues ---
+  // Ruse region
+  basarbovo: [43.974, 26.015],
+  nikolovo: [43.812, 25.986],
+  sandrovo: [43.883, 25.967],
+  // Pleven region
+  grivitsa: [43.368, 24.678],
+  mladen: [43.440, 24.583],
+  slavyanovo: [43.402, 24.882],
+  trudovets: [42.938, 23.817],
+  // Troyan / Balkan mountains
+  "cherni-osam": [42.830, 24.638],
+  // Varna / Black Sea north
+  devnya: [43.221, 27.566],
+  // Montana / Vidin region
+  "dolno-ozirovo": [43.167, 23.387],
+  grancharovo: [43.645, 27.484],
+  // Yambol region
+  elhovo: [42.166, 26.569],
+  // Plovdiv region
+  hisarya: [42.500, 24.700],
+  tsaratsovo: [42.091, 24.802],
+  // Gabrovo / VT region
+  tsarevets: [43.018, 25.687],
+  // Kazanlak region
+  kran: [42.565, 25.330],
+  // Kyustendil / Sofia region
+  kraynitsi: [42.168, 22.712],
+  // Black Sea south
+  kiten: [42.220, 27.782],
+  kozichino: [42.648, 27.726],
+  // Rila mountains resort
+  "k-k-malyovitsa": [42.178, 23.617],
+  // Shumen region
+  vetrintsi: [43.280, 26.870],
+  "zaychino-oreshe": [43.261, 26.885],
+  // Kardzhali / Rhodopes
+  pelevun: [41.725, 25.438],
+  // Smolyan region
+  "polkovnik-serafimovo": [41.622, 24.873],
+  smilyan: [41.575, 24.738],
+  // Zlatograd
+  zlatograd: [41.383, 25.100],
+  // Stara Zagora region
+  obedinenie: [42.383, 25.508],
+  // Plovdiv region (Parvomay)
+  parvomay: [42.101, 25.217],
 };
 
 /** Tiny deterministic offset so multiple festivals in one settlement separate on the map. */

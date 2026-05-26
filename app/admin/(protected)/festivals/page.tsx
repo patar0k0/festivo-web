@@ -58,6 +58,8 @@ export type AdminFestivalRow = {
   description: string | null;
   city: string | null;
   city_id: number | null;
+  lat?: number | null;
+  lng?: number | null;
   start_date: string | null;
   end_date: string | null;
   start_time?: string | null;

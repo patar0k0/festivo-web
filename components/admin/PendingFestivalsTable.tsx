@@ -30,6 +30,7 @@ const FIELD_LABELS: Record<string, string> = {
   end_date: "крайна дата",
   city: "град",
   city_id: "град",
+  coordinates: "координати",
   organizer_name: "организатор",
   hero_image: "снимка",
   description: "описание",

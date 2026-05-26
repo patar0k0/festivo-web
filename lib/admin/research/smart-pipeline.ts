@@ -142,13 +142,24 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   const aiOverviewText = enResult.ai_overview_text;
   const organic = bgResult.organic;
 
-  // Step 1.5: fetch full page content for top organic results (parallel, best-effort)
-  const fetchCandidates = organic.filter((r) => shouldFetchDomain(r.url)).slice(0, 3);
+  // Step 1.5: fetch full page content for top organic results (parallel, best-effort).
+  // We try up to 5 non-blocked candidates so that social-media-heavy result pages
+  // (where the first few organic hits are Facebook/Instagram/YouTube) still produce
+  // at least one fetchable document with an og:image candidate.
+  const fetchCandidates = organic.filter((r) => shouldFetchDomain(r.url)).slice(0, 5);
   const fetchedDocs = (
     await Promise.allSettled(fetchCandidates.map((r) => fetchSourceDocument(r.url)))
   )
     .map((res) => (res.status === "fulfilled" ? res.value : null))
     .filter((doc): doc is NonNullable<typeof doc> => doc !== null && doc.excerpt.length > 100);
+
+  // Diagnostic: log fetch outcomes so admins can diagnose missing images via the warnings panel.
+  const skippedCount = organic.length - fetchCandidates.length;
+  if (skippedCount > 0) {
+    warnings.push(`${skippedCount} органич. резултата пропуснати (социални мрежи / PDF). Опитани: ${fetchCandidates.length}, успешни: ${fetchedDocs.length}.`);
+  } else if (fetchCandidates.length > 0 && fetchedDocs.length === 0) {
+    warnings.push(`Опитани ${fetchCandidates.length} URL-а за og:image — всички неуспешни (timeout / заблокирани / non-HTML).`);
+  }
 
   // Step 2: quality check — Perplexity fallback when results are thin
   const bgDomainCount = organic.filter((r) => r.url.toLowerCase().includes(".bg")).length;

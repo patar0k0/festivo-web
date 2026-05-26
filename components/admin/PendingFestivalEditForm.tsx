@@ -1005,7 +1005,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
       }
     }
 
-    const city = form.city_id.trim();
+    const city = (form.city_name_display || form.city_id || "").trim();
     const venue = form.venue_name.trim();
     const existingPlaceId = form.place_id.trim();
     const title = form.title.trim();

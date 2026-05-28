@@ -8,6 +8,26 @@ import { programDraftFromGeminiProgram } from "@/lib/festival/programDraft";
 import type { ProgramDraft } from "@/lib/festival/programDraft";
 
 /**
+ * Конкурентни сайтове-агрегатори: пускаме fetch (защото og:image-ите им
+ * обикновено сочат към реалната корица — взети от FB), но **excerpt-ът** им
+ * НЕ влиза в Gemini evidence. Не искаме описанията / датите от платформите
+ * им да формират нашите фестивални полета.
+ */
+const TEXT_EVIDENCE_BLOCKLIST = new Set([
+  "eventibg.com",
+  "festivali.eu",
+]);
+
+function shouldUseDocForTextEvidence(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+    return !TEXT_EVIDENCE_BLOCKLIST.has(host);
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Домейни, от които е безсмислено да извличаме пълно съдържание.
  *
  * Facebook / Instagram умишлено НЕ са в списъка — голяма част от българските
@@ -239,12 +259,20 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   }
 
   const fetchedUrls = new Set(fetchedDocs.map((d) => d.url));
+  let skippedEvidenceCount = 0;
   for (const doc of fetchedDocs) {
+    if (!shouldUseDocForTextEvidence(doc.url)) {
+      skippedEvidenceCount += 1;
+      continue;
+    }
     evidenceParts.push(`=== ${doc.title} (${doc.url}) ===\n${doc.excerpt}`);
+  }
+  if (skippedEvidenceCount > 0) {
+    warnings.push(`${skippedEvidenceCount} конкурентни източника пропуснати от Gemini evidence (но снимките им остават).`);
   }
 
   for (const r of organic.slice(0, 6)) {
-    if (!fetchedUrls.has(r.url) && r.snippet) {
+    if (!fetchedUrls.has(r.url) && r.snippet && shouldUseDocForTextEvidence(r.url)) {
       evidenceParts.push(`=== ${r.title ?? r.url} (${r.url}) ===\n${r.snippet}`);
     }
   }

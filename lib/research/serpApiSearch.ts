@@ -116,17 +116,21 @@ function collectImageUrls(json: SerpApiRawResponse): string[] {
 
   if (Array.isArray(json.inline_images)) {
     for (const img of json.inline_images) {
-      // `original` is the full-size image hosted on the source site; prefer it
-      pushHttpUrl(high, seen, img.original);
-      pushHttpUrl(low, seen, img.thumbnail);
+      // Prefer `thumbnail` (Google's gstatic.com CDN — always loads in the browser
+      // because gstatic has no hotlink protection and serves with permissive CORS).
+      // `original` points to the source site, which typically blocks direct hotlinking
+      // with 403 even when the server-side rehost will succeed. We surface `original`
+      // too so server-side rehost can grab the full-resolution image when possible.
+      pushHttpUrl(high, seen, img.thumbnail);
+      pushHttpUrl(low, seen, img.original);
     }
   }
 
-  // engine=google_images shape
+  // engine=google_images shape — same reasoning
   if (Array.isArray(json.images_results)) {
     for (const img of json.images_results) {
-      pushHttpUrl(high, seen, img.original);
-      pushHttpUrl(low, seen, img.thumbnail);
+      pushHttpUrl(high, seen, img.thumbnail);
+      pushHttpUrl(low, seen, img.original);
     }
   }
 

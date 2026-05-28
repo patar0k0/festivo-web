@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 
 const markerIcon = new L.Icon({
@@ -26,9 +26,21 @@ export type MapPickerLeafletProps = {
   marker: { lat: number; lng: number } | null;
   onMapClick: (lat: number, lng: number) => void;
   onMarkerDragEnd: (lat: number, lng: number) => void;
+  /** When set, map flies to this position (zoom 14). Changes trigger a flyTo. */
+  flyTo?: { lat: number; lng: number } | null;
 };
 
-export default function MapPickerLeaflet({ center, zoom, marker, onMapClick, onMarkerDragEnd }: MapPickerLeafletProps) {
+/** Programmatically flies the map to `flyTo` whenever it changes. */
+function FlyToController({ flyTo }: { flyTo: { lat: number; lng: number } | null | undefined }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!flyTo) return;
+    map.flyTo([flyTo.lat, flyTo.lng], 14, { animate: true });
+  }, [flyTo, map]);
+  return null;
+}
+
+export default function MapPickerLeaflet({ center, zoom, marker, onMapClick, onMarkerDragEnd, flyTo }: MapPickerLeafletProps) {
   useEffect(() => {
     const defaultIcon = L.Icon.Default as typeof L.Icon.Default & { prototype: { _getIconUrl?: () => string } };
     delete defaultIcon.prototype._getIconUrl;
@@ -46,6 +58,7 @@ export default function MapPickerLeaflet({ center, zoom, marker, onMapClick, onM
         detectRetina
       />
       <MapClickLayer onClick={onMapClick} />
+      <FlyToController flyTo={flyTo} />
       {marker ? (
         <Marker
           position={[marker.lat, marker.lng]}

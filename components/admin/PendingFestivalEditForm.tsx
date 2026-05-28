@@ -1586,6 +1586,8 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
           initialLat={form.latitude ? Number(form.latitude) : null}
           initialLng={form.longitude ? Number(form.longitude) : null}
           onConfirm={onConfirmMapPicker}
+          locationName={form.location_name || null}
+          cityName={form.city_name_display || null}
         />
 
         <AdminFieldSection

@@ -7,16 +7,20 @@ export type ExtractedSourceDocument = {
   language: ResearchLanguageSignal;
   excerpt: string;
   /**
-   * Best-guess hero image URL discovered in the page HTML (og:image, twitter:image,
-   * link rel=image_src). May be a relative URL — caller should resolve against source URL.
-   * Null when the page advertises no image. Extracted deterministically here because the
-   * LLM never sees raw HTML; if we don't pluck it out manually the pipeline returns
-   * `hero_image: null` even when the page has a perfectly good poster.
+   * Ordered list of absolute image URLs discovered in the page HTML.
+   * Priority: og:image → og:image:secure_url → twitter:image → twitter:image:src →
+   * link rel=image_src → JSON-LD schema.org (Event.image / thumbnailUrl / contentUrl) →
+   * filtered <img src> fallback.
+   * `images[0]` is the best hero candidate; subsequent entries are gallery candidates.
+   * Extracted deterministically here because the LLM never sees raw HTML; if we don't
+   * pluck these out manually the pipeline returns `hero_image: null` even when the page
+   * has perfectly good posters.
    */
-  hero_image_candidate: string | null;
+  images: string[];
 };
 
 const MAX_TEXT_LENGTH = 5000;
+const MAX_IMAGES_PER_PAGE = 5;
 
 export function normalizeUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -50,7 +54,7 @@ export function decodeHtmlEntities(value: string): string {
 }
 
 function detectLanguage(text: string): ResearchLanguageSignal {
-  const cyrillic = (text.match(/[\u0400-\u04FF]/g) ?? []).length;
+  const cyrillic = (text.match(/[Ѐ-ӿ]/g) ?? []).length;
   const latin = (text.match(/[A-Za-z]/g) ?? []).length;
   if (cyrillic > 0 && cyrillic >= latin) return "bg";
   if (cyrillic > 0) return "mixed";
@@ -81,23 +85,28 @@ function extractTitleFromHtml(html: string): string | null {
 }
 
 /**
- * Extract the most reliable hero-image URL hint from a page's HTML.
+ * Resolve a possibly-relative image URL against the source page URL.
+ * Returns null when the input is invalid or scheme-incompatible (file:, data:, etc).
+ */
+export function resolveImageUrl(candidate: string | null, sourceUrl: string): string | null {
+  if (!candidate) return null;
+  try {
+    const resolved = new URL(candidate, sourceUrl);
+    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return null;
+    resolved.hash = "";
+    return resolved.toString();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extract the highest-priority hero-image URL hint from a page's HTML.
+ * Used by callers that only need a single best guess.
  *
- * Priority order:
- *   1. <meta property="og:image"> — explicit social preview, almost always the best choice
- *   2. <meta property="og:image:secure_url"> — fallback variant
- *   3. <meta name="twitter:image"> — Twitter card
- *   4. <link rel="image_src"> — old standard, still used by some sites
- *
- * We intentionally do NOT scrape arbitrary <img> tags — they're usually icons,
- * tracking pixels, sidebar ads, or thumbnails that aren't representative.
- *
- * Returns the URL string as-found (may be relative; caller resolves against
- * the source URL). Returns null when no candidate is present.
+ * Priority: og:image → og:image:secure_url → twitter:image → twitter:image:src → link rel=image_src.
  */
 export function extractHeroImageCandidateFromHtml(html: string): string | null {
-  // Matches all <meta …> and <link …> tags. We then probe each tag's
-  // attribute string for the relevant property/name + content/href value.
   const PROPERTY_PATTERNS: ReadonlyArray<{
     tag: "meta" | "link";
     keyAttr: "property" | "name" | "rel";
@@ -112,12 +121,10 @@ export function extractHeroImageCandidateFromHtml(html: string): string | null {
   ];
 
   for (const { tag, keyAttr, keyValue, contentAttr } of PROPERTY_PATTERNS) {
-    // Capture each tag's full attribute string lazily.
     const tagRegex = new RegExp(`<${tag}\\s+([^>]+?)\\s*/?>`, "gi");
     let match: RegExpExecArray | null;
     while ((match = tagRegex.exec(html)) !== null) {
-      const attrs = match[1];
-      // Quick key check before parsing content — both attributes order-agnostic.
+      const attrs = match[1] ?? "";
       const keyRegex = new RegExp(`${keyAttr}\\s*=\\s*["']\\s*${keyValue}\\s*["']`, "i");
       if (!keyRegex.test(attrs)) continue;
       const contentRegex = new RegExp(`${contentAttr}\\s*=\\s*["']([^"']+)["']`, "i");
@@ -132,19 +139,90 @@ export function extractHeroImageCandidateFromHtml(html: string): string | null {
   return null;
 }
 
+function looksLikeUiAsset(url: string): boolean {
+  const lower = url.toLowerCase();
+  if (lower.endsWith(".svg") || lower.endsWith(".ico")) return true;
+  return /(?:sprite|icon|logo|favicon|placeholder|spinner|loader|avatar|emoji|gif\/?\?|tracking|pixel\.)/i.test(lower);
+}
+
 /**
- * Resolve a possibly-relative image URL against the source page URL.
- * Returns null when the input is invalid or scheme-incompatible (file:, etc).
+ * Walks the HTML for all plausible image URLs in priority order:
+ *   1. og:image / og:image:secure_url / twitter:image / link rel=image_src (the hero)
+ *   2. JSON-LD schema.org Event.image / thumbnailUrl / contentUrl
+ *   3. Body <img src>/<img data-src> with size filters (skip < 200px decorative thumbs)
+ *
+ * Deduplicates by absolute URL, skips data:/svg/icon/favicon/tracker URLs,
+ * caps the result at MAX_IMAGES_PER_PAGE.
  */
-export function resolveImageUrl(candidate: string | null, sourceUrl: string): string | null {
-  if (!candidate) return null;
-  try {
-    const resolved = new URL(candidate, sourceUrl);
-    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return null;
-    return resolved.toString();
-  } catch {
-    return null;
+function extractImagesFromHtml(html: string, baseUrl: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  const push = (raw: string | null | undefined) => {
+    if (!raw) return;
+    if (out.length >= MAX_IMAGES_PER_PAGE) return;
+    const abs = resolveImageUrl(raw, baseUrl);
+    if (!abs) return;
+    if (looksLikeUiAsset(abs)) return;
+    if (seen.has(abs)) return;
+    seen.add(abs);
+    out.push(abs);
+  };
+
+  // 1) Highest-priority hero meta tags (in declared order)
+  push(extractHeroImageCandidateFromHtml(html));
+
+  // 2) JSON-LD schema.org image fields (Event, Article, ImageObject, etc.)
+  const ldBlocks = html.match(/<script[^>]+type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) ?? [];
+  for (const block of ldBlocks) {
+    if (out.length >= MAX_IMAGES_PER_PAGE) break;
+    const jsonText = block.replace(/^<script[^>]*>/i, "").replace(/<\/script>$/i, "");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      continue;
+    }
+    const queue: unknown[] = [parsed];
+    while (queue.length > 0 && out.length < MAX_IMAGES_PER_PAGE) {
+      const node = queue.shift();
+      if (!node) continue;
+      if (typeof node === "string") {
+        if (/^https?:\/\//i.test(node) && /\.(jpe?g|png|webp|avif)(\?|$)/i.test(node)) push(node);
+        continue;
+      }
+      if (Array.isArray(node)) {
+        for (const item of node) queue.push(item);
+        continue;
+      }
+      if (typeof node === "object") {
+        const obj = node as Record<string, unknown>;
+        if ("image" in obj) queue.push(obj.image);
+        if ("url" in obj && typeof obj.url === "string" && /\.(jpe?g|png|webp|avif)(\?|$)/i.test(obj.url)) push(obj.url);
+        if ("thumbnailUrl" in obj) queue.push(obj.thumbnailUrl);
+        if ("contentUrl" in obj) queue.push(obj.contentUrl);
+      }
+    }
   }
+
+  // 3) Body <img src> fallback (filtered)
+  if (out.length < MAX_IMAGES_PER_PAGE) {
+    const imgTags = html.match(/<img\b[^>]+>/gi) ?? [];
+    for (const tag of imgTags) {
+      if (out.length >= MAX_IMAGES_PER_PAGE) break;
+      const src =
+        tag.match(/\bsrc\s*=\s*["']([^"']+)["']/i)?.[1] ??
+        tag.match(/\bdata-src\s*=\s*["']([^"']+)["']/i)?.[1] ??
+        null;
+      if (!src) continue;
+      const widthAttr = Number(tag.match(/\bwidth\s*=\s*["']?(\d+)/i)?.[1] ?? "0");
+      const heightAttr = Number(tag.match(/\bheight\s*=\s*["']?(\d+)/i)?.[1] ?? "0");
+      if ((widthAttr > 0 && widthAttr < 200) || (heightAttr > 0 && heightAttr < 200)) continue;
+      push(src);
+    }
+  }
+
+  return out;
 }
 
 export async function fetchSourceDocument(url: string): Promise<ExtractedSourceDocument | null> {
@@ -169,11 +247,9 @@ export async function fetchSourceDocument(url: string): Promise<ExtractedSourceD
   const excerpt = cleanTextFromHtml(html);
   if (!excerpt) return null;
 
-  // Hero image must be extracted BEFORE cleanTextFromHtml strips all tags.
-  // We resolve against the source URL so relative paths ("/uploads/poster.jpg")
-  // become absolute and re-hostable by `rehostHeroImageFromUrl`.
-  const heroCandidateRaw = extractHeroImageCandidateFromHtml(html);
-  const hero_image_candidate = resolveImageUrl(heroCandidateRaw, normalizedUrl);
+  // Images must be extracted BEFORE cleanTextFromHtml strips all tags (already done above
+  // — `html` retained for both passes).
+  const images = extractImagesFromHtml(html, normalizedUrl);
 
   return {
     url: normalizedUrl,
@@ -181,6 +257,6 @@ export async function fetchSourceDocument(url: string): Promise<ExtractedSourceD
     title: extractTitleFromHtml(html) ?? extractDomain(normalizedUrl),
     language: detectLanguage(excerpt),
     excerpt,
-    hero_image_candidate,
+    images,
   };
 }

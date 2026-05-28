@@ -281,6 +281,9 @@ export default function SmartResearchPanel() {
         instagram_url: fields.instagram_url,
         ticket_url: fields.ticket_url,
         hero_image: selectedHeroImage,
+        gallery_image_urls: fields.hero_image_candidates.filter(
+          (u) => u !== selectedHeroImage && !failedImages.has(u),
+        ),
         is_free: fields.is_free,
         program_draft: fields.program_draft,
         source_urls: sources.filter((s) => !s.is_ai_overview).map((s) => s.url),

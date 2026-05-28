@@ -234,6 +234,23 @@ export async function buildResearchPendingRowFromRequest(
       return { ok: false, error: `Hero image: ${heroResolved.error}`, status: 422 };
     }
 
+    const galleryUrlsAi: string[] = (() => {
+      const raw = (ai as { gallery_image_urls?: unknown }).gallery_image_urls;
+      if (!Array.isArray(raw)) return [];
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const item of raw) {
+        const sanitized = sanitizeNullableString(item);
+        if (!sanitized) continue;
+        if (!/^https?:\/\//i.test(sanitized)) continue;
+        if (seen.has(sanitized)) continue;
+        seen.add(sanitized);
+        out.push(sanitized);
+        if (out.length >= 3) break;
+      }
+      return out;
+    })();
+
     const orgEntriesAi = buildOrganizerEntriesFromAi(ai);
     const aiTimes = normalizeFestivalTimePair(
       parseHmInputToDbTime((ai as { start_time?: unknown }).start_time),
@@ -329,6 +346,7 @@ export async function buildResearchPendingRowFromRequest(
       instagram_url: sanitizeNullableString(ai.instagram_url),
       ticket_url: sanitizeNullableString(ai.ticket_url),
       ...heroResolved.patch,
+      gallery_image_urls: galleryUrlsAi,
       is_free: isFreeAi,
       tags: Array.isArray((ai as unknown as { tags?: unknown }).tags)
         ? ((ai as unknown as { tags: unknown[] }).tags).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)

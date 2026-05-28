@@ -58,9 +58,17 @@ export type SmartResearchFields = {
   instagram_url: string | null;
   ticket_url: string | null;
   hero_image: string | null;
+  /**
+   * Up to 3 deduplicated image URL candidates extracted from the fetched source
+   * documents (og:image first, then twitter/JSON-LD/<img> fallbacks). The admin
+   * picks one as the hero in the UI; the rest are sent as `gallery_image_urls`
+   * to the pending row.
+   */
   hero_image_candidates: string[];
   program_draft: ProgramDraft | null;
 };
+
+const MAX_IMAGE_CANDIDATES = 3;
 
 export type SmartResearchResult = {
   fields: SmartResearchFields;
@@ -94,36 +102,36 @@ function confidenceLevel(fields: SmartResearchFields, sourcesCount: number): "hi
 }
 
 /**
- * Returns up to `max` non-null og:image candidates from a list of fetched
- * source documents, deduplicated by URL. Ordering reflects SerpAPI's organic
- * ranking so the top result's social preview comes first.
+ * Flattens images from each fetched doc (preserving SerpAPI organic ranking →
+ * within-doc priority) and returns up to `max` unique candidates that look like
+ * real images (have an image extension OR pass through an image-CDN path).
  *
- * Skips obvious non-image URLs (no extension OR wrong extension) since some
- * sites declare an og:image that points to an HTML "share" endpoint.
+ * The first candidate from the top-ranked doc is always kept as a last-resort
+ * pick even if it doesn't match the strict filter — `rehostHeroImageFromUrl`
+ * validates content-type when it downloads anyway.
  */
-function pickTopHeroCandidates(
-  docs: ReadonlyArray<{ hero_image_candidate: string | null }>,
-  max = 3,
+function pickTopImageCandidates(
+  docs: ReadonlyArray<{ images: string[] }>,
+  max = MAX_IMAGE_CANDIDATES,
 ): string[] {
   const seen = new Set<string>();
   const results: string[] = [];
+
   for (const doc of docs) {
     if (results.length >= max) break;
-    const candidate = doc.hero_image_candidate;
-    if (!candidate || seen.has(candidate)) continue;
-    seen.add(candidate);
-    // Filter out clearly non-image URLs. Real images either have a recognised
-    // extension OR pass through a known image CDN path (cloudinary, supabase
-    // storage, fbcdn, etc.). We're lenient — `rehostHeroImageFromUrl` validates
-    // content-type when it downloads.
-    if (
-      /\.(jpe?g|png|webp|gif|avif)(\?|$|#)/i.test(candidate) ||
-      /\/(image|img|photo|media|upload|cdn)\b/i.test(candidate) ||
-      results.length === 0 // last-resort: include at least one candidate
-    ) {
-      results.push(candidate);
+    for (const candidate of doc.images) {
+      if (results.length >= max) break;
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
+      const looksLikeImage =
+        /\.(jpe?g|png|webp|gif|avif)(\?|$|#)/i.test(candidate) ||
+        /\/(image|img|photo|media|upload|cdn)\b/i.test(candidate);
+      if (looksLikeImage || results.length === 0) {
+        results.push(candidate);
+      }
     }
   }
+
   return results;
 }
 
@@ -143,9 +151,9 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   const organic = bgResult.organic;
 
   // Step 1.5: fetch full page content for top organic results (parallel, best-effort).
-  // We try up to 5 non-blocked candidates so that social-media-heavy result pages
+  // Up to 5 non-blocked candidates so that social-media-heavy result pages
   // (where the first few organic hits are Facebook/Instagram/YouTube) still produce
-  // at least one fetchable document with an og:image candidate.
+  // at least one fetchable document with image candidates.
   const fetchCandidates = organic.filter((r) => shouldFetchDomain(r.url)).slice(0, 5);
   const fetchedDocs = (
     await Promise.allSettled(fetchCandidates.map((r) => fetchSourceDocument(r.url)))
@@ -153,12 +161,12 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
     .map((res) => (res.status === "fulfilled" ? res.value : null))
     .filter((doc): doc is NonNullable<typeof doc> => doc !== null && doc.excerpt.length > 100);
 
-  // Diagnostic: log fetch outcomes so admins can diagnose missing images via the warnings panel.
+  // Diagnostic warnings so admins can troubleshoot missing images via the panel.
   const skippedCount = organic.length - fetchCandidates.length;
   if (skippedCount > 0) {
     warnings.push(`${skippedCount} органич. резултата пропуснати (социални мрежи / PDF). Опитани: ${fetchCandidates.length}, успешни: ${fetchedDocs.length}.`);
   } else if (fetchCandidates.length > 0 && fetchedDocs.length === 0) {
-    warnings.push(`Опитани ${fetchCandidates.length} URL-а за og:image — всички неуспешни (timeout / заблокирани / non-HTML).`);
+    warnings.push(`Опитани ${fetchCandidates.length} URL-а — всички неуспешни (timeout / заблокирани / non-HTML).`);
   }
 
   // Step 2: quality check — Perplexity fallback when results are thin
@@ -188,19 +196,16 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   }
 
   // Step 3: build combined evidence for Gemini
-  // Priority: AI Overview → full page text (up to 5 000 chars each) → remaining snippets → Perplexity
   const evidenceParts: string[] = [];
   if (aiOverviewText) {
     evidenceParts.push(`=== Google AI Overview ===\n${aiOverviewText}`);
   }
 
-  // Full page content for fetched docs (much richer than snippets)
   const fetchedUrls = new Set(fetchedDocs.map((d) => d.url));
   for (const doc of fetchedDocs) {
     evidenceParts.push(`=== ${doc.title} (${doc.url}) ===\n${doc.excerpt}`);
   }
 
-  // Fallback snippets for organic results that weren't fetched
   for (const r of organic.slice(0, 6)) {
     if (!fetchedUrls.has(r.url) && r.snippet) {
       evidenceParts.push(`=== ${r.title ?? r.url} (${r.url}) ===\n${r.snippet}`);
@@ -253,7 +258,10 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
     });
   }
 
-  // Step 6: assemble result
+  // Step 6: assemble result. Gemini almost always returns null for hero_image
+  // because cleanTextFromHtml strips <meta og:image>/<img> tags before the model
+  // sees the evidence. We rely on the deterministic per-doc extraction.
+  const candidates = pickTopImageCandidates(fetchedDocs, MAX_IMAGE_CANDIDATES);
   const fields: SmartResearchFields = {
     title: str(extraction?.title),
     start_date: str(extraction?.start_date),
@@ -276,12 +284,8 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
     facebook_url: str(extraction?.facebook_url),
     instagram_url: str(extraction?.instagram_url),
     ticket_url: str(extraction?.ticket_url),
-    // LLM almost always returns null for hero_image because excerpt-cleaning
-    // strips <meta og:image> + <img> tags before the model sees the evidence.
-    // Fall back to the deterministically-extracted og:images from the fetched
-    // source documents (up to 3). The admin form lets the moderator pick one.
-    hero_image_candidates: pickTopHeroCandidates(fetchedDocs, 3),
-    hero_image: str(extraction?.hero_image) ?? pickTopHeroCandidates(fetchedDocs, 1)[0] ?? null,
+    hero_image_candidates: candidates,
+    hero_image: str(extraction?.hero_image) ?? candidates[0] ?? null,
     program_draft: extraction?.program ? programDraftFromGeminiProgram(extraction.program) : null,
   };
 

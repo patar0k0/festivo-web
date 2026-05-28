@@ -47,6 +47,34 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Festival not found." }, { status: 404 });
     }
 
+    // Ensure the hero URL has a festival_media row so it appears in the gallery grid.
+    const { data: existingMedia } = await supabaseAdmin
+      .from("festival_media")
+      .select("id")
+      .eq("festival_id", id)
+      .eq("url", publicUrl)
+      .maybeSingle();
+
+    if (!existingMedia) {
+      const { data: maxOrderRow } = await supabaseAdmin
+        .from("festival_media")
+        .select("sort_order")
+        .eq("festival_id", id)
+        .order("sort_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const nextOrder = typeof maxOrderRow?.sort_order === "number" ? maxOrderRow.sort_order + 1 : 0;
+
+      await supabaseAdmin.from("festival_media").insert({
+        festival_id: id,
+        url: publicUrl,
+        type: "image",
+        sort_order: nextOrder,
+        is_hero: false,
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       hero_image: updatedRow.hero_image,

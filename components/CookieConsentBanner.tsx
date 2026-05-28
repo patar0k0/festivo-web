@@ -115,10 +115,10 @@ function ConsentSwitchRow({ id, label, description, checked, onChange, locked }:
         <p className="text-sm font-semibold text-[#0c0e14]" id={`${id}-label`}>
           {label}
           {locked ? (
-            <span className="ml-1.5 text-xs font-medium normal-case text-amber-900/55">(винаги активни)</span>
+            <span className="ml-1.5 text-xs font-medium normal-case text-amber-900/80">(винаги активни)</span>
           ) : null}
         </p>
-        {description ? <p className="mt-0.5 text-xs text-amber-900/65">{description}</p> : null}
+        {description ? <p className="mt-0.5 text-xs text-amber-900">{description}</p> : null}
       </div>
       <button
         type="button"
@@ -322,7 +322,7 @@ export default function CookieConsentBanner() {
             <button
               type="button"
               onClick={onEssentialOnly}
-              className="inline-flex min-h-[2.5rem] items-center justify-center rounded-xl px-4 text-sm font-semibold text-amber-950/55 transition hover:bg-amber-100/35 hover:text-amber-950/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/25"
+              className="inline-flex min-h-[2.5rem] items-center justify-center rounded-xl px-4 text-sm font-semibold text-amber-950/80 transition hover:bg-amber-100/35 hover:text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/25"
             >
               Само задължителни
             </button>

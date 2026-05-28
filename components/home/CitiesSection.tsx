@@ -5,11 +5,11 @@ import { cityHref } from "@/lib/cities";
 import type { HomeCityOption } from "@/lib/home/loadHomePageData";
 
 export default function CitiesSection({ cities }: { cities: HomeCityOption[] }) {
-  const top = cities.slice(0, 8);
+  const top = cities.slice(0, 10);
 
   return (
     <section id="home-cities" className={cn(pub.panelMuted, "p-5 md:p-6")}>
-      <h2 className={cn(pub.pageTitle, "text-2xl")}>Градове</h2>
+      <h2 className={cn(pub.pageTitle, "text-2xl")}>Места</h2>
       <div className="mt-4 flex flex-wrap gap-2">
         {top.length ? (
           top.map((city) => (
@@ -25,7 +25,7 @@ export default function CitiesSection({ cities }: { cities: HomeCityOption[] }) 
             </Link>
           ))
         ) : (
-          <p className="text-sm text-black/60">Все още няма налични градове.</p>
+          <p className="text-sm text-black/60">Все още няма налични места.</p>
         )}
       </div>
     </section>

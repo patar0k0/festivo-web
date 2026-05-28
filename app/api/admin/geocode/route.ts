@@ -6,8 +6,12 @@ import { resolveEventCoordinates } from "@/lib/location/resolveEventCoordinates"
 
 type GeocodeBody = {
   location_name?: unknown;
+  /** Physical address string — used as geocoding query when location_name is empty */
+  address?: unknown;
   city?: unknown;
   place_id?: unknown;
+  /** Festival title — used as fallback location query when location_name is empty */
+  title?: unknown;
   coords_override?: unknown;
   existing_lat?: unknown;
   existing_lng?: unknown;
@@ -63,15 +67,24 @@ export async function POST(request: Request) {
 
   const body = (await request.json().catch(() => null)) as GeocodeBody | null;
   const locationName = normalizeBgLocation(asOptionalString(body?.location_name));
+  const address = asOptionalString(body?.address);
   const city = normalizeBgLocation(asOptionalString(body?.city));
+  const title = asOptionalString(body?.title);
   const placeId = asOptionalString(body?.place_id);
   const coordsOverride = body?.coords_override === true;
   const existingLat = asFiniteNumber(body?.existing_lat);
   const existingLng = asFiniteNumber(body?.existing_lng);
 
+  // venue name = location_name field; when empty fall back to title+city as venue query
+  const effectiveVenueName =
+    locationName ||
+    (title && city ? `${title}, ${city}` : title) ||
+    null;
+
   const resolved = await resolveEventCoordinates({
     placeId,
-    locationName,
+    locationName: effectiveVenueName,
+    address: address,          // physical address passed separately for smart query chaining
     cityName: city,
     coordsOverride: coordsOverride && existingLat !== null && existingLng !== null,
     existingLat,
@@ -85,5 +98,6 @@ export async function POST(request: Request) {
     place_id: resolved?.placeId ?? null,
     provider: resolved?.provider ?? null,
     coords_source: resolved?.source ?? null,
+    query_used: resolved?.queryUsed ?? null,
   });
 }

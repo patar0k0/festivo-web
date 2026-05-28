@@ -157,6 +157,8 @@ export default function SmartResearchPanel() {
   const [error, setError] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [sendStatus, setSendStatus] = useState("");
+  const [selectedHeroImage, setSelectedHeroImage] = useState<string | null>(null);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const updateStep = (id: string, patch: Partial<PipelineStep>) =>
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -168,6 +170,7 @@ export default function SmartResearchPanel() {
     setSendStatus("");
     setIsDone(false);
     setSteps(INITIAL_STEPS);
+    setFailedImages(new Set());
     setIsLoading(true);
 
     // Step 1: Google running immediately
@@ -225,11 +228,14 @@ export default function SmartResearchPanel() {
           id: "gemini",
           label: "Gemini extraction",
           status: used.includes("gemini") ? "done" : warns.some((w) => w.toLowerCase().includes("gemini")) ? "error" : "skipped",
-          detail: used.includes("gemini") ? `увереност: ${r.confidence}` : warns.find((w) => w.toLowerCase().includes("gemini"))?.slice(0, 60),
+          detail: used.includes("gemini")
+            ? [r.gemini_model, `увереност: ${r.confidence}`].filter(Boolean).join(" · ")
+            : warns.find((w) => w.toLowerCase().includes("gemini"))?.slice(0, 80),
         },
       ]);
 
       setResult(r);
+      setSelectedHeroImage(r.fields.hero_image_candidates[0] ?? r.fields.hero_image ?? null);
       setIsDone(true);
     } catch (e) {
       clearTimeout(perplexityTimer);
@@ -263,6 +269,8 @@ export default function SmartResearchPanel() {
         tags: fields.tags,
         start_date: fields.start_date,
         end_date: fields.end_date,
+        start_time: fields.start_time,
+        end_time: fields.end_time,
         city: fields.city,
         location_name: fields.location_name,
         address: fields.address,
@@ -272,8 +280,10 @@ export default function SmartResearchPanel() {
         facebook_url: fields.facebook_url,
         instagram_url: fields.instagram_url,
         ticket_url: fields.ticket_url,
-        hero_image: fields.hero_image,
-        gallery_image_urls: fields.gallery_image_urls,
+        hero_image: selectedHeroImage,
+        gallery_image_urls: fields.hero_image_candidates.filter(
+          (u) => u !== selectedHeroImage && !failedImages.has(u),
+        ),
         is_free: fields.is_free,
         program_draft: fields.program_draft,
         source_urls: sources.filter((s) => !s.is_ai_overview).map((s) => s.url),
@@ -368,48 +378,50 @@ export default function SmartResearchPanel() {
               </div>
             )}
 
-            {/* Images */}
-            {(() => {
-              const imgs = [
-                ...(result.fields.hero_image ? [result.fields.hero_image] : []),
-                ...result.fields.gallery_image_urls,
-              ];
-              if (imgs.length === 0) return null;
-              return (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium uppercase tracking-wide text-black/35">
-                    Снимки ({imgs.length})
-                  </p>
-                  <div className="flex gap-2">
-                    {imgs.map((src, i) => (
-                      <a
-                        key={src}
-                        href={src}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group relative block size-20 overflow-hidden rounded-lg border border-black/[0.08] bg-black/[0.03]"
+            {/* Hero image candidates — hidden when all images fail to load */}
+            {result.fields.hero_image_candidates.length > 0 &&
+              result.fields.hero_image_candidates.some((u) => !failedImages.has(u)) && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-black/35">
+                  Снимки {result.fields.hero_image_candidates.length > 1 ? "(избери главна)" : ""}
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {result.fields.hero_image_candidates.map((url) => {
+                    const isSelected = selectedHeroImage === url;
+                    const hasFailed = failedImages.has(url);
+                    if (hasFailed) return null;
+                    return (
+                      <button
+                        key={url}
+                        type="button"
+                        onClick={() => setSelectedHeroImage(isSelected ? null : url)}
+                        className={`relative overflow-hidden rounded-lg border-2 transition ${
+                          isSelected
+                            ? "border-[#ff4c1f] ring-2 ring-[#ff4c1f]/30"
+                            : "border-black/[0.1] hover:border-black/30"
+                        }`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={src}
-                          alt={`Снимка ${i + 1}`}
-                          className="size-full object-cover transition group-hover:scale-105"
-                          loading="lazy"
-                          onError={(e) => {
-                            (e.currentTarget.parentElement as HTMLElement).style.display = "none";
+                          src={url}
+                          alt=""
+                          className="aspect-video w-full object-cover"
+                          onError={() => {
+                            setFailedImages((prev) => new Set(prev).add(url));
+                            if (selectedHeroImage === url) setSelectedHeroImage(null);
                           }}
                         />
-                        {i === 0 && (
-                          <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-medium uppercase text-white">
-                            hero
+                        {isSelected && (
+                          <span className="absolute bottom-1 right-1 rounded-md bg-[#ff4c1f] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                            Главна
                           </span>
                         )}
-                      </a>
-                    ))}
-                  </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              );
-            })()}
+              </div>
+            )}
 
             {/* Links */}
             {(result.fields.website_url || result.fields.facebook_url || result.fields.instagram_url || result.fields.ticket_url) && (

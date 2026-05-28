@@ -13,13 +13,20 @@ import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 type MapResultsListProps = {
   festivals: Festival[];
   selectedFestivalId?: string | number | null;
+  /** Currently hovered card id — used for the selection ring sync. */
+  hoveredFestivalId?: string | number | null;
   onSelectFestival?: (festival: Festival) => void;
+  /** Called on card mouseenter/leave so the map can highlight the matching
+   *  pin. Leave the value null on leave. */
+  onHoverFestival?: (id: string | number | null) => void;
 };
 
 export default function MapResultsList({
   festivals,
   selectedFestivalId,
+  hoveredFestivalId,
   onSelectFestival,
+  onHoverFestival,
 }: MapResultsListProps) {
   const itemsRef = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -45,6 +52,7 @@ export default function MapResultsList({
       {festivals.map((festival, index) => {
         const key = String(festival.id);
         const selected = selectedKey === key;
+        const hovered = hoveredFestivalId != null && String(hoveredFestivalId) === key;
         return (
           <div
             key={festival.slug}
@@ -52,7 +60,17 @@ export default function MapResultsList({
               itemsRef.current[key] = node;
             }}
             onClick={() => onSelectFestival?.(festival)}
-            className={cn("cursor-pointer rounded-2xl transition", selected && pub.selectionRing)}
+            onMouseEnter={() => onHoverFestival?.(festival.id)}
+            onMouseLeave={() => onHoverFestival?.(null)}
+            onFocus={() => onHoverFestival?.(festival.id)}
+            onBlur={() => onHoverFestival?.(null)}
+            className={cn(
+              "cursor-pointer rounded-2xl transition",
+              selected && pub.selectionRing,
+              // Subtle outline for hover state — same as Airbnb's card↔pin pairing.
+              // Doesn't compete with the stronger selection ring.
+              !selected && hovered && "ring-2 ring-[#7c2d12]/30",
+            )}
           >
             <EventCard
               // Първият festival в списъка е above-the-fold на /map → LCP candidate.

@@ -58,11 +58,17 @@ export type SmartResearchFields = {
   instagram_url: string | null;
   ticket_url: string | null;
   hero_image: string | null;
-  gallery_image_urls: string[];
+  /**
+   * Up to 3 deduplicated image URL candidates extracted from the fetched source
+   * documents (og:image first, then twitter/JSON-LD/<img> fallbacks). The admin
+   * picks one as the hero in the UI; the rest are sent as `gallery_image_urls`
+   * to the pending row.
+   */
+  hero_image_candidates: string[];
   program_draft: ProgramDraft | null;
 };
 
-const MAX_IMAGES = 3;
+const MAX_IMAGE_CANDIDATES = 3;
 
 export type SmartResearchResult = {
   fields: SmartResearchFields;
@@ -70,6 +76,8 @@ export type SmartResearchResult = {
   confidence: "high" | "medium" | "low";
   providers_used: string[];
   warnings: string[];
+  /** Actual Gemini model ID used for extraction (e.g. "gemini-2.5-flash" or "gemini-2.0-flash" on fallback). */
+  gemini_model: string | null;
 };
 
 function str(v: unknown): string | null {
@@ -93,6 +101,40 @@ function confidenceLevel(fields: SmartResearchFields, sourcesCount: number): "hi
   return "low";
 }
 
+/**
+ * Flattens images from each fetched doc (preserving SerpAPI organic ranking →
+ * within-doc priority) and returns up to `max` unique candidates that look like
+ * real images (have an image extension OR pass through an image-CDN path).
+ *
+ * The first candidate from the top-ranked doc is always kept as a last-resort
+ * pick even if it doesn't match the strict filter — `rehostHeroImageFromUrl`
+ * validates content-type when it downloads anyway.
+ */
+function pickTopImageCandidates(
+  docs: ReadonlyArray<{ images: string[] }>,
+  max = MAX_IMAGE_CANDIDATES,
+): string[] {
+  const seen = new Set<string>();
+  const results: string[] = [];
+
+  for (const doc of docs) {
+    if (results.length >= max) break;
+    for (const candidate of doc.images) {
+      if (results.length >= max) break;
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
+      const looksLikeImage =
+        /\.(jpe?g|png|webp|gif|avif)(\?|$|#)/i.test(candidate) ||
+        /\/(image|img|photo|media|upload|cdn)\b/i.test(candidate);
+      if (looksLikeImage || results.length === 0) {
+        results.push(candidate);
+      }
+    }
+  }
+
+  return results;
+}
+
 export async function runSmartResearchPipeline(query: string): Promise<SmartResearchResult> {
   if (!isGeminiConfigured()) throw new Error("GEMINI_API_KEY is not configured");
 
@@ -108,13 +150,24 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   const aiOverviewText = enResult.ai_overview_text;
   const organic = bgResult.organic;
 
-  // Step 1.5: fetch full page content for top organic results (parallel, best-effort)
-  const fetchCandidates = organic.filter((r) => shouldFetchDomain(r.url)).slice(0, 3);
+  // Step 1.5: fetch full page content for top organic results (parallel, best-effort).
+  // Up to 5 non-blocked candidates so that social-media-heavy result pages
+  // (where the first few organic hits are Facebook/Instagram/YouTube) still produce
+  // at least one fetchable document with image candidates.
+  const fetchCandidates = organic.filter((r) => shouldFetchDomain(r.url)).slice(0, 5);
   const fetchedDocs = (
     await Promise.allSettled(fetchCandidates.map((r) => fetchSourceDocument(r.url)))
   )
     .map((res) => (res.status === "fulfilled" ? res.value : null))
     .filter((doc): doc is NonNullable<typeof doc> => doc !== null && doc.excerpt.length > 100);
+
+  // Diagnostic warnings so admins can troubleshoot missing images via the panel.
+  const skippedCount = organic.length - fetchCandidates.length;
+  if (skippedCount > 0) {
+    warnings.push(`${skippedCount} органич. резултата пропуснати (социални мрежи / PDF). Опитани: ${fetchCandidates.length}, успешни: ${fetchedDocs.length}.`);
+  } else if (fetchCandidates.length > 0 && fetchedDocs.length === 0) {
+    warnings.push(`Опитани ${fetchCandidates.length} URL-а — всички неуспешни (timeout / заблокирани / non-HTML).`);
+  }
 
   // Step 2: quality check — Perplexity fallback when results are thin
   const bgDomainCount = organic.filter((r) => r.url.toLowerCase().includes(".bg")).length;
@@ -143,19 +196,16 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   }
 
   // Step 3: build combined evidence for Gemini
-  // Priority: AI Overview → full page text (up to 5 000 chars each) → remaining snippets → Perplexity
   const evidenceParts: string[] = [];
   if (aiOverviewText) {
     evidenceParts.push(`=== Google AI Overview ===\n${aiOverviewText}`);
   }
 
-  // Full page content for fetched docs (much richer than snippets)
   const fetchedUrls = new Set(fetchedDocs.map((d) => d.url));
   for (const doc of fetchedDocs) {
     evidenceParts.push(`=== ${doc.title} (${doc.url}) ===\n${doc.excerpt}`);
   }
 
-  // Fallback snippets for organic results that weren't fetched
   for (const r of organic.slice(0, 6)) {
     if (!fetchedUrls.has(r.url) && r.snippet) {
       evidenceParts.push(`=== ${r.title ?? r.url} (${r.url}) ===\n${r.snippet}`);
@@ -169,6 +219,7 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
 
   // Step 4: single Gemini extraction call
   let extraction = null;
+  let geminiModelUsed: string | null = null;
   if (combinedEvidence.trim()) {
     try {
       extraction = await extractFestivalFieldsFromEvidence({
@@ -176,6 +227,7 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
         sourceUrl: "combined-smart-research",
         pageTitle: query,
         excerpt: combinedEvidence,
+        onModelUsed: (m) => { geminiModelUsed = m; },
       });
       providers_used.push("gemini");
     } catch (e) {
@@ -206,7 +258,10 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
     });
   }
 
-  // Step 6: assemble result
+  // Step 6: assemble result. Gemini almost always returns null for hero_image
+  // because cleanTextFromHtml strips <meta og:image>/<img> tags before the model
+  // sees the evidence. We rely on the deterministic per-doc extraction.
+  const candidates = pickTopImageCandidates(fetchedDocs, MAX_IMAGE_CANDIDATES);
   const fields: SmartResearchFields = {
     title: str(extraction?.title),
     start_date: str(extraction?.start_date),
@@ -229,33 +284,10 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
     facebook_url: str(extraction?.facebook_url),
     instagram_url: str(extraction?.instagram_url),
     ticket_url: str(extraction?.ticket_url),
-    hero_image: str(extraction?.hero_image),
-    gallery_image_urls: [],
+    hero_image_candidates: candidates,
+    hero_image: str(extraction?.hero_image) ?? candidates[0] ?? null,
     program_draft: extraction?.program ? programDraftFromGeminiProgram(extraction.program) : null,
   };
-
-  // Step 6.5: merge images discovered in fetched HTML pages (og:image / JSON-LD / <img>)
-  // Priority: any image Gemini surfaced → images extracted from page HTML, in fetched order.
-  // Cap total at MAX_IMAGES; first becomes hero_image (if missing), the rest go to gallery.
-  const allImages: string[] = [];
-  const pushImage = (raw: string | null) => {
-    if (!raw) return;
-    if (allImages.length >= MAX_IMAGES) return;
-    if (allImages.includes(raw)) return;
-    allImages.push(raw);
-  };
-  pushImage(fields.hero_image);
-  for (const doc of fetchedDocs) {
-    for (const img of doc.images) {
-      pushImage(img);
-      if (allImages.length >= MAX_IMAGES) break;
-    }
-    if (allImages.length >= MAX_IMAGES) break;
-  }
-  if (!fields.hero_image && allImages.length > 0) {
-    fields.hero_image = allImages[0]!;
-  }
-  fields.gallery_image_urls = allImages.filter((u) => u !== fields.hero_image).slice(0, MAX_IMAGES - 1);
 
   return {
     fields,
@@ -263,5 +295,6 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
     confidence: confidenceLevel(fields, sources.length),
     providers_used,
     warnings,
+    gemini_model: geminiModelUsed,
   };
 }

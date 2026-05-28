@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { normalizeFestivalTimePair, parseHmInputToDbTime } from "@/lib/festival/festivalTimeFields";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
+import {
+  parseProgramDraftUnknown,
+  programDraftHasContent,
+  programDraftToPublishPayload,
+} from "@/lib/festival/programDraft";
 import { enqueueOrganizerPortalSubmissionEmails } from "@/lib/organizer/enqueuePendingFestivalSubmissionEmails";
 import { getPortalAdminClient, getPortalSessionUser, hasActiveOrganizerMembership } from "@/lib/organizer/portal";
 import { slugify } from "@/lib/utils";
@@ -26,9 +31,30 @@ type Body = {
   category?: string | null;
   tags?: string[] | string;
   hero_image?: string | null;
+  /** YouTube/Facebook URL — not a file upload. */
+  video_url?: string | null;
+  /** Array of hosted image URLs. */
+  gallery_image_urls?: unknown;
+  /** Optional schedule (days + program items) — shape from `lib/festival/programDraft`. */
+  program_draft?: unknown;
   /** When `"draft"`, creates a persisted preview row without moderation emails. */
   status?: string;
 };
+
+function normalizeGalleryUrls(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const trimmed = item.trim();
+    if (!trimmed) continue;
+    if (!/^https?:\/\//i.test(trimmed)) continue;
+    if (trimmed.length > 2000) continue;
+    out.push(trimmed);
+    if (out.length >= 24) break; // hard cap to avoid bloated payloads
+  }
+  return out;
+}
 
 function optionalTrimmedUrl(value: unknown): string | null {
   if (value === null || value === undefined) return null;
@@ -110,6 +136,18 @@ export async function POST(request: Request) {
   const wantsDraft = body.status === "draft";
   const recordStatus = wantsDraft ? ("draft" as const) : ("pending" as const);
 
+  // Optional program draft (days + items). Reject malformed; accept empty silently.
+  let programDraftForInsert: unknown = null;
+  if (body.program_draft !== undefined && body.program_draft !== null) {
+    const parsed = parseProgramDraftUnknown(body.program_draft);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: `Програма: ${parsed.error}` }, { status: 400 });
+    }
+    if (programDraftHasContent(parsed.value)) {
+      programDraftForInsert = programDraftToPublishPayload(parsed.value);
+    }
+  }
+
   const pendingPayload = {
     title,
     slug: null as string | null,
@@ -131,10 +169,17 @@ export async function POST(request: Request) {
     source_url: null as string | null,
     source_type: normalizeFestivalSourceType("organizer_portal"),
     source_primary_url: null as string | null,
-    source_count: null as number | null,
-    evidence_json: null as unknown,
+    // Production DB has NOT NULL constraint on several research-pipeline columns
+    // (source_count, verification_score, evidence_json) despite migrations allowing
+    // null. For organizer-submitted rows we provide sane defaults explicitly so
+    // PostgreSQL doesn't 23502 on INSERT:
+    //   - source_count = 1 (organizer = single source)
+    //   - verification_score = 0 (low confidence, admin will review)
+    //   - evidence_json = {} (no automated evidence collected for manual submissions)
+    source_count: 1,
+    evidence_json: {} as Record<string, unknown>,
     verification_status: "needs_review" as const,
-    verification_score: null as number | null,
+    verification_score: 0,
     extraction_version: null as string | null,
     website_url: optionalTrimmedUrl(body.website_url),
     facebook_url: optionalTrimmedUrl(body.facebook_url),
@@ -143,7 +188,10 @@ export async function POST(request: Request) {
     price_range: typeof body.price_range === "string" ? body.price_range.trim() || null : null,
     is_free: typeof body.is_free === "boolean" ? body.is_free : true,
     hero_image: optionalTrimmedUrl(body.hero_image),
+    video_url: optionalTrimmedUrl(body.video_url),
+    gallery_image_urls: normalizeGalleryUrls(body.gallery_image_urls),
     tags,
+    program_draft: programDraftForInsert,
     status: recordStatus,
     submitted_by_user_id: session.user.id,
     submission_source: "organizer_portal" as const,

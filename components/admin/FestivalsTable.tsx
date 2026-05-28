@@ -2,28 +2,48 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
+import type { PendingQualityBucket } from "@/lib/admin/pendingFestivalQuality";
+import type { AdminFestivalRow } from "@/app/admin/(protected)/festivals/page";
 
-type AdminFestivalRow = {
-  id: string;
-  title: string;
-  city: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  start_time?: string | null;
-  end_time?: string | null;
-  occurrence_dates?: unknown;
-  category: string | null;
-  is_free: boolean | null;
-  status: "draft" | "verified" | "rejected" | "archived" | null;
-  updated_at: string | null;
-  source_type: string | null;
+const FIELD_LABELS: Record<string, string> = {
+  title: "заглавие",
+  start_date: "начална дата",
+  end_date: "крайна дата",
+  city: "град",
+  city_id: "град",
+  coordinates: "координати",
+  organizer_name: "организатор",
+  hero_image: "снимка",
+  description: "описание",
+  location_name: "място",
+  address: "адрес",
+  category: "категория",
+  category_or_tags: "категория или тагове",
+  tags: "тагове",
+  source_url: "уебсайт",
 };
 
-function temporalAdminLabel(row: AdminFestivalRow): string {
+function fieldLabel(field: string): string {
+  return FIELD_LABELS[field] ?? field;
+}
+
+function bucketStyle(bucket: PendingQualityBucket) {
+  if (bucket === "ready") return "border-[#18a05e]/30 bg-[#18a05e]/10 text-[#0e7a45]";
+  if (bucket === "needs_fix") return "border-[#b8891e]/30 bg-[#fff7e6] text-[#8a6516]";
+  return "border-[#b13a1a]/30 bg-[#fff1ec] text-[#9f3115]";
+}
+
+function bucketLabel(bucket: PendingQualityBucket) {
+  if (bucket === "ready") return "Пълен";
+  if (bucket === "needs_fix") return "Непълен";
+  return "Слаб";
+}
+
+function temporalLabel(row: AdminFestivalRow): { text: string; style: string } {
   const state = getFestivalTemporalState({
     start_date: row.start_date,
     end_date: row.end_date,
@@ -33,16 +53,46 @@ function temporalAdminLabel(row: AdminFestivalRow): string {
   });
   switch (state) {
     case "upcoming":
-      return "Upcoming";
+      return { text: "Предстоящ", style: "border-[#1a6bab]/20 bg-blue-50 text-blue-700" };
     case "ongoing":
-      return "Ongoing";
+      return { text: "Текущ", style: "border-[#18a05e]/30 bg-[#18a05e]/10 text-[#0e7a45]" };
     case "past":
-      return "Past";
+      return { text: "Минал", style: "border-black/10 bg-black/[0.04] text-black/45" };
   }
 }
 
-export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
+function statusStyle(status: AdminFestivalRow["status"]): string {
+  switch (status) {
+    case "verified": return "bg-[#dcf5e7] text-[#0e7a45]";
+    case "draft": return "bg-[#fff7e6] text-[#8a6516]";
+    case "rejected": return "bg-[#fff1ec] text-[#9f3115]";
+    case "archived": return "bg-[#f8decf] text-[#b13a1a]";
+    default: return "bg-black/[0.05] text-black/50";
+  }
+}
+
+function statusLabel(status: AdminFestivalRow["status"]): string {
+  switch (status) {
+    case "verified": return "Активен";
+    case "draft": return "Чернова";
+    case "rejected": return "Отхвърлен";
+    case "archived": return "Архивиран";
+    default: return status ?? "—";
+  }
+}
+
+export default function FestivalsTable({
+  rows,
+  qualityFilter,
+  qualityCounts,
+}: {
+  rows: AdminFestivalRow[];
+  qualityFilter?: PendingQualityBucket | "";
+  qualityCounts: Record<PendingQualityBucket, number>;
+}) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [message, setMessage] = useState<string>("");
@@ -57,12 +107,20 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
     setSelectedIds((prev) => (prev.length === rows.length ? [] : rows.map((row) => row.id)));
   };
 
+  const setQualityFilter = (bucket: PendingQualityBucket | "") => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (!bucket) {
+      next.delete("quality");
+    } else {
+      next.set("quality", bucket);
+    }
+    router.push(next.toString() ? `${pathname}?${next.toString()}` : pathname);
+  };
+
   const runBulkAction = async (status: "verified" | "rejected" | "archived") => {
     if (!selectedIds.length || pendingAction) return;
-
     setPendingAction(status);
     setMessage("");
-
     try {
       const response = await fetch("/admin/api/festivals/bulk", {
         method: "POST",
@@ -70,11 +128,7 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: selectedIds, status }),
       });
-
-      if (!response.ok) {
-        throw new Error("Неуспешна bulk операция.");
-      }
-
+      if (!response.ok) throw new Error("Неуспешна bulk операция.");
       setMessage("Статусите са обновени.");
       setSelectedIds([]);
       router.refresh();
@@ -87,10 +141,8 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
 
   const runRowArchiveAction = async (id: string, action: "archive" | "restore") => {
     if (pendingAction) return;
-
     setPendingAction(`${action}:${id}`);
     setMessage("");
-
     try {
       const response = await fetch(`/admin/api/festivals/${id}/archive`, {
         method: "POST",
@@ -98,12 +150,10 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
-
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
         throw new Error(payload?.error ?? "Неуспешно обновяване на статуса.");
       }
-
       setMessage(action === "archive" ? "Фестивалът е архивиран." : "Фестивалът е възстановен.");
       router.refresh();
     } catch (error) {
@@ -114,11 +164,79 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
   };
 
   if (!rows.length) {
-    return <div className="rounded-2xl border border-black/[0.08] bg-white/85 px-6 py-12 text-center text-sm text-black/60">Няма резултати за избраните филтри.</div>;
+    return (
+      <div className="space-y-4">
+        {/* Quality filter tabs — shown even when empty so user can switch back */}
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/[0.08] bg-white/85 p-3 text-xs">
+          {(
+            [
+              { key: "" as const, label: "Всички" },
+              { key: "ready" as const, label: `Пълни (${qualityCounts.ready})` },
+              { key: "needs_fix" as const, label: `Непълни (${qualityCounts.needs_fix})` },
+              { key: "weak" as const, label: `Слаби (${qualityCounts.weak})` },
+            ] as { key: PendingQualityBucket | ""; label: string }[]
+          ).map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setQualityFilter(key)}
+              className={`rounded-lg border px-2.5 py-1 font-semibold uppercase tracking-[0.12em] transition ${
+                qualityFilter === key
+                  ? key === "ready"
+                    ? "border-[#18a05e]/40 bg-[#18a05e]/10 text-[#0e7a45]"
+                    : key === "needs_fix"
+                      ? "border-[#b8891e]/40 bg-[#fff7e6] text-[#8a6516]"
+                      : key === "weak"
+                        ? "border-[#b13a1a]/40 bg-[#fff1ec] text-[#9f3115]"
+                        : "border-black/20 bg-black/[0.05]"
+                  : "border-black/[0.1] bg-white hover:bg-black/[0.03]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="rounded-2xl border border-black/[0.08] bg-white/85 px-6 py-12 text-center text-sm text-black/60">
+          {qualityFilter ? "Няма фестивали в тази категория." : "Няма резултати за избраните филтри."}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
+      {/* Quality filter tabs */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/[0.08] bg-white/85 p-3 text-xs">
+        {(
+          [
+            { key: "" as const, label: "Всички" },
+            { key: "ready" as const, label: `Пълни (${qualityCounts.ready})` },
+            { key: "needs_fix" as const, label: `Непълни (${qualityCounts.needs_fix})` },
+            { key: "weak" as const, label: `Слаби (${qualityCounts.weak})` },
+          ] as { key: PendingQualityBucket | ""; label: string }[]
+        ).map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setQualityFilter(key)}
+            className={`rounded-lg border px-2.5 py-1 font-semibold uppercase tracking-[0.12em] transition ${
+              qualityFilter === key
+                ? key === "ready"
+                  ? "border-[#18a05e]/40 bg-[#18a05e]/10 text-[#0e7a45]"
+                  : key === "needs_fix"
+                    ? "border-[#b8891e]/40 bg-[#fff7e6] text-[#8a6516]"
+                    : key === "weak"
+                      ? "border-[#b13a1a]/40 bg-[#fff1ec] text-[#9f3115]"
+                      : "border-black/20 bg-black/[0.05]"
+                : "border-black/[0.1] bg-white hover:bg-black/[0.03]"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Bulk actions */}
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
@@ -126,7 +244,7 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
           disabled={!selectedIds.length || Boolean(pendingAction)}
           className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-45"
         >
-          Mark verified
+          Потвърди
         </button>
         <button
           type="button"
@@ -134,7 +252,7 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
           disabled={!selectedIds.length || Boolean(pendingAction)}
           className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-45"
         >
-          Reject
+          Отхвърли
         </button>
         <button
           type="button"
@@ -142,9 +260,9 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
           disabled={!selectedIds.length || Boolean(pendingAction)}
           className="rounded-xl border border-black/[0.1] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-45"
         >
-          Archive
+          Архивирай
         </button>
-        <p className="ml-auto text-xs text-black/55">Selected: {selectedIds.length}</p>
+        <p className="ml-auto text-xs text-black/55">Избрани: {selectedIds.length}</p>
       </div>
 
       {message ? <p className="rounded-lg bg-[#0c0e14]/5 px-3 py-2 text-sm text-[#0c0e14]">{message}</p> : null}
@@ -154,72 +272,148 @@ export default function FestivalsTable({ rows }: { rows: AdminFestivalRow[] }) {
           <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
             <tr>
               <th className="px-3 py-3">
-                <input type="checkbox" checked={isAllSelected} onChange={toggleAll} aria-label="Select all" />
+                <input type="checkbox" checked={isAllSelected} onChange={toggleAll} aria-label="Избери всички" />
               </th>
-              <th className="px-3 py-3">Title</th>
-              <th className="px-3 py-3">City</th>
-              <th className="px-3 py-3">Start-End</th>
-              <th className="px-3 py-3">Time (derived)</th>
-              <th className="px-3 py-3">Category</th>
-              <th className="px-3 py-3">Free</th>
-              <th className="px-3 py-3">State</th>
-              <th className="px-3 py-3">Updated</th>
-              <th className="px-3 py-3">Source</th>
-              <th className="px-3 py-3">Action</th>
+              <th className="px-3 py-3">Заглавие</th>
+              <th className="px-3 py-3">Качество</th>
+              <th className="px-3 py-3">Град</th>
+              <th className="px-3 py-3">Дати</th>
+              <th className="px-3 py-3">Статус</th>
+              <th className="px-3 py-3">Категория</th>
+              <th className="px-3 py-3">Вход</th>
+              <th className="px-3 py-3">Обновен</th>
+              <th className="px-3 py-3">Тип</th>
+              <th className="px-3 py-3">Действия</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/[0.06]">
             {rows.map((row) => {
               const isArchived = row.status === "archived";
+              const temporal = temporalLabel(row);
 
               return (
                 <tr key={row.id} className="hover:bg-black/[0.02]">
+                  {/* Checkbox */}
                   <td className="px-3 py-3">
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(row.id)}
                       onChange={() => toggleOne(row.id)}
-                      aria-label={`Select ${row.title}`}
+                      aria-label={`Избери ${row.title}`}
                     />
                   </td>
-                  <td className="px-3 py-3 font-medium text-[#0c0e14]">{row.title}</td>
-                  <td className="px-3 py-3 text-black/65">{row.city ?? "-"}</td>
-                  <td className="px-3 py-3 text-black/65">{formatFestivalDateLineShort(row)}</td>
-                  <td className="px-3 py-3 text-black/65">
-                    <span className="inline-flex rounded-full border border-black/[0.08] bg-black/[0.03] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55">
-                      {temporalAdminLabel(row)}
+
+                  {/* Title */}
+                  <td className="max-w-[18rem] px-3 py-3 font-medium text-[#0c0e14]">
+                    <Link href={`/admin/festivals/${row.id}`} className="hover:underline">
+                      {row.title}
+                    </Link>
+                  </td>
+
+                  {/* Quality */}
+                  <td className="px-3 py-3">
+                    <div className="space-y-1">
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${bucketStyle(row.quality_bucket)}`}>
+                        {bucketLabel(row.quality_bucket)} · {row.quality_score}
+                      </span>
+                      {row.missing_fields.length > 0 ? (
+                        <p className="text-xs text-black/50">
+                          Липсва: {row.missing_fields.slice(0, 3).map(fieldLabel).join(", ")}{row.missing_fields.length > 3 ? "…" : ""}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-[#0e7a45]">Всички полета попълнени</p>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* City */}
+                  <td className="px-3 py-3 text-sm text-black/65">{row.city ?? "—"}</td>
+
+                  {/* Dates */}
+                  <td className="px-3 py-3 text-sm text-black/65 whitespace-nowrap">
+                    <div>{formatFestivalDateLineShort(row)}</div>
+                    <span className={`mt-0.5 inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${temporal.style}`}>
+                      {temporal.text}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-black/65">
-                    {row.category ? labelForPublicCategory(row.category) : "-"}
-                  </td>
-                  <td className="px-3 py-3 text-black/65">{row.is_free ? "Yes" : "No"}</td>
+
+                  {/* Status */}
                   <td className="px-3 py-3">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        isArchived ? "bg-[#f8decf] text-[#b13a1a]" : "bg-[#dcf5e7] text-[#0e7a45]"
-                      }`}
-                    >
-                      {isArchived ? "Archived" : "Active"}
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyle(row.status)}`}>
+                      {statusLabel(row.status)}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-black/65">{row.updated_at ? new Date(row.updated_at).toLocaleString("bg-BG") : "-"}</td>
-                  <td className="px-3 py-3 text-black/65">{row.source_type ?? "-"}</td>
+
+                  {/* Category */}
+                  <td className="px-3 py-3 text-sm text-black/65">
+                    {row.category ? labelForPublicCategory(row.category) : <span className="text-black/30">—</span>}
+                  </td>
+
+                  {/* Free */}
+                  <td className="px-3 py-3 text-sm text-black/65">
+                    {row.is_free === true ? (
+                      <span className="text-[#0e7a45]">Да</span>
+                    ) : row.is_free === false ? (
+                      <span>Не</span>
+                    ) : (
+                      <span className="text-black/30">—</span>
+                    )}
+                  </td>
+
+                  {/* Updated */}
+                  <td className="px-3 py-3 text-xs text-black/55 whitespace-nowrap">
+                    {row.updated_at ? (
+                      <>
+                        {new Date(row.updated_at).toLocaleDateString("bg-BG")}
+                        <br />
+                        <span className="text-black/35">{new Date(row.updated_at).toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit" })}</span>
+                      </>
+                    ) : "—"}
+                  </td>
+
+                  {/* Source */}
+                  <td className="px-3 py-3 text-black/65">
+                    {row.source_type === "research" ? (
+                      <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-blue-700">
+                        Проучване
+                      </span>
+                    ) : row.source_type === "organizer_portal" ? (
+                      <span className="inline-flex rounded-full border border-[#0c0e14]/20 bg-[#f5f4f0] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[#0c0e14]">
+                        Организатор
+                      </span>
+                    ) : row.source_type === "manual" ? (
+                      <span className="inline-flex rounded-full border border-black/[0.12] bg-black/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-black/55">
+                        Ръчен
+                      </span>
+                    ) : row.source_type ? (
+                      <span className="inline-flex rounded-full border border-black/[0.1] bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-black/50">
+                        {row.source_type}
+                      </span>
+                    ) : (
+                      <span className="text-black/30">—</span>
+                    )}
+                  </td>
+
+                  {/* Actions */}
                   <td className="px-3 py-3">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-col gap-1.5">
                       <Link
                         href={`/admin/festivals/${row.id}`}
-                        className="inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] hover:bg-[#f7f6f3]"
+                        className="inline-flex justify-center rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-[#f7f6f3]"
                       >
-                        Edit
+                        Редактирай
                       </Link>
                       <button
                         type="button"
                         onClick={() => runRowArchiveAction(row.id, isArchived ? "restore" : "archive")}
                         disabled={Boolean(pendingAction)}
-                        className="inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] hover:bg-[#f7f6f3] disabled:opacity-50"
+                        className={`inline-flex justify-center rounded-lg border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50 ${
+                          isArchived
+                            ? "border-[#18a05e]/30 bg-[#18a05e]/8 text-[#0e7a45] hover:bg-[#18a05e]/15"
+                            : "border-black/[0.1] bg-white hover:bg-[#f7f6f3]"
+                        }`}
                       >
-                        {isArchived ? "Restore" : "Archive"}
+                        {isArchived ? "Възстанови" : "Архивирай"}
                       </button>
                     </div>
                   </td>

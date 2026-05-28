@@ -163,6 +163,7 @@ export async function extractFestivalFieldsFromEvidence(input: {
   sourceUrl: string;
   pageTitle: string;
   excerpt: string;
+  onModelUsed?: (modelId: string) => void;
 }): Promise<GeminiRawExtraction> {
   const userText = JSON.stringify(
     {
@@ -186,6 +187,7 @@ export async function extractFestivalFieldsFromEvidence(input: {
         systemInstruction: SYSTEM,
         userText,
         responseSchema: EXTRACTION_SCHEMA,
+        onModelUsed: input.onModelUsed,
       }),
     );
   } catch {
@@ -193,6 +195,7 @@ export async function extractFestivalFieldsFromEvidence(input: {
       await geminiExtractJson<GeminiRawExtraction>({
         systemInstruction: SYSTEM,
         userText,
+        onModelUsed: input.onModelUsed,
       }),
     );
   }

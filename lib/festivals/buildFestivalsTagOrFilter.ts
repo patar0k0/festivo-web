@@ -21,7 +21,14 @@ export function postgrestTextArrayContainsLiteral(tag: string): string {
   return `{"${tag.replace(/\\/g, "\\\\").replace(/"/g, '""')}"}`;
 }
 
-/** Argument to supabase `.or(...)`: category match OR tags array contains this string. */
+/** Argument to supabase `.or(...)`: category match OR tags array contains this string.
+ *
+ * `category` uses `ilike` (case-insensitive exact) so that DB inconsistencies like
+ * "фолклорен фестивал" vs "Фолклорен фестивал" all match a single user-selected
+ * category. PostgREST `ilike` without wildcards = case-insensitive equality on text.
+ * `tags` keeps exact contains because admin-curated tags are already normalized
+ * lowercase per the LLM extraction prompt.
+ */
 export function buildFestivalsTagOrFilter(tag: string): string {
-  return `category.eq.${postgrestEqText(tag)},tags.cs.${postgrestTextArrayContainsLiteral(tag)}`;
+  return `category.ilike.${postgrestEqText(tag)},tags.cs.${postgrestTextArrayContainsLiteral(tag)}`;
 }

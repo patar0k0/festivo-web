@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { googleSearch } from "@/lib/research/googleSearch";
 import { classifyResearchSourceType } from "@/lib/research/htmlFestivalExtract";

@@ -141,15 +141,17 @@ async function fetchPublishedFestivalsTotalCount(): Promise<number> {
   return count ?? 0;
 }
 
-/** Населени места от `cities` с поне един публикуван фестивал (`city_id`); сортиране по брой DESC. */
+/** Населени места от `cities` с поне един предстоящ публикуван фестивал; сортиране по брой DESC. */
 async function fetchHomePublishedCityOptionsWithCounts(): Promise<HomeCityOption[]> {
   const supabase = await createSupabaseServerClient();
+  const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("festivals")
     .select("cities:cities!festivals_city_id_fkey!inner(slug,name_bg,is_village)")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
     .not("city_id", "is", null)
+    .gte("end_date", today)
     .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
   if (error) {
     console.error("[loadHomePageData] fetchHomePublishedCityOptionsWithCounts", error);

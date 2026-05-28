@@ -157,6 +157,7 @@ type HeroImageUploadResponse = {
   ok?: boolean;
   hero_image?: string | null;
   hero_image_source?: string | null;
+  gallery_image_urls?: string[];
   error?: string;
 };
 
@@ -201,17 +202,25 @@ type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug" | "plan" | 
 
 /** Fuzzy name match against catalog — returns up to 4 candidates */
 function findCatalogSuggestions(name: string, options: OrganizerOption[], excludeIds: Set<string>): OrganizerOption[] {
-  const q = name.toLowerCase().trim();
+  // Strip punctuation (quotes „", dashes, dots, etc.) so „пробуда → пробуда
+  const clean = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
+  const q = clean(name);
   if (q.length < 2) return [];
   const words = q.split(/\s+/).filter((w) => w.length >= 4);
   return options
     .filter((o) => !excludeIds.has(o.id))
-    .filter((o) => {
-      const n = o.name.toLowerCase();
-      if (n === q || n.includes(q) || q.includes(n)) return true;
-      return words.some((w) => n.includes(w));
+    .map((o) => {
+      const n = clean(o.name);
+      let score = 0;
+      if (n === q || n.includes(q) || q.includes(n)) score = 3;
+      else if (words.length > 1 && words.every((w) => n.includes(w))) score = 2;
+      else if (words.some((w) => n.includes(w))) score = 1;
+      return { o, score };
     })
-    .slice(0, 4);
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4)
+    .map(({ o }) => o);
 }
 
 function buildInitialOrganizerEntries(p: PendingFestivalRecord): Array<{ organizer_id: string; name: string }> {
@@ -524,11 +533,10 @@ export default function PendingFestivalEditForm({
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [mapsUrlInput, setMapsUrlInput] = useState("");
   const [runningAction, setRunningAction] = useState<"approve" | "reject" | null>(null);
-  const [uploadingHeroImage, setUploadingHeroImage] = useState(false);
-  const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
+  const uploadingHeroImage = false;
+  const importingHeroFromUrl = false;
   const [removingHeroImage, setRemovingHeroImage] = useState(false);
   const [heroImageSourceState, setHeroImageSourceState] = useState<string | null>(normalizeOptionalText(pendingFestival.hero_image_source));
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const galleryExtraInputRef = useRef<HTMLInputElement | null>(null);
   const resolvedPlaceRef = useRef<string | null>(null);
   const [galleryUrls, setGalleryUrls] = useState<string[]>(() => parseGalleryUrls(pendingFestival.gallery_image_urls));
@@ -693,9 +701,7 @@ export default function PendingFestivalEditForm({
   const heroImageUrl = form.hero_image.trim();
   const heroImageSource = heroImageSourceState;
   const heroImageOriginalUrl = normalizeOptionalText(form.hero_image_original_url);
-  const ingestOriginalHeroUrl = form.hero_image_original_url.trim();
-  const canImportFromIngestOriginal = /^https?:\/\//i.test(ingestOriginalHeroUrl);
-  const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
+const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   const hasHeroImageDiagnostics = heroImageSource !== null || heroImageScore !== null || heroImageOriginalUrl !== null;
   const heroImageStatus = !heroImageUrl
     ? "No hero image selected by ingestion"
@@ -999,11 +1005,12 @@ export default function PendingFestivalEditForm({
       }
     }
 
-    const city = form.city_id.trim();
+    const city = (form.city_name_display || form.city_id || "").trim();
     const venue = form.venue_name.trim();
     const existingPlaceId = form.place_id.trim();
-    if (!venue && !existingPlaceId) {
-      toast.error("Попълнете място (venue) или place_id, за да търсите координати.");
+    const title = form.title.trim();
+    if (!venue && !existingPlaceId && !title && !city) {
+      toast.error("Попълнете поне заглавие или град, за да търсите координати.");
       return;
     }
 
@@ -1014,14 +1021,16 @@ export default function PendingFestivalEditForm({
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          location_name: form.venue_name.trim() || null,
-          city,
-          place_id: form.place_id.trim() || null,
+          location_name: venue || null,
+          address: form.address.trim() || null,
+          city: city || null,
+          title: title || null,
+          place_id: existingPlaceId || null,
         }),
       });
 
       const payload = (await response.json().catch(() => null)) as
-        | { ok?: boolean; lat?: number | null; lng?: number | null; place_id?: string | null; error?: string }
+        | { ok?: boolean; lat?: number | null; lng?: number | null; place_id?: string | null; query_used?: string | null; coords_source?: string | null; error?: string }
         | null;
 
       if (!response.ok || !payload?.ok) {
@@ -1042,8 +1051,9 @@ export default function PendingFestivalEditForm({
         }
         updateField("coords_override", false);
         const coords = { lat: payload.lat, lng: payload.lng };
-        toast.success("Координатите са намерени");
-        console.info("[coords] source=geocode", coords);
+        const sourceHint = payload.query_used ? ` · ${payload.query_used}` : "";
+        toast.success(`Координатите са намерени${sourceHint}`);
+        console.info("[coords] source=geocode", { coords, query_used: payload.query_used, coords_source: payload.coords_source });
       } else if (mapsFailed) {
         toast.error("Не можахме да извлечем координати от линка");
       } else {
@@ -1117,129 +1127,6 @@ export default function PendingFestivalEditForm({
     } finally {
       setRunningAction(null);
     }
-  };
-
-  const uploadHeroImage = async () => {
-    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
-    if (!heroHasImage && galleryImageCount >= mediaLimits.gallery) {
-      toast.error("Лимитът за галерия е достигнат. Използвайте полето за URL или ъпгрейд към VIP за повече снимки.");
-      return;
-    }
-
-    const selectedFile = fileInputRef.current?.files?.[0] ?? null;
-    if (!selectedFile) {
-      toast.error("Select an image file before uploading.");
-      return;
-    }
-
-    if (!selectedFile.type.toLowerCase().startsWith("image/")) {
-      toast.error("Only image files are allowed.");
-      return;
-    }
-
-    setUploadingHeroImage(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-
-      const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/hero-image`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-
-      const payload = (await response.json().catch(() => null)) as HeroImageUploadResponse | null;
-
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error ?? "Failed to upload hero image.");
-      }
-
-      const uploadedHeroImage = typeof payload.hero_image === "string" ? payload.hero_image : "";
-      updateField("hero_image", uploadedHeroImage);
-      setHeroImageSourceState(typeof payload.hero_image_source === "string" ? payload.hero_image_source : "manual_upload");
-      toast.success("Hero image uploaded successfully.");
-      router.refresh();
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    } catch (uploadError) {
-      toast.error(uploadError instanceof Error ? uploadError.message : "Unexpected hero image upload error.");
-    } finally {
-      setUploadingHeroImage(false);
-    }
-  };
-
-  const runHeroImportFromUrl = async (url: string, successMessage: string) => {
-    setImportingHeroFromUrl(true);
-
-    try {
-      const response = await fetch(`/admin/api/pending-festivals/${pendingFestival.id}/hero-image`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source_url: url }),
-      });
-
-      const payload = (await response.json().catch(() => null)) as HeroImageUploadResponse | null;
-
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error ?? "Failed to import hero image from URL.");
-      }
-
-      const importedHeroImage = typeof payload.hero_image === "string" ? payload.hero_image : "";
-      updateField("hero_image", importedHeroImage);
-      setHeroImageSourceState(typeof payload.hero_image_source === "string" ? payload.hero_image_source : "url_import");
-      toast.success(successMessage);
-      router.refresh();
-    } catch (importUrlError) {
-      toast.error(importUrlError instanceof Error ? importUrlError.message : "Unexpected hero image import error.");
-    } finally {
-      setImportingHeroFromUrl(false);
-    }
-  };
-
-  const importHeroImageFromUrl = async () => {
-    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
-    if (galleryAtLimit && !heroHasImage) {
-      toast.error("Лимитът за снимки е достигнат (включително главното изображение). VIP планът увеличава лимита.");
-      return;
-    }
-
-    const url = form.hero_image.trim();
-    if (!url) {
-      toast.error("Paste an image URL in the Hero image field first.");
-      return;
-    }
-    if (!/^https?:\/\//i.test(url)) {
-      toast.error("Hero image URL must start with http:// or https://.");
-      return;
-    }
-
-    await runHeroImportFromUrl(url, "Hero image downloaded and saved to storage (external URL was not stored).");
-  };
-
-  const importHeroImageFromIngestOriginal = async () => {
-    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
-    if (galleryAtLimit && !heroHasImage) {
-      toast.error("Лимитът за снимки е достигнат (включително главното изображение). VIP планът увеличава лимита.");
-      return;
-    }
-
-    if (!ingestOriginalHeroUrl) {
-      toast.error("Няма записан Original URL от ingest.");
-      return;
-    }
-    if (!/^https?:\/\//i.test(ingestOriginalHeroUrl)) {
-      toast.error("Original URL трябва да започва с http:// или https://.");
-      return;
-    }
-
-    await runHeroImportFromUrl(
-      ingestOriginalHeroUrl,
-      "Качено от Original URL (ingest).",
-    );
   };
 
   const removeHeroImage = async () => {
@@ -1943,79 +1830,6 @@ export default function PendingFestivalEditForm({
                 ) : (
                   <p className="mt-2 text-xs text-black/45">Няма избрано главно изображение.</p>
                 )}
-                <label className="mt-3 block">
-                  <AdminFieldLabel field="heroImage" />
-                  <input value={form.hero_image} onChange={(e) => updateField("hero_image", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
-                </label>
-                <div className="mt-3 rounded-xl border border-black/[0.08] bg-white px-3 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input ref={fileInputRef} type="file" accept="image/*" className="text-xs" />
-                    <button
-                      type="button"
-                      onClick={uploadHeroImage}
-                      disabled={
-                        saving ||
-                        Boolean(runningAction) ||
-                        uploadingHeroImage ||
-                        importingHeroFromUrl ||
-                        removingHeroImage ||
-                        (!heroHasImage && galleryImageCount >= mediaLimits.gallery)
-                      }
-                      className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
-                    >
-                      {uploadingHeroImage ? "Качване..." : heroImageUrl ? "Замени файл" : "Качи файл"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={importHeroImageFromUrl}
-                      disabled={
-                        saving ||
-                        Boolean(runningAction) ||
-                        galleryOpsBusy ||
-                        uploadingHeroImage ||
-                        importingHeroFromUrl ||
-                        removingHeroImage ||
-                        !heroImageUrl ||
-                        (galleryAtLimit && !heroHasImage)
-                      }
-                      className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
-                    >
-                      {importingHeroFromUrl ? "Импорт..." : "Импорт от URL"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={importHeroImageFromIngestOriginal}
-                      disabled={
-                        saving ||
-                        Boolean(runningAction) ||
-                        galleryOpsBusy ||
-                        uploadingHeroImage ||
-                        importingHeroFromUrl ||
-                        removingHeroImage ||
-                        !canImportFromIngestOriginal ||
-                        (galleryAtLimit && !heroHasImage)
-                      }
-                      title="Ползва полето Original URL по-долу (от ingest), без да го копираш в главното изображение"
-                      className="rounded-lg border border-[#18a05e]/35 bg-[#18a05e]/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#0e7a45] disabled:opacity-50"
-                    >
-                      {importingHeroFromUrl ? "Импорт..." : "Импорт от original URL"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={removeHeroImage}
-                      disabled={saving || Boolean(runningAction) || uploadingHeroImage || importingHeroFromUrl || removingHeroImage || !heroImageUrl}
-                      className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
-                    >
-                      {removingHeroImage ? "Премахване..." : "Премахни"}
-                    </button>
-                    <span
-                      className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-black/[0.12] text-[10px] font-bold text-black/45"
-                      title="Импортът от външен URL сваля файла на сървъра и записва публичен адрес. За Facebook CDN понякога сървърът получава HTML вместо снимка — тогава отвори линка по-долу (логнат във FB), запази изображението и ползвай „Качи файл“, или остави ingest да рехостне с браузър контекст."
-                    >
-                      i
-                    </span>
-                  </div>
-                </div>
                 {heroImageUrl || hasHeroImageDiagnostics ? (
                   <details className="mt-2 rounded-lg border border-black/[0.08] bg-black/[0.02] px-3 py-2 text-xs text-black/65">
                     <summary className="cursor-pointer font-semibold text-black/55">Подробности от извличането</summary>
@@ -2062,6 +1876,27 @@ export default function PendingFestivalEditForm({
                   }}
                 />
                 <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {heroHasImage && !heroAlreadyInGallery && (
+                    <div className="group relative overflow-hidden rounded-xl border border-[#ff4c1f]/50 bg-black/[0.02] ring-2 ring-[#ff4c1f]/25">
+                      <div className="aspect-square w-full overflow-hidden bg-black/[0.04]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={heroImageUrl} alt="" className="h-full w-full object-cover" />
+                      </div>
+                      <div className="flex flex-col gap-1 border-t border-black/[0.06] bg-white/95 p-1.5">
+                        <span className="rounded-md border border-[#ff4c1f]/40 bg-[#ff4c1f]/10 px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-[#c43a1a]">
+                          Главна
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void removeHeroImage()}
+                          disabled={saving || Boolean(runningAction) || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
+                          className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-red-700 disabled:opacity-50"
+                        >
+                          Премахни
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {galleryUrls.map((u) => {
                     const isHero = heroImageUrl === u.trim();
                     return (
@@ -2083,7 +1918,13 @@ export default function PendingFestivalEditForm({
                           ) : (
                             <button
                               type="button"
-                              onClick={() => updateField("hero_image", u)}
+                              onClick={() => {
+                                // If the current hero is not yet in galleryUrls (synthetic card), preserve it
+                                if (heroHasImage && !heroAlreadyInGallery) {
+                                  setGalleryUrls((prev) => [...prev, heroImageUrl]);
+                                }
+                                updateField("hero_image", u);
+                              }}
                               disabled={saving || Boolean(runningAction) || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
                               className="rounded-md border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] disabled:opacity-50"
                             >
@@ -2160,7 +2001,7 @@ export default function PendingFestivalEditForm({
                 {mediaPlan === "free" && galleryAtLimit ? (
                   <p className="mt-2 text-xs text-[#c9a227]">VIP планът увеличава лимита до {MEDIA_LIMITS.vip.gallery} снимки.</p>
                 ) : null}
-                {!galleryUrls.length ? <p className="mt-2 text-xs text-black/45">Няма снимки в галерията.</p> : null}
+                {!galleryUrls.length && !heroHasImage ? <p className="mt-2 text-xs text-black/45">Няма снимки в галерията.</p> : null}
               </div>
 
               {/* Video: external URL only (stored on pending_festivals.video_url) */}

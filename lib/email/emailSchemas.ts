@@ -231,3 +231,23 @@ export function parseContactFormPayload(raw: Record<string, unknown>): ContactFo
     replyTo: reqString(raw, "replyTo", 320),
   };
 }
+
+export type AdminFestivalReportPayload = {
+  festivalName: string;
+  festivalUrl: string;
+  categoryLabel: string;
+  message: string;
+  reportedAt: string;
+};
+
+export function parseAdminFestivalReportPayload(
+  raw: Record<string, unknown>,
+): AdminFestivalReportPayload {
+  return {
+    festivalName: reqString(raw, "festivalName", 400),
+    festivalUrl: reqString(raw, "festivalUrl", 2000),
+    categoryLabel: reqString(raw, "categoryLabel", 200),
+    message: reqString(raw, "message", 1000),
+    reportedAt: reqString(raw, "reportedAt", 50),
+  };
+}

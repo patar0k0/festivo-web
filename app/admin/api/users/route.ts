@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 import type { User } from "@supabase/supabase-js";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import {

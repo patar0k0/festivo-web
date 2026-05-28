@@ -8,6 +8,7 @@ import ConsentGatedAnalytics from "@/components/ConsentGatedAnalytics";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import LayoutShell from "@/components/LayoutShell";
 import ClientProviders from "@/components/providers/ClientProviders";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import "./globals.css";
 import "./landing.css";
 
@@ -19,12 +20,16 @@ const manrope = Manrope({
 const fraunces = Fraunces({
   variable: "--font-display",
   subsets: ["latin"],
+  // Non-critical font (organizer portal + coming-soon only) — don't block render.
+  // First-visit users get a system fallback; font loads silently in the background.
+  display: "optional",
 });
 
 const cormorantGaramond = Cormorant_Garamond({
   variable: "--font-hero-warm-serif",
   subsets: ["latin", "cyrillic"],
-  weight: ["600", "700"],
+  // Only weight 700 is used (homepage h1 uses font-bold via pub.displayH1).
+  weight: ["700"],
 });
 
 export function generateMetadata(): Metadata {
@@ -36,7 +41,14 @@ export function generateMetadata(): Metadata {
     },
     description: "Browse published festivals, find dates, and plan weekends across Bulgaria.",
     icons: {
-      icon: "/brand/festivo-icon.svg",
+      icon: [
+        { url: "/brand/icon-16.png", sizes: "16x16", type: "image/png" },
+        { url: "/brand/icon-32.png", sizes: "32x32", type: "image/png" },
+        { url: "/brand/festivo-icon.svg", type: "image/svg+xml" },
+      ],
+      apple: [
+        { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      ],
     },
     other: {
       ...Sentry.getTraceData(),
@@ -44,11 +56,28 @@ export function generateMetadata(): Metadata {
   };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Resolve auth server-side so PlanStateProvider can render the correct
+  // initial UI for logged-in users without waiting on a client-side fetch.
+  // We use the lightweight `supabase.auth.getUser()` call directly (rather
+  // than `getOptionalUser`) to keep this resilient — if the users-table
+  // soft-delete check fails, we still want the layout to render. The plan
+  // state fetch in PlanStateProvider will catch the truly-deleted case.
+  let initialIsAuthenticated = false;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    initialIsAuthenticated = Boolean(user?.id);
+  } catch {
+    initialIsAuthenticated = false;
+  }
+
   return (
     <html lang="bg">
       <head>
@@ -57,7 +86,7 @@ export default function RootLayout({
       <body
         className={`${manrope.variable} ${fraunces.variable} ${cormorantGaramond.variable} landing-bg min-h-screen text-[#0c0e14] antialiased`}
       >
-        <ClientProviders>
+        <ClientProviders initialIsAuthenticated={initialIsAuthenticated}>
           <LayoutShell>{children}</LayoutShell>
         </ClientProviders>
         <Analytics />

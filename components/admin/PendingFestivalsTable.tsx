@@ -10,6 +10,8 @@ type PendingFestivalRow = {
   id: string;
   title: string;
   city_id: number | null;
+  city_guess: string | null;
+  organizer_name: string | null;
   start_date: string | null;
   end_date: string | null;
   source_url: string | null;
@@ -22,27 +24,50 @@ type PendingFestivalRow = {
   missing_fields: string[];
 };
 
+const FIELD_LABELS: Record<string, string> = {
+  title: "заглавие",
+  start_date: "начална дата",
+  end_date: "крайна дата",
+  city: "град",
+  city_id: "град",
+  coordinates: "координати",
+  organizer_name: "организатор",
+  hero_image: "снимка",
+  description: "описание",
+  location_name: "място",
+  address: "адрес",
+  category: "категория",
+  tags: "тагове",
+  source_url: "уебсайт",
+};
+
+function fieldLabel(field: string): string {
+  return FIELD_LABELS[field] ?? field;
+}
+
+function domainFrom(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url.length > 40 ? url.slice(0, 40) + "…" : url;
+  }
+}
+
 async function readErrorMessage(response: Response, fallback: string) {
   const payload = (await response.json().catch(() => null)) as { error?: string } | null;
   return payload?.error ?? fallback;
 }
 
 function bucketStyle(bucket: PendingQualityBucket) {
-  if (bucket === "ready") {
-    return "border-[#18a05e]/30 bg-[#18a05e]/10 text-[#0e7a45]";
-  }
-
-  if (bucket === "needs_fix") {
-    return "border-[#b8891e]/30 bg-[#fff7e6] text-[#8a6516]";
-  }
-
+  if (bucket === "ready") return "border-[#18a05e]/30 bg-[#18a05e]/10 text-[#0e7a45]";
+  if (bucket === "needs_fix") return "border-[#b8891e]/30 bg-[#fff7e6] text-[#8a6516]";
   return "border-[#b13a1a]/30 bg-[#fff1ec] text-[#9f3115]";
 }
 
 function bucketLabel(bucket: PendingQualityBucket) {
-  if (bucket === "ready") return "Ready";
-  if (bucket === "needs_fix") return "Needs fix";
-  return "Weak";
+  if (bucket === "ready") return "Готов";
+  if (bucket === "needs_fix") return "Нужни корекции";
+  return "Слаб";
 }
 
 export default function PendingFestivalsTable({
@@ -67,26 +92,22 @@ export default function PendingFestivalsTable({
 
   const runAction = async (id: string, action: "approve" | "reject") => {
     if (busyId) return;
-
     setBusyId(id);
     setBusyAction(action);
     setMessage("");
     setError("");
-
     try {
       const response = await fetch(`/admin/api/pending-festivals/${id}/${action}`, {
         method: "POST",
         credentials: "include",
       });
-
       if (!response.ok) {
-        throw new Error(await readErrorMessage(response, `Failed to ${action}.`));
+        throw new Error(await readErrorMessage(response, `Неуспешно ${action === "approve" ? "одобрение" : "отхвърляне"}.`));
       }
-
-      setMessage(action === "approve" ? "Festival approved and published." : "Festival rejected.");
+      setMessage(action === "approve" ? "Фестивалът е одобрен и публикуван." : "Фестивалът е отхвърлен.");
       router.refresh();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Unexpected action error.");
+      setError(actionError instanceof Error ? actionError.message : "Неочаквана грешка.");
     } finally {
       setBusyId(null);
       setBusyAction(null);
@@ -109,7 +130,7 @@ export default function PendingFestivalsTable({
         {message ? <p className="rounded-lg bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">{message}</p> : null}
         {error ? <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
         <div className="rounded-2xl border border-black/[0.08] bg-white/85 px-6 py-12 text-center text-sm text-black/60">
-          {qualityFilter ? "No pending festivals for this quality bucket." : "No pending festivals."}
+          {qualityFilter ? "Няма чакащи фестивали в тази категория." : "Няма чакащи фестивали."}
         </div>
       </div>
     );
@@ -120,163 +141,188 @@ export default function PendingFestivalsTable({
       {message ? <p className="rounded-lg bg-[#18a05e]/10 px-3 py-2 text-sm text-[#0e7a45]">{message}</p> : null}
       {error ? <p className="rounded-lg bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]">{error}</p> : null}
 
+      {/* Quality filter tabs */}
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/[0.08] bg-white/85 p-3 text-xs">
-        <button
-          type="button"
-          onClick={() => setFilter("")}
-          className={`rounded-lg border px-2.5 py-1 font-semibold uppercase tracking-[0.12em] ${!qualityFilter ? "border-black/20 bg-black/[0.05]" : "border-black/[0.1] bg-white"}`}
-        >
-          All
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilter("ready")}
-          className={`rounded-lg border px-2.5 py-1 font-semibold uppercase tracking-[0.12em] ${qualityFilter === "ready" ? "border-[#18a05e]/40 bg-[#18a05e]/10" : "border-black/[0.1] bg-white"}`}
-        >
-          Ready ({qualityCounts.ready})
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilter("needs_fix")}
-          className={`rounded-lg border px-2.5 py-1 font-semibold uppercase tracking-[0.12em] ${qualityFilter === "needs_fix" ? "border-[#b8891e]/40 bg-[#fff7e6]" : "border-black/[0.1] bg-white"}`}
-        >
-          Needs fix ({qualityCounts.needs_fix})
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilter("weak")}
-          className={`rounded-lg border px-2.5 py-1 font-semibold uppercase tracking-[0.12em] ${qualityFilter === "weak" ? "border-[#b13a1a]/40 bg-[#fff1ec]" : "border-black/[0.1] bg-white"}`}
-        >
-          Weak ({qualityCounts.weak})
-        </button>
+        {(
+          [
+            { key: "" as const, label: "Всички" },
+            { key: "ready" as const, label: `Готови (${qualityCounts.ready})` },
+            { key: "needs_fix" as const, label: `Нужни корекции (${qualityCounts.needs_fix})` },
+            { key: "weak" as const, label: `Слаби (${qualityCounts.weak})` },
+          ] as { key: PendingQualityBucket | ""; label: string }[]
+        ).map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilter(key)}
+            className={`rounded-lg border px-2.5 py-1 font-semibold uppercase tracking-[0.12em] transition ${
+              qualityFilter === key
+                ? key === "ready"
+                  ? "border-[#18a05e]/40 bg-[#18a05e]/10 text-[#0e7a45]"
+                  : key === "needs_fix"
+                    ? "border-[#b8891e]/40 bg-[#fff7e6] text-[#8a6516]"
+                    : key === "weak"
+                      ? "border-[#b13a1a]/40 bg-[#fff1ec] text-[#9f3115]"
+                      : "border-black/20 bg-black/[0.05]"
+                : "border-black/[0.1] bg-white hover:bg-black/[0.03]"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-black/[0.08] bg-white/85 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
         <table className="min-w-full divide-y divide-black/[0.08] text-sm">
           <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-[0.14em] text-black/50">
             <tr>
-              <th className="px-3 py-3">Title</th>
-              <th className="px-3 py-3">Quality</th>
-              <th className="px-3 py-3">City ID</th>
-              <th className="px-3 py-3">Start date</th>
-              <th className="px-3 py-3">End date</th>
-              <th className="px-3 py-3">Source URL</th>
-              <th className="px-3 py-3">Sources</th>
+              <th className="px-3 py-3">Заглавие</th>
+              <th className="px-3 py-3">Качество</th>
+              <th className="px-3 py-3">Град</th>
+              <th className="px-3 py-3">Организатор</th>
+              <th className="px-3 py-3">Дати</th>
               <th className="px-3 py-3">Източник</th>
-              <th className="px-3 py-3">Created</th>
-              <th className="px-3 py-3">Actions</th>
+              <th className="px-3 py-3">Тип</th>
+              <th className="px-3 py-3">Създаден</th>
+              <th className="px-3 py-3">Действия</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/[0.06]">
             {rows.map((row) => {
               const rowBusy = busyId === row.id;
               const evidenceSources = listEvidenceSources(row.evidence_json);
-              const sourceTotal =
-                row.source_count != null && Number.isFinite(Number(row.source_count))
-                  ? Number(row.source_count)
-                  : 0;
-              const showing = evidenceSources.length;
               const showList = Boolean(sourcesOpen[row.id]);
+
+              const cityDisplay = row.city_guess?.trim() || (row.city_id ? `#${row.city_id}` : "—");
+
               return (
                 <tr key={row.id} className="hover:bg-black/[0.02]">
-                  <td className="px-3 py-3 font-medium text-[#0c0e14]">{row.title}</td>
-                  <td className="px-3 py-3 text-black/65">
+                  {/* Title */}
+                  <td className="max-w-[16rem] px-3 py-3 font-medium text-[#0c0e14]">
+                    <Link href={`/admin/pending-festivals/${row.id}`} className="hover:underline">
+                      {row.title}
+                    </Link>
+                  </td>
+
+                  {/* Quality */}
+                  <td className="px-3 py-3">
                     <div className="space-y-1">
                       <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${bucketStyle(row.quality_bucket)}`}>
                         {bucketLabel(row.quality_bucket)} · {row.quality_score}
                       </span>
                       {row.missing_fields.length > 0 ? (
-                        <p className="text-xs text-black/55">Missing: {row.missing_fields.slice(0, 3).join(", ")}{row.missing_fields.length > 3 ? "…" : ""}</p>
+                        <p className="text-xs text-black/50">
+                          Липсва: {row.missing_fields.slice(0, 3).map(fieldLabel).join(", ")}{row.missing_fields.length > 3 ? "…" : ""}
+                        </p>
                       ) : (
-                        <p className="text-xs text-[#0e7a45]">No critical missing fields</p>
+                        <p className="text-xs text-[#0e7a45]">Всички полета попълнени</p>
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-black/65">{row.city_id ?? "-"}</td>
-                  <td className="px-3 py-3 text-black/65">{row.start_date ?? "-"}</td>
-                  <td className="px-3 py-3 text-black/65">{row.end_date ?? "-"}</td>
-                  <td className="px-3 py-3 text-black/65">
-                    {row.source_url ? (
-                      <a href={row.source_url} target="_blank" rel="noreferrer" className="underline decoration-black/25 underline-offset-2">
-                        {row.source_url}
-                      </a>
-                    ) : (
-                      "-"
-                    )}
+
+                  {/* City */}
+                  <td className="px-3 py-3 text-sm text-black/70">{cityDisplay}</td>
+
+                  {/* Organizer */}
+                  <td className="max-w-[12rem] px-3 py-3 text-sm text-black/70">
+                    {row.organizer_name?.trim() || <span className="text-black/30">—</span>}
                   </td>
-                  <td className="max-w-[14rem] px-3 py-3 align-top text-black/65">
-                    <div className="flex flex-col gap-1.5 text-xs">
-                      <span className="text-black/70">
-                        Sources: {sourceTotal} (showing {showing})
+
+                  {/* Dates */}
+                  <td className="px-3 py-3 text-sm text-black/70 whitespace-nowrap">
+                    {row.start_date ? (
+                      <span>
+                        {row.start_date}
+                        {row.end_date && row.end_date !== row.start_date ? <><br /><span className="text-black/45">→ {row.end_date}</span></> : null}
                       </span>
-                      {evidenceSources.length > 0 ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSourcesOpen((prev) => ({
-                                ...prev,
-                                [row.id]: !prev[row.id],
-                              }))
-                            }
-                            className="w-fit rounded-md border border-black/15 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-black/70 hover:bg-black/[0.03]"
-                          >
-                            {showList ? "Hide sources" : "Show sources"}
-                          </button>
-                          {showList ? (
-                            <ul className="mt-0.5 list-none space-y-1 break-all text-[11px] leading-snug text-black/60">
-                              {evidenceSources.map((s, idx) => (
-                                <li key={`${row.id}-src-${idx}`}>
-                                  <span className="font-medium text-black/55">{s.type}</span>
-                                  <span className="text-black/40"> → </span>
-                                  <a href={s.url} target="_blank" rel="noreferrer" className="underline decoration-black/20 underline-offset-2">
-                                    {s.url}
-                                  </a>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : null}
-                        </>
-                      ) : (
-                        <span className="text-[11px] text-black/45">No evidence sources</span>
-                      )}
-                    </div>
+                    ) : "—"}
                   </td>
+
+                  {/* Source */}
+                  <td className="px-3 py-3 text-sm">
+                    {row.source_url ? (
+                      <div className="space-y-1">
+                        <a
+                          href={row.source_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block text-blue-600 hover:underline"
+                          title={row.source_url}
+                        >
+                          {domainFrom(row.source_url)}
+                        </a>
+                        {evidenceSources.length > 0 && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setSourcesOpen((prev) => ({ ...prev, [row.id]: !prev[row.id] }))}
+                              className="text-[11px] text-black/40 hover:text-black/70"
+                            >
+                              {showList ? "▲ скрий" : `▼ +${evidenceSources.length} извора`}
+                            </button>
+                            {showList && (
+                              <ul className="space-y-0.5 text-[11px] text-black/55">
+                                {evidenceSources.map((s, idx) => (
+                                  <li key={`${row.id}-src-${idx}`}>
+                                    <a href={s.url} target="_blank" rel="noreferrer" className="hover:underline">
+                                      {domainFrom(s.url)}
+                                    </a>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ) : <span className="text-black/30">—</span>}
+                  </td>
+
+                  {/* Submission source */}
                   <td className="px-3 py-3 text-black/65">
                     {row.submission_source === "organizer_portal" ? (
                       <span className="inline-flex rounded-full border border-[#0c0e14]/20 bg-[#f5f4f0] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[#0c0e14]">
-                        Орг. портал
+                        Организатор
+                      </span>
+                    ) : row.submission_source === "research" ? (
+                      <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-blue-700">
+                        Проучване
                       </span>
                     ) : row.submission_source ? (
-                      row.submission_source
-                    ) : (
-                      "—"
-                    )}
+                      <span className="text-xs">{row.submission_source}</span>
+                    ) : "—"}
                   </td>
-                  <td className="px-3 py-3 text-black/65">{new Date(row.created_at).toLocaleString("bg-BG")}</td>
+
+                  {/* Created */}
+                  <td className="px-3 py-3 text-xs text-black/55 whitespace-nowrap">
+                    {new Date(row.created_at).toLocaleDateString("bg-BG")}
+                    <br />
+                    <span className="text-black/35">{new Date(row.created_at).toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit" })}</span>
+                  </td>
+
+                  {/* Actions */}
                   <td className="px-3 py-3">
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-col gap-1.5">
                       <Link
                         href={`/admin/pending-festivals/${row.id}`}
-                        className="inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] hover:bg-[#f7f6f3]"
+                        className="inline-flex justify-center rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] hover:bg-[#f7f6f3]"
                       >
-                        View/Edit
+                        Преглед
                       </Link>
                       <button
                         type="button"
                         onClick={() => runAction(row.id, "approve")}
                         disabled={rowBusy}
-                        className="inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] disabled:cursor-not-allowed disabled:opacity-45"
+                        className="inline-flex justify-center rounded-lg border border-[#18a05e]/30 bg-[#18a05e]/8 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[#0e7a45] hover:bg-[#18a05e]/15 disabled:cursor-not-allowed disabled:opacity-45"
                       >
-                        {rowBusy && busyAction === "approve" ? "Approving..." : "Approve"}
+                        {rowBusy && busyAction === "approve" ? "…" : "Одобри"}
                       </button>
                       <button
                         type="button"
                         onClick={() => runAction(row.id, "reject")}
                         disabled={rowBusy}
-                        className="inline-flex rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.13em] disabled:cursor-not-allowed disabled:opacity-45"
+                        className="inline-flex justify-center rounded-lg border border-[#b13a1a]/25 bg-[#b13a1a]/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-[#9f3115] hover:bg-[#b13a1a]/10 disabled:cursor-not-allowed disabled:opacity-45"
                       >
-                        {rowBusy && busyAction === "reject" ? "Rejecting..." : "Reject"}
+                        {rowBusy && busyAction === "reject" ? "…" : "Отхвърли"}
                       </button>
                     </div>
                   </td>

@@ -123,6 +123,7 @@ Load only what the task requires — do not preload everything for small edits.
 | General dev rules | `AI_DEVELOPER_RULES.md` |
 | Architecture guardrails | `AI_SYSTEM_ARCHITECT.md` |
 | Scoring / ranking / recommendation algorithms | `docs/algorithms.md` |
+| Organizer pages — visual/UX language | `docs/organizer-design-system.md` |
 
 > `docs/database-schema.md` is **not** required reading and is not guaranteed current. Never treat it as authoritative.
 

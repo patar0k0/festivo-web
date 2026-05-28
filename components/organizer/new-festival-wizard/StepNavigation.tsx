@@ -42,20 +42,20 @@ export function WizardProgressInline({
         const isLast = i === steps.length - 1;
 
         const circleClass = isActive
-          ? "bg-gray-900 text-white"
+          ? "bg-[#7c2d12] text-white shadow-sm"
           : isDone
-            ? "bg-emerald-100 text-emerald-800"
+            ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200/50"
             : isVisitedAhead
-              ? "bg-gray-200 text-gray-700"
-              : "bg-gray-100 text-gray-500";
+              ? "bg-amber-50 text-amber-900 ring-1 ring-amber-200/60"
+              : "bg-gray-50 text-gray-400 ring-1 ring-black/[0.06]";
 
         const labelClass = isActive
-          ? "font-semibold text-gray-900"
+          ? "font-semibold text-[#0c0e14]"
           : isDone
             ? "font-medium text-emerald-700"
             : isVisitedAhead
-              ? "font-medium text-gray-600"
-              : "font-normal text-gray-400";
+              ? "font-medium text-[#5c200d]"
+              : "font-normal text-black/40";
 
         const StepBody = (
           <>
@@ -74,7 +74,7 @@ export function WizardProgressInline({
               <button
                 type="button"
                 onClick={() => onCompletedStepClick(s.id)}
-                className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-xs sm:text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-black/10`}
+                className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-xs sm:text-sm font-medium text-emerald-700 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30`}
                 aria-label={`Към стъпка ${s.id}: ${s.label}`}
               >
                 {StepBody}
@@ -82,7 +82,7 @@ export function WizardProgressInline({
             ) : (
               <div className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-xs sm:text-sm ${labelClass}`}>{StepBody}</div>
             )}
-            {!isLast ? <span className="text-gray-300 select-none sm:px-0.5">—</span> : null}
+            {!isLast ? <span className="text-amber-300/60 select-none sm:px-0.5" aria-hidden="true">—</span> : null}
           </div>
         );
       })}
@@ -117,9 +117,9 @@ export function StepNavigation({
               type="button"
               onClick={onBack}
               disabled={busy}
-              className="inline-flex w-full justify-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-900 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black/10 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
+              className="inline-flex w-full justify-center gap-1.5 rounded-xl border border-black/[0.12] bg-white px-5 py-2.5 text-sm font-medium text-[#0c0e14] transition hover:bg-black/[0.04] focus:outline-none focus:ring-2 focus:ring-[#7c2d12]/25 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
             >
-              Назад
+              <span aria-hidden="true">←</span> Назад
             </button>
           ) : (
             <span className="hidden sm:block sm:w-[1px]" aria-hidden />
@@ -131,9 +131,9 @@ export function StepNavigation({
               type="button"
               onClick={onNext}
               disabled={busy || disableNext}
-              className={`inline-flex w-full justify-center rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white transition hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-black/10 sm:w-auto ${primaryCtaDisabledClass}`}
+              className={`inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#7c2d12] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#5c200d] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#7c2d12]/25 sm:w-auto ${primaryCtaDisabledClass}`}
             >
-              Напред
+              Напред <span aria-hidden="true">→</span>
             </button>
           ) : (
             <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:items-end">
@@ -142,9 +142,16 @@ export function StepNavigation({
                 type="button"
                 onClick={onSubmit}
                 disabled={busy || disableSubmit}
-                className={`inline-flex w-full justify-center rounded-lg bg-black px-5 py-2.5 text-sm font-medium text-white transition hover:bg-black/90 focus:outline-none focus:ring-2 focus:ring-black/10 sm:w-auto ${primaryCtaDisabledClass}`}
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#7c2d12] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[#5c200d] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-[#7c2d12]/25 sm:w-auto ${primaryCtaDisabledClass}`}
               >
-                {busy ? "Изпращане..." : "Изпрати за одобрение"}
+                {busy ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Изпращане…
+                  </>
+                ) : (
+                  <>Изпрати за одобрение →</>
+                )}
               </button>
             </div>
           )}

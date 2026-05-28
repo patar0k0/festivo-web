@@ -11,6 +11,7 @@ export const EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE = "reminder-1-day-before" as c
 export const EMAIL_JOB_TYPE_REMINDER_SAME_DAY = "reminder-same-day" as const;
 export const EMAIL_JOB_TYPE_CONTACT_FORM = "contact-form" as const;
 export const EMAIL_JOB_TYPE_WELCOME = "welcome" as const;
+export const EMAIL_JOB_TYPE_ADMIN_FESTIVAL_REPORT = "admin-festival-report" as const;
 
 export type EmailJobPriority = "high" | "normal" | "low";
 
@@ -35,6 +36,7 @@ export const EMAIL_JOB_TYPES = [
   EMAIL_JOB_TYPE_CONTACT_FORM,
   EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE,
   EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
+  EMAIL_JOB_TYPE_ADMIN_FESTIVAL_REPORT,
 ] as const;
 
 export type EmailJobType = (typeof EMAIL_JOB_TYPES)[number];

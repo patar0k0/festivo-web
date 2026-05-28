@@ -23,6 +23,11 @@ function extensionFromFileName(name: string) {
   return match?.[1] ?? null;
 }
 
+function addToGalleryIfAbsent(current: unknown, url: string): string[] {
+  const arr = Array.isArray(current) ? (current as unknown[]).filter((v): v is string => typeof v === "string" && v.trim().length > 0) : [];
+  return arr.some((u) => u.trim() === url.trim()) ? arr : [...arr, url];
+}
+
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
@@ -48,10 +53,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: outcome.error }, { status: 422 });
       }
 
+      const { data: existingRow, error: fetchError } = await ctx.supabase
+        .from("pending_festivals")
+        .select("gallery_image_urls")
+        .eq("id", id)
+        .maybeSingle<{ gallery_image_urls: unknown }>();
+
+      if (fetchError) {
+        return NextResponse.json({ error: `Failed to fetch gallery: ${fetchError.message}` }, { status: 500 });
+      }
+
+      const updatedGallery = addToGalleryIfAbsent(existingRow?.gallery_image_urls, outcome.publicUrl);
+
       const updateRow: Record<string, unknown> = {
         hero_image: outcome.publicUrl,
         hero_image_source: outcome.originalUrl ? "url_import" : "manual_upload",
         hero_image_original_url: outcome.originalUrl ?? null,
+        gallery_image_urls: updatedGallery,
       };
 
       const { data: updatedFromUrl, error: updateFromUrlError } = await ctx.supabase
@@ -73,6 +91,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         ok: true,
         hero_image: updatedFromUrl.hero_image,
         hero_image_source: updatedFromUrl.hero_image_source,
+        gallery_image_urls: updatedGallery,
       });
     }
 
@@ -123,12 +142,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Uploaded image URL is unavailable." }, { status: 500 });
     }
 
+    const { data: existingGalleryRow, error: galleryFetchError } = await ctx.supabase
+      .from("pending_festivals")
+      .select("gallery_image_urls")
+      .eq("id", id)
+      .maybeSingle<{ gallery_image_urls: unknown }>();
+
+    if (galleryFetchError) {
+      return NextResponse.json({ error: `Failed to fetch gallery: ${galleryFetchError.message}` }, { status: 500 });
+    }
+
+    const updatedGallery = addToGalleryIfAbsent(existingGalleryRow?.gallery_image_urls, publicUrl);
+
     const { data: updatedRow, error: updateError } = await ctx.supabase
       .from("pending_festivals")
       .update({
         hero_image: publicUrl,
         hero_image_source: "manual_upload",
         hero_image_original_url: null,
+        gallery_image_urls: updatedGallery,
       })
       .eq("id", id)
       .select("id, hero_image, hero_image_source")
@@ -146,6 +178,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       ok: true,
       hero_image: updatedRow.hero_image,
       hero_image_source: updatedRow.hero_image_source,
+      gallery_image_urls: updatedGallery,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected hero image upload error";

@@ -10,8 +10,29 @@ export type GeocodeLocationResult = {
   formattedAddress?: string | null;
 };
 
+/** One entry per provider attempted during a geocode-with-steps call. */
+export type GeoDebugStep = {
+  provider: "places-new" | "google-geocoding" | "places-old" | "osm";
+  label: string;
+  /** The query string passed to this provider. */
+  query: string;
+  /** true = provider returned a usable result. */
+  ok: boolean;
+  /** true = provider was not called (e.g. no API key, or earlier step already found a result). */
+  skipped: boolean;
+  /** Human-readable result label when ok = true. */
+  resultName?: string | null;
+};
+
+export type GeoLocationWithSteps = {
+  result: GeocodeLocationResult | null;
+  steps: GeoDebugStep[];
+  googleKeyConfigured: boolean;
+};
+
 const GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json";
 const GOOGLE_PLACES_TEXT_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json";
+const GOOGLE_PLACES_NEW_URL = "https://places.googleapis.com/v1/places:searchText";
 const OSM_GEOCODE_URL = "https://nominatim.openstreetmap.org/search";
 
 function getGoogleApiKey(): string | null {
@@ -182,20 +203,173 @@ async function geocodeWithGooglePlacesTextSearch(query: string): Promise<Geocode
   }
 }
 
+/**
+ * Google Places API (New) — Text Search.
+ * POST https://places.googleapis.com/v1/places:searchText
+ * Better semantic understanding of place names than the legacy APIs.
+ * Same API key as Geocoding; requires "Places API (New)" enabled in GCP console.
+ */
+async function geocodeWithGooglePlacesNew(query: string): Promise<GeocodeLocationResult | null> {
+  const apiKey = getGoogleApiKey();
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch(GOOGLE_PLACES_NEW_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "places.location,places.displayName,places.formattedAddress,places.id",
+      },
+      body: JSON.stringify({
+        textQuery: query,
+        languageCode: "bg",
+        regionCode: "BG",
+        maxResultCount: 1,
+      }),
+    });
+    if (!response.ok) return null;
+
+    const payload = (await response.json().catch(() => null)) as {
+      places?: Array<{
+        id?: string;
+        location?: { latitude?: unknown; longitude?: unknown };
+        displayName?: { text?: string };
+        formattedAddress?: string;
+      }>;
+    } | null;
+
+    if (!payload?.places?.length) return null;
+
+    const first = payload.places[0];
+    const lat = asFiniteNumber(first.location?.latitude);
+    const lng = asFiniteNumber(first.location?.longitude);
+    if (lat === null || lng === null) return null;
+
+    return {
+      lat,
+      lng,
+      placeId: typeof first.id === "string" && first.id.trim() ? first.id.trim() : null,
+      provider: "google",
+      name: first.displayName?.text ?? null,
+      formattedAddress: typeof first.formattedAddress === "string" && first.formattedAddress.trim()
+        ? first.formattedAddress.trim()
+        : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function geocodeLocation(query: string | null | undefined): Promise<GeocodeLocationResult | null> {
   if (typeof query !== "string") return null;
 
   const trimmed = query.trim();
   if (!trimmed) return null;
 
+  // Places API (New) — best semantic understanding of named places/venues
+  const fromPlacesNew = await geocodeWithGooglePlacesNew(trimmed);
+  if (fromPlacesNew) return fromPlacesNew;
+
   const fromGoogle = await geocodeWithGoogle(trimmed);
   if (fromGoogle) return fromGoogle;
 
-  // Places Text Search handles venue/event names much better than the Geocoding API
+  // Places Text Search (legacy) handles venue/event names better than the Geocoding API
   const fromPlaces = await geocodeWithGooglePlacesTextSearch(trimmed);
   if (fromPlaces) return fromPlaces;
 
   return geocodeWithOsm(trimmed);
+}
+
+/**
+ * Tries each geocoding provider in order and returns the first successful result
+ * together with a per-step debug log. Use this for admin tools where visibility
+ * into which provider resolved (or failed) is important.
+ *
+ * Does NOT apply the shouldAcceptCoordinates score gate — the caller is trusted.
+ */
+export async function geocodeLocationWithSteps(
+  query: string | null | undefined,
+): Promise<GeoLocationWithSteps> {
+  const steps: GeoDebugStep[] = [];
+  const trimmed = typeof query === "string" ? query.trim() : "";
+  const googleKeyConfigured = !!getGoogleApiKey();
+
+  if (!trimmed) {
+    return { result: null, steps, googleKeyConfigured };
+  }
+
+  let found: GeocodeLocationResult | null = null;
+
+  // 1. Places API (New)
+  if (!googleKeyConfigured) {
+    steps.push({ provider: "places-new", label: "Places API (New)", query: trimmed, ok: false, skipped: true, resultName: "немa API ключ" });
+  } else {
+    const r = await geocodeWithGooglePlacesNew(trimmed);
+    steps.push({
+      provider: "places-new",
+      label: "Places API (New)",
+      query: trimmed,
+      ok: !!r,
+      skipped: false,
+      resultName: r?.name ?? r?.formattedAddress ?? null,
+    });
+    if (r) { found = r; }
+  }
+
+  // 2. Google Geocoding API
+  if (found) {
+    steps.push({ provider: "google-geocoding", label: "Google Geocoding API", query: trimmed, ok: false, skipped: true });
+  } else if (!googleKeyConfigured) {
+    steps.push({ provider: "google-geocoding", label: "Google Geocoding API", query: trimmed, ok: false, skipped: true, resultName: "няма API ключ" });
+  } else {
+    const r = await geocodeWithGoogle(trimmed);
+    steps.push({
+      provider: "google-geocoding",
+      label: "Google Geocoding API",
+      query: trimmed,
+      ok: !!r,
+      skipped: false,
+      resultName: r?.formattedAddress ?? null,
+    });
+    if (r) { found = r; }
+  }
+
+  // 3. Places Text Search (legacy)
+  if (found) {
+    steps.push({ provider: "places-old", label: "Places Text Search (стар)", query: trimmed, ok: false, skipped: true });
+  } else if (!googleKeyConfigured) {
+    steps.push({ provider: "places-old", label: "Places Text Search (стар)", query: trimmed, ok: false, skipped: true, resultName: "няма API ключ" });
+  } else {
+    const r = await geocodeWithGooglePlacesTextSearch(trimmed);
+    steps.push({
+      provider: "places-old",
+      label: "Places Text Search (стар)",
+      query: trimmed,
+      ok: !!r,
+      skipped: false,
+      resultName: r?.name ?? r?.formattedAddress ?? null,
+    });
+    if (r) { found = r; }
+  }
+
+  // 4. OSM Nominatim
+  if (found) {
+    steps.push({ provider: "osm", label: "OSM Nominatim", query: trimmed, ok: false, skipped: true });
+  } else {
+    const r = await geocodeWithOsm(trimmed);
+    steps.push({
+      provider: "osm",
+      label: "OSM Nominatim",
+      query: trimmed,
+      ok: !!r,
+      skipped: false,
+      resultName: r?.name ?? r?.formattedAddress ?? null,
+    });
+    if (r) { found = r; }
+  }
+
+  return { result: found, steps, googleKeyConfigured };
 }
 
 /** Resolves a Google `place_id` to coordinates. Requires `GOOGLE_GEOCODING_API_KEY` (or `GOOGLE_MAPS_API_KEY`). */

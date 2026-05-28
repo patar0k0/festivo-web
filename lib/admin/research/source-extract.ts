@@ -6,9 +6,11 @@ export type ExtractedSourceDocument = {
   title: string;
   language: ResearchLanguageSignal;
   excerpt: string;
+  images: string[];
 };
 
 const MAX_TEXT_LENGTH = 5000;
+const MAX_IMAGES_PER_PAGE = 5;
 
 export function normalizeUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -72,6 +74,109 @@ function extractTitleFromHtml(html: string): string | null {
   return cleaned || null;
 }
 
+function metaContent(html: string, propertyOrName: string): string | null {
+  const re = new RegExp(
+    `<meta[^>]+(?:property|name)\\s*=\\s*["']${propertyOrName.replace(/[.*+?^${}()|[\\]]/g, "\\$&")}["'][^>]*>`,
+    "i",
+  );
+  const tag = html.match(re)?.[0];
+  if (!tag) return null;
+  const content = tag.match(/content\s*=\s*["']([^"']+)["']/i)?.[1] ?? null;
+  return content ? decodeHtmlEntities(content).trim() || null : null;
+}
+
+function resolveAbsoluteUrl(raw: string, baseUrl: string): string | null {
+  try {
+    const u = new URL(raw, baseUrl);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    u.hash = "";
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+function looksLikeUiAsset(url: string): boolean {
+  const lower = url.toLowerCase();
+  if (lower.endsWith(".svg") || lower.endsWith(".ico")) return true;
+  return /(?:sprite|icon|logo|favicon|placeholder|spinner|loader|avatar|emoji|gif\/?\?|tracking|pixel\.)/i.test(lower);
+}
+
+function extractImagesFromHtml(html: string, baseUrl: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  const push = (raw: string | null | undefined) => {
+    if (!raw) return;
+    const abs = resolveAbsoluteUrl(raw, baseUrl);
+    if (!abs) return;
+    if (abs.startsWith("data:")) return;
+    if (looksLikeUiAsset(abs)) return;
+    if (seen.has(abs)) return;
+    seen.add(abs);
+    out.push(abs);
+  };
+
+  // 1) og:image / og:image:secure_url (highest priority — usually the page's hero)
+  push(metaContent(html, "og:image"));
+  push(metaContent(html, "og:image:secure_url"));
+  push(metaContent(html, "twitter:image"));
+  push(metaContent(html, "twitter:image:src"));
+
+  // 2) JSON-LD schema.org image fields (Event, Article, etc.)
+  const ldBlocks = html.match(/<script[^>]+type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) ?? [];
+  for (const block of ldBlocks) {
+    const jsonText = block.replace(/^<script[^>]*>/i, "").replace(/<\/script>$/i, "");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      continue;
+    }
+    const queue: unknown[] = [parsed];
+    while (queue.length > 0 && out.length < MAX_IMAGES_PER_PAGE) {
+      const node = queue.shift();
+      if (!node) continue;
+      if (typeof node === "string") {
+        if (/^https?:\/\//i.test(node) && /\.(jpe?g|png|webp|avif)(\?|$)/i.test(node)) push(node);
+        continue;
+      }
+      if (Array.isArray(node)) {
+        for (const item of node) queue.push(item);
+        continue;
+      }
+      if (typeof node === "object") {
+        const obj = node as Record<string, unknown>;
+        if ("image" in obj) queue.push(obj.image);
+        if ("url" in obj && typeof obj.url === "string" && /\.(jpe?g|png|webp|avif)(\?|$)/i.test(obj.url)) push(obj.url);
+        if ("thumbnailUrl" in obj) queue.push(obj.thumbnailUrl);
+        if ("contentUrl" in obj) queue.push(obj.contentUrl);
+      }
+    }
+    if (out.length >= MAX_IMAGES_PER_PAGE) break;
+  }
+
+  // 3) Body <img src> as fallback (filtered)
+  if (out.length < MAX_IMAGES_PER_PAGE) {
+    const imgTags = html.match(/<img\b[^>]+>/gi) ?? [];
+    for (const tag of imgTags) {
+      if (out.length >= MAX_IMAGES_PER_PAGE) break;
+      const src =
+        tag.match(/\bsrc\s*=\s*["']([^"']+)["']/i)?.[1] ??
+        tag.match(/\bdata-src\s*=\s*["']([^"']+)["']/i)?.[1] ??
+        null;
+      if (!src) continue;
+      // skip obvious tiny / decorative
+      const widthAttr = Number(tag.match(/\bwidth\s*=\s*["']?(\d+)/i)?.[1] ?? "0");
+      const heightAttr = Number(tag.match(/\bheight\s*=\s*["']?(\d+)/i)?.[1] ?? "0");
+      if ((widthAttr > 0 && widthAttr < 200) || (heightAttr > 0 && heightAttr < 200)) continue;
+      push(src);
+    }
+  }
+
+  return out;
+}
+
 export async function fetchSourceDocument(url: string): Promise<ExtractedSourceDocument | null> {
   const normalizedUrl = normalizeUrl(url);
   if (!normalizedUrl) return null;
@@ -100,5 +205,6 @@ export async function fetchSourceDocument(url: string): Promise<ExtractedSourceD
     title: extractTitleFromHtml(html) ?? extractDomain(normalizedUrl),
     language: detectLanguage(excerpt),
     excerpt,
+    images: extractImagesFromHtml(html, normalizedUrl),
   };
 }

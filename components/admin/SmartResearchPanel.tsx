@@ -273,6 +273,7 @@ export default function SmartResearchPanel() {
         instagram_url: fields.instagram_url,
         ticket_url: fields.ticket_url,
         hero_image: fields.hero_image,
+        gallery_image_urls: fields.gallery_image_urls,
         is_free: fields.is_free,
         program_draft: fields.program_draft,
         source_urls: sources.filter((s) => !s.is_ai_overview).map((s) => s.url),
@@ -366,6 +367,49 @@ export default function SmartResearchPanel() {
                 <p className="text-sm text-black/70 leading-relaxed">{result.fields.description}</p>
               </div>
             )}
+
+            {/* Images */}
+            {(() => {
+              const imgs = [
+                ...(result.fields.hero_image ? [result.fields.hero_image] : []),
+                ...result.fields.gallery_image_urls,
+              ];
+              if (imgs.length === 0) return null;
+              return (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium uppercase tracking-wide text-black/35">
+                    Снимки ({imgs.length})
+                  </p>
+                  <div className="flex gap-2">
+                    {imgs.map((src, i) => (
+                      <a
+                        key={src}
+                        href={src}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative block size-20 overflow-hidden rounded-lg border border-black/[0.08] bg-black/[0.03]"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={src}
+                          alt={`Снимка ${i + 1}`}
+                          className="size-full object-cover transition group-hover:scale-105"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.currentTarget.parentElement as HTMLElement).style.display = "none";
+                          }}
+                        />
+                        {i === 0 && (
+                          <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-medium uppercase text-white">
+                            hero
+                          </span>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Links */}
             {(result.fields.website_url || result.fields.facebook_url || result.fields.instagram_url || result.fields.ticket_url) && (

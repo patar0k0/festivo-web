@@ -58,8 +58,11 @@ export type SmartResearchFields = {
   instagram_url: string | null;
   ticket_url: string | null;
   hero_image: string | null;
+  gallery_image_urls: string[];
   program_draft: ProgramDraft | null;
 };
+
+const MAX_IMAGES = 3;
 
 export type SmartResearchResult = {
   fields: SmartResearchFields;
@@ -227,8 +230,32 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
     instagram_url: str(extraction?.instagram_url),
     ticket_url: str(extraction?.ticket_url),
     hero_image: str(extraction?.hero_image),
+    gallery_image_urls: [],
     program_draft: extraction?.program ? programDraftFromGeminiProgram(extraction.program) : null,
   };
+
+  // Step 6.5: merge images discovered in fetched HTML pages (og:image / JSON-LD / <img>)
+  // Priority: any image Gemini surfaced → images extracted from page HTML, in fetched order.
+  // Cap total at MAX_IMAGES; first becomes hero_image (if missing), the rest go to gallery.
+  const allImages: string[] = [];
+  const pushImage = (raw: string | null) => {
+    if (!raw) return;
+    if (allImages.length >= MAX_IMAGES) return;
+    if (allImages.includes(raw)) return;
+    allImages.push(raw);
+  };
+  pushImage(fields.hero_image);
+  for (const doc of fetchedDocs) {
+    for (const img of doc.images) {
+      pushImage(img);
+      if (allImages.length >= MAX_IMAGES) break;
+    }
+    if (allImages.length >= MAX_IMAGES) break;
+  }
+  if (!fields.hero_image && allImages.length > 0) {
+    fields.hero_image = allImages[0]!;
+  }
+  fields.gallery_image_urls = allImages.filter((u) => u !== fields.hero_image).slice(0, MAX_IMAGES - 1);
 
   return {
     fields,

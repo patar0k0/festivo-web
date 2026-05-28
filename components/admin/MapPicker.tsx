@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
+import type { GeoDebugStep } from "@/lib/location/geocodeLocation";
 
 const MapPickerLeaflet = dynamic(() => import("./MapPickerLeaflet"), { ssr: false });
 
@@ -24,6 +25,48 @@ function buildDefaultSearch(locationName?: string | null, cityName?: string | nu
   return [locationName, cityName].filter(Boolean).join(", ");
 }
 
+type SearchPayload = {
+  ok?: boolean;
+  lat?: number | null;
+  lng?: number | null;
+  query_used?: string | null;
+  debug_steps?: GeoDebugStep[];
+  google_key_configured?: boolean;
+  error?: string;
+};
+
+/** Small row in the debug steps panel. */
+function StepRow({ step }: { step: GeoDebugStep }) {
+  if (step.skipped) {
+    return (
+      <li className="flex items-start gap-2 text-xs text-black/35">
+        <span className="mt-px shrink-0 font-mono">—</span>
+        <span>
+          <span className="font-medium">{step.label}</span>
+          {step.resultName ? <span className="ml-1 text-black/30">({step.resultName})</span> : null}
+        </span>
+      </li>
+    );
+  }
+  if (step.ok) {
+    return (
+      <li className="flex items-start gap-2 text-xs text-emerald-700">
+        <span className="mt-px shrink-0">✓</span>
+        <span>
+          <span className="font-medium">{step.label}</span>
+          {step.resultName ? <span className="ml-1 font-normal text-emerald-600">→ {step.resultName}</span> : null}
+        </span>
+      </li>
+    );
+  }
+  return (
+    <li className="flex items-start gap-2 text-xs text-red-500">
+      <span className="mt-px shrink-0">✗</span>
+      <span className="font-medium">{step.label}</span>
+    </li>
+  );
+}
+
 export function MapPickerModal({
   open,
   onClose,
@@ -39,6 +82,9 @@ export function MapPickerModal({
   const [searching, setSearching] = useState(false);
   const [searchResult, setSearchResult] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [debugSteps, setDebugSteps] = useState<GeoDebugStep[] | null>(null);
+  const [googleKeyConfigured, setGoogleKeyConfigured] = useState<boolean | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -54,6 +100,9 @@ export function MapPickerModal({
     setSearchQuery(buildDefaultSearch(locationName, cityName));
     setSearchResult(null);
     setSearchError(null);
+    setDebugSteps(null);
+    setGoogleKeyConfigured(null);
+    setShowDebug(false);
   }, [open, initialLat, initialLng, locationName, cityName]);
 
   if (!open) return null;
@@ -72,23 +121,28 @@ export function MapPickerModal({
     setSearching(true);
     setSearchResult(null);
     setSearchError(null);
+    setDebugSteps(null);
+    setShowDebug(false);
     try {
       const res = await fetch("/api/admin/geocode", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ location_name: query }),
+        body: JSON.stringify({ location_name: query, direct_search: true }),
       });
-      const payload = await res.json().catch(() => null) as {
-        ok?: boolean;
-        lat?: number | null;
-        lng?: number | null;
-        query_used?: string | null;
-        error?: string;
-      } | null;
+      const payload = (await res.json().catch(() => null)) as SearchPayload | null;
+
+      // Always store debug info if present
+      if (Array.isArray(payload?.debug_steps)) {
+        setDebugSteps(payload!.debug_steps);
+      }
+      if (typeof payload?.google_key_configured === "boolean") {
+        setGoogleKeyConfigured(payload!.google_key_configured);
+      }
 
       if (!res.ok || !payload?.ok) {
-        setSearchError("Не намерихме тази локация. Опитай по-конкретно.");
+        setSearchError("Грешка при търсене. Провери връзката.");
+        setShowDebug(true);
         return;
       }
       if (typeof payload.lat === "number" && typeof payload.lng === "number") {
@@ -98,9 +152,11 @@ export function MapPickerModal({
         setSearchResult(payload.query_used ?? query);
       } else {
         setSearchError("Не намерихме тази локация. Опитай по-конкретно.");
+        setShowDebug(true);
       }
     } catch {
       setSearchError("Грешка при търсене. Провери връзката.");
+      setShowDebug(true);
     } finally {
       setSearching(false);
     }
@@ -132,7 +188,13 @@ export function MapPickerModal({
             ref={searchInputRef}
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setDebugSteps(null);
+              setSearchResult(null);
+              setSearchError(null);
+              setShowDebug(false);
+            }}
             onKeyDown={handleSearchKeyDown}
             placeholder="напр. площад Игор Юруков, Девин"
             disabled={searching}
@@ -150,11 +212,50 @@ export function MapPickerModal({
 
         {/* Search feedback */}
         {searchResult ? (
-          <p className="mt-1.5 text-xs text-emerald-700">
-            ✓ Намерено: <span className="font-medium">{searchResult}</span>
-          </p>
+          <div className="mt-1.5 flex items-center justify-between">
+            <p className="text-xs text-emerald-700">
+              ✓ Намерено: <span className="font-medium">{searchResult}</span>
+            </p>
+            {debugSteps ? (
+              <button
+                type="button"
+                onClick={() => setShowDebug((v) => !v)}
+                className="text-[10px] text-black/35 underline underline-offset-2 hover:text-black/60"
+              >
+                {showDebug ? "скрий детайли" : "детайли"}
+              </button>
+            ) : null}
+          </div>
         ) : searchError ? (
-          <p className="mt-1.5 text-xs text-red-600">{searchError}</p>
+          <div className="mt-1.5 flex items-center justify-between">
+            <p className="text-xs text-red-600">{searchError}</p>
+            {debugSteps ? (
+              <button
+                type="button"
+                onClick={() => setShowDebug((v) => !v)}
+                className="text-[10px] text-black/35 underline underline-offset-2 hover:text-black/60"
+              >
+                {showDebug ? "скрий детайли" : "покажи защо"}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Debug steps panel */}
+        {showDebug && debugSteps ? (
+          <div className="mt-2 rounded-lg border border-black/[0.08] bg-black/[0.02] px-3 py-2">
+            {googleKeyConfigured !== null ? (
+              <p className={`mb-1.5 text-[10px] font-semibold ${googleKeyConfigured ? "text-emerald-700" : "text-amber-600"}`}>
+                🔑 Google API ключ:{" "}
+                {googleKeyConfigured ? "✓ конфигуриран" : "✗ не е конфигуриран — ползва се само OSM"}
+              </p>
+            ) : null}
+            <ul className="space-y-1">
+              {debugSteps.map((step, i) => (
+                <StepRow key={i} step={step} />
+              ))}
+            </ul>
+          </div>
         ) : null}
 
         <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.08]">

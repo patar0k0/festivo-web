@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { normalizeBgLocation } from "@/lib/location/normalizeBgLocation";
-import { geocodeByPlaceId } from "@/lib/location/geocodeLocation";
+import { geocodeByPlaceId, geocodeLocationWithSteps } from "@/lib/location/geocodeLocation";
 import { resolveEventCoordinates } from "@/lib/location/resolveEventCoordinates";
 
 type GeocodeBody = {
@@ -15,6 +15,12 @@ type GeocodeBody = {
   coords_override?: unknown;
   existing_lat?: unknown;
   existing_lng?: unknown;
+  /**
+   * When true: skip resolveEventCoordinates and run geocodeLocationWithSteps
+   * directly on location_name. Returns debug_steps and google_key_configured.
+   * Used by the admin map picker search box.
+   */
+  direct_search?: unknown;
 };
 
 function asOptionalString(value: unknown): string | null {
@@ -74,6 +80,25 @@ export async function POST(request: Request) {
   const coordsOverride = body?.coords_override === true;
   const existingLat = asFiniteNumber(body?.existing_lat);
   const existingLng = asFiniteNumber(body?.existing_lng);
+  const directSearch = body?.direct_search === true;
+
+  // Direct search path — used by the admin map picker.
+  // Runs all 4 providers in sequence and returns per-step debug info.
+  // Bypasses resolveEventCoordinates and the shouldAcceptCoordinates score gate.
+  if (directSearch) {
+    const query = locationName || null;
+    const { result, steps, googleKeyConfigured } = await geocodeLocationWithSteps(query);
+    return NextResponse.json({
+      ok: true,
+      lat: result?.lat ?? null,
+      lng: result?.lng ?? null,
+      place_id: result?.placeId ?? null,
+      provider: result?.provider ?? null,
+      query_used: result?.name ?? result?.formattedAddress ?? null,
+      debug_steps: steps,
+      google_key_configured: googleKeyConfigured,
+    });
+  }
 
   // venue name = location_name field; when empty fall back to title+city as venue query
   const effectiveVenueName =

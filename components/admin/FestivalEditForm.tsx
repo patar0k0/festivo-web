@@ -1320,6 +1320,8 @@ export default function FestivalEditForm({
         initialLat={form.latitude ? Number(form.latitude) : null}
         initialLng={form.longitude ? Number(form.longitude) : null}
         onConfirm={onConfirmMapPicker}
+        locationName={form.location_name || null}
+        cityName={form.city || null}
       />
 
       <AdminFieldSection title={ADMIN_ENTITY_SECTION.organizer.title} variant={ADMIN_ENTITY_SECTION.organizer.variant}>

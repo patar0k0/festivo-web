@@ -234,7 +234,8 @@ export async function buildResearchPendingRowFromRequest(
       return { ok: false, error: `Hero image: ${heroResolved.error}`, status: 422 };
     }
 
-    const galleryUrlsAi: string[] = (() => {
+    // Collect candidate gallery URLs (≤3 unique http(s) URLs from AI result).
+    const galleryCandidatesRaw: string[] = (() => {
       const raw = (ai as { gallery_image_urls?: unknown }).gallery_image_urls;
       if (!Array.isArray(raw)) return [];
       const seen = new Set<string>();
@@ -247,6 +248,40 @@ export async function buildResearchPendingRowFromRequest(
         seen.add(sanitized);
         out.push(sanitized);
         if (out.length >= 3) break;
+      }
+      return out;
+    })();
+
+    // Rehost gallery URLs to our supabase storage (same as hero — otherwise the
+    // pending edit page can't render them due to hotlink protection on source
+    // sites, and post-approve the festival_media URLs would rot when sources
+    // expire). Failures are skipped per-image so a single dead URL doesn't kill
+    // the whole submission.
+    const galleryUrlsAi: string[] = await (async () => {
+      if (galleryCandidatesRaw.length === 0) return [];
+      const supabase = createSupabaseAdmin();
+      const out: string[] = [];
+      for (const remote of galleryCandidatesRaw) {
+        try {
+          const result = await rehostHeroImageIfRemote(
+            supabase,
+            remote,
+            (ext) => uniqueResearchHeroObjectPath(ext),
+          );
+          if (result.ok && result.publicUrl) {
+            out.push(result.publicUrl);
+          } else {
+            console.warn("[research-direct-create] gallery rehost skipped", {
+              remote,
+              error: "error" in result ? result.error : "unknown",
+            });
+          }
+        } catch (e) {
+          console.warn("[research-direct-create] gallery rehost threw", {
+            remote,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
       }
       return out;
     })();

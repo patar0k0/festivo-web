@@ -7,10 +7,16 @@ import { fetchSourceDocument } from "@/lib/admin/research/source-extract";
 import { programDraftFromGeminiProgram } from "@/lib/festival/programDraft";
 import type { ProgramDraft } from "@/lib/festival/programDraft";
 
-/** Домейни, от които е безсмислено да извличаме пълно съдържание */
+/**
+ * Домейни, от които е безсмислено да извличаме пълно съдържание.
+ *
+ * Facebook / Instagram умишлено НЕ са в списъка — голяма част от българските
+ * фестивали имат FB event page като официална страница и og:image е реалната
+ * корица. `fetchSourceDocument` използва `facebookexternalhit/1.1` UA за тези
+ * сайтове, който задължава мета социалните мрежи да върнат пълно server-rendered
+ * HTML с Open Graph мета тагове (документиран Facebook crawler протокол).
+ */
 const SKIP_FETCH_DOMAINS = new Set([
-  "facebook.com",
-  "instagram.com",
   "youtube.com",
   "twitter.com",
   "x.com",

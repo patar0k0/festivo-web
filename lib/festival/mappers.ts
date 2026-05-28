@@ -53,6 +53,18 @@ function normalizeText(value: unknown): string | null {
   return trimmed || null;
 }
 
+/**
+ * Normalizes a festival category string: trim + lowercase.
+ * Ensures "Кулинарен фестивал", "кулинарен фестивал", "КУЛИНАРЕН ФЕСТИВАЛ"
+ * all map to the same canonical value "кулинарен фестивал".
+ * Display-layer capitalizes the first letter when needed.
+ */
+export function normalizeCategory(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed || null;
+}
+
 function normalizeTags(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.map((tag) => (typeof tag === "string" ? tag.trim() : "")).filter(Boolean);
@@ -208,7 +220,7 @@ export function pendingPatchFromCanonicalPartial(fields: CanonicalFestivalPatchP
   if ("title" in fields) patch.title = fields.title;
   if ("slug" in fields) patch.slug = fields.slug;
   if ("description" in fields) patch.description = fields.description;
-  if ("category" in fields) patch.category = fields.category;
+  if ("category" in fields) patch.category = normalizeCategory(fields.category);
   if ("venue_name" in fields) patch.location_name = fields.venue_name;
   if ("address" in fields) patch.address = fields.address;
   if ("latitude" in fields) patch.latitude = fields.latitude;
@@ -247,7 +259,7 @@ export function festivalPatchFromCanonicalPartial(fields: CanonicalFestivalPatch
   if ("title" in fields) patch.title = fields.title;
   if ("slug" in fields) patch.slug = fields.slug;
   if ("description" in fields) patch.description = fields.description;
-  if ("category" in fields) patch.category = fields.category;
+  if ("category" in fields) patch.category = normalizeCategory(fields.category);
   if ("venue_name" in fields) patch.location_name = fields.venue_name;
   if ("address" in fields) patch.address = fields.address;
   if ("start_date" in fields) patch.start_date = fields.start_date;

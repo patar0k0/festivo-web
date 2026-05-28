@@ -10,6 +10,7 @@ import {
 import { enqueueOrganizerPortalSubmissionEmails } from "@/lib/organizer/enqueuePendingFestivalSubmissionEmails";
 import { getPortalAdminClient, getPortalSessionUser, hasActiveOrganizerMembership } from "@/lib/organizer/portal";
 import { slugify } from "@/lib/utils";
+import { normalizeCategory } from "@/lib/festival/mappers";
 
 type Body = {
   organizer_id?: string;
@@ -130,8 +131,7 @@ export async function POST(request: Request) {
             .map((t) => t.trim())
             .filter(Boolean)
         : [];
-  const categoryRaw = typeof body.category === "string" ? body.category.trim() : "";
-  const category = categoryRaw || "festival";
+  const category = normalizeCategory(typeof body.category === "string" ? body.category : "") ?? "festival";
 
   const wantsDraft = body.status === "draft";
   const recordStatus = wantsDraft ? ("draft" as const) : ("pending" as const);

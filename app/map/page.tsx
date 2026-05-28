@@ -36,8 +36,11 @@ export default async function MapPage({
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   const filters = withDefaultFilters(parseFilters(searchParams));
+  // Картата трябва да вижда всички фестивали с координати, не само страница 1.
+  // Supabase връща всички редове на сървъра (без DB LIMIT), после пагинираме в паметта —
+  // затова 500 тук не добавя допълнително натоварване на DB, а само разширява slice-а.
   const [data, categoryOptions] = await Promise.all([
-    listFestivals(filters, 1, 30),
+    listFestivals(filters, 1, 500),
     listPublicFestivalCategorySlugs(),
   ]);
 

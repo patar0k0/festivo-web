@@ -378,39 +378,52 @@ export default function SmartResearchPanel() {
               </div>
             )}
 
-            {/* Hero image candidates — hidden when all images fail to load */}
-            {result.fields.hero_image_candidates.length > 0 &&
-              result.fields.hero_image_candidates.some((u) => !failedImages.has(u)) && (
+            {/* Hero image candidates — always rendered when any candidates exist,
+                even if all <img> tags fail to load in the browser. Broken thumbs
+                still show the URL so admin knows what was discovered (CORS / 403
+                in the browser doesn't mean the server-side rehost will fail). */}
+            {result.fields.hero_image_candidates.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-wide text-black/35">
-                  Снимки {result.fields.hero_image_candidates.length > 1 ? "(избери главна)" : ""}
+                  Снимки ({result.fields.hero_image_candidates.length})
+                  {result.fields.hero_image_candidates.length > 1 && " — избери главна"}
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {result.fields.hero_image_candidates.map((url) => {
                     const isSelected = selectedHeroImage === url;
                     const hasFailed = failedImages.has(url);
-                    if (hasFailed) return null;
+                    let host = url;
+                    try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { /* keep raw */ }
                     return (
                       <button
                         key={url}
                         type="button"
                         onClick={() => setSelectedHeroImage(isSelected ? null : url)}
+                        title={url}
                         className={`relative overflow-hidden rounded-lg border-2 transition ${
                           isSelected
                             ? "border-[#ff4c1f] ring-2 ring-[#ff4c1f]/30"
                             : "border-black/[0.1] hover:border-black/30"
-                        }`}
+                        } ${hasFailed ? "bg-black/[0.04]" : ""}`}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={url}
-                          alt=""
-                          className="aspect-video w-full object-cover"
-                          onError={() => {
-                            setFailedImages((prev) => new Set(prev).add(url));
-                            if (selectedHeroImage === url) setSelectedHeroImage(null);
-                          }}
-                        />
+                        {hasFailed ? (
+                          <div className="flex aspect-video w-full flex-col items-center justify-center gap-1 px-2 text-center">
+                            <span className="text-xl text-black/30">⚠</span>
+                            <span className="truncate text-[10px] text-black/40">{host}</span>
+                            <span className="text-[9px] text-black/30">не зарежда в браузъра</span>
+                          </div>
+                        ) : (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={url}
+                            alt=""
+                            className="aspect-video w-full object-cover"
+                            referrerPolicy="no-referrer"
+                            onError={() => {
+                              setFailedImages((prev) => new Set(prev).add(url));
+                            }}
+                          />
+                        )}
                         {isSelected && (
                           <span className="absolute bottom-1 right-1 rounded-md bg-[#ff4c1f] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
                             Главна
@@ -420,6 +433,9 @@ export default function SmartResearchPanel() {
                     );
                   })}
                 </div>
+                <p className="text-[11px] text-black/30">
+                  Сървърът ще препрехости избраната главна снимка при добавяне — счупените thumbnails понякога работят server-side.
+                </p>
               </div>
             )}
 

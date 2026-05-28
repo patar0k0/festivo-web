@@ -3,7 +3,7 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { normalizeSettlementInput, resolveOrCreateCityReference } from "@/lib/admin/resolveCityReference";
 import { resolveCityInputForApproval } from "@/lib/settlements/festivalCityText";
 import { slugify } from "@/lib/utils";
-import { canonicalFromPending, festivalPatchFromCanonical } from "@/lib/festival/mappers";
+import { canonicalFromPending, festivalPatchFromCanonical, normalizeCategory } from "@/lib/festival/mappers";
 import { canonicalFromUnknown } from "@/lib/festival/validators";
 import { resolveOrCreateOrganizerId } from "@/lib/admin/organizers";
 import type { PendingOrganizerEntry } from "@/lib/admin/pendingOrganizerEntries";
@@ -535,7 +535,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       city_slug: cityText ? slugifyCity(cityText) : null,
       city_id: cityId,
       address: normalizedAddress || null,
-      category: canonicalApproved.category ?? "festival",
+      category: normalizeCategory(canonicalApproved.category) ?? "festival",
       source_type: mappedSourceType,
       source_primary_url: pending.source_primary_url,
       source_count: pending.source_count,

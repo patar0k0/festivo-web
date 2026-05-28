@@ -1,5 +1,5 @@
 import "server-only";
-import { serpApiSearch } from "@/lib/research/serpApiSearch";
+import { serpApiSearch, serpApiImageSearch } from "@/lib/research/serpApiSearch";
 import { researchFestival } from "@/lib/research/perplexity";
 import { extractFestivalFieldsFromEvidence } from "@/lib/admin/research/gemini-extract";
 import { isGeminiConfigured } from "@/lib/admin/research/gemini-provider";
@@ -101,34 +101,50 @@ function confidenceLevel(fields: SmartResearchFields, sourcesCount: number): "hi
   return "low";
 }
 
+function looksLikeRealImageUrl(url: string): boolean {
+  return (
+    /\.(jpe?g|png|webp|gif|avif)(\?|$|#)/i.test(url) ||
+    /\/(image|img|photo|media|upload|cdn|tbn|images)\b/i.test(url) ||
+    /encrypted-tbn|gstatic\.com|fbcdn\.net|cdninstagram|ytimg\.com/i.test(url)
+  );
+}
+
 /**
- * Flattens images from each fetched doc (preserving SerpAPI organic ranking →
- * within-doc priority) and returns up to `max` unique candidates that look like
- * real images (have an image extension OR pass through an image-CDN path).
+ * Returns up to `max` unique image URLs from multiple sources, in this order:
+ *   1. SerpAPI-discovered URLs (knowledge_graph / inline_images / top_stories /
+ *      organic thumbnails) — these are Google's curated picks for the query.
+ *   2. Per-doc og:image / JSON-LD / <img> from fetched HTML pages.
  *
- * The first candidate from the top-ranked doc is always kept as a last-resort
- * pick even if it doesn't match the strict filter — `rehostHeroImageFromUrl`
- * validates content-type when it downloads anyway.
+ * The first non-image-looking candidate is always kept as a last resort so the
+ * UI has at least one preview to render — `rehostHeroImageFromUrl` validates
+ * content-type when it downloads.
  */
 function pickTopImageCandidates(
+  serpImages: ReadonlyArray<string>,
   docs: ReadonlyArray<{ images: string[] }>,
   max = MAX_IMAGE_CANDIDATES,
 ): string[] {
   const seen = new Set<string>();
   const results: string[] = [];
 
+  const pushCandidate = (url: string) => {
+    if (results.length >= max) return;
+    if (seen.has(url)) return;
+    seen.add(url);
+    if (looksLikeRealImageUrl(url) || results.length === 0) {
+      results.push(url);
+    }
+  };
+
+  for (const url of serpImages) {
+    if (results.length >= max) break;
+    pushCandidate(url);
+  }
   for (const doc of docs) {
     if (results.length >= max) break;
     for (const candidate of doc.images) {
       if (results.length >= max) break;
-      if (seen.has(candidate)) continue;
-      seen.add(candidate);
-      const looksLikeImage =
-        /\.(jpe?g|png|webp|gif|avif)(\?|$|#)/i.test(candidate) ||
-        /\/(image|img|photo|media|upload|cdn)\b/i.test(candidate);
-      if (looksLikeImage || results.length === 0) {
-        results.push(candidate);
-      }
+      pushCandidate(candidate);
     }
   }
 
@@ -143,12 +159,21 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
 
   // Step 1: parallel SerpAPI calls (EN for AI Overview, BG for organic results)
   const [enResult, bgResult] = await Promise.all([
-    serpApiSearch(query, "en").catch(() => ({ ai_overview_text: null, organic: [] })),
-    serpApiSearch(query, "bg").catch(() => ({ ai_overview_text: null, organic: [] })),
+    serpApiSearch(query, "en").catch(() => ({ ai_overview_text: null, organic: [], image_urls: [] })),
+    serpApiSearch(query, "bg").catch(() => ({ ai_overview_text: null, organic: [], image_urls: [] })),
   ]);
 
   const aiOverviewText = enResult.ai_overview_text;
   const organic = bgResult.organic;
+  // SerpAPI gave us image URLs in both responses (knowledge_graph, inline_images,
+  // top_stories, organic thumbnails). Combine, BG first (more locally relevant).
+  const serpImageUrls: string[] = [];
+  const seenSerpImg = new Set<string>();
+  for (const url of [...bgResult.image_urls, ...enResult.image_urls]) {
+    if (seenSerpImg.has(url)) continue;
+    seenSerpImg.add(url);
+    serpImageUrls.push(url);
+  }
 
   // Step 1.5: fetch full page content for top organic results (parallel, best-effort).
   // Up to 5 non-blocked candidates so that social-media-heavy result pages
@@ -260,8 +285,25 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
 
   // Step 6: assemble result. Gemini almost always returns null for hero_image
   // because cleanTextFromHtml strips <meta og:image>/<img> tags before the model
-  // sees the evidence. We rely on the deterministic per-doc extraction.
-  const candidates = pickTopImageCandidates(fetchedDocs, MAX_IMAGE_CANDIDATES);
+  // sees the evidence. We rely on:
+  //   (a) SerpAPI image fields (knowledge_graph, inline_images, top_stories,
+  //       organic thumbnails) — Google's curated picks, free from this response,
+  //   (b) per-doc og:image / JSON-LD / <img> from fetched HTML pages.
+  // If both yield zero we fire one fallback engine=google_images call.
+  let candidates = pickTopImageCandidates(serpImageUrls, fetchedDocs, MAX_IMAGE_CANDIDATES);
+  if (candidates.length === 0 && process.env.SERPAPI_KEY?.trim()) {
+    try {
+      const fallback = await serpApiImageSearch(query, MAX_IMAGE_CANDIDATES);
+      if (fallback.length > 0) {
+        candidates = pickTopImageCandidates(fallback, [], MAX_IMAGE_CANDIDATES);
+        warnings.push(`Снимки взети от Google Images fallback (${fallback.length} резултата).`);
+      } else {
+        warnings.push("Google Images fallback: 0 резултата.");
+      }
+    } catch (e) {
+      warnings.push(`Google Images fallback failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   const fields: SmartResearchFields = {
     title: str(extraction?.title),
     start_date: str(extraction?.start_date),

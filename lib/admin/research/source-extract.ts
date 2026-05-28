@@ -232,9 +232,15 @@ export async function fetchSourceDocument(url: string): Promise<ExtractedSourceD
   const response = await fetch(normalizedUrl, {
     method: "GET",
     headers: {
-      "User-Agent": "festivo-research-bot/3.0",
-      Accept: "text/html,application/xhtml+xml",
+      // Real browser UA — almost every BG site (festivo.bg-likes, programata.bg,
+      // facebook event pages with public events, news outlets) rejects bot UAs
+      // with 403/login redirects, hiding the og:image meta we need.
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "bg,en;q=0.8",
     },
+    redirect: "follow",
     signal: AbortSignal.timeout(10_000),
   }).catch(() => null);
 

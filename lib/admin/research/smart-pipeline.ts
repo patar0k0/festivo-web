@@ -110,44 +110,44 @@ function looksLikeRealImageUrl(url: string): boolean {
 }
 
 /**
- * Returns up to `max` unique image URLs from multiple sources, in this order:
- *   1. SerpAPI-discovered URLs (knowledge_graph / inline_images / top_stories /
- *      organic thumbnails) — these are Google's curated picks for the query.
- *   2. Per-doc og:image / JSON-LD / <img> from fetched HTML pages.
+ * Round-robin picker across multiple image sources.
  *
- * The first non-image-looking candidate is always kept as a last resort so the
- * UI has at least one preview to render — `rehostHeroImageFromUrl` validates
- * content-type when it downloads.
+ * Returns up to `max` unique image URLs by taking one from each source in turn,
+ * cycling through until full. Ensures the candidate set reflects diverse origins
+ * — if one source (e.g. SerpAPI's proxied thumbnails) is broken at render time,
+ * the other sources still contribute working alternatives.
+ *
+ * The first non-image-looking candidate per cycle is always kept as a last
+ * resort so the UI has at least one preview — `rehostHeroImageFromUrl`
+ * validates content-type when it downloads server-side anyway.
  */
 function pickTopImageCandidates(
-  serpImages: ReadonlyArray<string>,
-  docs: ReadonlyArray<{ images: string[] }>,
+  sources: ReadonlyArray<ReadonlyArray<string>>,
   max = MAX_IMAGE_CANDIDATES,
 ): string[] {
   const seen = new Set<string>();
   const results: string[] = [];
+  const cursors = sources.map(() => 0);
 
-  const pushCandidate = (url: string) => {
-    if (results.length >= max) return;
-    if (seen.has(url)) return;
-    seen.add(url);
-    if (looksLikeRealImageUrl(url) || results.length === 0) {
-      results.push(url);
+  // Pass 1: round-robin one at a time across sources
+  while (results.length < max) {
+    let addedThisRound = false;
+    for (let i = 0; i < sources.length && results.length < max; i++) {
+      const src = sources[i] ?? [];
+      while (cursors[i]! < src.length) {
+        const url = src[cursors[i]!]!;
+        cursors[i]!++;
+        if (seen.has(url)) continue;
+        seen.add(url);
+        if (looksLikeRealImageUrl(url) || results.length === 0) {
+          results.push(url);
+          addedThisRound = true;
+          break;
+        }
+      }
     }
-  };
-
-  for (const url of serpImages) {
-    if (results.length >= max) break;
-    pushCandidate(url);
+    if (!addedThisRound) break;
   }
-  for (const doc of docs) {
-    if (results.length >= max) break;
-    for (const candidate of doc.images) {
-      if (results.length >= max) break;
-      pushCandidate(candidate);
-    }
-  }
-
   return results;
 }
 
@@ -171,16 +171,14 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
 
   const aiOverviewText = enResult.ai_overview_text;
   const organic = bgResult.organic;
-  // Combine image URLs from all three SerpAPI sources.
-  // Priority: google_images first (highest yield for niche festivals) → BG regular
-  // search images (knowledge_graph + inline_images + top_stories + organic thumbnails)
-  // → EN regular search images. Dedupe.
-  const serpImageUrls: string[] = [];
-  const seenSerpImg = new Set<string>();
-  for (const url of [...gImageResult, ...bgResult.image_urls, ...enResult.image_urls]) {
-    if (seenSerpImg.has(url)) continue;
-    seenSerpImg.add(url);
-    serpImageUrls.push(url);
+  // SerpAPI inline knowledge_graph / inline_images / top_stories / organic
+  // thumbnails (from both EN and BG regular search). Combine + dedupe.
+  const serpInlineImages: string[] = [];
+  const seenInline = new Set<string>();
+  for (const url of [...bgResult.image_urls, ...enResult.image_urls]) {
+    if (seenInline.has(url)) continue;
+    seenInline.add(url);
+    serpInlineImages.push(url);
   }
 
   // Step 1.5: fetch full page content for top organic results (parallel, best-effort).
@@ -293,16 +291,27 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
 
   // Step 6: assemble result. Gemini almost always returns null for hero_image
   // because cleanTextFromHtml strips <meta og:image>/<img> tags before the model
-  // sees the evidence. We rely on three deterministic sources:
-  //   (a) google_images search (parallel) — guaranteed candidates for any query
-  //   (b) SerpAPI regular search image fields (knowledge_graph, inline_images, …)
-  //   (c) per-doc og:image / JSON-LD / <img> from fetched HTML pages
-  const perDocImageCount = fetchedDocs.reduce((n, d) => n + d.images.length, 0);
-  const candidates = pickTopImageCandidates(serpImageUrls, fetchedDocs, MAX_IMAGE_CANDIDATES);
+  // sees the evidence. We round-robin three deterministic sources so the
+  // candidate set is diverse (one source breaking in the browser doesn't kill
+  // the whole feature):
+  //   (a) per-doc og:image / JSON-LD / <img> from fetched HTML pages (real
+  //       BG event sites — often the most accurate cover)
+  //   (b) engine=google_images (Google CDN thumbs via SerpAPI proxy)
+  //   (c) SerpAPI regular search inline_images / knowledge_graph
+  // Per-doc goes first because BG sites (when they don't hotlink-block) give
+  // the actual festival's hero image; SerpAPI proxies are a fallback.
+  const perDocImages: string[] = [];
+  for (const doc of fetchedDocs) {
+    for (const img of doc.images) perDocImages.push(img);
+  }
+  const candidates = pickTopImageCandidates(
+    [perDocImages, gImageResult, serpInlineImages],
+    MAX_IMAGE_CANDIDATES,
+  );
 
   // Always emit a diagnostic so admins can see which source contributed (or didn't).
   warnings.push(
-    `Снимки: google_images=${gImageResult.length}, serp inline/kg=${bgResult.image_urls.length + enResult.image_urls.length}, страници og:image=${perDocImageCount} → избрани ${candidates.length}.`,
+    `Снимки: страници og:image=${perDocImages.length}, google_images=${gImageResult.length}, serp inline/kg=${serpInlineImages.length} → избрани ${candidates.length}.`,
   );
   const fields: SmartResearchFields = {
     title: str(extraction?.title),

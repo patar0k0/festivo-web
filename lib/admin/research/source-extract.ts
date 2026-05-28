@@ -146,6 +146,22 @@ function looksLikeUiAsset(url: string): boolean {
 }
 
 /**
+ * If `url` matches the WordPress sized-image pattern (e.g.
+ * `https://site.com/wp-content/uploads/2025/09/cover-768x432.jpg`), returns the
+ * full-resolution original variant (`cover.jpg`). Returns null otherwise.
+ *
+ * WordPress automatically generates sized variants for `<img srcset>` and many
+ * themes set `og:image` to one of the smaller variants. The un-sized original
+ * file always exists at the same path and is usually 1.5–4× larger.
+ */
+function upgradeWordPressSizedUrl(url: string): string | null {
+  const match = url.match(/^(.+?)-\d{2,4}x\d{2,4}(\.[a-z0-9]+)(\?.*)?$/i);
+  if (!match) return null;
+  const [, base, ext, query] = match;
+  return `${base}${ext}${query ?? ""}`;
+}
+
+/**
  * Walks the HTML for all plausible image URLs in priority order:
  *   1. og:image / og:image:secure_url / twitter:image / link rel=image_src (the hero)
  *   2. JSON-LD schema.org Event.image / thumbnailUrl / contentUrl
@@ -164,6 +180,17 @@ function extractImagesFromHtml(html: string, baseUrl: string): string[] {
     const abs = resolveImageUrl(raw, baseUrl);
     if (!abs) return;
     if (looksLikeUiAsset(abs)) return;
+
+    // Prepend full-res WordPress variant when applicable so the rehost picks it up
+    // first. The sized variant goes in as backup (some sites delete the un-sized
+    // original after resize → fallback ensures we still get an image).
+    const upgraded = upgradeWordPressSizedUrl(abs);
+    if (upgraded && !seen.has(upgraded)) {
+      seen.add(upgraded);
+      out.push(upgraded);
+      if (out.length >= MAX_IMAGES_PER_PAGE) return;
+    }
+
     if (seen.has(abs)) return;
     seen.add(abs);
     out.push(abs);

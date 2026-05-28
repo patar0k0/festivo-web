@@ -225,6 +225,35 @@ function extractImagesFromHtml(html: string, baseUrl: string): string[] {
   return out;
 }
 
+/**
+ * Picks the right User-Agent for the target host.
+ *
+ * For Facebook / Instagram we use `facebookexternalhit/1.1` — Facebook's own
+ * social card crawler UA. The official Meta documentation guarantees that pages
+ * served to this UA include full Open Graph `<meta>` tags (otherwise FB couldn't
+ * generate previews when its own content is shared on third-party sites). Most
+ * private pages still 302 to login, but public event pages render full HTML
+ * with `og:image` pointing at the cover photo.
+ *
+ * For everything else we send a real Chrome UA — almost every BG site rejects
+ * obvious bot UAs with 403 / login redirects, hiding the og:image meta we need.
+ */
+function pickUserAgent(url: string): string {
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    /* fall through to default */
+  }
+  if (host === "facebook.com" || host.endsWith(".facebook.com") || host === "instagram.com" || host.endsWith(".instagram.com")) {
+    // Combined identification — declares both our bot and the social crawler
+    // identity Meta expects. Avoids pure impersonation while still getting the
+    // crawler-grade HTML response.
+    return "Mozilla/5.0 (compatible; festivo-bot/3.0; +https://festivo.bg/bot) facebookexternalhit/1.1";
+  }
+  return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
+}
+
 export async function fetchSourceDocument(url: string): Promise<ExtractedSourceDocument | null> {
   const normalizedUrl = normalizeUrl(url);
   if (!normalizedUrl) return null;
@@ -232,11 +261,7 @@ export async function fetchSourceDocument(url: string): Promise<ExtractedSourceD
   const response = await fetch(normalizedUrl, {
     method: "GET",
     headers: {
-      // Real browser UA — almost every BG site (festivo.bg-likes, programata.bg,
-      // facebook event pages with public events, news outlets) rejects bot UAs
-      // with 403/login redirects, hiding the og:image meta we need.
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      "User-Agent": pickUserAgent(normalizedUrl),
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": "bg,en;q=0.8",
     },

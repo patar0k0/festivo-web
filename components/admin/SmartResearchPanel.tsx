@@ -415,7 +415,11 @@ export default function SmartResearchPanel() {
                         ) : (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
-                            src={url}
+                            // Route the preview through our server-side proxy so
+                            // hotlink-protected / CORS-restricted candidate URLs
+                            // still render. The original URL is what's submitted
+                            // to direct-create (server rehosts from the source).
+                            src={`/admin/api/research-smart/image-proxy?url=${encodeURIComponent(url)}`}
                             alt=""
                             className="aspect-video w-full object-cover"
                             referrerPolicy="no-referrer"

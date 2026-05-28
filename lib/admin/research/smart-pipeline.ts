@@ -157,19 +157,27 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   const warnings: string[] = [];
   const providers_used: string[] = ["serpapi"];
 
-  // Step 1: parallel SerpAPI calls (EN for AI Overview, BG for organic results)
-  const [enResult, bgResult] = await Promise.all([
+  // Step 1: 3 parallel SerpAPI calls
+  //  - EN regular search → AI Overview text
+  //  - BG regular search → organic results (for fetching) + image URLs
+  //  - google_images BG → guaranteed image candidates (without this, niche/new festivals
+  //    yield 0 images because the regular search response has no inline_images and the
+  //    fetched pages may lack og:image meta)
+  const [enResult, bgResult, gImageResult] = await Promise.all([
     serpApiSearch(query, "en").catch(() => ({ ai_overview_text: null, organic: [], image_urls: [] })),
     serpApiSearch(query, "bg").catch(() => ({ ai_overview_text: null, organic: [], image_urls: [] })),
+    serpApiImageSearch(query, 8).catch(() => [] as string[]),
   ]);
 
   const aiOverviewText = enResult.ai_overview_text;
   const organic = bgResult.organic;
-  // SerpAPI gave us image URLs in both responses (knowledge_graph, inline_images,
-  // top_stories, organic thumbnails). Combine, BG first (more locally relevant).
+  // Combine image URLs from all three SerpAPI sources.
+  // Priority: google_images first (highest yield for niche festivals) → BG regular
+  // search images (knowledge_graph + inline_images + top_stories + organic thumbnails)
+  // → EN regular search images. Dedupe.
   const serpImageUrls: string[] = [];
   const seenSerpImg = new Set<string>();
-  for (const url of [...bgResult.image_urls, ...enResult.image_urls]) {
+  for (const url of [...gImageResult, ...bgResult.image_urls, ...enResult.image_urls]) {
     if (seenSerpImg.has(url)) continue;
     seenSerpImg.add(url);
     serpImageUrls.push(url);
@@ -285,25 +293,17 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
 
   // Step 6: assemble result. Gemini almost always returns null for hero_image
   // because cleanTextFromHtml strips <meta og:image>/<img> tags before the model
-  // sees the evidence. We rely on:
-  //   (a) SerpAPI image fields (knowledge_graph, inline_images, top_stories,
-  //       organic thumbnails) — Google's curated picks, free from this response,
-  //   (b) per-doc og:image / JSON-LD / <img> from fetched HTML pages.
-  // If both yield zero we fire one fallback engine=google_images call.
-  let candidates = pickTopImageCandidates(serpImageUrls, fetchedDocs, MAX_IMAGE_CANDIDATES);
-  if (candidates.length === 0 && process.env.SERPAPI_KEY?.trim()) {
-    try {
-      const fallback = await serpApiImageSearch(query, MAX_IMAGE_CANDIDATES);
-      if (fallback.length > 0) {
-        candidates = pickTopImageCandidates(fallback, [], MAX_IMAGE_CANDIDATES);
-        warnings.push(`Снимки взети от Google Images fallback (${fallback.length} резултата).`);
-      } else {
-        warnings.push("Google Images fallback: 0 резултата.");
-      }
-    } catch (e) {
-      warnings.push(`Google Images fallback failed: ${e instanceof Error ? e.message : String(e)}`);
-    }
-  }
+  // sees the evidence. We rely on three deterministic sources:
+  //   (a) google_images search (parallel) — guaranteed candidates for any query
+  //   (b) SerpAPI regular search image fields (knowledge_graph, inline_images, …)
+  //   (c) per-doc og:image / JSON-LD / <img> from fetched HTML pages
+  const perDocImageCount = fetchedDocs.reduce((n, d) => n + d.images.length, 0);
+  const candidates = pickTopImageCandidates(serpImageUrls, fetchedDocs, MAX_IMAGE_CANDIDATES);
+
+  // Always emit a diagnostic so admins can see which source contributed (or didn't).
+  warnings.push(
+    `Снимки: google_images=${gImageResult.length}, serp inline/kg=${bgResult.image_urls.length + enResult.image_urls.length}, страници og:image=${perDocImageCount} → избрани ${candidates.length}.`,
+  );
   const fields: SmartResearchFields = {
     title: str(extraction?.title),
     start_date: str(extraction?.start_date),

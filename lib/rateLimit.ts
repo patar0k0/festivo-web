@@ -229,6 +229,29 @@ export async function consumeAdminBulkUserOperationTokens(
   }
 }
 
+/**
+ * Rate limit for unauthenticated GET requests on public content pages.
+ * Allows up to 100 page requests per minute per IP.
+ * Legitimate browsers never exceed this; scrapers typically do 200-500+/min.
+ */
+export async function checkPublicPageRateLimit(
+  request: NextRequest | Request,
+): Promise<RateLimitResult> {
+  const bucket: RateLimitBucket = { id: "page-read", requests: 100, window: "60 s" };
+  const ratelimit = getRatelimit(bucket);
+  if (!ratelimit) return { limited: false, resetSeconds: DEFAULT_WINDOW_SECONDS };
+
+  const ip = getClientIp(request);
+  const key = `${bucket.id}:ip:${ip}`;
+
+  try {
+    const result = await ratelimit.limit(key);
+    return { limited: !result.success, resetSeconds: resetSecondsFromResult(result) };
+  } catch {
+    return { limited: false, resetSeconds: DEFAULT_WINDOW_SECONDS };
+  }
+}
+
 export async function checkRateLimit(
   request: NextRequest,
   userId: string | null = null,

@@ -1,12 +1,49 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUserIdReadOnly } from "@/lib/middlewareSession";
-import { canBypassJobsRateLimit, checkRateLimit } from "@/lib/rateLimit";
+import { canBypassJobsRateLimit, checkPublicPageRateLimit, checkRateLimit } from "@/lib/rateLimit";
 import { guardMobileApiRequest } from "@/lib/mobileApiGuard";
 import { verifyApiPostOrigin } from "@/lib/postOriginGuard";
 import { getSupabaseEnv } from "@/lib/supabaseServer";
 import { getCachedUserGate, setCachedUserGate } from "@/lib/middlewareUserGateCache";
 import { ensurePublicUserRowForSession } from "@/lib/ensurePublicUserRowForSession";
+
+// ---------------------------------------------------------------------------
+// Bot / scraper detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Known legitimate crawlers — never block these regardless of other signals.
+ * They respect robots.txt and are needed for SEO / social previews.
+ */
+const LEGITIMATE_BOT_RE =
+  /googlebot|bingbot|duckduckbot|facebookexternalhit|twitterbot|linkedinbot|slackbot|whatsapp|telegrambot|applebot|yandexbot|ahrefsbot|semrushbot|mj12bot/i;
+
+/**
+ * Headless / script UA patterns that have no place on a public festival catalog.
+ * Only checked when the UA does NOT contain "Mozilla/5.0" (real browsers always do).
+ */
+const SCRAPER_UA_RE =
+  /python[-_]?(?:requests|urllib)|python\/\d|\bscrapy\b|\bcurl\/|\bwget\/|go-http-client|okhttp\/|aiohttp\/|httpx\/|node-fetch|undici|\baxios\/|libwww-perl|java\/\d|ruby\/\d|php\/\d/i;
+
+function isBotRequest(ua: string): boolean {
+  if (!ua || ua.length < 8) return true; // empty / suspiciously short UA
+  if (LEGITIMATE_BOT_RE.test(ua)) return false; // always allow known good bots
+  if (ua.includes("Mozilla/5.0")) return false; // real browser
+  return SCRAPER_UA_RE.test(ua);
+}
+
+/** Public content pages that scrapers target. */
+function isPublicContentPage(pathname: string): boolean {
+  return (
+    pathname === "/" ||
+    pathname.startsWith("/festivals") ||
+    pathname === "/map" ||
+    pathname === "/calendar" ||
+    pathname.startsWith("/cities/") ||
+    pathname.startsWith("/organizers/")
+  );
+}
 
 /**
  * Routes where we do not force-clear auth for missing `public.users` row (fallback).
@@ -66,6 +103,49 @@ function withPathnameHeaders(request: NextRequest): Headers {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ---------------------------------------------------------------------------
+  // 1. Bot / scraper UA block — runs before everything else, zero latency.
+  //    Legitimate crawlers (Googlebot etc.) are explicitly allowed.
+  //    Admin, API and auth paths are exempt so automated tools still work there.
+  // ---------------------------------------------------------------------------
+  const isAdminOrApiPath =
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup");
+
+  if (!isAdminOrApiPath && request.method === "GET") {
+    const ua = request.headers.get("user-agent") ?? "";
+    if (isBotRequest(ua)) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 2. Public content page rate limiting (unauthenticated IPs only).
+  //    100 page requests / minute per IP. Real users never reach this;
+  //    scrapers cycling through /festivals/* do.
+  // ---------------------------------------------------------------------------
+  if (request.method === "GET" && isPublicContentPage(pathname)) {
+    // Check for session cookie cheaply — skip rate limit for logged-in users.
+    const hasSbCookie =
+      request.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.value);
+    if (!hasSbCookie) {
+      try {
+        const pageRate = await checkPublicPageRateLimit(request);
+        if (pageRate.limited) {
+          return new NextResponse("Too many requests", {
+            status: 429,
+            headers: { "Retry-After": String(pageRate.resetSeconds) },
+          });
+        }
+      } catch {
+        // fail-open
+      }
+    }
+  }
 
   // Mobile API: handle OPTIONS preflight and reject browser cross-origin
   // requests before any other work. Native (Origin-less) requests fall through.

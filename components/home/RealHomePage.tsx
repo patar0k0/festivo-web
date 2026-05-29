@@ -20,16 +20,16 @@ function publishedFestivalsBulgariaLabel(count: number): string {
   const n = count;
   const mod100 = n % 100;
   if (mod100 >= 11 && mod100 <= 14) {
-    return `${n} фестивала в България`;
+    return `${n} предстоящи фестивала в България`;
   }
   const mod10 = n % 10;
   if (mod10 === 1) {
-    return `${n} фестивал в България`;
+    return `${n} предстоящ фестивал в България`;
   }
   if (mod10 >= 2 && mod10 <= 4) {
-    return `${n} фестивала в България`;
+    return `${n} предстоящи фестивала в България`;
   }
-  return `${n} фестивала в България`;
+  return `${n} предстоящи фестивала в България`;
 }
 
 function EventsSection({

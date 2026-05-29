@@ -29,6 +29,7 @@ type PlanPageClientProps = {
   entries: PlanEntry[];
   festivals: PlanPageFestivalRow[];
   pastFestivals: PlanPageFestivalRow[];
+  userEmail: string | null;
   summary: {
     savedFestivalCount: number;
     activeReminderCount: number;
@@ -84,6 +85,24 @@ function calendarDaysFromTodayToStart(festival: FestivalDateFields): number | nu
   const today = getSofiaTodayDateString();
   if (!today) return null;
   return Math.floor((dateOnlyToUtcMs(bounds.startYmd) - dateOnlyToUtcMs(today)) / (1000 * 60 * 60 * 24));
+}
+
+function countdownLabelFromDays(days: number | null): string | null {
+  if (days === null) return null;
+  if (days < 0) return null;
+  if (days === 0) return "Днес!";
+  if (days === 1) return "Утре!";
+  if (days <= 7) return `След ${days} дни`;
+  if (days <= 30) return `След ${days} дни`;
+  return null; // не показваме countdown за далечни фестивали
+}
+
+function countdownFromDateString(startDate: string | null): string | null {
+  if (!startDate) return null;
+  const today = getSofiaTodayDateString();
+  if (!today) return null;
+  const days = Math.floor((dateOnlyToUtcMs(startDate) - dateOnlyToUtcMs(today)) / (1000 * 60 * 60 * 24));
+  return countdownLabelFromDays(days);
 }
 
 function getTemporalBadge(
@@ -281,15 +300,21 @@ function ReminderPills({
   );
 }
 
+function reminderEmailLabel(reminder: ReminderType): string {
+  if (reminder === "default") return "1 ден и 2 часа преди";
+  if (reminder === "24h") return "1 ден преди";
+  if (reminder === "same_day_09") return "в деня (09:00)";
+  return "";
+}
+
 function SavedFestivalPlanCard({
   festival,
   festivalIndex,
   isPast,
   reminder,
-  planToggleBusy,
   isNextUpcoming,
   temporalBadge,
-  inPlan,
+  userEmail,
   onReminderChange,
   onTogglePlan,
 }: {
@@ -297,10 +322,9 @@ function SavedFestivalPlanCard({
   festivalIndex: number;
   isPast: boolean;
   reminder: ReminderType;
-  planToggleBusy: boolean;
   isNextUpcoming: boolean;
   temporalBadge: { label: string; className: string } | null;
-  inPlan: boolean;
+  userEmail: string | null;
   onReminderChange: (next: ReminderType) => void;
   onTogglePlan: () => void | Promise<void>;
 }) {
@@ -311,6 +335,8 @@ function SavedFestivalPlanCard({
     formatDateRange(festival.start_date ?? null, festival.end_date ?? null),
     festival.city?.trim(),
   ].filter(Boolean) as string[];
+
+  const emailLabel = reminderEmailLabel(reminder);
 
   return (
     <article
@@ -349,7 +375,7 @@ function SavedFestivalPlanCard({
                       {temporalBadge.label}
                     </span>
                   ) : null}
-                  {isNextUpcoming ? <span className="text-xs text-black/50">Следващ</span> : null}
+                  {isNextUpcoming ? <span className="text-xs font-medium text-[#7c2d12]/70">Следващ</span> : null}
                 </>
               )}
             </div>
@@ -359,8 +385,18 @@ function SavedFestivalPlanCard({
         </div>
 
         {!isPast ? (
-          <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-            <ReminderMenu value={reminder} onChange={onReminderChange} />
+          <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-black/50">🔔 Напомняне:</span>
+              <ReminderPills value={reminder} onChange={onReminderChange} />
+            </div>
+            {emailLabel && userEmail ? (
+              <p className="text-xs text-black/45">
+                Ще изпратим имейл до <span className="font-medium text-black/60">{userEmail}</span> {emailLabel}
+              </p>
+            ) : reminder === "none" ? (
+              <p className="text-xs text-black/40">Без напомняне — избери опция по-горе</p>
+            ) : null}
           </div>
         ) : (
           <p className="text-sm text-black/55">Събитието е приключило</p>
@@ -377,38 +413,23 @@ function SavedFestivalPlanCard({
           >
             Виж фестивала
           </button>
-          {!isPast ? (inPlan ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                void onTogglePlan();
-              }}
-              disabled={planToggleBusy}
-              className="inline-flex rounded-full border border-black/10 bg-[#7c2d12]/10 px-4 py-2 text-sm font-semibold text-[#7c2d12] transition hover:bg-[#7c2d12]/15 disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              ✓ В плана
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                void onTogglePlan();
-              }}
-              disabled={planToggleBusy}
-              className="inline-flex rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/90 transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              + Добави
-            </button>
-          )) : null}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void onTogglePlan();
+            }}
+            className="inline-flex rounded-full border border-black/10 px-4 py-2 text-sm font-medium text-black/45 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+          >
+            Премахни от плана
+          </button>
         </div>
       </div>
     </article>
   );
 }
 
-export default function PlanPageClient({ entries, festivals, pastFestivals, summary }: PlanPageClientProps) {
+export default function PlanPageClient({ entries, festivals, pastFestivals, summary, userEmail }: PlanPageClientProps) {
   const {
     isScheduleItemInPlan,
     isFestivalInPlan,
@@ -417,20 +438,10 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
     setFestivalReminder,
     toggleFestivalPlan,
   } = usePlanState();
-  const [planToggleBusyIds, setPlanToggleBusyIds] = useState<Set<string>>(new Set());
   const [isPastExpanded, setIsPastExpanded] = useState(false);
 
   const runFestivalPlanToggle = async (festivalId: string) => {
-    setPlanToggleBusyIds((prev) => new Set(prev).add(festivalId));
-    try {
-      await toggleFestivalPlan(festivalId);
-    } finally {
-      setPlanToggleBusyIds((prev) => {
-        const next = new Set(prev);
-        next.delete(festivalId);
-        return next;
-      });
-    }
+    await toggleFestivalPlan(festivalId);
   };
 
   const upcomingEntries = useMemo(
@@ -491,6 +502,12 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
                   <p className="mt-0.5 text-sm font-medium text-black/60">
                     {formatDateRange(summary.nextUpcomingFestival.startDate, summary.nextUpcomingFestival.endDate)}
                   </p>
+                  {(() => {
+                    const cd = countdownFromDateString(summary.nextUpcomingFestival.startDate);
+                    return cd ? (
+                      <p className="mt-1 text-sm font-bold text-[#7c2d12]">{cd}</p>
+                    ) : null;
+                  })()}
                 </>
               ) : (
                 <p className="mt-1 text-sm font-medium leading-snug text-black/45">Няма предстоящо събитие</p>
@@ -569,7 +586,6 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
             festivalEntries.map((festival, festivalIndex) => {
               const isPast = isFestivalPast(festival);
               const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
-              const planToggleBusy = planToggleBusyIds.has(festival.id);
               const temporalBadge = getTemporalBadge(festival);
               const isNextUpcoming = summary.nextUpcomingFestival?.id === festival.id;
               return (
@@ -579,10 +595,9 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
                   festivalIndex={festivalIndex}
                   isPast={isPast}
                   reminder={reminder}
-                  planToggleBusy={planToggleBusy}
                   isNextUpcoming={isNextUpcoming}
                   temporalBadge={temporalBadge}
-                  inPlan={isFestivalInPlan(festival.id)}
+                  userEmail={userEmail}
                   onReminderChange={(next) => {
                     void setFestivalReminder(festival.id, next);
                   }}
@@ -622,7 +637,6 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
                 {pastFestivalEntries.map((festival, festivalIndex) => {
                   const isPast = isFestivalPast(festival);
                   const reminder = reminderTypeByFestivalId[festival.id] ?? "none";
-                  const planToggleBusy = planToggleBusyIds.has(festival.id);
                   return (
                     <SavedFestivalPlanCard
                       key={festival.id}
@@ -630,10 +644,9 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
                       festivalIndex={festivalIndex}
                       isPast={isPast}
                       reminder={reminder}
-                      planToggleBusy={planToggleBusy}
                       isNextUpcoming={false}
                       temporalBadge={null}
-                      inPlan={isFestivalInPlan(festival.id)}
+                      userEmail={userEmail}
                       onReminderChange={(next) => {
                         void setFestivalReminder(festival.id, next);
                       }}
@@ -646,6 +659,24 @@ export default function PlanPageClient({ entries, festivals, pastFestivals, summ
           ) : null}
         </section>
       ) : null}
+
+      {/* Mobile upsell — placeholder за бъдещо мобилно приложение */}
+      <section className="rounded-2xl border border-amber-200/60 bg-amber-50/60 p-5 md:p-6">
+        <div className="flex items-start gap-4">
+          <span className="text-2xl" aria-hidden>📱</span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-black/80">Push известия на телефона</p>
+            <p className="mt-1 text-xs leading-relaxed text-black/60">
+              Скоро ще можеш да получаваш напомняния директно на телефона чрез мобилното приложение на Festivo. Засега напомнянията се изпращат на имейл.
+            </p>
+            {userEmail ? (
+              <p className="mt-2 text-xs text-black/50">
+                Имейл за напомняния: <span className="font-medium text-black/70">{userEmail}</span>
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </section>
 
       {groupedByFestival.map(([festivalId, items]) => {
         const first = items[0];

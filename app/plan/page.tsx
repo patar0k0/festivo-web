@@ -149,6 +149,7 @@ export default async function PlanPage() {
           entries={entries}
           festivals={festivals}
           pastFestivals={pastFestivals}
+          userEmail={user.email ?? null}
           summary={{
             savedFestivalCount: festivalIds.length,
             activeReminderCount,

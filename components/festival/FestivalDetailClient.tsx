@@ -932,151 +932,152 @@ export default function FestivalDetailClient({
           <div className="space-y-4">
             {!isPast && !previewMode ? (
               <section id={REMINDER_BLOCK_ID} className={pub.railCard}>
-                <div className="flex flex-col gap-1">
-                  <h2 className={pub.sectionTitleMd}>Моят план</h2>
-                  <p className="text-xs leading-relaxed text-black/60">
-                    {festivalInPlan
-                      ? "Фестивалът е в плана ти. Настрой кога да те напомним."
-                      : "Добави фестивала в плана си, за да управляваш напомнянията."}
-                  </p>
-                </div>
+                {/* Заглавие */}
+                <h2 className={pub.sectionTitleMd}>Моят план</h2>
 
-                <div className="mt-3">
-                  <FestivalRailActionBar
-                    festivalId={String(festival.id)}
-                  />
-                </div>
-
-            {festivalInPlan ? (
-            <div className="mt-4 border-t border-black/[0.06] pt-4">
-              <div className="relative">
-                <div>
-                  <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-black/60">
-                    Кога да напомним
-                  </p>
-                  <div className="space-y-1.5">
-                    {reminderOptions.map((option) => {
-                  const active = reminder === option.value;
-                  return (
+                {/* Не в план */}
+                {!festivalInPlan ? (
+                  <div className="mt-3 space-y-3">
+                    <p className="text-xs leading-relaxed text-black/60">
+                      Добави фестивала в плана си, за да получаваш напомняния преди него.
+                    </p>
                     <button
-                      key={option.value}
                       type="button"
                       onClick={() => {
                         if (!isAuthenticated) {
-                          redirectToLoginForPlanAction({ action: "set_reminder", type: option.value });
+                          redirectToLoginForPlanAction({ action: "add_festival", id: String(festival.id) });
                           return;
                         }
-                        if (reminderPending || reminder === option.value) return;
-                        setReminderPending(true);
-                        setReminderFeedback(null);
-                        void (async () => {
-                          const result = await setFestivalReminder(String(festival.id), option.value);
-                          if (!result.ok) {
-                            setReminderFeedback({
-                              kind: "error",
-                              text: result.error ?? "Не успяхме да запазим. Опитай пак.",
-                            });
-                            setReminderPending(false);
-                            return;
-                          }
-                          setReminderFeedback({
-                            kind: "success",
-                            text: planReminderSuccessCopy(option.value),
-                          });
-                          if (reminderFeedbackTimerRef.current) {
-                            window.clearTimeout(reminderFeedbackTimerRef.current);
-                          }
-                          reminderFeedbackTimerRef.current = window.setTimeout(() => {
-                            setReminderFeedback(null);
-                          }, 2800);
-                          setReminderPending(false);
-                        })();
+                        void toggleFestivalPlan(String(festival.id));
                       }}
-                      disabled={reminderPending}
-                      className={cn(
-                        "w-full rounded-xl border px-3 py-2 text-left transition-all duration-150 hover:border-black/15 disabled:cursor-not-allowed disabled:opacity-55 active:scale-[0.99]",
-                        pub.focusRing,
-                        active ? pub.toggleActive : pub.toggleInactive,
-                      )}
-                      aria-pressed={active}
+                      className="inline-flex w-full items-center justify-center rounded-xl border border-[#7c2d12]/30 bg-[#7c2d12]/[0.07] px-4 py-2.5 text-sm font-semibold text-[#7c2d12] transition-all duration-150 hover:bg-[#7c2d12]/[0.13] active:scale-[0.98]"
                     >
-                      <span className="flex items-center gap-2 text-sm font-semibold">
-                        {active ? (
-                          <span aria-hidden className="text-[13px] leading-none text-white/90">
-                            ✔
-                          </span>
-                        ) : null}
-                        {option.label}
-                      </span>
-                      <span
-                        className={`mt-0.5 block text-xs ${
-                          active ? (reminderPending ? "text-white/90" : "text-white/80") : "text-black/60"
-                        }`}
-                      >
-                        {reminderPending && active ? "Запазваме..." : option.helper}
-                      </span>
+                      ♡ Добави в плана
                     </button>
-                  );
-                })}
+                    {festivalPlanError ? (
+                      <p className="text-xs font-semibold text-red-700">{festivalPlanError}</p>
+                    ) : null}
                   </div>
-                </div>
-
-              </div>
-              {reminderFeedback ? (
-                <p
-                  className={`mt-2 rounded-lg border px-2 py-1 text-xs font-semibold ${
-                    reminderFeedback.kind === "success"
-                      ? "border-emerald-200/70 bg-emerald-50/70 text-emerald-900/85"
-                      : "border-red-200/70 bg-red-50/60 text-red-800"
-                  }`}
-                  role={reminderFeedback.kind === "error" ? "alert" : "status"}
-                >
-                  {reminderFeedback.text}
-                </p>
-              ) : null}
-              <p className="mt-2 text-xs leading-relaxed text-black/60">
-                Промените важат за напомнянето за целия фестивал, не за отделните часове в програмата.
-              </p>
-            </div>
-            ) : null}
-            {festivalPlanError ? <p className="mt-1 text-xs font-semibold text-red-800">{festivalPlanError}</p> : null}
-
-            <div className="mt-4 border-t border-black/[0.06] pt-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60">Часове от програмата в плана</p>
-              {selectedItems.length ? (
-                <div className="mt-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={clearPlan}
-                    className="text-xs font-semibold uppercase tracking-[0.14em] text-black/60 transition-all duration-150 hover:text-black/75 active:scale-[0.98]"
-                  >
-                    Изчисти часовете
-                  </button>
-                </div>
-              ) : null}
-              <div className="mt-2 space-y-1.5">
-                {selectedItems.length ? (
-                  selectedItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className={cn(
-                        "rounded-xl border border-black/[0.06] bg-white/95 px-3 py-2 transition-all duration-200 hover:-translate-y-px hover:shadow-md",
-                        highlightId === String(item.id) ? "bg-[#7c2d12]/10" : "",
-                      )}
-                    >
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/60">
-                        {formatScheduleTimeRange(item.start_time, item.end_time) || "Час предстои"}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-[#0c0e14]">{item.title}</p>
-                    </div>
-                  ))
                 ) : (
-                  <div className="rounded-xl border border-dashed border-black/10 bg-[#f5f3ec] px-4 py-4 text-sm leading-relaxed text-black/60">
-                    Няма избрани часове. Добави ги от секцията „Програма“.
+                  <div className="mt-3 space-y-4">
+                    {/* Статус ред */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-[#7c2d12]">✔ В плана ти</span>
+                      <button
+                        type="button"
+                        onClick={() => void toggleFestivalPlan(String(festival.id))}
+                        className="text-xs text-black/40 transition hover:text-red-500"
+                      >
+                        Премахни
+                      </button>
+                    </div>
+
+                    {/* Кога да напомним */}
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-black/50">
+                        Кога да напомним
+                      </p>
+                      <div className="space-y-1.5">
+                        {reminderOptions.map((option) => {
+                          const active = reminder === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => {
+                                if (reminderPending || reminder === option.value) return;
+                                setReminderPending(true);
+                                setReminderFeedback(null);
+                                void (async () => {
+                                  const result = await setFestivalReminder(String(festival.id), option.value);
+                                  if (!result.ok) {
+                                    setReminderFeedback({ kind: "error", text: result.error ?? "Не успяхме да запазим. Опитай пак." });
+                                    setReminderPending(false);
+                                    return;
+                                  }
+                                  setReminderFeedback({ kind: "success", text: planReminderSuccessCopy(option.value) });
+                                  if (reminderFeedbackTimerRef.current) window.clearTimeout(reminderFeedbackTimerRef.current);
+                                  reminderFeedbackTimerRef.current = window.setTimeout(() => setReminderFeedback(null), 2800);
+                                  setReminderPending(false);
+                                })();
+                              }}
+                              disabled={reminderPending}
+                              className={cn(
+                                "w-full rounded-xl border px-3 py-2 text-left transition-all duration-150 hover:border-black/15 disabled:cursor-not-allowed disabled:opacity-55 active:scale-[0.99]",
+                                pub.focusRing,
+                                active ? pub.toggleActive : pub.toggleInactive,
+                              )}
+                              aria-pressed={active}
+                            >
+                              <span className="flex items-center gap-2 text-sm font-semibold">
+                                {active ? <span aria-hidden className="text-[13px] leading-none text-white/90">✔</span> : null}
+                                {option.label}
+                              </span>
+                              <span className={`mt-0.5 block text-xs ${active ? (reminderPending ? "text-white/90" : "text-white/80") : "text-black/60"}`}>
+                                {reminderPending && active ? "Запазваме..." : option.helper}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {reminderFeedback ? (
+                        <p
+                          className={`mt-2 rounded-lg border px-2 py-1 text-xs font-semibold ${
+                            reminderFeedback.kind === "success"
+                              ? "border-emerald-200/70 bg-emerald-50/70 text-emerald-900/85"
+                              : "border-red-200/70 bg-red-50/60 text-red-800"
+                          }`}
+                          role={reminderFeedback.kind === "error" ? "alert" : "status"}
+                        >
+                          {reminderFeedback.text}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {/* Часове от програмата */}
+                    <div className="border-t border-black/[0.06] pt-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/50">Часове от програмата</p>
+                        {selectedItems.length ? (
+                          <button
+                            type="button"
+                            onClick={clearPlan}
+                            className="text-xs text-black/40 transition hover:text-red-500"
+                          >
+                            Изчисти
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="mt-2 space-y-1.5">
+                        {selectedItems.length ? (
+                          selectedItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className={cn(
+                                "rounded-xl border border-black/[0.06] bg-white/95 px-3 py-2 transition-all duration-200 hover:-translate-y-px hover:shadow-md",
+                                highlightId === String(item.id) ? "bg-[#7c2d12]/10" : "",
+                              )}
+                            >
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-black/60">
+                                {formatScheduleTimeRange(item.start_time, item.end_time) || "Час предстои"}
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-[#0c0e14]">{item.title}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="rounded-xl border border-dashed border-black/10 bg-[#f5f3ec] px-4 py-4 text-sm leading-relaxed text-black/60">
+                            Няма избрани часове. Добави ги от секцията „Програма".
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
-              </div>
-            </div>
+
+                {/* Репорт — винаги */}
+                <div className="mt-4 border-t border-black/[0.06] pt-3 text-center">
+                  <FestivalRailActionBar festivalId={String(festival.id)} />
+                </div>
               </section>
             ) : null}
 

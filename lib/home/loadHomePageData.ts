@@ -128,11 +128,13 @@ function normalizeFestivalCityJoin(
 
 async function fetchPublishedFestivalsTotalCount(): Promise<number> {
   const supabase = await createSupabaseServerClient();
+  const today = new Date().toISOString().slice(0, 10);
   const { count, error } = await supabase
     .from("festivals")
     .select("*", { count: "exact", head: true })
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
-    .neq("status", "archived");
+    .neq("status", "archived")
+    .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
 
   if (error) {
     console.error("[loadHomePageData] fetchPublishedFestivalsTotalCount", error);

@@ -944,10 +944,6 @@ export default function FestivalDetailClient({
                 <div className="mt-3">
                   <FestivalRailActionBar
                     festivalId={String(festival.id)}
-                    mapHref={mapHref}
-                    onGuestPlanClick={() =>
-                      redirectToLoginForPlanAction({ action: "add_festival", id: String(festival.id) })
-                    }
                   />
                 </div>
 

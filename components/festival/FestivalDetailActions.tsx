@@ -2,8 +2,6 @@
 
 import { lazy, Suspense, useCallback, useState } from "react";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
-import { logGoogleMapsOpenDebug } from "@/lib/location/buildGoogleMapsUrl";
-import { outboundClickHref } from "@/lib/outbound/outboundLink";
 
 const ReportFestivalModal = lazy(() => import("@/components/festival/ReportFestivalModal"));
 
@@ -91,90 +89,23 @@ export function FestivalHeroActionBar({
 
 type RailProps = {
   festivalId: string;
-  mapHref: string | null;
-  showPlanAction?: boolean;
-  onGuestPlanClick?: () => void;
 };
 
 /**
- * Rail: planning + navigation only (reminder timing lives in the same aside card below).
+ * Rail: report only — plan is in hero CTA, maps is under the map section.
  */
-export function FestivalRailActionBar({
-  festivalId,
-  mapHref,
-  showPlanAction = true,
-  onGuestPlanClick,
-}: RailProps) {
-  const { isAuthenticated, requireAuthForPlan, toggleFestivalPlan, festivalIds } = usePlanState();
-  const [planBusy, setPlanBusy] = useState(false);
+export function FestivalRailActionBar({ festivalId }: RailProps) {
   const [reportOpen, setReportOpen] = useState(false);
 
-  const isGuest = !isAuthenticated;
-  const festivalInPlan = festivalIds.includes(festivalId);
-
-  const onPlan = useCallback(async () => {
-    if (!isAuthenticated) {
-      if (onGuestPlanClick) {
-        onGuestPlanClick();
-      } else {
-        requireAuthForPlan();
-      }
-      return;
-    }
-    setPlanBusy(true);
-    try {
-      await toggleFestivalPlan(festivalId);
-    } finally {
-      setPlanBusy(false);
-    }
-  }, [festivalId, isAuthenticated, onGuestPlanClick, requireAuthForPlan, toggleFestivalPlan]);
-
-  const planBtnClass =
-    "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full px-4 py-2 text-center text-xs font-semibold uppercase tracking-[0.1em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 disabled:opacity-50";
-  const navClass =
-    "inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-black/[0.1] bg-white px-4 py-2.5 text-center text-xs font-semibold uppercase tracking-[0.1em] text-black/90 transition-all duration-150 hover:border-black/20 hover:bg-black/[0.04] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25";
-
-  const planButtonClass = planBusy
-    ? `${planBtnClass} border border-black/[0.1] bg-white text-black/90 opacity-50`
-    : festivalInPlan && !isGuest
-      ? `${planBtnClass} border border-[#7c2d12]/30 bg-[#7c2d12]/10 text-[#7c2d12] hover:opacity-95`
-      : isGuest
-        ? `${planBtnClass} bg-black/10 text-black/40`
-        : `${planBtnClass} bg-[#7c2d12] text-white hover:opacity-90`;
-
   return (
-    <div className="space-y-2">
-      {showPlanAction ? (
-        <button type="button" onClick={() => void onPlan()} disabled={planBusy} className={planButtonClass}>
-          {festivalInPlan ? "✔ В плана ти" : "Добави в моя план"}
-        </button>
-      ) : null}
-      {mapHref ? (
-        <a
-          href={outboundClickHref({
-            targetUrl: mapHref,
-            festivalId,
-            type: "maps",
-            source: "festival_detail",
-          })}
-          target="_blank"
-          rel="noreferrer"
-          className={navClass}
-          onClick={() => logGoogleMapsOpenDebug(mapHref)}
-        >
-          Отвори в Google Maps
-        </a>
-      ) : null}
-
-      <div className="pt-1 text-center">
-        <button
-          type="button"
-          onClick={() => setReportOpen(true)}
-          className="text-xs text-black/35 hover:text-black/60 hover:underline"
-        >
-          ⚑ Сигнализирай за проблем
-        </button>
-      </div>
+    <div className="pt-1 text-center">
+      <button
+        type="button"
+        onClick={() => setReportOpen(true)}
+        className="text-xs text-black/35 hover:text-black/60 hover:underline"
+      >
+        ⚑ Сигнализирай за проблем
+      </button>
 
       {reportOpen && (
         <Suspense fallback={null}>

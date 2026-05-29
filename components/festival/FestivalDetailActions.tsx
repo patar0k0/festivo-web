@@ -47,12 +47,13 @@ export function FestivalHeroActionBar({
     }
   }, [festivalId, isAuthenticated, onGuestPlanClick, requireAuthForPlan, toggleFestivalPlan]);
 
+  const base = "inline-flex min-h-[56px] w-full flex-[1.2] items-center justify-center gap-2 rounded-xl px-4 py-3 text-center text-[15px] font-semibold transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 sm:min-w-[12rem]";
   const primaryClass =
     isGuest
-      ? "inline-flex min-h-[56px] w-full flex-[1.2] items-center justify-center gap-2 rounded-xl bg-black/10 px-4 py-3 text-center text-[15px] font-semibold text-black/65 shadow-none transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15 sm:min-w-[12rem]"
+      ? `${base} bg-black/10 text-black/65 shadow-none focus-visible:ring-black/15`
       : festivalInPlan
-        ? "inline-flex min-h-[56px] w-full flex-[1.2] items-center justify-center gap-2 rounded-xl border border-[#7c2d12]/30 bg-[#7c2d12]/10 px-4 py-3 text-center text-[15px] font-semibold text-[#7c2d12] transition-all duration-200 hover:bg-[#7c2d12]/15 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c2d12]/30 sm:min-w-[12rem]"
-        : "inline-flex min-h-[56px] w-full flex-[1.2] items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#ff5c32] to-[#ff4c1f] px-4 py-3 text-center text-[15px] font-semibold text-white shadow-sm transition-all duration-200 hover:scale-[1.02] hover:from-[#ff6438] hover:to-[#f2491c] hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/40 sm:min-w-[12rem]";
+        ? `${base} bg-[#7c2d12]/[0.08] border border-[#7c2d12]/25 text-[#7c2d12] hover:bg-[#7c2d12]/[0.13] focus-visible:ring-[#7c2d12]/30`
+        : `${base} bg-[#7c2d12] text-white shadow-sm hover:bg-[#6b2510] hover:shadow-md focus-visible:ring-[#7c2d12]/40`;
 
   const secondaryClass =
     "inline-flex min-h-[44px] w-full flex-1 items-center justify-center gap-2 rounded-xl border border-black/[0.1] bg-white px-4 py-2.5 text-center text-sm font-semibold text-black/90 transition-all duration-150 hover:bg-black/[0.04] hover:opacity-[0.98] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff4c1f]/25 sm:min-w-[10rem]";

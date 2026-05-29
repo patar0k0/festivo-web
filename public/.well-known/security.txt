@@ -1,0 +1,5 @@
+Contact: mailto:admin@festivo.bg
+Expires: 2027-05-29T00:00:00.000Z
+Preferred-Languages: bg, en
+Canonical: https://festivo.bg/.well-known/security.txt
+Policy: https://festivo.bg/privacy

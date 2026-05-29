@@ -17,15 +17,18 @@ export default async function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-black/[0.08] bg-[#f5f4f0]/95">
       <Container className="flex items-center justify-between py-3">
-        <Link href="/" className="inline-flex shrink-0 items-center text-[#0c0e14]">
+        <Link href="/" className="inline-flex shrink-0 items-center gap-2.5 text-[#0c0e14] no-underline">
           <Image
-            src="/brand/festivo-logo.svg"
+            src="/brand/festivo-logo-badge.jpg"
             alt="Festivo"
-            width={512}
-            height={128}
-            className="h-10 w-auto md:h-12 drop-shadow-[0_1px_1px_rgba(0,0,0,0.06)]"
+            width={48}
+            height={48}
+            className="h-10 w-10 rounded-full object-cover md:h-11 md:w-11"
             priority
           />
+          <span className="text-xl font-bold tracking-tight text-[#7c2d12] md:text-2xl">
+            Festivo
+          </span>
         </Link>
         <SiteNavClient isAuthenticated={isAuthenticated} isAdmin={isAdmin} userEmail={userEmail} />
       </Container>

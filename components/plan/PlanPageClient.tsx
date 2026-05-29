@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { festivalProgrammeHref } from "@/lib/festival/programmeAnchor";
@@ -181,84 +181,6 @@ function FestivalCardThumbnail({
   );
 }
 
-function ReminderMenu({
-  value,
-  onChange,
-}: {
-  value: ReminderType;
-  onChange: (next: ReminderType) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  const summary =
-    value === "default"
-      ? "24ч + 2ч"
-      : value === "24h"
-        ? "24ч"
-        : value === "same_day_09"
-          ? "В деня (09:00)"
-          : "Без";
-
-  const options: Array<{ value: ReminderType; label: string }> = [
-    { value: "default", label: "1 ден и 2 часа преди (препоръчано)" },
-    { value: "24h", label: "1 ден по-рано" },
-    { value: "same_day_09", label: "В деня (09:00)" },
-    { value: "none", label: "Без напомняне" },
-  ];
-
-  return (
-    <div ref={rootRef} className="relative inline-block text-left">
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-        className="inline-flex items-center gap-1 rounded-full border border-black/10 bg-white px-3 py-1.5 text-sm font-medium text-black/80 transition hover:bg-black/5"
-      >
-        Напомняне: {summary}
-        <span className="text-black/40" aria-hidden>
-          ▼
-        </span>
-      </button>
-      {open ? (
-        <div
-          className="absolute left-0 z-20 mt-1 min-w-[200px] overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm"
-          role="menu"
-        >
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              role="menuitem"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange(opt.value);
-                setOpen(false);
-              }}
-              className={cn(
-                "flex w-full px-3 py-2 text-left text-sm transition hover:bg-black/[0.04]",
-                value === opt.value ? "bg-[#7c2d12]/10 font-medium text-[#7c2d12]" : "text-black/80"
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 function ReminderPills({
   value,

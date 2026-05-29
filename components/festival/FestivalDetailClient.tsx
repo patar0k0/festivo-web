@@ -234,8 +234,6 @@ export default function FestivalDetailClient({
     refreshPlanState,
   } = usePlanState();
 
-  const isGuest = !isAuthenticated;
-
   const { show, Toast } = useToast();
 
   const pathname = usePathname();

@@ -54,6 +54,9 @@ export default async function FestivalsPage({ searchParams }: { searchParams: Pa
   const parsed = parseFilters(searchParams);
   const filters = withDefaultFilters(parsed);
   const q = filters.q?.trim() ?? "";
+  const cityParam = filters.city?.[0]?.trim() ?? "";
+  const fromParam = filters.from?.trim() ?? "";
+  const toParam = filters.to?.trim() ?? "";
 
   let festivals: Festival[] = [];
   let total = 0;
@@ -107,7 +110,14 @@ export default async function FestivalsPage({ searchParams }: { searchParams: Pa
                   <div className={cn(pub.panelHero, "min-h-[8rem] animate-pulse p-4 md:p-5")} aria-hidden />
                 }
               >
-                <FestivalsListingDiscovery chips={chips} cityOptions={cityOptions} initialQuery={q} />
+                <FestivalsListingDiscovery
+                  chips={chips}
+                  cityOptions={cityOptions}
+                  initialQuery={q}
+                  initialCity={cityParam}
+                  initialFrom={fromParam}
+                  initialTo={toParam}
+                />
               </Suspense>
             </div>
 

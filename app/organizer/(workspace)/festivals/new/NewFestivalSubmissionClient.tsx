@@ -19,6 +19,7 @@ import {
   programDraftToPublishPayload,
   type ProgramDraft,
 } from "@/lib/festival/programDraft";
+import { CANONICAL_FESTIVAL_CATEGORIES } from "@/lib/festivals/publicCategories";
 
 export type NewFestivalDraftInitial = {
   id: string;
@@ -252,10 +253,8 @@ const SUBMISSIONS_SUCCESS_REDIRECT = "/organizer/submissions?submitted=1";
 
 function NewFestivalSubmissionInner({
   initialDraft,
-  categorySuggestions,
 }: {
   initialDraft: NewFestivalDraftInitial | null;
-  categorySuggestions: string[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -930,30 +929,21 @@ function NewFestivalSubmissionInner({
                     <label htmlFor="wizard-field-category" className={LABEL_TEXT_CLASS}>
                       Категория <span className="text-[#7c2d12]">*</span>
                     </label>
-                    <input
+                    <select
                       id="wizard-field-category"
-                      type="text"
-                      list="organizer-category-suggestions"
                       value={formData.category}
                       onChange={(ev) => patchForm("category", ev.target.value)}
-                      placeholder="напр. Фолклорен или избери от списъка"
-                      maxLength={80}
                       className={FIELD_CLASS}
-                    />
-                    {/* Native <datalist> combo: позволява free text ИЛИ избор от
-                        предложенията. Списъкът идва от сървъра — distinct categories
-                        от съществуващи verified фестивали, сортирани по честота.
-                        Така популярните категории излизат най-отгоре, а новите
-                        предложения от организаторите се добавят естествено в pool-а
-                        след admin verification. */}
-                    <datalist id="organizer-category-suggestions">
-                      {categorySuggestions.map((c) => (
-                        <option key={c} value={c} />
+                    >
+                      <option value="">— избери категория —</option>
+                      {CANONICAL_FESTIVAL_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat.charAt(0).toLocaleUpperCase("bg-BG") + cat.slice(1)}
+                        </option>
                       ))}
-                    </datalist>
+                    </select>
                     <p className={HELPER_CLASS}>
-                      Можеш да избереш от вече използваните или да напишеш своя
-                      категория. Екипът може да я нормализира при преглед.
+                      Избери категорията, която най-добре описва събитието.
                     </p>
                   </div>
                 </div>
@@ -1548,17 +1538,12 @@ function NewFestivalSubmissionInner({
 
 export default function NewFestivalSubmissionClient({
   initialDraft = null,
-  categorySuggestions = [],
 }: {
   initialDraft?: NewFestivalDraftInitial | null;
-  categorySuggestions?: string[];
 }) {
   return (
     <Suspense fallback={<div className="py-16 text-center text-sm text-black/55">Зареждане…</div>}>
-      <NewFestivalSubmissionInner
-        initialDraft={initialDraft}
-        categorySuggestions={categorySuggestions}
-      />
+      <NewFestivalSubmissionInner initialDraft={initialDraft} />
     </Suspense>
   );
 }

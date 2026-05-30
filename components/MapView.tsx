@@ -102,7 +102,8 @@ type MapViewProps = {
   resetViewToken: number;
 };
 
-const DEFAULT_CENTER: [number, number] = [42.6977, 23.3219];
+// Географски център на България — показва цялата страна при zoom 7
+const DEFAULT_CENTER: [number, number] = [42.7339, 25.4858];
 const DEFAULT_ZOOM = 7;
 
 // User location pin — blue dot (different colour from festival pins so it
@@ -149,10 +150,7 @@ export default function MapView({
 
   const initialCenter: [number, number] = initialView
     ? [initialView.lat, initialView.lng]
-    : [
-        Number(festivals[0].latitude ?? festivals[0].lat ?? DEFAULT_CENTER[0]),
-        Number(festivals[0].longitude ?? festivals[0].lng ?? DEFAULT_CENTER[1]),
-      ];
+    : DEFAULT_CENTER;
   const initialZoom = initialView?.zoom ?? DEFAULT_ZOOM;
 
   return (

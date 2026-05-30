@@ -73,6 +73,7 @@ export async function listPublicFestivalCategorySlugs(): Promise<string[]> {
  * The minCount parameter is kept for API compatibility but ignored —
  * visibility is controlled via is_active in the festival_categories table.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function listPublicFestivalCategorySlugsSortedByActiveCount(_minCount = 3): Promise<string[]> {
   return listPublicFestivalCategorySlugs();
 }

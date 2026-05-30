@@ -21,7 +21,6 @@ export default function CitiesSection({ cities }: { cities: HomeCityOption[] }) 
               className={cn(pub.chip, pub.focusRing, "hover:bg-[#f7f6f3]")}
             >
               <span>{city.name}</span>
-              <span className="text-amber-900/50"> ({city.publishedFestivalCount})</span>
             </Link>
           ))
         ) : (

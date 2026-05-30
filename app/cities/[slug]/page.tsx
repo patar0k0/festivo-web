@@ -147,8 +147,6 @@ export default async function CityLandingPage({
     from: format(monthStart, "yyyy-MM-dd"),
     to: format(monthEnd, "yyyy-MM-dd"),
   });
-  const categoryQuick = popularCategories.slice(0, 4);
-
   const whenChips: { key: FestivalWhenFilter; label: string }[] = [
     { key: "all", label: "Всички" },
     { key: "ongoing", label: "Текущи" },
@@ -181,47 +179,49 @@ export default async function CityLandingPage({
                 Безплатни събития, дати и програма. Открий предстоящи фестивали и събития в {cityName}. Запази в план и получавай напомняния.
               </p>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Link
-                  href={`${cityHref(citySlug)}${freeLink}`}
-                  className={cn(pub.chip, pub.focusRing, "hover:bg-black/[0.03]")}
-                >
-                  Само безплатни
-                </Link>
-                <Link
-                  href={`${cityHref(citySlug)}${monthLink}`}
-                  className={cn(pub.chip, pub.focusRing, "hover:bg-black/[0.03]")}
-                >
-                  Този месец
-                </Link>
-                {categoryQuick.map(([category]) => {
-                  const categoryLink = serializeFilters({ ...filters, city: [citySlug], cat: [category] });
-                  return (
-                    <Link
-                      key={category}
-                      href={`${cityHref(citySlug)}${categoryLink}`}
-                      className={cn(pub.chip, pub.focusRing, "hover:bg-black/[0.03]")}
-                    >
-                      {labelForPublicCategory(category)}
-                    </Link>
-                  );
-                })}
-              </div>
+              <div className="mt-5 space-y-3">
+                {/* Бързи филтри */}
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`${cityHref(citySlug)}${freeLink}`}
+                    className={cn(pub.chip, pub.focusRing, "hover:bg-black/[0.03]")}
+                  >
+                    Само безплатни
+                  </Link>
+                  <Link
+                    href={`${cityHref(citySlug)}${monthLink}`}
+                    className={cn(pub.chip, pub.focusRing, "hover:bg-black/[0.03]")}
+                  >
+                    Този месец
+                  </Link>
+                </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-black/40">Време</span>
-                {whenChips.map(({ key, label }) => {
-                  const href = `${cityHref(citySlug)}${serializeFilters({ ...filters, city: [citySlug], when: key })}`;
-                  return (
-                    <Link
-                      key={key}
-                      href={href}
-                      className={cn(pub.chipSm, pub.focusRing, activeWhen === key ? pub.chipActive : "hover:bg-black/[0.03]")}
-                    >
-                      {label}
-                    </Link>
-                  );
-                })}
+                <hr className="border-amber-900/10" />
+
+                {/* Кога — segmented control */}
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.12em] text-black/35">Кога</span>
+                  <div className="flex min-w-0 overflow-x-auto rounded-full border border-black/[0.1] bg-white/70 p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {whenChips.map(({ key, label }) => {
+                      const href = `${cityHref(citySlug)}${serializeFilters({ ...filters, city: [citySlug], when: key })}`;
+                      return (
+                        <Link
+                          key={key}
+                          href={href}
+                          className={cn(
+                            pub.focusRing,
+                            "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] transition-all duration-150",
+                            activeWhen === key
+                              ? "bg-[#7c2d12] text-white shadow-sm"
+                              : "text-black/55 hover:text-[#0c0e14]"
+                          )}
+                        >
+                          {label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </section>
 

@@ -225,7 +225,7 @@ export default function FestivalDetailClient({
   const {
     isAuthenticated,
     festivalIds,
-    festivalPlanError,
+
     isScheduleItemInPlan,
     toggleScheduleItem,
     toggleFestivalPlan,
@@ -1041,7 +1041,7 @@ export default function FestivalDetailClient({
                           ))
                         ) : (
                           <div className="rounded-xl border border-dashed border-black/10 bg-[#f5f3ec] px-4 py-4 text-sm leading-relaxed text-black/60">
-                            Няма избрани часове. Добави ги от секцията „Програма".
+                            Няма избрани часове. Добави ги от секцията &bdquo;Програма&ldquo;.
                           </div>
                         )}
                       </div>

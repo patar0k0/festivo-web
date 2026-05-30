@@ -4,6 +4,7 @@ import type { OrganizerProfile } from "@/lib/types";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { publishedRowsToProgramDraft } from "@/lib/festival/programDraft";
+import { listAllFestivalCategories } from "@/lib/festivals/categories.server";
 
 export default async function AdminFestivalEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -108,6 +109,8 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
     /* optional */
   }
 
+  const categories = await listAllFestivalCategories();
+
   let initialProgramDraft = undefined;
   try {
     const adminClient = createSupabaseAdmin();
@@ -148,6 +151,7 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
       organizers={organizers}
       initialMedia={initialMedia}
       initialProgramDraft={initialProgramDraft}
+      categories={categories}
       festival={{
         ...data,
         id: String(data.id),

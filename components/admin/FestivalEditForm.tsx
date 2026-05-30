@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
-import { CANONICAL_FESTIVAL_CATEGORIES } from "@/lib/festivals/publicCategories";
+import type { FestivalCategory } from "@/lib/festivals/categories.server";
 import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorOpenAction";
@@ -195,11 +195,13 @@ export default function FestivalEditForm({
   organizers,
   initialMedia = [],
   initialProgramDraft,
+  categories = [],
 }: {
   festival: FestivalRecord;
   organizers: OrganizerOption[];
   initialMedia?: PublishedMediaRow[];
   initialProgramDraft?: ProgramDraft;
+  categories?: FestivalCategory[];
 }) {
   const initialCityDisplay = festival.city_name ?? festival.city ?? "";
 
@@ -1142,9 +1144,9 @@ export default function FestivalEditForm({
           <AdminFieldInlineRow field="category">
             <select value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS}>
               <option value="">— без категория —</option>
-              {CANONICAL_FESTIVAL_CATEGORIES.map((cat: string) => (
-                <option key={cat} value={cat}>
-                  {cat.charAt(0).toLocaleUpperCase("bg-BG") + cat.slice(1)}
+              {categories.map((cat) => (
+                <option key={cat.slug} value={cat.slug}>
+                  {cat.label_bg}
                 </option>
               ))}
             </select>

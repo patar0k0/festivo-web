@@ -8,7 +8,7 @@ import type { OrganizerProfile } from "@/lib/types";
 import { pendingRowToOrganizerEntries } from "@/lib/admin/pendingOrganizerEntries";
 import TagsInput from "@/components/admin/TagsInput";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
-import { CANONICAL_FESTIVAL_CATEGORIES } from "@/lib/festivals/publicCategories";
+import type { FestivalCategory } from "@/lib/festivals/categories.server";
 import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
 import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { extractNormalizationSuggestions, type SuggestionField } from "@/lib/festival/normalizationSuggestions";
@@ -437,11 +437,13 @@ export default function PendingFestivalEditForm({
   qualityDiagnostics,
   lastIngestJobMeta = null,
   organizers = [],
+  categories = [],
 }: {
   pendingFestival: PendingFestivalRecord;
   qualityDiagnostics: PendingFestivalQuality;
   lastIngestJobMeta?: LastIngestJobMeta | null;
   organizers?: OrganizerOption[];
+  categories?: FestivalCategory[];
 }) {
   const router = useRouter();
   const tagsCurrent = normalizeTagsGuess(pendingFestival.tags);
@@ -1409,9 +1411,9 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
             <AdminFieldInlineRow field="category">
               <select value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS}>
                 <option value="">— без категория —</option>
-                {CANONICAL_FESTIVAL_CATEGORIES.map((cat: string) => (
-                  <option key={cat} value={cat}>
-                    {cat.charAt(0).toLocaleUpperCase("bg-BG") + cat.slice(1)}
+                {categories.map((cat) => (
+                  <option key={cat.slug} value={cat.slug}>
+                    {cat.label_bg}
                   </option>
                 ))}
               </select>

@@ -4,6 +4,7 @@ import PendingFestivalEditForm, { type PendingFestivalRecord } from "@/component
 import { assessPendingFestivalQuality } from "@/lib/admin/pendingFestivalQuality";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizerProfile } from "@/lib/types";
+import { listAllFestivalCategories } from "@/lib/festivals/categories.server";
 
 type PendingFestivalCityRelation = {
   id: number;
@@ -117,12 +118,15 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
     }
   }
 
+  const categories = await listAllFestivalCategories();
+
   return (
     <PendingFestivalEditForm
       pendingFestival={pendingFestival}
       qualityDiagnostics={qualityDiagnostics}
       lastIngestJobMeta={lastIngestJobMeta}
       organizers={organizers}
+      categories={categories}
     />
   );
 }

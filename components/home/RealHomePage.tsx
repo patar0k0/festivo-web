@@ -9,10 +9,8 @@ import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import type { HomePageViewProps } from "@/lib/home/loadHomePageData";
 import { Festival } from "@/lib/types";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
-import CitySelectClient from "./CitySelectClient";
-import DateQuickSelectClient from "./DateQuickSelectClient";
-import HomeDiscoverySearchClient from "./HomeDiscoverySearchClient";
 import QuickChipsClient from "./QuickChipsClient";
+import FestivalsCompoundSearch from "@/components/festivals/FestivalsCompoundSearch";
 import HomeHeroFolkPattern from "./HomeHeroFolkPattern";
 import CurrentFestivalsSection from "./CurrentFestivalsSection";
 import CitiesSection from "./CitiesSection";
@@ -114,28 +112,6 @@ export default function RealHomePage({
     ...quickChipHrefs.categoryChips,
   ];
 
-  const secondaryDiscoveryActions = (
-    <>
-      {homeCityOptions.length ? (
-        <CitySelectClient
-          cities={homeCityOptions.map((city) => ({
-            name: city.name,
-            slug: city.slug,
-            filterValue: city.filterValue,
-          }))}
-        />
-      ) : (
-        <Link
-          href="/festivals"
-          className={cn(pub.chip, pub.focusRing)}
-        >
-          Избери място
-        </Link>
-      )}
-      <DateQuickSelectClient />
-    </>
-  );
-
   return (
     <div className={cn(pub.pageOverflow, "pb-24 md:pb-0")}>
       <Section className="overflow-x-clip bg-transparent pb-8 pt-12 md:pb-10 md:pt-16">
@@ -168,14 +144,19 @@ export default function RealHomePage({
                   </Link>
                 </div>
 
-                {/* На desktop — пълното търсене */}
-                <div className="mt-4 hidden md:block">
-                  <HomeDiscoverySearchClient secondaryActions={secondaryDiscoveryActions} />
-                </div>
-
-                <div className="mt-3 hidden md:block">
-                  <hr className="border-amber-900/20 my-1" />
-                  <QuickChipsClient chips={chips} />
+                {/* На desktop — compound search */}
+                <div className="mt-4 hidden md:block space-y-3">
+                  <FestivalsCompoundSearch
+                    cities={homeCityOptions.map(c => ({
+                      name: c.name,
+                      slug: c.slug,
+                      filterValue: c.filterValue,
+                    }))}
+                  />
+                  <div>
+                    <hr className="border-amber-900/20 my-1" />
+                    <QuickChipsClient chips={chips} />
+                  </div>
                 </div>
               </div>
             </section>
@@ -205,7 +186,13 @@ export default function RealHomePage({
         </Container>
       </Section>
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-amber-200/35 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(12,14,20,0.1)] backdrop-blur md:hidden">
-        <HomeDiscoverySearchClient compact secondaryActions={secondaryDiscoveryActions} />
+        <FestivalsCompoundSearch
+          cities={homeCityOptions.map(c => ({
+            name: c.name,
+            slug: c.slug,
+            filterValue: c.filterValue,
+          }))}
+        />
       </div>
     </div>
   );

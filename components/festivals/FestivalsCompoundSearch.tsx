@@ -9,6 +9,17 @@ import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBou
 type CityOption = { name: string; slug: string | null; filterValue: string };
 type MenuPos = { top: number; left: number; width: number };
 
+function getSofiaDateString(offsetDays = 0): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Sofia",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date(Date.now() + offsetDays * 86400000));
+  const y = parts.find(p => p.type === "year")?.value ?? "";
+  const m = parts.find(p => p.type === "month")?.value ?? "";
+  const d = parts.find(p => p.type === "day")?.value ?? "";
+  return `${y}-${m}-${d}`;
+}
+
 function calcMenuPos(btn: HTMLButtonElement, menuHeight: number): MenuPos {
   const rect = btn.getBoundingClientRect();
   const maxW = Math.min(window.innerWidth * 0.92, 22 * 16);
@@ -85,16 +96,36 @@ export default function FestivalsCompoundSearch({
       if (cityOpen && !cityBtnRef.current?.contains(t) && !cityMenuRef.current?.contains(t)) setCityOpen(false);
       if (dateOpen && !dateBtnRef.current?.contains(t) && !dateMenuRef.current?.contains(t)) setDateOpen(false);
     };
-    const keyHandler = (e: KeyboardEvent) => { if (e.key === "Escape") { setCityOpen(false); setDateOpen(false); } };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setCityOpen(false); setDateOpen(false); return; }
+      const activeMenu = cityOpen ? cityMenuRef.current : dateOpen ? dateMenuRef.current : null;
+      if (!activeMenu) return;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const items = Array.from(activeMenu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+        if (!items.length) return;
+        const current = document.activeElement as HTMLButtonElement;
+        const idx = items.indexOf(current);
+        if (e.key === "ArrowDown") items[(idx + 1) % items.length]?.focus();
+        if (e.key === "ArrowUp") items[(idx - 1 + items.length) % items.length]?.focus();
+      }
+    };
     document.addEventListener("pointerdown", handler);
     document.addEventListener("keydown", keyHandler);
     return () => { document.removeEventListener("pointerdown", handler); document.removeEventListener("keydown", keyHandler); };
   }, [cityOpen, dateOpen]);
 
   const { weekendStart, weekendEnd, monthStart, monthEnd } = festivalDiscoveryCalendarBounds();
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })();
-  const endOfWeek = (() => { const d = new Date(); const day = d.getDay(); const diff = day === 0 ? 0 : 7 - day; d.setDate(d.getDate() + diff); return d.toISOString().slice(0, 10); })();
+  const today = getSofiaDateString(0);
+  const tomorrow = getSofiaDateString(1);
+  const endOfWeek = (() => {
+    const sofiaDay = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Sofia", weekday: "short" })
+      .format(new Date()).toLowerCase();
+    const dayMap: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+    const dayNum = dayMap[sofiaDay] ?? 0;
+    const daysUntilSunday = dayNum === 0 ? 0 : 7 - dayNum;
+    return getSofiaDateString(daysUntilSunday);
+  })();
 
   const datePresets = [
     { label: "Днес", from: today, to: today },
@@ -122,9 +153,9 @@ export default function FestivalsCompoundSearch({
   const clearCity = () => setCity("");
   const clearDate = () => { setDateFrom(""); setDateTo(""); };
 
-  const activeFilters = [
-    ...(selectedCityLabel ? [{ label: selectedCityLabel, onRemove: clearCity }] : []),
-    ...(selectedDateLabel ? [{ label: selectedDateLabel, onRemove: clearDate }] : []),
+  const activeFilters: Array<{ label: string; type: string; onRemove: () => void }> = [
+    ...(selectedCityLabel ? [{ label: selectedCityLabel, type: "city", onRemove: clearCity }] : []),
+    ...(selectedDateLabel ? [{ label: selectedDateLabel, type: "date", onRemove: clearDate }] : []),
   ];
 
   const xIcon = (
@@ -141,7 +172,9 @@ export default function FestivalsCompoundSearch({
   const cityMenu = mounted && cityOpen && cityMenuPos ? createPortal(
     <div
       ref={cityMenuRef}
+      id="city-select-menu"
       role="menu"
+      aria-label="Избери град"
       style={{ position: "fixed", top: cityMenuPos.top, left: cityMenuPos.left, width: cityMenuPos.width, zIndex: 200 }}
       className="max-h-[min(60vh,24rem)] overflow-y-auto rounded-2xl border border-black/[0.09] bg-white p-2 shadow-[0_8px_20px_rgba(12,14,20,0.14)]"
     >
@@ -166,7 +199,9 @@ export default function FestivalsCompoundSearch({
   const dateMenu = mounted && dateOpen && dateMenuPos ? createPortal(
     <div
       ref={dateMenuRef}
+      id="date-select-menu"
       role="menu"
+      aria-label="Избери дата"
       style={{ position: "fixed", top: dateMenuPos.top, left: dateMenuPos.left, width: Math.max(dateMenuPos.width, 190), zIndex: 200 }}
       className="overflow-hidden rounded-2xl border border-black/[0.09] bg-white p-2 shadow-[0_8px_20px_rgba(12,14,20,0.14)]"
     >
@@ -227,6 +262,7 @@ export default function FestivalsCompoundSearch({
             onClick={() => { setCityOpen(v => !v); setDateOpen(false); }}
             aria-expanded={cityOpen}
             aria-haspopup="menu"
+            aria-controls="city-select-menu"
             className={cn("flex-1 text-left text-sm font-medium outline-none",
               selectedCityLabel ? "text-[#0c0e14]" : "text-black/30")}
           >
@@ -250,6 +286,7 @@ export default function FestivalsCompoundSearch({
             onClick={() => { setDateOpen(v => !v); setCityOpen(false); }}
             aria-expanded={dateOpen}
             aria-haspopup="menu"
+            aria-controls="date-select-menu"
             className={cn("flex-1 text-left text-sm font-medium outline-none",
               selectedDateLabel ? "text-[#0c0e14]" : "text-black/30")}
           >
@@ -274,7 +311,7 @@ export default function FestivalsCompoundSearch({
         <div className="flex flex-wrap items-center gap-2">
           {activeFilters.map(f => (
             <button
-              key={f.label}
+              key={f.type}
               type="button"
               onClick={f.onRemove}
               className="inline-flex items-center gap-1.5 rounded-full border border-[#7c2d12]/25 bg-[#7c2d12]/[0.07] px-3 py-1 text-xs font-semibold text-[#7c2d12] transition hover:bg-[#7c2d12]/[0.14]"

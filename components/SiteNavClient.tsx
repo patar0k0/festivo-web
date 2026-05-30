@@ -83,7 +83,7 @@ export default function SiteNavClient({
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
           aria-controls="site-mobile-menu"
-          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-black/70 transition hover:text-[#0c0e14]"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-black/70 transition hover:text-[#0c0e14]"
         >
           <span aria-hidden="true" className="text-base leading-none">
             {isOpen ? "✕" : "☰"}
@@ -112,38 +112,38 @@ export default function SiteNavClient({
                 <button
                   type="button"
                   onClick={closeMenu}
-                  className="rounded-full border border-black/[0.1] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-black/60"
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-black/[0.1] px-4 text-xs font-semibold uppercase tracking-[0.16em] text-black/60 active:bg-black/[0.05]"
                 >
-                  Затвори
+                  Затвори ✕
                 </button>
               </div>
 
-              <nav className="mt-6 flex flex-col gap-6 text-lg font-semibold text-black/75">
+              <nav className="mt-6 flex flex-col text-lg font-semibold text-black/75">
                 <Link
                   href="/festivals"
                   onClick={closeMenu}
-                  className="transition hover:text-[#0c0e14]"
+                  className="py-3 transition hover:text-[#0c0e14] active:text-[#7c2d12]"
                 >
                   Фестивали
                 </Link>
                 <Link
                   href="/calendar"
                   onClick={closeMenu}
-                  className="transition hover:text-[#0c0e14]"
+                  className="py-3 transition hover:text-[#0c0e14] active:text-[#7c2d12]"
                 >
                   Календар
                 </Link>
                 <Link
                   href="/map"
                   onClick={closeMenu}
-                  className="transition hover:text-[#0c0e14]"
+                  className="py-3 transition hover:text-[#0c0e14] active:text-[#7c2d12]"
                 >
                   Карта
                 </Link>
                 <Link
                   href="/organizer"
                   onClick={closeMenu}
-                  className="transition hover:text-[#0c0e14]"
+                  className="py-3 transition hover:text-[#0c0e14] active:text-[#7c2d12]"
                 >
                   За организатори
                 </Link>
@@ -155,14 +155,14 @@ export default function SiteNavClient({
                     <Link
                       href="/profile"
                       onClick={closeMenu}
-                      className="block text-base font-semibold text-black/75 transition hover:text-[#0c0e14]"
+                      className="block py-2 text-base font-semibold text-black/75 transition hover:text-[#0c0e14] active:text-[#7c2d12]"
                     >
                       Профил
                     </Link>
                     <Link
                       href="/plan"
                       onClick={closeMenu}
-                      className="block text-base font-semibold text-black/75 transition hover:text-[#0c0e14]"
+                      className="block py-2 text-base font-semibold text-black/75 transition hover:text-[#0c0e14] active:text-[#7c2d12]"
                     >
                       Моят план
                     </Link>
@@ -170,7 +170,7 @@ export default function SiteNavClient({
                       <Link
                         href="/admin"
                         onClick={closeMenu}
-                        className="block text-base font-semibold text-black/75 transition hover:text-[#0c0e14]"
+                        className="block py-2 text-base font-semibold text-black/75 transition hover:text-[#0c0e14] active:text-[#7c2d12]"
                       >
                         Админ панел
                       </Link>
@@ -180,14 +180,10 @@ export default function SiteNavClient({
                         {userEmail}
                       </p>
                     ) : null}
-                    <form
-                      action="/api/auth/logout"
-                      method="post"
-                      onSubmit={closeMenu}
-                    >
+                    <form action="/api/auth/logout" method="post">
                       <button
                         type="submit"
-                        className="text-xs font-semibold uppercase tracking-[0.15em] text-black/65 transition hover:text-[#0c0e14]"
+                        className="py-2 text-xs font-semibold uppercase tracking-[0.15em] text-black/65 transition hover:text-[#0c0e14] active:text-[#7c2d12]"
                       >
                         Изход
                       </button>

@@ -930,36 +930,11 @@ export default function FestivalDetailClient({
 
         <aside className="lg:sticky lg:top-[88px] lg:self-start">
           <div className="space-y-4">
-            {!isPast && !previewMode ? (
+            {!isPast && !previewMode && festivalInPlan ? (
               <section id={REMINDER_BLOCK_ID} className={pub.railCard}>
-                {/* Заглавие */}
                 <h2 className={pub.sectionTitleMd}>Моят план</h2>
 
-                {/* Не в план */}
-                {!festivalInPlan ? (
-                  <div className="mt-3 space-y-3">
-                    <p className="text-xs leading-relaxed text-black/60">
-                      Добави фестивала в плана си, за да получаваш напомняния преди него.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!isAuthenticated) {
-                          redirectToLoginForPlanAction({ action: "add_festival", id: String(festival.id) });
-                          return;
-                        }
-                        void toggleFestivalPlan(String(festival.id));
-                      }}
-                      className="inline-flex w-full items-center justify-center rounded-xl border border-[#7c2d12]/30 bg-[#7c2d12]/[0.07] px-4 py-2.5 text-sm font-semibold text-[#7c2d12] transition-all duration-150 hover:bg-[#7c2d12]/[0.13] active:scale-[0.98]"
-                    >
-                      ♡ Добави в плана
-                    </button>
-                    {festivalPlanError ? (
-                      <p className="text-xs font-semibold text-red-700">{festivalPlanError}</p>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="mt-3 space-y-4">
+                <div className="mt-3 space-y-4">
                     {/* Статус ред */}
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-semibold text-[#7c2d12]">✔ В плана ти</span>
@@ -1071,10 +1046,9 @@ export default function FestivalDetailClient({
                         )}
                       </div>
                     </div>
-                  </div>
-                )}
+                </div>
 
-                {/* Репорт — винаги */}
+                {/* Репорт */}
                 <div className="mt-4 border-t border-black/[0.06] pt-3 text-center">
                   <FestivalRailActionBar festivalId={String(festival.id)} />
                 </div>

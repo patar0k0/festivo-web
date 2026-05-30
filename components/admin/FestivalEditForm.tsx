@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import TagsInput from "@/components/admin/TagsInput";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import OccurrenceDaysEditor from "@/components/admin/OccurrenceDaysEditor";
+import { CANONICAL_FESTIVAL_CATEGORIES } from "@/lib/festivals/publicCategories";
 import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorOpenAction";
@@ -1139,7 +1140,14 @@ export default function FestivalEditForm({
             </div>
           </AdminFieldInlineRow>
           <AdminFieldInlineRow field="category">
-            <input value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
+            <select value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS}>
+              <option value="">— без категория —</option>
+              {CANONICAL_FESTIVAL_CATEGORIES.map((cat: string) => (
+                <option key={cat} value={cat}>
+                  {cat.charAt(0).toLocaleUpperCase("bg-BG") + cat.slice(1)}
+                </option>
+              ))}
+            </select>
           </AdminFieldInlineRow>
           <AdminFieldInlineRow field="status">
             <select value={form.status} onChange={(e) => updateField("status", e.target.value as (typeof STATUS_OPTIONS)[number])} className={ADMIN_ENTITY_CONTROL_CLASS}>

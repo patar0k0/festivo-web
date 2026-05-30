@@ -54,13 +54,15 @@ export async function fetchActiveFestivalCountsByCategory(): Promise<Map<string,
 
 /**
  * All public category slugs, ordered by active festival count (desc), then locale.
+ * Categories with fewer than `minCount` active festivals are excluded.
  */
-export async function listPublicFestivalCategorySlugsSortedByActiveCount(): Promise<string[]> {
+export async function listPublicFestivalCategorySlugsSortedByActiveCount(minCount = 3): Promise<string[]> {
   const [slugs, counts] = await Promise.all([
     listPublicFestivalCategorySlugs(),
     fetchActiveFestivalCountsByCategory(),
   ]);
-  return sortPublicFestivalCategorySlugsByActiveCount(slugs, counts);
+  const filtered = slugs.filter(slug => (counts.get(slug) ?? 0) >= minCount);
+  return sortPublicFestivalCategorySlugsByActiveCount(filtered, counts);
 }
 
 /**

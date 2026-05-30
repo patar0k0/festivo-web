@@ -113,7 +113,7 @@ export default function RealHomePage({
   ];
 
   return (
-    <div className={cn(pub.pageOverflow, "pb-24 md:pb-0")}>
+    <div className={cn(pub.pageOverflow)}>
       <Section className="overflow-x-clip bg-transparent pb-8 pt-12 md:pb-10 md:pt-16">
         <Container>
           <div className="space-y-6 lg:space-y-8">
@@ -185,15 +185,6 @@ export default function RealHomePage({
           </div>
         </Container>
       </Section>
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-amber-200/35 bg-white/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(12,14,20,0.1)] backdrop-blur md:hidden">
-        <FestivalsCompoundSearch
-          cities={homeCityOptions.map(c => ({
-            name: c.name,
-            slug: c.slug,
-            filterValue: c.filterValue,
-          }))}
-        />
-      </div>
     </div>
   );
 }

@@ -191,43 +191,19 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   //  - google_images BG (short query, year stripped) → fallback for niche/future festivals
   //    where the full specific query yields 0 images in Google Images index
   //    (e.g. "Фестивал на хороигралците 'Харизмата на хорото' 2026" → try "Харизмата на хорото")
-  const shortImageQuery = query
-    .replace(/\b(фестивал|фест|festival|fest)\b\s+(на\s+\w+\s+)?/gi, "")
-    .replace(/\b(20\d{2}|19\d{2})\b/g, "")
-    .replace(/['"«»„"]/g, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-  const [enResult, bgResult, gImageResult, gImageResultShort] = await Promise.all([
-    serpApiSearch(query, "en").catch(() => ({ ai_overview_text: null, organic: [], image_urls: [] })),
+  // 2 SerpAPI кредита на търсене: 1× BG organic + 1× Google Images
+  const [bgResult, gImageResult] = await Promise.all([
     serpApiSearch(query, "bg").catch(() => ({ ai_overview_text: null, organic: [], image_urls: [] })),
     serpApiImageSearch(query, 8).catch(() => [] as string[]),
-    shortImageQuery && shortImageQuery !== query
-      ? serpApiImageSearch(shortImageQuery, 5).catch(() => [] as string[])
-      : Promise.resolve([] as string[]),
   ]);
 
-  const aiOverviewText = enResult.ai_overview_text;
+  const aiOverviewText = bgResult.ai_overview_text;
   const organic = bgResult.organic;
 
-  // Merge full + short image search results (deduplicate). Short-query results
-  // are appended after full-query so the full-query (more specific) images come first.
-  const gImageResultMerged: string[] = [];
-  const seenGImage = new Set<string>();
-  for (const url of [...gImageResult, ...gImageResultShort]) {
-    if (seenGImage.has(url)) continue;
-    seenGImage.add(url);
-    gImageResultMerged.push(url);
-  }
+  const gImageResultMerged: string[] = [...gImageResult];
 
-  // SerpAPI inline knowledge_graph / inline_images / top_stories / organic
-  // thumbnails (from both EN and BG regular search). Combine + dedupe.
-  const serpInlineImages: string[] = [];
-  const seenInline = new Set<string>();
-  for (const url of [...bgResult.image_urls, ...enResult.image_urls]) {
-    if (seenInline.has(url)) continue;
-    seenInline.add(url);
-    serpInlineImages.push(url);
-  }
+  // SerpAPI inline images from the BG regular search (knowledge_graph, inline_images, etc.)
+  const serpInlineImages: string[] = [...bgResult.image_urls];
 
   // Step 1.5: fetch full page content for top organic results (parallel, best-effort).
   // Up to 5 non-blocked candidates so that social-media-heavy result pages
@@ -371,7 +347,7 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
 
   // Always emit a diagnostic so admins can see which source contributed (or didn't).
   warnings.push(
-    `Снимки: страници=${perDocImages.length}, google_images=${gImageResult.length}+${gImageResultShort.length}(кратка), serp=${serpInlineImages.length} → избрани ${candidates.length}.`,
+    `Снимки: страници=${perDocImages.length}, google_images=${gImageResult.length}, serp=${serpInlineImages.length} → избрани ${candidates.length}.`,
   );
   const fields: SmartResearchFields = {
     title: str(extraction?.title),

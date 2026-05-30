@@ -1,6 +1,6 @@
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
-import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories.server";
+import { listPublicFestivalCategorySlugsSortedByActiveCount } from "@/lib/festivals/publicCategories.server";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
 import { sofiaWallClockNow } from "@/lib/festival/temporal";
 import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBounds";
@@ -29,14 +29,24 @@ export type HomeQuickChipHrefs = {
 /** Same chip labels/hrefs as the home hero (for `/festivals` discovery UI). */
 export function buildFestivalsQuickChipLinks(categorySlugs: string[]): Array<{ label: string; href: string }> {
   const { weekendStart, weekendEnd, monthStart, monthEnd } = festivalDiscoveryCalendarBounds();
+
+  // Top 3 by active count are fixed; the rest are shuffled randomly each request.
+  const top3 = categorySlugs.slice(0, 3);
+  const rest = categorySlugs.slice(3);
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j]!, rest[i]!];
+  }
+  const categoryChips = [...top3, ...rest.slice(0, 2)].map((slug) => ({
+    label: labelForPublicCategory(slug),
+    href: `/festivals?tag=${encodeURIComponent(slug)}`,
+  }));
+
   return [
     { label: "Само безплатни", href: `/festivals${serializeFilters(withDefaultFilters({ free: true }))}` },
     { label: "Този уикенд", href: `/festivals${serializeFilters(withDefaultFilters({ from: weekendStart, to: weekendEnd }))}` },
     { label: "Този месец", href: `/festivals${serializeFilters(withDefaultFilters({ from: monthStart, to: monthEnd }))}` },
-    ...categorySlugs.slice(0, 5).map((slug) => ({
-      label: labelForPublicCategory(slug),
-      href: `/festivals?tag=${encodeURIComponent(slug)}`,
-    })),
+    ...categoryChips,
   ];
 }
 
@@ -235,7 +245,7 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
       fetchHomeFestivals({ from: monthStart, to: monthEnd, citySlug, limit: 6 }),
       fetchPublishedFestivalsTotalCount(),
       fetchHomePublishedCityOptionsWithCounts(),
-      listPublicFestivalCategorySlugs().catch(() => [] as string[]),
+      listPublicFestivalCategorySlugsSortedByActiveCount().catch(() => [] as string[]),
     ]);
 
   const cityKey = citySlug?.trim().toLowerCase();

@@ -27,8 +27,11 @@ function computeMenuPosition(button: HTMLButtonElement): MenuPosition {
   const maxWidth = Math.min(window.innerWidth * 0.92, 22 * 16);
   const width = Math.max(rect.width, maxWidth);
   const left = Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - width - 8));
+  const menuHeight = Math.min(window.innerHeight * 0.6, 384);
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const openUpward = spaceBelow < menuHeight + 20;
   return {
-    top: rect.bottom + 4,
+    top: openUpward ? Math.max(8, rect.top - menuHeight - 4) : rect.bottom + 4,
     left,
     width,
   };

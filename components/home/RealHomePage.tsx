@@ -10,6 +10,7 @@ import type { HomePageViewProps } from "@/lib/home/loadHomePageData";
 import { Festival } from "@/lib/types";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import CitySelectClient from "./CitySelectClient";
+import DateQuickSelectClient from "./DateQuickSelectClient";
 import HomeDiscoverySearchClient from "./HomeDiscoverySearchClient";
 import QuickChipsClient from "./QuickChipsClient";
 import HomeHeroFolkPattern from "./HomeHeroFolkPattern";
@@ -131,12 +132,7 @@ export default function RealHomePage({
           Избери място
         </Link>
       )}
-      <Link
-        href="/calendar"
-        className={cn(pub.chip, pub.focusRing)}
-      >
-        Избери дата
-      </Link>
+      <DateQuickSelectClient />
     </>
   );
 
@@ -159,11 +155,25 @@ export default function RealHomePage({
                   </div>
                 </div>
 
-                <div className="mt-4">
+                {/* На мобилен — само бутон към /festivals; пълното търсене е в долната лента */}
+                <div className="mt-4 md:hidden">
+                  <Link
+                    href="/festivals"
+                    className="inline-flex items-center gap-2 rounded-full bg-[#7c2d12] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#6b2510] active:scale-[0.98]"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+                    </svg>
+                    Търси фестивали
+                  </Link>
+                </div>
+
+                {/* На desktop — пълното търсене */}
+                <div className="mt-4 hidden md:block">
                   <HomeDiscoverySearchClient secondaryActions={secondaryDiscoveryActions} />
                 </div>
 
-                <div className="mt-3">
+                <div className="mt-3 hidden md:block">
                   <hr className="border-amber-900/20 my-1" />
                   <QuickChipsClient chips={chips} />
                 </div>

@@ -3,6 +3,7 @@ import { serpApiSearch, serpApiImageSearch } from "@/lib/research/serpApiSearch"
 import { researchFestival } from "@/lib/research/perplexity";
 import { extractFestivalFieldsFromEvidence } from "@/lib/admin/research/gemini-extract";
 import { isGeminiConfigured } from "@/lib/admin/research/gemini-provider";
+import { listActiveFestivalCategories } from "@/lib/festivals/categories.server";
 import { fetchSourceDocument } from "@/lib/admin/research/source-extract";
 import { programDraftFromGeminiProgram } from "@/lib/festival/programDraft";
 import type { ProgramDraft } from "@/lib/festival/programDraft";
@@ -304,6 +305,9 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   const combinedEvidence = evidenceParts.join("\n\n");
 
   // Step 4: single Gemini extraction call
+  const activeCategories = await listActiveFestivalCategories();
+  const categorySlugs = activeCategories.map((c) => c.slug);
+
   let extraction = null;
   let geminiModelUsed: string | null = null;
   if (combinedEvidence.trim()) {
@@ -314,6 +318,7 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
         pageTitle: query,
         excerpt: combinedEvidence,
         onModelUsed: (m) => { geminiModelUsed = m; },
+        categories: categorySlugs,
       });
       providers_used.push("gemini");
     } catch (e) {

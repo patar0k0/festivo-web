@@ -1,5 +1,6 @@
 // lib/research/serpApiSearch.ts
 import "server-only";
+import { getActiveSerpApiKeyIndex, resolveSerpApiKey } from "@/lib/admin/serpApiConfig.server";
 
 export type SerpApiOrganicHit = {
   url: string;
@@ -156,7 +157,8 @@ async function fetchSerpApi(params: Record<string, string>): Promise<SerpApiRawR
 }
 
 export async function serpApiSearch(query: string, hl: "en" | "bg"): Promise<SerpApiSearchResult> {
-  const apiKey = process.env.SERPAPI_KEY?.trim();
+  const keyIndex = await getActiveSerpApiKeyIndex();
+  const apiKey = resolveSerpApiKey(keyIndex);
   if (!apiKey) return { ai_overview_text: null, organic: [], image_urls: [] };
   if (!query.trim()) return { ai_overview_text: null, organic: [], image_urls: [] };
 
@@ -205,7 +207,8 @@ export async function serpApiSearch(query: string, hl: "en" | "bg"): Promise<Ser
  * Costs 1 extra SerpAPI call; only fire when we genuinely need it.
  */
 export async function serpApiImageSearch(query: string, limit = 5): Promise<string[]> {
-  const apiKey = process.env.SERPAPI_KEY?.trim();
+  const keyIndex = await getActiveSerpApiKeyIndex();
+  const apiKey = resolveSerpApiKey(keyIndex);
   if (!apiKey || !query.trim()) return [];
 
   const json = await fetchSerpApi({

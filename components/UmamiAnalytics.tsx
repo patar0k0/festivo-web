@@ -26,7 +26,7 @@ export default function UmamiAnalytics() {
       id="umami-analytics"
       src={SCRIPT_URL}
       data-website-id={WEBSITE_ID}
-      strategy="afterInteractive"
+      strategy="lazyOnload"
       defer
     />
   );

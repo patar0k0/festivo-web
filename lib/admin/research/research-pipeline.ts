@@ -1,4 +1,5 @@
 import { extractFestivalFieldsFromEvidence, type GeminiRawExtraction } from "@/lib/admin/research/gemini-extract";
+import { listActiveFestivalCategories } from "@/lib/festivals/categories.server";
 import { geminiGroundedSearchHits, isGeminiConfigured } from "@/lib/admin/research/gemini-provider";
 import { buildGeminiPipelineQueries } from "@/lib/admin/research/query-builder";
 import { validatePipelineResult } from "@/lib/admin/research/pipeline-validate";
@@ -391,6 +392,9 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
   const ranked = rankSearchHits(allHits, query, 5);
   const sources = ranked.map(toSource);
 
+  const activeCategories = await listActiveFestivalCategories();
+  const categorySlugs = activeCategories.map((c) => c.slug);
+
   const extractionRows: Array<{ url: string; rank: number; ex: GeminiRawExtraction }> = [];
 
   for (let i = 0; i < ranked.length; i++) {
@@ -406,6 +410,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
         sourceUrl: hit.url,
         pageTitle: doc.title || hit.title,
         excerpt: doc.excerpt,
+        categories: categorySlugs,
       });
       extractionRows.push({ url: hit.url, rank: i, ex });
     } catch (e) {

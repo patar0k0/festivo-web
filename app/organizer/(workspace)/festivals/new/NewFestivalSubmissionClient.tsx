@@ -19,7 +19,7 @@ import {
   programDraftToPublishPayload,
   type ProgramDraft,
 } from "@/lib/festival/programDraft";
-import { CANONICAL_FESTIVAL_CATEGORIES } from "@/lib/festivals/publicCategories";
+import type { FestivalCategory } from "@/lib/festivals/categories.server";
 
 export type NewFestivalDraftInitial = {
   id: string;
@@ -253,8 +253,10 @@ const SUBMISSIONS_SUCCESS_REDIRECT = "/organizer/submissions?submitted=1";
 
 function NewFestivalSubmissionInner({
   initialDraft,
+  categories = [],
 }: {
   initialDraft: NewFestivalDraftInitial | null;
+  categories?: FestivalCategory[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -936,9 +938,9 @@ function NewFestivalSubmissionInner({
                       className={FIELD_CLASS}
                     >
                       <option value="">— избери категория —</option>
-                      {CANONICAL_FESTIVAL_CATEGORIES.map((cat: string) => (
-                        <option key={cat} value={cat}>
-                          {cat.charAt(0).toLocaleUpperCase("bg-BG") + cat.slice(1)}
+                      {categories.map((cat) => (
+                        <option key={cat.slug} value={cat.slug}>
+                          {cat.label_bg}
                         </option>
                       ))}
                     </select>
@@ -1538,12 +1540,14 @@ function NewFestivalSubmissionInner({
 
 export default function NewFestivalSubmissionClient({
   initialDraft = null,
+  categories = [],
 }: {
   initialDraft?: NewFestivalDraftInitial | null;
+  categories?: FestivalCategory[];
 }) {
   return (
     <Suspense fallback={<div className="py-16 text-center text-sm text-black/55">Зареждане…</div>}>
-      <NewFestivalSubmissionInner initialDraft={initialDraft} />
+      <NewFestivalSubmissionInner initialDraft={initialDraft} categories={categories} />
     </Suspense>
   );
 }

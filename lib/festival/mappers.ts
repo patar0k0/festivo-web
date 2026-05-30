@@ -3,7 +3,6 @@ import type { CanonicalFestivalPatchPayload, CanonicalFestivalPayload } from "@/
 import { pendingRowToOrganizerEntries, primaryOrganizerDisplayName } from "@/lib/admin/pendingOrganizerEntries";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
-import { mapToCanonicalCategory } from "@/lib/festivals/publicCategoryShared";
 
 type PendingFestivalRowLike = {
   title: string;
@@ -55,15 +54,14 @@ function normalizeText(value: unknown): string | null {
 }
 
 /**
- * Normalizes a festival category string to a canonical slug.
- * Trims, lowercases, then maps to one of the 7 canonical values.
- * Returns null for unrecognized or empty values.
+ * Normalizes a festival category string: trim + lowercase.
+ * The select UI enforces valid values from festival_categories table;
+ * this function only sanitizes casing inconsistencies.
  */
 export function normalizeCategory(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  return mapToCanonicalCategory(trimmed) ?? (trimmed.toLocaleLowerCase("bg-BG") || null);
+  const trimmed = value.trim().toLocaleLowerCase("bg-BG");
+  return trimmed || null;
 }
 
 function normalizeTags(value: unknown): string[] {

@@ -122,7 +122,24 @@ const EXTRACTION_SCHEMA = {
   ],
 };
 
-const SYSTEM = `Ти извличаш структурирани данни за български фестивал САМО от предоставения текст (доказателство).
+const DEFAULT_CATEGORIES = [
+  "фолклорен фестивал",
+  "събор",
+  "кулинарен фестивал",
+  "музикален фестивал",
+  "танцов фестивал",
+  "културен фестивал",
+  "арт фестивал",
+];
+
+function buildSystem(categories: string[]): string {
+  const catList = categories.length > 0 ? categories : DEFAULT_CATEGORIES;
+  const catLines = catList.map((c) => `  "${c}"`).join("\n");
+  return buildSystemTemplate(catLines);
+}
+
+function buildSystemTemplate(categoryLines: string): string {
+  return `Ти извличаш структурирани данни за български фестивал САМО от предоставения текст (доказателство).
 Правила:
 - Използвай САМО информация, явно подкрепена от текста. Не измисляй факти.
 - Непознато или непотвърдено → null. Изключения: tags и program имат собствени правила по-долу.
@@ -141,14 +158,8 @@ const SYSTEM = `Ти извличаш структурирани данни за
 - Ако в текста изобщо няма програма по дни → program=null.
 
 КАТЕГОРИЯ (category):
-- Задължително избирай ТОЧНО една от следните 7 стойности (lowercase):
-  "фолклорен фестивал" — фолклорни фестивали, събори с фолклорна програма, конкурси за народна музика/танц
-  "събор" — събор на населено място, местен събор, традиционен събор
-  "кулинарен фестивал" — кулинарни, гастрономически, винени, бирени фестивали
-  "музикален фестивал" — концерти, музикални фестивали (рок, джаз, поп, класическа, електронна)
-  "танцов фестивал" — танцови фестивали и прояви
-  "културен фестивал" — градски празници, смесени културни събития
-  "арт фестивал" — изложби, арт инсталации, визуални изкуства
+- Задължително избирай ТОЧНО една от следните стойности (lowercase):
+${categoryLines}
 - Ако събитието съчетава два типа, избери доминиращия.
 - Ако типът не е ясен от текста → null.
 
@@ -164,6 +175,7 @@ const SYSTEM = `Ти извличаш структурирани данни за
 - Примери за добри тагове: ["музика", "поп", "концерт", "фестивал", "открито", "традиционен", "горна оряховица", "семеен", "храна"]
 - Примери за лоши тагове (НЕ добавяй): ["2024", "2026", "бг", "събитие", "информация", "страница", "фестивал bg"]
 - Само ако текстът е напълно непонятен или липсва → върни празен масив []`;
+}
 
 export async function extractFestivalFieldsFromEvidence(input: {
   userQuery: string;
@@ -171,6 +183,7 @@ export async function extractFestivalFieldsFromEvidence(input: {
   pageTitle: string;
   excerpt: string;
   onModelUsed?: (modelId: string) => void;
+  categories?: string[];
 }): Promise<GeminiRawExtraction> {
   const userText = JSON.stringify(
     {
@@ -191,7 +204,7 @@ export async function extractFestivalFieldsFromEvidence(input: {
   try {
     return withProgram(
       await geminiExtractJson<GeminiRawExtraction>({
-        systemInstruction: SYSTEM,
+        systemInstruction: buildSystem(input.categories ?? []),
         userText,
         responseSchema: EXTRACTION_SCHEMA,
         onModelUsed: input.onModelUsed,
@@ -200,7 +213,7 @@ export async function extractFestivalFieldsFromEvidence(input: {
   } catch {
     return withProgram(
       await geminiExtractJson<GeminiRawExtraction>({
-        systemInstruction: SYSTEM,
+        systemInstruction: buildSystem(input.categories ?? []),
         userText,
         onModelUsed: input.onModelUsed,
       }),

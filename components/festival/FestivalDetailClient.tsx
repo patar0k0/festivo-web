@@ -570,7 +570,7 @@ export default function FestivalDetailClient({
                 src={heroDisplayUrl ?? heroImage}
                 alt={festival.title || "Festival"}
                 fill
-                sizes="(min-width: 768px) 720px, 100vw"
+                sizes="(min-width: 1280px) 1200px, (min-width: 768px) 100vw, 100vw"
                 priority
                 className="object-cover"
                 onError={() => {

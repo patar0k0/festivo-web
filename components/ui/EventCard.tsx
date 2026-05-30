@@ -154,7 +154,7 @@ export default function EventCard({
                 src={imageUrl}
                 alt={title}
                 fill
-                sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
+                sizes="(min-width: 1280px) 384px, (min-width: 768px) 50vw, 100vw"
                 className="object-cover transition-transform duration-300 ease-out group-hover/image:scale-105"
                 resetKey={festivalId}
                 priority={priority}
@@ -179,7 +179,7 @@ export default function EventCard({
             src={imageUrl}
             alt={title}
             fill
-            sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
+            sizes="(min-width: 1280px) 384px, (min-width: 768px) 50vw, 100vw"
             className="object-cover"
             resetKey={festivalId}
             priority={priority}

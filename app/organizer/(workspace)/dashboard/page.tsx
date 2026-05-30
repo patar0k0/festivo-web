@@ -45,6 +45,12 @@ function statusMeta(status: string): {
         className: "border-red-200/80 bg-red-50/90 text-red-900",
         dotClassName: "bg-red-500",
       };
+    case "draft":
+      return {
+        label: "Чернова",
+        className: "border-black/10 bg-[#f5f4f0] text-black/55",
+        dotClassName: "bg-black/25",
+      };
     default:
       return {
         label: status,
@@ -290,8 +296,9 @@ export default async function OrganizerDashboardPage() {
             <h2 className="text-lg font-semibold text-[#0c0e14]">Подавания</h2>
             {hasSubmissions ? (
               <p className="mt-0.5 text-xs text-black/45">
-                Показват се последните {submissionCount}{" "}
-                {submissionCount === 1 ? "подаване" : "подавания"}
+                {submissionCount === 1
+                  ? "Показва се последното подаване"
+                  : `Показват се последните ${submissionCount} подавания`}
               </p>
             ) : null}
           </div>
@@ -355,12 +362,12 @@ export default async function OrganizerDashboardPage() {
                       ) : null}
                     </div>
                   </div>
-                  {row.status === "pending" ? (
+                  {(row.status === "pending" || row.status === "draft") ? (
                     <Link
                       href={`/organizer/submissions/${row.id}/edit`}
                       className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c0e14] transition hover:bg-black/[0.04]"
                     >
-                      Редактирай
+                      {row.status === "draft" ? "Довърши и изпрати" : "Редактирай"}
                     </Link>
                   ) : null}
                 </li>

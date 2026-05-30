@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import IngestJobsPanel from "@/components/admin/IngestJobsPanel";
 import { getSourceUrlMatchMeta } from "@/lib/admin/sourceUrlMatching";
 
@@ -46,7 +47,8 @@ export default async function AdminIngestPage() {
     redirect("/login?next=/admin/ingest");
   }
 
-  const { data, error } = await ctx.supabase
+  const adminClient = createSupabaseAdmin();
+  const { data, error } = await adminClient
     .from("ingest_jobs")
     .select("id,status,source_url,source_type,created_at,started_at,finished_at,error,fb_browser_context")
     .order("created_at", { ascending: false })

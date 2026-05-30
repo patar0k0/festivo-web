@@ -1142,7 +1142,7 @@ export default function FestivalEditForm({
           <AdminFieldInlineRow field="category">
             <select value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS}>
               <option value="">— без категория —</option>
-              {CANONICAL_FESTIVAL_CATEGORIES.map((cat) => (
+              {CANONICAL_FESTIVAL_CATEGORIES.map((cat: string) => (
                 <option key={cat} value={cat}>
                   {cat.charAt(0).toLocaleUpperCase("bg-BG") + cat.slice(1)}
                 </option>

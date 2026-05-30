@@ -63,7 +63,7 @@ export function normalizeCategory(value: string | null | undefined): string | nu
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  return mapToCanonicalCategory(trimmed) ?? trimmed.toLocaleLowerCase("bg-BG") || null;
+  return mapToCanonicalCategory(trimmed) ?? (trimmed.toLocaleLowerCase("bg-BG") || null);
 }
 
 function normalizeTags(value: unknown): string[] {

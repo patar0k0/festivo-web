@@ -936,7 +936,7 @@ function NewFestivalSubmissionInner({
                       className={FIELD_CLASS}
                     >
                       <option value="">— избери категория —</option>
-                      {CANONICAL_FESTIVAL_CATEGORIES.map((cat) => (
+                      {CANONICAL_FESTIVAL_CATEGORIES.map((cat: string) => (
                         <option key={cat} value={cat}>
                           {cat.charAt(0).toLocaleUpperCase("bg-BG") + cat.slice(1)}
                         </option>

@@ -136,6 +136,7 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
   const [userCoords, setUserCoords] = useState<UserCoords | null>(initialUserCoords);
   const [resetViewToken, setResetViewToken] = useState(0);
   const [geoMessage, setGeoMessage] = useState<string | null>(null);
+  const [boundsFilter, setBoundsFilter] = useState<{ north: number; south: number; east: number; west: number } | null>(null);
   // Mobile-only: tab between map and list. Default "map" because that's the
   // hero of /map. On lg+ both panes are shown side-by-side and this state is
   // ignored.
@@ -203,6 +204,22 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
     () => festivalsSortedByDistance.filter((festival) => festival.lat != null && festival.lng != null),
     [festivalsSortedByDistance]
   );
+
+  // Филтрира списъка по текущите граници на картата след "Търси в тази зона"
+  const festivalsForList = useMemo(() => {
+    if (!boundsFilter) return festivalsSortedByDistance;
+    return festivalsSortedByDistance.filter((f) => {
+      const lat = f.lat as number | null;
+      const lng = f.lng as number | null;
+      if (lat == null || lng == null) return false;
+      return (
+        lat <= boundsFilter.north &&
+        lat >= boundsFilter.south &&
+        lng <= boundsFilter.east &&
+        lng >= boundsFilter.west
+      );
+    });
+  }, [festivalsSortedByDistance, boundsFilter]);
 
   const today = new Date();
   const weekendStart = nextSaturday(today);
@@ -320,6 +337,7 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
   };
 
   const onResetFilters = () => {
+    setBoundsFilter(null);
     pushParams((params) => {
       FILTER_PARAM_KEYS.forEach((key) => params.delete(key));
     });
@@ -328,6 +346,7 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
   const onResetView = () => {
     setSelectedFestivalId(null);
     setFocusCoords(null);
+    setBoundsFilter(null);
     setResetViewToken((value) => value + 1);
 
     pushParams((params) => {
@@ -472,7 +491,7 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
               <div className={cn(mobileTab === "list" ? "block" : "hidden", "lg:block")}>
                 <div className={cn(pub.panelMuted, "max-h-[calc(100vh-10.5rem)] overflow-y-auto p-3")}>
                   <MapResultsList
-                    festivals={festivalsSortedByDistance}
+                    festivals={festivalsForList}
                     selectedFestivalId={selectedFestivalId}
                     hoveredFestivalId={hoveredFestivalId}
                     onSelectFestival={onSelectFestival}
@@ -497,6 +516,7 @@ export default function MapPageClient({ filters, festivals, total, categoryOptio
                       hoveredFestivalId={hoveredFestivalId}
                       onSelectFestival={onSelectFestival}
                       onViewportChange={onViewportChange}
+                      onSearchInBounds={setBoundsFilter}
                       initialView={initialView}
                       focusCoords={focusCoords}
                       userCoords={userCoords}

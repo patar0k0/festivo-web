@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
@@ -87,6 +87,8 @@ type UserCoords = {
   lng: number;
 };
 
+export type MapBounds = { north: number; south: number; east: number; west: number };
+
 type MapViewProps = {
   festivals: Festival[];
   selectedFestivalId: string | number | null;
@@ -95,6 +97,8 @@ type MapViewProps = {
   /** Called after every map move/zoom end with the new view state. Caller can
    *  use this to persist lat/lng/zoom into the URL for shareable links. */
   onViewportChange?: (view: { lat: number; lng: number; zoom: number }) => void;
+  /** Called when the user clicks "Търси в тази зона" — passes current bounds. */
+  onSearchInBounds?: (bounds: MapBounds) => void;
   /** Initial center + zoom; if omitted we centre on first festival or Bulgaria. */
   initialView?: { lat: number; lng: number; zoom: number } | null;
   focusCoords: FocusCoords | null;
@@ -127,12 +131,14 @@ export default function MapView({
   hoveredFestivalId,
   onSelectFestival,
   onViewportChange,
+  onSearchInBounds,
   initialView,
   focusCoords,
   userCoords,
   resetViewToken,
 }: MapViewProps) {
   const [hasMoved, setHasMoved] = useState(false);
+  const currentBoundsRef = useRef<MapBounds | null>(null);
   const selectedFestival = useMemo(
     () => festivals.find((festival) => String(festival.id) === String(selectedFestivalId)) ?? null,
     [festivals, selectedFestivalId]
@@ -159,6 +165,7 @@ export default function MapView({
         <MapMoveWatcher
           onMove={() => setHasMoved(true)}
           onViewportChange={onViewportChange}
+          onBoundsChange={(b) => { currentBoundsRef.current = b; }}
         />
         <MapViewportController focusCoords={focusCoords} resetViewToken={resetViewToken} />
         <TileLayer
@@ -206,7 +213,12 @@ export default function MapView({
       {hasMoved ? (
         <button
           className="absolute left-1/2 top-4 z-[500] -translate-x-1/2 rounded-full bg-[#0c0e14] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white shadow-[0_10px_24px_rgba(12,14,20,0.22)]"
-          onClick={() => setHasMoved(false)}
+          onClick={() => {
+            setHasMoved(false);
+            if (currentBoundsRef.current && onSearchInBounds) {
+              onSearchInBounds(currentBoundsRef.current);
+            }
+          }}
           type="button"
         >
           Търси в тази зона
@@ -241,19 +253,29 @@ export default function MapView({
 function MapMoveWatcher({
   onMove,
   onViewportChange,
+  onBoundsChange,
 }: {
   onMove: () => void;
   onViewportChange?: (view: { lat: number; lng: number; zoom: number }) => void;
+  onBoundsChange?: (bounds: MapBounds) => void;
 }) {
+  const reportBounds = (target: L.Map) => {
+    if (!onBoundsChange) return;
+    const b = target.getBounds();
+    onBoundsChange({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() });
+  };
+
   useMapEvents({
     moveend: (e) => {
       onMove();
+      reportBounds(e.target);
       if (onViewportChange) {
         const c = e.target.getCenter();
         onViewportChange({ lat: c.lat, lng: c.lng, zoom: e.target.getZoom() });
       }
     },
     zoomend: (e) => {
+      reportBounds(e.target);
       if (onViewportChange) {
         const c = e.target.getCenter();
         onViewportChange({ lat: c.lat, lng: c.lng, zoom: e.target.getZoom() });

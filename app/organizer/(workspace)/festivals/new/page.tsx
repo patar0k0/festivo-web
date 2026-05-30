@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import NewFestivalSubmissionClient, { type NewFestivalDraftInitial } from "./NewFestivalSubmissionClient";
+import { listActiveFestivalCategories } from "@/lib/festivals/categories.server";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import {
   assertCanEditOrganizerPending,
@@ -88,9 +89,12 @@ export default async function NewFestivalSubmissionPage({
     }
   }
 
+  const categories = await listActiveFestivalCategories();
+
   return (
     <NewFestivalSubmissionClient
       initialDraft={initialDraft}
+      categories={categories}
     />
   );
 }

@@ -118,20 +118,12 @@ export default function FestivalsCompoundSearch({
   const { weekendStart, weekendEnd, monthStart, monthEnd } = festivalDiscoveryCalendarBounds();
   const today = getSofiaDateString(0);
   const tomorrow = getSofiaDateString(1);
-  const endOfWeek = (() => {
-    const sofiaDay = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Sofia", weekday: "short" })
-      .format(new Date()).toLowerCase();
-    const dayMap: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
-    const dayNum = dayMap[sofiaDay] ?? 0;
-    const daysUntilSunday = dayNum === 0 ? 0 : 7 - dayNum;
-    return getSofiaDateString(daysUntilSunday);
-  })();
 
   const datePresets = [
     { label: "Днес", from: today, to: today },
     { label: "Утре", from: tomorrow, to: tomorrow },
     { label: "Този уикенд", from: weekendStart, to: weekendEnd },
-    { label: "Тази седмица", from: today, to: endOfWeek },
+    { label: "Тази седмица", from: today, to: weekendEnd },
     { label: "Този месец", from: monthStart, to: monthEnd },
   ];
 

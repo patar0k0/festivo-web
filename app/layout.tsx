@@ -15,6 +15,7 @@ import "./landing.css";
 const manrope = Manrope({
   variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const fraunces = Fraunces({
@@ -28,8 +29,8 @@ const fraunces = Fraunces({
 const cormorantGaramond = Cormorant_Garamond({
   variable: "--font-hero-warm-serif",
   subsets: ["latin", "cyrillic"],
-  // Only weight 700 is used (homepage h1 uses font-bold via pub.displayH1).
   weight: ["700"],
+  display: "swap",
 });
 
 export function generateMetadata(): Metadata {
@@ -78,10 +79,21 @@ export default async function RootLayout({
     initialIsAuthenticated = false;
   }
 
+  const supabaseHost = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace("https://", "").split("/")[0];
+
   return (
     <html lang="bg">
       <head>
         <meta charSet="utf-8" />
+        {/* Preconnect за Supabase storage (снимки на фестивали) */}
+        {supabaseHost ? (
+          <>
+            <link rel="preconnect" href={`https://${supabaseHost}`} />
+            <link rel="dns-prefetch" href={`https://${supabaseHost}`} />
+          </>
+        ) : null}
+        {/* Preconnect за Facebook CDN (организаторски снимки) */}
+        <link rel="dns-prefetch" href="https://scontent.fsof9-1.fbcdn.net" />
       </head>
       <body
         className={`${manrope.variable} ${fraunces.variable} ${cormorantGaramond.variable} landing-bg min-h-screen text-[#0c0e14] antialiased`}

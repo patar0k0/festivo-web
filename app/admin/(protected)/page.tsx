@@ -535,6 +535,79 @@ export default async function AdminDashboardPage() {
         </section>
       </div>
 
+      {/* External analytics & tools */}
+      <section className={domainCardClass} aria-label="Статистика и инструменти">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">Статистика и инструменти</p>
+        <h3 className="mt-1 text-sm font-semibold text-[#0c0e14]">Бърз достъп до външни платформи</h3>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[
+            {
+              label: "Vercel Analytics",
+              hint: "Трафик, Web Vitals",
+              href: "https://vercel.com/patar0k0s-projects/festivo-web/analytics",
+              icon: "▲",
+            },
+            {
+              label: "Umami",
+              hint: "Посещения, страници",
+              href: "https://cloud.umami.is",
+              icon: "📊",
+            },
+            {
+              label: "Google Search Console",
+              hint: "SEO, импресии, кликове",
+              href: "https://search.google.com/search-console?resource_id=https://festivo.bg",
+              icon: "🔍",
+            },
+            {
+              label: "Facebook Insights",
+              hint: "Страница и реклами",
+              href: "https://www.facebook.com/festivo.bg/insights",
+              icon: "📘",
+            },
+            {
+              label: "Google Analytics",
+              hint: "Аудитория, поведение",
+              href: "https://analytics.google.com",
+              icon: "📈",
+            },
+            {
+              label: "Sentry",
+              hint: "Грешки и производителност",
+              href: "https://sentry.io/organizations/festivobg-ltd/issues/",
+              icon: "🐛",
+            },
+            {
+              label: "Upstash",
+              hint: "Redis (rate limiting)",
+              href: "https://console.upstash.com",
+              icon: "⚡",
+            },
+            {
+              label: "Supabase",
+              hint: "База данни и auth",
+              href: "https://supabase.com/dashboard",
+              icon: "🗄️",
+            },
+          ].map((item) => (
+            <a
+              key={item.label}
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-start gap-2.5 rounded-lg border border-black/[0.08] bg-white/70 px-3 py-2.5 transition hover:border-black/[0.16] hover:bg-white hover:shadow-sm"
+            >
+              <span className="mt-0.5 text-base leading-none">{item.icon}</span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold text-[#0c0e14]">{item.label}</p>
+                <p className="text-[10px] text-black/45">{item.hint}</p>
+              </div>
+              <span className="ml-auto shrink-0 text-[10px] text-black/30">↗</span>
+            </a>
+          ))}
+        </div>
+      </section>
+
       {/* Quick actions */}
       <section className="rounded-xl border border-black/[0.06] bg-black/[0.02] px-3 py-2.5" aria-label="Бързи действия">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">Бързи действия</p>

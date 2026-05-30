@@ -3,6 +3,7 @@ import type { CanonicalFestivalPatchPayload, CanonicalFestivalPayload } from "@/
 import { pendingRowToOrganizerEntries, primaryOrganizerDisplayName } from "@/lib/admin/pendingOrganizerEntries";
 import { normalizeFestivalSourceType } from "@/lib/festival/sourceType";
 import { festivalSettlementSourceText } from "@/lib/settlements/festivalCityText";
+import { mapToCanonicalCategory } from "@/lib/festivals/publicCategoryShared";
 
 type PendingFestivalRowLike = {
   title: string;
@@ -54,15 +55,15 @@ function normalizeText(value: unknown): string | null {
 }
 
 /**
- * Normalizes a festival category string: trim + lowercase.
- * Ensures "Кулинарен фестивал", "кулинарен фестивал", "КУЛИНАРЕН ФЕСТИВАЛ"
- * all map to the same canonical value "кулинарен фестивал".
- * Display-layer capitalizes the first letter when needed.
+ * Normalizes a festival category string to a canonical slug.
+ * Trims, lowercases, then maps to one of the 7 canonical values.
+ * Returns null for unrecognized or empty values.
  */
 export function normalizeCategory(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
-  const trimmed = value.trim().toLowerCase();
-  return trimmed || null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return mapToCanonicalCategory(trimmed) ?? trimmed.toLocaleLowerCase("bg-BG") || null;
 }
 
 function normalizeTags(value: unknown): string[] {

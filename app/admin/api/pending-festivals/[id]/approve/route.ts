@@ -535,7 +535,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       city_slug: cityText ? slugifyCity(cityText) : null,
       city_id: cityId,
       address: normalizedAddress || null,
-      category: normalizeCategory(canonicalApproved.category) ?? "festival",
+      category: normalizeCategory(canonicalApproved.category),
       source_type: mappedSourceType,
       source_primary_url: pending.source_primary_url,
       source_count: pending.source_count,

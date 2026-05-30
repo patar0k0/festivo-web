@@ -14,12 +14,15 @@ type UserCoords = {
   lng: number;
 };
 
+type MapBounds = { north: number; south: number; east: number; west: number };
+
 type MapViewClientProps = {
   festivals: Festival[];
   selectedFestivalId: string | number | null;
   hoveredFestivalId: string | number | null;
   onSelectFestival: (festival: Festival) => void;
   onViewportChange?: (view: { lat: number; lng: number; zoom: number }) => void;
+  onSearchInBounds?: (bounds: MapBounds) => void;
   initialView?: { lat: number; lng: number; zoom: number } | null;
   focusCoords: FocusCoords | null;
   userCoords: UserCoords | null;

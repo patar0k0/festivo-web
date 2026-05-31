@@ -5,6 +5,7 @@ import Image, { type ImageProps } from "next/image";
 import { usePathname } from "next/navigation";
 import { useNavigationGeneration } from "@/components/providers/NavigationGenerationProvider";
 import { useImageLoadReset } from "@/components/ui/useImageLoadReset";
+import { toSupabaseTransformUrl } from "@/lib/storage/supabaseTransform";
 
 type FallbackImageProps = Omit<ImageProps, "src" | "alt"> & {
   src?: string | null;
@@ -47,19 +48,26 @@ export default function FallbackImage({
     resetKey,
   );
 
-  // Remote images (Supabase storage, fbcdn) are routed through Next.js image
-  // optimizer by default — generates AVIF/WebP + srcset per `sizes`, cuts LCP
-  // payload ~10x. Callers that need to bypass the optimizer (e.g. avatar / logo
-  // upload previews, or images on hosts not in `remotePatterns`) should pass
-  // `unoptimized` explicitly. See `next.config.js` for the allowed remote hosts.
-  const unoptimized = unoptimizedProp ?? false;
+  // Priority (LCP) images from Supabase storage are served via the Supabase
+  // Transform API (Cloudflare CDN) instead of Vercel's image optimizer, which
+  // has a cold-cache encoding overhead on first visit. Non-Supabase URLs
+  // (e.g. fbcdn.net) and non-priority images continue through Next.js optimizer.
+  const supabaseTransformSrc = useMemo(() => {
+    if (!props.priority || !normalizedSrc) return null;
+    // Derive pixel width from the sizes prop if available, else default 750px
+    // (covers 100vw mobile up to tablet 50vw @2x).
+    return toSupabaseTransformUrl(normalizedSrc, { width: 750, quality: 80 });
+  }, [props.priority, normalizedSrc]);
+
+  const unoptimized = unoptimizedProp ?? supabaseTransformSrc !== null;
 
   const resolvedSrc = useMemo(() => {
-    if (!normalizedSrc) return null;
-    if (loadAttempt === 0) return normalizedSrc;
-    const sep = normalizedSrc.includes("?") ? "&" : "?";
-    return `${normalizedSrc}${sep}_festivo_retry=${loadAttempt}`;
-  }, [normalizedSrc, loadAttempt]);
+    const base = supabaseTransformSrc ?? normalizedSrc;
+    if (!base) return null;
+    if (loadAttempt === 0) return base;
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}_festivo_retry=${loadAttempt}`;
+  }, [supabaseTransformSrc, normalizedSrc, loadAttempt]);
 
   const finalSrc = !failed && resolvedSrc ? resolvedSrc : fallbackSrc;
   const normalizedAlt = typeof alt === "string" && alt.trim().length > 0 ? alt : "Image";

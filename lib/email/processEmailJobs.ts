@@ -6,6 +6,8 @@ import { parseEmailJobType } from "./emailJobTypes";
 import { isUserPreferenceGatedEmailType } from "./emailTypeCategory";
 import { renderEmailJob } from "./renderEmailJob";
 import { RESEND_API_KEY_MISSING_ERROR, sendEmail } from "./sendEmail";
+import { EMAIL_FROM_OUTREACH } from "./config";
+import { EMAIL_JOB_TYPE_ORGANIZER_OUTREACH } from "./emailJobTypes";
 
 export type { EmailJobRow } from "./emailJobRow";
 
@@ -222,12 +224,15 @@ export async function processOneEmailJob(
     return finalizeSendFailure(supabase, job, `render_failed:${message.slice(0, 500)}`);
   }
 
+  const fromOverride = job.type === EMAIL_JOB_TYPE_ORGANIZER_OUTREACH ? EMAIL_FROM_OUTREACH : null;
+
   const result = await sendEmail(
     {
       to: job.recipient_email,
       subject: built.subject,
       html: built.html,
       text: built.text,
+      from: fromOverride,
       replyTo: replyToFromPayload(job.payload),
     },
     { jobId: job.id, type: job.type },

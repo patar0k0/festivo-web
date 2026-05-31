@@ -5,6 +5,40 @@ import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
 import { EMAIL_JOB_TYPE_ORGANIZER_OUTREACH } from "@/lib/email/emailJobTypes";
 import { absoluteSiteUrl } from "@/lib/email/emailUrls";
 
+export async function GET(request: Request) {
+  const ctx = await getAdminContext();
+  if (!ctx?.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const organizerId = searchParams.get("organizerId");
+  if (!organizerId) {
+    return NextResponse.json({ error: "Missing organizerId" }, { status: 400 });
+  }
+
+  let admin;
+  try {
+    admin = createSupabaseAdmin();
+  } catch {
+    return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
+  }
+
+  const { data, error } = await admin
+    .from("email_jobs")
+    .select("id,recipient_email,status,sent_at,created_at,last_error")
+    .eq("type", EMAIL_JOB_TYPE_ORGANIZER_OUTREACH)
+    .like("dedupe_key", `organizer-outreach:${organizerId}:%`)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ items: data ?? [] });
+}
+
 export async function POST(request: Request) {
   const ctx = await getAdminContext();
   if (!ctx?.isAdmin) {

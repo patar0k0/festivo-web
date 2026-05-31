@@ -1,6 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { format } from "date-fns";
+import { bg } from "date-fns/locale";
+
+type OutreachHistoryItem = {
+  id: string;
+  recipient_email: string;
+  status: string;
+  sent_at: string | null;
+  created_at: string;
+  last_error: string | null;
+};
 
 type Festival = {
   id: string;
@@ -58,6 +69,14 @@ export default function OrganizerOutreachModal({
   const [body, setBody] = useState(() => buildEmailBody(organizerName, publishedFestivals, siteUrl));
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const [history, setHistory] = useState<OutreachHistoryItem[]>([]);
+
+  useEffect(() => {
+    fetch(`/admin/api/organizer-outreach?organizerId=${encodeURIComponent(organizerId)}`)
+      .then((r) => r.json())
+      .then((d: { items?: OutreachHistoryItem[] }) => setHistory(d.items ?? []))
+      .catch(() => {});
+  }, [organizerId, status]);
 
   const subject = `Festivo.bg — вашите фестивали вече са в каталога`;
 
@@ -157,6 +176,41 @@ export default function OrganizerOutreachModal({
               className="w-full rounded-xl border border-black/[0.12] bg-white px-3.5 py-2.5 text-sm text-[#0c0e14] leading-relaxed font-mono resize-y focus:border-[#7c2d12] focus:outline-none focus:ring-2 focus:ring-[#7c2d12]/20"
             />
           </div>
+
+          {/* History */}
+          {history.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium uppercase tracking-wide text-black/50">История на изпращанията</p>
+              <div className="rounded-xl border border-black/[0.08] divide-y divide-black/[0.06] overflow-hidden">
+                {history.map((item) => {
+                  const date = item.sent_at ?? item.created_at;
+                  const dateStr = format(new Date(date), "d MMM yyyy, HH:mm", { locale: bg });
+                  const statusColor =
+                    item.status === "sent" ? "text-emerald-700"
+                    : item.status === "failed" ? "text-red-600"
+                    : "text-amber-600";
+                  const statusLabel =
+                    item.status === "sent" ? "Изпратен"
+                    : item.status === "failed" ? "Грешка"
+                    : "В опашка";
+                  return (
+                    <div key={item.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm bg-white">
+                      <div className="min-w-0">
+                        <span className="font-medium text-[#0c0e14]">{item.recipient_email}</span>
+                        {item.last_error && (
+                          <p className="mt-0.5 truncate text-xs text-red-500">{item.last_error}</p>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className={`text-xs font-semibold ${statusColor}`}>{statusLabel}</p>
+                        <p className="text-[11px] text-black/40">{dateStr}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Festivals list */}
           {publishedFestivals.length === 0 && (

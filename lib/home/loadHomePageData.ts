@@ -1,13 +1,13 @@
+import { unstable_cache } from "next/cache";
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
-import { listPublicFestivalCategorySlugsSortedByActiveCount } from "@/lib/festivals/publicCategories.server";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
 import { sofiaWallClockNow } from "@/lib/festival/temporal";
 import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBounds";
 import { FESTIVAL_SELECT_MIN, fixFestivalText } from "@/lib/queries";
 import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { Festival } from "@/lib/types";
 
 export type HomeCityOption = {
@@ -69,64 +69,6 @@ export function firstHomeSearchParam(value: string | string[] | undefined): stri
   return typeof value === "string" ? value : undefined;
 }
 
-async function fetchHomeFestivals(params: {
-  from: string;
-  to?: string;
-  citySlug?: string;
-  limit?: number;
-}): Promise<Festival[]> {
-  const supabase = await createSupabaseServerClient();
-  const limit = params.limit ?? 6;
-
-  let query = supabase
-    .from("festivals")
-    .select(FESTIVAL_SELECT_MIN)
-    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
-    .neq("status", "archived")
-    .order("start_date", { ascending: true })
-    .limit(limit);
-
-  if (params.citySlug) {
-    query = query.eq("city_slug", params.citySlug.trim().toLowerCase());
-  }
-
-  const rangeTo = params.to ?? "2099-12-31";
-  const { data: rangeIds, error: rangeRpcError } = await supabase.rpc("festivals_intersecting_range", {
-    p_from: params.from,
-    p_to: rangeTo,
-  });
-
-  if (!rangeRpcError && Array.isArray(rangeIds) && rangeIds.length > 0) {
-    const ids = rangeIds
-      .map((row: { festival_id?: string }) => (typeof row?.festival_id === "string" ? row.festival_id : ""))
-      .filter(Boolean);
-    query = query.in("id", ids);
-  } else if (!rangeRpcError && Array.isArray(rangeIds) && rangeIds.length === 0) {
-    query = query.eq("id", "00000000-0000-0000-0000-000000000001");
-  } else if (params.to) {
-    query = query.lte("start_date", params.to).or(`end_date.gte.${params.from},and(end_date.is.null,start_date.gte.${params.from})`);
-  } else {
-    query = query.or(`start_date.gte.${params.from},end_date.gte.${params.from}`);
-  }
-
-  const { data, error } = await query.returns<Festival[]>();
-  if (error) {
-    return [];
-  }
-  return (data ?? []).map(fixFestivalText);
-}
-
-function effectiveEndYmdForCurrentRow(f: Festival): string {
-  const end = f.end_date?.trim();
-  if (end) return end;
-  return f.start_date?.trim() || "9999-12-31";
-}
-
-/** DB: start_date <= today AND coalesce(end_date, start_date) >= today; then sort by effective end ascending. */
-function sortCurrentFestivalsForHome(festivals: Festival[]): Festival[] {
-  return [...festivals].sort((a, b) => effectiveEndYmdForCurrentRow(a).localeCompare(effectiveEndYmdForCurrentRow(b)));
-}
-
 type CityJoinRow = { slug: string | null; name_bg: string | null; is_village: boolean | null };
 
 function normalizeFestivalCityJoin(
@@ -136,99 +78,160 @@ function normalizeFestivalCityJoin(
   return Array.isArray(raw) ? (raw[0] ?? null) : raw;
 }
 
-async function fetchPublishedFestivalsTotalCount(): Promise<number> {
-  const supabase = await createSupabaseServerClient();
-  const today = new Date().toISOString().slice(0, 10);
-  const { count, error } = await supabase
-    .from("festivals")
-    .select("*", { count: "exact", head: true })
-    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
-    .neq("status", "archived")
-    .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
-
-  if (error) {
-    console.error("[loadHomePageData] fetchPublishedFestivalsTotalCount", error);
-    throw new Error(`fetchPublishedFestivalsTotalCount: ${error.message}`);
-  }
-  return count ?? 0;
+function effectiveEndYmdForCurrentRow(f: Festival): string {
+  const end = f.end_date?.trim();
+  if (end) return end;
+  return f.start_date?.trim() || "9999-12-31";
 }
 
-/** Населени места от `cities` с поне един предстоящ публикуван фестивал; сортиране по брой DESC. */
-async function fetchHomePublishedCityOptionsWithCounts(): Promise<HomeCityOption[]> {
-  const supabase = await createSupabaseServerClient();
-  const today = new Date().toISOString().slice(0, 10);
-  const { data, error } = await supabase
-    .from("festivals")
-    .select("cities:cities!festivals_city_id_fkey!inner(slug,name_bg,is_village)")
-    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
-    .neq("status", "archived")
-    .not("city_id", "is", null)
-    .gte("end_date", today)
-    .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
-  if (error) {
-    console.error("[loadHomePageData] fetchHomePublishedCityOptionsWithCounts", error);
-    throw new Error(`fetchHomePublishedCityOptionsWithCounts: ${error.message}`);
-  }
+function sortCurrentFestivalsForHome(festivals: Festival[]): Festival[] {
+  return [...festivals].sort((a, b) => effectiveEndYmdForCurrentRow(a).localeCompare(effectiveEndYmdForCurrentRow(b)));
+}
 
-  const map = new Map<string, { name: string; slug: string | null; publishedFestivalCount: number }>();
+type CachedDbData = {
+  nearestFestivalsRaw: Festival[];
+  currentFestivalsRaw: Festival[];
+  weekendFestivalsRaw: Festival[];
+  monthFestivalsRaw: Festival[];
+  totalFestivalsCount: number;
+  citiesResult: HomeCityOption[];
+  categorySlugs: string[];
+};
 
-  for (const row of data ?? []) {
-    const joined = normalizeFestivalCityJoin(row.cities);
-    const slug = joined?.slug?.trim();
-    if (!joined || !slug) continue;
+/**
+ * All DB queries for the homepage in a single unstable_cache block.
+ * Uses the admin client so it works outside of a request context (no cookies needed).
+ * Cached for 5 minutes per {today, citySlug, weekendStart, weekendEnd, monthStart, monthEnd}.
+ */
+const _loadDbDataCached = unstable_cache(
+  async (params: {
+    today: string;
+    weekendStart: string;
+    weekendEnd: string;
+    monthStart: string;
+    monthEnd: string;
+    citySlug?: string;
+  }): Promise<CachedDbData> => {
+    const { today, weekendStart, weekendEnd, monthStart, monthEnd, citySlug } = params;
+    const supabase = createSupabaseAdmin();
 
-    const displayName = getCityLabel({ name_bg: fixMojibakeBG(joined.name_bg ?? slug), is_village: joined.is_village });
+    async function fetchFestivalsInRange(from: string, to?: string, limit = 6): Promise<Festival[]> {
+      const rangeTo = to ?? "2099-12-31";
+      const { data: rangeIds, error: rangeRpcError } = await supabase.rpc("festivals_intersecting_range", {
+        p_from: from,
+        p_to: rangeTo,
+      });
 
-    const existing = map.get(slug);
-    if (!existing) {
-      map.set(slug, { name: displayName, slug, publishedFestivalCount: 1 });
-    } else {
-      existing.publishedFestivalCount += 1;
-      existing.name = displayName;
+      let query = supabase
+        .from("festivals")
+        .select(FESTIVAL_SELECT_MIN)
+        .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+        .neq("status", "archived")
+        .order("start_date", { ascending: true })
+        .limit(limit);
+
+      if (citySlug) query = query.eq("city_slug", citySlug.trim().toLowerCase());
+
+      if (!rangeRpcError && Array.isArray(rangeIds) && rangeIds.length > 0) {
+        const ids = rangeIds
+          .map((row: { festival_id?: string }) => (typeof row?.festival_id === "string" ? row.festival_id : ""))
+          .filter(Boolean);
+        query = query.in("id", ids);
+      } else if (!rangeRpcError && Array.isArray(rangeIds) && rangeIds.length === 0) {
+        query = query.eq("id", "00000000-0000-0000-0000-000000000001");
+      } else if (to) {
+        query = query.lte("start_date", to).or(`end_date.gte.${from},and(end_date.is.null,start_date.gte.${from})`);
+      } else {
+        query = query.or(`start_date.gte.${from},end_date.gte.${from}`);
+      }
+
+      const { data, error } = await query.returns<Festival[]>();
+      if (error) return [];
+      return (data ?? []).map(fixFestivalText);
     }
-  }
 
-  return Array.from(map.entries())
-    .map(([filterValue, v]) => ({
-      filterValue,
-      name: v.name,
-      slug: v.slug,
-      publishedFestivalCount: v.publishedFestivalCount,
-    }))
-    .filter((row) => row.publishedFestivalCount > 0)
-    .sort((a, b) => {
-      const byCount = b.publishedFestivalCount - a.publishedFestivalCount;
-      if (byCount !== 0) return byCount;
-      return a.name.localeCompare(b.name, "bg");
-    });
-}
+    async function fetchCurrentFestivalsInner(): Promise<Festival[]> {
+      let query = supabase
+        .from("festivals")
+        .select(FESTIVAL_SELECT_MIN)
+        .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+        .neq("status", "archived")
+        .lte("start_date", today)
+        .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
+      if (citySlug) query = query.eq("city_slug", citySlug.trim().toLowerCase());
+      const { data, error } = await query.limit(100).returns<Festival[]>();
+      if (error) return [];
+      return sortCurrentFestivalsForHome((data ?? []).map(fixFestivalText)).slice(0, 6);
+    }
 
-async function fetchCurrentFestivals(params: { today: string; citySlug?: string }): Promise<Festival[]> {
-  const supabase = await createSupabaseServerClient();
-  const { today, citySlug } = params;
+    async function fetchTotalCount(): Promise<number> {
+      const { count, error } = await supabase
+        .from("festivals")
+        .select("*", { count: "exact", head: true })
+        .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+        .neq("status", "archived")
+        .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
+      if (error) return 0;
+      return count ?? 0;
+    }
 
-  let query = supabase
-    .from("festivals")
-    .select(FESTIVAL_SELECT_MIN)
-    .or("status.eq.published,status.eq.verified,is_verified.eq.true")
-    .neq("status", "archived")
-    .lte("start_date", today)
-    .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
+    async function fetchCities(): Promise<HomeCityOption[]> {
+      const { data, error } = await supabase
+        .from("festivals")
+        .select("cities:cities!festivals_city_id_fkey!inner(slug,name_bg,is_village)")
+        .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+        .neq("status", "archived")
+        .not("city_id", "is", null)
+        .gte("end_date", today)
+        .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
+      if (error) return [];
 
-  if (citySlug) {
-    query = query.eq("city_slug", citySlug.trim().toLowerCase());
-  }
+      const map = new Map<string, { name: string; slug: string | null; publishedFestivalCount: number }>();
+      for (const row of data ?? []) {
+        const joined = normalizeFestivalCityJoin(row.cities);
+        const slug = joined?.slug?.trim();
+        if (!joined || !slug) continue;
+        const displayName = getCityLabel({ name_bg: fixMojibakeBG(joined.name_bg ?? slug), is_village: joined.is_village });
+        const existing = map.get(slug);
+        if (!existing) map.set(slug, { name: displayName, slug, publishedFestivalCount: 1 });
+        else { existing.publishedFestivalCount += 1; existing.name = displayName; }
+      }
+      return Array.from(map.entries())
+        .map(([filterValue, v]) => ({ filterValue, name: v.name, slug: v.slug, publishedFestivalCount: v.publishedFestivalCount }))
+        .filter((row) => row.publishedFestivalCount > 0)
+        .sort((a, b) => {
+          const byCount = b.publishedFestivalCount - a.publishedFestivalCount;
+          return byCount !== 0 ? byCount : a.name.localeCompare(b.name, "bg");
+        });
+    }
 
-  const { data, error } = await query.limit(100).returns<Festival[]>();
+    async function fetchCategorySlugs(): Promise<string[]> {
+      const { data, error } = await supabase
+        .from("festival_categories")
+        .select("slug")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("slug", { ascending: true });
+      if (error) return [];
+      return (data ?? []).map((r) => r.slug as string);
+    }
 
-  if (error) {
-    console.error("[loadHomePageData] fetchCurrentFestivals", error);
-    throw new Error(`fetchCurrentFestivals: ${error.message}`);
-  }
+    const [nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, monthFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs] =
+      await Promise.all([
+        fetchFestivalsInRange(today, undefined, 6),
+        fetchCurrentFestivalsInner(),
+        fetchFestivalsInRange(weekendStart, weekendEnd, 6),
+        fetchFestivalsInRange(monthStart, monthEnd, 6),
+        fetchTotalCount(),
+        fetchCities(),
+        fetchCategorySlugs(),
+      ]);
 
-  const rows = (data ?? []).map(fixFestivalText);
-  return sortCurrentFestivalsForHome(rows).slice(0, 6);
-}
+    return { nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, monthFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs };
+  },
+  ["home-page-db-data"],
+  { revalidate: 300 },
+);
 
 /**
  * Same queries and derived hrefs as the public home page (`app/page.tsx`).
@@ -237,16 +240,8 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
   const today = sofiaWallClockNow().ymd;
   const { weekendStart, weekendEnd, monthStart, monthEnd } = festivalDiscoveryCalendarBounds(today);
 
-  const [nearestFestivalsRaw, currentFestivals, weekendFestivalsRaw, monthFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs] =
-    await Promise.all([
-      fetchHomeFestivals({ from: today, citySlug, limit: 6 }),
-      fetchCurrentFestivals({ today, citySlug }),
-      fetchHomeFestivals({ from: weekendStart, to: weekendEnd, citySlug, limit: 6 }),
-      fetchHomeFestivals({ from: monthStart, to: monthEnd, citySlug, limit: 6 }),
-      fetchPublishedFestivalsTotalCount(),
-      fetchHomePublishedCityOptionsWithCounts(),
-      listPublicFestivalCategorySlugsSortedByActiveCount().catch(() => [] as string[]),
-    ]);
+  const { nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, monthFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs } =
+    await _loadDbDataCached({ today, weekendStart, weekendEnd, monthStart, monthEnd, citySlug });
 
   const cityKey = citySlug?.trim().toLowerCase();
   const selectedCityName = cityKey
@@ -261,16 +256,14 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
     categoryChips: chipLinks.slice(3),
   };
 
-  const currentIds = new Set(currentFestivals.map((f) => f.id));
-  const nearestFestivals = sortFestivalsForListing(
-    nearestFestivalsRaw.filter((f) => !currentIds.has(f.id)),
-  );
+  const currentIds = new Set(currentFestivalsRaw.map((f) => f.id));
+  const nearestFestivals = sortFestivalsForListing(nearestFestivalsRaw.filter((f) => !currentIds.has(f.id)));
   const weekendFestivals = sortFestivalsForListing(weekendFestivalsRaw);
   const monthFestivals = sortFestivalsForListing(monthFestivalsRaw);
 
   return {
     nearestFestivals,
-    currentFestivals,
+    currentFestivals: currentFestivalsRaw,
     weekendFestivals,
     monthFestivals,
     homeCityOptions: citiesResult,

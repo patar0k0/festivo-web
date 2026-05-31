@@ -79,7 +79,10 @@ export async function POST(request: Request) {
   }
 
   const claimUrl = absoluteSiteUrl("/organizer/claim");
-  const dedupeKey = `organizer-outreach:${organizerId}:${recipientEmail}`;
+  // Include date so the same organizer+email can receive follow-ups on different days,
+  // but accidental double-clicks on the same day are still deduplicated.
+  const today = new Date().toISOString().slice(0, 10);
+  const dedupeKey = `organizer-outreach:${organizerId}:${recipientEmail}:${today}`;
 
   await enqueueEmailJobSafe(
     admin,

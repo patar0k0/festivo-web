@@ -318,8 +318,7 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
   },
 
   [EMAIL_JOB_TYPE_ORGANIZER_OUTREACH]: {
-    buildDefaultSubject: (pl) => {
-      const p = parseOrganizerOutreachPayload(pl as Record<string, unknown>);
+    buildDefaultSubject: () => {
       return `Festivo.bg — вашите фестивали вече са в каталога`;
     },
     build: async (payload) => {

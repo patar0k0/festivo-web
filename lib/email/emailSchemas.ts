@@ -251,3 +251,31 @@ export function parseAdminFestivalReportPayload(
     reportedAt: reqString(raw, "reportedAt", 50),
   };
 }
+
+export type OrganizerOutreachFestivalPayload = {
+  title: string;
+  url: string;
+};
+
+export type OrganizerOutreachPayload = {
+  organizerName: string;
+  festivals: OrganizerOutreachFestivalPayload[];
+  claimUrl: string;
+};
+
+export function parseOrganizerOutreachPayload(
+  raw: Record<string, unknown>,
+): OrganizerOutreachPayload {
+  const festivalsRaw = raw["festivals"];
+  if (!Array.isArray(festivalsRaw)) throw new Error("invalid_payload:missing_festivals");
+  const festivals: OrganizerOutreachFestivalPayload[] = festivalsRaw.map((item, i) => {
+    if (typeof item !== "object" || !item) throw new Error(`invalid_payload:festivals[${i}]_not_object`);
+    const r = item as Record<string, unknown>;
+    return { title: reqString(r, "title", 400), url: reqString(r, "url", 2000) };
+  });
+  return {
+    organizerName: reqString(raw, "organizerName", 400),
+    festivals,
+    claimUrl: reqString(raw, "claimUrl", 2000),
+  };
+}

@@ -10,6 +10,7 @@ import { FestivalSubmissionReceivedEmail } from "@/emails/templates/FestivalSubm
 import { OrganizerClaimApprovedEmail } from "@/emails/templates/OrganizerClaimApprovedEmail";
 import { OrganizerClaimReceivedEmail } from "@/emails/templates/OrganizerClaimReceivedEmail";
 import { OrganizerClaimRejectedEmail } from "@/emails/templates/OrganizerClaimRejectedEmail";
+import { OrganizerOutreachEmail } from "@/emails/templates/OrganizerOutreachEmail";
 import { ContactFormEmail } from "@/emails/templates/ContactFormEmail";
 import { TestEmail } from "@/emails/templates/TestEmail";
 import { WelcomeEmail } from "@/emails/templates/WelcomeEmail";
@@ -26,6 +27,7 @@ import {
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_RECEIVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED,
+  EMAIL_JOB_TYPE_ORGANIZER_OUTREACH,
   EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE,
   EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
   EMAIL_JOB_TYPE_TEST,
@@ -34,6 +36,7 @@ import {
 } from "./emailJobTypes";
 import {
   parseAdminFestivalReportPayload,
+  parseOrganizerOutreachPayload,
   parseAdminNewClaimPayload,
   parseAdminNewSubmissionPayload,
   parseContactFormPayload,
@@ -308,6 +311,27 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
           categoryLabel: p.categoryLabel,
           message: p.message,
           reportedAt: p.reportedAt,
+        }),
+      );
+      return { subject, html, text };
+    },
+  },
+
+  [EMAIL_JOB_TYPE_ORGANIZER_OUTREACH]: {
+    buildDefaultSubject: (pl) => {
+      const p = parseOrganizerOutreachPayload(pl as Record<string, unknown>);
+      return `Festivo.bg — вашите фестивали вече са в каталога`;
+    },
+    build: async (payload) => {
+      const p = parseOrganizerOutreachPayload(payload as Record<string, unknown>);
+      const siteUrl = siteOrigin();
+      const subject = `Festivo.bg — вашите фестивали вече са в каталога`;
+      const { html, text } = await renderEmail(
+        createElement(OrganizerOutreachEmail, {
+          siteUrl,
+          organizerName: p.organizerName,
+          festivals: p.festivals,
+          claimUrl: p.claimUrl,
         }),
       );
       return { subject, html, text };

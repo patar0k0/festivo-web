@@ -11,6 +11,7 @@ import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import { getAIProviderLabel } from "@/lib/ai/providerUi";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
+import OrganizerOutreachModal from "@/components/admin/OrganizerOutreachModal";
 import OrganizerOwnershipSection, { type OrganizerOwnershipMember } from "@/components/admin/OrganizerOwnershipSection";
 import DdMmYyyyDateInput from "@/components/ui/DdMmYyyyDateInput";
 import { DatePickerButton } from "@/components/admin/DateTimePickerButtons";
@@ -113,6 +114,7 @@ export default function OrganizerEditForm({
   const [researchSuccess, setResearchSuccess] = useState<string | null>(null);
   const [researchQuery, setResearchQuery] = useState(organizer.name ?? "");
   const [researchResult, setResearchResult] = useState<OrganizerAiResearchResult | null>(null);
+  const [outreachOpen, setOutreachOpen] = useState(false);
   // Logo upload state — separate from form save so admin can re-upload
   // without dirtying the whole form. The endpoint mutates the row directly
   // and returns the new public URL which we sync into the form.
@@ -445,6 +447,13 @@ export default function OrganizerEditForm({
                   Публичен изглед
                 </Link>
               ) : null}
+              <button
+                type="button"
+                onClick={() => setOutreachOpen(true)}
+                className="rounded-lg border border-[#7c2d12]/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#7c2d12] hover:bg-[#7c2d12]/5"
+              >
+                ✉ Покани
+              </button>
               <button
                 type="button"
                 disabled={saving || deleting}
@@ -967,6 +976,16 @@ export default function OrganizerEditForm({
 
       {error ? <p className="text-sm text-[#b13a1a]">{error}</p> : null}
       {success ? <p className="text-sm text-[#1f7a37]">{success}</p> : null}
+
+      {outreachOpen && (
+        <OrganizerOutreachModal
+          organizerId={organizer.id}
+          organizerName={organizer.name ?? "Организатор"}
+          organizerEmail={organizer.email ?? null}
+          festivals={workspace.linkedFestivals}
+          onClose={() => setOutreachOpen(false)}
+        />
+      )}
     </form>
   );
 }

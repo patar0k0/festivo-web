@@ -112,7 +112,7 @@ const _loadDbDataCached = unstable_cache(
     monthEnd: string;
     citySlug?: string;
   }): Promise<CachedDbData> => {
-    const { today, weekendStart, weekendEnd, monthStart, monthEnd, citySlug } = params;
+    const { today, weekendStart, weekendEnd, monthEnd, citySlug } = params;
     const supabase = createSupabaseAdmin();
 
     async function fetchFestivalsInRange(from: string, to?: string, limit = 6): Promise<Festival[]> {

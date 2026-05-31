@@ -21,7 +21,7 @@ export default async function OutreachTemplatesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#0c0e14]">Шаблони за outreach имейли</h1>
-          <p className="mt-1 text-sm text-black/50">Шаблоните се зареждат в модала „✉ Покани" при изпращане към организатори.</p>
+          <p className="mt-1 text-sm text-black/50">Шаблоните се зареждат в модала „✉ Покани&quot; при изпращане към организатори.</p>
         </div>
       </div>
       <OutreachTemplatesClient initialTemplates={data ?? []} />

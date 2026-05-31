@@ -61,7 +61,7 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
   let query = adminClient
     .schema("public")
     .from("organizers")
-    .select("id,name,slug,verified,created_at,organizer_members(status),festivals(count)", { count: "exact" })
+    .select("id,name,slug,verified,created_at,organizer_members(status),festivals(count),festival_organizers(count)", { count: "exact" })
     .eq("is_active", true);
 
   if (q) {
@@ -83,11 +83,20 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
   let rows = (data ?? []).map((row) => {
     const members = row.organizer_members as { status: string }[] | null | undefined;
     const festivalsRaw = row.festivals as { count: number }[] | null | undefined;
+    const m2mRaw = row.festival_organizers as { count: number }[] | null | undefined;
+    // Use the larger of the two counts — legacy organizer_id + junction table.
+    // Festivals linked only via festival_organizers (secondary organizers) are
+    // otherwise invisible. Taking max avoids double-counting when both sources
+    // contain the same festival.
+    const festivalCount = Math.max(
+      festivalsRaw?.[0]?.count ?? 0,
+      m2mRaw?.[0]?.count ?? 0,
+    );
     return {
       ...row,
       members,
       origin: classifyOrganizerOriginFromMembers(members),
-      festivalCount: festivalsRaw?.[0]?.count ?? 0,
+      festivalCount,
     };
   });
 

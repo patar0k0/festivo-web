@@ -6,6 +6,8 @@ export type SendEmailInput = {
   subject: string;
   html: string;
   text: string;
+  /** Override the from address for this message (e.g. outreach emails). Defaults to EMAIL_FROM env var. */
+  from?: string | null;
   /** Per-message Reply-To (e.g. visitor email); overrides env `EMAIL_REPLY_TO` when non-empty. */
   replyTo?: string | null;
 };
@@ -48,8 +50,9 @@ export async function sendEmail(input: SendEmailInput, meta?: SendEmailMeta): Pr
   try {
     const replyToOverride = typeof input.replyTo === "string" ? input.replyTo.trim() : "";
     const replyTo = replyToOverride || getEmailReplyTo();
+    const fromAddress = input.from?.trim() || EMAIL_FROM;
     const { data, error } = await resend.emails.send({
-      from: EMAIL_FROM,
+      from: fromAddress,
       to: input.to,
       subject: input.subject,
       html: input.html,

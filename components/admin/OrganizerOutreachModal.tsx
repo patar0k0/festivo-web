@@ -13,6 +13,13 @@ type OutreachHistoryItem = {
   last_error: string | null;
 };
 
+type Template = {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+};
+
 type Festival = {
   id: string;
   title: string;
@@ -27,33 +34,56 @@ type Props = {
   onClose: () => void;
 };
 
-function buildEmailBody(organizerName: string, festivals: Festival[], siteUrl: string): string {
+const SITE_URL = "https://festivo.bg";
+
+/** Replace {{placeholders}} with actual values. */
+function applyPlaceholders(text: string, organizerName: string, festivals: Festival[]): string {
   const festivalLines = festivals
     .filter((f) => f.slug)
-    .map((f) => `  • ${f.title} — ${siteUrl}/festivals/${f.slug}`)
+    .map((f) => `  • ${f.title} — ${SITE_URL}/festivals/${f.slug}`)
+    .join("\n");
+
+  return text
+    .replace(/\{\{organizerName\}\}/g, organizerName)
+    .replace(/\{\{festivalList\}\}/g, festivalLines || "(няма публикувани фестивали)")
+    .replace(/\{\{claimUrl\}\}/g, `${SITE_URL}/organizer/claim`);
+}
+
+/** Default body shown before templates load. */
+function defaultBody(organizerName: string, festivals: Festival[]): string {
+  const festivalLines = festivals
+    .filter((f) => f.slug)
+    .map((f) => `  • ${f.title} — ${SITE_URL}/festivals/${f.slug}`)
     .join("\n");
 
   return `Здравейте,
 
-Казвам се Боко и съм основателят на Festivo.bg — каталогът на фестивалите в България.
+Казвам се Борислав и съм основателят на Festivo.bg — новата платформа, създадена специално, за да помага на народни читалища, общини и кметства да достигнат до повече хора с фестивалите, които организират.
 
-Фестивалите на ${organizerName} вече са в платформата:
+Фестивалите на ${organizerName} вече са в каталога:
 
 ${festivalLines}
 
-Поканваме ви да заявите профила си безплатно на:
-${siteUrl}/organizer/claim
+Всеки месец хиляди хора разглеждат Festivo.bg в търсене на местни фестивали, събори и празници. Когато потребителите намерят интересно събитие, го добавят в „Моят план" — лична колекция с предстоящи фестивали, за която получават напомняния по имейл и в мобилното приложение. Така вашите фестивали достигат до точните хора в точното време.
 
-След като заявите профила, ще получите достъп до организаторско табло, от което можете да редактирате описания и снимки, да добавяте нови фестивали и да виждате колко хора са ги добавили в плановете си.
+Поканваме ви да заявите профила си на:
+${SITE_URL}/organizer/claim
 
-За 2026 г. предлагаме безплатен VIP Организатор статус — по-добро класиране в резултатите и отличителен знак на вашия профил.
+След като заявите, ще можете да:
+• Редактирате описания, снимки и програма
+• Виждате колко хора са добавили вашия фестивал в плана си
+• Добавяте нови фестивали директно
 
-Ако имате въпроси, отговорете директно на този имейл.
+🎁 За 2026 г. предлагаме безплатен VIP Организатор статус — специално за малки и местни организатори като вас. VIP означава по-добро класиране в резултатите и отличителен знак на вашия профил, без никаква такса.
 
-Поздрави,
-Боко
-Festivo.bg | admin@festivo.bg`;
+Отнема 2 минути. Ако имате въпроси, отговорете директно на този имейл.
+
+С уважение,
+Борислав
+Festivo.bg | b.yakov@festivo.bg`;
 }
+
+const DEFAULT_SUBJECT = "Festivo.bg — фестивалите на вашата организация вече са в каталога";
 
 export default function OrganizerOutreachModal({
   organizerId,
@@ -62,31 +92,41 @@ export default function OrganizerOutreachModal({
   festivals,
   onClose,
 }: Props) {
-  const siteUrl = "https://festivo.bg";
   const publishedFestivals = festivals.filter((f) => f.slug);
 
   const [toEmail, setToEmail] = useState(organizerEmail ?? "");
-  const [body, setBody] = useState(() => buildEmailBody(organizerName, publishedFestivals, siteUrl));
+  const [subject, setSubject] = useState(DEFAULT_SUBJECT);
+  const [body, setBody] = useState(() => defaultBody(organizerName, publishedFestivals));
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [history, setHistory] = useState<OutreachHistoryItem[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
 
+  // Load history + templates on mount
   useEffect(() => {
     fetch(`/admin/api/organizer-outreach?organizerId=${encodeURIComponent(organizerId)}`)
       .then((r) => r.json())
       .then((d: { items?: OutreachHistoryItem[] }) => setHistory(d.items ?? []))
       .catch(() => {});
+
+    fetch("/admin/api/outreach-templates")
+      .then((r) => r.json())
+      .then((d: { templates?: Template[] }) => setTemplates(d.templates ?? []))
+      .catch(() => {});
   }, [organizerId, status]);
 
-  const subject = `Festivo.bg — вашите фестивали вече са в каталога`;
+  function applyTemplate(templateId: string) {
+    const t = templates.find((tmpl) => tmpl.id === templateId);
+    if (!t) return;
+    setSelectedTemplateId(templateId);
+    setSubject(applyPlaceholders(t.subject, organizerName, publishedFestivals));
+    setBody(applyPlaceholders(t.body, organizerName, publishedFestivals));
+  }
 
   async function handleSend() {
     if (!toEmail.trim() || !toEmail.includes("@")) {
       setErrorMsg("Въведете валиден имейл адрес.");
-      return;
-    }
-    if (publishedFestivals.length === 0) {
-      setErrorMsg("Организаторът няма публикувани фестивали с slug.");
       return;
     }
 
@@ -101,12 +141,10 @@ export default function OrganizerOutreachModal({
           organizerId,
           recipientEmail: toEmail.trim(),
           organizerName,
-          festivals: publishedFestivals
-            .filter((f) => f.slug)
-            .map((f) => ({
-              title: f.title,
-              url: `${siteUrl}/festivals/${f.slug}`,
-            })),
+          festivals: publishedFestivals.map((f) => ({
+            title: f.title,
+            url: `${SITE_URL}/festivals/${f.slug}`,
+          })),
         }),
       });
 
@@ -114,7 +152,6 @@ export default function OrganizerOutreachModal({
         const data = await res.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error ?? "Грешка при изпращане.");
       }
-
       setStatus("sent");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Неочаквана грешка.");
@@ -127,25 +164,45 @@ export default function OrganizerOutreachModal({
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-black/[0.08] px-6 py-4">
-          <h2 className="text-base font-semibold text-[#0c0e14]">
-            Изпрати покана — {organizerName}
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-black/40 hover:bg-black/5 hover:text-black/70"
-            aria-label="Затвори"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+          <h2 className="text-base font-semibold text-[#0c0e14]">Изпрати покана — {organizerName}</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-black/40 hover:bg-black/5" aria-label="Затвори">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
           </button>
         </div>
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
+          {/* Template selector */}
+          {templates.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium uppercase tracking-wide text-black/50">Шаблон</label>
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => applyTemplate(e.target.value)}
+                  className="flex-1 rounded-xl border border-black/[0.12] bg-white px-3.5 py-2.5 text-sm text-[#0c0e14] focus:border-[#7c2d12] focus:outline-none focus:ring-2 focus:ring-[#7c2d12]/20"
+                >
+                  <option value="">— избери шаблон —</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                <a
+                  href="/admin/outreach-templates"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 rounded-xl border border-black/[0.12] px-3 py-2 text-xs font-medium text-black/50 hover:bg-black/[0.03]"
+                >
+                  Управлявай
+                </a>
+              </div>
+            </div>
+          )}
+
           {/* To */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-black/50 uppercase tracking-wide">До</label>
+            <label className="block text-xs font-medium uppercase tracking-wide text-black/50">До</label>
             <input
               type="email"
               value={toEmail}
@@ -157,17 +214,18 @@ export default function OrganizerOutreachModal({
 
           {/* Subject */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-black/50 uppercase tracking-wide">Относно</label>
-            <div className="rounded-xl border border-black/[0.08] bg-black/[0.02] px-3.5 py-2.5 text-sm text-black/60 select-all">
-              {subject}
-            </div>
+            <label className="block text-xs font-medium uppercase tracking-wide text-black/50">Относно</label>
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="w-full rounded-xl border border-black/[0.12] bg-white px-3.5 py-2.5 text-sm text-[#0c0e14] focus:border-[#7c2d12] focus:outline-none focus:ring-2 focus:ring-[#7c2d12]/20"
+            />
           </div>
 
           {/* Body */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-black/50 uppercase tracking-wide">
-              Текст{" "}
-              <span className="normal-case font-normal text-black/40">(редактируем)</span>
+            <label className="block text-xs font-medium uppercase tracking-wide text-black/50">
+              Текст <span className="normal-case font-normal text-black/40">(редактируем)</span>
             </label>
             <textarea
               value={body}
@@ -180,26 +238,18 @@ export default function OrganizerOutreachModal({
           {/* History */}
           {history.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-xs font-medium uppercase tracking-wide text-black/50">История на изпращанията</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-black/50">История</p>
               <div className="rounded-xl border border-black/[0.08] divide-y divide-black/[0.06] overflow-hidden">
                 {history.map((item) => {
                   const date = item.sent_at ?? item.created_at;
                   const dateStr = format(new Date(date), "d MMM yyyy, HH:mm", { locale: bg });
-                  const statusColor =
-                    item.status === "sent" ? "text-emerald-700"
-                    : item.status === "failed" ? "text-red-600"
-                    : "text-amber-600";
-                  const statusLabel =
-                    item.status === "sent" ? "Изпратен"
-                    : item.status === "failed" ? "Грешка"
-                    : "В опашка";
+                  const statusColor = item.status === "sent" ? "text-emerald-700" : item.status === "failed" ? "text-red-600" : "text-amber-600";
+                  const statusLabel = item.status === "sent" ? "Изпратен" : item.status === "failed" ? "Грешка" : "В опашка";
                   return (
                     <div key={item.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm bg-white">
                       <div className="min-w-0">
                         <span className="font-medium text-[#0c0e14]">{item.recipient_email}</span>
-                        {item.last_error && (
-                          <p className="mt-0.5 truncate text-xs text-red-500">{item.last_error}</p>
-                        )}
+                        {item.last_error && <p className="mt-0.5 truncate text-xs text-red-500">{item.last_error}</p>}
                       </div>
                       <div className="shrink-0 text-right">
                         <p className={`text-xs font-semibold ${statusColor}`}>{statusLabel}</p>
@@ -212,41 +262,26 @@ export default function OrganizerOutreachModal({
             </div>
           )}
 
-          {/* Festivals list */}
           {publishedFestivals.length === 0 && (
             <p className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-              Организаторът няма публикувани фестивали с slug — имейлът ще бъде изпратен без линкове.
+              Организаторът няма публикувани фестивали с slug.
             </p>
           )}
 
-          {/* Error */}
-          {errorMsg && (
-            <p className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-              {errorMsg}
-            </p>
-          )}
-
-          {/* Sent */}
-          {status === "sent" && (
-            <p className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
-              ✓ Имейлът е поставен в опашката за изпращане.
-            </p>
-          )}
+          {errorMsg && <p className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{errorMsg}</p>}
+          {status === "sent" && <p className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">✓ Имейлът е поставен в опашката.</p>}
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 border-t border-black/[0.08] px-6 py-4">
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-black/[0.12] px-4 py-2 text-sm font-medium text-black/60 hover:bg-black/[0.03]"
-          >
+          <button onClick={onClose} className="rounded-xl border border-black/[0.12] px-4 py-2 text-sm font-medium text-black/60 hover:bg-black/[0.03]">
             Затвори
           </button>
-          {status === "sent" ? null : (
+          {status !== "sent" && (
             <button
               onClick={handleSend}
               disabled={status === "sending"}
-              className="rounded-xl bg-[#7c2d12] px-5 py-2 text-sm font-semibold text-white hover:bg-[#6b2510] disabled:opacity-60 disabled:cursor-not-allowed"
+              className="rounded-xl bg-[#7c2d12] px-5 py-2 text-sm font-semibold text-white hover:bg-[#6b2510] disabled:opacity-60"
             >
               {status === "sending" ? "Изпращане…" : "Изпрати имейл"}
             </button>

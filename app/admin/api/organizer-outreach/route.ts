@@ -52,11 +52,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { organizerId, recipientEmail, organizerName, festivals } = body as {
+  const { organizerId, recipientEmail, organizerName, festivals, subject, rawBody } = body as {
     organizerId?: string;
     recipientEmail?: string;
     organizerName?: string;
     festivals?: { title: string; url: string }[];
+    subject?: string;
+    rawBody?: string;
   };
 
   if (!organizerId || typeof organizerId !== "string") {
@@ -68,9 +70,6 @@ export async function POST(request: Request) {
   if (!organizerName || typeof organizerName !== "string") {
     return NextResponse.json({ error: "Missing organizerName" }, { status: 400 });
   }
-  if (!Array.isArray(festivals) || festivals.length === 0) {
-    return NextResponse.json({ error: "No festivals provided" }, { status: 400 });
-  }
 
   let admin;
   try {
@@ -80,7 +79,6 @@ export async function POST(request: Request) {
   }
 
   const claimUrl = absoluteSiteUrl("/organizer/claim");
-
   const dedupeKey = `organizer-outreach:${organizerId}:${recipientEmail}`;
 
   await enqueueEmailJobSafe(
@@ -88,11 +86,14 @@ export async function POST(request: Request) {
     {
       type: EMAIL_JOB_TYPE_ORGANIZER_OUTREACH,
       recipientEmail,
+      subject: subject?.trim() || undefined,
       dedupeKey,
       payload: {
         organizerName,
-        festivals,
+        festivals: festivals ?? [],
         claimUrl,
+        // Raw body from the modal — when present, used as-is instead of the React template
+        rawBody: rawBody?.trim() || undefined,
       },
     },
     "[admin/organizer-outreach]",

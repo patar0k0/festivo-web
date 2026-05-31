@@ -20,6 +20,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/users", label: "Потребители", match: "prefix" },
       { href: "/admin/organizers", label: "Организатори", match: "prefix" },
       { href: "/admin/organizer-claims", label: "Заявки орг.", match: "prefix" },
+      { href: "/admin/outreach-templates", label: "Outreach шаблони", match: "prefix" },
     ],
   },
   {

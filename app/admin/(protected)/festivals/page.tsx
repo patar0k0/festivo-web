@@ -177,24 +177,27 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
             </span>
             {TIME_OPTIONS.map((opt) => {
               const active = time === opt.value;
+              const qs = new URLSearchParams();
+              qs.set("time", opt.value);
+              if (status) qs.set("status", status);
+              if (cityId) qs.set("city_id", cityId);
+              if (category) qs.set("category", category);
+              if (free) qs.set("free", free);
+              if (q) qs.set("q", q);
+              if (sort !== DEFAULT_SORT) qs.set("sort", sort);
+              if (qualityFilter) qs.set("quality", qualityFilter);
               return (
-                <label
+                <a
                   key={opt.value}
-                  className={`cursor-pointer rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                  href={`/admin/festivals?${qs.toString()}`}
+                  className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
                     active
                       ? "border-[#0c0e14] bg-[#0c0e14] text-white"
                       : "border-black/[0.12] bg-white text-black/70 hover:bg-black/[0.04]"
                   }`}
                 >
-                  <input
-                    type="radio"
-                    name="time"
-                    value={opt.value}
-                    defaultChecked={active}
-                    className="sr-only"
-                  />
                   {opt.label}
-                </label>
+                </a>
               );
             })}
           </div>

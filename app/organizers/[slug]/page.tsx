@@ -7,6 +7,7 @@ import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDi
 import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import OrganizerProfileAbout from "@/components/organizers/OrganizerProfileAbout";
+import AdminOrganizerOutreachButton from "@/components/admin/AdminOrganizerOutreachButton";
 import type { Festival } from "@/lib/types";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
 import {
@@ -17,6 +18,7 @@ import {
 import { getBaseUrl } from "@/lib/seo";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
+import { getAdminContext } from "@/lib/admin/isAdmin";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 
@@ -100,6 +102,8 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
   }
 
   const { organizer, festivals } = data;
+  const adminCtx = await getAdminContext().catch(() => null);
+  const isAdmin = Boolean(adminCtx?.isAdmin);
   const organizerInitials = organizerInitialsFromName(organizer.name);
 
   const locationLabel =
@@ -145,7 +149,21 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
 
                 <div className="min-w-0 flex-1 space-y-6 md:space-y-7">
                   <header className="space-y-3">
-                    <p className={pub.eyebrow}>Организатор на събития</p>
+                    <div className="flex items-center gap-3">
+                      <p className={pub.eyebrow}>Организатор на събития</p>
+                      {isAdmin && (
+                        <AdminOrganizerOutreachButton
+                          organizerId={organizer.id}
+                          organizerName={organizer.name}
+                          organizerEmail={organizer.email ?? null}
+                          festivals={festivals.map((f) => ({
+                            id: String(f.id),
+                            title: f.title,
+                            slug: f.slug ?? null,
+                          }))}
+                        />
+                      )}
+                    </div>
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
                       <h1
                         id="organizer-profile-heading"

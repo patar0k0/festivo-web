@@ -74,6 +74,7 @@ ${SITE_URL}/organizer/claim
 Ако имате въпроси — пишете ми директно на този имейл.
 
 Борислав
+Festivo.bg — https://festivo.bg
 b.yakov@festivo.bg`;
 }
 

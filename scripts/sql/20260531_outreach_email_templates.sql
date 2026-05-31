@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS outreach_email_templates (
 -- Only admins (service role) access this table.
 ALTER TABLE outreach_email_templates ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "no_public_access" ON outreach_email_templates;
 CREATE POLICY "no_public_access" ON outreach_email_templates
   FOR ALL USING (false);
 

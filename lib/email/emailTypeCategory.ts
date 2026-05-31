@@ -9,6 +9,7 @@ import {
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_RECEIVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED,
+  EMAIL_JOB_TYPE_ORGANIZER_OUTREACH,
   EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE,
   EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
   EMAIL_JOB_TYPE_TEST,
@@ -38,6 +39,7 @@ const CATEGORY_BY_TYPE: Record<EmailJobType, EmailTypeCategory> = {
   [EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE]: "optional_reminder",
   [EMAIL_JOB_TYPE_REMINDER_SAME_DAY]: "optional_reminder",
   [EMAIL_JOB_TYPE_WELCOME]: "optional_marketing",
+  [EMAIL_JOB_TYPE_ORGANIZER_OUTREACH]: "optional_marketing",
 };
 
 export function getEmailTypeCategory(type: EmailJobType): EmailTypeCategory {

@@ -140,6 +140,8 @@ export default function OrganizerOutreachModal({
             title: f.title,
             url: `${SITE_URL}/festivals/${f.slug}`,
           })),
+          subject: subject.trim(),
+          rawBody: body.trim(),
         }),
       });
 

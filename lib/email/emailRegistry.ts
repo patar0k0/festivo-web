@@ -318,13 +318,25 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
   },
 
   [EMAIL_JOB_TYPE_ORGANIZER_OUTREACH]: {
-    buildDefaultSubject: () => {
-      return `Festivo.bg — вашите фестивали вече са в каталога`;
-    },
+    buildDefaultSubject: () => `Festivo.bg — вашите фестивали вече са в каталога`,
     build: async (payload) => {
-      const p = parseOrganizerOutreachPayload(payload as Record<string, unknown>);
-      const siteUrl = siteOrigin();
+      const raw = payload as Record<string, unknown>;
       const subject = `Festivo.bg — вашите фестивали вече са в каталога`;
+
+      // When the admin edited the body in the modal, use it directly (plain text → simple HTML).
+      // This ensures the email matches exactly what the admin previewed.
+      const rawBody = typeof raw.rawBody === "string" && raw.rawBody.trim() ? raw.rawBody.trim() : null;
+      if (rawBody) {
+        const html = `<div style="font-family:sans-serif;font-size:15px;line-height:1.7;color:#333;max-width:600px">${rawBody
+          .split("\n\n")
+          .map((para) => `<p style="margin:0 0 14px">${para.replace(/\n/g, "<br>")}</p>`)
+          .join("")}</div>`;
+        return { subject, html, text: rawBody };
+      }
+
+      // Fallback: render the React Email template (used when rawBody is absent)
+      const p = parseOrganizerOutreachPayload(raw);
+      const siteUrl = siteOrigin();
       const { html, text } = await renderEmail(
         createElement(OrganizerOutreachEmail, {
           siteUrl,

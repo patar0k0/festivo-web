@@ -95,14 +95,24 @@ function CompletenessRow({ ok, label }: { ok: boolean; label: string }) {
 
 type ResolvedCityApi = { id: number; name_bg: string; slug: string; is_village: boolean | null };
 
+type OutreachHistoryItem = {
+  id: string;
+  recipient_email: string;
+  status: string;
+  sent_at: string | null;
+  created_at: string;
+};
+
 export default function OrganizerEditForm({
   organizer,
   workspace,
   members,
+  outreachHistory = [],
 }: {
   organizer: OrganizerRecord;
   workspace: OrganizerEditWorkspace;
   members: OrganizerOwnershipMember[];
+  outreachHistory?: OutreachHistoryItem[];
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -447,13 +457,28 @@ export default function OrganizerEditForm({
                   Публичен изглед
                 </Link>
               ) : null}
-              <button
-                type="button"
-                onClick={() => setOutreachOpen(true)}
-                className="rounded-lg border border-[#7c2d12]/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#7c2d12] hover:bg-[#7c2d12]/5"
-              >
-                ✉ Покани
-              </button>
+              <div className="flex flex-col items-start gap-1">
+                <button
+                  type="button"
+                  onClick={() => setOutreachOpen(true)}
+                  className="rounded-lg border border-[#7c2d12]/40 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#7c2d12] hover:bg-[#7c2d12]/5"
+                >
+                  ✉ Покани
+                </button>
+                {outreachHistory.length > 0 && (() => {
+                  const last = outreachHistory[0]!;
+                  const date = new Date(last.sent_at ?? last.created_at);
+                  const dateStr = date.toLocaleDateString("bg-BG", { day: "numeric", month: "short" });
+                  const timeStr = date.toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit" });
+                  const statusDot = last.status === "sent" ? "bg-emerald-500" : last.status === "failed" ? "bg-red-500" : "bg-amber-400";
+                  return (
+                    <p className="flex items-center gap-1 text-[10px] text-black/45">
+                      <span className={`h-1.5 w-1.5 rounded-full ${statusDot}`} />
+                      {outreachHistory.length} изпратен{outreachHistory.length > 1 ? "и" : ""} · последен {dateStr} {timeStr}
+                    </p>
+                  );
+                })()}
+              </div>
               <button
                 type="button"
                 disabled={saving || deleting}

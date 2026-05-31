@@ -77,14 +77,30 @@ export default async function AdminOrganizerEditPage({
     );
   }
 
-  const workspace = await loadOrganizerEditWorkspace(adminClient, {
-    organizerId: id,
-    cityId: organizerRow.city_id ?? null,
-  });
+  const [workspace, outreachResult] = await Promise.all([
+    loadOrganizerEditWorkspace(adminClient, {
+      organizerId: id,
+      cityId: organizerRow.city_id ?? null,
+    }),
+    adminClient
+      .from("email_jobs")
+      .select("id,recipient_email,status,sent_at,created_at")
+      .eq("type", "organizer-outreach")
+      .like("dedupe_key", `organizer-outreach:${id}:%`)
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
+
+  const outreachHistory = outreachResult.data ?? [];
 
   return (
     <div className="space-y-4">
-      <OrganizerEditForm organizer={organizerRow} workspace={workspace} members={ownershipRows ?? []} />
+      <OrganizerEditForm
+        organizer={organizerRow}
+        workspace={workspace}
+        members={ownershipRows ?? []}
+        outreachHistory={outreachHistory}
+      />
     </div>
   );
 }

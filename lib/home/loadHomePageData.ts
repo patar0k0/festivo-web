@@ -170,8 +170,11 @@ const _loadDbDataCached = unstable_cache(
         .select("*", { count: "exact", head: true })
         .or("status.eq.published,status.eq.verified,is_verified.eq.true")
         .neq("status", "archived")
-        .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
-      if (error) return 0;
+        .gte("end_date", today);
+      if (error) {
+        console.error("[loadHomePageData] fetchTotalCount error:", error.message);
+        return 0;
+      }
       return count ?? 0;
     }
 

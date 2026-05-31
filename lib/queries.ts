@@ -18,7 +18,7 @@ import {
   sortFestivalsForListing,
   sortFestivalsForListingWithMode,
 } from "@/lib/festival/sorting";
-import { getFestivalTemporalState } from "@/lib/festival/temporal";
+import { getFestivalTemporalState, sofiaWallClockNow } from "@/lib/festival/temporal";
 import { parseProgramDraftUnknown, programDraftToDetailSchedule } from "@/lib/festival/programDraft";
 
 export const FESTIVAL_SELECT_MIN =
@@ -287,8 +287,8 @@ function applyPublicScope<T>(query: T): T {
   return withOr.neq("status", "archived") as T;
 }
 
-function getUtcIsoDateToday(): string {
-  return new Date().toISOString().slice(0, 10);
+function getTodaySofiaYmd(): string {
+  return sofiaWallClockNow().ymd;
 }
 
 function applyNotPastPublicListingScope<
@@ -298,7 +298,7 @@ function applyNotPastPublicListingScope<
   },
 >(query: T, filters: Filters): T {
   const when = filters.when;
-  const today = getUtcIsoDateToday();
+  const today = getTodaySofiaYmd();
 
   if (when === "past") {
     return query.lt("end_date", today);
@@ -822,7 +822,7 @@ export async function getHomeCitySelectOptions(): Promise<
     .select("cities:cities!festivals_city_id_fkey!inner(slug,name_bg,is_village)")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
-    .gte("end_date", getUtcIsoDateToday())
+    .gte("end_date", getTodaySofiaYmd())
     .not("city_id", "is", null)
     .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
   if (error || !data?.length) {
@@ -858,7 +858,7 @@ export async function getFestivalSlugs(): Promise<string[]> {
     .select("slug")
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
-    .gte("end_date", getUtcIsoDateToday())
+    .gte("end_date", getTodaySofiaYmd())
     .returns<{ slug: string | null }[]>();
 
   if (error) {
@@ -985,7 +985,7 @@ export async function getOrganizerWithFestivals(
     .eq("organizer_id", organizer.id)
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
-    .gte("end_date", getUtcIsoDateToday())
+    .gte("end_date", getTodaySofiaYmd())
     .returns<Array<{ id: string }>>();
 
   if (legacyError) {
@@ -1010,7 +1010,7 @@ export async function getOrganizerWithFestivals(
     .in("id", festivalIds)
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
-    .gte("end_date", getUtcIsoDateToday())
+    .gte("end_date", getTodaySofiaYmd())
     .returns<Festival[]>();
 
   if (festivalsError) {

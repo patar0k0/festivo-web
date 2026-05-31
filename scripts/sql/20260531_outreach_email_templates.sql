@@ -39,6 +39,7 @@ INSERT INTO outreach_email_templates (name, subject, body, sort_order) VALUES (
 Ако имате въпроси — пишете ми директно на този имейл.
 
 Борислав
+Festivo.bg — https://festivo.bg
 b.yakov@festivo.bg',
   10
 ), (
@@ -62,6 +63,7 @@ b.yakov@festivo.bg',
 Ако имате въпроси — пишете ми.
 
 Борислав
+Festivo.bg — https://festivo.bg
 b.yakov@festivo.bg',
   20
 ), (
@@ -83,6 +85,7 @@ b.yakov@festivo.bg',
 За тази година давам безплатен VIP статус на по-малките организатори. Пишете ми ако имате въпроси.
 
 Борислав
+Festivo.bg — https://festivo.bg
 b.yakov@festivo.bg',
   30
 );

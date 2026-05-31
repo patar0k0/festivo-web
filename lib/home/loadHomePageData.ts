@@ -221,7 +221,7 @@ const _loadDbDataCached = unstable_cache(
         fetchFestivalsInRange(today, undefined, 6),
         fetchCurrentFestivalsInner(),
         fetchFestivalsInRange(weekendStart, weekendEnd, 6),
-        fetchFestivalsInRange(monthStart, monthEnd, 6),
+        fetchFestivalsInRange(today, monthEnd, 6),
         fetchTotalCount(),
         fetchCities(),
         fetchCategorySlugs(),

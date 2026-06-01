@@ -37,6 +37,8 @@ import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import { logGoogleMapsOpenDebug } from "@/lib/location/buildGoogleMapsUrl";
 import { slugify } from "@/lib/utils";
 import ShareAction from "@/components/actions/ShareAction";
+import AdminViewCountBadge from "@/components/festival/AdminViewCountBadge";
+import type { FestivalViewCounts } from "@/lib/analytics/festivalViewCounts";
 
 const REMINDER_BLOCK_ID = "festival-reminder-block";
 
@@ -78,6 +80,8 @@ type Props = {
   accommodationOffers: AccommodationOffer[];
   /** Линк към админ формата за редакция; показва се само за логнати админи. */
   adminEditHref?: string | null;
+  /** Прегледи (last 30d + total) за този фестивал; ненулево само за логнати админи. */
+  adminViewCounts?: FestivalViewCounts | null;
   /** Booking outbound interest (last 30d); server-derived from outbound_clicks. */
   showTravelPopularLabel?: boolean;
   /** Non–catalog-visible row: show full-width preview notice (admin / organizer preview only). */
@@ -209,6 +213,7 @@ export default function FestivalDetailClient({
   relatedFestivals,
   accommodationOffers,
   adminEditHref,
+  adminViewCounts,
   showTravelPopularLabel = false,
   showPendingApprovalBadge = false,
   programItemPlanActions = true,
@@ -644,14 +649,22 @@ export default function FestivalDetailClient({
               <p className="mt-1.5 leading-relaxed text-black/80">Това събитие вече е приключило.</p>
             </div>
           ) : null}
-          {adminEditHref ? (
-            <div className="mb-3 flex justify-end">
-              <Link
-                href={adminEditHref}
-                className={cn(pub.btnSecondarySm, pub.focusRing)}
-              >
-                Редакция
-              </Link>
+          {adminEditHref || adminViewCounts ? (
+            <div className="mb-3 flex items-center justify-end gap-2">
+              {adminViewCounts ? (
+                <AdminViewCountBadge
+                  last30d={adminViewCounts.last30d}
+                  total={adminViewCounts.total}
+                />
+              ) : null}
+              {adminEditHref ? (
+                <Link
+                  href={adminEditHref}
+                  className={cn(pub.btnSecondarySm, pub.focusRing)}
+                >
+                  Редакция
+                </Link>
+              ) : null}
             </div>
           ) : null}
           {!previewMode ? (

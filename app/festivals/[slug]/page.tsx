@@ -4,6 +4,7 @@ import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import FestivalDetailClient from "@/components/festival/FestivalDetailClient";
 import TrackFestivalView from "@/components/festival/TrackFestivalView";
+import TrackMetaViewContent from "@/components/festival/TrackMetaViewContent";
 import { getAdminSession } from "@/lib/admin/isAdmin";
 import { getFestivalViewCounts, type FestivalViewCounts } from "@/lib/analytics/festivalViewCounts";
 import { fetchAccommodationOffersForFestival } from "@/lib/accommodation/fetchAccommodationOffers";
@@ -186,6 +187,10 @@ export default async function Page({
       <TrackFestivalView
         festivalId={String(data.festival.id)}
         slug={data.festival.slug ?? null}
+      />
+      <TrackMetaViewContent
+        festivalId={String(data.festival.id)}
+        title={data.festival.title ?? ""}
       />
       <Section className={pub.section}>
         <Container>

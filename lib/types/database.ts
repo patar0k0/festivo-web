@@ -208,6 +208,29 @@ export type Database = {
           is_hero?: boolean
         }
       }
+      festival_organizers: {
+        Row: {
+          festival_id: string
+          organizer_id: string
+          sort_order: number
+          role: "owner" | "co_host"
+          created_at: string
+        }
+        Insert: {
+          festival_id: string
+          organizer_id: string
+          sort_order?: number
+          role?: "owner" | "co_host"
+          created_at?: string
+        }
+        Update: {
+          festival_id?: string
+          organizer_id?: string
+          sort_order?: number
+          role?: "owner" | "co_host"
+          created_at?: string
+        }
+      }
       organizers: {
         Row: {
           id: string

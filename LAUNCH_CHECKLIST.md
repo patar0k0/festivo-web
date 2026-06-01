@@ -538,4 +538,20 @@
 
 ---
 
-_Last updated: 21 май 2026 от Claude Code_
+## След launch — Analytics v2
+
+V1 е admin-only badge на festival page-а (виж `docs/superpowers/specs/2026-05-29-festival-view-counter-design.md`). Когато трафикът се стабилизира, разширяваме до пълен dashboard:
+
+- [ ] Admin таблица с фестивали: нова сортируема колона „Гледания (30д)".
+- [ ] `/admin/analytics` страница: топ 10 фестивали по views, time-series графики, view → save → click-out conversion funnel.
+- [ ] Materialized aggregate таблица `festival_daily_stats` (festival_id, date, views, saves, click_outs, shares) обновявана от cron worker → O(1) admin queries вместо `count(*)`.
+- [ ] Source attribution: parse Referer → `google` / `direct` / `push` / `share` / `mobile`. Mapping helper или нова колона в `analytics_events`.
+- [ ] Bot detection v2: rate limiting per IP в edge middleware + headless browser fingerprinting (Lighthouse, Chrome DevTools Protocol detection).
+- [ ] Search query tracking: нов `search_query` event тип + админ панел „Какво търсят, какво не намираме".
+- [ ] GDPR retention: 12 месеца raw `analytics_events`, по-стари → агрегирани в `festival_daily_stats` и raw rows изтрити (cron job).
+- [ ] Public „social proof" badge: показваме view count и на нормални посетители (опционално — само за promoted фестивали или с over N views).
+- [ ] Geo distribution: parse Cloudflare / Vercel headers (`x-vercel-ip-country`), агрегирано без съхранение на IP.
+
+---
+
+_Last updated: 29 май 2026 от Claude Code_

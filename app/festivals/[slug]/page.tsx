@@ -3,7 +3,9 @@ import { format, parseISO } from "date-fns";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import FestivalDetailClient from "@/components/festival/FestivalDetailClient";
+import TrackFestivalView from "@/components/festival/TrackFestivalView";
 import { getAdminSession } from "@/lib/admin/isAdmin";
+import { getFestivalViewCounts, type FestivalViewCounts } from "@/lib/analytics/festivalViewCounts";
 import { fetchAccommodationOffersForFestival } from "@/lib/accommodation/fetchAccommodationOffers";
 import { canPreviewNonPublicFestival, isFestivalPublicDetailCatalogVisible } from "@/lib/festival/detailPreviewAccess";
 import {
@@ -165,6 +167,13 @@ export default async function Page({
     countBookingOutboundClicksLast30Days(String(data.festival.id)),
   ]);
 
+  // For admin viewers, fetch raw festival_view counts so the badge can render.
+  // Bot / admin / 24h-dedup filtering already happened at insert time.
+  let adminViewCounts: FestivalViewCounts | null = null;
+  if (adminSession?.isAdmin) {
+    adminViewCounts = await getFestivalViewCounts(String(data.festival.id));
+  }
+
   const relatedFestivals = sortFestivalsForListing(
     (relatedResponse?.data ?? []).filter((item) => item.slug !== data.festival.slug),
   );
@@ -174,10 +183,15 @@ export default async function Page({
 
   return (
     <div className={pub.page}>
+      <TrackFestivalView
+        festivalId={String(data.festival.id)}
+        slug={data.festival.slug ?? null}
+      />
       <Section className={pub.section}>
         <Container>
           <FestivalDetailClient
             festival={data.festival}
+            adminViewCounts={adminViewCounts}
             media={data.media}
             days={data.days}
             scheduleItems={data.scheduleItems}

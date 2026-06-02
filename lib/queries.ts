@@ -985,7 +985,6 @@ export async function getOrganizerWithFestivals(
     .eq("organizer_id", organizer.id)
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
-    .gte("end_date", getTodaySofiaYmd())
     .returns<Array<{ id: string }>>();
 
   if (legacyError) {
@@ -1010,7 +1009,6 @@ export async function getOrganizerWithFestivals(
     .in("id", festivalIds)
     .or("status.eq.published,status.eq.verified,is_verified.eq.true")
     .neq("status", "archived")
-    .gte("end_date", getTodaySofiaYmd())
     .returns<Festival[]>();
 
   if (festivalsError) {

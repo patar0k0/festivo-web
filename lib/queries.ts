@@ -72,7 +72,10 @@ export function normalizePublicFestivalSlugParam(raw: string): string {
 }
 
 const FESTIVAL_SELECT_DETAIL =
-  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,city_slug,location_name,address,organizer_id,organizer_name,lat,lng,place_id,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,is_verified,category,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,program_draft,cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!festivals_organizer_id_fkey!left(id,name,slug,logo_url,verified,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!left(sort_order,organizers:organizers!left(id,name,slug,logo_url,verified))";
+  // festival_organizers_pkey (festival_id, organizer_id) makes PostgREST see TWO paths festivals→organizers:
+  // 1) direct FK festivals.organizer_id and 2) M2M through festival_organizers.
+  // Both embeds need explicit FK hints to stay unambiguous.
+  "id,title,slug,description,start_date,end_date,start_time,end_time,occurrence_dates,city_id,city_slug,location_name,address,organizer_id,organizer_name,lat,lng,place_id,hero_image,image_url,video_url,website_url,ticket_url,price_range,is_free,source_url,tags,status,is_verified,category,promotion_status,promotion_started_at,promotion_expires_at,promotion_rank,program_draft,cities:cities!festivals_city_id_fkey(name_bg,slug,is_village),organizer:organizers!festivals_organizer_id_fkey!left(id,name,slug,logo_url,verified,plan,plan_started_at,plan_expires_at,organizer_rank),festival_organizers:festival_organizers!festival_organizers_festival_id_fkey!left(sort_order,organizers:organizers!festival_organizers_organizer_id_fkey!left(id,name,slug,logo_url,verified))";
 
 const NO_MATCH_FESTIVAL_ID = "00000000-0000-0000-0000-000000000001";
 

@@ -1,7 +1,7 @@
 // components/admin/SmartResearchPanel.tsx
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { SmartResearchResult, SmartResearchFields } from "@/lib/admin/research/smart-pipeline";
 import type { DuplicateMatch } from "@/lib/admin/research/findDuplicateFestivals";
@@ -377,6 +377,21 @@ function LinkLine({ label, url }: { label: string; url: string | null }) {
   );
 }
 
+const HISTORY_KEY = "festivo:smart-research:history";
+const HISTORY_MAX = 8;
+
+function loadHistory(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((q): q is string => typeof q === "string").slice(0, HISTORY_MAX) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function SmartResearchPanel() {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -396,12 +411,34 @@ export default function SmartResearchPanel() {
   // date/city/title) can be corrected here instead of in the pending editor.
   const [edited, setEdited] = useState<SmartResearchFields | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [history, setHistory] = useState<string[]>([]);
+
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
+
+  const pushHistory = (q: string) => {
+    const trimmed = q.trim();
+    if (!trimmed) return;
+    setHistory((prev) => {
+      const next = [trimmed, ...prev.filter((h) => h.toLowerCase() !== trimmed.toLowerCase())].slice(0, HISTORY_MAX);
+      try {
+        window.localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      } catch {
+        // localStorage unavailable (private mode) — keep in-memory only.
+      }
+      return next;
+    });
+  };
 
   const updateStep = (id: string, patch: Partial<PipelineStep>) =>
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
 
-  const runResearch = async () => {
-    if (!query.trim() || isLoading) return;
+  const runResearch = async (overrideQuery?: string) => {
+    const q = (overrideQuery ?? query).trim();
+    if (!q || isLoading) return;
+    if (overrideQuery !== undefined) setQuery(overrideQuery);
+    pushHistory(q);
     setError("");
     setResult(null);
     setSendStatus("");
@@ -435,7 +472,7 @@ export default function SmartResearchPanel() {
       const res = await fetch("/admin/api/research-smart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: query.trim() }),
+        body: JSON.stringify({ query: q }),
       });
       clearTimeout(perplexityTimer);
       clearTimeout(geminiTimer);
@@ -478,7 +515,7 @@ export default function SmartResearchPanel() {
       setEdited({ ...r.fields });
       setSelectedHeroImage(r.fields.hero_image_candidates[0] ?? r.fields.hero_image ?? null);
       setIsDone(true);
-      void checkDuplicates(r.fields.title ?? query, r.fields.start_date);
+      void checkDuplicates(r.fields.title ?? q, r.fields.start_date);
     } catch (e) {
       clearTimeout(perplexityTimer);
       clearTimeout(geminiTimer);
@@ -590,13 +627,31 @@ export default function SmartResearchPanel() {
           disabled={isLoading}
         />
         <button
-          onClick={runResearch}
+          onClick={() => runResearch()}
           disabled={!query.trim() || isLoading}
           className="rounded-xl bg-black px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-black/80 disabled:opacity-40"
         >
           {isLoading ? "..." : "Изследвай"}
         </button>
       </div>
+
+      {/* Recent searches — admin convenience, stored in localStorage only */}
+      {history.length > 0 && !isLoading && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] uppercase tracking-widest text-black/30">Скоро</span>
+          {history.map((h) => (
+            <button
+              key={h}
+              type="button"
+              onClick={() => runResearch(h)}
+              title={h}
+              className="max-w-[200px] truncate rounded-full border border-black/[0.1] bg-white px-2.5 py-1 text-xs text-black/60 transition hover:border-black/30 hover:text-black/80"
+            >
+              {h}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Pipeline steps — shown during loading and after */}
       {(isLoading || isDone || error) && (

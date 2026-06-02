@@ -653,6 +653,14 @@ export default function SmartResearchPanel() {
               </div>
             )}
 
+            {/* Past-date warning — pulled out of the collapsed warnings list because
+                a stale/previous-edition date is the most common silent error. */}
+            {result.confidence !== "low" && result.warnings.some((w) => w.includes("в миналото")) && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+                Откритата дата е в миналото — възможно е да е стар/предишен event. Провери годината преди изпращане.
+              </div>
+            )}
+
             {isEditing ? (
               <EditForm fields={view} onChange={applyEdit} />
             ) : (

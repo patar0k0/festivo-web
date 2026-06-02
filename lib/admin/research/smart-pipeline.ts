@@ -121,11 +121,44 @@ function domainFrom(url: string): string {
   }
 }
 
-function confidenceLevel(fields: SmartResearchFields, sourcesCount: number): "high" | "medium" | "low" {
+/** Returns true when the ISO date string is strictly before today (Europe/Sofia-ish, date-only). */
+function isPastIsoDate(iso: string | null): boolean {
+  if (!iso) return false;
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return false;
+  const today = new Date();
+  const todayStr = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;
+  return `${m[1]}-${m[2]}-${m[3]}` < todayStr;
+}
+
+/**
+ * Confidence scoring. Beyond counting filled core fields, we apply two
+ * forward-looking-catalog penalties:
+ *   - missing start_date → cap at "low" (a dateless festival isn't actionable)
+ *   - past start_date → cap at "medium" (likely a stale/previous-edition match)
+ * Notes are surfaced to the admin panel as warnings.
+ */
+function confidenceLevel(
+  fields: SmartResearchFields,
+  sourcesCount: number,
+): { level: "high" | "medium" | "low"; notes: string[] } {
+  const notes: string[] = [];
   const filled = [fields.title, fields.start_date, fields.city, fields.organizer_name].filter(Boolean).length;
-  if (filled >= 3 && sourcesCount >= 2) return "high";
-  if (filled >= 2) return "medium";
-  return "low";
+
+  let level: "high" | "medium" | "low";
+  if (filled >= 3 && sourcesCount >= 2) level = "high";
+  else if (filled >= 2) level = "medium";
+  else level = "low";
+
+  if (!fields.start_date) {
+    if (level !== "low") notes.push("Без открита дата — увереността е свалена.");
+    level = "low";
+  } else if (isPastIsoDate(fields.start_date)) {
+    notes.push("Откритата дата е в миналото — възможно е да е стар/предишен event. Провери годината.");
+    if (level === "high") level = "medium";
+  }
+
+  return { level, notes };
 }
 
 function looksLikeRealImageUrl(url: string): boolean {
@@ -378,10 +411,13 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
     program_draft: extraction?.program ? programDraftFromGeminiProgram(extraction.program) : null,
   };
 
+  const { level: confidence, notes: confidenceNotes } = confidenceLevel(fields, sources.length);
+  warnings.push(...confidenceNotes);
+
   return {
     fields,
     sources,
-    confidence: confidenceLevel(fields, sources.length),
+    confidence,
     providers_used,
     warnings,
     gemini_model: geminiModelUsed,

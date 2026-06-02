@@ -1,7 +1,7 @@
 // components/admin/SmartResearchPanel.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { SmartResearchResult, SmartResearchFields } from "@/lib/admin/research/smart-pipeline";
 import type { DuplicateMatch } from "@/lib/admin/research/findDuplicateFestivals";
@@ -81,6 +81,189 @@ function ConfidenceChip({ level }: { level: "high" | "medium" | "low" }) {
       <span className="size-1.5 rounded-full bg-current" />
       {label}
     </span>
+  );
+}
+
+function EditLabel({ children }: { children: ReactNode }) {
+  return <span className="text-[11px] font-medium uppercase tracking-wide text-black/40">{children}</span>;
+}
+
+const EDIT_INPUT_CLASS =
+  "w-full rounded-lg border border-black/[0.12] bg-white px-2.5 py-1.5 text-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10";
+
+/** Compact editable form for the core extracted fields. */
+function EditForm({
+  fields,
+  onChange,
+}: {
+  fields: SmartResearchFields;
+  onChange: (patch: Partial<SmartResearchFields>) => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-xl border border-black/[0.08] bg-black/[0.015] p-4">
+      <label className="block space-y-1">
+        <EditLabel>Заглавие</EditLabel>
+        <input
+          className={EDIT_INPUT_CLASS}
+          value={fields.title ?? ""}
+          onChange={(e) => onChange({ title: e.target.value || null })}
+        />
+      </label>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block space-y-1">
+          <EditLabel>Начална дата</EditLabel>
+          <input
+            type="date"
+            className={EDIT_INPUT_CLASS}
+            value={fields.start_date ?? ""}
+            onChange={(e) => onChange({ start_date: e.target.value || null })}
+          />
+        </label>
+        <label className="block space-y-1">
+          <EditLabel>Крайна дата</EditLabel>
+          <input
+            type="date"
+            className={EDIT_INPUT_CLASS}
+            value={fields.end_date ?? ""}
+            onChange={(e) => onChange({ end_date: e.target.value || null })}
+          />
+        </label>
+        <label className="block space-y-1">
+          <EditLabel>Начален час</EditLabel>
+          <input
+            type="time"
+            className={EDIT_INPUT_CLASS}
+            value={fields.start_time ?? ""}
+            onChange={(e) => onChange({ start_time: e.target.value || null })}
+          />
+        </label>
+        <label className="block space-y-1">
+          <EditLabel>Краен час</EditLabel>
+          <input
+            type="time"
+            className={EDIT_INPUT_CLASS}
+            value={fields.end_time ?? ""}
+            onChange={(e) => onChange({ end_time: e.target.value || null })}
+          />
+        </label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block space-y-1">
+          <EditLabel>Град</EditLabel>
+          <input
+            className={EDIT_INPUT_CLASS}
+            value={fields.city ?? ""}
+            onChange={(e) => onChange({ city: e.target.value || null })}
+          />
+        </label>
+        <label className="block space-y-1">
+          <EditLabel>Категория</EditLabel>
+          <input
+            className={EDIT_INPUT_CLASS}
+            value={fields.category ?? ""}
+            onChange={(e) => onChange({ category: e.target.value || null })}
+          />
+        </label>
+      </div>
+
+      <label className="block space-y-1">
+        <EditLabel>Място / зала</EditLabel>
+        <input
+          className={EDIT_INPUT_CLASS}
+          value={fields.location_name ?? ""}
+          onChange={(e) => onChange({ location_name: e.target.value || null })}
+        />
+      </label>
+
+      <label className="block space-y-1">
+        <EditLabel>Адрес</EditLabel>
+        <input
+          className={EDIT_INPUT_CLASS}
+          value={fields.address ?? ""}
+          onChange={(e) => onChange({ address: e.target.value || null })}
+        />
+      </label>
+
+      <label className="block space-y-1">
+        <EditLabel>Организатор</EditLabel>
+        <input
+          className={EDIT_INPUT_CLASS}
+          value={fields.organizer_name ?? ""}
+          onChange={(e) => onChange({ organizer_name: e.target.value || null })}
+        />
+      </label>
+
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={fields.is_free === true}
+          onChange={(e) => onChange({ is_free: e.target.checked })}
+        />
+        <EditLabel>Безплатен вход</EditLabel>
+      </label>
+
+      <label className="block space-y-1">
+        <EditLabel>Тагове (разделени със запетая)</EditLabel>
+        <input
+          className={EDIT_INPUT_CLASS}
+          value={fields.tags.join(", ")}
+          onChange={(e) =>
+            onChange({
+              tags: e.target.value
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean),
+            })
+          }
+        />
+      </label>
+
+      <label className="block space-y-1">
+        <EditLabel>Описание</EditLabel>
+        <textarea
+          className={`${EDIT_INPUT_CLASS} min-h-[80px] resize-y`}
+          value={fields.description ?? ""}
+          onChange={(e) => onChange({ description: e.target.value || null })}
+        />
+      </label>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block space-y-1">
+          <EditLabel>Уебсайт</EditLabel>
+          <input
+            className={EDIT_INPUT_CLASS}
+            value={fields.website_url ?? ""}
+            onChange={(e) => onChange({ website_url: e.target.value || null })}
+          />
+        </label>
+        <label className="block space-y-1">
+          <EditLabel>Билети</EditLabel>
+          <input
+            className={EDIT_INPUT_CLASS}
+            value={fields.ticket_url ?? ""}
+            onChange={(e) => onChange({ ticket_url: e.target.value || null })}
+          />
+        </label>
+        <label className="block space-y-1">
+          <EditLabel>Facebook</EditLabel>
+          <input
+            className={EDIT_INPUT_CLASS}
+            value={fields.facebook_url ?? ""}
+            onChange={(e) => onChange({ facebook_url: e.target.value || null })}
+          />
+        </label>
+        <label className="block space-y-1">
+          <EditLabel>Instagram</EditLabel>
+          <input
+            className={EDIT_INPUT_CLASS}
+            value={fields.instagram_url ?? ""}
+            onChange={(e) => onChange({ instagram_url: e.target.value || null })}
+          />
+        </label>
+      </div>
+    </div>
   );
 }
 
@@ -208,6 +391,11 @@ export default function SmartResearchPanel() {
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [dupChecking, setDupChecking] = useState(false);
+  // Admin-editable copy of the extracted fields. Initialised from the result and
+  // edited in-place before sending to the pipeline, so Gemini mistakes (wrong
+  // date/city/title) can be corrected here instead of in the pending editor.
+  const [edited, setEdited] = useState<SmartResearchFields | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const updateStep = (id: string, patch: Partial<PipelineStep>) =>
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -221,6 +409,8 @@ export default function SmartResearchPanel() {
     setSteps(INITIAL_STEPS);
     setFailedImages(new Set());
     setDuplicates([]);
+    setEdited(null);
+    setIsEditing(false);
     setIsLoading(true);
 
     // Step 1: Google running immediately
@@ -285,6 +475,7 @@ export default function SmartResearchPanel() {
       ]);
 
       setResult(r);
+      setEdited({ ...r.fields });
       setSelectedHeroImage(r.fields.hero_image_candidates[0] ?? r.fields.hero_image ?? null);
       setIsDone(true);
       void checkDuplicates(r.fields.title ?? query, r.fields.start_date);
@@ -323,7 +514,9 @@ export default function SmartResearchPanel() {
     setIsSending(true);
     setSendStatus("");
     try {
-      const { fields, sources, confidence } = result;
+      const { sources, confidence } = result;
+      // Prefer the admin-edited copy; fall back to the raw extraction.
+      const fields = edited ?? result.fields;
       const confidenceScore = confidence === "high" ? 90 : confidence === "medium" ? 60 : 30;
 
       // Append year to title if not already present
@@ -376,6 +569,12 @@ export default function SmartResearchPanel() {
     }
   };
 
+  // Current view of the fields: edited copy when available, else raw extraction.
+  const view = result ? edited ?? result.fields : null;
+
+  const applyEdit = (patch: Partial<SmartResearchFields>) =>
+    setEdited((prev) => (prev ? { ...prev, ...patch } : prev));
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 py-6">
 
@@ -412,16 +611,36 @@ export default function SmartResearchPanel() {
       )}
 
       {/* Result card */}
-      {result && isDone && (
+      {result && isDone && view && (
         <div className="space-y-4">
           <div className="rounded-2xl border border-black/[0.08] bg-white p-5 shadow-sm space-y-4">
 
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-lg font-semibold text-black/90">
-                {result.fields.title ?? query}
+                {view.title ?? query}
               </h2>
-              <ConfidenceChip level={result.confidence} />
+              <div className="flex shrink-0 items-center gap-2">
+                <ConfidenceChip level={result.confidence} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isEditing) {
+                      // Leaving edit mode — re-check duplicates against the
+                      // possibly-changed title.
+                      void checkDuplicates(view.title ?? query, view.start_date);
+                    }
+                    setIsEditing((v) => !v);
+                  }}
+                  className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                    isEditing
+                      ? "border-black bg-black text-white hover:bg-black/80"
+                      : "border-black/[0.12] text-black/60 hover:border-black/30 hover:text-black/80"
+                  }`}
+                >
+                  {isEditing ? "Готово" : "✎ Редактирай"}
+                </button>
+              </div>
             </div>
 
             {/* Duplicate warning — populated after the async check resolves */}
@@ -434,22 +653,28 @@ export default function SmartResearchPanel() {
               </div>
             )}
 
-            {/* Core fields */}
-            <div className="space-y-1.5">
-              <DateRange fields={result.fields} />
-              <LocationLine fields={result.fields} />
-              <OrganizerLine fields={result.fields} />
-              <FieldRow label="Вход" value={typeof result.fields.is_free === "boolean" ? result.fields.is_free : null} />
-              <FieldRow label="Категория" value={result.fields.category} />
-              {result.fields.tags.length > 0 && <FieldRow label="Тагове" value={result.fields.tags} />}
-            </div>
+            {isEditing ? (
+              <EditForm fields={view} onChange={applyEdit} />
+            ) : (
+              <>
+                {/* Core fields */}
+                <div className="space-y-1.5">
+                  <DateRange fields={view} />
+                  <LocationLine fields={view} />
+                  <OrganizerLine fields={view} />
+                  <FieldRow label="Вход" value={typeof view.is_free === "boolean" ? view.is_free : null} />
+                  <FieldRow label="Категория" value={view.category} />
+                  {view.tags.length > 0 && <FieldRow label="Тагове" value={view.tags} />}
+                </div>
 
-            {/* Description */}
-            {result.fields.description && (
-              <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-black/35">Описание</p>
-                <p className="text-sm text-black/70 leading-relaxed">{result.fields.description}</p>
-              </div>
+                {/* Description */}
+                {view.description && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-black/35">Описание</p>
+                    <p className="text-sm text-black/70 leading-relaxed">{view.description}</p>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Hero image candidates — always rendered when any candidates exist,
@@ -518,13 +743,13 @@ export default function SmartResearchPanel() {
             )}
 
             {/* Links */}
-            {(result.fields.website_url || result.fields.facebook_url || result.fields.instagram_url || result.fields.ticket_url) && (
+            {!isEditing && (view.website_url || view.facebook_url || view.instagram_url || view.ticket_url) && (
               <div className="space-y-1.5">
                 <p className="text-xs font-medium uppercase tracking-wide text-black/35">Линкове</p>
-                <LinkLine label="Уебсайт" url={result.fields.website_url} />
-                <LinkLine label="Facebook" url={result.fields.facebook_url} />
-                <LinkLine label="Instagram" url={result.fields.instagram_url} />
-                <LinkLine label="Билети" url={result.fields.ticket_url} />
+                <LinkLine label="Уебсайт" url={view.website_url} />
+                <LinkLine label="Facebook" url={view.facebook_url} />
+                <LinkLine label="Instagram" url={view.instagram_url} />
+                <LinkLine label="Билети" url={view.ticket_url} />
               </div>
             )}
 

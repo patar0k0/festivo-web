@@ -43,6 +43,7 @@ Environment variables (no secrets in repo):
 - `FESTIVO_PUBLIC_MODE=coming-soon` (or `live`)
 - `PERPLEXITY_API_KEY` (server-only, for admin AI research)
 - `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY` (server-only, for `/admin/api/research-festival` Gemini pipeline); optional `GEMINI_RESEARCH_MODEL`, `GEMINI_RESEARCH_TIMEOUT_MS`
+- `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_CX` (optional, server-only; enables Google Custom Search as an extra image source in the smart research panel. `CX` is the Programmable Search Engine ID. 100 queries/day free, then ~$5/1000; skipped entirely if either is unset)
 - `UPSTASH_REDIS_REST_URL` (optional, enables API POST rate limiting)
 - `UPSTASH_REDIS_REST_TOKEN` (optional, enables API POST rate limiting)
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (optional; [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) site key for the browser widget on signup and organizer onboarding forms)

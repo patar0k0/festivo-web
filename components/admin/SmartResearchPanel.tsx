@@ -313,6 +313,16 @@ function DuplicateWarning({ matches }: { matches: DuplicateMatch[] }) {
   );
 }
 
+function formatCachedAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "";
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return "току-що";
+  if (mins < 60) return `преди ${mins} мин`;
+  const hours = Math.floor(mins / 60);
+  return `преди ${hours} ч`;
+}
+
 function formatIsoDate(iso: string): string {
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return iso;
@@ -412,6 +422,7 @@ export default function SmartResearchPanel() {
   const [edited, setEdited] = useState<SmartResearchFields | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
 
   useEffect(() => {
     setHistory(loadHistory());
@@ -434,12 +445,13 @@ export default function SmartResearchPanel() {
   const updateStep = (id: string, patch: Partial<PipelineStep>) =>
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
 
-  const runResearch = async (overrideQuery?: string) => {
+  const runResearch = async (overrideQuery?: string, forceRefresh = false) => {
     const q = (overrideQuery ?? query).trim();
     if (!q || isLoading) return;
     if (overrideQuery !== undefined) setQuery(overrideQuery);
     pushHistory(q);
     setError("");
+    setCachedAt(null);
     setResult(null);
     setSendStatus("");
     setIsDone(false);
@@ -472,12 +484,18 @@ export default function SmartResearchPanel() {
       const res = await fetch("/admin/api/research-smart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q }),
+        body: JSON.stringify({ query: q, refresh: forceRefresh }),
       });
       clearTimeout(perplexityTimer);
       clearTimeout(geminiTimer);
 
-      const payload = (await res.json().catch(() => null)) as { ok?: boolean; result?: SmartResearchResult; error?: string } | null;
+      const payload = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        result?: SmartResearchResult;
+        error?: string;
+        cached?: boolean;
+        cached_at?: string;
+      } | null;
 
       if (!res.ok || !payload?.result) {
         throw new Error(payload?.error ?? "Заявката неуспешна.");
@@ -511,6 +529,7 @@ export default function SmartResearchPanel() {
         },
       ]);
 
+      setCachedAt(payload.cached && payload.cached_at ? payload.cached_at : null);
       setResult(r);
       setEdited({ ...r.fields });
       setSelectedHeroImage(r.fields.hero_image_candidates[0] ?? r.fields.hero_image ?? null);
@@ -657,6 +676,21 @@ export default function SmartResearchPanel() {
       {(isLoading || isDone || error) && (
         <div className="rounded-xl border border-black/[0.07] bg-black/[0.02] px-4 py-3">
           <PipelineSteps steps={steps} />
+        </div>
+      )}
+
+      {/* Cache indicator — visible only when the result came from cache */}
+      {isDone && cachedAt && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-2 text-xs text-blue-800">
+          <span>Резултат от кеша ({formatCachedAgo(cachedAt)}) — без нови SerpAPI/Gemini заявки.</span>
+          <button
+            type="button"
+            onClick={() => runResearch(query, true)}
+            disabled={isLoading}
+            className="shrink-0 rounded-lg border border-blue-200 bg-white px-2.5 py-1 font-medium text-blue-700 transition hover:bg-blue-100 disabled:opacity-50"
+          >
+            Опресни
+          </button>
         </div>
       )}
 

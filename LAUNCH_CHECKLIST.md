@@ -10,12 +10,12 @@
 
 ## 📍 Текущ статус
 
-- **Sprint ден:** 11 / 14 — Седмица 2 в ход
-- **Launch стабилност:** 🟢 готов за launch — build clean, favicons готови
-- **Блокери в момента:** няма технически блокери
-- **Последно обновяване:** 26 май 2026 (вечер)
-- **Прогрес:** 69 ✅ / 85 ⏳
-- **Следва:** launch comms drafts (Ден 13), **PUBLIC LAUNCH сряда 28 май** (Ден 14).
+- **Sprint ден:** 14 / 14 — 🚀 LAUNCHED
+- **Launch стабилност:** 🟢 сайтът е публично качен
+- **Блокери в момента:** няма
+- **Последно обновяване:** 31 май 2026
+- **Прогрес:** ~70 ✅ / 85 — остатъкът е post-launch backlog
+- **Следва:** post-launch — съдържание, social media, Lighthouse audit, soft launch с близки.
 
 ### 📌 За утре (23 май, продължение)
 
@@ -211,8 +211,9 @@
 
 #### Ден 6–7: Lighthouse + полиране
 
-- [ ] Lighthouse audit на 5 ключови страници (mobile-first): 90+ на Performance, Accessibility, SEO, Best Practices
+- [~] Lighthouse audit на 5 ключови страници (mobile-first): 90+ на Performance, Accessibility, SEO, Best Practices
 > ⚠️ Трябва да се пусне срещу production (festivo.bg) — не може локално (Supabase env). Ползвай PageSpeed Insights: https://pagespeed.web.dev/
+> 💡 Claude Code note (31 май): Homepage резултат: Accessibility 96, Best Practices 100, SEO 100, Performance 84. LCP 4.0s (червено) — root cause: некеширани DB заявки + Vercel image optimizer cold miss. PR #480: unstable_cache (5 мин) за 7-те homepage заявки + AVIF формат. Очаквано подобрение: FCP ~1.5s, LCP ~3.0-3.5s, Performance ~88-90.
 - [x] Image optimization (всички с `next/image`, `alt`, lazy loading)
 > 💡 Claude Code note (20 май): Audit на 12 `<img>` тага в 7 файла. Конвертирани 3 в `FestivalMedia.tsx` (gallery main + thumbnails + YouTube thumbs) към `FallbackImage` с lazy loading и responsive `sizes` prop (PR #338). Hero, Meta Pixel noscript, lightbox и admin форми — обосновано оставени (explicit eslint-disable + LCP-critical с eager loading).
 - [x] Font loading optimization
@@ -268,7 +269,7 @@
 #### Ден 8–9: Финализиране на съдържанието
 
 - [x] Покрий 50+ верифицирани фестивала за 2026 (текущо 65 — добре)
-- [ ] Поне 10 фестивала с богато съдържание (програма, дълго описание, множество снимки)
+- [x] Поне 10 фестивала с богато съдържание (програма, дълго описание, множество снимки)
 - [ ] Покритие на категории: фолклорен, винен, гастро, градски празник, музикален, арт
 - [ ] Покритие на градове: София, Пловдив, Варна, Бургас, ВТ + 10 малки населени места
 - [x] Cookie banner със Supabase sync
@@ -281,7 +282,7 @@
 
 #### Ден 10: Социални профили
 
-- [ ] **Facebook страница Festivo.bg** — cover, bio, първи 3 поста
+- [x] **Facebook страница Festivo.bg** — cover, bio, първи 3 поста
 - [~] **Instagram @festivo.bg** — bio, линк, първи 3 поста
 > 💡 Status (21 май): Profile създаден, нивото на оптимизация неясно. Остава: bio с „Открий. Планирай. Посети.", линк към festivo.bg, profile picture, highlight covers, първи 3 поста.
 - [ ] **LinkedIn** страница (B2B аудитория)

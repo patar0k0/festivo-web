@@ -1,0 +1,99 @@
+name: Database Backup (Supabase → R2)
+
+# Daily backup of the Supabase Postgres database to Cloudflare R2.
+# Runs at 03:00 UTC (06:00 Europe/Sofia) — low traffic window.
+# Retention: 30 days. Older dumps are pruned automatically.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump Postgres and upload to R2
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Install PostgreSQL 17 client
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc
+          . /etc/os-release
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          pg_dump --version
+
+      - name: Install rclone
+        run: |
+          set -euo pipefail
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+          rclone version
+
+      - name: Dump database
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          DATE=$(date -u +%Y-%m-%d_%H%M)
+          OUT="festivo-${DATE}.dump"
+          echo "Dumping to ${OUT}..."
+          pg_dump \
+            --dbname="${DATABASE_URL}" \
+            --no-owner \
+            --no-privileges \
+            --format=custom \
+            --compress=9 \
+            --verbose \
+            --file="${OUT}" 2> >(grep -v "^pg_dump:" || true)
+          ls -lh "${OUT}"
+          echo "BACKUP_FILE=${OUT}" >> "$GITHUB_ENV"
+
+      - name: Configure rclone for R2
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.config/rclone
+          cat > ~/.config/rclone/rclone.conf <<EOF
+          [r2]
+          type = s3
+          provider = Cloudflare
+          access_key_id = ${R2_ACCESS_KEY_ID}
+          secret_access_key = ${R2_SECRET_ACCESS_KEY}
+          endpoint = ${R2_ENDPOINT}
+          acl = private
+          EOF
+
+      - name: Upload to R2
+        env:
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          rclone copy "${BACKUP_FILE}" "r2:${R2_BUCKET}/daily/" \
+            --progress \
+            --s3-no-check-bucket
+
+      - name: Prune backups older than 30 days
+        env:
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          rclone delete "r2:${R2_BUCKET}/daily/" --min-age 30d --s3-no-check-bucket
+          echo "Current backups in R2:"
+          rclone lsl "r2:${R2_BUCKET}/daily/" --s3-no-check-bucket | tail -40
+
+      - name: Cleanup local dump
+        if: always()
+        run: rm -f festivo-*.dump

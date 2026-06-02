@@ -53,8 +53,7 @@ jobs:
             --no-privileges \
             --format=custom \
             --compress=9 \
-            --verbose \
-            --file="${OUT}" 2> >(grep -v "^pg_dump:" || true)
+            --file="${OUT}"
           ls -lh "${OUT}"
           echo "BACKUP_FILE=${OUT}" >> "$GITHUB_ENV"
 

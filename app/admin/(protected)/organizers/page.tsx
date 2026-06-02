@@ -61,7 +61,8 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
   let query = adminClient
     .schema("public")
     .from("organizers")
-    .select("id,name,slug,verified,created_at,organizer_members(status),festivals(count),festival_organizers(count)", { count: "exact" })
+    // FK hint required: festival_organizers is M2M, so plain `festivals(count)` is ambiguous.
+    .select("id,name,slug,verified,created_at,organizer_members(status),festivals!festivals_organizer_id_fkey(count),festival_organizers(count)", { count: "exact" })
     .eq("is_active", true);
 
   if (q) {

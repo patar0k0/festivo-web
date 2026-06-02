@@ -445,6 +445,43 @@ export default function SmartResearchPanel() {
   const updateStep = (id: string, patch: Partial<PipelineStep>) =>
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
 
+  const finalizeSteps = (r: SmartResearchResult) => {
+    const used = r.providers_used;
+    const warns = r.warnings;
+    setSteps([
+      {
+        id: "serpapi",
+        label: "Google Search (EN + BG)",
+        status: used.includes("serpapi") ? "done" : "error",
+        detail: r.sources.some((s) => s.is_ai_overview) ? "AI Overview намерен" : `${r.sources.filter((s) => !s.is_ai_overview).length} резултата`,
+      },
+      {
+        id: "perplexity",
+        label: "Perplexity (допълнение)",
+        status: used.includes("perplexity") ? "done" : "skipped",
+        detail: used.includes("perplexity") ? "добавен контекст" : "пропуснат (достатъчно резултати)",
+      },
+      {
+        id: "gemini",
+        label: "Gemini extraction",
+        status: used.includes("gemini") ? "done" : warns.some((w) => w.toLowerCase().includes("gemini")) ? "error" : "skipped",
+        detail: used.includes("gemini")
+          ? [r.gemini_model, `увереност: ${r.confidence}`].filter(Boolean).join(" · ")
+          : warns.find((w) => w.toLowerCase().includes("gemini"))?.slice(0, 80),
+      },
+    ]);
+  };
+
+  const acceptResult = (r: SmartResearchResult, cached: boolean, cachedTs: string | null, q: string) => {
+    finalizeSteps(r);
+    setCachedAt(cached && cachedTs ? cachedTs : null);
+    setResult(r);
+    setEdited({ ...r.fields });
+    setSelectedHeroImage(r.fields.hero_image_candidates[0] ?? r.fields.hero_image ?? null);
+    setIsDone(true);
+    void checkDuplicates(r.fields.title ?? q, r.fields.start_date);
+  };
+
   const runResearch = async (overrideQuery?: string, forceRefresh = false) => {
     const q = (overrideQuery ?? query).trim();
     if (!q || isLoading) return;
@@ -462,83 +499,71 @@ export default function SmartResearchPanel() {
     setIsEditing(false);
     setIsLoading(true);
 
-    // Step 1: Google running immediately
-    updateStep("serpapi", { status: "running" });
-
-    // Step 2: after 3s start showing Perplexity as running (may be skipped)
-    const perplexityTimer = setTimeout(() => {
-      updateStep("serpapi", { status: "done" });
-      updateStep("perplexity", { status: "running" });
-    }, 3_000);
-
-    // Step 3: after 6s start Gemini
-    const geminiTimer = setTimeout(() => {
-      setSteps((prev) => prev.map((s) => {
-        if (s.id === "perplexity" && s.status === "running") return { ...s, status: "done" as PhaseStatus };
-        if (s.id === "gemini") return { ...s, status: "running" as PhaseStatus };
-        return s;
-      }));
-    }, 6_000);
-
     try {
       const res = await fetch("/admin/api/research-smart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: q, refresh: forceRefresh }),
       });
-      clearTimeout(perplexityTimer);
-      clearTimeout(geminiTimer);
 
-      const payload = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        result?: SmartResearchResult;
-        error?: string;
-        cached?: boolean;
-        cached_at?: string;
-      } | null;
-
-      if (!res.ok || !payload?.result) {
+      // Setup/auth failures come back as plain JSON, not an event stream.
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!res.ok || !contentType.includes("text/event-stream") || !res.body) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(payload?.error ?? "Заявката неуспешна.");
       }
 
-      const r = payload.result;
-      const used = r.providers_used;
-      const warns = r.warnings;
+      // Consume the SSE stream: real per-stage progress + a final result/error.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let gotResult = false;
 
-      // Finalize steps based on actual result
-      setSteps([
-        {
-          id: "serpapi",
-          label: "Google Search (EN + BG)",
-          status: used.includes("serpapi") ? "done" : "error",
-          detail: r.sources.some((s) => s.is_ai_overview) ? "AI Overview намерен" : `${r.sources.filter((s) => !s.is_ai_overview).length} резултата`,
-        },
-        {
-          id: "perplexity",
-          label: "Perplexity (допълнение)",
-          status: used.includes("perplexity") ? "done" : "skipped",
-          detail: used.includes("perplexity") ? "добавен контекст" : "пропуснат (достатъчно резултати)",
-        },
-        {
-          id: "gemini",
-          label: "Gemini extraction",
-          status: used.includes("gemini") ? "done" : warns.some((w) => w.toLowerCase().includes("gemini")) ? "error" : "skipped",
-          detail: used.includes("gemini")
-            ? [r.gemini_model, `увереност: ${r.confidence}`].filter(Boolean).join(" · ")
-            : warns.find((w) => w.toLowerCase().includes("gemini"))?.slice(0, 80),
-        },
-      ]);
+      const handleEvent = (raw: string) => {
+        const line = raw.startsWith("data:") ? raw.slice(5).trim() : raw.trim();
+        if (!line) return;
+        let evt: {
+          type?: string;
+          step?: string;
+          status?: PhaseStatus;
+          detail?: string;
+          result?: SmartResearchResult;
+          cached?: boolean;
+          cached_at?: string;
+          error?: string;
+        };
+        try {
+          evt = JSON.parse(line);
+        } catch {
+          return;
+        }
+        if (evt.type === "progress" && evt.step && evt.status) {
+          updateStep(evt.step, { status: evt.status, detail: evt.detail });
+        } else if (evt.type === "result" && evt.result) {
+          gotResult = true;
+          acceptResult(evt.result, Boolean(evt.cached), evt.cached_at ?? null, q);
+        } else if (evt.type === "error") {
+          throw new Error(evt.error ?? "Заявката неуспешна.");
+        }
+      };
 
-      setCachedAt(payload.cached && payload.cached_at ? payload.cached_at : null);
-      setResult(r);
-      setEdited({ ...r.fields });
-      setSelectedHeroImage(r.fields.hero_image_candidates[0] ?? r.fields.hero_image ?? null);
-      setIsDone(true);
-      void checkDuplicates(r.fields.title ?? q, r.fields.start_date);
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep: number;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const chunk = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          handleEvent(chunk);
+        }
+      }
+      if (buffer.trim()) handleEvent(buffer);
+
+      if (!gotResult) throw new Error("Потокът прекъсна без резултат.");
     } catch (e) {
-      clearTimeout(perplexityTimer);
-      clearTimeout(geminiTimer);
-      setSteps((prev) => prev.map((s) => s.status === "running" ? { ...s, status: "error" } : s));
+      setSteps((prev) => prev.map((s) => (s.status === "running" ? { ...s, status: "error" } : s)));
       setError(e instanceof Error ? e.message : "Неочаквана грешка.");
     } finally {
       setIsLoading(false);

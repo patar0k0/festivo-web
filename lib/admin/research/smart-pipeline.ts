@@ -97,6 +97,16 @@ export type SmartResearchFields = {
 
 const MAX_IMAGE_CANDIDATES = 3;
 
+export type SmartResearchStepId = "serpapi" | "perplexity" | "gemini";
+export type SmartResearchStepStatus = "running" | "done" | "skipped" | "error";
+
+/** Real-time progress callback so the API can stream pipeline stages to the UI. */
+export type SmartResearchProgress = (
+  step: SmartResearchStepId,
+  status: SmartResearchStepStatus,
+  detail?: string,
+) => void;
+
 export type SmartResearchResult = {
   fields: SmartResearchFields;
   sources: SmartResearchSource[];
@@ -211,8 +221,20 @@ function pickTopImageCandidates(
   return results;
 }
 
-export async function runSmartResearchPipeline(query: string): Promise<SmartResearchResult> {
+export async function runSmartResearchPipeline(
+  query: string,
+  onProgress?: SmartResearchProgress,
+): Promise<SmartResearchResult> {
   if (!isGeminiConfigured()) throw new Error("GEMINI_API_KEY is not configured");
+
+  // Safe no-op wrapper so progress reporting never throws into the pipeline.
+  const progress: SmartResearchProgress = (step, status, detail) => {
+    try {
+      onProgress?.(step, status, detail);
+    } catch {
+      /* ignore progress sink errors */
+    }
+  };
 
   const warnings: string[] = [];
   const providers_used: string[] = ["serpapi"];
@@ -225,6 +247,7 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   //    where the full specific query yields 0 images in Google Images index
   //    (e.g. "Фестивал на хороигралците 'Харизмата на хорото' 2026" → try "Харизмата на хорото")
   // 2 SerpAPI кредита на търсене: 1× BG organic + 1× Google Images
+  progress("serpapi", "running");
   const [bgResult, gImageResult] = await Promise.all([
     serpApiSearch(query, "bg").catch(() => ({ ai_overview_text: null, organic: [], image_urls: [], warning: "SerpAPI заявка хвърли изключение." })),
     serpApiImageSearch(query, 8).catch(() => [] as string[]),
@@ -234,6 +257,12 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
 
   const aiOverviewText = bgResult.ai_overview_text;
   const organic = bgResult.organic;
+
+  progress(
+    "serpapi",
+    bgResult.warning ? "error" : "done",
+    aiOverviewText ? "AI Overview намерен" : `${organic.length} резултата`,
+  );
 
   const gImageResultMerged: string[] = [...gImageResult];
 
@@ -266,6 +295,7 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
 
   let perplexityContext: string | null = null;
   if (!hasGoodResults && process.env.PERPLEXITY_API_KEY?.trim()) {
+    progress("perplexity", "running");
     try {
       const pr = await researchFestival(query);
       const parts: string[] = [];
@@ -279,10 +309,16 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
       if (parts.length > 0) {
         perplexityContext = parts.join("\n");
         providers_used.push("perplexity");
+        progress("perplexity", "done", "добавен контекст");
+      } else {
+        progress("perplexity", "skipped", "няма допълнителни данни");
       }
     } catch (e) {
       warnings.push(`Perplexity fallback failed: ${e instanceof Error ? e.message : String(e)}`);
+      progress("perplexity", "error");
     }
+  } else {
+    progress("perplexity", "skipped", "пропуснат (достатъчно резултати)");
   }
 
   // Step 3: build combined evidence for Gemini
@@ -322,6 +358,7 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   let extraction = null;
   let geminiModelUsed: string | null = null;
   if (combinedEvidence.trim()) {
+    progress("gemini", "running");
     try {
       extraction = await extractFestivalFieldsFromEvidence({
         userQuery: query,
@@ -332,11 +369,14 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
         categories: categorySlugs,
       });
       providers_used.push("gemini");
+      progress("gemini", "done", geminiModelUsed ?? undefined);
     } catch (e) {
       warnings.push(`Gemini extraction failed: ${e instanceof Error ? e.message : String(e)}`);
+      progress("gemini", "error");
     }
   } else {
     warnings.push("No evidence collected from any provider.");
+    progress("gemini", "skipped", "няма evidence");
   }
 
   // Step 5: build sources list

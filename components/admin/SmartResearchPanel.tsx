@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SmartResearchResult, SmartResearchFields } from "@/lib/admin/research/smart-pipeline";
+import type { DuplicateMatch } from "@/lib/admin/research/findDuplicateFestivals";
 
 type PhaseStatus = "pending" | "running" | "done" | "skipped" | "error";
 
@@ -83,6 +84,52 @@ function ConfidenceChip({ level }: { level: "high" | "medium" | "low" }) {
   );
 }
 
+function DuplicateWarning({ matches }: { matches: DuplicateMatch[] }) {
+  if (matches.length === 0) return null;
+  const hasStrong = matches.some((m) => m.same_year || m.score >= 0.6);
+  return (
+    <div
+      className={`rounded-xl border px-4 py-3 text-xs ${
+        hasStrong
+          ? "border-red-200 bg-red-50 text-red-800"
+          : "border-amber-200 bg-amber-50 text-amber-800"
+      }`}
+    >
+      <p className="font-semibold">
+        {hasStrong ? "⚠ Възможен дубликат" : "Подобни съществуващи фестивали"}
+      </p>
+      <p className="mt-0.5 opacity-80">
+        Провери дали вече не съществува, преди да добавиш.
+      </p>
+      <ul className="mt-2 space-y-1">
+        {matches.map((m) => (
+          <li key={`${m.table}-${m.id}`} className="flex items-center gap-2">
+            <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide bg-black/10">
+              {m.table === "festival" ? "каталог" : "за преглед"}
+            </span>
+            <a
+              href={m.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="truncate font-medium underline hover:no-underline"
+            >
+              {m.title}
+            </a>
+            {m.start_date && (
+              <span className="shrink-0 opacity-60">{formatIsoDate(m.start_date)}</span>
+            )}
+            {m.same_year && (
+              <span className="shrink-0 rounded-full bg-black/10 px-1.5 py-0.5 text-[9px] font-bold uppercase">
+                същата година
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function formatIsoDate(iso: string): string {
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return iso;
@@ -159,6 +206,8 @@ export default function SmartResearchPanel() {
   const [sendStatus, setSendStatus] = useState("");
   const [selectedHeroImage, setSelectedHeroImage] = useState<string | null>(null);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
+  const [dupChecking, setDupChecking] = useState(false);
 
   const updateStep = (id: string, patch: Partial<PipelineStep>) =>
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -171,6 +220,7 @@ export default function SmartResearchPanel() {
     setIsDone(false);
     setSteps(INITIAL_STEPS);
     setFailedImages(new Set());
+    setDuplicates([]);
     setIsLoading(true);
 
     // Step 1: Google running immediately
@@ -237,6 +287,7 @@ export default function SmartResearchPanel() {
       setResult(r);
       setSelectedHeroImage(r.fields.hero_image_candidates[0] ?? r.fields.hero_image ?? null);
       setIsDone(true);
+      void checkDuplicates(r.fields.title ?? query, r.fields.start_date);
     } catch (e) {
       clearTimeout(perplexityTimer);
       clearTimeout(geminiTimer);
@@ -244,6 +295,26 @@ export default function SmartResearchPanel() {
       setError(e instanceof Error ? e.message : "Неочаквана грешка.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const checkDuplicates = async (title: string, startDate: string | null) => {
+    if (!title.trim()) return;
+    setDupChecking(true);
+    try {
+      const res = await fetch("/admin/api/research-smart/check-duplicates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), start_date: startDate }),
+      });
+      const payload = (await res.json().catch(() => null)) as { matches?: DuplicateMatch[] } | null;
+      setDuplicates(payload?.matches ?? []);
+    } catch {
+      // Non-blocking: a failed duplicate check must never stop the admin from
+      // adding a festival. Silently leave the list empty.
+      setDuplicates([]);
+    } finally {
+      setDupChecking(false);
     }
   };
 
@@ -352,6 +423,9 @@ export default function SmartResearchPanel() {
               </h2>
               <ConfidenceChip level={result.confidence} />
             </div>
+
+            {/* Duplicate warning — populated after the async check resolves */}
+            <DuplicateWarning matches={duplicates} />
 
             {/* Low confidence warning */}
             {result.confidence === "low" && (
@@ -486,6 +560,9 @@ export default function SmartResearchPanel() {
 
           {/* Add to review */}
           <div className="flex flex-col gap-2">
+            {dupChecking && (
+              <p className="text-center text-xs text-black/40">Проверка за дубликати...</p>
+            )}
             <button
               onClick={sendToPipeline}
               disabled={isSending}

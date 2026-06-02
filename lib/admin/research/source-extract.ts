@@ -20,7 +20,32 @@ export type ExtractedSourceDocument = {
 };
 
 const MAX_TEXT_LENGTH = 5000;
-const MAX_IMAGES_PER_PAGE = 5;
+const MAX_IMAGES_PER_PAGE = 8;
+
+/**
+ * Picks the highest-resolution URL from an `<img srcset>` / `data-srcset` value.
+ * Handles both width descriptors (`url 800w, url2 1600w`) and pixel-density
+ * descriptors (`url 1x, url2 2x`). Returns null when the attribute is empty or
+ * unparseable. Many BG/WordPress themes set `og:image`/`src` to a small variant
+ * but expose the full-res original in `srcset`.
+ */
+export function largestFromSrcset(srcset: string | null | undefined): string | null {
+  if (!srcset) return null;
+  let best: { url: string; weight: number } | null = null;
+  for (const entry of srcset.split(",")) {
+    const parts = entry.trim().split(/\s+/);
+    const url = parts[0]?.trim();
+    if (!url) continue;
+    const descriptor = parts[1]?.trim() ?? "";
+    let weight = 1;
+    const wMatch = descriptor.match(/^(\d+(?:\.\d+)?)w$/i);
+    const xMatch = descriptor.match(/^(\d+(?:\.\d+)?)x$/i);
+    if (wMatch) weight = Number(wMatch[1]);
+    else if (xMatch) weight = Number(xMatch[1]) * 1000; // density ranks above any plausible width
+    if (!best || weight > best.weight) best = { url, weight };
+  }
+  return best?.url ?? null;
+}
 
 export function normalizeUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -172,7 +197,19 @@ function upgradeWordPressSizedUrl(url: string): string | null {
  */
 function extractImagesFromHtml(html: string, baseUrl: string): string[] {
   const seen = new Set<string>();
+  // Tracks the query-stripped path so the same image with different cache-busting
+  // query params (?v=123, ?w=800) isn't added twice as separate "candidates".
+  const seenPaths = new Set<string>();
   const out: string[] = [];
+
+  const pathKey = (url: string): string => {
+    try {
+      const u = new URL(url);
+      return `${u.origin}${u.pathname}`.toLowerCase();
+    } catch {
+      return url.toLowerCase();
+    }
+  };
 
   const push = (raw: string | null | undefined) => {
     if (!raw) return;
@@ -185,14 +222,16 @@ function extractImagesFromHtml(html: string, baseUrl: string): string[] {
     // first. The sized variant goes in as backup (some sites delete the un-sized
     // original after resize → fallback ensures we still get an image).
     const upgraded = upgradeWordPressSizedUrl(abs);
-    if (upgraded && !seen.has(upgraded)) {
+    if (upgraded && !seen.has(upgraded) && !seenPaths.has(pathKey(upgraded))) {
       seen.add(upgraded);
+      seenPaths.add(pathKey(upgraded));
       out.push(upgraded);
       if (out.length >= MAX_IMAGES_PER_PAGE) return;
     }
 
-    if (seen.has(abs)) return;
+    if (seen.has(abs) || seenPaths.has(pathKey(abs))) return;
     seen.add(abs);
+    seenPaths.add(pathKey(abs));
     out.push(abs);
   };
 
@@ -241,10 +280,18 @@ function extractImagesFromHtml(html: string, baseUrl: string): string[] {
         tag.match(/\bsrc\s*=\s*["']([^"']+)["']/i)?.[1] ??
         tag.match(/\bdata-src\s*=\s*["']([^"']+)["']/i)?.[1] ??
         null;
-      if (!src) continue;
       const widthAttr = Number(tag.match(/\bwidth\s*=\s*["']?(\d+)/i)?.[1] ?? "0");
       const heightAttr = Number(tag.match(/\bheight\s*=\s*["']?(\d+)/i)?.[1] ?? "0");
       if ((widthAttr > 0 && widthAttr < 200) || (heightAttr > 0 && heightAttr < 200)) continue;
+
+      // Prefer the largest srcset variant (full-res) over the small `src`.
+      const srcset =
+        tag.match(/\bsrcset\s*=\s*["']([^"']+)["']/i)?.[1] ??
+        tag.match(/\bdata-srcset\s*=\s*["']([^"']+)["']/i)?.[1] ??
+        null;
+      const largest = largestFromSrcset(srcset);
+      if (largest) push(largest);
+      if (!src) continue;
       push(src);
     }
   }

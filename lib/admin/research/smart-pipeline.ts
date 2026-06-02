@@ -95,7 +95,7 @@ export type SmartResearchFields = {
   program_draft: ProgramDraft | null;
 };
 
-const MAX_IMAGE_CANDIDATES = 3;
+const MAX_IMAGE_CANDIDATES = 6;
 
 export type SmartResearchStepId = "serpapi" | "perplexity" | "gemini";
 export type SmartResearchStepStatus = "running" | "done" | "skipped" | "error";

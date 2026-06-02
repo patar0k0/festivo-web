@@ -21,7 +21,7 @@ export const PLANNER_TABLE_SELECT = {
   festivalsTemporal: "id,start_date,end_date,start_time,end_time,occurrence_dates",
   /** Minimal festival fields for mobile plan screen display. */
   festivalsBasic:
-    "id,slug,title,start_date,end_date,image_url,hero_image,category,is_verified,organizer_name,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,is_village),organizer:organizers!left(slug,name)",
+    "id,slug,title,start_date,end_date,image_url,hero_image,category,is_verified,organizer_name,festival_media(url,type,sort_order,is_hero),cities:cities!festivals_city_id_fkey(name_bg,is_village),organizer:organizers!festivals_organizer_id_fkey!left(slug,name)",
 } as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

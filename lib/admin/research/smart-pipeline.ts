@@ -193,9 +193,11 @@ export async function runSmartResearchPipeline(query: string): Promise<SmartRese
   //    (e.g. "Фестивал на хороигралците 'Харизмата на хорото' 2026" → try "Харизмата на хорото")
   // 2 SerpAPI кредита на търсене: 1× BG organic + 1× Google Images
   const [bgResult, gImageResult] = await Promise.all([
-    serpApiSearch(query, "bg").catch(() => ({ ai_overview_text: null, organic: [], image_urls: [] })),
+    serpApiSearch(query, "bg").catch(() => ({ ai_overview_text: null, organic: [], image_urls: [], warning: "SerpAPI заявка хвърли изключение." })),
     serpApiImageSearch(query, 8).catch(() => [] as string[]),
   ]);
+
+  if (bgResult.warning) warnings.push(bgResult.warning);
 
   const aiOverviewText = bgResult.ai_overview_text;
   const organic = bgResult.organic;

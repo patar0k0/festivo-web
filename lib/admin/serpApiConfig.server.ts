@@ -25,6 +25,14 @@ export async function toggleSerpApiKeyIndex(): Promise<SerpApiKeyIndex> {
   return next;
 }
 
+/** Persists a specific active SerpAPI key index. Used by automatic failover. */
+export async function setActiveSerpApiKeyIndex(index: SerpApiKeyIndex): Promise<void> {
+  const supabase = createSupabaseAdmin();
+  await supabase
+    .from("admin_config")
+    .upsert({ key: "serpapi_active_key", value: index, updated_at: new Date().toISOString() });
+}
+
 /** Returns the active SerpAPI key string from env vars. */
 export function resolveSerpApiKey(index: SerpApiKeyIndex): string | null {
   if (index === "2") return process.env.SERPAPI_KEY_2?.trim() || null;

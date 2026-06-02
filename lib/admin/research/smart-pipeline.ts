@@ -1,5 +1,6 @@
 import "server-only";
 import { serpApiSearch, serpApiImageSearch } from "@/lib/research/serpApiSearch";
+import { googleCseImageSearch, isGoogleCseConfigured } from "@/lib/research/googleImageSearch";
 import { researchFestival } from "@/lib/research/perplexity";
 import { extractFestivalFieldsFromEvidence } from "@/lib/admin/research/gemini-extract";
 import { isGeminiConfigured } from "@/lib/admin/research/gemini-provider";
@@ -246,11 +247,14 @@ export async function runSmartResearchPipeline(
   //  - google_images BG (short query, year stripped) → fallback for niche/future festivals
   //    where the full specific query yields 0 images in Google Images index
   //    (e.g. "Фестивал на хороигралците 'Харизмата на хорото' 2026" → try "Харизмата на хорото")
-  // 2 SerpAPI кредита на търсене: 1× BG organic + 1× Google Images
+  // 2 SerpAPI кредита на търсене: 1× BG organic + 1× Google Images.
+  // Google CSE (ако е конфигуриран) върви паралелно като допълнителен image
+  // източник с imgSize=large&imgType=photo — по-качествени корици от thumbnails.
   progress("serpapi", "running");
-  const [bgResult, gImageResult] = await Promise.all([
+  const [bgResult, gImageResult, cseImages] = await Promise.all([
     serpApiSearch(query, "bg").catch(() => ({ ai_overview_text: null, organic: [], image_urls: [], warning: "SerpAPI заявка хвърли изключение." })),
     serpApiImageSearch(query, 8).catch(() => [] as string[]),
+    googleCseImageSearch(query, 8).catch(() => [] as string[]),
   ]);
 
   if (bgResult.warning) warnings.push(bgResult.warning);
@@ -407,22 +411,24 @@ export async function runSmartResearchPipeline(
   // the whole feature):
   //   (a) per-doc og:image / JSON-LD / <img> from fetched HTML pages (real
   //       BG event sites — often the most accurate cover)
-  //   (b) engine=google_images (Google CDN thumbs via SerpAPI proxy)
-  //   (c) SerpAPI regular search inline_images / knowledge_graph
+  //   (b) Google CSE large photos (imgSize=large&imgType=photo) — high quality
+  //   (c) engine=google_images (Google CDN thumbs via SerpAPI proxy)
+  //   (d) SerpAPI regular search inline_images / knowledge_graph
   // Per-doc goes first because BG sites (when they don't hotlink-block) give
-  // the actual festival's hero image; SerpAPI proxies are a fallback.
+  // the actual festival's hero image; CSE large photos are the next best.
   const perDocImages: string[] = [];
   for (const doc of fetchedDocs) {
     for (const img of doc.images) perDocImages.push(img);
   }
   const candidates = pickTopImageCandidates(
-    [perDocImages, gImageResultMerged, serpInlineImages],
+    [perDocImages, cseImages, gImageResultMerged, serpInlineImages],
     MAX_IMAGE_CANDIDATES,
   );
 
   // Always emit a diagnostic so admins can see which source contributed (or didn't).
+  const cseNote = isGoogleCseConfigured() ? `${cseImages.length}` : "изкл.";
   warnings.push(
-    `Снимки: страници=${perDocImages.length}, google_images=${gImageResult.length}, serp=${serpInlineImages.length} → избрани ${candidates.length}.`,
+    `Снимки: страници=${perDocImages.length}, cse=${cseNote}, google_images=${gImageResult.length}, serp=${serpInlineImages.length} → избрани ${candidates.length}.`,
   );
   const fields: SmartResearchFields = {
     title: str(extraction?.title),

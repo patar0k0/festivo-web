@@ -386,6 +386,7 @@ Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending
 | `GEMINI_API_KEY` / `GOOGLE_AI_API_KEY` | AI research pipeline (Gemini) |
 | `GEMINI_RESEARCH_MODEL` | Override Gemini model (default `gemini-2.0-flash`) |
 | `PERPLEXITY_API_KEY` | URL discovery in admin research |
+| `GOOGLE_CSE_API_KEY` · `GOOGLE_CSE_CX` | Google Custom Search image source for smart research (optional; skipped if absent). `CX` = Programmable Search Engine ID |
 | `UPSTASH_REDIS_REST_URL` · `UPSTASH_REDIS_REST_TOKEN` | Rate limiting (optional; skipped if absent) |
 | `CSRF_ALLOWED_HOSTS` | Extra comma-separated POST origin allowlist |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` · `TURNSTILE_SECRET_KEY` | Bot protection on public forms |

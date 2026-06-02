@@ -19,7 +19,7 @@ export default async function AdminPromotionsPage() {
     promotion_status,
     promotion_expires_at,
     promotion_rank,
-    organizer:organizers!left (
+    organizer:organizers!festivals_organizer_id_fkey!left (
       id,
       name
     )

@@ -7,7 +7,7 @@
 
 import "server-only";
 
-import { GoogleGenerativeAI, type Tool } from "@google/generative-ai";
+import { GoogleGenerativeAI, type Part, type Tool } from "@google/generative-ai";
 
 const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-3.5-flash";
 // gemini-3.1-flash-lite has 500 RPD on the free tier (vs 20 for 3.5-flash, 0 for 2.0-flash)
@@ -372,6 +372,65 @@ export async function geminiExtractJson<T>(options: GeminiJsonExtractOptions): P
   } catch (err) {
     if (is429(err) && DEFAULT_MODEL !== FALLBACK_MODEL) {
       console.warn(`[gemini] 429 on ${DEFAULT_MODEL}, retrying with fallback ${FALLBACK_MODEL}`);
+      return await runWithModel(FALLBACK_MODEL);
+    }
+    throw err;
+  }
+}
+
+export type GeminiInlineImage = { mimeType: string; /** base64 (no data: prefix) */ data: string };
+
+/**
+ * Multimodal structured JSON extraction: same JSON-mode contract as
+ * `geminiExtractJson` but with inline image parts attached to the user turn.
+ * Used by the image reranker to score candidate festival covers by relevance.
+ */
+export async function geminiExtractJsonWithImages<T>(options: {
+  systemInstruction: string;
+  userText: string;
+  images: GeminiInlineImage[];
+  onModelUsed?: (modelId: string) => void;
+}): Promise<T> {
+  const generationConfig: Record<string, unknown> = {
+    temperature: 0.1,
+    topP: 0.95,
+    maxOutputTokens: 2048,
+    responseMimeType: "application/json",
+  };
+
+  const genAI = getGenAI();
+
+  async function runWithModel(modelId: string): Promise<T> {
+    const model = genAI.getGenerativeModel({ model: modelId });
+    const parts: Part[] = [{ text: options.userText }];
+    for (const img of options.images) {
+      parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+    }
+    const result = await model.generateContent(
+      {
+        systemInstruction: options.systemInstruction,
+        contents: [{ role: "user", parts }],
+        generationConfig: generationConfig as never,
+      },
+      { timeout: DEFAULT_TIMEOUT_MS },
+    );
+    const json = toGeminiGenerateResponse(result);
+    const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+    if (!text.trim()) throw new Error("Gemini returned empty JSON");
+    try {
+      const parsed = JSON.parse(text) as T;
+      options.onModelUsed?.(modelId);
+      return parsed;
+    } catch {
+      throw new Error("Gemini JSON parse failed");
+    }
+  }
+
+  try {
+    return await runWithModel(DEFAULT_MODEL);
+  } catch (err) {
+    if (is429(err) && DEFAULT_MODEL !== FALLBACK_MODEL) {
+      console.warn(`[gemini] 429 on ${DEFAULT_MODEL} (vision), retrying with fallback ${FALLBACK_MODEL}`);
       return await runWithModel(FALLBACK_MODEL);
     }
     throw err;

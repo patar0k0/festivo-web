@@ -1,6 +1,7 @@
 import "server-only";
 import { serpApiSearch, serpApiImageSearch } from "@/lib/research/serpApiSearch";
 import { googleCseImageSearch, isGoogleCseConfigured } from "@/lib/research/googleImageSearch";
+import { rerankImageCandidates } from "@/lib/admin/research/imageReranker";
 import { researchFestival } from "@/lib/research/perplexity";
 import { extractFestivalFieldsFromEvidence } from "@/lib/admin/research/gemini-extract";
 import { isGeminiConfigured } from "@/lib/admin/research/gemini-provider";
@@ -98,7 +99,7 @@ export type SmartResearchFields = {
 
 const MAX_IMAGE_CANDIDATES = 6;
 
-export type SmartResearchStepId = "serpapi" | "perplexity" | "gemini";
+export type SmartResearchStepId = "serpapi" | "perplexity" | "gemini" | "images";
 export type SmartResearchStepStatus = "running" | "done" | "skipped" | "error";
 
 /** Real-time progress callback so the API can stream pipeline stages to the UI. */
@@ -420,7 +421,7 @@ export async function runSmartResearchPipeline(
   for (const doc of fetchedDocs) {
     for (const img of doc.images) perDocImages.push(img);
   }
-  const candidates = pickTopImageCandidates(
+  let candidates = pickTopImageCandidates(
     [perDocImages, cseImages, gImageResultMerged, serpInlineImages],
     MAX_IMAGE_CANDIDATES,
   );
@@ -430,6 +431,24 @@ export async function runSmartResearchPipeline(
   warnings.push(
     `Снимки: страници=${perDocImages.length}, cse=${cseNote}, google_images=${gImageResult.length}, serp=${serpInlineImages.length} → избрани ${candidates.length}.`,
   );
+
+  // Step 7: AI vision rerank — score candidates by how well they represent this
+  // festival and reorder so the best real cover is first, junk (logos/maps) last.
+  // Kill-switch: SMART_RESEARCH_IMAGE_RERANK=0. Best-effort; failures keep order.
+  const rerankTitle = str(extraction?.title) ?? query;
+  if (process.env.SMART_RESEARCH_IMAGE_RERANK !== "0" && candidates.length > 1) {
+    progress("images", "running");
+    const reranked = await rerankImageCandidates({
+      candidates,
+      title: rerankTitle,
+      city: str(extraction?.city),
+    });
+    candidates = reranked.ordered;
+    warnings.push(...reranked.notes);
+    progress("images", "done", reranked.notes[0]);
+  } else {
+    progress("images", "skipped", candidates.length <= 1 ? "няма какво да се подрежда" : "изключен");
+  }
   const fields: SmartResearchFields = {
     title: str(extraction?.title),
     start_date: str(extraction?.start_date),

@@ -19,6 +19,7 @@ const INITIAL_STEPS: PipelineStep[] = [
   { id: "serpapi", label: "Google Search (EN + BG)", status: "pending" },
   { id: "perplexity", label: "Perplexity (допълнение)", status: "pending" },
   { id: "gemini", label: "Gemini extraction", status: "pending" },
+  { id: "images", label: "AI подбор на снимка", status: "pending" },
 ];
 
 function StepIcon({ status }: { status: PhaseStatus }) {
@@ -468,6 +469,14 @@ export default function SmartResearchPanel() {
         detail: used.includes("gemini")
           ? [r.gemini_model, `увереност: ${r.confidence}`].filter(Boolean).join(" · ")
           : warns.find((w) => w.toLowerCase().includes("gemini"))?.slice(0, 80),
+      },
+      {
+        id: "images",
+        label: "AI подбор на снимка",
+        // Derived from the Vision reranker notes the pipeline appends to warnings
+        // (covers cache hits where no live progress events fired).
+        status: warns.some((w) => w.startsWith("Vision:")) ? "done" : "skipped",
+        detail: warns.find((w) => w.startsWith("Vision:"))?.slice(7).trim(),
       },
     ]);
   };

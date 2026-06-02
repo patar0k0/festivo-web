@@ -356,9 +356,10 @@ export async function fetchSavedFestivalsBasicData(
     .from("festivals")
     .select(PLANNER_TABLE_SELECT.festivalsBasic)
     .in("id", festivalIds)
-    .order("start_date", { ascending: true });
+    .order("start_date", { ascending: true })
+    .returns<SavedFestivalBasicRow[]>();
   if (error) return { rows: [], meta: { errorMessage: error.message } };
-  return { rows: (data ?? []) as SavedFestivalBasicRow[], meta: {} };
+  return { rows: data ?? [], meta: {} };
 }
 
 export type MobilePlannerBundle = {

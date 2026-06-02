@@ -12,28 +12,18 @@ export default async function AdminPromotionsPage() {
   const { data, error } = await ctx.supabase
     .from("festivals")
     .select(
-      `
-    id,
-    title,
-    slug,
-    promotion_status,
-    promotion_expires_at,
-    promotion_rank,
-    organizer:organizers!festivals_organizer_id_fkey!left (
-      id,
-      name
-    )
-  `,
+      "id,title,slug,promotion_status,promotion_expires_at,promotion_rank,organizer:organizers!festivals_organizer_id_fkey!left(id,name)",
     )
     .eq("promotion_status", "promoted")
-    .order("promotion_expires_at", { ascending: true });
+    .order("promotion_expires_at", { ascending: true })
+    .returns<PromotedFestivalRaw[]>();
 
   if (error) {
     console.error("[admin/promotions] festivals query failed", error.message);
     throw new Error(`Failed to load promoted festivals: ${error.message}`);
   }
 
-  const rows = normalizePromotedRows((data ?? []) as PromotedFestivalRaw[]);
+  const rows = normalizePromotedRows(data ?? []);
 
   return (
     <div className="space-y-3">

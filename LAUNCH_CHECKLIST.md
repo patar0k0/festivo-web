@@ -128,7 +128,7 @@
 - [x] Favicons full set (16/32/180/512) — дублиращ запис; генерирани с sharp от brand SVG (PR #435, ден 3-4)
 
 ### Operational
-- [ ] Supabase backups — GitHub Actions → Cloudflare R2 daily pg_dump
+- [x] Supabase backups — GitHub Actions → Cloudflare R2 daily pg_dump (PR #505, активен от 2 юни 2026; cron 03:00 UTC, 30-day retention в bucket `festivo-db-backups`)
 - [ ] Cross-browser test (Chrome, Safari iOS, Firefox, Edge)
 - [ ] Real mobile test (iPhone + Android)
 - [ ] Newsletter sending strategy — Resend Audiences + Broadcasts setup

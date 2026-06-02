@@ -150,7 +150,7 @@ Every migration must include: tables · indexes · constraints · RLS policies.
 
 ### Important tables
 
-`cities` · `festivals` · `pending_festivals` · `ingest_jobs` · `festival_days` · `festival_schedule_items` · `festival_media` · `festival_organizers` · `organizers` · `organizer_members` · `organizer_promotion_credits` · `user_plan_festivals` · `user_plan_items` · `user_plan_reminders` · `user_notification_settings` · `user_email_preferences` · `user_followed_cities` · `user_followed_organizers` · `notification_jobs` · `notification_logs` · `push_delivery_audit` · `email_jobs` · `email_events` · `device_tokens` · `location_cache` · `discovery_sources` · `cron_locks` · `admin_audit_logs` · `user_sweep_retry_queue`
+`cities` · `festivals` · `pending_festivals` · `ingest_jobs` · `festival_days` · `festival_schedule_items` · `festival_media` · `festival_organizers` · `organizers` · `organizer_members` · `organizer_promotion_credits` · `user_plan_festivals` · `user_plan_items` · `user_plan_reminders` · `user_notification_settings` · `user_email_preferences` · `user_followed_cities` · `user_followed_organizers` · `notification_jobs` · `notification_logs` · `push_delivery_audit` · `email_jobs` · `email_events` · `device_tokens` · `location_cache` · `discovery_sources` · `cron_locks` · `admin_audit_logs` · `user_sweep_retry_queue` · `admin_config` · `research_smart_cache`
 
 ### Table naming conventions
 

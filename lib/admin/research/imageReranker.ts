@@ -76,6 +76,19 @@ async function fetchAndDownscale(url: string): Promise<DownloadedImage | null> {
 
 type RankEntry = { index: number; score: number; is_relevant: boolean; kind?: string };
 
+/** Lower is better as a hero: real photos/posters beat generic, which beat logos/maps. */
+function kindRank(kind?: string): number {
+  const k = (kind ?? "").toLowerCase();
+  if (/снимка|photo|афиш|poster/.test(k)) return 0;
+  if (/лого|logo|карта|map|икона|icon|скрийншот|screenshot|банер|banner/.test(k)) return 2;
+  return 1;
+}
+
+/** Kinds that must never be the default hero, regardless of model relevance flag. */
+function isJunkKind(kind?: string): boolean {
+  return /лого|logo|карта|map|икона|icon|скрийншот|screenshot|банер|banner/.test((kind ?? "").toLowerCase());
+}
+
 export type ImageRerankResult = {
   /** Candidate URLs reordered best-first. Always a permutation of the input. */
   ordered: string[];
@@ -146,7 +159,9 @@ export async function rerankImageCandidates(params: {
     if (!u) continue;
     const url = pool[u.poolIndex]!;
     const score = Number.isFinite(entry.score) ? Math.max(0, Math.min(100, entry.score)) : 0;
-    scoreByUrl.set(url, { score, relevant: entry.is_relevant !== false, kind: entry.kind });
+    // Logos/maps/banners are never a valid hero even if the model flags them relevant.
+    const relevant = entry.is_relevant !== false && !isJunkKind(entry.kind);
+    scoreByUrl.set(url, { score, relevant, kind: entry.kind });
   }
 
   // Reorder the reranked pool: relevant first, then by score desc. URLs without a
@@ -158,7 +173,10 @@ export async function rerankImageCandidates(params: {
     const sa = scoreByUrl.get(a)!;
     const sb = scoreByUrl.get(b)!;
     if (sa.relevant !== sb.relevant) return sa.relevant ? -1 : 1;
-    return sb.score - sa.score;
+    if (sb.score !== sa.score) return sb.score - sa.score;
+    // Tiebreak (e.g. all scored 0 / uniformly irrelevant): prefer a real photo
+    // over a logo/map so the fallback default hero is still the best available.
+    return kindRank(sa.kind) - kindRank(sb.kind);
   });
 
   const ordered = [...scored, ...unscored, ...rest];

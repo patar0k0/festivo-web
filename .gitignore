@@ -51,3 +51,4 @@ next-env.d.ts
 # Claude Code local state (worktrees, settings backups)
 .claude/worktrees/
 .claude/settings.json.bak
+.claude/settings.local.json

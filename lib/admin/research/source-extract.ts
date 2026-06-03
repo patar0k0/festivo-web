@@ -1,4 +1,5 @@
 import type { ResearchLanguageSignal } from "@/lib/admin/research/types";
+import { isPrivateHost } from "@/lib/admin/research/isPrivateHost";
 
 export type ExtractedSourceDocument = {
   url: string;
@@ -331,6 +332,12 @@ function pickUserAgent(url: string): string {
 export async function fetchSourceDocument(url: string): Promise<ExtractedSourceDocument | null> {
   const normalizedUrl = normalizeUrl(url);
   if (!normalizedUrl) return null;
+
+  try {
+    if (isPrivateHost(new URL(normalizedUrl).hostname)) return null;
+  } catch {
+    return null;
+  }
 
   const response = await fetch(normalizedUrl, {
     method: "GET",

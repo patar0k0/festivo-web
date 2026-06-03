@@ -2,6 +2,8 @@ import "server-only";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import type { SmartResearchResult } from "@/lib/admin/research/smart-pipeline";
 
+const admin = createSupabaseAdmin();
+
 /**
  * Best-effort cache for Smart Research results, backed by `research_smart_cache`
  * (see scripts/sql/20260602_research_smart_cache.sql). Saves SerpAPI credits +
@@ -29,7 +31,6 @@ export async function getCachedSmartResearch(query: string): Promise<CachedSmart
   const key = normalizeQueryKey(query);
   if (!key) return null;
   try {
-    const admin = createSupabaseAdmin();
     const { data, error } = await admin
       .from("research_smart_cache")
       .select("result,created_at")
@@ -41,7 +42,10 @@ export async function getCachedSmartResearch(query: string): Promise<CachedSmart
     const age = Date.now() - new Date(data.created_at as string).getTime();
     if (!Number.isFinite(age) || age > TTL_MS) return null;
 
-    return { result: data.result as SmartResearchResult, cachedAt: data.created_at as string };
+    const result = data.result as SmartResearchResult;
+    if (!result || typeof result !== "object" || !result.fields || !result.confidence) return null;
+
+    return { result, cachedAt: data.created_at as string };
   } catch {
     return null;
   }
@@ -51,7 +55,6 @@ export async function setCachedSmartResearch(query: string, result: SmartResearc
   const key = normalizeQueryKey(query);
   if (!key) return;
   try {
-    const admin = createSupabaseAdmin();
     await admin.from("research_smart_cache").upsert(
       {
         query_key: key,

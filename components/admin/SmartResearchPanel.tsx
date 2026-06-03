@@ -1,7 +1,7 @@
 // components/admin/SmartResearchPanel.tsx
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, startTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { SmartResearchResult, SmartResearchFields } from "@/lib/admin/research/smart-pipeline";
 import type { DuplicateMatch } from "@/lib/admin/research/findDuplicateFestivals";
@@ -511,6 +511,7 @@ export default function SmartResearchPanel() {
     setIsEditing(false);
     setIsLoading(true);
 
+    let sseReader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     try {
       const res = await fetch("/admin/api/research-smart", {
         method: "POST",
@@ -526,7 +527,8 @@ export default function SmartResearchPanel() {
       }
 
       // Consume the SSE stream: real per-stage progress + a final result/error.
-      const reader = res.body.getReader();
+      sseReader = res.body.getReader();
+      const reader = sseReader;
       const decoder = new TextDecoder();
       let buffer = "";
       let gotResult = false;
@@ -578,6 +580,7 @@ export default function SmartResearchPanel() {
       setSteps((prev) => prev.map((s) => (s.status === "running" ? { ...s, status: "error" } : s)));
       setError(e instanceof Error ? e.message : "Неочаквана грешка.");
     } finally {
+      sseReader?.cancel().catch(() => {});
       setIsLoading(false);
     }
   };
@@ -798,7 +801,7 @@ export default function SmartResearchPanel() {
                   <OrganizerLine fields={view} />
                   <FieldRow label="Вход" value={typeof view.is_free === "boolean" ? view.is_free : null} />
                   <FieldRow label="Категория" value={view.category} />
-                  {view.tags.length > 0 && <FieldRow label="Тагове" value={view.tags} />}
+                  {Array.isArray(view.tags) && view.tags.length > 0 && <FieldRow label="Тагове" value={view.tags} />}
                 </div>
 
                 {/* Description */}
@@ -857,7 +860,7 @@ export default function SmartResearchPanel() {
                             className="aspect-video w-full object-cover"
                             referrerPolicy="no-referrer"
                             onError={() => {
-                              setFailedImages((prev) => new Set(prev).add(url));
+                              startTransition(() => setFailedImages((prev) => new Set(prev).add(url)));
                             }}
                           />
                         )}

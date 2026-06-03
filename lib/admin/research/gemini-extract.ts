@@ -220,6 +220,7 @@ export async function extractFestivalFieldsFromEvidence(input: {
       await geminiExtractJson<GeminiRawExtraction>({
         systemInstruction: buildSystem(input.categories ?? []),
         userText,
+        responseSchema: EXTRACTION_SCHEMA,
         onModelUsed: input.onModelUsed,
       }),
     );

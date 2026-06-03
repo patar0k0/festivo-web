@@ -37,7 +37,7 @@ export function getSourceAuthorityTier(source: Pick<ResearchSource, "url" | "dom
   return "tier3_reference";
 }
 
-const TIER_SCORE: Record<SourceAuthorityTier, number> = {
+export const TIER_SCORE: Record<SourceAuthorityTier, number> = {
   tier1_official: 100,
   tier2_reputable: 70,
   tier3_reference: 40,

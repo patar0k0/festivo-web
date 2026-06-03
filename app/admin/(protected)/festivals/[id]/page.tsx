@@ -97,7 +97,10 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
   }
 
   // Plan users count
-  const planUsersCount = planCountResult.status === "fulfilled" ? (planCountResult.value.count ?? 0) : 0;
+  const planUsersCount =
+    planCountResult.status === "fulfilled" && !planCountResult.value.error
+      ? (planCountResult.value.count ?? 0)
+      : 0;
 
   // Categories
   const categories = categoriesResult.status === "fulfilled" ? categoriesResult.value : [];

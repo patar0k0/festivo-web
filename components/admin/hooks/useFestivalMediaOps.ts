@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
@@ -43,6 +43,19 @@ export function useFestivalMediaOps({
   const [videoUrl, setVideoUrl] = useState(initialVideoUrl);
   const [galleryImportUrl, setGalleryImportUrl] = useState("");
 
+  // Sync videoUrl when server data changes after router.refresh()
+  const prevInitialVideoUrl = useRef(initialVideoUrl);
+  useEffect(() => {
+    if (initialVideoUrl !== prevInitialVideoUrl.current) {
+      prevInitialVideoUrl.current = initialVideoUrl;
+      setVideoUrl(initialVideoUrl);
+    }
+  }, [initialVideoUrl]);
+
+  // Stable refs for props used inside async callbacks — avoids stale closures
+  const heroImageUrlRef = useRef(heroImageUrl);
+  useEffect(() => { heroImageUrlRef.current = heroImageUrl; }, [heroImageUrl]);
+
   const galleryOpsBusy = galleryBusy || importingGalleryFromUrl;
 
   const commitHeroFromUrl = async (sourceUrl: string) => {
@@ -71,7 +84,7 @@ export function useFestivalMediaOps({
     }
   };
 
-  const importHeroImageFromUrl = () => commitHeroFromUrl(heroImageUrl.trim());
+  const importHeroImageFromUrl = () => commitHeroFromUrl(heroImageUrlRef.current.trim());
 
   const uploadHeroImageFile = async (file: File) => {
     if (!heroHasImage && galleryImageCount >= mediaLimitGallery) {
@@ -146,7 +159,7 @@ export function useFestivalMediaOps({
       const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
       if (!res.ok || !payload?.ok) throw new Error(payload?.error ?? "Премахването не бе успешно.");
       toast.success("Снимката е премахната от галерията.");
-      if (imageUrl.trim() && heroImageUrl.trim() === imageUrl.trim()) onHeroImageChange("");
+      if (imageUrl.trim() && heroImageUrlRef.current.trim() === imageUrl.trim()) onHeroImageChange("");
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Грешка при премахване.");

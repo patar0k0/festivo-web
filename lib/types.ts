@@ -43,6 +43,9 @@ export type Festival = {
   program_draft?: unknown;
   tags?: string[] | null;
   status?: string | null;
+  lifecycle_state?: "active" | "cancelled" | null;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
   is_verified?: boolean | null;
   promotion_status?: "normal" | "promoted" | null;
   promotion_started_at?: string | null;

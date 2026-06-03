@@ -54,6 +54,7 @@ type EventCardProps = {
    * section above the fold). Defaults to false (lazy).
    */
   priority?: boolean;
+  isCancelled?: boolean;
 };
 
 function getDateBadge(date?: string | null) {
@@ -116,6 +117,7 @@ export default function EventCard({
   startTime,
   endTime,
   priority = false,
+  isCancelled = false,
 }: EventCardProps) {
   const badge = getDateBadge(startDate);
   const dateText = dateLine?.trim() ? dateLine : formatContinuousFestivalRangeBg(startDate, endDate);
@@ -216,6 +218,12 @@ export default function EventCard({
             className="absolute right-3 top-3 z-10"
           />
         ) : null}
+
+        {isCancelled && (
+          <span className="absolute left-2 top-2 z-10 rounded bg-red-600 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">
+            ОТМЕНЕН
+          </span>
+        )}
       </div>
 
       <CardContent className="flex flex-1 flex-col p-5">

@@ -1056,7 +1056,6 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
           }
         }
         updateField("coords_override", false);
-        const coords = { lat: payload.lat, lng: payload.lng };
         const sourceHint = payload.query_used ? ` · ${payload.query_used}` : "";
         toast.success(`Координатите са намерени${sourceHint}`);
       } else if (mapsFailed) {
@@ -1546,7 +1545,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                 />
               ) : (
                 <div className="mt-3 flex h-[140px] w-full items-center justify-center rounded-xl border border-dashed border-black/[0.12] bg-black/[0.02] md:col-span-2">
-                  <p className="text-xs text-black/35">Попълнете координати или потърсете чрез „Намери координати", за да се покаже картата.</p>
+                  <p className="text-xs text-black/35">Попълнете координати или използвайте бутона Намери координати, за да се покаже картата.</p>
                 </div>
               );
             })()}

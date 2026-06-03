@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { getSessionUserIdReadOnly } from "@/lib/middlewareSession";
+import { getRateLimitUserId } from "@/lib/middlewareSession";
 import { canBypassJobsRateLimit, checkPublicPageRateLimit, checkRateLimit } from "@/lib/rateLimit";
 import { guardMobileApiRequest } from "@/lib/mobileApiGuard";
 import { verifyApiPostOrigin } from "@/lib/postOriginGuard";
@@ -171,7 +171,7 @@ export async function middleware(request: NextRequest) {
     const shouldApplyRateLimit = !skipRateLimitForPath && !canBypassJobsRateLimit(request);
     if (shouldApplyRateLimit) {
       try {
-        const userId = await getSessionUserIdReadOnly(request);
+        const userId = await getRateLimitUserId(request);
         const rate = await checkRateLimit(request, userId);
         if (rate.limited) {
           return NextResponse.json(

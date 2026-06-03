@@ -327,7 +327,7 @@ user_plan_reminders → GET /api/jobs/reminders → user_notifications → GET /
 
 **Cron:** single entry in `vercel.json` → `GET /api/cron/worker` every 5 minutes. Runs notification batching, email jobs, reminder/push jobs, weekend digest scheduling, and user sweep retry. All job endpoints accept `x-job-secret: JOBS_SECRET`. Overlap prevented by `cron_locks`.
 
-**Push providers:** `PUSH_PROVIDER=fcm` (default, legacy HTTP) or `expo`. Controlled by `PUSH_ENABLED`. Missing FCM key does not abort the runner — push is optional within a job run.
+**Push providers:** by default each device token is auto-routed to its provider by token shape — `ExponentPushToken…` → Expo Push API, anything else → legacy FCM HTTP. A single user may hold both kinds. `PUSH_PROVIDER=expo`|`fcm` forces all tokens through one provider (legacy / kill-switch); leave it unset for auto-routing. Controlled by `PUSH_ENABLED`. Missing FCM key does not abort the runner — push is optional within a job run.
 
 **Push audit:** every send attempt is written to `push_delivery_audit`. Mobile inbox reads from `GET /api/notifications/inbox`. Open events: `POST /api/push/open`.
 
@@ -382,7 +382,7 @@ Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending
 | `EMAIL_REPLY_TO` | Reply-To header for Resend (optional) |
 | `EMAIL_ENABLED` | Set to `false` to queue emails without sending (dev/staging) |
 | `FCM_SERVER_KEY` | Push — FCM legacy HTTP |
-| `PUSH_ENABLED` · `PUSH_PROVIDER` | Push control (`fcm` or `expo`) |
+| `PUSH_ENABLED` · `PUSH_PROVIDER` | Push control. `PUSH_PROVIDER` unset = auto-route per token (Expo/FCM by shape); set to `expo`/`fcm` to force one provider |
 | `GEMINI_API_KEY` / `GOOGLE_AI_API_KEY` | AI research pipeline (Gemini) |
 | `GEMINI_RESEARCH_MODEL` | Override Gemini model (default `gemini-2.0-flash`) |
 | `PERPLEXITY_API_KEY` | URL discovery in admin research |

@@ -43,7 +43,7 @@ export default function CurrentFestivalsSection({ currentFestivals }: Props) {
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:gap-6">
         {currentFestivals.slice(0, 3).map((festival, index) => (
           <EventCard
-            key={festival.slug}
+            key={festival.id}
             priority={index === 0}
             title={festival.title}
             city={getFestivalLocationDisplay(festival).city ?? ""}

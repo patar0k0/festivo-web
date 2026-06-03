@@ -7,6 +7,7 @@ import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategories.server";
 import { getCalendarMonth } from "@/lib/queries";
 import { calendarMeta, getBaseUrl } from "@/lib/seo";
+import { sofiaWallClockNow } from "@/lib/festival/temporal";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 
@@ -20,11 +21,11 @@ function resolveMonth(searchParams: Record<string, string | string[] | undefined
     return monthParam;
   }
 
-  return format(new Date(), "yyyy-MM");
+  return sofiaWallClockNow().ymd.substring(0, 7);
 }
 
 function buildInitialSelectedDay(days: string[], eventsByDay: Record<string, { slug: string }[]>) {
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = sofiaWallClockNow().ymd;
   if (days.includes(today)) {
     return today;
   }

@@ -1070,7 +1070,7 @@ export default function FestivalEditForm({
           <div className="md:col-span-2">
             <AdminFieldLabel field="occurrenceDays" />
             <div className="mt-0">
-              <OccurrenceDaysEditor value={occurrenceDays} onChange={setOccurrenceDays} disabled={savingForm || Boolean(actionPending)} />
+              <OccurrenceDaysEditor value={occurrenceDays} onChange={(days) => { setOccurrenceDays(days); setIsDirty(true); }} disabled={savingForm || Boolean(actionPending)} />
             </div>
           </div>
         </AdminFieldGrid>
@@ -1081,7 +1081,7 @@ export default function FestivalEditForm({
         description="Публично разписание по часове (сцени и събития). При запис в каталога се записва като отделни дни и точки в програмата."
         variant="default"
       >
-        <ProgramDraftEditor ref={programEditorRef} value={programDraft} onChange={setProgramDraft} />
+        <ProgramDraftEditor ref={programEditorRef} value={programDraft} onChange={(draft) => { setProgramDraft(draft); setIsDirty(true); }} />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -1508,7 +1508,7 @@ export default function FestivalEditForm({
             <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">URL на видеото</span>
             <input
               value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
+              onChange={(e) => { setVideoUrl(e.target.value); setIsDirty(true); }}
               placeholder="https://www.youtube.com/watch?v=… или Facebook видео линк"
               className={ADMIN_ENTITY_CONTROL_CLASS}
             />

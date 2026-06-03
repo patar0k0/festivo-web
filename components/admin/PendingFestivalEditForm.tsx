@@ -348,19 +348,26 @@ function suggestionStateLabel(status: SuggestionComparisonStatus, applied: boole
 }
 
 function validateCoords(latitudeRaw: string, longitudeRaw: string) {
-  if (!latitudeRaw && !longitudeRaw) {
+  const latEmpty = !latitudeRaw.trim();
+  const lngEmpty = !longitudeRaw.trim();
+
+  if (latEmpty && lngEmpty) {
     return { valid: true, message: "" };
+  }
+
+  if (latEmpty !== lngEmpty) {
+    return { valid: false, message: "Попълнете и двете координати или оставете и двете празни." };
   }
 
   const latitude = Number(latitudeRaw);
   const longitude = Number(longitudeRaw);
 
   if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
-    return { valid: false, message: "Latitude and longitude must be numbers." };
+    return { valid: false, message: "Координатите трябва да са числа." };
   }
 
   if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-    return { valid: false, message: "Coordinates are out of valid range." };
+    return { valid: false, message: "Координатите са извън валиден диапазон." };
   }
 
   return { valid: true, message: "" };
@@ -380,9 +387,9 @@ function qualityBucketTone(bucket: PendingFestivalQuality["quality_bucket"]) {
 }
 
 function qualityBucketLabel(bucket: PendingFestivalQuality["quality_bucket"]) {
-  if (bucket === "ready") return "Ready";
-  if (bucket === "needs_fix") return "Needs fix";
-  return "Weak";
+  if (bucket === "ready") return "Готов";
+  if (bucket === "needs_fix") return "Нужда от корекция";
+  return "Слаб";
 }
 
 function asInputValue(value: unknown) {
@@ -1063,11 +1070,11 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
       } else {
         toast.error("Не открихме координати за тази локация");
       }
-    } catch {
+    } catch (e) {
       if (mapsFailed) {
         toast.error("Не можахме да извлечем координати от линка");
       } else {
-        toast.error("Неуспешно намиране на координати");
+        toast.error(e instanceof Error ? e.message : "Неуспешно намиране на координати");
       }
     } finally {
       setFindingCoords(false);
@@ -1093,11 +1100,11 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
       const payload = (await response.json().catch(() => null)) as (DecisionResponse & ErrorPayload) | null;
 
       if (!response.ok) {
-        throw new Error(payload?.error ?? `Failed to ${action}. (${response.status})`);
+        throw new Error(payload?.error ?? `Грешка при ${action === "approve" ? "одобрение" : "отхвърляне"}. (${response.status})`);
       }
 
       if (!payload?.ok) {
-        throw new Error(payload?.error ?? `Failed to ${action}.`);
+        throw new Error(payload?.error ?? `Неуспешно ${action === "approve" ? "одобрение" : "отхвърляне"}.`);
       }
 
       if (action === "approve") {
@@ -1136,7 +1143,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   const removeHeroImage = async () => {
     if (savingForm || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     if (!form.hero_image.trim()) {
-      toast.error("There is no hero image to remove.");
+      toast.error("Няма главно изображение за премахване.");
       return;
     }
 
@@ -1150,12 +1157,12 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
 
       const payload = (await response.json().catch(() => null)) as HeroImageUploadResponse | null;
       if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error ?? "Failed to remove hero image.");
+        throw new Error(payload?.error ?? "Неуспешно премахване на главното изображение.");
       }
 
       updateField("hero_image", "");
       setHeroImageSourceState(null);
-      toast.success("Hero image removed.");
+      toast.success("Главното изображение е премахнато.");
       router.refresh();
     } catch (removeError) {
       toast.error(removeError instanceof Error ? removeError.message : "Unexpected hero image remove error.");
@@ -1324,6 +1331,14 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
             </button>
             <button
               type="button"
+              onClick={() => runDecision("reject")}
+              disabled={savingForm || Boolean(runningAction)}
+              className="rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-amber-800 disabled:opacity-50"
+            >
+              {runningAction === "reject" ? "Отхвърляне..." : "Отхвърли"}
+            </button>
+            <button
+              type="button"
               onClick={() => runDecision("approve")}
               disabled={savingForm || Boolean(runningAction)}
               className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
@@ -1395,7 +1410,11 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
               </select>
             </AdminFieldInlineRow>
             <AdminFieldInlineRow field="status">
-              <input value={form.status} onChange={(e) => updateField("status", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
+              <select value={form.status} onChange={(e) => updateField("status", e.target.value as typeof form.status)} className={ADMIN_ENTITY_CONTROL_CLASS}>
+                <option value="pending">pending</option>
+                <option value="approved">approved</option>
+                <option value="rejected">rejected</option>
+              </select>
             </AdminFieldInlineRow>
             <AdminFieldInlineRow as="div" field="isFree">
               <input
@@ -1456,7 +1475,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
               <div className="mt-0">
                 <OccurrenceDaysEditor
                   value={occurrenceDays}
-                  onChange={setOccurrenceDays}
+                  onChange={(days) => { setOccurrenceDays(days); setIsDirty(true); }}
                   disabled={savingForm || Boolean(runningAction)}
                 />
               </div>
@@ -1469,7 +1488,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
           description="Публично разписание по часове. При одобрение става видимо в каталога като отделни дни и точки в програмата."
           variant="default"
         >
-          <ProgramDraftEditor value={programDraft} onChange={setProgramDraft} />
+          <ProgramDraftEditor value={programDraft} onChange={(draft) => { setProgramDraft(draft); setIsDirty(true); }} />
         </AdminFieldSection>
 
         <AdminFieldSection
@@ -1489,7 +1508,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                 />
               </AdminFieldInlineRow>
               {pendingFestival.city_id === null && normalizeDisplayValue(form.city_id) ? (
-                <p className="text-xs text-black/50">Unresolved settlement (free text)</p>
+                <p className="text-xs text-black/50">Неразпознато населено място (свободен текст)</p>
               ) : null}
             </div>
             <label className="md:col-span-2">
@@ -2013,7 +2032,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                   <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-black/55">URL на видеото</span>
                   <input
                     value={videoUrlExtra}
-                    onChange={(e) => setVideoUrlExtra(e.target.value)}
+                    onChange={(e) => { setVideoUrlExtra(e.target.value); setIsDirty(true); }}
                     placeholder="https://www.youtube.com/watch?v=… или Facebook видео линк"
                     className={ADMIN_ENTITY_CONTROL_CLASS}
                   />

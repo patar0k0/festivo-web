@@ -17,7 +17,6 @@ type PipelineStep = {
 
 const INITIAL_STEPS: PipelineStep[] = [
   { id: "serpapi", label: "Google Search + AI Mode", status: "pending" },
-  { id: "perplexity", label: "Perplexity (допълнение)", status: "pending" },
   { id: "gemini", label: "Gemini extraction", status: "pending" },
   { id: "images", label: "AI подбор на снимка", status: "pending" },
 ];
@@ -465,12 +464,6 @@ export default function SmartResearchPanel() {
           ].filter(Boolean);
           return parts.join(" + ");
         })(),
-      },
-      {
-        id: "perplexity",
-        label: "Perplexity (допълнение)",
-        status: used.includes("perplexity") ? "done" : "skipped",
-        detail: used.includes("perplexity") ? "добавен контекст" : "пропуснат (достатъчно резултати)",
       },
       {
         id: "gemini",

@@ -389,7 +389,7 @@ export async function serpApiAiMode(query: string): Promise<SerpApiAiModeResult>
 
   const { json, failedOver, fatalError } = await fetchSerpApiWithFailover(
     (apiKey) => ({ engine: "google_ai_mode", q: query, hl: "bg", gl: "bg", api_key: apiKey }),
-    30_000,
+    15_000,
   );
 
   if (json.error || fatalError) {

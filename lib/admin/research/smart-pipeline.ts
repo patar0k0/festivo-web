@@ -170,13 +170,12 @@ function domainFrom(url: string): string {
   }
 }
 
-/** Returns true when the ISO date string is strictly before today (Europe/Sofia-ish, date-only). */
+/** Returns true when the ISO date string is strictly before today in Europe/Sofia timezone. */
 function isPastIsoDate(iso: string | null): boolean {
   if (!iso) return false;
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return false;
-  const today = new Date();
-  const todayStr = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;
+  const todayStr = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Sofia" });
   return `${m[1]}-${m[2]}-${m[3]}` < todayStr;
 }
 
@@ -384,9 +383,12 @@ export async function runSmartResearchPipeline(
 
   // Step 3: build combined evidence for Gemini. AI Mode synthesis goes first as
   // the strongest source (it already aggregates & dates the official pages).
+  // Cap AI Mode text at 3000 chars so fetched doc excerpts (which carry precise
+  // addresses, programme items, exact dates) still fit within the 24k window.
   const evidenceParts: string[] = [];
   if (aiModeText) {
-    evidenceParts.push(`=== Google AI Mode (синтез от много източници) ===\n${aiModeText}`);
+    const aiModeTrimmed = aiModeText.length > 3000 ? `${aiModeText.slice(0, 3000)}…` : aiModeText;
+    evidenceParts.push(`=== Google AI Mode (синтез от много източници) ===\n${aiModeTrimmed}`);
   }
   if (aiOverviewText) {
     evidenceParts.push(`=== Google AI Overview ===\n${aiOverviewText}`);
@@ -546,7 +548,10 @@ export async function runSmartResearchPipeline(
     program_draft: extraction?.program ? programDraftFromGeminiProgram(extraction.program) : null,
   };
 
-  const { level: confidence, notes: confidenceNotes } = confidenceLevel(fields, sources.length);
+  // AI Mode/AI Overview sources (google.com) не трябва да надуват organicSourcesCount,
+  // защото `sourcesCount >= 2` в confidenceLevel цели "поне 2 независими сайта".
+  const organicSourcesCount = sources.filter((s) => !s.is_ai_overview).length;
+  const { level: confidence, notes: confidenceNotes } = confidenceLevel(fields, organicSourcesCount);
   warnings.push(...confidenceNotes);
 
   return {

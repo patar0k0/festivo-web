@@ -58,3 +58,32 @@ export function normalizeOrganizerFacebookUrl(value: unknown): string | null {
   const normalized = value.trim().toLocaleLowerCase("bg-BG");
   return normalized || null;
 }
+
+export function normalizeOrganizerNameAggressive(value: unknown): string | null {
+  const matched = normalizeOrganizerNameForMatch(value);
+  if (!matched) return null;
+  // Strip everything except letters (incl. Cyrillic) and digits
+  const stripped = matched.replace(/[^\p{L}\p{N}]/gu, "");
+  return stripped || null;
+}
+
+export function extractWebsiteDomain(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+    const hostname = url.hostname.replace(/^www\./, "").toLowerCase();
+    return hostname || null;
+  } catch {
+    return null;
+  }
+}
+
+export function extractEmailDomain(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const atIdx = value.lastIndexOf("@");
+  if (atIdx === -1) return null;
+  const domain = value.slice(atIdx + 1).trim().toLowerCase();
+  return domain || null;
+}

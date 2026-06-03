@@ -314,9 +314,12 @@ export async function runSmartResearchPipeline(
   }
   const organic = [...mergedOrganic].sort((a, b) => sourceAuthorityRank(a.url) - sourceAuthorityRank(b.url));
 
+  // "error" само ако и двете заявки са провалили — нямаме никакви органични резултати
+  // И AI Mode, и класически AI Overview са null. Failover-warning от BG search не е провал.
+  const serpHasData = organic.length > 0 || Boolean(aiModeText) || Boolean(aiOverviewText);
   progress(
     "serpapi",
-    bgResult.warning ? "error" : "done",
+    !serpHasData && Boolean(bgResult.warning) ? "error" : "done",
     [aiModeText ? "AI Mode" : null, aiOverviewText ? "AI Overview" : null, `${organic.length} резултата`]
       .filter(Boolean)
       .join(" + "),

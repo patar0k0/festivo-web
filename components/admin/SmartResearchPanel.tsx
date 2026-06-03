@@ -16,7 +16,7 @@ type PipelineStep = {
 };
 
 const INITIAL_STEPS: PipelineStep[] = [
-  { id: "serpapi", label: "Google Search (EN + BG)", status: "pending" },
+  { id: "serpapi", label: "Google Search + AI Mode", status: "pending" },
   { id: "perplexity", label: "Perplexity (допълнение)", status: "pending" },
   { id: "gemini", label: "Gemini extraction", status: "pending" },
   { id: "images", label: "AI подбор на снимка", status: "pending" },
@@ -452,9 +452,19 @@ export default function SmartResearchPanel() {
     setSteps([
       {
         id: "serpapi",
-        label: "Google Search (EN + BG)",
+        label: "Google Search + AI Mode",
         status: used.includes("serpapi") ? "done" : "error",
-        detail: r.sources.some((s) => s.is_ai_overview) ? "AI Overview намерен" : `${r.sources.filter((s) => !s.is_ai_overview).length} резултата`,
+        detail: (() => {
+          const hasAiMode = used.includes("google_ai_mode");
+          const hasAiOverview = r.sources.some((s) => s.is_ai_overview && s.title === "Google AI Overview");
+          const organicCount = r.sources.filter((s) => !s.is_ai_overview).length;
+          const parts = [
+            hasAiMode ? "AI Mode" : null,
+            hasAiOverview ? "AI Overview" : null,
+            `${organicCount} резултата`,
+          ].filter(Boolean);
+          return parts.join(" + ");
+        })(),
       },
       {
         id: "perplexity",
@@ -901,7 +911,7 @@ export default function SmartResearchPanel() {
                       </a>
                       {s.is_ai_overview && (
                         <span className="shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
-                          AI Overview
+                          {s.title === "Google AI Overview" ? "AI Overview" : "AI Mode"}
                         </span>
                       )}
                     </div>

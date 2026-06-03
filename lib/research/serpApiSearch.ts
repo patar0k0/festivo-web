@@ -40,11 +40,36 @@ type SerpApiTopStory = {
   thumbnail?: string;
 };
 
+/**
+ * engine=google_ai_mode block. The synthesized answer is exposed both as
+ * `reconstructed_markdown` (whole answer) and as structured `text_blocks`
+ * (paragraphs use `snippet`, lists nest items under `list[].snippet`). We prefer
+ * the markdown and fall back to walking the blocks.
+ */
+type AiModeTextBlock = {
+  type?: string;
+  snippet?: string;
+  list?: Array<{ snippet?: string; title?: string }>;
+};
+
+type SerpApiReference = {
+  title?: string;
+  link?: string;
+  snippet?: string;
+  source?: string;
+  thumbnail?: string;
+};
+
 type SerpApiRawResponse = {
   ai_overview?: {
     text_blocks?: AiOverviewBlock[];
     page_token?: string;
   };
+  /** engine=google_ai_mode top-level fields */
+  reconstructed_markdown?: string;
+  text_blocks?: AiModeTextBlock[];
+  references?: SerpApiReference[];
+  search_metadata?: { status?: string };
   organic_results?: Array<{
     link?: string;
     title?: string;
@@ -99,6 +124,39 @@ function blocksToText(blocks: AiOverviewBlock[]): string {
     }
   }
   return lines.join("\n");
+}
+
+/** Builds plain text from an AI Mode response — prefers the whole-answer markdown. */
+function aiModeToText(json: SerpApiRawResponse): string | null {
+  if (typeof json.reconstructed_markdown === "string" && json.reconstructed_markdown.trim()) {
+    return json.reconstructed_markdown.trim();
+  }
+  const blocks = json.text_blocks;
+  if (!Array.isArray(blocks) || blocks.length === 0) return null;
+  const lines: string[] = [];
+  for (const b of blocks) {
+    if (typeof b.snippet === "string" && b.snippet.trim()) lines.push(b.snippet.trim());
+    if (Array.isArray(b.list)) {
+      for (const item of b.list) {
+        const t = typeof item?.snippet === "string" ? item.snippet.trim() : "";
+        if (t) lines.push(`- ${t}`);
+      }
+    }
+  }
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
+/** Maps AI Mode `references` (cited sources) into organic-hit shape for fetching + sourcing. */
+function referencesToHits(json: SerpApiRawResponse): SerpApiOrganicHit[] {
+  if (!Array.isArray(json.references)) return [];
+  return json.references
+    .map((r) => ({
+      url: (r.link ?? "").trim(),
+      title: typeof r.title === "string" && r.title.trim() ? r.title.trim() : (typeof r.source === "string" ? r.source.trim() : null),
+      snippet: typeof r.snippet === "string" ? r.snippet.trim() : null,
+      thumbnail: typeof r.thumbnail === "string" ? r.thumbnail.trim() : null,
+    }))
+    .filter((r) => r.url.startsWith("http"));
 }
 
 function pushHttpUrl(out: string[], seen: Set<string>, raw: string | undefined | null): void {
@@ -159,10 +217,10 @@ function collectImageUrls(json: SerpApiRawResponse): string[] {
   return [...high, ...low];
 }
 
-async function fetchSerpApi(params: Record<string, string>): Promise<SerpApiRawResponse> {
+async function fetchSerpApi(params: Record<string, string>, timeoutMs = 10_000): Promise<SerpApiRawResponse> {
   const url = new URL("https://serpapi.com/search.json");
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10_000) });
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(timeoutMs) });
   // Parse the body even on non-2xx: SerpAPI returns the quota / auth reason in a
   // JSON `error` field with a 401/429 status. Swallowing it (returning {}) would
   // hide the exact condition automatic failover needs to detect.
@@ -198,6 +256,7 @@ type SerpFetchOutcome = {
  */
 async function fetchSerpApiWithFailover(
   buildParams: (apiKey: string) => Record<string, string>,
+  timeoutMs = 10_000,
 ): Promise<SerpFetchOutcome> {
   const primaryIndex = await getActiveSerpApiKeyIndex();
   const altIndex: SerpApiKeyIndex = primaryIndex === "1" ? "2" : "1";
@@ -214,7 +273,7 @@ async function fetchSerpApiWithFailover(
       continue;
     }
 
-    const json = await fetchSerpApi(buildParams(apiKey)).catch(
+    const json = await fetchSerpApi(buildParams(apiKey), timeoutMs).catch(
       () => ({ error: "SerpAPI заявка неуспешна (timeout)" }) as SerpApiRawResponse,
     );
 
@@ -300,6 +359,53 @@ export async function serpApiSearch(query: string, hl: "en" | "bg"): Promise<Ser
     .filter((r) => r.url.startsWith("http"));
 
   return { ai_overview_text, organic, image_urls: collectImageUrls(json), warning: failoverNote };
+}
+
+export type SerpApiAiModeResult = {
+  /** Synthesized Gemini answer (the "Режим с AI" box). The strongest evidence source. */
+  ai_mode_text: string | null;
+  /** Sources Google cited under the AI answer — fed into fetching + the sources list. */
+  references: SerpApiOrganicHit[];
+  /** Inline images + reference thumbnails discovered in the AI Mode response. */
+  image_urls: string[];
+  warning: string | null;
+};
+
+/**
+ * engine=google_ai_mode — taps Google's Gemini-powered AI Mode synthesis, which
+ * aggregates many sources (official .bg sites, news) into a single dated answer.
+ * This is far richer than the legacy `ai_overview` box and is often present for
+ * niche/future BG festivals where `ai_overview` is empty. Synchronous but slower
+ * than a regular search, so we allow a longer timeout. Costs 1 SerpAPI credit.
+ */
+export async function serpApiAiMode(query: string): Promise<SerpApiAiModeResult> {
+  const empty = (warning: string | null): SerpApiAiModeResult => ({
+    ai_mode_text: null,
+    references: [],
+    image_urls: [],
+    warning,
+  });
+  if (!query.trim()) return empty(null);
+
+  const { json, failedOver, fatalError } = await fetchSerpApiWithFailover(
+    (apiKey) => ({ engine: "google_ai_mode", q: query, hl: "bg", gl: "bg", api_key: apiKey }),
+    30_000,
+  );
+
+  if (json.error || fatalError) {
+    return empty(`SerpAPI AI Mode грешка: ${json.error ?? fatalError}`);
+  }
+
+  const refThumbs: string[] = [];
+  const seenThumbs = new Set<string>();
+  for (const r of json.references ?? []) pushHttpUrl(refThumbs, seenThumbs, r.thumbnail);
+
+  return {
+    ai_mode_text: aiModeToText(json),
+    references: referencesToHits(json),
+    image_urls: [...collectImageUrls(json), ...refThumbs],
+    warning: failedOver ? "SerpAPI: автоматично превключен на резервен ключ (AI Mode)." : null,
+  };
 }
 
 /**

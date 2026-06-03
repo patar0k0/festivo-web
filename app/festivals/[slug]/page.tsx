@@ -192,6 +192,26 @@ export default async function Page({
         festivalId={String(data.festival.id)}
         title={data.festival.title ?? ""}
       />
+      {data.festival.lifecycle_state === "cancelled" && (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-4">
+          <Container>
+            <p className="text-sm font-bold uppercase tracking-wide text-red-700">⚠ Фестивалът е отменен</p>
+            {data.festival.cancellation_reason && (
+              <p className="mt-1 text-sm text-red-900">{data.festival.cancellation_reason}</p>
+            )}
+            {data.festival.cancelled_at && (
+              <p className="mt-1 text-xs text-red-500">
+                Отменен на{" "}
+                {new Date(data.festival.cancelled_at).toLocaleDateString("bg-BG", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </p>
+            )}
+          </Container>
+        </div>
+      )}
       <Section className={pub.section}>
         <Container>
           <FestivalDetailClient

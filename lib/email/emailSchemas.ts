@@ -279,3 +279,55 @@ export function parseOrganizerOutreachPayload(
     claimUrl: reqString(raw, "claimUrl", 2000),
   };
 }
+
+export type FestivalCancelledPayload = {
+  festivalTitle: string;
+  cityDisplay: string | null;
+  originalDateDisplay: string;
+  cancellationDateDisplay: string;
+  cancellationReason: string;
+  alternativesUrl: string;
+  calendarUrl: string;
+  unsubscribeUrl?: string | null;
+  managePreferencesUrl?: string | null;
+};
+
+export function parseFestivalCancelledPayload(raw: Record<string, unknown>): FestivalCancelledPayload {
+  return {
+    festivalTitle: reqString(raw, "festivalTitle", 400),
+    cityDisplay: optString(raw, "cityDisplay", 200),
+    originalDateDisplay: reqString(raw, "originalDateDisplay", 200),
+    cancellationDateDisplay: reqString(raw, "cancellationDateDisplay", 200),
+    cancellationReason: reqString(raw, "cancellationReason", 500),
+    alternativesUrl: reqString(raw, "alternativesUrl", 2000),
+    calendarUrl: reqString(raw, "calendarUrl", 2000),
+    unsubscribeUrl: optString(raw, "unsubscribeUrl", 2000),
+    managePreferencesUrl: optString(raw, "managePreferencesUrl", 2000),
+  };
+}
+
+export type AdminFestivalCancelledPayload = {
+  festivalTitle: string;
+  festivalAdminUrl: string;
+  cancelledByType: "admin" | "organizer";
+  cancelledByDisplay: string;
+  organizerName: string | null;
+  cancellationReason: string;
+  planUsersCount: number;
+  cancelledAt: string;
+};
+
+export function parseAdminFestivalCancelledPayload(raw: Record<string, unknown>): AdminFestivalCancelledPayload {
+  const cancelledByType = raw.cancelledByType === "organizer" ? "organizer" : "admin";
+  const planUsersCount = typeof raw.planUsersCount === "number" ? raw.planUsersCount : 0;
+  return {
+    festivalTitle: reqString(raw, "festivalTitle", 400),
+    festivalAdminUrl: reqString(raw, "festivalAdminUrl", 2000),
+    cancelledByType,
+    cancelledByDisplay: reqString(raw, "cancelledByDisplay", 400),
+    organizerName: optString(raw, "organizerName", 400),
+    cancellationReason: reqString(raw, "cancellationReason", 500),
+    planUsersCount,
+    cancelledAt: reqString(raw, "cancelledAt", 100),
+  };
+}

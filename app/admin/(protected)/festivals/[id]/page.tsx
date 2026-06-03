@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import FestivalEditForm from "@/components/admin/FestivalEditForm";
+import { FestivalCancelDialog } from "@/components/admin/FestivalCancelDialog";
 import type { OrganizerProfile } from "@/lib/types";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
@@ -111,6 +112,12 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
 
   const categories = await listAllFestivalCategories();
 
+  const adminClient = createSupabaseAdmin();
+  const { count: planUsersCount } = await adminClient
+    .from("user_plan_festivals")
+    .select("*", { count: "exact", head: true })
+    .eq("festival_id", id);
+
   let initialProgramDraft = undefined;
   try {
     const adminClient = createSupabaseAdmin();
@@ -147,18 +154,28 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
   }
 
   return (
-    <FestivalEditForm
-      organizers={organizers}
-      initialMedia={initialMedia}
-      initialProgramDraft={initialProgramDraft}
-      categories={categories}
-      festival={{
-        ...data,
-        id: String(data.id),
-        city_name: cityDisplay,
-        city_slug: cityDetails?.slug ?? data.city ?? null,
-        organizer_ids: selectedOrganizerIds.length ? selectedOrganizerIds : data.organizer_id ? [data.organizer_id] : [],
-      }}
-    />
+    <div>
+      <FestivalEditForm
+        organizers={organizers}
+        initialMedia={initialMedia}
+        initialProgramDraft={initialProgramDraft}
+        categories={categories}
+        festival={{
+          ...data,
+          id: String(data.id),
+          city_name: cityDisplay,
+          city_slug: cityDetails?.slug ?? data.city ?? null,
+          organizer_ids: selectedOrganizerIds.length ? selectedOrganizerIds : data.organizer_id ? [data.organizer_id] : [],
+        }}
+      />
+      <div className="mx-auto max-w-5xl px-4 pb-12">
+        <FestivalCancelDialog
+          festivalId={id}
+          festivalTitle={typeof data.title === "string" ? data.title : ""}
+          lifecycleState={(data.lifecycle_state as "active" | "cancelled") ?? "active"}
+          planUsersCount={planUsersCount ?? 0}
+        />
+      </div>
+    </div>
   );
 }

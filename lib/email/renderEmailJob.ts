@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { EmailJobRow } from "./emailJobRow";
-import { EMAIL_JOB_TYPE_WELCOME, type EmailJobType } from "./emailJobTypes";
+import { EMAIL_JOB_TYPE_FESTIVAL_CANCELLED, EMAIL_JOB_TYPE_WELCOME, type EmailJobType } from "./emailJobTypes";
 import { buildEmailJobContent, resolveEmailJobSubjectFromRegistry } from "./emailRegistry";
 import { resolveOptionalEmailLinks } from "./resolveOptionalEmailLinks";
 
@@ -15,6 +15,7 @@ export function resolveEmailJobSubject(job: EmailJobRow, type: EmailJobType): st
 /** Types whose payload should be enriched with unsubscribe + manage links at render time. */
 const OPTIONAL_LINK_TYPES: ReadonlySet<EmailJobType> = new Set<EmailJobType>([
   EMAIL_JOB_TYPE_WELCOME,
+  EMAIL_JOB_TYPE_FESTIVAL_CANCELLED,
 ]);
 
 /**

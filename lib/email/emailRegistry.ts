@@ -1,5 +1,6 @@
-import { createElement } from "react";
+﻿import { createElement } from "react";
 
+import { AdminFestivalCancelledEmail } from "@/emails/templates/AdminFestivalCancelledEmail";
 import { AdminFestivalReportEmail } from "@/emails/templates/AdminFestivalReportEmail";
 import { AdminNewClaimEmail } from "@/emails/templates/AdminNewClaimEmail";
 import { AdminNewSubmissionEmail } from "@/emails/templates/AdminNewSubmissionEmail";
@@ -11,17 +12,20 @@ import { OrganizerClaimApprovedEmail } from "@/emails/templates/OrganizerClaimAp
 import { OrganizerClaimReceivedEmail } from "@/emails/templates/OrganizerClaimReceivedEmail";
 import { OrganizerClaimRejectedEmail } from "@/emails/templates/OrganizerClaimRejectedEmail";
 import { OrganizerOutreachEmail } from "@/emails/templates/OrganizerOutreachEmail";
+import { FestivalCancelledEmail } from "@/emails/templates/FestivalCancelledEmail";
 import { ContactFormEmail } from "@/emails/templates/ContactFormEmail";
 import { TestEmail } from "@/emails/templates/TestEmail";
 import { WelcomeEmail } from "@/emails/templates/WelcomeEmail";
 import { getBaseUrl } from "@/lib/config/baseUrl";
 
 import {
+  EMAIL_JOB_TYPE_ADMIN_FESTIVAL_CANCELLED,
   EMAIL_JOB_TYPE_ADMIN_FESTIVAL_REPORT,
   EMAIL_JOB_TYPE_ADMIN_NEW_CLAIM,
   EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION,
   EMAIL_JOB_TYPE_CONTACT_FORM,
   EMAIL_JOB_TYPE_FESTIVAL_APPROVED,
+  EMAIL_JOB_TYPE_FESTIVAL_CANCELLED,
   EMAIL_JOB_TYPE_FESTIVAL_REJECTED,
   EMAIL_JOB_TYPE_FESTIVAL_SUBMISSION_RECEIVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED,
@@ -35,12 +39,14 @@ import {
   type EmailJobType,
 } from "./emailJobTypes";
 import {
+  parseAdminFestivalCancelledPayload,
   parseAdminFestivalReportPayload,
   parseOrganizerOutreachPayload,
   parseAdminNewClaimPayload,
   parseAdminNewSubmissionPayload,
   parseContactFormPayload,
   parseFestivalApprovedPayload,
+  parseFestivalCancelledPayload,
   parseFestivalRejectedPayload,
   parseFestivalSubmissionReceivedPayload,
   parseOrganizerClaimApprovedPayload,
@@ -143,12 +149,12 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
   [EMAIL_JOB_TYPE_FESTIVAL_SUBMISSION_RECEIVED]: {
     buildDefaultSubject: (pl) => {
       const p = parseFestivalSubmissionReceivedPayload(pl as Record<string, unknown>);
-      return `Festivo — получихме „${p.festivalTitle.slice(0, 80)}“`;
+      return `Festivo — получихме „${p.festivalTitle.slice(0, 80)}"`;
     },
     build: async (payload) => {
       const p = parseFestivalSubmissionReceivedPayload(payload as Record<string, unknown>);
       const siteUrl = siteOrigin();
-      const subject = `Festivo — получихме „${p.festivalTitle.slice(0, 80)}“`;
+      const subject = `Festivo — получихме „${p.festivalTitle.slice(0, 80)}"`;
       const { html, text } = await renderEmail(
         createElement(FestivalSubmissionReceivedEmail, {
           siteUrl,
@@ -165,12 +171,12 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
   [EMAIL_JOB_TYPE_FESTIVAL_APPROVED]: {
     buildDefaultSubject: (pl) => {
       const p = parseFestivalApprovedPayload(pl as Record<string, unknown>);
-      return `Festivo — „${p.festivalTitle.slice(0, 70)}“ е в каталога`;
+      return `Festivo — „${p.festivalTitle.slice(0, 70)}" е в каталога`;
     },
     build: async (payload) => {
       const p = parseFestivalApprovedPayload(payload as Record<string, unknown>);
       const siteUrl = siteOrigin();
-      const subject = `Festivo — „${p.festivalTitle.slice(0, 70)}“ е в каталога`;
+      const subject = `Festivo — „${p.festivalTitle.slice(0, 70)}" е в каталога`;
       const { html, text } = await renderEmail(
         createElement(FestivalApprovedEmail, {
           siteUrl,
@@ -187,12 +193,12 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
   [EMAIL_JOB_TYPE_FESTIVAL_REJECTED]: {
     buildDefaultSubject: (pl) => {
       const p = parseFestivalRejectedPayload(pl as Record<string, unknown>);
-      return `Festivo — „${p.festivalTitle.slice(0, 70)}“ не беше одобрен`;
+      return `Festivo — „${p.festivalTitle.slice(0, 70)}" не беше одобрен`;
     },
     build: async (payload) => {
       const p = parseFestivalRejectedPayload(payload as Record<string, unknown>);
       const siteUrl = siteOrigin();
-      const subject = `Festivo — „${p.festivalTitle.slice(0, 70)}“ не беше одобрен`;
+      const subject = `Festivo — „${p.festivalTitle.slice(0, 70)}" не беше одобрен`;
       const { html, text } = await renderEmail(
         createElement(FestivalRejectedEmail, {
           siteUrl,
@@ -225,12 +231,12 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
   [EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION]: {
     buildDefaultSubject: (pl) => {
       const p = parseAdminNewSubmissionPayload(pl as Record<string, unknown>);
-      return `Festivo админ — нов фестивал: „${p.festivalTitle.slice(0, 60)}“`;
+      return `Festivo админ — нов фестивал: „${p.festivalTitle.slice(0, 60)}"`;
     },
     build: async (payload) => {
       const p = parseAdminNewSubmissionPayload(payload as Record<string, unknown>);
       const siteUrl = siteOrigin();
-      const subject = `Festivo админ — нов фестивал: „${p.festivalTitle.slice(0, 60)}“`;
+      const subject = `Festivo админ — нов фестивал: „${p.festivalTitle.slice(0, 60)}"`;
       const { html, text } = await renderEmail(
         createElement(AdminNewSubmissionEmail, {
           siteUrl,
@@ -270,12 +276,12 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
   [EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE]: {
     buildDefaultSubject: (pl) => {
       const p = parseSavedFestivalReminderEmailPayload(pl as Record<string, unknown>);
-      return `Напомняне: „${p.festivalTitle.slice(0, 70)}“ е утре`;
+      return `Напомняне: „${p.festivalTitle.slice(0, 70)}" е утре`;
     },
     build: async (payload) => {
       const p = parseSavedFestivalReminderEmailPayload(payload as Record<string, unknown>);
       const siteUrl = siteOrigin();
-      const subject = `Напомняне: „${p.festivalTitle.slice(0, 70)}“ е утре`;
+      const subject = `Напомняне: „${p.festivalTitle.slice(0, 70)}" е утре`;
       const { html, text } = await renderEmail(
         createElement(FestivalReminderEmail, {
           siteUrl,
@@ -352,12 +358,12 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
   [EMAIL_JOB_TYPE_REMINDER_SAME_DAY]: {
     buildDefaultSubject: (pl) => {
       const p = parseSavedFestivalReminderEmailPayload(pl as Record<string, unknown>);
-      return `Напомняне: „${p.festivalTitle.slice(0, 64)}“ — около 2 ч. преди начало`;
+      return `Напомняне: „${p.festivalTitle.slice(0, 64)}" — около 2 ч. преди начало`;
     },
     build: async (payload) => {
       const p = parseSavedFestivalReminderEmailPayload(payload as Record<string, unknown>);
       const siteUrl = siteOrigin();
-      const subject = `Напомняне: „${p.festivalTitle.slice(0, 64)}“ — около 2 ч. преди начало`;
+      const subject = `Напомняне: „${p.festivalTitle.slice(0, 64)}" — около 2 ч. преди начало`;
       const { html, text } = await renderEmail(
         createElement(FestivalReminderEmail, {
           siteUrl,
@@ -370,6 +376,59 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
           startTimeDisplay: p.startTimeDisplay,
           unsubscribeUrl: p.unsubscribeUrl ?? undefined,
           managePreferencesUrl: p.managePreferencesUrl ?? undefined,
+        }),
+      );
+      return { subject, html, text };
+    },
+  },
+
+  [EMAIL_JOB_TYPE_FESTIVAL_CANCELLED]: {
+    buildDefaultSubject: (pl) => {
+      const p = parseFestivalCancelledPayload(pl as Record<string, unknown>);
+      return `⚠ „${p.festivalTitle.slice(0, 70)}" е отменен`;
+    },
+    build: async (payload) => {
+      const p = parseFestivalCancelledPayload(payload as Record<string, unknown>);
+      const siteUrl = siteOrigin();
+      const subject = `⚠ „${p.festivalTitle.slice(0, 70)}" е отменен`;
+      const { html, text } = await renderEmail(
+        createElement(FestivalCancelledEmail, {
+          siteUrl,
+          festivalTitle: p.festivalTitle,
+          cityDisplay: p.cityDisplay,
+          originalDateDisplay: p.originalDateDisplay,
+          cancellationDateDisplay: p.cancellationDateDisplay,
+          cancellationReason: p.cancellationReason,
+          alternativesUrl: p.alternativesUrl,
+          calendarUrl: p.calendarUrl,
+          unsubscribeUrl: p.unsubscribeUrl ?? undefined,
+          managePreferencesUrl: p.managePreferencesUrl ?? undefined,
+        }),
+      );
+      return { subject, html, text };
+    },
+  },
+
+  [EMAIL_JOB_TYPE_ADMIN_FESTIVAL_CANCELLED]: {
+    buildDefaultSubject: (pl) => {
+      const p = parseAdminFestivalCancelledPayload(pl as Record<string, unknown>);
+      return `Festivo админ — отменен фестивал: „${p.festivalTitle.slice(0, 60)}"`;
+    },
+    build: async (payload) => {
+      const p = parseAdminFestivalCancelledPayload(payload as Record<string, unknown>);
+      const siteUrl = siteOrigin();
+      const subject = `Festivo админ — отменен фестивал: „${p.festivalTitle.slice(0, 60)}"`;
+      const { html, text } = await renderEmail(
+        createElement(AdminFestivalCancelledEmail, {
+          siteUrl,
+          festivalTitle: p.festivalTitle,
+          festivalAdminUrl: p.festivalAdminUrl,
+          cancelledByType: p.cancelledByType,
+          cancelledByDisplay: p.cancelledByDisplay,
+          organizerName: p.organizerName,
+          cancellationReason: p.cancellationReason,
+          planUsersCount: p.planUsersCount,
+          cancelledAt: p.cancelledAt,
         }),
       );
       return { subject, html, text };

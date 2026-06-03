@@ -26,6 +26,7 @@ export default function FestivalCard({ festival }: { festival: Festival }) {
       showDescription
       detailsHref={`/festivals/${festival.slug}`}
       festivalId={festival.id}
+      isCancelled={festival.lifecycle_state === "cancelled"}
     />
   );
 }

@@ -178,7 +178,7 @@ export function buildFestivalJsonLd(
 
   const statusLower = festival.status?.toLowerCase() ?? "";
   const eventStatus =
-    statusLower === "cancelled"
+    festival.lifecycle_state === "cancelled" || statusLower === "cancelled"
       ? "https://schema.org/EventCancelled"
       : "https://schema.org/EventScheduled";
 

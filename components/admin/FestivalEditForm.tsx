@@ -1091,7 +1091,7 @@ export default function FestivalEditForm({
           >
             {savingProgram ? "Запис..." : "Запази програмата"}
           </button>
-          <p className="text-xs text-black/40">Програмата се записва независимо от основния „Запази".</p>
+          <p className="text-xs text-black/40">Програмата се записва независимо от основния бутон &bdquo;Запази&ldquo;.</p>
         </div>
       </AdminFieldSection>
 
@@ -1161,7 +1161,7 @@ export default function FestivalEditForm({
               />
             ) : (
               <div className="mt-3 flex h-[140px] w-full items-center justify-center rounded-xl border border-dashed border-black/[0.12] bg-black/[0.02] md:col-span-2">
-                <p className="text-xs text-black/35">Попълнете координати или потърсете чрез „Намери координати", за да се покаже картата.</p>
+                <p className="text-xs text-black/35">Попълнете координати или използвайте бутона Намери координати, за да се покаже картата.</p>
               </div>
             );
           })()}

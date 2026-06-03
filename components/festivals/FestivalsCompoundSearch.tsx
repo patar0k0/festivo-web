@@ -166,13 +166,13 @@ export default function FestivalsCompoundSearch({
       ref={cityMenuRef}
       id="city-select-menu"
       role="menu"
-      aria-label="Избери град"
+      aria-label="Избери място"
       style={{ position: "fixed", top: cityMenuPos.top, left: cityMenuPos.left, width: cityMenuPos.width, zIndex: 200 }}
       className="max-h-[min(60vh,24rem)] overflow-y-auto rounded-2xl border border-black/[0.09] bg-white p-2 shadow-[0_8px_20px_rgba(12,14,20,0.14)]"
     >
       <button type="button" role="menuitem" onClick={() => { setCity(""); setCityOpen(false); }}
         className="block w-full rounded-xl px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.12em] text-black/40 transition hover:bg-[#f7f6f3]">
-        Всички градове
+        Всички места
       </button>
       {cities.map(c => (
         <button key={c.filterValue} type="button" role="menuitem"
@@ -258,10 +258,10 @@ export default function FestivalsCompoundSearch({
             className={cn("flex-1 text-left text-sm font-medium outline-none",
               selectedCityLabel ? "text-[#0c0e14]" : "text-black/30")}
           >
-            {selectedCityLabel ?? "Град"}
+            {selectedCityLabel ?? "Място"}
           </button>
           {selectedCityLabel
-            ? <button type="button" onClick={clearCity} className="shrink-0 text-black/25 hover:text-black/55" aria-label="Изчисти град">{xIcon}</button>
+            ? <button type="button" onClick={clearCity} className="shrink-0 text-black/25 hover:text-black/55" aria-label="Изчисти място">{xIcon}</button>
             : chevron}
         </div>
 

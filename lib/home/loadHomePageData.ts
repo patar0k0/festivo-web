@@ -181,13 +181,16 @@ const _loadDbDataCached = unstable_cache(
     async function fetchCities(): Promise<HomeCityOption[]> {
       const { data, error } = await supabase
         .from("festivals")
-        .select("cities:cities!festivals_city_id_fkey!inner(slug,name_bg,is_village)")
+        .select("cities:cities!festivals_city_id_fkey(slug,name_bg,is_village)")
         .or("status.eq.published,status.eq.verified,is_verified.eq.true")
         .neq("status", "archived")
         .not("city_id", "is", null)
         .gte("end_date", today)
         .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
-      if (error) return [];
+      if (error) {
+        console.error("[loadHomePageData] fetchCities error:", error.message);
+        return [];
+      }
 
       const map = new Map<string, { name: string; slug: string | null; publishedFestivalCount: number }>();
       for (const row of data ?? []) {

@@ -30,7 +30,7 @@ import {
   AdminSummaryStrip,
   ADMIN_ENTITY_SECTION,
   ADMIN_ENTITY_CONTROL_CLASS,
-  buildStandardSummaryStripItems,
+
 } from "@/components/admin/entity";
 import { getListingShortFromEvidenceJson } from "@/lib/admin/festivalListingShort";
 import { ADMIN_FIELD_LABEL, getAdminFieldLabel } from "@/lib/admin/entitySchema";
@@ -318,6 +318,7 @@ export default function FestivalEditForm({
   const resolvedPlaceRef = useRef<string | null>(null);
   const [galleryImportUrl, setGalleryImportUrl] = useState("");
   const [heroPreviewError, setHeroPreviewError] = useState(false);
+  const [debouncedHeroUrl, setDebouncedHeroUrl] = useState(festival.hero_image ?? festival.image_url ?? "");
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
   const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(festival.occurrence_dates) ?? []);
   const [programDraft, setProgramDraft] = useState<ProgramDraft>(() => initialProgramDraft ?? emptyProgramDraft());
@@ -333,6 +334,11 @@ export default function FestivalEditForm({
 
   useEffect(() => {
     setHeroPreviewError(false);
+  }, [form.hero_image]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedHeroUrl(form.hero_image), 600);
+    return () => clearTimeout(timer);
   }, [form.hero_image]);
 
   const initialProgramDraftKey = JSON.stringify(initialProgramDraft ?? null);
@@ -1060,27 +1066,13 @@ export default function FestivalEditForm({
   const summaryOrganizer =
     selectedOrganizers[0]?.name.trim() || form.organizer_name.trim() || "—";
 
-  const updatedAtDisplay = useMemo(() => {
-    const raw = festival.updated_at;
-    if (raw == null || raw === "") return "—";
-    const d = new Date(String(raw));
-    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("bg-BG");
-  }, [festival.updated_at]);
-
   const summaryItems = useMemo(
-    () =>
-      buildStandardSummaryStripItems({
-        status: form.status,
-        sourceLine:
-          (typeof festival.source_type === "string" ? festival.source_type : "").trim() ||
-          (form.source_url ? `${form.source_url.slice(0, 64)}${form.source_url.length > 64 ? "…" : ""}` : "—"),
-        city: form.city.trim() || form.city_id || "—",
-        startDate: form.start_date.trim() || "—",
-        organizer: summaryOrganizer,
-        contextLabel: ADMIN_FIELD_LABEL.updatedAt,
-        contextValue: updatedAtDisplay,
-      }),
-    [form.status, form.source_url, form.city, form.city_id, form.start_date, festival.source_type, summaryOrganizer, updatedAtDisplay],
+    () => [
+      { label: ADMIN_FIELD_LABEL.status, value: form.status },
+      { label: ADMIN_FIELD_LABEL.startDate, value: form.start_date.trim() || "—" },
+      { label: ADMIN_FIELD_LABEL.organizer, value: summaryOrganizer },
+    ],
+    [form.status, form.start_date, summaryOrganizer],
   );
 
   return (
@@ -1222,15 +1214,16 @@ export default function FestivalEditForm({
         variant="default"
       >
         <ProgramDraftEditor ref={programEditorRef} value={programDraft} onChange={setProgramDraft} />
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={onSaveProgramDraft}
             disabled={isSaving || Boolean(actionPending) || saving}
             className="rounded-lg border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
           >
-            {isSaving ? "Запис..." : "Запази"}
+            {isSaving ? "Запис..." : "Запази програмата"}
           </button>
+          <p className="text-xs text-black/40">Програмата се записва независимо от основния „Запази".</p>
         </div>
       </AdminFieldSection>
 
@@ -1298,7 +1291,11 @@ export default function FestivalEditForm({
                 src={mapEmbedPreview}
                 loading="lazy"
               />
-            ) : null;
+            ) : (
+              <div className="mt-3 flex h-[140px] w-full items-center justify-center rounded-xl border border-dashed border-black/[0.12] bg-black/[0.02] md:col-span-2">
+                <p className="text-xs text-black/35">Попълнете координати или потърсете чрез „Намери координати", за да се покаже картата.</p>
+              </div>
+            );
           })()}
         </AdminFieldGrid>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -1448,14 +1445,14 @@ export default function FestivalEditForm({
         {/* Hero */}
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/55">Главно изображение</p>
-          {form.hero_image.trim() ? (
+          {debouncedHeroUrl.trim() ? (
             <div className="mt-2 overflow-hidden rounded-2xl border border-black/10 bg-black/[0.02]">
               {heroPreviewError ? (
                 <p className="p-4 text-sm text-black/60">Прегледът не е наличен за този адрес.</p>
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={form.hero_image.trim()}
+                  src={debouncedHeroUrl.trim()}
                   alt=""
                   className="max-h-[320px] w-full object-cover"
                   onLoad={() => setHeroPreviewError(false)}
@@ -1538,7 +1535,7 @@ export default function FestivalEditForm({
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {heroHasImage && !heroAlreadyInGallery && (
               <div className="group relative overflow-hidden rounded-xl border border-[#ff4c1f]/50 bg-black/[0.02] ring-2 ring-[#ff4c1f]/25">
-                <div className="aspect-square w-full overflow-hidden bg-black/[0.04]">
+                <div className="aspect-[4/3] w-full overflow-hidden bg-black/[0.04]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={form.hero_image.trim()} alt="" className="h-full w-full object-cover" />
                 </div>
@@ -1558,7 +1555,7 @@ export default function FestivalEditForm({
                     isHero ? "border-[#ff4c1f]/50 ring-2 ring-[#ff4c1f]/25" : "border-black/[0.08]"
                   }`}
                 >
-                  <div className="aspect-square w-full overflow-hidden bg-black/[0.04]">
+                  <div className="aspect-[4/3] w-full overflow-hidden bg-black/[0.04]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={row.url} alt="" className="h-full w-full object-cover" />
                   </div>
@@ -1593,7 +1590,7 @@ export default function FestivalEditForm({
               type="button"
               onClick={() => galleryFileRef.current?.click()}
               disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || galleryAtLimit}
-              className="flex aspect-square min-h-[120px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:border-black/[0.25] hover:bg-black/[0.04] disabled:opacity-50"
+              className="flex aspect-[4/3] min-h-[100px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:border-black/[0.25] hover:bg-black/[0.04] disabled:opacity-50"
             >
               {galleryBusy ? "Качване..." : "+ Качи"}
             </button>
@@ -1773,6 +1770,18 @@ export default function FestivalEditForm({
               </p>
             ))}
           </div>
+          <div className="mt-3 border-t border-black/[0.06] pt-3">
+            <label className="flex w-fit cursor-pointer items-center gap-2 text-xs text-black/50">
+              <input
+                type="checkbox"
+                checked={form.is_verified}
+                onChange={(e) => updateField("is_verified", e.target.checked)}
+                className="h-3.5 w-3.5 rounded border border-black/20"
+              />
+              <span className="font-mono">is_verified</span>
+              <span className="text-black/35">(legacy field)</span>
+            </label>
+          </div>
         </AdminMetaSection>
       ) : null}
 
@@ -1791,46 +1800,47 @@ export default function FestivalEditForm({
       ) : null}
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.08] bg-white/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-end gap-2 px-4 py-2.5 md:px-6">
-          <label className="mr-auto flex items-center gap-2 text-sm text-black/60">
-            <input type="checkbox" checked={form.is_verified} onChange={(e) => updateField("is_verified", e.target.checked)} />
-            is_verified (legacy)
-          </label>
-          <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]">
-            Cancel
-          </Link>
-          <FestivalEditorOpenSecondary
-            action={editorOpenAction}
-            dimmed={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
-          />
-          <button
-            type="button"
-            onClick={() => runArchiveAction(form.status === "archived" ? "restore" : "archive")}
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
-            className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
-          >
-            {actionPending === "archive" || actionPending === "restore"
-              ? "Working..."
-              : form.status === "archived"
-                ? "Restore"
-                : "Archive"}
-          </button>
+        <div className="mx-auto flex w-full max-w-[1200px] items-center px-4 py-2.5 md:px-6">
+          {/* Destructive action — isolated left to prevent fat-finger next to Save */}
           <button
             type="button"
             onClick={runDeleteAction}
             disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
-            className="rounded-xl border border-[#b13a1a]/30 bg-[#ff4c1f]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#b13a1a] disabled:opacity-50"
+            className="mr-auto rounded-xl border border-[#b13a1a]/30 bg-[#ff4c1f]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#b13a1a] disabled:opacity-50"
           >
-            {actionPending === "delete" ? "Deleting..." : "Delete"}
+            {actionPending === "delete" ? "Изтриване..." : "Изтрий"}
           </button>
-          <button
-            type="submit"
-            form="admin-festival-edit-form"
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
-            className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
+          {/* Secondary actions */}
+          <div className="flex items-center gap-2">
+            <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]">
+              Откажи
+            </Link>
+            <FestivalEditorOpenSecondary
+              action={editorOpenAction}
+              dimmed={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
+            />
+            <button
+              type="button"
+              onClick={() => runArchiveAction(form.status === "archived" ? "restore" : "archive")}
+              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
+              className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
+            >
+              {actionPending === "archive" || actionPending === "restore"
+                ? "Работи..."
+                : form.status === "archived"
+                  ? "Възстанови"
+                  : "Архивирай"}
+            </button>
+            {/* Primary action */}
+            <button
+              type="submit"
+              form="admin-festival-edit-form"
+              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
+              className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
+            >
+              {saving ? "Запис..." : "Запази"}
+            </button>
+          </div>
         </div>
       </div>
     </form>

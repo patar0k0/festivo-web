@@ -96,6 +96,9 @@
 
 Списък на полиращи задачи отложени за след launch — за да не правим рискови промени в последните дни преди публикуване.
 
+### Festival lifecycle management
+- [x] **Festival cancellation flow** — admin + organizer (owner) cancel, plan user emails, public banner + badge, Schema.org EventCancelled, skip reminders (feat/festival-cancellation)
+
 ### Admin tools polish
 - [ ] **Sortable column headers** в `/admin/festivals` (click на колона → sort, ▲▼ indicator)
 - [ ] **Visual grouping by status** — divider секции "Pending review", "Upcoming", "Ongoing", "Past"

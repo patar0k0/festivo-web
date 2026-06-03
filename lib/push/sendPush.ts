@@ -470,18 +470,51 @@ export async function sendPushToUser(
     return { ok: false, skipped: true, reason: "no_tokens", tokens: [] };
   }
 
-  const provider = (process.env.PUSH_PROVIDER || "fcm").toLowerCase().trim();
-
-  if (provider === "expo") {
+  // Explicit override (kill-switch / legacy single-provider deployments).
+  const forcedProvider = (process.env.PUSH_PROVIDER || "").toLowerCase().trim();
+  if (forcedProvider === "expo") {
     const res = await sendViaExpo(supabase, userId, tokens, payload);
     return { ...res, tokens };
   }
-
-  if (provider === "fcm") {
+  if (forcedProvider === "fcm") {
     const res = await sendViaFcm(supabase, userId, tokens, payload);
     return { ...res, tokens };
   }
+  if (forcedProvider) {
+    console.warn("[push][skipped]", { userId, reason: "unknown_provider", provider: forcedProvider });
+    return { ok: false, skipped: true, reason: "unknown_provider", raw: { provider: forcedProvider }, tokens };
+  }
 
-  console.warn("[push][skipped]", { userId, reason: "unknown_provider", provider });
-  return { ok: false, skipped: true, reason: "unknown_provider", raw: { provider }, tokens };
+  // Default: route each token to its provider by token shape. A single user can
+  // legitimately have both Expo tokens (mobile app) and raw FCM tokens, and the
+  // old global default ("fcm") silently dropped every Expo token. Detecting per
+  // token removes that whole class of silent push failures.
+  const expoTokens = tokens.filter((t) => t.trim().startsWith(EXPO_TOKEN_PREFIX));
+  const fcmTokens = tokens.filter((t) => !t.trim().startsWith(EXPO_TOKEN_PREFIX));
+
+  const branches: PushSendResult[] = [];
+  if (expoTokens.length) {
+    branches.push(await sendViaExpo(supabase, userId, expoTokens, payload));
+  }
+  if (fcmTokens.length) {
+    branches.push(await sendViaFcm(supabase, userId, fcmTokens, payload));
+  }
+
+  if (!branches.length) {
+    console.info("[push][skipped]", { userId, reason: "no_tokens" });
+    return { ok: false, skipped: true, reason: "no_tokens", tokens };
+  }
+
+  const ok = branches.some((b) => b.ok);
+  const allSkipped = branches.every((b) => b.skipped);
+  const durationMs = branches.reduce((sum, b) => sum + (b.duration_ms ?? 0), 0);
+
+  return {
+    ok,
+    skipped: ok ? undefined : allSkipped,
+    reason: ok ? undefined : branches.map((b) => b.reason).filter(Boolean).join(",") || undefined,
+    raw: branches.map((b) => b.raw),
+    duration_ms: durationMs || undefined,
+    tokens,
+  };
 }

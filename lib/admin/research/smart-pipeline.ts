@@ -1,5 +1,6 @@
 import "server-only";
-import { serpApiSearch, serpApiImageSearch } from "@/lib/research/serpApiSearch";
+import { serpApiSearch, serpApiImageSearch, serpApiAiMode } from "@/lib/research/serpApiSearch";
+import type { SerpApiOrganicHit } from "@/lib/research/serpApiSearch";
 import { googleCseImageSearch, isGoogleCseConfigured } from "@/lib/research/googleImageSearch";
 import { rerankImageCandidates } from "@/lib/admin/research/imageReranker";
 import { researchFestival } from "@/lib/research/perplexity";
@@ -57,6 +58,42 @@ function shouldFetchDomain(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Социални мрежи, чиито event-страници рядко излагат чист, парсваем стринг с
+ * дата в snippet/OG описанието (за разлика от официалните .bg / новинарски
+ * сайтове). Fetch-ват се за снимки, но не бива да изместват авторитетните
+ * източници от ограничения fetch бюджет.
+ */
+const SOCIAL_HOSTS = new Set([
+  "facebook.com",
+  "instagram.com",
+  "youtube.com",
+  "tiktok.com",
+  "twitter.com",
+  "x.com",
+  "linkedin.com",
+]);
+
+/**
+ * Authority ranking за подреждане преди fetch/evidence. По-малко = по-напред.
+ * Официални .bg / общински / .gov / .eu сайтове носят чисти, датирани текстове;
+ * агрегаторите (blocklist) се fetch-ват само за снимки; social media — последни.
+ * Така primorsko.bg & co. влизат в петте fetch слота преди Facebook и датата
+ * стига до Gemini.
+ */
+function sourceAuthorityRank(url: string): number {
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return 5;
+  }
+  if (SOCIAL_HOSTS.has(host) || [...SOCIAL_HOSTS].some((s) => host.endsWith(`.${s}`))) return 4;
+  if (TEXT_EVIDENCE_BLOCKLIST.has(host)) return 3;
+  if (host.endsWith(".bg") || host.endsWith(".gov") || host.endsWith(".eu")) return 0;
+  return 2;
 }
 
 export type SmartResearchSource = {
@@ -241,32 +278,48 @@ export async function runSmartResearchPipeline(
   const warnings: string[] = [];
   const providers_used: string[] = ["serpapi"];
 
-  // Step 1: 4 parallel SerpAPI calls
-  //  - EN regular search → AI Overview text
-  //  - BG regular search → organic results (for fetching) + image URLs
+  // Step 1: 4 parallel SerpAPI calls + optional Google CSE
+  //  - BG regular search → organic results (for fetching) + image URLs + AI Overview
+  //  - google_ai_mode BG → Gemini-синтезиран отговор ("Режим с AI") с дати/организатор
+  //    + цитирани references. Най-силният текстов източник; покрива нишови/бъдещи
+  //    фестивали, където ai_overview е празно.
   //  - google_images BG (full query) → guaranteed image candidates
-  //  - google_images BG (short query, year stripped) → fallback for niche/future festivals
-  //    where the full specific query yields 0 images in Google Images index
-  //    (e.g. "Фестивал на хороигралците 'Харизмата на хорото' 2026" → try "Харизмата на хорото")
-  // 2 SerpAPI кредита на търсене: 1× BG organic + 1× Google Images.
+  // 3 SerpAPI кредита на търсене: 1× BG organic + 1× AI Mode + 1× Google Images.
   // Google CSE (ако е конфигуриран) върви паралелно като допълнителен image
   // източник с imgSize=large&imgType=photo — по-качествени корици от thumbnails.
   progress("serpapi", "running");
-  const [bgResult, gImageResult, cseImages] = await Promise.all([
+  const [bgResult, aiModeResult, gImageResult, cseImages] = await Promise.all([
     serpApiSearch(query, "bg").catch(() => ({ ai_overview_text: null, organic: [], image_urls: [], warning: "SerpAPI заявка хвърли изключение." })),
+    serpApiAiMode(query).catch(() => ({ ai_mode_text: null, references: [], image_urls: [], warning: "SerpAPI AI Mode заявка хвърли изключение." })),
     serpApiImageSearch(query, 8).catch(() => [] as string[]),
     googleCseImageSearch(query, 8).catch(() => [] as string[]),
   ]);
 
   if (bgResult.warning) warnings.push(bgResult.warning);
+  if (aiModeResult.warning) warnings.push(aiModeResult.warning);
 
   const aiOverviewText = bgResult.ai_overview_text;
-  const organic = bgResult.organic;
+  const aiModeText = aiModeResult.ai_mode_text;
+  if (aiModeText) providers_used.push("google_ai_mode");
+
+  // Merge AI Mode-cited references with regular organic (dedupe by URL), then sort
+  // by source authority so official .bg / news pages get the fetch slots & evidence
+  // priority over Facebook — which is where the dates actually live.
+  const seenUrls = new Set<string>();
+  const mergedOrganic: SerpApiOrganicHit[] = [];
+  for (const hit of [...aiModeResult.references, ...bgResult.organic]) {
+    if (!hit.url || seenUrls.has(hit.url)) continue;
+    seenUrls.add(hit.url);
+    mergedOrganic.push(hit);
+  }
+  const organic = [...mergedOrganic].sort((a, b) => sourceAuthorityRank(a.url) - sourceAuthorityRank(b.url));
 
   progress(
     "serpapi",
     bgResult.warning ? "error" : "done",
-    aiOverviewText ? "AI Overview намерен" : `${organic.length} резултата`,
+    [aiModeText ? "AI Mode" : null, aiOverviewText ? "AI Overview" : null, `${organic.length} резултата`]
+      .filter(Boolean)
+      .join(" + "),
   );
 
   const gImageResultMerged: string[] = [...gImageResult];
@@ -296,7 +349,7 @@ export async function runSmartResearchPipeline(
   // Step 2: quality check — Perplexity fallback when results are thin
   const bgDomainCount = organic.filter((r) => r.url.toLowerCase().includes(".bg")).length;
   const hasFullContent = fetchedDocs.length >= 1;
-  const hasGoodResults = Boolean(aiOverviewText) || bgDomainCount >= 3 || hasFullContent;
+  const hasGoodResults = Boolean(aiModeText) || Boolean(aiOverviewText) || bgDomainCount >= 3 || hasFullContent;
 
   let perplexityContext: string | null = null;
   if (!hasGoodResults && process.env.PERPLEXITY_API_KEY?.trim()) {
@@ -326,8 +379,12 @@ export async function runSmartResearchPipeline(
     progress("perplexity", "skipped", "пропуснат (достатъчно резултати)");
   }
 
-  // Step 3: build combined evidence for Gemini
+  // Step 3: build combined evidence for Gemini. AI Mode synthesis goes first as
+  // the strongest source (it already aggregates & dates the official pages).
   const evidenceParts: string[] = [];
+  if (aiModeText) {
+    evidenceParts.push(`=== Google AI Mode (синтез от много източници) ===\n${aiModeText}`);
+  }
   if (aiOverviewText) {
     evidenceParts.push(`=== Google AI Overview ===\n${aiOverviewText}`);
   }
@@ -386,6 +443,15 @@ export async function runSmartResearchPipeline(
 
   // Step 5: build sources list
   const sources: SmartResearchSource[] = [];
+  if (aiModeText) {
+    sources.push({
+      url: `https://www.google.com/search?q=${encodeURIComponent(query)}&udm=50`,
+      title: "Google AI Mode (Режим с AI)",
+      domain: "google.com",
+      snippet: aiModeText.slice(0, 300),
+      is_ai_overview: true,
+    });
+  }
   if (aiOverviewText) {
     sources.push({
       url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
@@ -421,15 +487,16 @@ export async function runSmartResearchPipeline(
   for (const doc of fetchedDocs) {
     for (const img of doc.images) perDocImages.push(img);
   }
+  const aiModeImages = aiModeResult.image_urls;
   let candidates = pickTopImageCandidates(
-    [perDocImages, cseImages, gImageResultMerged, serpInlineImages],
+    [perDocImages, cseImages, aiModeImages, gImageResultMerged, serpInlineImages],
     MAX_IMAGE_CANDIDATES,
   );
 
   // Always emit a diagnostic so admins can see which source contributed (or didn't).
   const cseNote = isGoogleCseConfigured() ? `${cseImages.length}` : "изкл.";
   warnings.push(
-    `Снимки: страници=${perDocImages.length}, cse=${cseNote}, google_images=${gImageResult.length}, serp=${serpInlineImages.length} → избрани ${candidates.length}.`,
+    `Снимки: страници=${perDocImages.length}, cse=${cseNote}, ai_mode=${aiModeImages.length}, google_images=${gImageResult.length}, serp=${serpInlineImages.length} → избрани ${candidates.length}.`,
   );
 
   // Step 7: AI vision rerank — score candidates by how well they represent this

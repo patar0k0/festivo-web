@@ -1,6 +1,6 @@
 import type { ResearchSource } from "@/lib/admin/research/types";
 import { extractDomain, normalizeUrl } from "@/lib/admin/research/source-extract";
-import { getSourceAuthorityTier, type SourceAuthorityTier } from "@/lib/admin/research/source-ranking";
+import { getSourceAuthorityTier, TIER_SCORE } from "@/lib/admin/research/source-ranking";
 
 export type SearchHit = {
   url: string;
@@ -39,22 +39,6 @@ function domainBgBonus(host: string): number {
   return host.endsWith(".bg") || host.endsWith(".gov.bg") ? 25 : 0;
 }
 
-function tierBaseScore(tier: SourceAuthorityTier): number {
-  switch (tier) {
-    case "tier1_official":
-      return 100;
-    case "tier2_reputable":
-      return 72;
-    case "tier3_reference":
-      return 42;
-    case "tier4_commercial":
-      return 18;
-    case "tier5_weak":
-      return 8;
-    default:
-      return 20;
-  }
-}
 
 /**
  * Ranks search hits; returns top `limit` URLs (default 5) for extraction.
@@ -77,7 +61,7 @@ export function rankSearchHits(hits: SearchHit[], userQuery: string, limit = 5):
       is_official: false,
     };
     const tier = getSourceAuthorityTier(pseudo);
-    let score = tierBaseScore(tier);
+    let score = TIER_SCORE[tier] ?? 20;
 
     score += domainBgBonus(host);
     score += titleMatchScore(userQuery, `${hit.title} ${hit.snippet}`);

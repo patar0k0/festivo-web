@@ -1,6 +1,7 @@
 import "server-only";
 import sharp from "sharp";
 import { geminiExtractJsonWithImages } from "@/lib/admin/research/gemini-provider";
+import { isPrivateHost } from "@/lib/admin/research/isPrivateHost";
 
 /**
  * AI image reranker for the Smart Research pipeline.
@@ -22,17 +23,6 @@ const DOWNSCALE_WIDTH = 512;
 const FETCH_TIMEOUT_MS = 8_000;
 const MAX_DOWNLOAD_BYTES = 8 * 1024 * 1024;
 
-function isBlockedHost(host: string): boolean {
-  const h = host.toLowerCase();
-  return (
-    h === "localhost" ||
-    h === "0.0.0.0" ||
-    h.endsWith(".local") ||
-    h.endsWith(".internal") ||
-    /^(?:10\.|127\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(h) ||
-    /^(?:fc|fd|fe80:)/i.test(h)
-  );
-}
 
 type DownloadedImage = { url: string; mimeType: string; data: string };
 
@@ -45,7 +35,7 @@ async function fetchAndDownscale(url: string): Promise<DownloadedImage | null> {
     return null;
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
-  if (isBlockedHost(parsed.hostname)) return null;
+  if (isPrivateHost(parsed.hostname)) return null;
 
   try {
     const res = await fetch(parsed.toString(), {

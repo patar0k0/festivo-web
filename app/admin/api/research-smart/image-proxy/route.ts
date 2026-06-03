@@ -14,6 +14,7 @@
 // from the highest-quality original).
 import { NextResponse } from "next/server";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { isPrivateHost } from "@/lib/admin/research/isPrivateHost";
 
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB hard cap
@@ -56,17 +57,8 @@ export async function GET(request: Request) {
   }
   const host = parsed.hostname.toLowerCase();
 
-  // SSRF guards — block private/loopback hosts. Conservative checks; admins are
-  // already trusted but we don't want this endpoint to ever be a portscanning
-  // primitive if an auth bug is introduced later.
-  if (
-    host === "localhost" ||
-    host === "0.0.0.0" ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal") ||
-    /^(?:10\.|127\.|192\.168\.|169\.254\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(host) ||
-    /^(?:fc|fd|fe80:)/i.test(host)
-  ) {
+  // SSRF guard — block private/loopback hosts via shared utility.
+  if (isPrivateHost(host)) {
     return NextResponse.json({ error: "Private host blocked" }, { status: 400 });
   }
 

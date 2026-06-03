@@ -524,7 +524,7 @@ export async function runSmartResearchPipeline(
   const fields: SmartResearchFields = {
     title: str(extraction?.title),
     start_date: str(extraction?.start_date),
-    end_date: str(extraction?.end_date) ?? str(extraction?.start_date),
+    end_date: str(extraction?.end_date),
     start_time: str(extraction?.start_time),
     end_time: str(extraction?.end_time),
     city: str(extraction?.city),

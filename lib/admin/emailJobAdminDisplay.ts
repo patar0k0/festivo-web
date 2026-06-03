@@ -123,6 +123,11 @@ export function formatAdminDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleString("bg-BG", {
+      // Pin to Bulgaria time so server-rendered admin pages (which run in UTC on
+      // Vercel) show the wall-clock time admins expect — and match the
+      // client-rendered outreach modal, which formats in the browser's local
+      // (Sofia) timezone. Without this the same email_jobs row appears 3h apart.
+      timeZone: "Europe/Sofia",
       day: "2-digit",
       month: "2-digit",
       year: "numeric",

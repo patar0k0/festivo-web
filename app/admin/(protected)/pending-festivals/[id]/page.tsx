@@ -49,7 +49,11 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
     redirect(`/login?next=/admin/pending-festivals/${id}`);
   }
 
-  const { data, error } = await ctx.supabase.from("pending_festivals").select("*,city:cities(id,name_bg,slug)").eq("id", id).maybeSingle();
+  const { data, error } = await ctx.supabase
+    .from("pending_festivals")
+    .select("*,city:cities(id,name_bg,slug)")
+    .eq("id", id)
+    .maybeSingle();
 
   if (error) {
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{error.message}</div>;
@@ -77,20 +81,31 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
   const qualityDiagnostics = assessPendingFestivalQuality(pendingFestival);
 
   const serviceSupabase = createSupabaseAdmin();
+  const sourceUrlForIngest = typeof pendingFestival.source_url === "string" ? pendingFestival.source_url.trim() : "";
 
-  let organizers: Pick<OrganizerProfile, "id" | "name" | "slug">[] = [];
-  try {
-    const { data: organizersData, error: organizersError } = await serviceSupabase
+  // Run all independent queries in parallel
+  const [organizersResult, ingestJobResult, categoriesResult] = await Promise.allSettled([
+    serviceSupabase
       .from("organizers")
       .select("id,name,slug,plan,plan_started_at,plan_expires_at")
       .eq("is_active", true)
-      .order("name", { ascending: true, nullsFirst: false });
-    if (!organizersError && organizersData) {
-      organizers = organizersData as Pick<OrganizerProfile, "id" | "name" | "slug">[];
-    }
-  } catch {
-    /* optional catalog */
-  }
+      .order("name", { ascending: true, nullsFirst: false }),
+    sourceUrlForIngest
+      ? serviceSupabase
+          .from("ingest_jobs")
+          .select("status,fb_browser_context,finished_at")
+          .eq("source_url", sourceUrlForIngest)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    listAllFestivalCategories(),
+  ]);
+
+  const organizers: Pick<OrganizerProfile, "id" | "name" | "slug">[] =
+    organizersResult.status === "fulfilled" && !organizersResult.value.error
+      ? (organizersResult.value.data ?? []) as Pick<OrganizerProfile, "id" | "name" | "slug">[]
+      : [];
 
   let lastIngestJobMeta: {
     status: string;
@@ -98,17 +113,9 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
     finished_at: string | null;
   } | null = null;
 
-  const sourceUrlForIngest = typeof pendingFestival.source_url === "string" ? pendingFestival.source_url.trim() : "";
-  if (sourceUrlForIngest) {
-    const { data: ingestJob, error: ingestJobError } = await serviceSupabase
-      .from("ingest_jobs")
-      .select("status,fb_browser_context,finished_at")
-      .eq("source_url", sourceUrlForIngest)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (!ingestJobError && ingestJob && typeof ingestJob.status === "string") {
+  if (ingestJobResult.status === "fulfilled" && !ingestJobResult.value.error && ingestJobResult.value.data) {
+    const ingestJob = ingestJobResult.value.data;
+    if (typeof ingestJob.status === "string") {
       const fb = ingestJob.fb_browser_context;
       lastIngestJobMeta = {
         status: ingestJob.status,
@@ -118,7 +125,7 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
     }
   }
 
-  const categories = await listAllFestivalCategories();
+  const categories = categoriesResult.status === "fulfilled" ? categoriesResult.value : [];
 
   return (
     <PendingFestivalEditForm

@@ -36,7 +36,7 @@ import {
   ADMIN_ENTITY_CONTROL_CLASS,
   ADMIN_ENTITY_CONTROL_READONLY_CLASS,
   ADMIN_ENTITY_TEXTAREA_READONLY_CLASS,
-  buildStandardSummaryStripItems,
+
 } from "@/components/admin/entity";
 import { ADMIN_FIELD_LABEL, adminLabelForSuggestionField, getAdminFieldLabel } from "@/lib/admin/entitySchema";
 import { getAIProviderLabel, getPendingResearchProviderKey } from "@/lib/ai/providerUi";
@@ -531,7 +531,8 @@ export default function PendingFestivalEditForm({
     tags_guess: normalizeTagsGuess(pendingFestival.tags_guess),
     coords_override: pendingFestival.coords_override ?? false,
   });
-  const [saving, setSaving] = useState(false);
+  const [savingForm, setSavingForm] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [findingCoords, setFindingCoords] = useState(false);
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [mapsUrlInput, setMapsUrlInput] = useState("");
@@ -758,6 +759,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
       setHeroPreviewError(false);
     }
     setForm((prev) => ({ ...prev, [key]: value }));
+    setIsDirty(true);
   };
 
   useEffect(() => {
@@ -781,13 +783,20 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
         if (prev.place_id?.trim() !== placeId) return prev;
         return { ...prev, latitude: coords.lat.toFixed(6), longitude: coords.lng.toFixed(6) };
       });
-      console.info("[coords] resolved from place_id", coords);
     });
     return () => {
       cancelled = true;
       resolvedPlaceRef.current = null;
     };
   }, [form.coords_override, form.place_id, form.latitude, form.longitude]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
 
   const applySuggestion = (field: SuggestionField, value: string | string[]) => {
     let applied = false;
@@ -845,21 +854,19 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
 
   const onSave = async (event: FormEvent) => {
     event.preventDefault();
-    if (saving || runningAction) return;
+    if (savingForm || runningAction) return;
 
-    setSaving(true);
+    setSavingForm(true);
 
     const coordsValidation = validateCoords(form.latitude, form.longitude);
     if (!coordsValidation.valid) {
-      setSaving(false);
+      setSavingForm(false);
       toast.error(coordsValidation.message);
       return;
     }
 
     try {
       const cityInput = form.city_id.trim();
-      console.info(`[pending-save][client] pending_id=${pendingFestival.id} city input="${cityInput}"`);
-
       const nonEmptyOccurrence = occurrenceDays.filter((d) => d.trim().length > 0);
       const mergedDates = mergeOccurrenceDatesWithRange({
         occurrence_days: nonEmptyOccurrence,
@@ -916,12 +923,13 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
         throw new Error(await readErrorMessage(response, "Failed to save pending festival."));
       }
 
+      setIsDirty(false);
       toast.success("Запазено");
       router.refresh();
-    } catch {
-      toast.error("Грешка при запис");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Грешка при запис");
     } finally {
-      setSaving(false);
+      setSavingForm(false);
     }
   };
 
@@ -956,7 +964,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   };
 
   const onFindCoords = async () => {
-    if (saving || runningAction || findingCoords) return;
+    if (savingForm || runningAction || findingCoords) return;
 
     if (form.coords_override) {
       toast.error("Ръчно зададените координати са активни. Изключете ръчния режим, за да търсите отново.");
@@ -978,16 +986,12 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
             Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
 
           if (hasExisting) {
-            console.warn("[maps-url] overriding existing coords", {
-              old: { latitude, longitude },
-              new: coords,
-            });
+            // coords overridden from maps URL
           }
 
           placeIdFromMaps = extractPlaceIdFromGoogleMapsUrl(trimmed);
           if (placeIdFromMaps) {
             updateField("place_id", placeIdFromMaps);
-            console.info("[maps] extracted place_id", placeIdFromMaps);
           }
 
           const lat = coords.lat.toFixed(6);
@@ -996,7 +1000,6 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
           updateField("longitude", lng);
           updateField("coords_override", false);
 
-          console.info("[coords] source=maps-url", coords);
           toast.success("Координатите са извлечени от Google Maps линка");
 
           return;
@@ -1056,7 +1059,6 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
         const coords = { lat: payload.lat, lng: payload.lng };
         const sourceHint = payload.query_used ? ` · ${payload.query_used}` : "";
         toast.success(`Координатите са намерени${sourceHint}`);
-        console.info("[coords] source=geocode", { coords, query_used: payload.query_used, coords_source: payload.coords_source });
       } else if (mapsFailed) {
         toast.error("Не можахме да извлечем координати от линка");
       } else {
@@ -1074,7 +1076,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   };
 
   const runDecision = async (action: "approve" | "reject") => {
-    if (saving || runningAction) return;
+    if (savingForm || runningAction) return;
 
     setRunningAction(action);
 
@@ -1133,7 +1135,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   };
 
   const removeHeroImage = async () => {
-    if (saving || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    if (savingForm || runningAction || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     if (!form.hero_image.trim()) {
       toast.error("There is no hero image to remove.");
       return;
@@ -1173,7 +1175,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
       toast.error("URL трябва да започва с http:// или https://.");
       return;
     }
-    if (saving || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    if (savingForm || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     if (galleryAtLimit) return;
 
     setImportingGalleryFromUrl(true);
@@ -1200,7 +1202,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   };
 
   const uploadPendingGalleryImage = async (file: File) => {
-    if (saving || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    if (savingForm || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     setExtraGalleryBusy(true);
     try {
       const fd = new FormData();
@@ -1225,7 +1227,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   };
 
   const removePendingGalleryUrl = async (url: string) => {
-    if (saving || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    if (savingForm || runningAction || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     setExtraGalleryBusy(true);
     try {
       const res = await fetch(
@@ -1250,7 +1252,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
   };
 
   const savePendingVideoExtra = async (overrideUrl?: string) => {
-    if (saving || runningAction || extraVideoBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
+    if (savingForm || runningAction || extraVideoBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage) return;
     const raw = overrideUrl !== undefined ? overrideUrl : videoUrlExtra;
     const trimmed = raw.trim();
     if (trimmed && !isSupportedVideoPageUrl(trimmed)) {
@@ -1290,47 +1292,14 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
     ? firstResolvedOrganizer?.name.trim() || firstResolvedOrganizerEntry?.name.trim() || "—"
     : "Организаторът не е потвърден";
 
-  const summaryItems = useMemo(() => {
-    const cityLine =
-      (form.city_id.trim() ||
-        (festivalSettlementSourceText({
-          cityRelation: pendingFestival.city
-            ? { name_bg: pendingFestival.city.name_bg, slug: pendingFestival.city.slug }
-            : null,
-          city_name_display: typeof pendingFestival.city_name_display === "string" ? pendingFestival.city_name_display : null,
-          city_guess: typeof pendingFestival.city_guess === "string" ? pendingFestival.city_guess : null,
-        }) ??
-          "")) ||
-      "—";
-    const sourceLine =
-      (form.source_type || "").trim() ||
-      (form.source_url ? `${form.source_url.slice(0, 64)}${form.source_url.length > 64 ? "…" : ""}` : "—");
-    const reviewed =
-      pendingFestival.reviewed_at != null && pendingFestival.reviewed_at !== ""
-        ? new Date(pendingFestival.reviewed_at).toLocaleString("bg-BG")
-        : "—";
-
-    return buildStandardSummaryStripItems({
-      status: form.status || "—",
-      sourceLine,
-      city: cityLine,
-      startDate: form.start_date.trim() || "—",
-      organizer: summaryOrganizer,
-      contextLabel: ADMIN_FIELD_LABEL.reviewedAt,
-      contextValue: reviewed,
-    });
-  }, [
-    pendingFestival.city,
-    pendingFestival.city_name_display,
-    pendingFestival.city_guess,
-    pendingFestival.reviewed_at,
-    form.city_id,
-    form.source_type,
-    form.source_url,
-    form.start_date,
-    form.status,
-    summaryOrganizer,
-  ]);
+  const summaryItems = useMemo(
+    () => [
+      { label: ADMIN_FIELD_LABEL.status, value: form.status || "—" },
+      { label: ADMIN_FIELD_LABEL.startDate, value: form.start_date.trim() || "—" },
+      { label: ADMIN_FIELD_LABEL.organizer, value: summaryOrganizer },
+    ],
+    [form.status, form.start_date, summaryOrganizer],
+  );
 
   return (
     <form id="admin-pending-festival-edit" onSubmit={onSave} className="space-y-2.5 pb-20">
@@ -1344,31 +1313,23 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
               href="/admin/pending-festivals"
               className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em]"
             >
-              Back
+              Назад
             </Link>
             <button
               type="submit"
               form="admin-pending-festival-edit"
-              disabled={Boolean(runningAction) || saving || galleryOpsBusy || extraVideoBusy}
-              className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save edits"}
-            </button>
-            <button
-              type="button"
-              onClick={() => runDecision("reject")}
-              disabled={saving || Boolean(runningAction)}
+              disabled={Boolean(runningAction) || savingForm || galleryOpsBusy || extraVideoBusy}
               className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
             >
-              {runningAction === "reject" ? "Rejecting..." : "Reject"}
+              {savingForm ? "Запис..." : "Запази"}
             </button>
             <button
               type="button"
               onClick={() => runDecision("approve")}
-              disabled={saving || Boolean(runningAction)}
-              className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] disabled:opacity-50"
+              disabled={savingForm || Boolean(runningAction)}
+              className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
             >
-              {runningAction === "approve" ? "Approving..." : "Approve"}
+              {runningAction === "approve" ? "Одобряване..." : "Одобри"}
             </button>
           </>
         }
@@ -1406,7 +1367,23 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
               <input value={form.title} onChange={(e) => updateField("title", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} required />
             </label>
             <AdminFieldInlineRow field="slug">
-              <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS} />
+              <div className="flex gap-2">
+                <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className={`${ADMIN_ENTITY_CONTROL_CLASS} flex-1`} />
+                {form.title.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => updateField("slug", transliteratedSlug(form.title))}
+                    title={form.slug.trim() ? "Внимание: регенерирането чупи съществуващи URL адреси" : undefined}
+                    className={`shrink-0 rounded-lg border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${
+                      form.slug.trim()
+                        ? "border-amber-300/70 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                        : "border-black/[0.12] bg-white hover:bg-black/[0.03]"
+                    }`}
+                  >
+                    Генерирай
+                  </button>
+                )}
+              </div>
             </AdminFieldInlineRow>
             <AdminFieldInlineRow field="category">
               <select value={form.category} onChange={(e) => updateField("category", e.target.value)} className={ADMIN_ENTITY_CONTROL_CLASS}>
@@ -1481,7 +1458,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                 <OccurrenceDaysEditor
                   value={occurrenceDays}
                   onChange={setOccurrenceDays}
-                  disabled={saving || Boolean(runningAction)}
+                  disabled={savingForm || Boolean(runningAction)}
                 />
               </div>
             </div>
@@ -1567,14 +1544,18 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                   src={mapEmbedPreview}
                   loading="lazy"
                 />
-              ) : null;
+              ) : (
+                <div className="mt-3 flex h-[140px] w-full items-center justify-center rounded-xl border border-dashed border-black/[0.12] bg-black/[0.02] md:col-span-2">
+                  <p className="text-xs text-black/35">Попълнете координати или потърсете чрез „Намери координати", за да се покаже картата.</p>
+                </div>
+              );
             })()}
           </AdminFieldGrid>
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => setMapPickerOpen(true)}
-              disabled={saving || Boolean(runningAction)}
+              disabled={savingForm || Boolean(runningAction)}
               className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
             >
               Избери от карта
@@ -1582,7 +1563,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
             <button
               type="button"
               onClick={onFindCoords}
-              disabled={findingCoords || saving || Boolean(runningAction)}
+              disabled={findingCoords || savingForm || Boolean(runningAction)}
               className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
             >
               {findingCoords ? "Търсене..." : "Намери координати"}
@@ -1890,7 +1871,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                 <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {heroHasImage && !heroAlreadyInGallery && (
                     <div className="group relative overflow-hidden rounded-xl border border-[#ff4c1f]/50 bg-black/[0.02] ring-2 ring-[#ff4c1f]/25">
-                      <div className="aspect-square w-full overflow-hidden bg-black/[0.04]">
+                      <div className="aspect-[4/3] w-full overflow-hidden bg-black/[0.04]">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={heroImageUrl} alt="" className="h-full w-full object-cover" />
                       </div>
@@ -1901,7 +1882,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                         <button
                           type="button"
                           onClick={() => void removeHeroImage()}
-                          disabled={saving || Boolean(runningAction) || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
+                          disabled={savingForm || Boolean(runningAction) || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
                           className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-red-700 disabled:opacity-50"
                         >
                           Премахни
@@ -1918,7 +1899,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                           isHero ? "border-[#ff4c1f]/50 ring-2 ring-[#ff4c1f]/25" : "border-black/[0.08]"
                         }`}
                       >
-                        <div className="aspect-square w-full overflow-hidden bg-black/[0.04]">
+                        <div className="aspect-[4/3] w-full overflow-hidden bg-black/[0.04]">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={u} alt="" className="h-full w-full object-cover" />
                         </div>
@@ -1937,7 +1918,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                                 }
                                 updateField("hero_image", u);
                               }}
-                              disabled={saving || Boolean(runningAction) || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
+                              disabled={savingForm || Boolean(runningAction) || galleryOpsBusy || uploadingHeroImage || importingHeroFromUrl || removingHeroImage}
                               className="rounded-md border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] disabled:opacity-50"
                             >
                               Направи главна
@@ -1947,7 +1928,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                             type="button"
                             onClick={() => void removePendingGalleryUrl(u)}
                             disabled={
-                              saving ||
+                              savingForm ||
                               Boolean(runningAction) ||
                               galleryOpsBusy ||
                               uploadingHeroImage ||
@@ -1966,7 +1947,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                     type="button"
                     onClick={() => galleryExtraInputRef.current?.click()}
                     disabled={
-                      saving ||
+                      savingForm ||
                       Boolean(runningAction) ||
                       galleryOpsBusy ||
                       uploadingHeroImage ||
@@ -1974,7 +1955,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                       removingHeroImage ||
                       galleryAtLimit
                     }
-                    className="flex aspect-square min-h-[120px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:border-black/[0.25] hover:bg-black/[0.04] disabled:opacity-50"
+                    className="flex aspect-[4/3] min-h-[100px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:border-black/[0.25] hover:bg-black/[0.04] disabled:opacity-50"
                   >
                     {extraGalleryBusy ? "Качване..." : "+ Качи"}
                   </button>
@@ -1990,7 +1971,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                     type="button"
                     onClick={() => void importPendingGalleryImageFromUrl()}
                     disabled={
-                      saving ||
+                      savingForm ||
                       Boolean(runningAction) ||
                       galleryOpsBusy ||
                       uploadingHeroImage ||
@@ -2043,7 +2024,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                     type="button"
                     onClick={() => void savePendingVideoExtra()}
                     disabled={
-                      saving ||
+                      savingForm ||
                       Boolean(runningAction) ||
                       extraVideoBusy ||
                       uploadingHeroImage ||
@@ -2058,7 +2039,7 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
                     type="button"
                     onClick={() => void savePendingVideoExtra("")}
                     disabled={
-                      saving ||
+                      savingForm ||
                       Boolean(runningAction) ||
                       extraVideoBusy ||
                       uploadingHeroImage ||
@@ -2422,45 +2403,49 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
         </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.08] bg-white/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1200px] items-center justify-end gap-2 px-4 py-2.5 md:px-6">
-          <Link href="/admin/pending-festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]">
-            Back
-          </Link>
-          <FestivalEditorOpenSecondary
-            action={editorOpenAction}
-            dimmed={
-              saving ||
-              Boolean(runningAction) ||
-              uploadingHeroImage ||
-              importingHeroFromUrl ||
-              removingHeroImage ||
-              galleryOpsBusy ||
-              extraVideoBusy
-            }
-          />
+        <div className="mx-auto flex w-full max-w-[1200px] items-center px-4 py-2.5 md:px-6">
+          {/* Reject — isolated left, amber warning style */}
           <button
             type="button"
             onClick={() => runDecision("reject")}
-            disabled={saving || Boolean(runningAction)}
-            className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
+            disabled={savingForm || Boolean(runningAction)}
+            className="mr-auto rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-amber-800 disabled:opacity-50"
           >
-            {runningAction === "reject" ? "Rejecting..." : "Reject"}
+            {runningAction === "reject" ? "Отхвърляне..." : "Отхвърли"}
           </button>
-          <button
-            type="button"
-            onClick={() => runDecision("approve")}
-            disabled={saving || Boolean(runningAction)}
-            className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
-          >
-            {runningAction === "approve" ? "Approving..." : "Approve"}
-          </button>
-          <button
-            type="submit"
-            disabled={Boolean(runningAction) || saving || galleryOpsBusy || extraVideoBusy}
-            className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save edits"}
-          </button>
+          {/* Secondary + primary */}
+          <div className="flex items-center gap-2">
+            <Link href="/admin/pending-festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]">
+              Назад
+            </Link>
+            <FestivalEditorOpenSecondary
+              action={editorOpenAction}
+              dimmed={
+                savingForm ||
+                Boolean(runningAction) ||
+                uploadingHeroImage ||
+                importingHeroFromUrl ||
+                removingHeroImage ||
+                galleryOpsBusy ||
+                extraVideoBusy
+              }
+            />
+            <button
+              type="submit"
+              disabled={Boolean(runningAction) || savingForm || galleryOpsBusy || extraVideoBusy}
+              className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
+            >
+              {savingForm ? "Запис..." : "Запази промените"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runDecision("approve")}
+              disabled={savingForm || Boolean(runningAction)}
+              className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
+            >
+              {runningAction === "approve" ? "Одобряване..." : "Одобри"}
+            </button>
+          </div>
         </div>
       </div>
     </form>

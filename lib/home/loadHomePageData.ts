@@ -170,7 +170,8 @@ const _loadDbDataCached = unstable_cache(
         .select("*", { count: "exact", head: true })
         .or("status.eq.published,status.eq.verified,is_verified.eq.true")
         .neq("status", "archived")
-        .gte("end_date", today);
+        // Include festivals that have no end_date (fall back to start_date).
+        .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
       if (error) {
         console.error("[loadHomePageData] fetchTotalCount error:", error.message);
         return 0;
@@ -185,7 +186,8 @@ const _loadDbDataCached = unstable_cache(
         .or("status.eq.published,status.eq.verified,is_verified.eq.true")
         .neq("status", "archived")
         .not("city_id", "is", null)
-        .gte("end_date", today)
+        // Include festivals that have no end_date (fall back to start_date).
+        .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`)
         .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
       if (error) {
         console.error("[loadHomePageData] fetchCities error:", error.message);

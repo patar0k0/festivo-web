@@ -69,7 +69,7 @@ function EventsSection({
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:gap-6">
           {festivals.map((festival, index) => (
             <EventCard
-              key={festival.slug}
+              key={festival.id}
               priority={priorityFirst && index === 0}
               title={festival.title}
               city={getFestivalLocationDisplay(festival).city ?? ""}

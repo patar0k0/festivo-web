@@ -23,7 +23,7 @@ import { enqueueEmailJob } from "./enqueueEmail";
 import { resolveAuthUserEmail } from "./resolveAuthUserEmail";
 
 const FESTIVAL_REMINDER_SELECT =
-  "id,title,slug,city_id,start_date,end_date,start_time,location_name,address,cities:cities!festivals_city_id_fkey(name_bg,slug,is_village)";
+  "id,title,slug,city_id,start_date,end_date,start_time,location_name,address,lifecycle_state,cities:cities!festivals_city_id_fkey(name_bg,slug,is_village)";
 
 export type FestivalRowForReminderEmail = {
   id: string;
@@ -35,6 +35,7 @@ export type FestivalRowForReminderEmail = {
   start_time: string | null;
   location_name: string | null;
   address: string | null;
+  lifecycle_state?: string | null;
   cities?: { name_bg: string; slug: string; is_village: boolean } | { name_bg: string; slug: string; is_village: boolean }[] | null;
 };
 
@@ -174,6 +175,10 @@ export async function enqueueSavedFestivalReminderEmailFromJob(
   const fest = festivalById.get(festivalId);
   if (!fest) {
     console.warn("[reminder_email] skip: festival not loaded", { job_id: job.id, festival_id: festivalId });
+    return { status: "skipped", reason: "other" };
+  }
+
+  if (fest.lifecycle_state === "cancelled") {
     return { status: "skipped", reason: "other" };
   }
 

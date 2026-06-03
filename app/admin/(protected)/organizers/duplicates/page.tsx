@@ -47,6 +47,19 @@ const HIGH_CONFIDENCE_REASONS = new Set([
   "exact facebook_url",
 ]);
 
+// Generic/shared email providers — not org-specific, useless as a duplicate signal.
+const GENERIC_EMAIL_DOMAINS = new Set([
+  "abv.bg", "mail.bg", "gmail.com", "googlemail.com",
+  "yahoo.com", "yahoo.bg", "hotmail.com", "hotmail.bg",
+  "outlook.com", "live.com", "icloud.com", "me.com",
+  "dir.bg", "gbg.bg", "bg.com",
+]);
+
+// Shared infrastructure domains (municipal portals, village sites) — not org-specific.
+const GENERIC_WEBSITE_DOMAINS = new Set([
+  "government.bg", "egov.bg",
+]);
+
 function buildDuplicateRows(rows: OrganizerRow[]): DuplicateRow[] {
   const byPair = new Map<string, DuplicateRow>();
 
@@ -88,8 +101,14 @@ function buildDuplicateRows(rows: OrganizerRow[]): DuplicateRow[] {
 
   // Medium-confidence signals
   bucketize((row) => normalizeOrganizerNameAggressive(row.name), "similar name (normalized)");
-  bucketize((row) => extractWebsiteDomain(row.website_url), "same website domain");
-  bucketize((row) => extractEmailDomain(row.email), "same email domain");
+  bucketize((row) => {
+    const d = extractWebsiteDomain(row.website_url);
+    return d && !GENERIC_WEBSITE_DOMAINS.has(d) ? d : null;
+  }, "same website domain");
+  bucketize((row) => {
+    const d = extractEmailDomain(row.email);
+    return d && !GENERIC_EMAIL_DOMAINS.has(d) ? d : null;
+  }, "same email domain");
 
   // Promote pairs that have at least one high-confidence reason
   for (const row of byPair.values()) {

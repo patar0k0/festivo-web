@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await admin
     .from("email_jobs")
-    .select("id,recipient_email,status,sent_at,created_at,last_error")
+    .select("id,recipient_email,status,sent_at,created_at,last_error,email_events(event_type,occurred_at)")
     .eq("type", EMAIL_JOB_TYPE_ORGANIZER_OUTREACH)
     .like("dedupe_key", `organizer-outreach:${organizerId}:%`)
     .order("created_at", { ascending: false })
@@ -36,7 +36,36 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ items: data ?? [] });
+  // Flatten: pick the most informative delivery event per job.
+  // Priority: suppressed > bounced > delivered > sent (most informative first).
+  const EVENT_PRIORITY: Record<string, number> = {
+    "email.suppressed": 4,
+    "email.bounced": 3,
+    "email.complained": 3,
+    "email.delivered": 2,
+    "email.sent": 1,
+  };
+
+  const items = (data ?? []).map((job) => {
+    const events = Array.isArray(job.email_events) ? job.email_events : [];
+    const top = events.reduce<{ event_type: string; occurred_at: string } | null>((best, ev) => {
+      if (!ev || typeof ev.event_type !== "string") return best;
+      if (!best) return ev as { event_type: string; occurred_at: string };
+      const p = EVENT_PRIORITY[ev.event_type] ?? 0;
+      const bp = EVENT_PRIORITY[best.event_type] ?? 0;
+      return p > bp ? (ev as { event_type: string; occurred_at: string }) : best;
+    }, null);
+
+    const { email_events: _ev, ...rest } = job as typeof job & { email_events: unknown };
+    void _ev;
+    return {
+      ...rest,
+      delivery_event: top?.event_type ?? null,
+      delivery_at: top?.occurred_at ?? null,
+    };
+  });
+
+  return NextResponse.json({ items });
 }
 
 export async function POST(request: Request) {

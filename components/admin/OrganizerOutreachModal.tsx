@@ -11,7 +11,29 @@ type OutreachHistoryItem = {
   sent_at: string | null;
   created_at: string;
   last_error: string | null;
+  delivery_event: string | null;
+  delivery_at: string | null;
 };
+
+type DeliveryBadgeProps = { event: string | null };
+
+function DeliveryBadge({ event }: DeliveryBadgeProps) {
+  if (!event) return null;
+  const map: Record<string, { label: string; className: string }> = {
+    "email.delivered":  { label: "Доставен",   className: "bg-emerald-100 text-emerald-700" },
+    "email.sent":       { label: "Изпратен",    className: "bg-blue-100 text-blue-700" },
+    "email.suppressed": { label: "Потиснат",    className: "bg-red-100 text-red-700" },
+    "email.bounced":    { label: "Отбит",       className: "bg-orange-100 text-orange-700" },
+    "email.complained": { label: "Спам",        className: "bg-red-100 text-red-700" },
+  };
+  const cfg = map[event] ?? { label: event.replace("email.", ""), className: "bg-black/10 text-black/60" };
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cfg.className}`}>
+      <span className="size-1.5 rounded-full bg-current" />
+      {cfg.label}
+    </span>
+  );
+}
 
 type Template = {
   id: string;
@@ -240,16 +262,34 @@ export default function OrganizerOutreachModal({
                 {history.map((item) => {
                   const date = item.sent_at ?? item.created_at;
                   const dateStr = format(new Date(date), "d MMM yyyy, HH:mm", { locale: bg });
-                  const statusColor = item.status === "sent" ? "text-emerald-700" : item.status === "failed" ? "text-red-600" : "text-amber-600";
-                  const statusLabel = item.status === "sent" ? "Изпратен" : item.status === "failed" ? "Грешка" : "В опашка";
+                  const isFailed = item.status === "failed";
+                  const isPending = item.status === "pending";
                   return (
-                    <div key={item.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm bg-white">
-                      <div className="min-w-0">
+                    <div key={item.id} className="flex items-start justify-between gap-3 px-3.5 py-2.5 text-sm bg-white">
+                      <div className="min-w-0 space-y-0.5">
                         <span className="font-medium text-[#0c0e14]">{item.recipient_email}</span>
-                        {item.last_error && <p className="mt-0.5 truncate text-xs text-red-500">{item.last_error}</p>}
+                        {item.last_error && (
+                          <p className="truncate text-xs text-red-500">{item.last_error}</p>
+                        )}
+                        {/* Suppressed explanation */}
+                        {item.delivery_event === "email.suppressed" && (
+                          <p className="text-[11px] text-red-500/80">Адресът е в suppression list (спам сигнал или bounce)</p>
+                        )}
+                        {item.delivery_event === "email.bounced" && (
+                          <p className="text-[11px] text-orange-500/80">Имейл адресът не съществува или е недостъпен</p>
+                        )}
                       </div>
-                      <div className="shrink-0 text-right">
-                        <p className={`text-xs font-semibold ${statusColor}`}>{statusLabel}</p>
+                      <div className="shrink-0 text-right space-y-1">
+                        {/* Delivery badge — most informative signal from Resend */}
+                        {item.delivery_event ? (
+                          <div className="flex justify-end">
+                            <DeliveryBadge event={item.delivery_event} />
+                          </div>
+                        ) : (
+                          <p className={`text-xs font-semibold ${isFailed ? "text-red-600" : isPending ? "text-amber-600" : "text-emerald-700"}`}>
+                            {isFailed ? "Грешка" : isPending ? "В опашка" : "Изпратен"}
+                          </p>
+                        )}
                         <p className="text-[11px] text-black/40">{dateStr}</p>
                       </div>
                     </div>

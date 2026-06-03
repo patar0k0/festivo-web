@@ -28,105 +28,85 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
     notFound();
   }
 
-  let organizers: OrganizerProfile[] = [];
-  try {
-    const adminClient = createSupabaseAdmin();
-    const { data: organizersData, error: organizersError, count } = await adminClient
-      .schema("public")
+  // Single client for all privileged queries
+  const adminClient = createSupabaseAdmin();
+
+  // Run all independent queries in parallel
+  const [
+    organizersResult,
+    linksResult,
+    mediaResult,
+    planCountResult,
+    categoriesResult,
+    dayRowsResult,
+  ] = await Promise.allSettled([
+    adminClient
       .from("organizers")
       .select("id,name,slug,description,logo_url,website_url,facebook_url,instagram_url,created_at,plan,plan_started_at,plan_expires_at", { count: "exact" })
       .order("name", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false, nullsFirst: false });
-
-    if (organizersError) {
-      console.error("[admin-festival-edit] organizers query failed", {
-        festivalId: id,
-        message: organizersError.message,
-      });
-    } else {
-      organizers = (organizersData ?? []) as OrganizerProfile[];
-      console.info("[admin-festival-edit] organizers loaded", {
-        festivalId: id,
-        rowCount: organizers.length,
-        exactCount: count ?? null,
-      });
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown admin client initialization error";
-    console.error("[admin-festival-edit] failed to initialize admin organizer client", { festivalId: id, message });
-  }
-
-
-  let selectedOrganizerIds: string[] = [];
-  try {
-    const adminClient = createSupabaseAdmin();
-    const { data: links, error: linksError } = await adminClient
+      .order("created_at", { ascending: false, nullsFirst: false }),
+    adminClient
       .from("festival_organizers")
       .select("organizer_id,sort_order")
       .eq("festival_id", id)
       .order("sort_order", { ascending: true })
-      .returns<Array<{ organizer_id: string; sort_order: number | null }>>();
-
-    if (linksError) {
-      console.error("[admin-festival-edit] selected organizers query failed", {
-        festivalId: id,
-        message: linksError.message,
-      });
-    } else {
-      selectedOrganizerIds = (links ?? []).map((row) => row.organizer_id).filter(Boolean);
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown selected organizers lookup error";
-    console.error("[admin-festival-edit] failed to initialize selected organizer lookup", { festivalId: id, message });
-  }
-
-  const cityRow = Array.isArray(data.cities) ? data.cities[0] : data.cities;
-  const cityDetails = cityRow ?? null;
-
-  const cityDisplay = cityDetails?.name_bg ?? cityDetails?.slug ?? "";
-
-  console.info(
-    `[admin-festival-edit] festival_id=${id} city_id=${cityDetails?.id ?? data.city_id ?? "null"} city_name_bg="${cityDetails?.name_bg ?? ""}" city_slug="${cityDetails?.slug ?? data.city ?? ""}" displayed_city="${cityDisplay ?? ""}"`
-  );
-
-  let initialMedia: Array<{ id: string; url: string; type: string | null; sort_order: number | null; is_hero?: boolean | null }> = [];
-  try {
-    const adminClient = createSupabaseAdmin();
-    const { data: mediaRows, error: mediaError } = await adminClient
+      .returns<Array<{ organizer_id: string; sort_order: number | null }>>(),
+    adminClient
       .from("festival_media")
       .select("id, url, type, sort_order, is_hero")
       .eq("festival_id", id)
-      .order("sort_order", { ascending: true });
-    if (!mediaError && mediaRows) {
-      initialMedia = mediaRows.map((row) => ({
-        id: String(row.id),
-        url: typeof row.url === "string" ? row.url : "",
-        type: typeof row.type === "string" ? row.type : null,
-        sort_order: typeof row.sort_order === "number" ? row.sort_order : null,
-        is_hero: row.is_hero ?? null,
-      }));
-    }
-  } catch {
-    /* optional */
-  }
-
-  const categories = await listAllFestivalCategories();
-
-  const adminClient = createSupabaseAdmin();
-  const { count: planUsersCount } = await adminClient
-    .from("user_plan_festivals")
-    .select("*", { count: "exact", head: true })
-    .eq("festival_id", id);
-
-  let initialProgramDraft = undefined;
-  try {
-    const adminClient = createSupabaseAdmin();
-    const { data: dayRows, error: dayErr } = await adminClient
+      .order("sort_order", { ascending: true }),
+    adminClient
+      .from("user_plan_festivals")
+      .select("*", { count: "exact", head: true })
+      .eq("festival_id", id),
+    listAllFestivalCategories(),
+    adminClient
       .from("festival_days")
       .select("id, date, title")
       .eq("festival_id", id)
-      .order("date", { ascending: true });
-    if (!dayErr && dayRows?.length) {
+      .order("date", { ascending: true }),
+  ]);
+
+  // Organizers
+  let organizers: OrganizerProfile[] = [];
+  if (organizersResult.status === "fulfilled" && !organizersResult.value.error) {
+    organizers = (organizersResult.value.data ?? []) as OrganizerProfile[];
+  } else {
+    console.error("[admin-festival-edit] organizers query failed", { festivalId: id });
+  }
+
+  // Selected organizer IDs
+  let selectedOrganizerIds: string[] = [];
+  if (linksResult.status === "fulfilled" && !linksResult.value.error) {
+    selectedOrganizerIds = (linksResult.value.data ?? []).map((row) => row.organizer_id).filter(Boolean);
+  } else {
+    console.error("[admin-festival-edit] links query failed", { festivalId: id });
+  }
+
+  // Media
+  let initialMedia: Array<{ id: string; url: string; type: string | null; sort_order: number | null; is_hero?: boolean | null }> = [];
+  if (mediaResult.status === "fulfilled" && !mediaResult.value.error && mediaResult.value.data) {
+    initialMedia = mediaResult.value.data.map((row) => ({
+      id: String(row.id),
+      url: typeof row.url === "string" ? row.url : "",
+      type: typeof row.type === "string" ? row.type : null,
+      sort_order: typeof row.sort_order === "number" ? row.sort_order : null,
+      is_hero: row.is_hero ?? null,
+    }));
+  }
+
+  // Plan users count
+  const planUsersCount = planCountResult.status === "fulfilled" ? (planCountResult.value.count ?? 0) : 0;
+
+  // Categories
+  const categories = categoriesResult.status === "fulfilled" ? categoriesResult.value : [];
+
+  // Program draft — schedule items depend on dayRows, so fetched sequentially after
+  let initialProgramDraft = undefined;
+  if (dayRowsResult.status === "fulfilled" && !dayRowsResult.value.error && dayRowsResult.value.data?.length) {
+    const dayRows = dayRowsResult.value.data;
+    try {
       const dayIds = dayRows.map((d) => String(d.id));
       const { data: itemRows, error: itemErr } = await adminClient
         .from("festival_schedule_items")
@@ -148,10 +128,14 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
           }>,
         );
       }
+    } catch {
+      /* optional */
     }
-  } catch {
-    /* optional */
   }
+
+  const cityRow = Array.isArray(data.cities) ? data.cities[0] : data.cities;
+  const cityDetails = cityRow ?? null;
+  const cityDisplay = cityDetails?.name_bg ?? cityDetails?.slug ?? "";
 
   return (
     <div>
@@ -173,7 +157,7 @@ export default async function AdminFestivalEditPage({ params }: { params: Promis
           festivalId={id}
           festivalTitle={typeof data.title === "string" ? data.title : ""}
           lifecycleState={(data.lifecycle_state as "active" | "cancelled") ?? "active"}
-          planUsersCount={planUsersCount ?? 0}
+          planUsersCount={planUsersCount}
         />
       </div>
     </div>

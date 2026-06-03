@@ -12,7 +12,8 @@ import type { FestivalCategory } from "@/lib/festivals/categories.server";
 import { mergeOccurrenceDatesWithRange, normalizeOccurrenceDatesInput } from "@/lib/festival/occurrenceDates";
 import { dbTimeToHmInput } from "@/lib/festival/festivalTimeFields";
 import { resolvePublishedFestivalEditorOpenAction } from "@/lib/festival/editorOpenAction";
-import { getVideoEmbedSrcFromPageUrl, isFacebookVideoUrl, isSupportedVideoPageUrl } from "@/lib/festival/videoEmbed";
+import { getVideoEmbedSrcFromPageUrl, isFacebookVideoUrl } from "@/lib/festival/videoEmbed";
+import { useFestivalMediaOps } from "@/components/admin/hooks/useFestivalMediaOps";
 import FestivalEditorOpenSecondary from "@/components/festival/FestivalEditorOpenSecondary";
 import {
   MEDIA_LIMITS,
@@ -125,8 +126,15 @@ function asDateInput(value: string | null) {
 
 
 function validateCoords(latRaw: string, lngRaw: string) {
-  if (!latRaw && !lngRaw) {
+  const latEmpty = !latRaw.trim();
+  const lngEmpty = !lngRaw.trim();
+
+  if (latEmpty && lngEmpty) {
     return { valid: true, message: "Координатите са празни (допустимо)." };
+  }
+
+  if (latEmpty !== lngEmpty) {
+    return { valid: false, message: "Попълнете и двете координати или оставете и двете празни." };
   }
 
   const lat = Number(latRaw);
@@ -188,7 +196,7 @@ type SaveFestivalResponse = {
 
 type OrganizerOption = Pick<OrganizerProfile, "id" | "name" | "slug" | "plan" | "plan_started_at" | "plan_expires_at">;
 
-type PublishedMediaRow = { id: string; url: string; type: string | null; sort_order: number | null; is_hero?: boolean | null };
+import type { PublishedMediaRow } from "@/components/admin/hooks/useFestivalMediaOps";
 
 export default function FestivalEditForm({
   festival,
@@ -260,11 +268,11 @@ export default function FestivalEditForm({
     facebook_url: "",
     instagram_url: "",
   });
-  const [saving, setSaving] = useState(false);
+  const [savingForm, setSavingForm] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [findingCoords, setFindingCoords] = useState(false);
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [mapsUrlInput, setMapsUrlInput] = useState("");
-  const [importingHeroFromUrl, setImportingHeroFromUrl] = useState(false);
   const mediaSnapshot = JSON.stringify(initialMedia.map((m) => ({ id: m.id, url: m.url, type: m.type, is_hero: m.is_hero ?? null })));
 
   const isVideoMedia = (type: string | null | undefined) => {
@@ -307,30 +315,52 @@ export default function FestivalEditForm({
     const v = festival.video_url;
     return typeof v === "string" ? v.trim() : "";
   }, [festival.video_url]);
-  const [videoUrl, setVideoUrl] = useState(videoUrlFromServer);
-  const [galleryBusy, setGalleryBusy] = useState(false);
-  const [importingGalleryFromUrl, setImportingGalleryFromUrl] = useState(false);
-  const galleryOpsBusy = galleryBusy || importingGalleryFromUrl;
-  const [videoBusy, setVideoBusy] = useState(false);
-  const galleryFileRef = useRef<HTMLInputElement | null>(null);
-  const heroFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const media = useFestivalMediaOps({
+    festivalId: festival.id,
+    initialVideoUrl: videoUrlFromServer,
+    galleryAtLimit,
+    heroHasImage,
+    heroImageUrl: form.hero_image,
+    onHeroImageChange: (url) => updateField("hero_image", url),
+    galleryImageCount,
+    mediaLimitGallery: mediaLimits.gallery,
+  });
+
+  const {
+    galleryFileRef,
+    heroFileInputRef,
+    galleryBusy,
+    galleryOpsBusy,
+    importingHeroFromUrl,
+    importingGalleryFromUrl,
+    videoBusy,
+    videoUrl,
+    setVideoUrl,
+    galleryImportUrl,
+    setGalleryImportUrl,
+    commitHeroFromUrl,
+    importHeroImageFromUrl,
+    uploadHeroImageFile,
+    importGalleryImageFromUrl,
+    uploadGalleryImage,
+    removeGalleryImage,
+    saveVideoUrl,
+  } = media;
+
   const programEditorRef = useRef<ProgramDraftEditorHandle | null>(null);
   const resolvedPlaceRef = useRef<string | null>(null);
-  const [galleryImportUrl, setGalleryImportUrl] = useState("");
   const [heroPreviewError, setHeroPreviewError] = useState(false);
   const [debouncedHeroUrl, setDebouncedHeroUrl] = useState(festival.hero_image ?? festival.image_url ?? "");
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
+  const [deleteConfirmPending, setDeleteConfirmPending] = useState(false);
   const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(festival.occurrence_dates) ?? []);
   const [programDraft, setProgramDraft] = useState<ProgramDraft>(() => initialProgramDraft ?? emptyProgramDraft());
-  const [isSaving, setIsSaving] = useState(false);
+  const [savingProgram, setSavingProgram] = useState(false);
   const initialDraftRef = useRef<string | null>(
     JSON.stringify(programDraftToPublishPayload(initialProgramDraft ?? emptyProgramDraft())),
   );
   const router = useRouter();
-
-  useEffect(() => {
-    setVideoUrl(videoUrlFromServer);
-  }, [videoUrlFromServer]);
 
   useEffect(() => {
     setHeroPreviewError(false);
@@ -340,6 +370,14 @@ export default function FestivalEditForm({
     const timer = setTimeout(() => setDebouncedHeroUrl(form.hero_image), 600);
     return () => clearTimeout(timer);
   }, [form.hero_image]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
 
   const initialProgramDraftKey = JSON.stringify(initialProgramDraft ?? null);
   useEffect(() => {
@@ -386,6 +424,7 @@ export default function FestivalEditForm({
 
   const updateField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    setIsDirty(true);
   };
 
   useEffect(() => {
@@ -469,186 +508,6 @@ export default function FestivalEditForm({
     updateOrganizerIds(form.organizer_ids.filter((id) => id !== organizerId));
   };
 
-  const commitHeroFromUrl = async (sourceUrl: string) => {
-    if (saving || importingHeroFromUrl || actionPending) return;
-
-    const url = sourceUrl.trim();
-    if (!url) {
-      toast.error("Поставете валиден URL на изображение.");
-      return;
-    }
-    if (!/^https?:\/\//i.test(url)) {
-      toast.error("URL трябва да започва с http:// или https://.");
-      return;
-    }
-
-    setImportingHeroFromUrl(true);
-
-    try {
-      const response = await fetch(`/admin/api/festivals/${festival.id}/hero-image`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source_url: url }),
-      });
-
-      const payload = (await response.json().catch(() => null)) as { ok?: boolean; hero_image?: string; error?: string } | null;
-
-      if (!response.ok || !payload?.ok) {
-        throw new Error(payload?.error ?? "Неуспешен импорт на главно изображение.");
-      }
-
-      const imported = typeof payload.hero_image === "string" ? payload.hero_image : "";
-      if (imported) {
-        updateField("hero_image", imported);
-      }
-      toast.success("Главното изображение е обновено.");
-      router.refresh();
-    } catch (importErr) {
-      toast.error(importErr instanceof Error ? importErr.message : "Възникна грешка при импорт.");
-    } finally {
-      setImportingHeroFromUrl(false);
-    }
-  };
-
-  const importHeroImageFromUrl = async () => {
-    await commitHeroFromUrl(form.hero_image.trim());
-  };
-
-  const uploadHeroImageFile = async (file: File) => {
-    if (galleryOpsBusy || saving || actionPending || importingHeroFromUrl) return;
-    if (!heroHasImage && galleryImageCount >= mediaLimits.gallery) {
-      toast.error("Лимитът за галерия е достигнат. Използвайте полето за URL или ъпгрейд към VIP за повече снимки.");
-      return;
-    }
-    setGalleryBusy(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`/admin/api/festivals/${festival.id}/media`, { method: "POST", body: fd, credentials: "include" });
-      const payload = (await res.json().catch(() => null)) as { ok?: boolean; row?: PublishedMediaRow; error?: string } | null;
-      if (!res.ok || !payload?.ok || !payload.row?.url) {
-        throw new Error(payload?.error ?? "Качването не бе успешно.");
-      }
-      await commitHeroFromUrl(payload.row.url);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Грешка при качване.");
-    } finally {
-      setGalleryBusy(false);
-    }
-  };
-
-  const importGalleryImageFromUrl = async () => {
-    const url = galleryImportUrl.trim();
-    if (!url) {
-      toast.error("Поставете валиден URL на изображение.");
-      return;
-    }
-    if (!/^https?:\/\//i.test(url)) {
-      toast.error("URL трябва да започва с http:// или https://.");
-      return;
-    }
-    if (galleryOpsBusy || saving || actionPending || importingHeroFromUrl) return;
-    if (galleryAtLimit) return;
-
-    setImportingGalleryFromUrl(true);
-    try {
-      const res = await fetch(`/admin/api/festivals/${festival.id}/media`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source_url: url }),
-      });
-      const payload = (await res.json().catch(() => null)) as { ok?: boolean; row?: PublishedMediaRow; error?: string } | null;
-      if (!res.ok || !payload?.ok || !payload.row?.url) {
-        throw new Error(payload?.error ?? "Импортът в галерията не бе успешен.");
-      }
-      setGalleryImportUrl("");
-      toast.success("Снимката е добавена към галерията.");
-      router.refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Грешка при импорт в галерията.");
-    } finally {
-      setImportingGalleryFromUrl(false);
-    }
-  };
-
-  const uploadGalleryImage = async (file: File) => {
-    if (galleryOpsBusy || saving || actionPending) return;
-    setGalleryBusy(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`/admin/api/festivals/${festival.id}/media`, { method: "POST", body: fd, credentials: "include" });
-      const payload = (await res.json().catch(() => null)) as { ok?: boolean; row?: PublishedMediaRow; error?: string } | null;
-      if (!res.ok || !payload?.ok || !payload.row) {
-        throw new Error(payload?.error ?? "Качването на снимка не бе успешно.");
-      }
-      toast.success("Снимката е добавена към галерията.");
-      router.refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Грешка при качване.");
-    } finally {
-      setGalleryBusy(false);
-    }
-  };
-
-  const removeGalleryImage = async (mediaId: string, imageUrl: string) => {
-    if (galleryOpsBusy || saving || actionPending) return;
-    setGalleryBusy(true);
-    try {
-      const res = await fetch(`/admin/api/festivals/${festival.id}/media/${encodeURIComponent(mediaId)}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
-      if (!res.ok || !payload?.ok) {
-        throw new Error(payload?.error ?? "Премахването не бе успешно.");
-      }
-      toast.success("Снимката е премахната от галерията.");
-      const removedUrl = imageUrl.trim();
-      if (removedUrl && form.hero_image.trim() === removedUrl) {
-        updateField("hero_image", "");
-      }
-      router.refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Грешка при премахване.");
-    } finally {
-      setGalleryBusy(false);
-    }
-  };
-
-  const saveVideoUrl = async (overrideUrl?: string) => {
-    if (videoBusy || saving || actionPending) return;
-    const raw = overrideUrl !== undefined ? overrideUrl : videoUrl;
-    const trimmed = raw.trim();
-    if (trimmed && !isSupportedVideoPageUrl(trimmed)) {
-      toast.error("Видео линкът трябва да е публичен YouTube или Facebook адрес.");
-      return;
-    }
-    setVideoBusy(true);
-    try {
-      const res = await fetch(`/admin/api/festivals/${festival.id}/media/video`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ video_url: trimmed || null }),
-      });
-      const payload = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
-      if (!res.ok || !payload?.ok) {
-        throw new Error(payload?.error ?? "Записът на видео не бе успешен.");
-      }
-      if (overrideUrl !== undefined) {
-        setVideoUrl(trimmed);
-      }
-      toast.success(trimmed ? "Видео линкът е записан." : "Видео линкът е изчистен.");
-      router.refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Грешка при запис на видео.");
-    } finally {
-      setVideoBusy(false);
-    }
-  };
 
   const onValidateCoords = () => {
     const validation = validateCoords(form.latitude, form.longitude);
@@ -691,7 +550,7 @@ export default function FestivalEditForm({
   };
 
   const onFindCoords = async () => {
-    if (findingCoords || saving || actionPending) return;
+    if (findingCoords || savingForm|| actionPending) return;
 
     if (form.coords_override) {
       toast.error("Ръчно зададените координати са активни. Изключете ръчния режим, за да търсите отново.");
@@ -810,7 +669,7 @@ export default function FestivalEditForm({
   };
 
   const onSaveProgramDraft = async () => {
-    if (isSaving) return;
+    if (savingProgram) return;
 
     const latest = programEditorRef.current?.getSnapshot() ?? programDraft;
     const normalized = programDraftToPublishPayload(latest);
@@ -820,7 +679,7 @@ export default function FestivalEditForm({
       return;
     }
 
-    setIsSaving(true);
+    setSavingProgram(true);
     try {
       console.info("[program-save] payload", normalized);
       const response = await fetch(`/admin/api/festivals/${festival.id}/schedule`, {
@@ -852,7 +711,7 @@ export default function FestivalEditForm({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Грешка при запис");
     } finally {
-      setIsSaving(false);
+      setSavingProgram(false);
     }
   };
 
@@ -917,7 +776,7 @@ export default function FestivalEditForm({
       return;
     }
 
-    setSaving(true);
+    setSavingForm(true);
 
     try {
       const nonEmptyOccurrence = occurrenceDays.filter((d) => d.trim().length > 0);
@@ -1000,17 +859,18 @@ export default function FestivalEditForm({
       updateField("end_date", mergedDates.end_date ?? "");
       setOccurrenceDays(normalizeOccurrenceDatesInput(mergedDates.occurrence_dates) ?? []);
 
+      setIsDirty(false);
       toast.success("Запазено");
       router.refresh();
-    } catch {
-      toast.error("Грешка при запис");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Грешка при запис");
     } finally {
-      setSaving(false);
+      setSavingForm(false);
     }
   };
 
   const runArchiveAction = async (action: "archive" | "restore") => {
-    if (saving || actionPending) return;
+    if (savingForm || actionPending) return;
 
     setActionPending(action);
 
@@ -1037,11 +897,14 @@ export default function FestivalEditForm({
   };
 
   const runDeleteAction = async () => {
-    if (saving || actionPending) return;
+    if (savingForm || actionPending) return;
 
-    const confirmed = window.confirm("Сигурни ли сте, че искате да изтриете този фестивал? Това действие е необратимо.");
-    if (!confirmed) return;
+    if (!deleteConfirmPending) {
+      setDeleteConfirmPending(true);
+      return;
+    }
 
+    setDeleteConfirmPending(false);
     setActionPending("delete");
 
     try {
@@ -1089,10 +952,10 @@ export default function FestivalEditForm({
             <button
               type="submit"
               form="admin-festival-edit-form"
-              disabled={saving || importingHeroFromUrl || Boolean(actionPending)}
+              disabled={savingForm || importingHeroFromUrl || Boolean(actionPending)}
               className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Save"}
+              {savingForm ? "Saving..." : "Save"}
             </button>
           </>
         }
@@ -1122,11 +985,16 @@ export default function FestivalEditForm({
           <AdminFieldInlineRow field="slug">
             <div className="flex gap-2">
               <input value={form.slug} onChange={(e) => updateField("slug", e.target.value)} className={`${ADMIN_ENTITY_CONTROL_CLASS} flex-1`} />
-              {!form.slug.trim() && form.title.trim() && (
+              {form.title.trim() && (
                 <button
                   type="button"
                   onClick={() => updateField("slug", transliteratedSlug(form.title))}
-                  className="shrink-0 rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] hover:bg-black/[0.03]"
+                  title={form.slug.trim() ? "Внимание: регенерирането чупи съществуващи URL адреси" : undefined}
+                  className={`shrink-0 rounded-lg border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] ${
+                    form.slug.trim()
+                      ? "border-amber-300/70 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                      : "border-black/[0.12] bg-white hover:bg-black/[0.03]"
+                  }`}
                 >
                   Генерирай
                 </button>
@@ -1202,7 +1070,7 @@ export default function FestivalEditForm({
           <div className="md:col-span-2">
             <AdminFieldLabel field="occurrenceDays" />
             <div className="mt-0">
-              <OccurrenceDaysEditor value={occurrenceDays} onChange={setOccurrenceDays} disabled={saving || Boolean(actionPending)} />
+              <OccurrenceDaysEditor value={occurrenceDays} onChange={setOccurrenceDays} disabled={savingForm || Boolean(actionPending)} />
             </div>
           </div>
         </AdminFieldGrid>
@@ -1218,10 +1086,10 @@ export default function FestivalEditForm({
           <button
             type="button"
             onClick={onSaveProgramDraft}
-            disabled={isSaving || Boolean(actionPending) || saving}
+            disabled={savingProgram || Boolean(actionPending) || savingForm}
             className="rounded-lg border border-black/[0.1] bg-white px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
           >
-            {isSaving ? "Запис..." : "Запази програмата"}
+            {savingProgram ? "Запис..." : "Запази програмата"}
           </button>
           <p className="text-xs text-black/40">Програмата се записва независимо от основния „Запази".</p>
         </div>
@@ -1305,7 +1173,7 @@ export default function FestivalEditForm({
           <button
             type="button"
             onClick={() => setMapPickerOpen(true)}
-            disabled={saving || Boolean(actionPending)}
+            disabled={savingForm || Boolean(actionPending)}
             className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
           >
             Избери от карта
@@ -1313,7 +1181,7 @@ export default function FestivalEditForm({
           <button
             type="button"
             onClick={onFindCoords}
-            disabled={findingCoords || saving || Boolean(actionPending)}
+            disabled={findingCoords || savingForm|| Boolean(actionPending)}
             className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
           >
             {findingCoords ? "Търсене..." : "Намери координати"}
@@ -1483,7 +1351,7 @@ export default function FestivalEditForm({
               type="button"
               onClick={() => importHeroImageFromUrl()}
               disabled={
-                saving ||
+                savingForm||
                 importingHeroFromUrl ||
                 Boolean(actionPending) ||
                 galleryOpsBusy ||
@@ -1498,7 +1366,7 @@ export default function FestivalEditForm({
               type="button"
               onClick={() => heroFileInputRef.current?.click()}
               disabled={
-                saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || (!heroHasImage && galleryImageCount >= mediaLimits.gallery)
+                savingForm|| importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || (!heroHasImage && galleryImageCount >= mediaLimits.gallery)
               }
               className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
             >
@@ -1568,7 +1436,7 @@ export default function FestivalEditForm({
                       <button
                         type="button"
                         onClick={() => void commitHeroFromUrl(row.url)}
-                        disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy}
+                        disabled={savingForm || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy}
                         className="rounded-md border border-black/[0.1] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] disabled:opacity-50"
                       >
                         Направи главна
@@ -1577,7 +1445,7 @@ export default function FestivalEditForm({
                     <button
                       type="button"
                       onClick={() => void removeGalleryImage(row.id, row.url)}
-                      disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy}
+                      disabled={savingForm || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy}
                       className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-red-700 disabled:opacity-50"
                     >
                       Премахни
@@ -1589,7 +1457,7 @@ export default function FestivalEditForm({
             <button
               type="button"
               onClick={() => galleryFileRef.current?.click()}
-              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || galleryAtLimit}
+              disabled={savingForm || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || galleryAtLimit}
               className="flex aspect-[4/3] min-h-[100px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-black/[0.15] bg-black/[0.02] text-[11px] font-semibold uppercase tracking-[0.08em] text-black/55 transition hover:border-black/[0.25] hover:bg-black/[0.04] disabled:opacity-50"
             >
               {galleryBusy ? "Качване..." : "+ Качи"}
@@ -1605,7 +1473,7 @@ export default function FestivalEditForm({
             <button
               type="button"
               onClick={() => void importGalleryImageFromUrl()}
-              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || galleryAtLimit || !galleryImportUrl.trim()}
+              disabled={savingForm || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || galleryAtLimit || !galleryImportUrl.trim()}
               className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
             >
               {importingGalleryFromUrl ? "Импорт..." : "Импорт от URL"}
@@ -1649,7 +1517,7 @@ export default function FestivalEditForm({
             <button
               type="button"
               onClick={() => void saveVideoUrl()}
-              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || videoBusy}
+              disabled={savingForm || importingHeroFromUrl || Boolean(actionPending) || videoBusy}
               className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
             >
               {videoBusy ? "Запис..." : "Запиши"}
@@ -1657,7 +1525,7 @@ export default function FestivalEditForm({
             <button
               type="button"
               onClick={() => void saveVideoUrl("")}
-              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || videoBusy || !videoUrl.trim()}
+              disabled={savingForm || importingHeroFromUrl || Boolean(actionPending) || videoBusy || !videoUrl.trim()}
               className="rounded-lg border border-black/[0.1] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] disabled:opacity-50"
             >
               {videoBusy ? "Запис..." : "Премахни видео"}
@@ -1801,15 +1669,36 @@ export default function FestivalEditForm({
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.08] bg-white/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1200px] items-center px-4 py-2.5 md:px-6">
-          {/* Destructive action — isolated left to prevent fat-finger next to Save */}
-          <button
-            type="button"
-            onClick={runDeleteAction}
-            disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
-            className="mr-auto rounded-xl border border-[#b13a1a]/30 bg-[#ff4c1f]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#b13a1a] disabled:opacity-50"
-          >
-            {actionPending === "delete" ? "Изтриване..." : "Изтрий"}
-          </button>
+          {/* Destructive action — isolated left, two-step confirm */}
+          {deleteConfirmPending ? (
+            <div className="mr-auto flex items-center gap-2">
+              <span className="text-xs font-semibold text-[#b13a1a]">Сигурен ли си?</span>
+              <button
+                type="button"
+                onClick={runDeleteAction}
+                disabled={Boolean(actionPending)}
+                className="rounded-xl border border-[#b13a1a]/50 bg-[#ff4c1f]/15 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#b13a1a] disabled:opacity-50"
+              >
+                {actionPending === "delete" ? "Изтриване..." : "Да, изтрий"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmPending(false)}
+                className="rounded-xl border border-black/[0.1] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]"
+              >
+                Откажи
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={runDeleteAction}
+              disabled={savingForm || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
+              className="mr-auto rounded-xl border border-[#b13a1a]/30 bg-[#ff4c1f]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#b13a1a] disabled:opacity-50"
+            >
+              Изтрий
+            </button>
+          )}
           {/* Secondary actions */}
           <div className="flex items-center gap-2">
             <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]">
@@ -1817,12 +1706,12 @@ export default function FestivalEditForm({
             </Link>
             <FestivalEditorOpenSecondary
               action={editorOpenAction}
-              dimmed={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
+              dimmed={savingForm || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
             />
             <button
               type="button"
               onClick={() => runArchiveAction(form.status === "archived" ? "restore" : "archive")}
-              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
+              disabled={savingForm || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
               className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
             >
               {actionPending === "archive" || actionPending === "restore"
@@ -1835,10 +1724,10 @@ export default function FestivalEditForm({
             <button
               type="submit"
               form="admin-festival-edit-form"
-              disabled={saving || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
+              disabled={savingForm || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
               className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
             >
-              {saving ? "Запис..." : "Запази"}
+              {savingForm ? "Запис..." : "Запази"}
             </button>
           </div>
         </div>

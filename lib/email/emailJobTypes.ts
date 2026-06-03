@@ -13,6 +13,8 @@ export const EMAIL_JOB_TYPE_CONTACT_FORM = "contact-form" as const;
 export const EMAIL_JOB_TYPE_WELCOME = "welcome" as const;
 export const EMAIL_JOB_TYPE_ADMIN_FESTIVAL_REPORT = "admin-festival-report" as const;
 export const EMAIL_JOB_TYPE_ORGANIZER_OUTREACH = "organizer-outreach" as const;
+export const EMAIL_JOB_TYPE_FESTIVAL_CANCELLED = "festival-cancelled" as const;
+export const EMAIL_JOB_TYPE_ADMIN_FESTIVAL_CANCELLED = "admin-festival-cancelled" as const;
 
 export type EmailJobPriority = "high" | "normal" | "low";
 
@@ -39,6 +41,8 @@ export const EMAIL_JOB_TYPES = [
   EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
   EMAIL_JOB_TYPE_ADMIN_FESTIVAL_REPORT,
   EMAIL_JOB_TYPE_ORGANIZER_OUTREACH,
+  EMAIL_JOB_TYPE_FESTIVAL_CANCELLED,
+  EMAIL_JOB_TYPE_ADMIN_FESTIVAL_CANCELLED,
 ] as const;
 
 export type EmailJobType = (typeof EMAIL_JOB_TYPES)[number];

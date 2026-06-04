@@ -158,7 +158,7 @@ export default async function Page({
     cityFilterValue
       ? getCityFestivals(
           cityFilterValue,
-          { city: [cityFilterValue], free: data.festival.is_free ?? true },
+          { city: [cityFilterValue] },
           1,
           6,
         )

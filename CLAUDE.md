@@ -264,6 +264,7 @@ Do **not** update docs for UI-only changes, styling, or small bug fixes.
 | Organizer portal (pages + API) | `app/organizer/` · `app/api/organizer/` |
 | Outbound click redirect | `app/out/` |
 | Email unsubscribe | `app/unsubscribe/` |
+| Storage orphan cleanup (admin) | `app/admin/(protected)/storage/` · `app/admin/api/storage/orphans/` · `lib/admin/storageGc.ts` |
 
 ### Components
 

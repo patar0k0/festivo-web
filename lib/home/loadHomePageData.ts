@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
@@ -7,8 +8,23 @@ import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBou
 import { FESTIVAL_SELECT_MIN, fixFestivalText } from "@/lib/queries";
 import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
-import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { Festival } from "@/lib/types";
+
+/**
+ * Anon client за homepage данни. Използва публичния anon ключ вместо service role,
+ * така homepage-ът не зависи от SUPABASE_SERVICE_ROLE_KEY.
+ * Всички нужни таблици (festivals, cities, festival_categories) и
+ * RPC festivals_intersecting_range са достъпни за anon role чрез RLS/GRANT.
+ */
+function createHomeSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) throw new Error("Missing Supabase public env vars");
+  return createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: (input, init) => fetch(input, { ...(init ?? {}), cache: "no-store" }) },
+  });
+}
 
 export type HomeCityOption = {
   name: string;
@@ -113,7 +129,7 @@ const _loadDbDataCached = unstable_cache(
     citySlug?: string;
   }): Promise<CachedDbData> => {
     const { today, weekendStart, weekendEnd, monthEnd, citySlug } = params;
-    const supabase = createSupabaseAdmin();
+    const supabase = createHomeSupabaseClient();
 
     async function fetchFestivalsInRange(from: string, to?: string, limit = 6): Promise<Festival[]> {
       const rangeTo = to ?? "2099-12-31";

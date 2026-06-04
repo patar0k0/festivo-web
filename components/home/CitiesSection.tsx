@@ -5,7 +5,11 @@ import { cityHref } from "@/lib/cities";
 import type { HomeCityOption } from "@/lib/home/loadHomePageData";
 
 export default function CitiesSection({ cities }: { cities: HomeCityOption[] }) {
-  const top = cities.slice(0, 10);
+  // Секцията „Места" показва най-популярните градове (по брой фестивали),
+  // независимо от азбучната подредба, която ползва търсачката.
+  const top = [...cities]
+    .sort((a, b) => b.publishedFestivalCount - a.publishedFestivalCount)
+    .slice(0, 10);
 
   return (
     <section id="home-cities" className={cn(pub.panelMuted, "p-5 md:p-6")}>

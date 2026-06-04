@@ -227,10 +227,7 @@ async function fetchHomeDbData(params: HomeDbParams): Promise<CachedDbData> {
       return Array.from(map.entries())
         .map(([filterValue, v]) => ({ filterValue, name: v.name, slug: v.slug, publishedFestivalCount: v.publishedFestivalCount }))
         .filter((row) => row.publishedFestivalCount > 0)
-        .sort((a, b) => {
-          const byCount = b.publishedFestivalCount - a.publishedFestivalCount;
-          return byCount !== 0 ? byCount : a.name.localeCompare(b.name, "bg");
-        });
+        .sort((a, b) => a.name.localeCompare(b.name, "bg"));
     }
 
     async function fetchCategorySlugs(): Promise<string[]> {

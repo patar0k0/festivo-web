@@ -107,7 +107,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   }
 
-  const claimUrl = absoluteSiteUrl("/organizer/claim");
+  const claimUrl = absoluteSiteUrl("/organizer");
   // Include date so the same organizer+email can receive follow-ups on different days,
   // but accidental double-clicks on the same day are still deduplicated.
   const today = new Date().toISOString().slice(0, 10);

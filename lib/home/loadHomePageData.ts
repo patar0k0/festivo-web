@@ -114,20 +114,26 @@ type CachedDbData = {
   categorySlugs: string[];
 };
 
+type HomeDbParams = {
+  today: string;
+  weekendStart: string;
+  weekendEnd: string;
+  monthStart: string;
+  monthEnd: string;
+  citySlug?: string;
+};
+
 /**
- * All DB queries for the homepage in a single unstable_cache block.
- * Uses the admin client so it works outside of a request context (no cookies needed).
- * Cached for 5 minutes per {today, citySlug, weekendStart, weekendEnd, monthStart, monthEnd}.
+ * All DB queries for the homepage in a single function.
+ * Uses the anon client so it works outside of a request context (no cookies needed).
+ *
+ * IMPORTANT: every query THROWS on a Supabase error instead of silently
+ * returning 0/[]. This is deliberate — when wrapped in `unstable_cache`, a
+ * rejected promise is NOT persisted, so a transient DB/network failure can no
+ * longer freeze an empty homepage ("0 фестивала" + празно меню с места) for the
+ * full 5-minute cache window. The caller retries uncached on throw.
  */
-const _loadDbDataCached = unstable_cache(
-  async (params: {
-    today: string;
-    weekendStart: string;
-    weekendEnd: string;
-    monthStart: string;
-    monthEnd: string;
-    citySlug?: string;
-  }): Promise<CachedDbData> => {
+async function fetchHomeDbData(params: HomeDbParams): Promise<CachedDbData> {
     const { today, weekendStart, weekendEnd, monthEnd, citySlug } = params;
     const supabase = createHomeSupabaseClient();
 
@@ -162,7 +168,7 @@ const _loadDbDataCached = unstable_cache(
       }
 
       const { data, error } = await query.returns<Festival[]>();
-      if (error) return [];
+      if (error) throw new Error(`[loadHomePageData] fetchFestivalsInRange error: ${error.message}`);
       return (data ?? []).map(fixFestivalText);
     }
 
@@ -176,7 +182,7 @@ const _loadDbDataCached = unstable_cache(
         .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
       if (citySlug) query = query.eq("city_slug", citySlug.trim().toLowerCase());
       const { data, error } = await query.limit(100).returns<Festival[]>();
-      if (error) return [];
+      if (error) throw new Error(`[loadHomePageData] fetchCurrentFestivals error: ${error.message}`);
       return sortCurrentFestivalsForHome((data ?? []).map(fixFestivalText)).slice(0, 6);
     }
 
@@ -189,8 +195,7 @@ const _loadDbDataCached = unstable_cache(
         // Include festivals that have no end_date (fall back to start_date).
         .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
       if (error) {
-        console.error("[loadHomePageData] fetchTotalCount error:", error.message);
-        return 0;
+        throw new Error(`[loadHomePageData] fetchTotalCount error: ${error.message}`);
       }
       return count ?? 0;
     }
@@ -206,8 +211,7 @@ const _loadDbDataCached = unstable_cache(
         .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`)
         .returns<Array<{ cities: CityJoinRow | CityJoinRow[] | null }>>();
       if (error) {
-        console.error("[loadHomePageData] fetchCities error:", error.message);
-        return [];
+        throw new Error(`[loadHomePageData] fetchCities error: ${error.message}`);
       }
 
       const map = new Map<string, { name: string; slug: string | null; publishedFestivalCount: number }>();
@@ -252,10 +256,14 @@ const _loadDbDataCached = unstable_cache(
       ]);
 
     return { nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, monthFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs };
-  },
-  ["home-page-db-data"],
-  { revalidate: 300 },
-);
+}
+
+/**
+ * Cached wrapper around {@link fetchHomeDbData}.
+ * Cached for 5 minutes per {today, citySlug, weekendStart, weekendEnd, monthStart, monthEnd}.
+ * A rejected promise is not persisted, so transient failures never poison the cache.
+ */
+const _loadDbDataCached = unstable_cache(fetchHomeDbData, ["home-page-db-data"], { revalidate: 300 });
 
 /**
  * Same queries and derived hrefs as the public home page (`app/page.tsx`).
@@ -263,9 +271,35 @@ const _loadDbDataCached = unstable_cache(
 export async function loadHomePageData(citySlug: string | undefined): Promise<HomePageViewProps> {
   const today = sofiaWallClockNow().ymd;
   const { weekendStart, weekendEnd, monthStart, monthEnd } = festivalDiscoveryCalendarBounds(today);
+  const params: HomeDbParams = { today, weekendStart, weekendEnd, monthStart, monthEnd, citySlug };
+
+  let dbData: CachedDbData;
+  try {
+    dbData = await _loadDbDataCached(params);
+  } catch (cachedErr) {
+    // A query failed during a cache miss. `unstable_cache` does NOT persist a
+    // rejected promise, so the empty result is never frozen for 5 minutes.
+    // Retry once uncached so this visitor still sees real data, and the next
+    // request re-attempts the cache cleanly.
+    console.error("[loadHomePageData] cached load failed, retrying uncached:", cachedErr);
+    try {
+      dbData = await fetchHomeDbData(params);
+    } catch (uncachedErr) {
+      console.error("[loadHomePageData] uncached load also failed; serving empty (not cached):", uncachedErr);
+      dbData = {
+        nearestFestivalsRaw: [],
+        currentFestivalsRaw: [],
+        weekendFestivalsRaw: [],
+        monthFestivalsRaw: [],
+        totalFestivalsCount: 0,
+        citiesResult: [],
+        categorySlugs: [],
+      };
+    }
+  }
 
   const { nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, monthFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs } =
-    await _loadDbDataCached({ today, weekendStart, weekendEnd, monthStart, monthEnd, citySlug });
+    dbData;
 
   const cityKey = citySlug?.trim().toLowerCase();
   const selectedCityName = cityKey

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { removeHeroStorageObjectForPublicUrlIfApplicable } from "@/lib/admin/festivalHeroStorageCleanup";
+import { removeHeroStorageObjectIfUnreferenced } from "@/lib/admin/festivalHeroStorageCleanup";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -30,18 +30,20 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   const typeLower = (row.type ?? "").toLowerCase();
   const isVideo = typeLower.includes("video");
 
-  if (!isVideo) {
-    const url = typeof row.url === "string" ? row.url.trim() : "";
-    const removal = await removeHeroStorageObjectForPublicUrlIfApplicable(mediaDb, url);
-    if (!removal.ok) {
-      return NextResponse.json({ error: `Storage cleanup failed: ${removal.message}` }, { status: 500 });
-    }
-  }
+  const mediaUrl = !isVideo && typeof row.url === "string" ? row.url.trim() : "";
 
   const { error } = await mediaDb.from("festival_media").delete().eq("id", mediaId).eq("festival_id", festivalId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Reference-safe: only delete the blob if no other row still points at it.
+  if (mediaUrl) {
+    const removal = await removeHeroStorageObjectIfUnreferenced(mediaDb, mediaUrl);
+    if (!removal.ok) {
+      return NextResponse.json({ error: `Storage cleanup failed: ${removal.message}` }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });

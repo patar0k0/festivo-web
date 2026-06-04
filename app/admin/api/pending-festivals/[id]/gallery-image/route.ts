@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { removeHeroStorageObjectForPublicUrlIfApplicable } from "@/lib/admin/festivalHeroStorageCleanup";
+import { removeHeroStorageObjectIfUnreferenced } from "@/lib/admin/festivalHeroStorageCleanup";
 import { rehostHeroImageIfRemote } from "@/lib/admin/rehostHeroImageFromUrl";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
@@ -263,17 +263,18 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return NextResponse.json({ error: "Gallery image not found." }, { status: 404 });
     }
 
-    const removal = await removeHeroStorageObjectForPublicUrlIfApplicable(admin, url);
-    if (!removal.ok) {
-      return NextResponse.json({ error: `Storage cleanup failed: ${removal.message}` }, { status: 500 });
-    }
-
     const filtered = gallery.filter((u) => u !== url);
 
     const { error: updateError } = await admin.from("pending_festivals").update({ gallery_image_urls: filtered }).eq("id", pendingId);
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    // Reference-safe: only delete the blob if no other row (e.g. hero_image) still points at it.
+    const removal = await removeHeroStorageObjectIfUnreferenced(admin, url);
+    if (!removal.ok) {
+      return NextResponse.json({ error: `Storage cleanup failed: ${removal.message}` }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true, gallery_image_urls: filtered });

@@ -51,6 +51,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/email-jobs", label: "Имейли", match: "prefix" },
       { href: "/admin/outbound", label: "Кликове", match: "prefix" },
       { href: "/admin/observability", label: "Observability", match: "prefix" },
+      { href: "/admin/storage", label: "Storage", match: "prefix" },
     ],
   },
 ];

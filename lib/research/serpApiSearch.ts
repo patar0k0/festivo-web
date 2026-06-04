@@ -171,50 +171,36 @@ function pushHttpUrl(out: string[], seen: Set<string>, raw: string | undefined |
 
 function collectImageUrls(json: SerpApiRawResponse): string[] {
   const seen = new Set<string>();
-  const high: string[] = [];
-  const low: string[] = [];
+  const out: string[] = [];
 
-  // High-quality sources first
+  // Knowledge graph — typically decent-quality entity images
   const kg = json.knowledge_graph;
   if (kg) {
-    pushHttpUrl(high, seen, kg.image);
-    pushHttpUrl(high, seen, kg.thumbnail);
+    pushHttpUrl(out, seen, kg.image);
+    pushHttpUrl(out, seen, kg.thumbnail);
     if (Array.isArray(kg.header_images)) {
-      for (const h of kg.header_images) pushHttpUrl(high, seen, h?.image);
+      for (const h of kg.header_images) pushHttpUrl(out, seen, h?.image);
     }
   }
 
+  // inline_images: only `original` (high-res from source site).
+  // `thumbnail` (Google gstatic, ~256px) is excluded — too small for hero use.
   if (Array.isArray(json.inline_images)) {
     for (const img of json.inline_images) {
-      // Prefer `original` — high-resolution image hosted on the source site.
-      // The admin smart-research panel renders these via /admin/api/research-smart/
-      // image-proxy which handles hotlink protection server-side, so we no longer
-      // sacrifice quality for browser-rendering reliability. `thumbnail` (Google
-      // gstatic, ~256px) goes into `low` as a fallback when the original 404s.
-      pushHttpUrl(high, seen, img.original);
-      pushHttpUrl(low, seen, img.thumbnail);
+      pushHttpUrl(out, seen, img.original);
     }
   }
 
-  // engine=google_images shape — same reasoning
+  // engine=google_images: only `original`; thumbnails are gstatic-proxied small copies.
   if (Array.isArray(json.images_results)) {
     for (const img of json.images_results) {
-      pushHttpUrl(high, seen, img.original);
-      pushHttpUrl(low, seen, img.thumbnail);
+      pushHttpUrl(out, seen, img.original);
     }
   }
 
-  // top_stories — small but real photos
-  if (Array.isArray(json.top_stories)) {
-    for (const s of json.top_stories) pushHttpUrl(low, seen, s.thumbnail);
-  }
+  // top_stories and organic thumbnails excluded — these are icon-sized (≤128px).
 
-  // organic_results[].thumbnail — usually small (icon-ish); last priority
-  if (Array.isArray(json.organic_results)) {
-    for (const r of json.organic_results) pushHttpUrl(low, seen, r.thumbnail);
-  }
-
-  return [...high, ...low];
+  return out;
 }
 
 async function fetchSerpApi(params: Record<string, string>, timeoutMs = 10_000): Promise<SerpApiRawResponse> {
@@ -396,14 +382,10 @@ export async function serpApiAiMode(query: string): Promise<SerpApiAiModeResult>
     return empty(`SerpAPI AI Mode грешка: ${json.error ?? fatalError}`);
   }
 
-  const refThumbs: string[] = [];
-  const seenThumbs = new Set<string>();
-  for (const r of json.references ?? []) pushHttpUrl(refThumbs, seenThumbs, r.thumbnail);
-
   return {
     ai_mode_text: aiModeToText(json),
     references: referencesToHits(json),
-    image_urls: [...collectImageUrls(json), ...refThumbs],
+    image_urls: collectImageUrls(json),
     warning: failedOver ? "SerpAPI: автоматично превключен на резервен ключ (AI Mode)." : null,
   };
 }

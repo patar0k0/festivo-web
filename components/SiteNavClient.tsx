@@ -204,7 +204,7 @@ export default function SiteNavClient({
         ) : null}
       </div>
 
-      <nav className="hidden items-center gap-5 text-[11px] font-medium uppercase tracking-[0.17em] text-black/45 md:flex md:gap-6">
+      <nav className="hidden items-center gap-5 text-[11px] font-medium uppercase tracking-[0.17em] text-black/60 md:flex md:gap-6">
         <Link href="/festivals" className="transition hover:text-[#0c0e14]">
           Фестивали
         </Link>

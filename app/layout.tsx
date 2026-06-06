@@ -51,6 +51,9 @@ export function generateMetadata(): Metadata {
         { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
       ],
     },
+    verification: {
+      yandex: "9fe472d2ec3e2868",
+    },
     other: {
       ...Sentry.getTraceData(),
     },

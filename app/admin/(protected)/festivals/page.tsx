@@ -104,6 +104,9 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
   const time = asTime(asString(params.time));
   const deleted = asString(params.deleted) === "1";
   const qualityFilter = asString(params.quality) as PendingQualityBucket | "";
+  const weekend = asString(params.weekend);
+  const noImage = asString(params.no_image);
+  const promoted = asString(params.promoted);
 
   const statusScope = statusToFilterScope(status);
 
@@ -119,6 +122,9 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
   if (q) queryString.set("q", q);
   if (sort !== DEFAULT_SORT) queryString.set("sort", sort);
   if (time !== DEFAULT_TIME) queryString.set("time", time);
+  if (weekend) queryString.set("weekend", weekend);
+  if (noImage) queryString.set("no_image", noImage);
+  if (promoted) queryString.set("promoted", promoted);
 
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
@@ -197,6 +203,47 @@ export default async function AdminFestivalsPage({ searchParams }: { searchParam
                   }`}
                 >
                   {opt.label}
+                </a>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 pb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
+              Бързо:
+            </span>
+            {(
+              [
+                { key: "weekend", param: "weekend", value: "1", label: "Този уикенд", current: weekend },
+                { key: "no_image", param: "no_image", value: "1", label: "Без снимки", current: noImage },
+                { key: "promoted", param: "promoted", value: "1", label: "Промо", current: promoted },
+              ] as const
+            ).map((chip) => {
+              const active = chip.current === "1";
+              const qs = new URLSearchParams();
+              if (status) qs.set("status", status);
+              if (cityId) qs.set("city_id", cityId);
+              if (category) qs.set("category", category);
+              if (free) qs.set("free", free);
+              if (q) qs.set("q", q);
+              if (sort !== DEFAULT_SORT) qs.set("sort", sort);
+              if (time !== DEFAULT_TIME) qs.set("time", time);
+              if (qualityFilter) qs.set("quality", qualityFilter);
+              if (weekend && chip.param !== "weekend") qs.set("weekend", weekend);
+              if (noImage && chip.param !== "no_image") qs.set("no_image", noImage);
+              if (promoted && chip.param !== "promoted") qs.set("promoted", promoted);
+              if (!active) qs.set(chip.param, chip.value);
+              return (
+                <a
+                  key={chip.key}
+                  href={`/admin/festivals?${qs.toString()}`}
+                  className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                    active
+                      ? "border-[#0c0e14] bg-[#0c0e14] text-white"
+                      : "border-black/[0.12] bg-white text-black/70 hover:bg-black/[0.04]"
+                  }`}
+                >
+                  {chip.label}
                 </a>
               );
             })}

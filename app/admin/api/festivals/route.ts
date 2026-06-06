@@ -22,6 +22,22 @@ function todayIsoDate(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function toYmd(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** Returns [saturday, sunday] of the upcoming/current weekend in UTC. */
+function thisWeekendRange(): [string, string] {
+  const now = new Date();
+  const day = now.getUTCDay(); // 0=Sun...6=Sat
+  const daysToSat = day === 0 ? 6 : 6 - day;
+  const sat = new Date(now);
+  sat.setUTCDate(now.getUTCDate() + daysToSat);
+  const sun = new Date(sat);
+  sun.setUTCDate(sat.getUTCDate() + 1);
+  return [toYmd(sat), toYmd(sun)];
+}
+
 const SORT_OPTIONS = [
   "start_date_asc",
   "start_date_desc",
@@ -87,6 +103,9 @@ export async function GET(request: Request) {
 
     const sort = asSort(url.searchParams.get("sort"));
     const time = asTime(url.searchParams.get("time"));
+    const weekend = url.searchParams.get("weekend") === "1";
+    const noImage = url.searchParams.get("no_image") === "1";
+    const promoted = url.searchParams.get("promoted") === "1";
 
     let query = ctx.supabase
       .from("festivals")
@@ -148,6 +167,14 @@ export async function GET(request: Request) {
       query = query.ilike("title", `%${q}%`);
     }
 
+    if (noImage) {
+      query = query.is("hero_image", null);
+    }
+
+    if (promoted) {
+      query = query.eq("promotion_status", "promoted");
+    }
+
     // Time filter — by default admin only sees upcoming + ongoing festivals so
     // past events don't crowd the list (Bulgaria has ~hundreds of festivals
     // per year; past dataset grows unboundedly). Switch to "past" or "all"
@@ -156,7 +183,10 @@ export async function GET(request: Request) {
     // Logic: a festival is "upcoming/ongoing" iff COALESCE(end_date, start_date)
     // is today or later. PostgREST doesn't support COALESCE in filters, so we
     // express it as: (end_date >= today) OR (end_date IS NULL AND start_date >= today).
-    if (time !== "all") {
+    if (weekend) {
+      const [from, to] = thisWeekendRange();
+      query = query.gte("start_date", from).lte("start_date", to);
+    } else if (time !== "all") {
       const today = todayIsoDate();
       if (time === "upcoming") {
         query = query.or(

@@ -15,7 +15,7 @@ import {
   getFestivalDetail,
   normalizePublicFestivalSlugParam,
 } from "@/lib/queries";
-import { buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildFestivalJsonLd, festivalMeta, getBaseUrl } from "@/lib/seo";
 import { debugLog } from "@/lib/utils/debugLog";
 import { pub } from "@/lib/public-ui/styles";
 import { countBookingOutboundClicksLast30Days } from "@/lib/outbound/bookingIntent";
@@ -138,6 +138,12 @@ export default async function Page({
   const jsonLd = buildFestivalJsonLd(data.festival, {
     mediaUrls: galleryImageUrls,
   });
+  const baseUrl = getBaseUrl().replace(/\/$/, "");
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Начало", url: `${baseUrl}/` },
+    { name: "Фестивали", url: `${baseUrl}/festivals` },
+    { name: data.festival.title },
+  ]);
   const citySlug = data.festival.cities?.slug?.trim() || null;
   const cityFilterValue = citySlug;
   const mapLat = data.festival.latitude ?? data.festival.lat;
@@ -237,6 +243,7 @@ export default async function Page({
       {jsonLd ? (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       ) : null}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
     </div>
   );
 }

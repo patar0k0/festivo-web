@@ -12,7 +12,7 @@ import { listFestivals } from "@/lib/festivals";
 import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { formatSettlementLocationLines } from "@/lib/settlements/formatLocation";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
-import { getBaseUrl } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, getBaseUrl } from "@/lib/seo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
@@ -75,6 +75,19 @@ export async function generateMetadata({
     description,
     alternates: {
       canonical: `${getBaseUrl()}/cities/${canonicalSlug}`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `${getBaseUrl()}/cities/${canonicalSlug}`,
+      siteName: "Festivo",
+      locale: "bg_BG",
+      type: "website",
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
     },
   };
 }
@@ -335,6 +348,18 @@ export default async function CityLandingPage({
           </div>
         </Container>
       </Section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            buildBreadcrumbJsonLd([
+              { name: "Начало", url: `${getBaseUrl().replace(/\/$/, "")}/` },
+              { name: "Фестивали", url: `${getBaseUrl().replace(/\/$/, "")}/festivals` },
+              { name: `Фестивали в ${cityName}` },
+            ])
+          ),
+        }}
+      />
     </div>
   );
 }

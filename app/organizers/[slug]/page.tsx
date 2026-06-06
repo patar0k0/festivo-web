@@ -15,7 +15,7 @@ import {
   normalizePublicOrganizerSlugParam,
   resolveOrganizerCanonicalSlug,
 } from "@/lib/queries";
-import { getBaseUrl } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildOrganizerJsonLd, getBaseUrl } from "@/lib/seo";
 import { getFestivalTemporalState } from "@/lib/festival/temporal";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import { getAdminContext } from "@/lib/admin/isAdmin";
@@ -82,11 +82,27 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const title = `${data.organizer.name} | Организатор | Festivo`;
   const description = data.organizer.description?.trim() || `Профил на организатор ${data.organizer.name} във Festivo.`;
 
+  const canonical = `${getBaseUrl()}/organizers/${encodeURIComponent(data.organizer.slug)}`;
+  const ogImage = data.organizer.logo_url?.trim() || undefined;
+
   return {
     title,
     description,
-    alternates: {
-      canonical: `${getBaseUrl()}/organizers/${encodeURIComponent(data.organizer.slug)}`,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      siteName: "Festivo",
+      locale: "bg_BG",
+      type: "profile",
+      ...(ogImage ? { images: [{ url: ogImage, alt: data.organizer.name }] } : {}),
+    },
+    twitter: {
+      card: ogImage ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }
@@ -410,6 +426,22 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
           </div>
         </Container>
       </Section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildOrganizerJsonLd(organizer)) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(
+            buildBreadcrumbJsonLd([
+              { name: "Начало", url: `${getBaseUrl().replace(/\/$/, "")}/` },
+              { name: "Организатори", url: `${getBaseUrl().replace(/\/$/, "")}/organizers` },
+              { name: organizer.name },
+            ])
+          ),
+        }}
+      />
     </div>
   );
 }

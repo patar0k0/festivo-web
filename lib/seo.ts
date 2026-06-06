@@ -250,3 +250,52 @@ export function buildFestivalJsonLd(
   const cleaned = stripJsonLdEmpty(core) as Record<string, unknown> | null;
   return cleaned && Object.keys(cleaned).length ? cleaned : null;
 }
+
+export function buildBreadcrumbJsonLd(
+  items: Array<{ name: string; url?: string }>,
+): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      ...(item.url ? { item: item.url } : {}),
+    })),
+  };
+}
+
+type OrganizerJsonLdInput = {
+  name: string;
+  slug: string;
+  description?: string | null;
+  logo_url?: string | null;
+  website_url?: string | null;
+  facebook_url?: string | null;
+};
+
+export function buildOrganizerJsonLd(
+  organizer: OrganizerJsonLdInput,
+): Record<string, unknown> {
+  const baseUrl = getBaseUrl().replace(/\/$/, "");
+  const pageUrl = `${baseUrl}/organizers/${encodeURIComponent(organizer.slug)}`;
+
+  const block: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: organizer.name,
+    url: pageUrl,
+  };
+
+  if (organizer.description?.trim()) block.description = organizer.description.trim().slice(0, 500);
+  if (organizer.logo_url?.trim()) block.logo = organizer.logo_url.trim();
+
+  const sameAs: string[] = [];
+  if (organizer.website_url?.trim()) sameAs.push(organizer.website_url.trim());
+  if (organizer.facebook_url?.trim()) sameAs.push(organizer.facebook_url.trim());
+  if (sameAs.length === 1) block.sameAs = sameAs[0];
+  else if (sameAs.length > 1) block.sameAs = sameAs;
+
+  return block;
+}

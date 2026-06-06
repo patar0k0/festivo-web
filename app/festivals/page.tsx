@@ -12,6 +12,7 @@ import { listPublicFestivalCategorySlugs } from "@/lib/festivals/publicCategorie
 import { listFestivals, listHomeCitySelectOptions } from "@/lib/festivals";
 import { parseFilters, withDefaultFilters } from "@/lib/filters";
 import { getBaseUrl, listMeta } from "@/lib/seo";
+import { buildBreadcrumbJsonLd } from "@/lib/seo";
 import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { Festival } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -36,13 +37,25 @@ function getParam(searchParams: PageSearchParams, key: string): string | undefin
 }
 
 export async function generateMetadata() {
-  const meta = listMeta();
+  const title = "Фестивали в България | Festivo";
+  const description = "Открий безплатни фестивали и събития в България по град, категория и дата.";
+  const url = `${getBaseUrl()}/festivals`;
   return {
-    ...meta,
-    title: "Фестивали в България | Festivo",
-    description: "Открий безплатни фестивали и събития в България по град, категория и дата.",
-    alternates: {
-      canonical: `${getBaseUrl()}/festivals`,
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: "Festivo",
+      locale: "bg_BG",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
     },
   };
 }
@@ -201,6 +214,39 @@ export default async function FestivalsPage({ searchParams }: { searchParams: Pa
           </div>
         </Container>
       </Section>
+      {page === 1 && activeFiltersCount === 0 && festivals.length > 0 && (
+        <>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "ItemList",
+                name: "Фестивали в България",
+                url: `${getBaseUrl()}/festivals`,
+                numberOfItems: total,
+                itemListElement: festivals.slice(0, 10).map((festival, index) => ({
+                  "@type": "ListItem",
+                  position: index + 1,
+                  url: `${getBaseUrl()}/festivals/${festival.slug}`,
+                  name: festival.title,
+                })),
+              }),
+            }}
+          />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(
+                buildBreadcrumbJsonLd([
+                  { name: "Начало", url: `${getBaseUrl().replace(/\/$/, "")}/` },
+                  { name: "Фестивали" },
+                ])
+              ),
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }

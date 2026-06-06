@@ -231,6 +231,17 @@ export function buildFestivalJsonLd(
   if (orgBlocks.length === 1) core.organizer = orgBlocks[0];
   else if (orgBlocks.length > 1) core.organizer = orgBlocks;
 
+  const offerBlock: Record<string, unknown> = { "@type": "Offer" };
+  if (festival.is_free === true) {
+    offerBlock.price = "0";
+    offerBlock.priceCurrency = "BGN";
+    offerBlock.availability = "https://schema.org/InStock";
+  } else {
+    offerBlock.availability = "https://schema.org/InStock";
+  }
+  if (festival.ticket_url?.trim()) offerBlock.url = festival.ticket_url.trim();
+  core.offers = offerBlock;
+
   const locStripped = stripJsonLdEmpty(location) as Record<string, unknown> | undefined;
   if (locStripped && Object.keys(locStripped).length > 1) {
     core.location = locStripped;

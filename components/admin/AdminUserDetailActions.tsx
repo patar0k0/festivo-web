@@ -204,6 +204,7 @@ export default function AdminUserDetailActions({
       if (!res.ok) {
         throw new Error(payload?.error ?? "Неуспех.");
       }
+      setHardModal(false);
       router.push("/admin/users");
       router.refresh();
     } catch (e) {

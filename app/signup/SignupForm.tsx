@@ -177,6 +177,25 @@ export function SignupForm({ next }: SignupFormProps) {
 
   const oauthBusy = oauthProvider !== null;
 
+  if (notice) {
+    return (
+      <div className="mt-6 flex flex-col items-center gap-4 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#7c2d12]/10">
+          <svg viewBox="0 0 24 24" className="h-7 w-7 text-[#7c2d12]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <p className="text-sm text-[#0c0e14]" role="status">{notice}</p>
+        <Link
+          href="/login"
+          className="mt-1 inline-flex w-full items-center justify-center rounded-full border border-[#7c2d12] py-2.5 text-sm font-medium text-[#7c2d12] transition hover:bg-[#7c2d12]/5"
+        >
+          Към вход
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={onSubmit} className="mt-2" noValidate>
       <OAuthButtons
@@ -284,7 +303,7 @@ export function SignupForm({ next }: SignupFormProps) {
       </div>
 
       <p className="mt-4 text-center text-xs leading-relaxed text-black/65">
-        {'С натискане на „Създай профил" или вход с Google/Apple приемаш '}
+        {'С натискане на „Създай профил" или вход с Google приемаш '}
         <Link href="/terms" className="font-semibold text-[#7c2d12] underline decoration-black/20 underline-offset-[3px] hover:decoration-[#7c2d12]/60">
           Общите условия
         </Link>{" "}

@@ -6,7 +6,7 @@ type OAuthButtonsProps = {
   oauthProvider: OAuthProvider | null;
   disabled: boolean;
   onContinue: (provider: OAuthProvider) => Promise<void> | void;
-  /** `festivo` — primary terracotta Google pill + soft Apple outline (login / landing alignment). */
+  /** `festivo` — primary terracotta Google pill (login / landing alignment). */
   variant?: "default" | "festivo";
 };
 
@@ -30,17 +30,6 @@ function GoogleIcon() {
       <path
         d="M12 6a5.5 5.5 0 013.9 1.5l2.9-2.9A10 10 0 002.7 7.4l3.5 2.8A6 6 0 0112 6z"
         fill="#EA4335"
-      />
-    </svg>
-  );
-}
-
-function AppleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-      <path
-        d="M16.4 12.8c0-2.1 1.8-3.1 1.8-3.2-1-1.5-2.6-1.7-3.1-1.7-1.3-.1-2.5.8-3.2.8-.7 0-1.7-.8-2.8-.8-1.4 0-2.8.9-3.5 2.2-1.5 2.6-.4 6.4 1.1 8.6.8 1.1 1.6 2.3 2.8 2.3 1.1 0 1.5-.7 2.9-.7 1.3 0 1.7.7 2.9.7 1.2 0 2-.9 2.8-2 .9-1.2 1.2-2.4 1.2-2.4-.1 0-2.9-1.1-2.9-3.8zM14.3 6.6c.7-.8 1.2-1.9 1-3.1-1 .1-2.2.7-2.9 1.5-.7.7-1.3 1.9-1.1 3 1.1.1 2.2-.6 3-1.4z"
-        fill="currentColor"
       />
     </svg>
   );

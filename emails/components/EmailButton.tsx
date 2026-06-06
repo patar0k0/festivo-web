@@ -15,14 +15,15 @@ export function EmailButton({ href, children }: EmailButtonProps) {
 }
 
 const btn: CSSProperties = {
-  backgroundColor: "#18181b",
-  borderRadius: "8px",
-  color: "#fafafa",
-  fontSize: "14px",
-  fontWeight: 600,
+  backgroundColor: "#7c2d12",
+  borderRadius: "10px",
+  color: "#ffffff",
+  fontSize: "15px",
+  fontWeight: 700,
   textDecoration: "none",
   textAlign: "center" as const,
   display: "inline-block",
-  padding: "12px 22px",
+  padding: "14px 30px",
   lineHeight: "1.25",
+  letterSpacing: "0.01em",
 };

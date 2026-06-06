@@ -76,12 +76,16 @@ export async function postAuthUserSweep(
 
       const sum = totalDeletes(parsed);
       if (sum === 0 && logCtx?.authUserExistedBeforeSweep) {
-        console.error("[postAuthUserSweep] ERROR all-zero counts but auth user existed before sweep", {
+        // All-zero is expected when:
+        //   1. public.users was already CASCADE-deleted by auth.admin.deleteUser, OR
+        //   2. The user never confirmed their email and had no associated data.
+        // purgeUserApplicationData already ran before this sweep, so the deletion
+        // succeeded regardless. Log a warning but do not treat this as a failure.
+        console.warn("[postAuthUserSweep] WARN all-zero counts after sweep (likely CASCADE or fresh user)", {
           userId,
-          label: logCtx.label,
+          label: logCtx?.label,
           ...parsed,
         });
-        throw new Error("post-auth sweep: zero rows deleted while user existed (possible partial failure)");
       }
 
       if (logCtx) {

@@ -39,8 +39,8 @@ export function BaseLayout({ children, siteUrl, optionalEmailLinks }: BaseLayout
 
 const body: CSSProperties = {
   margin: 0,
-  padding: "24px 0",
-  backgroundColor: "#f4f4f5",
+  padding: "28px 0",
+  backgroundColor: "#faf8f5",
   fontFamily:
     '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
 };
@@ -53,8 +53,9 @@ const outer: CSSProperties = {
 const container: CSSProperties = {
   maxWidth: "600px",
   margin: "0 auto",
-  padding: "32px 28px",
+  padding: "36px 32px 28px",
   backgroundColor: "#ffffff",
-  borderRadius: "8px",
-  border: "1px solid #e4e4e7",
+  borderRadius: "12px",
+  border: "1px solid #efe9dc",
+  boxShadow: "0 2px 8px rgba(124,45,18,0.06), 0 1px 2px rgba(0,0,0,0.04)",
 };

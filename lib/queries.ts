@@ -852,6 +852,18 @@ export async function getHomeCitySelectOptions(): Promise<
     .sort((a, b) => a.name.localeCompare(b.name, "bg"));
 }
 
+export async function getOrganizerSlugs(): Promise<string[]> {
+  const supabase = supabaseServer();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("organizers")
+    .select("slug")
+    .eq("is_active", true)
+    .returns<{ slug: string | null }[]>();
+  if (error) return [];
+  return (data ?? []).map((row) => row.slug).filter((slug): slug is string => Boolean(slug));
+}
+
 export async function getFestivalSlugs(): Promise<string[]> {
   const supabase = supabaseServer();
   if (!supabase) {

@@ -56,7 +56,7 @@ export default function FallbackImage({
     if (!props.priority || !normalizedSrc) return null;
     // Derive pixel width from the sizes prop if available, else default 750px
     // (covers 100vw mobile up to tablet 50vw @2x).
-    return toSupabaseTransformUrl(normalizedSrc, { width: 750, quality: 80 });
+    return toSupabaseTransformUrl(normalizedSrc, { width: 750, quality: 72 });
   }, [props.priority, normalizedSrc]);
 
   const unoptimized = unoptimizedProp ?? supabaseTransformSrc !== null;

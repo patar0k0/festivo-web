@@ -91,7 +91,7 @@ export default async function RootLayout({
         {/* Preconnect за Supabase storage (снимки на фестивали) */}
         {supabaseHost ? (
           <>
-            <link rel="preconnect" href={`https://${supabaseHost}`} />
+            <link rel="preconnect" href={`https://${supabaseHost}`} crossOrigin="anonymous" />
             <link rel="dns-prefetch" href={`https://${supabaseHost}`} />
           </>
         ) : null}

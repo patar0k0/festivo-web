@@ -33,6 +33,8 @@ import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
 import { ensureFestivalHasImage } from "@/lib/festival/ensureFestivalHasImage";
 import { slugifyCity } from "@/lib/text/slugifyCity";
+import { pingIndexNow } from "@/lib/seo/indexNow";
+import { getBaseUrl } from "@/lib/seo";
 
 type CityRow = {
   id: number;
@@ -638,6 +640,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
     void scheduleFollowedOrganizerFestivalJobs(insertedFestival.id).catch((err) =>
       console.warn("[notifications] scheduleFollowedOrganizerFestivalJobs", err),
+    );
+    void pingIndexNow([`${getBaseUrl()}/festivals/${encodeURIComponent(finalSlug)}`]).catch((err) =>
+      console.warn("[indexnow] ping failed", err),
     );
 
     try {

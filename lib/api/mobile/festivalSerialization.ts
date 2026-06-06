@@ -9,6 +9,8 @@ export type MobileFestivalListItem = {
   slug: string;
   title: string;
   city: string | null;
+  /** Normalised city slug (e.g. "sofia", "chupren") — used for city-based filtering on mobile. */
+  city_slug?: string | null;
   start_date: string | null;
   end_date: string | null;
   image_url: string | null;
@@ -119,11 +121,19 @@ export function serializeMobileFestivalListItem(festival: Festival, isSaved: boo
   const coords = pickMapListingCoords(festival);
   const cat = typeof festival.category === "string" && festival.category.trim() ? festival.category.trim() : null;
   const promoted = festival.promotion_status === "promoted";
+  const citySlug =
+    (typeof festival.cities?.slug === "string" && festival.cities.slug.trim()
+      ? festival.cities.slug.trim().toLowerCase()
+      : null) ??
+    (typeof festival.city_slug === "string" && festival.city_slug.trim()
+      ? festival.city_slug.trim().toLowerCase()
+      : null);
   return {
     id: String(festival.id),
     slug: festival.slug,
     title: festival.title,
     city: getFestivalLocationDisplay(festival).city ?? festival.city_name_display ?? null,
+    city_slug: citySlug,
     start_date: festival.start_date ?? null,
     end_date: festival.end_date ?? null,
     image_url: typeof imageUrl === "string" && imageUrl.trim() ? imageUrl.trim() : null,

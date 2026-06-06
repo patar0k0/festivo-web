@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 import { addMonths, format } from "date-fns";
 import { cityHref } from "@/lib/cities";
-import { getCityLinks, getFestivalSlugs } from "@/lib/queries";
+import { getCityLinks, getFestivalSlugs, getOrganizerSlugs } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -15,7 +15,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const baseUrl = getBaseUrl();
-  const [slugs, cities] = await Promise.all([getFestivalSlugs(), getCityLinks()]);
+  const [slugs, cities, organizerSlugs] = await Promise.all([
+    getFestivalSlugs(),
+    getCityLinks(),
+    getOrganizerSlugs(),
+  ]);
 
   const core = ["/", "/festivals", "/map", "/calendar"].map((path) => ({
     url: `${baseUrl}${path}`,
@@ -41,5 +45,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(),
   }));
 
-  return [...core, ...festivalUrls, ...cityUrls, ...monthUrls];
+  const organizerUrls = organizerSlugs.map((slug) => ({
+    url: `${baseUrl}/organizers/${encodeURIComponent(slug)}`,
+    lastModified: new Date(),
+  }));
+
+  return [...core, ...festivalUrls, ...cityUrls, ...monthUrls, ...organizerUrls];
 }

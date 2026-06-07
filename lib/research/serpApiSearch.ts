@@ -5,7 +5,6 @@ import {
   getSerpApiKeyOrder,
   resolveSerpApiKey,
   setActiveSerpApiKeyIndex,
-  type SerpApiKeyIndex,
 } from "@/lib/admin/serpApiConfig.server";
 
 export type SerpApiOrganicHit = {

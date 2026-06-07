@@ -2,6 +2,7 @@
 import "server-only";
 import {
   getActiveSerpApiKeyIndex,
+  getSerpApiKeyOrder,
   resolveSerpApiKey,
   setActiveSerpApiKeyIndex,
   type SerpApiKeyIndex,
@@ -245,8 +246,7 @@ async function fetchSerpApiWithFailover(
   timeoutMs = 10_000,
 ): Promise<SerpFetchOutcome> {
   const primaryIndex = await getActiveSerpApiKeyIndex();
-  const altIndex: SerpApiKeyIndex = primaryIndex === "1" ? "2" : "1";
-  const order: SerpApiKeyIndex[] = [primaryIndex, altIndex];
+  const order = getSerpApiKeyOrder(primaryIndex);
 
   let failedOver = false;
   let lastError: string | null = null;
@@ -264,14 +264,12 @@ async function fetchSerpApiWithFailover(
     );
 
     if (json.error && isQuotaError(json.error) && i < order.length - 1) {
-      // Quota hit on this key — try the alternate.
       lastError = json.error;
       failedOver = true;
       continue;
     }
 
     if (failedOver && !json.error) {
-      // Alternate key worked — make it the active one going forward.
       try {
         await setActiveSerpApiKeyIndex(idx);
         console.warn(`[serpapi] auto-failover → ключ ${idx} (предишният изчерпан: ${lastError})`);

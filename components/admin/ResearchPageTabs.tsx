@@ -7,14 +7,22 @@ import ResearchFestivalPanel from "@/components/admin/ResearchFestivalPanel";
 
 type Tab = "smart" | "classic";
 
+type KeyIndex = "1" | "2" | "3";
+
+const KEY_STYLES: Record<KeyIndex, { btn: string; dot: string; next: KeyIndex }> = {
+  "1": { btn: "border-green-200 bg-green-50 text-green-700 hover:bg-green-100", dot: "bg-green-500", next: "2" },
+  "2": { btn: "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100", dot: "bg-orange-500", next: "3" },
+  "3": { btn: "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100", dot: "bg-blue-500", next: "1" },
+};
+
 function SerpApiKeyToggle() {
-  const [active, setActive] = useState<"1" | "2" | null>(null);
+  const [active, setActive] = useState<KeyIndex | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     fetch("/admin/api/serpapi-key")
       .then((r) => r.json())
-      .then((d) => setActive(d.active === "2" ? "2" : "1"))
+      .then((d) => setActive(["1", "2", "3"].includes(d.active) ? (d.active as KeyIndex) : "1"))
       .catch(() => setActive("1"));
   }, []);
 
@@ -23,12 +31,14 @@ function SerpApiKeyToggle() {
       const r = await fetch("/admin/api/serpapi-key", { method: "POST" });
       if (r.ok) {
         const d = await r.json();
-        setActive(d.active === "2" ? "2" : "1");
+        setActive(["1", "2", "3"].includes(d.active) ? (d.active as KeyIndex) : "1");
       }
     });
   }
 
   if (active === null) return null;
+
+  const style = KEY_STYLES[active];
 
   return (
     <div className="flex items-center gap-2">
@@ -38,14 +48,10 @@ function SerpApiKeyToggle() {
       <button
         onClick={handleToggle}
         disabled={isPending}
-        title={`Активен: Ключ ${active}. Натисни за смяна на Ключ ${active === "1" ? "2" : "1"}.`}
-        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors disabled:opacity-50 ${
-          active === "1"
-            ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
-            : "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
-        }`}
+        title={`Активен: Ключ ${active}. Натисни за смяна на Ключ ${style.next}.`}
+        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors disabled:opacity-50 ${style.btn}`}
       >
-        <span className={`inline-block h-1.5 w-1.5 rounded-full ${active === "1" ? "bg-green-500" : "bg-orange-500"}`} />
+        <span className={`inline-block h-1.5 w-1.5 rounded-full ${style.dot}`} />
         Ключ {active}
       </button>
     </div>

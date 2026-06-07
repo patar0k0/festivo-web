@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import DiscoverySourcesTable from "@/components/admin/DiscoverySourcesTable";
 import DiscoveredLinksInspectorTable, { type DiscoveredLinkRow } from "@/components/admin/DiscoveredLinksInspectorTable";
+import DiscoveryControlPanel from "@/components/admin/DiscoveryControlPanel";
 
 type GenericRow = Record<string, unknown>;
 
@@ -498,6 +499,10 @@ export default async function AdminDiscoveryPage({
           <p className="text-sm font-semibold text-amber-900">В процес на разработка</p>
           <p className="mt-0.5 text-xs text-amber-800/70">Тази секция се разработва активно. Функционалността може да се промени.</p>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-5 shadow-[0_2px_0_rgba(12,14,20,0.05),0_10px_24px_rgba(12,14,20,0.08)]">
+        <DiscoveryControlPanel />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

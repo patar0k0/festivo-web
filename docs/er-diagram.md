@@ -395,3 +395,4 @@ Notes:
 - `notification_jobs.job_type` extends with `followed_organizer` and `trending` (in addition to `reminder`, `update`, `weekend`, `new_city`).
 - `ingest_jobs -> pending_festivals` and `pending_festivals -> festivals` are workflow links via `source_url`/approval logic, not strict FK constraints.
 - Pending AI guess columns are omitted from the diagram to keep relationships readable; column-level detail lives in Supabase, `scripts/sql/` migrations, and application types/queries—not in a static schema markdown snapshot.
+- Discovery control plane (not drawn; `scripts/sql/20260608_discovery_control_plane.sql`): `discovery_run_requests.run_id -> discovery_runs.id` (FK, `on delete set null`) and `discovery_run_requests.source_id -> discovery_sources.id` (FK, `on delete set null`). `discovery_config` is a standalone singleton (`id = 1`).

@@ -27,6 +27,12 @@ This repo includes worker helper logic in `workers/ingest_fb_event.js` for:
 - **HTTP APIs** under **`/admin/api/discovery-sources`**: `POST` creates a source (includes **`label`** when required by DB); **`PATCH`** updates activity, limits, manual overrides (**`manual_disabled`** / **`manual_override`**), and catalog fields (**`name`**, **`label`**, **`base_url`**, **`source_type`** within an allowed set including **`aggregator_site`**); **`DELETE`** is a **soft deactivate** (sets **`is_active = false`** and **`manual_disabled = true`**, clears **`manual_override`**) — no physical row delete.
 - Service-role writes after the admin session gate; audit logging on mutating routes where implemented.
 
+**Discovery Control Plane (`scripts/sql/20260608_discovery_control_plane.sql`):**
+- **`discovery_config`** — singleton (`id = 1`) of admin-tunable knobs: `score_threshold`, `max_sources_per_run`, `max_links_per_source`, `max_jobs_per_run`, `fetch_timeout_ms`, `soft_disable_approval_floor`, `soft_disable_min_enqueued`, `recovery_every`, `cron_enabled`. RLS admin-only; worker reads via service role.
+- **`discovery_run_requests`** — queue of on-demand run requests (`status` requested→claimed→done/failed, `mode` full/single_source, `lock_token`, `run_id` → `discovery_runs`). A **partial unique index** (`status = 'requested'` over `(mode, coalesce(source_id, -1))`) prevents duplicate pending requests.
+- **APIs:** `GET|PATCH /admin/api/discovery/config` (validated), `POST /admin/api/discovery/run` (creates/dedupes a request), `GET /admin/api/discovery/requests` (live status). UI: `components/admin/DiscoveryControlPanel.tsx` (run button + config form + requests panel, polls while active).
+- **Coordination is Supabase-only** (worker takes no inbound HTTP). On each Railway cron tick the worker `readDiscoveryConfig()` (fallback env/defaults) then `claimRunRequest()` (atomic via `lock_token` race guard); if none pending and `cron_enabled` → scheduled run; else skip. Score threshold is threaded into `isScoreEligible(..., baseThreshold)` additively (default preserves 65/50 behavior).
+
 **festivo-workers (discovery):**
 - **`discovery_sources`** allowed **`source_type`** values include **`facebook_page`**, **`municipality_site`**, **`aggregator_site`** (worker allowlist in `discovery_helpers.js`).
 - Per-source **`manual_disabled`**: source is always skipped; **`manual_override`**: skips auto soft-disable and approval-rate **penalties** (scoring caps/dedup/hard rejects unchanged).

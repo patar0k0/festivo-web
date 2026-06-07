@@ -150,7 +150,7 @@ Every migration must include: tables · indexes · constraints · RLS policies.
 
 ### Important tables
 
-`cities` · `festivals` · `pending_festivals` · `ingest_jobs` · `festival_days` · `festival_schedule_items` · `festival_media` · `festival_organizers` · `organizers` · `organizer_members` · `organizer_promotion_credits` · `user_plan_festivals` · `user_plan_items` · `user_plan_reminders` · `user_notification_settings` · `user_email_preferences` · `user_followed_cities` · `user_followed_organizers` · `notification_jobs` · `notification_logs` · `push_delivery_audit` · `email_jobs` · `email_events` · `device_tokens` · `location_cache` · `discovery_sources` · `cron_locks` · `admin_audit_logs` · `user_sweep_retry_queue` · `admin_config` · `research_smart_cache`
+`cities` · `festivals` · `pending_festivals` · `ingest_jobs` · `festival_days` · `festival_schedule_items` · `festival_media` · `festival_organizers` · `organizers` · `organizer_members` · `organizer_promotion_credits` · `user_plan_festivals` · `user_plan_items` · `user_plan_reminders` · `user_notification_settings` · `user_email_preferences` · `user_followed_cities` · `user_followed_organizers` · `notification_jobs` · `notification_logs` · `push_delivery_audit` · `email_jobs` · `email_events` · `device_tokens` · `location_cache` · `discovery_sources` · `discovery_config` · `discovery_run_requests` · `cron_locks` · `admin_audit_logs` · `user_sweep_retry_queue` · `admin_config` · `research_smart_cache`
 
 ### Table naming conventions
 
@@ -416,6 +416,19 @@ Full list with descriptions: `README.md`.
 | Push на feature branch | Preview деплой (автоматично) |
 
 **Не е нужно да се изпълнява ръчен деплой след всеки merge** — Vercel засича промените в GitHub и деплойва сам.
+
+### Railway cron services (festivo-workers)
+
+Worker-ите се деплойват като отделни Railway cron services от repo `festivo-workers` (project `giving-passion`):
+
+| Service | Start command | Интервал |
+|---|---|---|
+| `festivo-email-cron` | `npm run start:email-cron` | често |
+| `festivo-newsletter-sync` | `npm run start:newsletter-sync` | ~7h |
+| `festivo-workers` (FB ingest) | `npm start` | по график |
+| **`festivo-discovery`** (нов) | `npm run start:discovery` | `0 */6 * * *` (~6h) |
+
+Discovery worker-ът чете `discovery_config` (admin-tunable, fallback към env) и на всеки tick claim-ва pending `discovery_run_requests` (on-demand от admin); ако няма заявка и `cron_enabled=true` → scheduled run.
 
 ### `/deploy` команда
 

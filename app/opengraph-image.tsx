@@ -14,34 +14,34 @@ export default function Image() {
           height: "630px",
           display: "flex",
           flexDirection: "column",
-          background: "#0c0e14",
+          background: "linear-gradient(135deg, #fffdf9 0%, #fff7ed 55%, #fef3e2 100%)",
           position: "relative",
           overflow: "hidden",
         }}
       >
-        {/* Decorative gradient blob (top-left) */}
+        {/* Soft warm glow (top-left) */}
         <div
           style={{
             position: "absolute",
-            top: "-180px",
-            left: "-160px",
-            width: "640px",
-            height: "640px",
+            top: "-220px",
+            left: "-200px",
+            width: "660px",
+            height: "660px",
             borderRadius: "9999px",
-            background: "radial-gradient(circle, rgba(217,119,6,0.45) 0%, rgba(217,119,6,0) 70%)",
+            background: "radial-gradient(circle, rgba(251,191,36,0.28) 0%, rgba(251,191,36,0) 70%)",
           }}
         />
 
-        {/* Decorative gradient blob (bottom-right) */}
+        {/* Soft warm glow (bottom-right) */}
         <div
           style={{
             position: "absolute",
-            bottom: "-220px",
-            right: "-180px",
-            width: "720px",
-            height: "720px",
+            bottom: "-260px",
+            right: "-200px",
+            width: "760px",
+            height: "760px",
             borderRadius: "9999px",
-            background: "radial-gradient(circle, rgba(124,45,18,0.55) 0%, rgba(124,45,18,0) 70%)",
+            background: "radial-gradient(circle, rgba(217,119,6,0.18) 0%, rgba(217,119,6,0) 70%)",
           }}
         />
 
@@ -50,26 +50,26 @@ export default function Image() {
           style={{
             position: "absolute",
             top: 56,
-            left: 60,
-            right: 60,
+            left: 64,
+            right: 64,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
             <div
               style={{
-                width: 14,
-                height: 14,
-                borderRadius: 4,
+                width: 15,
+                height: 15,
+                borderRadius: 5,
                 background: "#d97706",
               }}
             />
             <div
               style={{
-                color: "#fafafa",
-                fontSize: 28,
+                color: "#18181b",
+                fontSize: 29,
                 fontWeight: 700,
                 letterSpacing: "-0.02em",
               }}
@@ -78,7 +78,7 @@ export default function Image() {
             </div>
             <div
               style={{
-                color: "#71717a",
+                color: "#a1a1aa",
                 fontSize: 22,
                 fontWeight: 500,
               }}
@@ -89,9 +89,10 @@ export default function Image() {
 
           <div
             style={{
-              color: "#a1a1aa",
+              color: "#a16207",
               fontSize: 18,
-              fontWeight: 500,
+              fontWeight: 600,
+              letterSpacing: "0.01em",
             }}
           >
             Каталог на фестивалите в България
@@ -110,48 +111,48 @@ export default function Image() {
             flexDirection: "column",
             justifyContent: "center",
             alignItems: "flex-start",
-            padding: "0 60px",
+            padding: "0 64px",
           }}
         >
           {/* Accent bar */}
           <div
             style={{
-              width: 72,
-              height: 5,
-              background: "#d97706",
+              width: 76,
+              height: 6,
+              background: "linear-gradient(90deg, #d97706 0%, #f59e0b 100%)",
               borderRadius: 3,
-              marginBottom: 28,
+              marginBottom: 30,
             }}
           />
 
           <div
             style={{
-              color: "#ffffff",
-              fontSize: 84,
+              color: "#1c1917",
+              fontSize: 86,
               fontWeight: 800,
-              lineHeight: 1.05,
-              letterSpacing: "-0.03em",
-              maxWidth: 1000,
+              lineHeight: 1.04,
+              letterSpacing: "-0.035em",
+              maxWidth: 1040,
               display: "flex",
               flexDirection: "column",
-              gap: 4,
+              gap: 2,
             }}
           >
             <div>Открий. Планирай.</div>
-            <div style={{ color: "#fbbf24" }}>Посети.</div>
+            <div style={{ color: "#d97706" }}>Посети.</div>
           </div>
 
           <div
             style={{
-              color: "#d4d4d8",
-              fontSize: 30,
+              color: "#57534e",
+              fontSize: 31,
               fontWeight: 500,
-              marginTop: 28,
+              marginTop: 30,
               lineHeight: 1.4,
-              maxWidth: 900,
+              maxWidth: 940,
             }}
           >
-            Фестивалите на България на едно място — фолклорни, винени, музикални и още.
+            Всички фестивали в България на едно място — открий по град, дата и интерес.
           </div>
         </div>
 
@@ -159,36 +160,40 @@ export default function Image() {
         <div
           style={{
             position: "absolute",
-            bottom: 56,
-            left: 60,
-            right: 60,
+            bottom: 58,
+            left: 64,
+            right: 64,
             display: "flex",
             alignItems: "center",
             gap: 14,
           }}
         >
-          {[
-            { icon: "🔍", label: "Търси по град и дата" },
-            { icon: "📅", label: "Запази в плана си" },
-            { icon: "🔔", label: "Получи напомняне" },
-          ].map((chip) => (
+          {["Търси по град и дата", "Запази в плана си", "Получи напомняне"].map((label) => (
             <div
-              key={chip.label}
+              key={label}
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
-                padding: "12px 20px",
+                gap: 11,
+                padding: "13px 22px",
                 borderRadius: 9999,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                color: "#e4e4e7",
+                background: "#ffffff",
+                border: "1px solid rgba(217,119,6,0.22)",
+                boxShadow: "0 1px 3px rgba(120,53,15,0.06)",
+                color: "#44403c",
                 fontSize: 20,
-                fontWeight: 500,
+                fontWeight: 600,
               }}
             >
-              <span style={{ fontSize: 22 }}>{chip.icon}</span>
-              <span>{chip.label}</span>
+              <span
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: 9999,
+                  background: "#d97706",
+                }}
+              />
+              <span>{label}</span>
             </div>
           ))}
         </div>

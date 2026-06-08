@@ -125,8 +125,8 @@ export default function RealHomePage({
                     Открий. Планирай. Посети.
                   </h1>
                   <p className={cn(pub.body, "mt-1.5")}>Фестивалите на България — на едно място.</p>
-                  <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-900/[0.07] px-3 py-1 text-xs font-medium text-amber-900/70">
-                    <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-700/60" aria-hidden />
+                  <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-900/[0.09] px-3 py-1 text-xs font-semibold text-amber-900">
+                    <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-800" aria-hidden />
                     {publishedFestivalsBulgariaLabel(totalFestivalsCount)}
                   </div>
                 </div>

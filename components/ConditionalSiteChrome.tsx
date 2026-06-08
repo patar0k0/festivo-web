@@ -52,13 +52,23 @@ export default function ConditionalSiteChrome({ children, header, footer, minima
   const isWorkspaceRoute = isInternalWorkspaceRoute(pathname);
 
   if (minimalChrome || isWorkspaceRoute) {
-    return <main className="min-h-screen">{children}</main>;
+    return (
+      <main id="main-content" className="min-h-screen">
+        {children}
+      </main>
+    );
   }
 
   return (
     <>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-[#7c2d12] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg"
+      >
+        Към съдържанието
+      </a>
       {header}
-      <main>{children}</main>
+      <main id="main-content">{children}</main>
       {footer}
     </>
   );

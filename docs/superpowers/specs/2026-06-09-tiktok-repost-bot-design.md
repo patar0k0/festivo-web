@@ -140,7 +140,23 @@ Worker (Railway cron) — всичко бавно:
 
 ## 12. Извън обхвата (YAGNI)
 
-- Multi-tenant (само един Festivo TikTok акаунт засега).
+- Multi-tenant (само един Festivo TikTok акаунт засега) — виж Фаза 2.
 - Viber/WhatsApp входове.
 - Автоматично генериране на описания с AI (може по-късно).
-- Кросспостване към други платформи (Instagram Reels, YouTube Shorts).
+- Кросспостване към други платформи (Instagram Reels, YouTube Shorts) — виж Фаза 2.
+
+## 13. Фаза 2 (бъдеща, отделна spec) — организаторско auto-posting
+
+Идея: организатор добавя клип към събитие в portal-а → опция „качи автоматично в социалните мрежи" → клипът се публикува в **собствените акаунти на организатора**.
+
+**Преизползва се от Фаза 1:** download/публикуване engine, state machine, TikTok client + OAuth refresh, token store, идемпотентност/dedupe.
+
+**Ново за Фаза 2 (значимо):**
+- Multi-tenant: OAuth връзка **per организатор, per мрежа** (`organizer_social_accounts`), RLS per организатор — никой не постват от чуждо име.
+- Тригер от organizer portal (web бутон при добавяне на клип към събитие), не Telegram.
+- Допълнителни мрежи: Instagram Reels / Facebook (Meta Graph API + бизнес верификация), YouTube Shorts (Google OAuth) — **всяка мрежа = отделен app review**, седмици одобрения.
+- Решение за модерация: дали Festivo review-ва преди публикуване, или организаторът постват директно.
+
+**Препоръка за реда:** първо TikTok (преизползва Фаза 1 директно), после IG/FB, после YouTube. Всяка мрежа — инкрементално.
+
+Фаза 2 получава собствена spec → plan → implementation цикъл; не блокира Фаза 1.

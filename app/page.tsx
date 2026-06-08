@@ -8,8 +8,8 @@ const PREVIEW_COOKIE_NAME = "festivo_preview";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Festivo.bg — Открий, планирай и посети фестивалите в България",
-  description: "Открий безплатни фестивали в България по град, дата и интерес. Проверени събития от организатори и публични източници.",
+  title: "Festivo.bg — Всички фестивали в България на едно място",
+  description: "Открий безплатни фестивали в България по град, дата и интерес. Проверени събития от организатори и публични източници. Планирай уикенда си безплатно с Festivo.",
   alternates: {
     canonical: "https://festivo.bg/",
   },

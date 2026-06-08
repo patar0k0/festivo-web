@@ -14,6 +14,7 @@ import FestivalsCompoundSearch from "@/components/festivals/FestivalsCompoundSea
 import HomeHeroFolkPattern from "./HomeHeroFolkPattern";
 import CurrentFestivalsSection from "./CurrentFestivalsSection";
 import CitiesSection from "./CitiesSection";
+import FaqSection from "./FaqSection";
 
 function publishedFestivalsBulgariaLabel(count: number): string {
   const n = count;
@@ -182,6 +183,8 @@ export default function RealHomePage({
             ) : null}
 
             <CitiesSection cities={homeCityOptions} />
+
+            <FaqSection />
           </div>
         </Container>
       </Section>

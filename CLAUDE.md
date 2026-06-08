@@ -353,6 +353,29 @@ ingest_jobs (admin enqueue or discovery worker)
 
 ---
 
+## Social repost bot (Telegram → TikTok + Instagram)
+
+Personal repost pipeline (Phase 1): send a Facebook video link to a Telegram bot → it downloads the clip, previews it with network-selection buttons, and publishes to the Festivo TikTok + Instagram accounts via their official APIs, with optional scheduling.
+
+```
+Telegram bot (FB link)
+  → POST /api/telegram/social-bot (this repo, Vercel webhook — whitelist-gated, lightweight)
+      → upsert social_repost_jobs (queued)
+  → festivo-workers cron service `npm run start:social-repost` (every ~2 min)
+      → yt-dlp download → Supabase Storage (social-repost-temp, signed URL)
+      → Telegram preview + inline keyboard (toggle networks / publish / schedule / cancel)
+      → publishers: TikTok Content Posting API (file upload) · Instagram Graph API (REELS, pull from signed URL)
+```
+
+- **Tables:** `social_accounts` (one OAuth row per network, service-role only), `social_repost_jobs` (queue + `targets[]` + `target_results` per network), `social_repost_allowed_users` (Telegram user whitelist). All RLS-enabled, service-role only.
+- **Webhook auth:** `x-telegram-bot-api-secret-token` must equal `TELEGRAM_WEBHOOK_SECRET`; sender must be in `social_repost_allowed_users`.
+- **Per-target isolation:** one network failing never blocks the others; retry is per failed target.
+- **TikTok caveat:** until the TikTok app is audited, posts upload as private/draft (`TIKTOK_PRIVACY_LEVEL=SELF_ONLY`); switch to `PUBLIC_TO_EVERYONE` after audit — no code change.
+- Pure helpers live in `lib/telegram/socialBot.mjs` (typed via `socialBot.d.mts`); worker code is in the `festivo-workers` repo under `workers/social_repost_worker.js` + `workers/lib/publishers/`.
+- **Phase 2 (future):** organizer-facing multi-tenant auto-posting from the portal — see `docs/superpowers/specs/2026-06-09-social-repost-bot-design.md` §13.
+
+---
+
 ## Organizer portal
 
 Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending/active/revoked`). Active owners access `/organizer/dashboard`. Submissions use `submission_source=organizer_portal` and still require admin approval. Admin reviews claims at `/admin/organizer-claims`. See `docs/system-architecture.md` — *Organizer portal* section.
@@ -399,6 +422,11 @@ Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending
 | `WEB_RESEARCH_SEARCH_URL` · `WEB_RESEARCH_API_KEY` | Search endpoint + key for the web research provider above |
 | `TAVILY_API_KEY` · `SERPAPI_KEY` | Provider-specific keys for Tavily / SerpAPI URL discovery |
 | `OPENAI_API_KEY` | OpenAI key for `lib/admin/research/openai-extract.ts` (gpt-4o-mini field extraction, alternative to Gemini) |
+| `TELEGRAM_BOT_TOKEN` · `TELEGRAM_WEBHOOK_SECRET` | Social repost bot — Telegram Bot API token + webhook secret-token header check |
+| `TIKTOK_CLIENT_KEY` · `TIKTOK_CLIENT_SECRET` · `TIKTOK_REDIRECT_URI` | TikTok Content Posting API OAuth (social repost) |
+| `TIKTOK_PRIVACY_LEVEL` | TikTok post privacy (default `SELF_ONLY`; set `PUBLIC_TO_EVERYONE` after app audit) |
+| `META_APP_ID` · `META_APP_SECRET` | Instagram Graph API (Meta) OAuth for social repost |
+| `SOCIAL_REPOST_BUCKET` | Supabase Storage bucket for temp repost clips (default `social-repost-temp`) |
 
 Full list with descriptions: `README.md`.
 

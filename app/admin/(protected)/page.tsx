@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { format, isValid, parseISO } from "date-fns";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { fetchDashboardHealth, type HealthLevel } from "@/lib/admin/dashboardHealth";
 import { formatDateValueAsDdMmYyyy } from "@/lib/dates/euDateFormat";
 
 type FestivalStatus = "draft" | "verified" | "rejected" | "archived";
@@ -175,6 +177,8 @@ export default async function AdminDashboardPage() {
   const admin = await getAdminContext();
   const supabase = admin?.supabase ?? null;
 
+  // Pipeline health reads service-role-only tables, so it uses a service-role
+  // client (the admin-context `supabase` is user-authenticated / RLS-bound).
   const [
     pending,
     draft,
@@ -188,6 +192,7 @@ export default async function AdminDashboardPage() {
     organizersVerified,
     organizersUnverified,
     pendingOrgClaims,
+    health,
   ] = await Promise.all([
     getPendingCount(supabase),
     getStatusCount(supabase, "draft"),
@@ -201,6 +206,7 @@ export default async function AdminDashboardPage() {
     getVerifiedOrganizersCount(supabase),
     getUnverifiedOrganizersCount(supabase),
     getPendingOrganizerClaimsCount(supabase),
+    fetchDashboardHealth(supabaseAdmin()),
   ]);
 
   const festivalStats = [
@@ -219,6 +225,13 @@ export default async function AdminDashboardPage() {
     "rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] transition hover:bg-black/[0.04]";
 
   const domainCardClass = "rounded-xl border border-black/[0.08] bg-white/80 p-4";
+
+  const healthStyles: Record<HealthLevel, { card: string; dot: string; value: string; tag: string }> = {
+    ok: { card: "border-emerald-600/20 bg-emerald-50/40", dot: "bg-emerald-500", value: "text-emerald-800", tag: "OK" },
+    warn: { card: "border-[#d4a017]/30 bg-[#fffbeb]/70", dot: "bg-[#d4a017]", value: "text-[#9a6b16]", tag: "Внимание" },
+    alert: { card: "border-[#b13a1a]/30 bg-[#fdf2ee]/70", dot: "bg-[#b13a1a]", value: "text-[#b13a1a]", tag: "Проблем" },
+    unknown: { card: "border-black/[0.08] bg-white/80", dot: "bg-black/25", value: "text-black/55", tag: "Няма данни" },
+  };
 
   return (
     <div className="space-y-5">
@@ -265,6 +278,39 @@ export default async function AdminDashboardPage() {
           </Link>
         </div>
       </section>
+
+      {/* System health */}
+      {health.available ? (
+        <section aria-label="Здраве на системата">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">Здраве на системата</p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {health.metrics.map((m) => {
+              const s = healthStyles[m.level];
+              const inner = (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">{m.label}</p>
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${s.dot}`} aria-hidden />
+                  </div>
+                  <p className={`mt-1 text-xl font-bold tabular-nums tracking-tight ${s.value}`}>{m.display}</p>
+                  <p className="mt-0.5 text-[11px] text-black/45">{m.detail}</p>
+                  <p className="sr-only">Състояние: {s.tag}</p>
+                </>
+              );
+              const cardClass = `flex flex-col rounded-xl border p-3 transition-colors ${s.card}`;
+              return m.href ? (
+                <Link key={m.key} href={m.href} className={`${cardClass} hover:brightness-[0.98]`}>
+                  {inner}
+                </Link>
+              ) : (
+                <div key={m.key} className={cardClass}>
+                  {inner}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       {/* Main queues */}
       <section aria-label="Опашки" className="grid gap-4 lg:grid-cols-2">

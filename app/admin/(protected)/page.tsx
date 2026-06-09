@@ -3,6 +3,7 @@ import { format, isValid, parseISO } from "date-fns";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchDashboardHealth, type HealthLevel } from "@/lib/admin/dashboardHealth";
+import { fetchUserGrowthStats } from "@/lib/admin/dashboardUserStats";
 import { formatDateValueAsDdMmYyyy } from "@/lib/dates/euDateFormat";
 
 type FestivalStatus = "draft" | "verified" | "rejected" | "archived";
@@ -177,8 +178,10 @@ export default async function AdminDashboardPage() {
   const admin = await getAdminContext();
   const supabase = admin?.supabase ?? null;
 
-  // Pipeline health reads service-role-only tables, so it uses a service-role
-  // client (the admin-context `supabase` is user-authenticated / RLS-bound).
+  // Pipeline health and user growth read service-role-only sources, so they use a
+  // service-role client (the admin-context `supabase` is user-authenticated /
+  // RLS-bound). Created once and shared across both probes.
+  const serviceClient = supabaseAdmin();
   const [
     pending,
     draft,
@@ -193,6 +196,7 @@ export default async function AdminDashboardPage() {
     organizersUnverified,
     pendingOrgClaims,
     health,
+    userGrowth,
   ] = await Promise.all([
     getPendingCount(supabase),
     getStatusCount(supabase, "draft"),
@@ -206,7 +210,8 @@ export default async function AdminDashboardPage() {
     getVerifiedOrganizersCount(supabase),
     getUnverifiedOrganizersCount(supabase),
     getPendingOrganizerClaimsCount(supabase),
-    fetchDashboardHealth(supabaseAdmin()),
+    fetchDashboardHealth(serviceClient),
+    fetchUserGrowthStats(serviceClient),
   ]);
 
   const festivalStats = [
@@ -580,6 +585,40 @@ export default async function AdminDashboardPage() {
           </ul>
         </section>
       </div>
+
+      {/* User growth */}
+      {userGrowth.available ? (
+        <section aria-label="Потребители — растеж">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">Потребители</p>
+            <Link
+              href="/admin/users"
+              className="text-[11px] font-semibold uppercase tracking-[0.12em] text-black/45 hover:text-[#0c0e14]"
+            >
+              Списък потребители →
+            </Link>
+          </div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            {[
+              { key: "d1", label: "Нови (24ч)", value: userGrowth.new24h },
+              { key: "d7", label: "Нови (7 дни)", value: userGrowth.new7d },
+              {
+                key: "total",
+                label: userGrowth.capped ? "Общо регистрирани (≥)" : "Общо регистрирани",
+                value: userGrowth.total,
+              },
+            ].map((item) => (
+              <Link key={item.key} href="/admin/users" className={kpiCardClass}>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">{item.label}</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">
+                  {item.value == null ? "—" : item.value}
+                </p>
+                <p className="mt-0.5 text-[11px] text-black/45">Потребители →</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* External analytics & tools */}
       <section className={domainCardClass} aria-label="Статистика и инструменти">

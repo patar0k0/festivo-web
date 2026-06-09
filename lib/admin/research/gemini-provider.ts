@@ -14,8 +14,21 @@ const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-3.5-f
 const FALLBACK_MODEL = "gemini-3.1-flash-lite";
 
 function is429(err: unknown): boolean {
+  // GoogleGenerativeAIFetchError carries a structured HTTP status; prefer it over
+  // message parsing, since the SDK wraps 429s as "Error fetching from <url>: ..."
+  // and the status code text can be truncated/reformatted before it reaches us.
+  const status = (err as { status?: number } | null | undefined)?.status;
+  if (status === 429) return true;
   if (err instanceof Error) {
-    return err.message.includes("429") || err.message.toLowerCase().includes("quota") || err.message.toLowerCase().includes("too many requests");
+    const m = err.message.toLowerCase();
+    return (
+      m.includes("429") ||
+      m.includes("quota") ||
+      m.includes("too many requests") ||
+      m.includes("resource_exhausted") ||
+      m.includes("rate limit") ||
+      m.includes("rate-limit")
+    );
   }
   return false;
 }

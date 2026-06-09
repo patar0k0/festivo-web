@@ -4,6 +4,7 @@ import { serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
 import { sortFestivalsForListing } from "@/lib/festival/sorting";
 import { sofiaWallClockNow } from "@/lib/festival/temporal";
+import { buildHomeRails } from "@/lib/home/buildHomeRails";
 import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBounds";
 import { FESTIVAL_SELECT_MIN, fixFestivalText } from "@/lib/queries";
 import { getCityLabel } from "@/lib/settlements/getCityLabel";
@@ -66,17 +67,30 @@ export function buildFestivalsQuickChipLinks(categorySlugs: string[]): Array<{ l
   ];
 }
 
+/** Категория за лентата „Разгледай по категория" (slug = текстът на `festivals.category`). */
+export type HomeCategoryOption = {
+  /** Текстът на `festivals.category`, който `?tag=` филтърът мачва с ILIKE. */
+  slug: string;
+  /** Български етикет за показване. */
+  label: string;
+  /** Брой предстоящи фестивали в тази категория. */
+  count: number;
+};
+
 /** Props for the public home page (`RealHomePage`). */
 export type HomePageViewProps = {
   nearestFestivals: Festival[];
   currentFestivals: Festival[];
   weekendFestivals: Festival[];
-  monthFestivals: Festival[];
+  categoryOptions: HomeCategoryOption[];
   homeCityOptions: HomeCityOption[];
   totalFestivalsCount: number;
   selectedCityName?: string | null;
   quickChipHrefs: HomeQuickChipHrefs;
 };
+
+/** Колко кандидата да дърпаме per хронологичен прозорец (за waterfall dedup + diversity). */
+const HOME_RAIL_CANDIDATE_LIMIT = 24;
 
 export function firstHomeSearchParam(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) {
@@ -108,7 +122,7 @@ type CachedDbData = {
   nearestFestivalsRaw: Festival[];
   currentFestivalsRaw: Festival[];
   weekendFestivalsRaw: Festival[];
-  monthFestivalsRaw: Festival[];
+  upcomingCategoryCounts: Array<{ category: string; count: number }>;
   totalFestivalsCount: number;
   citiesResult: HomeCityOption[];
   categorySlugs: string[];
@@ -134,7 +148,7 @@ type HomeDbParams = {
  * full 5-minute cache window. The caller retries uncached on throw.
  */
 async function fetchHomeDbData(params: HomeDbParams): Promise<CachedDbData> {
-    const { today, weekendStart, weekendEnd, monthEnd, citySlug } = params;
+    const { today, weekendStart, weekendEnd, citySlug } = params;
     const supabase = createHomeSupabaseClient();
 
     async function fetchFestivalsInRange(from: string, to?: string, limit = 6): Promise<Festival[]> {
@@ -183,7 +197,7 @@ async function fetchHomeDbData(params: HomeDbParams): Promise<CachedDbData> {
       if (citySlug) query = query.eq("city_slug", citySlug.trim().toLowerCase());
       const { data, error } = await query.limit(100).returns<Festival[]>();
       if (error) throw new Error(`[loadHomePageData] fetchCurrentFestivals error: ${error.message}`);
-      return sortCurrentFestivalsForHome((data ?? []).map(fixFestivalText)).slice(0, 6);
+      return sortCurrentFestivalsForHome((data ?? []).map(fixFestivalText)).slice(0, HOME_RAIL_CANDIDATE_LIMIT);
     }
 
     async function fetchTotalCount(): Promise<number> {
@@ -241,18 +255,46 @@ async function fetchHomeDbData(params: HomeDbParams): Promise<CachedDbData> {
       return (data ?? []).map((r) => r.slug as string);
     }
 
-    const [nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, monthFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs] =
+    /**
+     * Брой предстоящи фестивали по `category` (текст). Категорийният „slug" Е този
+     * текст — `?tag=<текст>` после филтрира с `category ILIKE` (виж
+     * `buildFestivalsTagOrFilter`), затова не трябва мапване към `festival_categories`.
+     * Същият „активен/предстоящ" предикат като `fetchTotalCount`/`fetchCities`.
+     */
+    async function fetchUpcomingCategoryCounts(): Promise<Array<{ category: string; count: number }>> {
+      let query = supabase
+        .from("festivals")
+        .select("category")
+        .or("status.eq.published,status.eq.verified,is_verified.eq.true")
+        .neq("status", "archived")
+        .not("category", "is", null)
+        .or(`end_date.gte.${today},and(end_date.is.null,start_date.gte.${today})`);
+      if (citySlug) query = query.eq("city_slug", citySlug.trim().toLowerCase());
+      const { data, error } = await query.returns<Array<{ category: string | null }>>();
+      if (error) {
+        throw new Error(`[loadHomePageData] fetchUpcomingCategoryCounts error: ${error.message}`);
+      }
+      const counts = new Map<string, number>();
+      for (const row of data ?? []) {
+        const cat = fixMojibakeBG(row.category ?? "").trim();
+        if (!cat) continue;
+        counts.set(cat, (counts.get(cat) ?? 0) + 1);
+      }
+      return Array.from(counts.entries()).map(([category, count]) => ({ category, count }));
+    }
+
+    const [nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, upcomingCategoryCounts, totalFestivalsCount, citiesResult, categorySlugs] =
       await Promise.all([
-        fetchFestivalsInRange(today, undefined, 6),
+        fetchFestivalsInRange(today, undefined, HOME_RAIL_CANDIDATE_LIMIT),
         fetchCurrentFestivalsInner(),
-        fetchFestivalsInRange(weekendStart, weekendEnd, 6),
-        fetchFestivalsInRange(today, monthEnd, 6),
+        fetchFestivalsInRange(weekendStart, weekendEnd, HOME_RAIL_CANDIDATE_LIMIT),
+        fetchUpcomingCategoryCounts(),
         fetchTotalCount(),
         fetchCities(),
         fetchCategorySlugs(),
       ]);
 
-    return { nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, monthFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs };
+    return { nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, upcomingCategoryCounts, totalFestivalsCount, citiesResult, categorySlugs };
 }
 
 /**
@@ -287,7 +329,7 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
         nearestFestivalsRaw: [],
         currentFestivalsRaw: [],
         weekendFestivalsRaw: [],
-        monthFestivalsRaw: [],
+        upcomingCategoryCounts: [],
         totalFestivalsCount: 0,
         citiesResult: [],
         categorySlugs: [],
@@ -295,7 +337,7 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
     }
   }
 
-  const { nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, monthFestivalsRaw, totalFestivalsCount, citiesResult, categorySlugs } =
+  const { nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, upcomingCategoryCounts, totalFestivalsCount, citiesResult, categorySlugs } =
     dbData;
 
   const cityKey = citySlug?.trim().toLowerCase();
@@ -311,16 +353,25 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
     categoryChips: chipLinks.slice(3),
   };
 
-  const currentIds = new Set(currentFestivalsRaw.map((f) => f.id));
-  const nearestFestivals = sortFestivalsForListing(nearestFestivalsRaw.filter((f) => !currentIds.has(f.id)));
-  const weekendFestivals = sortFestivalsForListing(weekendFestivalsRaw);
-  const monthFestivals = sortFestivalsForListing(monthFestivalsRaw);
+  // Waterfall дедупликация + diversity: всеки фестивал се появява само в първата
+  // лента, в която попада (current → weekend → upcoming). Кандидатите се сортират
+  // ПРЕДИ, защото buildHomeRails запазва реда (не пресортираме след diversity).
+  const rails = buildHomeRails({
+    current: currentFestivalsRaw,
+    weekend: sortFestivalsForListing(weekendFestivalsRaw),
+    upcoming: sortFestivalsForListing(nearestFestivalsRaw),
+  });
+
+  const categoryOptions: HomeCategoryOption[] = upcomingCategoryCounts
+    .map(({ category, count }) => ({ slug: category, label: labelForPublicCategory(category), count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "bg"))
+    .slice(0, 8);
 
   return {
-    nearestFestivals,
-    currentFestivals: currentFestivalsRaw,
-    weekendFestivals,
-    monthFestivals,
+    nearestFestivals: rails.upcoming,
+    currentFestivals: rails.current,
+    weekendFestivals: rails.weekend,
+    categoryOptions,
     homeCityOptions: citiesResult,
     totalFestivalsCount,
     selectedCityName,

@@ -13,6 +13,7 @@ import QuickChipsClient from "./QuickChipsClient";
 import FestivalsCompoundSearch from "@/components/festivals/FestivalsCompoundSearch";
 import HomeHeroFolkPattern from "./HomeHeroFolkPattern";
 import CurrentFestivalsSection from "./CurrentFestivalsSection";
+import CategoriesSection from "./CategoriesSection";
 import CitiesSection from "./CitiesSection";
 import FaqSection from "./FaqSection";
 
@@ -100,7 +101,7 @@ export default function RealHomePage({
   nearestFestivals,
   currentFestivals,
   weekendFestivals,
-  monthFestivals,
+  categoryOptions,
   homeCityOptions,
   totalFestivalsCount,
   selectedCityName,
@@ -168,19 +169,30 @@ export default function RealHomePage({
               <section className={pub.noticeWarm}>Показваме фестивали в {selectedCityName}</section>
             ) : null}
 
-            <EventsSection
-              id="nearest-festivals"
-              title="Предстоящи"
-              festivals={nearestFestivals}
-              seeAllHref="/festivals?when=upcoming"
-              // Когато CurrentFestivalsSection е скрита (< 3 текущи фестивала),
-              // първият card тук става LCP — даваме му priority.
-              priorityFirst={currentFestivals.length < 3}
-            />
-            <EventsSection title="Този уикенд" festivals={weekendFestivals} seeAllHref="/festivals?when=weekend" />
-            {monthFestivals.length > 0 ? (
-              <EventsSection title="Този месец" festivals={monthFestivals} seeAllHref={quickChipHrefs.month} />
+            {/* Ред: В момента → Този уикенд → Предстоящи. Всяка лента показва РАЗЛИЧНИ
+                фестивали (waterfall дедупликация в loadHomePageData). Празна лента се
+                скрива (без грозен empty state). priorityFirst (LCP) отива на първата
+                видима фестивална секция, когато „В момента" е скрита (< 3 текущи). */}
+            {weekendFestivals.length > 0 ? (
+              <EventsSection
+                title="Този уикенд"
+                festivals={weekendFestivals}
+                seeAllHref="/festivals?when=weekend"
+                priorityFirst={currentFestivals.length < 3}
+              />
             ) : null}
+
+            {nearestFestivals.length > 0 ? (
+              <EventsSection
+                id="nearest-festivals"
+                title="Предстоящи"
+                festivals={nearestFestivals}
+                seeAllHref="/festivals?when=upcoming"
+                priorityFirst={currentFestivals.length < 3 && weekendFestivals.length === 0}
+              />
+            ) : null}
+
+            <CategoriesSection categories={categoryOptions} />
 
             <CitiesSection cities={homeCityOptions} />
 

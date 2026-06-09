@@ -181,3 +181,24 @@ Worker (Railway cron) — всичко бавно:
 **Препоръка за реда:** TikTok + Instagram (преизползват Фаза 1 директно), после Facebook/YouTube инкрементално.
 
 Фаза 2 получава собствена spec → plan → implementation цикъл; не блокира Фаза 1.
+
+## 14. Фаза 1.5 (идея, не насрочена) — Telegram → каталог ingestion
+
+**Концепция:** пращаш на същия бот **Facebook пост за фестивал** (с текст + снимка) → ботът го подава за дообработка → попада в `pending_festivals` за admin одобрение. Същият бот, **втори режим** до repost-а.
+
+**Защо се връзва (минимум нов код):** Festivo вече има цялата верига
+`ingest_jobs → festivo-workers (scrape + снимка rehost + AI нормализация) → pending_festivals → admin review`.
+FB ingestion worker-ът (`fb_ingest_v2_worker.js`) вече вади текст, rehost-ва hero снимка и пуска AI извличане на дати/град/категория. Липсва само входът от Telegram.
+
+**UX:** след пращане на линк, inline избор:
+- `🎬 Repost във TikTok/IG` (Фаза 1)
+- `🎪 Добави фестивал в каталога` (Фаза 1.5)
+
+**Подходи:**
+- **A (препоръчан, минимум код):** ботът вмъква ред в `ingest_jobs (source_type='facebook_event', source_url=<линк>, submitted_via='telegram')`; съществуващият worker прави всичко останало. Нов код = бутон + един insert.
+- **B (по-богато AI):** webhook вика endpoint, който пуска Gemini smart research pipeline (`lib/admin/research/`) → pending_row snapshot (geocode + hero) → `ingest_jobs source_type='research'` (както `/admin/research?tab=smart`). За оскъдни линкове, където AI трябва да „доизследва".
+- **C (Telegram-native):** пращаш самата снимка + текст (афиш / screenshot) → нов AI extraction слой върху свободен текст → `pending_festivals`. По-универсално, най-много нов код.
+
+**Препоръка:** A като база + B като опционален „🔍 Дообработи с AI" бутон в pending прегледа.
+
+**Запазва moderation-first:** нищо не става публично без admin одобрение (по принципите на проекта). Засяга `festivo-web` (бот режим/админ) + `festivo-workers` (вече готов ingestion). Получава собствена spec → plan, когато се захванем.

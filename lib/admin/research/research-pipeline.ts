@@ -508,7 +508,7 @@ export async function runGeminiResearchPipeline(userQuery: string): Promise<Rese
       provider: "gemini_pipeline",
       mode: "gemini_multi_step",
       source_count: sources.length,
-      model: process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-2.0-flash",
+      model: process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-3.5-flash",
       fallback_used: false,
     },
     title: str(merged.title),

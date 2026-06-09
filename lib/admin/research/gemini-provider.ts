@@ -2,16 +2,48 @@
  * Server-only Gemini via @google/generative-ai. Web discovery uses Google Search grounding.
  * Env: GEMINI_API_KEY (or GOOGLE_AI_API_KEY). Optional: GEMINI_RESEARCH_MODEL (default gemini-3.5-flash).
  * Gemini 1.5 models use googleSearchRetrieval; 2.x+ use google_search per Google API docs.
- * Fallback chain on 429: DEFAULT_MODEL → gemini-3.1-flash-lite (500 RPD free tier).
+ * Fallback chain on 429/quota: gemini-3.5-flash → gemini-3.1-flash-lite (500 RPD) → gemini-2.5-flash.
  */
 
 import "server-only";
 
 import { GoogleGenerativeAI, type Part, type Tool } from "@google/generative-ai";
 
-const DEFAULT_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-3.5-flash";
-// gemini-3.1-flash-lite has 500 RPD on the free tier (vs 20 for 3.5-flash, 0 for 2.0-flash)
-const FALLBACK_MODEL = "gemini-3.1-flash-lite";
+// Ordered model chain: best quality → highest free-tier quota. On a 429/quota
+// error each model falls back to the next. The first entry is env-overridable.
+// Excluded on purpose:
+//   - gemini-3.1-pro: paid-only, no free tier (would hard-fail on a free key).
+//   - gemini-2.0-flash / 2.0-flash-lite: shut down 2026-06-01.
+const PRIMARY_MODEL = process.env.GEMINI_RESEARCH_MODEL?.trim() || "gemini-3.5-flash";
+// Three best free-tier models, deduped (in case the env override equals a fallback).
+const MODEL_CHAIN: string[] = [
+  PRIMARY_MODEL, // 1st: gemini-3.5-flash — highest quality (20 RPD free tier)
+  "gemini-3.1-flash-lite", // 2nd: ~equal quality, 500 RPD — high-volume workhorse
+  "gemini-2.5-flash", // 3rd: final safety net (20 RPD, older generation)
+].filter((m, i, arr) => arr.indexOf(m) === i);
+
+/**
+ * Run `fn` through MODEL_CHAIN, advancing to the next model on a 429/quota error.
+ * Non-quota errors abort immediately. `onModelUsed` (inside fn) reports the winner.
+ */
+async function runModelChain<T>(label: string, fn: (modelId: string) => Promise<T>): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < MODEL_CHAIN.length; i++) {
+    const modelId = MODEL_CHAIN[i];
+    try {
+      return await fn(modelId);
+    } catch (err) {
+      lastErr = err;
+      const next = MODEL_CHAIN[i + 1];
+      if (is429(err) && next) {
+        console.warn(`[gemini] 429/quota on ${modelId} (${label}), falling back to ${next}`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
 
 function is429(err: unknown): boolean {
   // GoogleGenerativeAIFetchError carries a structured HTTP status; prefer it over
@@ -294,22 +326,23 @@ export async function geminiGroundedSearchHits(searchQuery: string): Promise<Arr
   ].join("\n");
 
   const genAI = getGenAI();
-  const model = genAI.getGenerativeModel({ model: DEFAULT_MODEL });
-  const tools = pickSearchGroundingTools(DEFAULT_MODEL);
-
-  const result = await model.generateContent(
-    {
-      systemInstruction:
-        "Винаги използвай наличното Google Search заявяване, за да намериш реални страници. Цитирай намерените източници. Давай реални URL адреси от резултатите.",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      tools,
-      generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 2048,
+  const result = await runModelChain("grounded-search", async (modelId) => {
+    const model = genAI.getGenerativeModel({ model: modelId });
+    const tools = pickSearchGroundingTools(modelId);
+    return model.generateContent(
+      {
+        systemInstruction:
+          "Винаги използвай наличното Google Search заявяване, за да намериш реални страници. Цитирай намерените източници. Давай реални URL адреси от резултатите.",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        tools,
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 2048,
+        },
       },
-    },
-    { timeout: DEFAULT_TIMEOUT_MS },
-  );
+      { timeout: DEFAULT_TIMEOUT_MS },
+    );
+  });
 
   const json = toGeminiGenerateResponse(result);
   logGeminiSearchDebug("raw response (SDK)", responseForDebugLog(result.response as never));
@@ -380,15 +413,7 @@ export async function geminiExtractJson<T>(options: GeminiJsonExtractOptions): P
     }
   }
 
-  try {
-    return await runWithModel(DEFAULT_MODEL);
-  } catch (err) {
-    if (is429(err) && DEFAULT_MODEL !== FALLBACK_MODEL) {
-      console.warn(`[gemini] 429 on ${DEFAULT_MODEL}, retrying with fallback ${FALLBACK_MODEL}`);
-      return await runWithModel(FALLBACK_MODEL);
-    }
-    throw err;
-  }
+  return runModelChain("extract", runWithModel);
 }
 
 export type GeminiInlineImage = { mimeType: string; /** base64 (no data: prefix) */ data: string };
@@ -439,13 +464,5 @@ export async function geminiExtractJsonWithImages<T>(options: {
     }
   }
 
-  try {
-    return await runWithModel(DEFAULT_MODEL);
-  } catch (err) {
-    if (is429(err) && DEFAULT_MODEL !== FALLBACK_MODEL) {
-      console.warn(`[gemini] 429 on ${DEFAULT_MODEL} (vision), retrying with fallback ${FALLBACK_MODEL}`);
-      return await runWithModel(FALLBACK_MODEL);
-    }
-    throw err;
-  }
+  return runModelChain("vision", runWithModel);
 }

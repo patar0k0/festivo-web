@@ -408,7 +408,7 @@ Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending
 | `FCM_SERVER_KEY` | Push — FCM legacy HTTP |
 | `PUSH_ENABLED` · `PUSH_PROVIDER` | Push control. `PUSH_PROVIDER` unset = auto-route per token (Expo/FCM by shape); set to `expo`/`fcm` to force one provider |
 | `GEMINI_API_KEY` / `GOOGLE_AI_API_KEY` | AI research pipeline (Gemini) |
-| `GEMINI_RESEARCH_MODEL` | Override Gemini model (default `gemini-3.5-flash`; auto-falls back to `gemini-3.1-flash-lite` on 429/quota — 500 RPD free tier) |
+| `GEMINI_RESEARCH_MODEL` | Override the **primary** research model (default `gemini-3.5-flash`). On 429/quota the provider auto-falls back down a 3-model chain: `gemini-3.5-flash` → `gemini-3.1-flash-lite` (500 RPD) → `gemini-2.5-flash`. `gemini-3.1-pro` is paid-only (excluded); `gemini-2.0-*` shut down 2026-06-01 |
 | `PERPLEXITY_API_KEY` | URL discovery in admin research |
 | `GOOGLE_CSE_API_KEY` · `GOOGLE_CSE_CX` | Google Custom Search image source for smart research (optional; skipped if absent). `CX` = Programmable Search Engine ID |
 | `SMART_RESEARCH_IMAGE_RERANK` | Set to `0` to disable the Gemini vision image reranker in smart research (default on) |

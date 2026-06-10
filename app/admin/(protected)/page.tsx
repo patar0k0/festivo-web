@@ -621,10 +621,9 @@ export default async function AdminDashboardPage() {
       ) : null}
 
       {/* External analytics & tools */}
-      <section className={domainCardClass} aria-label="Статистика и инструменти">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">Статистика и инструменти</p>
-        <h3 className="mt-1 text-sm font-semibold text-[#0c0e14]">Бърз достъп до външни платформи</h3>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <section className="rounded-xl border border-black/[0.06] bg-black/[0.02] px-3 py-2.5" aria-label="Статистика и инструменти">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">Външни платформи</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
           {[
             {
               label: "Vercel Analytics",
@@ -680,14 +679,12 @@ export default async function AdminDashboardPage() {
               href={item.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-start gap-2.5 rounded-lg border border-black/[0.08] bg-white/70 px-3 py-2.5 transition hover:border-black/[0.16] hover:bg-white hover:shadow-sm"
+              title={item.hint}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1.5 text-[11px] font-semibold text-[#0c0e14] transition hover:border-black/[0.16] hover:bg-white hover:shadow-sm"
             >
-              <span className="mt-0.5 text-base leading-none">{item.icon}</span>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-[#0c0e14]">{item.label}</p>
-                <p className="text-[10px] text-black/45">{item.hint}</p>
-              </div>
-              <span className="ml-auto shrink-0 text-[10px] text-black/30">↗</span>
+              <span className="text-xs leading-none" aria-hidden>{item.icon}</span>
+              <span>{item.label}</span>
+              <span className="text-[9px] text-black/30" aria-hidden>↗</span>
             </a>
           ))}
         </div>

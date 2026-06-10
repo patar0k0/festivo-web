@@ -4,6 +4,7 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchDashboardHealth, type HealthLevel } from "@/lib/admin/dashboardHealth";
 import { fetchUserGrowthStats } from "@/lib/admin/dashboardUserStats";
+import { fetchSocialRepostStatus } from "@/lib/admin/dashboardSocialRepost";
 import { formatDateValueAsDdMmYyyy } from "@/lib/dates/euDateFormat";
 
 type FestivalStatus = "draft" | "verified" | "rejected" | "archived";
@@ -227,6 +228,7 @@ export default async function AdminDashboardPage() {
     stalePendingOrgClaims,
     health,
     userGrowth,
+    socialRepost,
   ] = await Promise.all([
     getPendingCount(supabase),
     getStatusCount(supabase, "draft"),
@@ -244,6 +246,7 @@ export default async function AdminDashboardPage() {
     getStalePendingOrgClaimsCount(supabase),
     fetchDashboardHealth(serviceClient),
     fetchUserGrowthStats(serviceClient),
+    fetchSocialRepostStatus(serviceClient),
   ]);
 
   const festivalStats = [
@@ -659,6 +662,42 @@ export default async function AdminDashboardPage() {
                 <p className="mt-0.5 text-[11px] text-black/45">Потребители →</p>
               </Link>
             ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Social repost pipeline */}
+      {socialRepost.available ? (
+        <section aria-label="Соц. repost">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/40">
+            Соц. repost (Telegram → TikTok / IG)
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className={kpiCardClass}>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">В процес</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">
+                {socialRepost.active == null ? "—" : socialRepost.active}
+              </p>
+              <p className="mt-0.5 text-[11px] text-black/45">опашка / преглед / насрочени</p>
+            </div>
+            <div className={kpiCardClass}>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Публикувани (24ч)</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-emerald-800">
+                {socialRepost.published24h == null ? "—" : socialRepost.published24h}
+              </p>
+              <p className="mt-0.5 text-[11px] text-black/45">успешни постове</p>
+            </div>
+            <div className={`${kpiCardClass} ${socialRepost.failed24h && socialRepost.failed24h > 0 ? "border-[#b13a1a]/30 bg-[#fdf2ee]/70" : ""}`}>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Провалени (24ч)</p>
+              <p
+                className={`mt-1 text-2xl font-bold tabular-nums tracking-tight ${
+                  socialRepost.failed24h && socialRepost.failed24h > 0 ? "text-[#b13a1a]" : ""
+                }`}
+              >
+                {socialRepost.failed24h == null ? "—" : socialRepost.failed24h}
+              </p>
+              <p className="mt-0.5 text-[11px] text-black/45">по всички мрежи</p>
+            </div>
           </div>
         </section>
       ) : null}

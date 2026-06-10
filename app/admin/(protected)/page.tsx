@@ -22,6 +22,34 @@ async function getPendingCount(supabase: SupabaseAdmin | null) {
   return count ?? 0;
 }
 
+const STALE_QUEUE_DAYS = 7;
+
+function staleCutoffIso() {
+  return new Date(Date.now() - STALE_QUEUE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** Pending festivals waiting longer than STALE_QUEUE_DAYS — a backlog signal. */
+async function getStalePendingCount(supabase: SupabaseAdmin | null) {
+  if (!supabase) return 0;
+  const { count } = await supabase
+    .from("pending_festivals")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending")
+    .lt("created_at", staleCutoffIso());
+  return count ?? 0;
+}
+
+/** Pending organizer claims waiting longer than STALE_QUEUE_DAYS. */
+async function getStalePendingOrgClaimsCount(supabase: SupabaseAdmin | null) {
+  if (!supabase) return 0;
+  const { count } = await supabase
+    .from("organizer_members")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending")
+    .lt("created_at", staleCutoffIso());
+  return count ?? 0;
+}
+
 async function getDiscoveryRecentCount(supabase: SupabaseAdmin | null) {
   if (!supabase) return 0;
   const since = new Date();
@@ -195,6 +223,8 @@ export default async function AdminDashboardPage() {
     organizersVerified,
     organizersUnverified,
     pendingOrgClaims,
+    stalePending,
+    stalePendingOrgClaims,
     health,
     userGrowth,
   ] = await Promise.all([
@@ -210,6 +240,8 @@ export default async function AdminDashboardPage() {
     getVerifiedOrganizersCount(supabase),
     getUnverifiedOrganizersCount(supabase),
     getPendingOrganizerClaimsCount(supabase),
+    getStalePendingCount(supabase),
+    getStalePendingOrgClaimsCount(supabase),
     fetchDashboardHealth(serviceClient),
     fetchUserGrowthStats(serviceClient),
   ]);
@@ -225,6 +257,9 @@ export default async function AdminDashboardPage() {
     "flex flex-col rounded-xl border border-black/[0.08] bg-white/80 p-3 transition-colors hover:border-black/[0.14] hover:bg-white";
 
   const priorityHighlight = (active: boolean) => (active ? "border-[#d4a017]/30 bg-[#fffbeb]/70" : "");
+
+  const staleBadgeClass =
+    "mt-1 inline-flex w-fit items-center rounded-md border border-[#d4a017]/30 bg-[#fffbeb] px-1.5 py-0.5 text-[10px] font-semibold text-[#9a6b16]";
 
   const linkClass =
     "rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] transition hover:bg-black/[0.04]";
@@ -258,7 +293,11 @@ export default async function AdminDashboardPage() {
           >
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Чакащи фестивали</p>
             <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">{pending}</p>
-            <p className="mt-0.5 text-[11px] text-black/45">Към опашката →</p>
+            {stalePending > 0 ? (
+              <span className={staleBadgeClass}>{stalePending} чакат &gt;{STALE_QUEUE_DAYS} дни</span>
+            ) : (
+              <p className="mt-0.5 text-[11px] text-black/45">Към опашката →</p>
+            )}
           </Link>
 
           <Link
@@ -267,7 +306,11 @@ export default async function AdminDashboardPage() {
           >
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Заявки организатори</p>
             <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">{pendingOrgClaims}</p>
-            <p className="mt-0.5 text-[11px] text-black/45">Чакащи заявки / claims →</p>
+            {stalePendingOrgClaims > 0 ? (
+              <span className={staleBadgeClass}>{stalePendingOrgClaims} чакат &gt;{STALE_QUEUE_DAYS} дни</span>
+            ) : (
+              <p className="mt-0.5 text-[11px] text-black/45">Чакащи заявки / claims →</p>
+            )}
           </Link>
 
           <Link href="/admin/discovery" className={kpiCardClass}>

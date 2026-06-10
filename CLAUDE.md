@@ -380,6 +380,8 @@ Telegram bot (FB link)
 
 Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending/active/revoked`). Active owners access `/organizer/dashboard`. Submissions use `submission_source=organizer_portal` and still require admin approval. Admin reviews claims at `/admin/organizer-claims`. See `docs/system-architecture.md` — *Organizer portal* section.
 
+**Per-festival роли (2026-06):** `festival_organizers.role` (`owner` | `co_host`). Точно един `owner` на фестивал (partial unique index `festival_organizers_one_owner_idx`). При approve на portal pending → submitting organizer (`pending_festivals.organizer_id`) става `owner`; останалите organizer entries и всички admin/research/ingest фестивали остават `co_host` (orphan от portal перспектива; admin продължава да ги управлява). Permission gating: `lib/organizer/festivalAccess.ts#getUserFestivalRole`. Edit и co-organizer management са owner-only през `/api/organizer/festivals/[id]` (GET/PATCH) и `/api/organizer/festivals/[id]/co-organizers` (POST/DELETE). `syncFestivalOrganizers` запазва role на съществуващите organizers при sync — не презаписвай ръчно.
+
 ---
 
 ## Monetization layer

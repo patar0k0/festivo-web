@@ -12,3 +12,4 @@ export function buildDedupeKey(chatId: number, sourceUrl: string): string;
 export function normalizeTargets(targets: string[]): string[];
 export function mapUpdateToAction(update: unknown): BotAction;
 export function decisionToStatus(decision: string): string | null;
+export function weekendDecisionToStatus(decision: string): string | null;

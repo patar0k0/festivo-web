@@ -6,6 +6,7 @@ import {
   buildDedupeKey,
   normalizeTargets,
   decisionToStatus,
+  weekendDecisionToStatus,
 } from "@/lib/telegram/socialBot.mjs";
 
 export const runtime = "nodejs";
@@ -99,6 +100,34 @@ export async function POST(req: Request) {
     if (job) {
       await supabase.from("social_repost_jobs").update({ caption: action.text }).eq("id", job.id);
       await tg("sendMessage", { chat_id: action.chatId, text: "✏️ Описанието е записано." });
+    }
+  } else if (action.kind === "weekend-decision") {
+    if (action.decision === "schedule") {
+      // Default schedule: upcoming Saturday 09:00 Europe/Sofia (UTC+3 in summer → 06:00Z).
+      const { data: post } = await supabase
+        .from("social_scheduled_posts")
+        .select("period_start")
+        .eq("id", action.postId)
+        .maybeSingle();
+      const sat = post?.period_start ? `${post.period_start}T06:00:00Z` : new Date().toISOString();
+      await supabase
+        .from("social_scheduled_posts")
+        .update({ status: "scheduled", scheduled_at: sat })
+        .eq("id", action.postId);
+      await tg("answerCallbackQuery", { callback_query_id: action.callbackQueryId, text: "Насрочено за събота 9:00" });
+    } else if (action.decision === "regenerate") {
+      // Reset to draft; the worker will regenerate on its next trigger run.
+      await supabase.from("social_scheduled_posts").update({ status: "draft" }).eq("id", action.postId);
+      await tg("answerCallbackQuery", { callback_query_id: action.callbackQueryId, text: "Ще регенерирам при следващото пускане" });
+    } else {
+      const status = weekendDecisionToStatus(action.decision);
+      if (status) {
+        await supabase.from("social_scheduled_posts").update({ status }).eq("id", action.postId);
+      }
+      await tg("answerCallbackQuery", {
+        callback_query_id: action.callbackQueryId,
+        text: status === "publishing" ? "Публикувам…" : status || "ок",
+      });
     }
   }
 

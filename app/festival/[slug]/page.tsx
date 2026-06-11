@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 import { normalizePublicFestivalSlugParam } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
 
@@ -18,5 +18,5 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function LegacyFestivalPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug: rawSlug } = await params;
   const slug = normalizePublicFestivalSlugParam(rawSlug);
-  redirect(`/festivals/${encodeURIComponent(slug)}`);
+  permanentRedirect(`/festivals/${encodeURIComponent(slug)}`);
 }

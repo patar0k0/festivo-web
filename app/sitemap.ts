@@ -1,5 +1,4 @@
 import { MetadataRoute } from "next";
-import { addMonths, format } from "date-fns";
 import { cityHref } from "@/lib/cities";
 import { getCityLinks, getFestivalSlugs, getOrganizerSlugs } from "@/lib/queries";
 import { getBaseUrl } from "@/lib/seo";
@@ -36,19 +35,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     lastModified: new Date(),
   }));
 
-  const months = Array.from({ length: 12 }).map((_, index) =>
-    format(addMonths(new Date(), index), "yyyy-MM")
-  );
-
-  const monthUrls = months.map((month) => ({
-    url: `${baseUrl}/calendar/${month}`,
-    lastModified: new Date(),
-  }));
-
   const organizerUrls = organizerSlugs.map((slug) => ({
     url: `${baseUrl}/organizers/${encodeURIComponent(slug)}`,
     lastModified: new Date(),
   }));
 
-  return [...core, ...festivalUrls, ...cityUrls, ...monthUrls, ...organizerUrls];
+  return [...core, ...festivalUrls, ...cityUrls, ...organizerUrls];
 }

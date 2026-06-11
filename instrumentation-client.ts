@@ -24,6 +24,12 @@ Sentry.init({
 
   // GDPR: не изпращаме PII (IP адреси, email адреси и т.н.)
   sendDefaultPii: false,
+
+  // Шумови, неактивни грешки, които да не се изпращат към Sentry.
+  // "Connection closed" идва от прекъснат RSC stream / server action,
+  // когато потребителят навигира настрани преди заявката да приключи —
+  // Next.js я хваща сам (handled), потребителят не вижда нищо счупено.
+  ignoreErrors: ["Connection closed"],
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

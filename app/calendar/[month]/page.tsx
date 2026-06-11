@@ -1,5 +1,5 @@
 ﻿import { isValid, parseISO } from "date-fns";
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
 const MONTH_REGEX = /^\d{4}-\d{2}$/;
 
@@ -32,5 +32,5 @@ export default async function CalendarMonthCompatibilityPage({
   }
 
   const query = nextParams.toString();
-  redirect(`/calendar${query ? `?${query}` : ""}`);
+  permanentRedirect(`/calendar${query ? `?${query}` : ""}`);
 }

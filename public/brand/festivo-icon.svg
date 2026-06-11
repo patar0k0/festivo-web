@@ -1,1 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><path fill="none" stroke="#7c2d12" stroke-width="9" stroke-linecap="round" d="M103.052,55.342 A40 40 0 0 1 103.052,72.658 M97.736,85.492 A40 40 0 0 1 85.492,97.736 M72.658,103.052 A40 40 0 0 1 55.342,103.052 M42.508,97.736 A40 40 0 0 1 30.264,85.492 M24.948,72.658 A40 40 0 0 1 24.948,55.342 M30.264,42.508 A40 40 0 0 1 42.508,30.264 M55.342,24.948 A40 40 0 0 1 72.658,24.948 M85.492,30.264 A40 40 0 0 1 97.736,42.508"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Outer ring -->
+  <circle cx="64" cy="64" r="62" fill="#C0442A"/>
+  <!-- Inner cream circle -->
+  <circle cx="64" cy="64" r="54" fill="#FAF7F2"/>
+  <!-- Folk border ring -->
+  <circle cx="64" cy="64" r="62" fill="none" stroke="#8B2E18" stroke-width="2"/>
+  <circle cx="64" cy="64" r="54" fill="none" stroke="#C0442A" stroke-width="1.5"/>
+
+  <!-- Folk diamond pattern top -->
+  <polygon points="64,14 69,19 64,24 59,19" fill="#D4943A"/>
+  <polygon points="50,17 54,21 50,25 46,21" fill="#2D6A4F"/>
+  <polygon points="78,17 82,21 78,25 74,21" fill="#2D6A4F"/>
+
+  <!-- Folk diamond pattern bottom -->
+  <polygon points="64,104 69,109 64,114 59,109" fill="#D4943A"/>
+  <polygon points="50,103 54,107 50,111 46,107" fill="#2D6A4F"/>
+  <polygon points="78,103 82,107 78,111 74,107" fill="#2D6A4F"/>
+
+  <!-- Folk star left -->
+  <polygon points="22,64 26,60 30,64 26,68" fill="#D4943A"/>
+  <polygon points="18,64 26,56 34,64 26,72" fill="none" stroke="#C0442A" stroke-width="1"/>
+
+  <!-- Folk star right -->
+  <polygon points="98,64 102,60 106,64 102,68" fill="#D4943A"/>
+  <polygon points="94,64 102,56 110,64 102,72" fill="none" stroke="#C0442A" stroke-width="1"/>
+
+  <!-- Letter F -->
+  <text x="64" y="76"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="52"
+        font-weight="700"
+        fill="#C0442A"
+        text-anchor="middle"
+        letter-spacing="-1">f</text>
+</svg>

@@ -908,7 +908,7 @@ export default function FestivalDetailClient({
                   ) : null}
                   {calendarMonth ? (
                     <Link
-                      href={`/calendar/${calendarMonth}`}
+                      href={`/calendar?month=${calendarMonth}`}
                       className="transition-all duration-150 hover:text-black hover:opacity-90 active:scale-[0.98]"
                     >
                       Календар за месеца

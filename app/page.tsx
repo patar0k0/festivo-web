@@ -20,13 +20,20 @@ export const metadata: Metadata = {
     siteName: "Festivo",
     locale: "bg_BG",
     type: "website",
-    // OG image автоматично се инжектира от app/opengraph-image.tsx (dynamic edge-rendered PNG).
+    images: [
+      {
+        url: "https://festivo.bg/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Festivo — Фестивалите на България на едно място",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Festivo — Фестивалите на България на едно място",
     description: "Открий безплатни фестивали в България по град, дата и интерес.",
-    // Twitter image автоматично се инжектира от app/opengraph-image.tsx.
+    images: ["https://festivo.bg/opengraph-image"],
   },
 };
 

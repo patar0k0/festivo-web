@@ -52,3 +52,9 @@ next-env.d.ts
 .claude/worktrees/
 .claude/settings.json.bak
 .claude/settings.local.json
+
+# Superpowers local tooling scratch (brainstorm output, not source)
+.superpowers/
+
+# Generated performance reports
+lighthouse-report.json

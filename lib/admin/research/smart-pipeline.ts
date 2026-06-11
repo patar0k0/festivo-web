@@ -408,7 +408,9 @@ export async function runSmartResearchPipeline(
   }
 
   for (const r of organic.slice(0, 6)) {
-    if (!fetchedUrls.has(r.url) && r.snippet && shouldUseDocForTextEvidence(r.url)) {
+    if (!fetchedUrls.has(r.url) && r.snippet) {
+      // Blocklisted competitor sites: include only the short snippet (not full content)
+      // so date/location still reaches Gemini without copying competitor descriptions.
       evidenceParts.push(`=== ${r.title ?? r.url} (${r.url}) ===\n${r.snippet}`);
     }
   }

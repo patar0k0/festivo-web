@@ -33,18 +33,22 @@ function hasNonAscii(value: string) {
 
 async function resolveCityByParam(slugParam: string): Promise<{ city: CityRecord | null; rawTrimmed: string }> {
   const rawTrimmed = decodeURIComponent(slugParam).trim();
+  // `%`, `_` и `\` са LIKE/ILIKE метасимволи и не се срещат в реални градски slug-ове/имена.
+  // Махаме ги преди ilike, за да не чупят Postgres pattern-а — trailing `\` (напр. `/cities/sofia%5C`)
+  // иначе гърми с "pattern must not end with escape character" → 500.
+  const likeSafe = rawTrimmed.replace(/[%_\\]/g, "");
   const supabase = await createSupabaseServerClient();
   let query = supabase.from("cities").select("slug,name_bg,is_village");
 
-  if (hasNonAscii(rawTrimmed)) {
-    const rawSpaced = rawTrimmed.replace(/-/g, " ");
+  if (hasNonAscii(likeSafe)) {
+    const rawSpaced = likeSafe.replace(/-/g, " ");
     const orFilter =
-      rawSpaced === rawTrimmed
-        ? `name_bg.ilike.${rawTrimmed}`
-        : `name_bg.ilike.${rawTrimmed},name_bg.ilike.${rawSpaced}`;
+      rawSpaced === likeSafe
+        ? `name_bg.ilike.${likeSafe}`
+        : `name_bg.ilike.${likeSafe},name_bg.ilike.${rawSpaced}`;
     query = query.or(orFilter);
   } else {
-    query = query.ilike("slug", rawTrimmed);
+    query = query.ilike("slug", likeSafe);
   }
 
   const { data, error } = await query.limit(1).maybeSingle<CityRecord>();

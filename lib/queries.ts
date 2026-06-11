@@ -903,7 +903,9 @@ export async function resolveOrganizerCanonicalSlug(slug: string): Promise<strin
     .maybeSingle();
   throwOnSelectError("resolveOrganizerCanonicalSlug eq slug", byEqError);
   start = byEq;
-  if (!start && !/[_%]/.test(key)) {
+  // `_`, `%` и `\` са LIKE/ILIKE метасимволи — slug, който ги съдържа, не е валиден
+  // за fuzzy match (trailing `\` чупи Postgres: "pattern must not end with escape character").
+  if (!start && !/[_%\\]/.test(key)) {
     const { data: byIlike, error: byIlikeError } = await admin
       .from("organizers")
       .select("slug,is_active,merged_into")
@@ -948,7 +950,9 @@ export async function getOrganizerWithFestivals(
   throwOnSelectError("getOrganizerWithFestivals organizer by slug", first.error);
   organizer = first.data;
 
-  if (!organizer && !/[_%]/.test(slugKey)) {
+  // `_`, `%` и `\` са LIKE/ILIKE метасимволи — slug, който ги съдържа, не е валиден
+  // за fuzzy match (trailing `\` чупи Postgres: "pattern must not end with escape character").
+  if (!organizer && !/[_%\\]/.test(slugKey)) {
     const second = await baseOrg().ilike("slug", slugKey).limit(2);
     throwOnSelectError("getOrganizerWithFestivals organizer ilike slug", second.error);
     if (second.data?.length === 1) organizer = second.data[0] as OrganizerProfile;

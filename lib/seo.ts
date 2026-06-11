@@ -6,7 +6,11 @@ import { Festival } from "@/lib/types";
 import { getFestivalStartInstant } from "@/lib/notifications/time";
 
 export function getBaseUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://festivo.bg";
+  // Strip any trailing slash at the source so every `${getBaseUrl()}/path`
+  // canonical is consistent regardless of how NEXT_PUBLIC_SITE_URL is set.
+  // A trailing slash here would produce `https://festivo.bg//festivals/...`
+  // and break canonical matching → "Duplicate, no user-selected canonical".
+  return (process.env.NEXT_PUBLIC_SITE_URL ?? "https://festivo.bg").replace(/\/$/, "");
 }
 
 /** Absolute URL for OG / JSON-LD when the stored value may be relative. */

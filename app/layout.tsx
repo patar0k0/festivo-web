@@ -43,12 +43,11 @@ export function generateMetadata(): Metadata {
     description: "Browse published festivals, find dates, and plan weekends across Bulgaria.",
     icons: {
       icon: [
-        { url: "/brand/icon-16.png", sizes: "16x16", type: "image/png" },
-        { url: "/brand/icon-32.png", sizes: "32x32", type: "image/png" },
         { url: "/brand/festivo-icon.svg", type: "image/svg+xml" },
+        { url: "/brand/festivo-logo-badge.jpg", sizes: "192x192", type: "image/jpeg" },
       ],
       apple: [
-        { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+        { url: "/brand/festivo-logo-badge.jpg", sizes: "180x180", type: "image/jpeg" },
       ],
     },
     verification: {
@@ -88,6 +87,7 @@ export default async function RootLayout({
     <html lang="bg">
       <head>
         <meta charSet="utf-8" />
+        <meta property="fb:app_id" content="1507497041051924" />
         {/* Preconnect за Supabase storage (снимки на фестивали) */}
         {supabaseHost ? (
           <>

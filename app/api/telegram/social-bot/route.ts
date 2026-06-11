@@ -109,7 +109,9 @@ export async function POST(req: Request) {
         .select("period_start")
         .eq("id", action.postId)
         .maybeSingle();
-      const sat = post?.period_start ? `${post.period_start}T06:00:00Z` : new Date().toISOString();
+      const friday = post?.period_start ? new Date(`${post.period_start}T00:00:00Z`) : null;
+      const satDate = friday ? new Date(friday.getTime() + 24 * 60 * 60 * 1000) : null;
+      const sat = satDate ? `${satDate.toISOString().slice(0, 10)}T06:00:00Z` : new Date().toISOString();
       await supabase
         .from("social_scheduled_posts")
         .update({ status: "scheduled", scheduled_at: sat })

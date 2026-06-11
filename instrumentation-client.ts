@@ -18,8 +18,9 @@ Sentry.init({
   // Session replay — изключен за нормални сесии (GDPR и bandwidth)
   replaysSessionSampleRate: 0.0,
 
-  // Session replay — включен само при грешки за debugging
-  replaysOnErrorSampleRate: 1.0,
+  // Session replay — включен само при част от грешките за debugging
+  // (намален от 1.0, за да не изчерпва месечната replays квота)
+  replaysOnErrorSampleRate: 0.5,
 
   // GDPR: не изпращаме PII (IP адреси, email адреси и т.н.)
   sendDefaultPii: false,

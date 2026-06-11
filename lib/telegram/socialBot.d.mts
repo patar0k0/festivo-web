@@ -5,7 +5,8 @@ export type BotAction =
   | { kind: "enqueue"; chatId: number; userId: number; url: string }
   | { kind: "caption"; chatId: number; userId: number; text: string }
   | { kind: "toggle"; chatId: number; userId: number; jobId: string; network: string; callbackQueryId: string }
-  | { kind: "decision"; chatId: number; userId: number; jobId: string; decision: string; callbackQueryId: string };
+  | { kind: "decision"; chatId: number; userId: number; jobId: string; decision: string; callbackQueryId: string }
+  | { kind: "weekend-decision"; chatId: number; userId: number; postId: string; decision: string; callbackQueryId: string };
 
 export function verifyWebhookSecret(headerSecret: string | null, expected: string | undefined): boolean;
 export function buildDedupeKey(chatId: number, sourceUrl: string): string;

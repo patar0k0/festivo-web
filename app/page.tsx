@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://festivo.bg/",
   },
+  other: {
+    "fb:app_id": "1507497041051924",
+  },
   openGraph: {
     title: "Festivo — Фестивалите на България на едно място",
     description: "Открий безплатни фестивали в България по град, дата и интерес. Проверени събития от организатори и публични източници.",

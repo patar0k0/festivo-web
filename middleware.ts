@@ -132,7 +132,11 @@ export async function middleware(request: NextRequest) {
     // Check for session cookie cheaply — skip rate limit for logged-in users.
     const hasSbCookie =
       request.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.value);
-    if (!hasSbCookie) {
+    // Never rate-limit legitimate crawlers (Googlebot etc.) — a 429 during a
+    // crawl burst suppresses indexing. Bad scrapers are already 403'd above by
+    // `isBotRequest`; this only exempts the allowlisted, robots-respecting bots.
+    const isLegitimateBot = LEGITIMATE_BOT_RE.test(request.headers.get("user-agent") ?? "");
+    if (!hasSbCookie && !isLegitimateBot) {
       try {
         const pageRate = await checkPublicPageRateLimit(request);
         if (pageRate.limited) {

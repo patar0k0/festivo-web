@@ -315,14 +315,22 @@ const _loadDbDataCached = unstable_cache(fetchHomeDbData, ["home-page-db-data"],
 /**
  * Same queries and derived hrefs as the public home page (`app/page.tsx`).
  */
-export async function loadHomePageData(citySlug: string | undefined): Promise<HomePageViewProps> {
+export async function loadHomePageData(
+  citySlug: string | undefined,
+  seedOverride?: number,
+): Promise<HomePageViewProps> {
   const today = sofiaWallClockNow().ymd;
   const { weekendStart, weekendEnd, monthStart, monthEnd } = festivalDiscoveryCalendarBounds(today);
   const params: HomeDbParams = { today, weekendStart, weekendEnd, monthStart, monthEnd, citySlug };
 
+  // Preview seed override (?rotday / ?rotseed) НЕ трябва да докосва споделения
+  // unstable_cache: ползваме `fetchHomeDbData` директно (uncached). Нормалните
+  // заявки минават през `_loadDbDataCached` както досега — 100% непроменено.
+  const loadDbData = seedOverride !== undefined ? fetchHomeDbData : _loadDbDataCached;
+
   let dbData: CachedDbData;
   try {
-    dbData = await _loadDbDataCached(params);
+    dbData = await loadDbData(params);
   } catch (cachedErr) {
     // A query failed during a cache miss. `unstable_cache` does NOT persist a
     // rejected promise, so the empty result is never frozen for 5 minutes.
@@ -369,7 +377,7 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
   // спешни и всички релевантни сега. „Този уикенд" и „Предстоящи" минават през
   // дневна ротация: платените позиции (promoted/VIP) се заковават отпред, останалата
   // органична опашка се разбърква с днешния seed (стабилно през деня, кешируемо).
-  const rotationSeed = dailyRotationSeed(today);
+  const rotationSeed = seedOverride ?? dailyRotationSeed(today);
   const rails = buildHomeRails({
     current: currentFestivalsRaw,
     weekend: arrangeFestivalsWithDailyRotation(weekendFestivalsRaw, rotationSeed),

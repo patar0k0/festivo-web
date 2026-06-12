@@ -92,6 +92,11 @@ export default async function HomePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
+      {seedOverride !== undefined && (
+        <div style={{ position: "fixed", bottom: 8, right: 8, background: "#7c2d12", color: "#fff", fontSize: 11, padding: "2px 6px", borderRadius: 4, zIndex: 9999, opacity: 0.85 }}>
+          seed: {seedOverride}
+        </div>
+      )}
       <div className="mx-auto max-w-6xl px-4">
         <RealHomePage {...props} />
       </div>

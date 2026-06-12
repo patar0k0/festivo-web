@@ -15,7 +15,6 @@ import { cn } from "@/lib/utils";
 import { pub } from "@/lib/public-ui/styles";
 import { hasActivePromotion, hasActiveVip } from "@/lib/monetization";
 import type { FestivalWhenFilter } from "@/lib/types";
-import { cityHref } from "@/lib/cities";
 
 export const revalidate = 21600;
 

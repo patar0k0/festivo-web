@@ -56,7 +56,7 @@ export function buildFestivalsQuickChipLinks(categorySlugs: string[]): Array<{ l
   }
   const categoryChips = [...top3, ...rest.slice(0, 2)].map((slug) => ({
     label: labelForPublicCategory(slug),
-    href: `/festivals?tag=${encodeURIComponent(slug)}`,
+    href: `/categories/${encodeURIComponent(slug)}`,
   }));
 
   return [

@@ -14,18 +14,24 @@ const CATEGORY_CHIPS_DEFAULT_VISIBLE_COUNT = 3;
 
 function getCategoryTagFromHref(href: string): string | null {
   const parsedHref = new URL(href, "https://festivo.local");
+  // /categories/[slug] URL
+  const match = parsedHref.pathname.match(/^\/categories\/(.+)$/);
+  if (match) return decodeURIComponent(match[1]!);
+  // legacy /festivals?tag= URL
   return parsedHref.searchParams.get("tag");
 }
 
 function isChipActive(href: string, pathname: string, searchParams: ReturnType<typeof useSearchParams>) {
   const parsedHref = new URL(href, "https://festivo.local");
   const chipParams = parsedHref.searchParams;
+  const chipPathname = parsedHref.pathname;
 
+  // Path-only chips (e.g. /categories/[slug]) — active when pathname matches exactly
   if (!chipParams.toString()) {
-    return false;
+    return chipPathname !== "/" && chipPathname === pathname;
   }
 
-  const targetPath = parsedHref.pathname === "/" ? pathname : parsedHref.pathname;
+  const targetPath = chipPathname === "/" ? pathname : chipPathname;
   if (targetPath !== pathname) {
     return false;
   }
@@ -46,7 +52,7 @@ function chipClassName(active: boolean) {
 export default function QuickChipsClient({ chips }: QuickChipsClientProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeTag = searchParams.get("tag");
+  const activeTag = searchParams.get("tag") ?? pathname.match(/^\/categories\/(.+)$/)?.[1] ?? null;
   const [expanded, setExpanded] = useState(false);
 
   const { nonCategoryChips, categoryChips } = useMemo(() => {

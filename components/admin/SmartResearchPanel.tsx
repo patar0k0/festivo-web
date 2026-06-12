@@ -786,6 +786,16 @@ export default function SmartResearchPanel() {
             {/* Duplicate warning — populated after the async check resolves */}
             <DuplicateWarning matches={duplicates} />
 
+            {/* SerpAPI quota banner — most actionable failure: the search step
+                returned nothing because the key is out of credits, not because
+                the festival is undiscoverable. Surfaced prominently (red) so the
+                admin rotates the key instead of blaming discovery. */}
+            {result.warnings.some((w) => w.includes("изчерпани кредити")) && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">
+                <span className="font-semibold">SerpAPI: изчерпани кредити.</span> Активният ключ няма останали търсения — смени ключа от бутона горе вдясно (Ключ 1/2/3) и пусни отново. Резултатът по-долу може да е празен/непълен.
+              </div>
+            )}
+
             {/* Low confidence warning */}
             {result.confidence === "low" && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">

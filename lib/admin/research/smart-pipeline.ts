@@ -317,12 +317,26 @@ export async function runSmartResearchPipeline(
   // "error" само ако и двете заявки са провалили — нямаме никакви органични резултати
   // И AI Mode, и класически AI Overview са null. Failover-warning от BG search не е провал.
   const serpHasData = organic.length > 0 || Boolean(aiModeText) || Boolean(aiOverviewText);
+
+  // Разпознай изчерпана квота (всички ключове празни) и я изведи като ясна,
+  // действена грешка — иначе UI-ът показва само подвеждащото "0 резултата".
+  const serpQuotaExhausted =
+    !serpHasData &&
+    [bgResult.warning, aiModeResult.warning].some(
+      (w) => w && /run out|out of searches|изчерп|quota|exhaust|limit/i.test(w),
+    );
+  if (serpQuotaExhausted) {
+    warnings.push("⚠ SerpAPI: изчерпани кредити на активния ключ — смени ключа (бутон горе вдясно) или зареди план. Резултатите по-долу може да са непълни.");
+  }
+
   progress(
     "serpapi",
     !serpHasData && Boolean(bgResult.warning) ? "error" : "done",
-    [aiModeText ? "AI Mode" : null, aiOverviewText ? "AI Overview" : null, `${organic.length} резултата`]
-      .filter(Boolean)
-      .join(" + "),
+    serpQuotaExhausted
+      ? "Изчерпани кредити — смени SerpAPI ключа"
+      : [aiModeText ? "AI Mode" : null, aiOverviewText ? "AI Overview" : null, `${organic.length} резултата`]
+          .filter(Boolean)
+          .join(" + "),
   );
 
   const gImageResultMerged: string[] = [...gImageResult];

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import ComingSoonPublic from "@/components/home/ComingSoonPublic";
 import RealHomePage from "@/components/home/RealHomePage";
 import { firstHomeSearchParam, loadHomePageData } from "@/lib/home/loadHomePageData";
+import { dailyRotationSeed } from "@/lib/home/dailyRotation";
 
 const PREVIEW_COOKIE_NAME = "festivo_preview";
 export const dynamic = "force-dynamic";
@@ -54,7 +55,23 @@ export default async function HomePage({
     return <ComingSoonPublic />;
   }
 
-  const props = await loadHomePageData(city);
+  // Preview-only ротационен seed override. Само при наличие на festivo_preview
+  // cookie — иначе параметрите изобщо не се четат, нормалното кешируемо
+  // поведение остава непроменено. `?rotday=YYYY-MM-DD` има предимство пред
+  // `?rotseed=<число>`; невалидни стойности се игнорират.
+  let seedOverride: number | undefined;
+  if (hasPreviewAccess) {
+    const rawRotday = firstHomeSearchParam(searchParams.rotday)?.trim();
+    const rawRotseed = firstHomeSearchParam(searchParams.rotseed)?.trim();
+    if (rawRotday && /^\d{4}-\d{2}-\d{2}$/.test(rawRotday)) {
+      seedOverride = dailyRotationSeed(rawRotday);
+    } else if (rawRotseed) {
+      const parsed = Number.parseInt(rawRotseed, 10);
+      if (Number.isFinite(parsed)) seedOverride = parsed >>> 0;
+    }
+  }
+
+  const props = await loadHomePageData(city, seedOverride);
 
   const organizationJsonLd = {
     "@context": "https://schema.org",

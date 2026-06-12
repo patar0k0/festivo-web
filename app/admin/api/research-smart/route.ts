@@ -26,9 +26,10 @@ export async function POST(request: Request) {
     return sseError("Forbidden", 403);
   }
 
-  const body = (await request.json().catch(() => ({}))) as { query?: unknown; refresh?: unknown };
+  const body = (await request.json().catch(() => ({}))) as { query?: unknown; refresh?: unknown; hint_url?: unknown };
   const query = typeof body?.query === "string" ? body.query.trim() : "";
   const refresh = body?.refresh === true;
+  const hintUrl = typeof body?.hint_url === "string" ? body.hint_url.trim() : undefined;
 
   if (!query) return sseError("query is required", 400);
   if (!process.env.SERPAPI_KEY?.trim()) return sseError("SERPAPI_KEY is not configured", 503);
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
 
         const result = await runSmartResearchPipeline(query, (step, status, detail) => {
           send({ type: "progress", step, status, detail });
-        });
+        }, hintUrl);
 
         void setCachedSmartResearch(query, result);
         send({ type: "result", result, cached: false });

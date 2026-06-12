@@ -262,6 +262,7 @@ function pickTopImageCandidates(
 export async function runSmartResearchPipeline(
   query: string,
   onProgress?: SmartResearchProgress,
+  hintUrl?: string,
 ): Promise<SmartResearchResult> {
   if (!isGeminiConfigured()) throw new Error("GEMINI_API_KEY is not configured");
 
@@ -333,7 +334,14 @@ export async function runSmartResearchPipeline(
   // Up to 5 non-blocked candidates so that social-media-heavy result pages
   // (where the first few organic hits are Facebook/Instagram/YouTube) still produce
   // at least one fetchable document with image candidates.
-  const fetchCandidates = organic.filter((r) => shouldFetchDomain(r.url)).slice(0, 5);
+  // If the admin provided a hint URL, prepend it so it always gets a fetch slot
+  // and its content feeds Gemini even when SerpAPI found nothing.
+  const hintUrlNorm = hintUrl?.trim() || null;
+  const hintCandidate: SerpApiOrganicHit[] =
+    hintUrlNorm && shouldFetchDomain(hintUrlNorm) && !seenUrls.has(hintUrlNorm)
+      ? [{ url: hintUrlNorm, title: null, snippet: null, thumbnail: null }]
+      : [];
+  const fetchCandidates = [...hintCandidate, ...organic.filter((r) => shouldFetchDomain(r.url))].slice(0, 5);
   const fetchedDocs = (
     await Promise.allSettled(fetchCandidates.map((r) => fetchSourceDocument(r.url)))
   )
@@ -474,6 +482,16 @@ export async function runSmartResearchPipeline(
       title: r.title,
       domain: domainFrom(r.url),
       snippet: r.snippet,
+      is_ai_overview: false,
+    });
+  }
+  // Ако hint URL-ът не присъства в органичните резултати, добавяме го ръчно като source.
+  if (hintUrlNorm && !sources.some((s) => s.url === hintUrlNorm)) {
+    sources.push({
+      url: hintUrlNorm,
+      title: null,
+      domain: domainFrom(hintUrlNorm),
+      snippet: "URL намек от администратор",
       is_ai_overview: false,
     });
   }

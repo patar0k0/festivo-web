@@ -405,6 +405,7 @@ function loadHistory(): string[] {
 export default function SmartResearchPanel() {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [hintUrl, setHintUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [steps, setSteps] = useState<PipelineStep[]>(INITIAL_STEPS);
@@ -516,7 +517,7 @@ export default function SmartResearchPanel() {
       const res = await fetch("/admin/api/research-smart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: q, refresh: forceRefresh }),
+        body: JSON.stringify({ query: q, refresh: forceRefresh, hint_url: hintUrl.trim() || undefined }),
       });
 
       // Setup/auth failures come back as plain JSON, not an event stream.
@@ -675,23 +676,33 @@ export default function SmartResearchPanel() {
     <div className="mx-auto max-w-2xl space-y-6 py-6">
 
       {/* Search bar */}
-      <div className="flex gap-2">
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && runResearch()}
+            placeholder="Въведи фестивал + година"
+            className="flex-1 rounded-xl border border-black/[0.12] bg-white px-4 py-2.5 text-sm shadow-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+            disabled={isLoading}
+          />
+          <button
+            onClick={() => runResearch()}
+            disabled={!query.trim() || isLoading}
+            className="rounded-xl bg-black px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-black/80 disabled:opacity-40"
+          >
+            {isLoading ? "..." : "Изследвай"}
+          </button>
+        </div>
         <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && runResearch()}
-          placeholder="Въведи фестивал + година"
-          className="flex-1 rounded-xl border border-black/[0.12] bg-white px-4 py-2.5 text-sm shadow-sm outline-none focus:border-black/30 focus:ring-2 focus:ring-black/10"
+          type="url"
+          value={hintUrl}
+          onChange={(e) => setHintUrl(e.target.value)}
+          placeholder="URL намек (по избор) — постави линк към сайта на събитието"
+          className="w-full rounded-lg border border-black/[0.08] bg-black/[0.02] px-3.5 py-2 text-xs text-black/60 outline-none placeholder:text-black/30 focus:border-black/20 focus:bg-white focus:ring-2 focus:ring-black/[0.06]"
           disabled={isLoading}
         />
-        <button
-          onClick={() => runResearch()}
-          disabled={!query.trim() || isLoading}
-          className="rounded-xl bg-black px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-black/80 disabled:opacity-40"
-        >
-          {isLoading ? "..." : "Изследвай"}
-        </button>
       </div>
 
       {/* Recent searches — admin convenience, stored in localStorage only */}

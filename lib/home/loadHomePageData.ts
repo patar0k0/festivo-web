@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import { serializeFilters, withDefaultFilters } from "@/lib/filters";
 import { labelForPublicCategory } from "@/lib/festivals/publicCategories";
-import { sortFestivalsForListing } from "@/lib/festival/sorting";
+import { arrangeFestivalsWithDailyRotation, dailyRotationSeed } from "@/lib/home/dailyRotation";
 import { sofiaWallClockNow } from "@/lib/festival/temporal";
 import { buildHomeRails } from "@/lib/home/buildHomeRails";
 import { festivalDiscoveryCalendarBounds } from "@/lib/home/festivalDiscoveryBounds";
@@ -91,6 +91,14 @@ export type HomePageViewProps = {
 
 /** Колко кандидата да дърпаме per хронологичен прозорец (за waterfall dedup + diversity). */
 const HOME_RAIL_CANDIDATE_LIMIT = 24;
+
+/**
+ * По-голям пул за ротиращите ленти („Този уикенд" / „Предстоящи"). Дневната ротация
+ * разбърква цялата органична опашка, затова дърпаме повече от 24-те най-ранни по дата
+ * кандидата — иначе всеки ден ротират само най-близките събития. Една ограничена
+ * заявка (индексирана по start_date), безопасна за homepage cost.
+ */
+const ROTATION_CANDIDATE_LIMIT = 60;
 
 export function firstHomeSearchParam(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) {
@@ -285,9 +293,9 @@ async function fetchHomeDbData(params: HomeDbParams): Promise<CachedDbData> {
 
     const [nearestFestivalsRaw, currentFestivalsRaw, weekendFestivalsRaw, upcomingCategoryCounts, totalFestivalsCount, citiesResult, categorySlugs] =
       await Promise.all([
-        fetchFestivalsInRange(today, undefined, HOME_RAIL_CANDIDATE_LIMIT),
+        fetchFestivalsInRange(today, undefined, ROTATION_CANDIDATE_LIMIT),
         fetchCurrentFestivalsInner(),
-        fetchFestivalsInRange(weekendStart, weekendEnd, HOME_RAIL_CANDIDATE_LIMIT),
+        fetchFestivalsInRange(weekendStart, weekendEnd, ROTATION_CANDIDATE_LIMIT),
         fetchUpcomingCategoryCounts(),
         fetchTotalCount(),
         fetchCities(),
@@ -354,12 +362,18 @@ export async function loadHomePageData(citySlug: string | undefined): Promise<Ho
   };
 
   // Waterfall дедупликация + diversity: всеки фестивал се появява само в първата
-  // лента, в която попада (current → weekend → upcoming). Кандидатите се сортират
+  // лента, в която попада (current → weekend → upcoming). Кандидатите се подреждат
   // ПРЕДИ, защото buildHomeRails запазва реда (не пресортираме след diversity).
+  //
+  // „В момента" (current) остава стабилно подредено по край — текущите събития са
+  // спешни и всички релевантни сега. „Този уикенд" и „Предстоящи" минават през
+  // дневна ротация: платените позиции (promoted/VIP) се заковават отпред, останалата
+  // органична опашка се разбърква с днешния seed (стабилно през деня, кешируемо).
+  const rotationSeed = dailyRotationSeed(today);
   const rails = buildHomeRails({
     current: currentFestivalsRaw,
-    weekend: sortFestivalsForListing(weekendFestivalsRaw),
-    upcoming: sortFestivalsForListing(nearestFestivalsRaw),
+    weekend: arrangeFestivalsWithDailyRotation(weekendFestivalsRaw, rotationSeed),
+    upcoming: arrangeFestivalsWithDailyRotation(nearestFestivalsRaw, rotationSeed),
   });
 
   const categoryOptions: HomeCategoryOption[] = upcomingCategoryCounts

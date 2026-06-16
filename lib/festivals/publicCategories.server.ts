@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 function toUtcDateString(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -10,8 +10,14 @@ function toUtcDateString(date: Date) {
  * Counts festivals per `category` where status is published or verified and end_date >= today (UTC).
  */
 export async function fetchActiveFestivalCountsByCategory(): Promise<Map<string, number>> {
-  const supabase = await createSupabaseServerClient();
+  // Cookie-less anon client: these are public reads called from build-time
+  // contexts (generateStaticParams, sitemap) where `cookies()` is unavailable.
+  const supabase = supabaseServer();
   const counts = new Map<string, number>();
+  if (!supabase) {
+    console.error("[fetchActiveFestivalCountsByCategory] Missing Supabase env");
+    return counts;
+  }
   const pageSize = 1000;
   let offset = 0;
 
@@ -53,7 +59,14 @@ export async function fetchActiveFestivalCountsByCategory(): Promise<Map<string,
  * This is the source of truth — visibility controlled via is_active column.
  */
 export async function listPublicFestivalCategorySlugs(): Promise<string[]> {
-  const supabase = await createSupabaseServerClient();
+  // Cookie-less anon client: this runs in build-time contexts
+  // (generateStaticParams for /categories/[slug], sitemap) where `cookies()`
+  // is unavailable. festival_categories is public, anon-readable under RLS.
+  const supabase = supabaseServer();
+  if (!supabase) {
+    console.error("[listPublicFestivalCategorySlugs] Missing Supabase env");
+    return [];
+  }
   const { data, error } = await supabase
     .from("festival_categories")
     .select("slug")

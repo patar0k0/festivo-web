@@ -62,10 +62,20 @@ Sentry.init({
   sendDefaultPii: false,
 
   // Шумови, неактивни грешки, които да не се изпращат към Sentry.
-  // "Connection closed" идва от прекъснат RSC stream / server action,
-  // когато потребителят навигира настрани преди заявката да приключи —
-  // Next.js я хваща сам (handled), потребителят не вижда нищо счупено.
-  ignoreErrors: ["Connection closed"],
+  // - "Connection closed" идва от прекъснат RSC stream / server action,
+  //   когато потребителят навигира настрани преди заявката да приключи —
+  //   Next.js я хваща сам (handled), потребителят не вижда нищо счупено.
+  // - "Java object is gone" идва от Facebook in-app браузъра (Android WebView):
+  //   неговият собствен инжектиран performance logger се опитва да postMessage
+  //   към native Java bridge обект, който Web* е унищожил при затваряне/навигация.
+  //   Не е наш код (целият stack е от app://navigation_performance_logger_*) и
+  //   не можем да го поправим — само го заглушаваме.
+  ignoreErrors: ["Connection closed", "Java object is gone"],
+
+  // Грешки, произхождащи от скриптове, инжектирани от in-app браузъри
+  // (Facebook, Instagram и др.) се сервират през app:// scheme и никога не са
+  // наш код. Дропваме ги изцяло — нашите скриптове са винаги по https.
+  denyUrls: [/^app:\/\//],
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

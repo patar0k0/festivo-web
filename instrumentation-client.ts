@@ -4,6 +4,42 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+// Защита срещу browser-преводачи (Google Translate и подобни), които мутират
+// текстовите node-ове в DOM. След това React се опитва да премахне/вмъкне node,
+// който преводачът вече е заместил, и хвърля
+//   NotFoundError: Failed to execute 'removeChild' / 'insertBefore' on 'Node'
+// (DOMException.code 8). Това не е наш бъг (вж. facebook/react#11538) — node-ът
+// просто вече не е там, където React очаква. Правим операцията no-op в този
+// случай, вместо да гръмне: и потребителят не вижда счупена страница, и Sentry
+// не се залива с шум. Запазваме нормалното поведение за всички останали случаи.
+if (typeof Node === "function" && Node.prototype) {
+  const originalRemoveChild = Node.prototype.removeChild;
+  Node.prototype.removeChild = function removeChild<T extends Node>(this: Node, child: T): T {
+    if (child.parentNode !== this) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("Прихваната removeChild грешка от browser-преводач", child);
+      }
+      return child;
+    }
+    return originalRemoveChild.call(this, child) as T;
+  } as typeof Node.prototype.removeChild;
+
+  const originalInsertBefore = Node.prototype.insertBefore;
+  Node.prototype.insertBefore = function insertBefore<T extends Node>(
+    this: Node,
+    newNode: T,
+    referenceNode: Node | null,
+  ): T {
+    if (referenceNode && referenceNode.parentNode !== this) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("Прихваната insertBefore грешка от browser-преводач", referenceNode);
+      }
+      return newNode;
+    }
+    return originalInsertBefore.call(this, newNode, referenceNode) as T;
+  } as typeof Node.prototype.insertBefore;
+}
+
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 

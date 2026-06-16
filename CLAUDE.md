@@ -229,7 +229,7 @@ Festivals support two date models — always check which applies before writing 
 - **Continuous range:** `start_date` / `end_date` (most festivals). `occurrence_dates` is null/empty.
 - **Discrete days:** `occurrence_dates` jsonb array of ISO date strings (non-consecutive festivals). `start_date`/`end_date` are derived min/max.
 
-For listing/calendar/filter window queries, use the `festivals_intersecting_range(from, to)` Postgres RPC — do not write ad-hoc date range conditions. Optional `start_time` / `end_time` (`Postgres time`, Europe/Sofia) refine wall-clock scheduling for reminders and the "is past" check (see TODO in `lib/festival/isFestivalPast.ts`).
+For listing/calendar/filter window queries, use the `festivals_intersecting_range(from, to)` Postgres RPC — do not write ad-hoc date range conditions. Optional `start_time` / `end_time` (`Postgres time`, Europe/Sofia) refine wall-clock scheduling for reminders and the "is past" check. The single source of truth for lifecycle state is `getFestivalTemporalState` in `lib/festival/temporal.ts` (Sofia wall-clock, occurrence-date aware); `isFestivalPast`/`isFestivalOngoing`/`isFestivalUpcoming` delegate to it — never compare festival dates with a raw `new Date()`.
 
 ---
 

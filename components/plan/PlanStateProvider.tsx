@@ -66,7 +66,15 @@ export function PlanStateProvider({
   }, []);
 
   const refreshPlanState = useCallback(async () => {
-    const response = await fetch("/api/plan/state", { cache: "no-store" });
+    let response: Response;
+    try {
+      response = await fetch("/api/plan/state", { cache: "no-store" });
+    } catch {
+      // Network-level failure (offline, page unload, in-app browser aborting
+      // the in-flight request, etc.). Nothing to refresh — fail silently so the
+      // rejection doesn't bubble up to the global unhandledrejection handler.
+      return;
+    }
 
     if (response.status === 401) {
       applyState({ authenticated: false, scheduleItemIds: [], festivalIds: [], reminders: {} });
@@ -75,8 +83,12 @@ export function PlanStateProvider({
 
     if (!response.ok) return;
 
-    const payload = (await response.json()) as PlanStatePayload;
-    applyState(payload);
+    try {
+      const payload = (await response.json()) as PlanStatePayload;
+      applyState(payload);
+    } catch {
+      // Body read can also fail if the connection drops mid-stream — ignore.
+    }
   }, [applyState]);
 
   useEffect(() => {

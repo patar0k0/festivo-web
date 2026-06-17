@@ -24,6 +24,7 @@ import FestivalAccommodationSection from "@/components/festival/FestivalAccommod
 import FestivalNearbyBookingCard from "@/components/festival/FestivalNearbyBookingCard";
 import { formatFestivalLocationUiLine, getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { toSupabaseTransformUrl } from "@/lib/storage/supabaseTransform";
 import { getFestivalUrgencyLabelBg } from "@/lib/festival/festivalUrgency";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import type { ReminderType } from "@/lib/plan/server";
@@ -280,12 +281,22 @@ export default function FestivalDetailClient({
   /** Retries after aborted/failed loads common on client navigations (same URL would otherwise stay on the error branch until full reload). */
   const [heroLoadAttempt, setHeroLoadAttempt] = useState(0);
 
+  // Supabase-hosted heroes are delivered via the Supabase Transform CDN (same as
+  // FallbackImage) so they bypass the Vercel image optimizer, whose monthly quota
+  // returns HTTP 402 on cache-miss. Non-Supabase heroes (fbcdn.net) stay on the
+  // Next.js optimizer. Width 1200 matches the hero `sizes` cap.
+  const heroTransformUrl = useMemo(
+    () => (heroImage ? toSupabaseTransformUrl(heroImage, { width: 1200, quality: 72 }) : null),
+    [heroImage],
+  );
+
   const heroDisplayUrl = useMemo(() => {
-    if (!heroImage) return null;
-    if (heroLoadAttempt === 0) return heroImage;
-    const sep = heroImage.includes("?") ? "&" : "?";
-    return `${heroImage}${sep}_festivo_img_retry=${heroLoadAttempt}`;
-  }, [heroImage, heroLoadAttempt]);
+    const base = heroTransformUrl ?? heroImage;
+    if (!base) return null;
+    if (heroLoadAttempt === 0) return base;
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}_festivo_img_retry=${heroLoadAttempt}`;
+  }, [heroTransformUrl, heroImage, heroLoadAttempt]);
 
   const videoPageUrl = useMemo(() => {
     const u = normalizeHeroUrl(festival.video_url);
@@ -568,8 +579,9 @@ export default function FestivalDetailClient({
           {heroImage && !heroImageFailed ? (
             <>
               {/* LCP candidate — `priority` + `fetchpriority="high"` come from next/image's `priority` prop.
-                  Routed through the Vercel image optimizer (AVIF/WebP + srcset) — keeps payload ~10x smaller
-                  than serving the raw Supabase JPG. Retry on transient failure preserved via heroLoadAttempt. */}
+                  Supabase heroes (`heroTransformUrl`) are served pre-resized as WebP from the Supabase
+                  Transform CDN with `unoptimized`, bypassing the Vercel optimizer (whose quota 402s on
+                  cache-miss). Non-Supabase heroes keep the Next.js optimizer. Retry preserved via heroLoadAttempt. */}
               <Image
                 key={`${festival.id}-${heroDisplayUrl}-ng${navigationGeneration}`}
                 src={heroDisplayUrl ?? heroImage}
@@ -577,6 +589,7 @@ export default function FestivalDetailClient({
                 fill
                 sizes="(min-width: 1280px) 1200px, (min-width: 768px) 100vw, 100vw"
                 priority
+                unoptimized={heroTransformUrl !== null}
                 className="object-cover"
                 onError={() => {
                   setHeroLoadAttempt((c) => {

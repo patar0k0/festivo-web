@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useNavigationGeneration } from "@/components/providers/NavigationGenerationProvider";
 import { useImageLoadReset } from "@/components/ui/useImageLoadReset";
+import { toSupabaseTransformUrl } from "@/lib/storage/supabaseTransform";
 
 type Props = {
   logoUrl: string | null | undefined;
@@ -41,27 +42,20 @@ export default function OrganizerProfileLogo({
     resetKey,
   );
 
+  // Own-storage (Supabase) logos are delivered via the Supabase Transform CDN so they
+  // bypass the Vercel optimizer (whose quota 402s on cache-miss); external logos are
+  // served as-is. Either path skips the optimizer entirely. 336px ≈ hero 168 @2x.
+  const transformedBase = useMemo(
+    () => (trimmed ? toSupabaseTransformUrl(trimmed, { width: 336, quality: 80 }) : null),
+    [trimmed],
+  );
   const displayUrl = useMemo(() => {
-    if (!trimmed) return "";
-    if (loadAttempt === 0) return trimmed;
-    const sep = trimmed.includes("?") ? "&" : "?";
-    return `${trimmed}${sep}_festivo_logo_retry=${loadAttempt}`;
-  }, [trimmed, loadAttempt]);
-  const isFromOwnStorageDomain = useMemo(() => {
-    if (!trimmed) return false;
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!supabaseUrl) return false;
-    try {
-      const imageUrl = new URL(trimmed);
-      const projectUrl = new URL(supabaseUrl);
-      return (
-        imageUrl.origin === projectUrl.origin &&
-        imageUrl.pathname.includes("/storage/v1/object/public/organizer-logos/")
-      );
-    } catch {
-      return false;
-    }
-  }, [trimmed]);
+    const base = transformedBase ?? trimmed;
+    if (!base) return "";
+    if (loadAttempt === 0) return base;
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}_festivo_logo_retry=${loadAttempt}`;
+  }, [transformedBase, trimmed, loadAttempt]);
 
   const showImage = Boolean(displayUrl) && !failed && !errored;
   const displayInitials = initials || "OF";
@@ -93,7 +87,7 @@ export default function OrganizerProfileLogo({
           fill
           sizes={sizes}
           className="object-cover"
-          unoptimized={!isFromOwnStorageDomain}
+          unoptimized
           priority={variant === "hero"}
           onError={() => {
             setLoadAttempt((c) => {

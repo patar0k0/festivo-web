@@ -10,6 +10,7 @@ import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import type { FestivalDateFields } from "@/lib/festival/listingDates";
 import { festivalEffectiveCalendarBounds, getFestivalTemporalState } from "@/lib/festival/temporal";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
+import { toSupabaseTransformUrl } from "@/lib/storage/supabaseTransform";
 import type { PlanEntry, ReminderType } from "@/lib/plan/server";
 import { formatScheduleTimeRange } from "@/lib/festival/festivalTimeFields";
 import { cn } from "@/lib/utils";
@@ -154,6 +155,12 @@ function FestivalCardThumbnail({
   priority?: boolean;
 }) {
   const normalized = useMemo(() => normalizePlanImageSrc(imageUrl), [imageUrl]);
+  // Supabase-hosted thumbnails go through the Supabase Transform CDN (bypasses the
+  // Vercel optimizer, whose quota 402s on cache-miss). 224px ≈ the 112px box @2x.
+  const transformed = useMemo(
+    () => (normalized ? toSupabaseTransformUrl(normalized, { width: 224, quality: 72 }) : null),
+    [normalized],
+  );
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
@@ -167,7 +174,7 @@ function FestivalCardThumbnail({
   return (
     <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-black/5 sm:h-28 sm:w-28">
       <Image
-        src={normalized}
+        src={transformed ?? normalized}
         alt={title}
         fill
         className="object-cover"
@@ -175,6 +182,7 @@ function FestivalCardThumbnail({
         placeholder="blur"
         blurDataURL={PLAN_CARD_BLUR_DATA_URL}
         priority={Boolean(priority)}
+        unoptimized={transformed !== null}
         onError={() => setLoadError(true)}
       />
     </div>

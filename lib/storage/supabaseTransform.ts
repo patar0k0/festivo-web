@@ -19,7 +19,11 @@ export function toSupabaseTransformUrl(
   const idx = src.indexOf(SUPABASE_OBJECT_SEGMENT);
   if (idx === -1) return null;
 
-  const bucketAndPath = src.slice(idx + SUPABASE_OBJECT_SEGMENT.length);
+  let bucketAndPath = src.slice(idx + SUPABASE_OBJECT_SEGMENT.length);
+  // Drop any existing query string (e.g. cache-bust / `_festivo_*_retry` params);
+  // the render endpoint carries its own params and a stray `?` would corrupt them.
+  const queryIdx = bucketAndPath.indexOf("?");
+  if (queryIdx !== -1) bucketAndPath = bucketAndPath.slice(0, queryIdx);
   const params = new URLSearchParams({
     width: String(opts.width),
     quality: String(opts.quality ?? 80),

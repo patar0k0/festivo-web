@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import FallbackImage from "@/components/ui/FallbackImage";
 import { parseISO } from "date-fns";
 import PlanFestivalBookmark from "@/components/plan/PlanFestivalBookmark";
 import { formatFestivalDateLineShort } from "@/lib/festival/listingDates";
@@ -63,12 +63,13 @@ export default function DayEventsList({ day, festivals }: DayEventsListProps) {
                     tabIndex={-1}
                   >
                     {heroImage ? (
-                      <Image
+                      <FallbackImage
                         src={heroImage}
                         alt=""
                         fill
                         sizes="64px"
                         className="object-cover"
+                        resetKey={festival.id}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-amber-100 to-amber-50 text-[#7c2d12]/40">

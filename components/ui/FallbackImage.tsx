@@ -24,6 +24,22 @@ function normalizeSrc(src?: string | null): string | null {
   return null;
 }
 
+/**
+ * Picks a transform width for Supabase-CDN delivery. Prefers an explicit numeric
+ * `width` prop; otherwise the largest fixed `px` value in `sizes` (×2 for retina).
+ * Viewport-relative sizes (vw/vh/%) are layout-dependent → fall back to 750px,
+ * which covers 100vw mobile up to tablet 50vw @2x.
+ */
+function deriveTransformWidth(sizes?: string, width?: ImageProps["width"]): number {
+  if (typeof width === "number" && width > 0) return Math.min(Math.round(width * 2), 1920);
+  if (sizes && !/\d+(?:vw|vh|%)/.test(sizes)) {
+    const pxValues = Array.from(sizes.matchAll(/(\d+)px/g), (m) => Number(m[1]));
+    const max = pxValues.length ? Math.max(...pxValues) : 0;
+    if (max > 0) return Math.min(max * 2, 1920);
+  }
+  return 750;
+}
+
 export default function FallbackImage({
   src,
   fallbackSrc = "/images/placeholder.jpg",
@@ -48,18 +64,20 @@ export default function FallbackImage({
     resetKey,
   );
 
-  // Priority (LCP) images from Supabase storage are served via the Supabase
-  // Transform API (Cloudflare CDN) instead of Vercel's image optimizer, which
-  // has a cold-cache encoding overhead on first visit. Non-Supabase URLs
-  // (e.g. fbcdn.net) and non-priority images continue through Next.js optimizer.
+  // Serve ALL Supabase storage images via the Supabase Transform API (Cloudflare
+  // CDN) instead of Vercel's image optimizer. The optimizer enforces a monthly
+  // transformation quota — once exhausted, every cache-miss returns HTTP 402
+  // (`OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`) and the image fails to load.
+  // The Transform CDN has no such per-request billing gate (and also avoids the
+  // cold-cache encoding overhead). Non-Supabase URLs (e.g. fbcdn.net) return null
+  // and keep flowing through the Next.js optimizer.
   const supabaseTransformSrc = useMemo(() => {
-    if (!props.priority || !normalizedSrc) return null;
-    // Derive pixel width from the sizes prop if available, else default 750px
-    // (covers 100vw mobile up to tablet 50vw @2x).
-    return toSupabaseTransformUrl(normalizedSrc, { width: 750, quality: 72 });
-  }, [props.priority, normalizedSrc]);
-
-  const unoptimized = unoptimizedProp ?? supabaseTransformSrc !== null;
+    if (!normalizedSrc) return null;
+    return toSupabaseTransformUrl(normalizedSrc, {
+      width: deriveTransformWidth(props.sizes, props.width),
+      quality: 72,
+    });
+  }, [normalizedSrc, props.sizes, props.width]);
 
   const resolvedSrc = useMemo(() => {
     const base = supabaseTransformSrc ?? normalizedSrc;
@@ -69,8 +87,14 @@ export default function FallbackImage({
     return `${base}${sep}_festivo_retry=${loadAttempt}`;
   }, [supabaseTransformSrc, normalizedSrc, loadAttempt]);
 
-  const finalSrc = !failed && resolvedSrc ? resolvedSrc : fallbackSrc;
+  const showingFallback = failed || !resolvedSrc;
+  const finalSrc = showingFallback ? fallbackSrc : resolvedSrc;
   const normalizedAlt = typeof alt === "string" && alt.trim().length > 0 ? alt : "Image";
+
+  // Transform-served Supabase images bypass the Vercel optimizer; so does the
+  // local fallback, so the placeholder still renders even while the optimizer
+  // quota is exhausted. Everything else keeps the optimizer (explicit prop wins).
+  const unoptimized = unoptimizedProp ?? (supabaseTransformSrc !== null || showingFallback);
 
   return (
     <Image

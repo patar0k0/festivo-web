@@ -10,23 +10,23 @@ type OutboundDetailRow = {
   festival_id: string | null;
   destination_type: string;
   source: string;
-  festivals: Array<{ id: string; title: string | null }> | null;
+  festival: { id: string; title: string | null } | null;
 };
 
 function normalizeOutboundDetailRows(detailData: unknown): OutboundDetailRow[] {
   if (!Array.isArray(detailData)) return [];
   return detailData.map((row) => {
     const r = row as Record<string, unknown>;
+    // PostgREST returns a to-one embed as a single object; tolerate an array too.
     const raw = r.festivals;
-    let festivals: OutboundDetailRow["festivals"] = null;
-    if (Array.isArray(raw)) {
-      festivals = raw.map((f) => {
-        const o = f as { id?: unknown; title?: unknown };
-        return {
-          id: String(o.id ?? ""),
-          title: o.title === null || o.title === undefined ? null : String(o.title),
-        };
-      });
+    const f = Array.isArray(raw) ? raw[0] : raw;
+    let festival: OutboundDetailRow["festival"] = null;
+    if (f && typeof f === "object") {
+      const o = f as { id?: unknown; title?: unknown };
+      festival = {
+        id: String(o.id ?? ""),
+        title: o.title === null || o.title === undefined ? null : String(o.title),
+      };
     }
     return {
       id: String(r.id ?? ""),
@@ -34,7 +34,7 @@ function normalizeOutboundDetailRows(detailData: unknown): OutboundDetailRow[] {
       festival_id: r.festival_id == null ? null : String(r.festival_id),
       destination_type: String(r.destination_type ?? ""),
       source: String(r.source ?? ""),
-      festivals,
+      festival,
     };
   });
 }
@@ -368,7 +368,7 @@ export default async function AdminOutboundPage({ searchParams }: { searchParams
               </tr>
             ) : (
               rows.map((row) => {
-                const title = row.festivals?.[0]?.title?.trim();
+                const title = row.festival?.title?.trim();
                 const showUnknown = !row.festival_id;
                 const showMissingTitle = Boolean(row.festival_id) && !title;
                 return (

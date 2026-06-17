@@ -7,6 +7,11 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
 
+  // Само реални deploy-и (Vercel production + preview = NODE_ENV=production) пращат
+  // към Sentry; локалната разработка (NODE_ENV=development) не изпраща — иначе dev
+  // грешки шумят и хабят quota-та.
+  enabled: process.env.NODE_ENV === "production",
+
   // 10% от server transactions — достатъчно за production insights без излишни разходи
   tracesSampleRate: 0.1,
 

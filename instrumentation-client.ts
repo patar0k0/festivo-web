@@ -43,6 +43,12 @@ if (typeof Node === "function" && Node.prototype) {
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
+  // Само реални deploy-и (Vercel production + preview, които са NODE_ENV=production)
+  // пращат към Sentry. Локалната разработка (`next dev`, NODE_ENV=development) не
+  // изпраща — иначе dev грешки (напр. curl на localhost преди .env.local) шумят и
+  // хабят quota-та.
+  enabled: process.env.NODE_ENV === "production",
+
   // Add optional integrations for additional features
   integrations: [Sentry.replayIntegration()],
 
@@ -70,7 +76,15 @@ Sentry.init({
   //   към native Java bridge обект, който Web* е унищожил при затваряне/навигация.
   //   Не е наш код (целият stack е от app://navigation_performance_logger_*) и
   //   не можем да го поправим — само го заглушаваме.
-  ignoreErrors: ["Connection closed", "Java object is gone"],
+  // - "Lock broken by another request with the 'steal' option" идва от
+  //   @supabase/auth-js, който ползва navigator.locks със `steal` за token lock-а;
+  //   при няколко конкурентни заявки (напр. тежката /admin/research) едната краде
+  //   lock-а и другата отхвърля. Чуждо, бенигно (unhandledrejection без наш frame).
+  ignoreErrors: [
+    "Connection closed",
+    "Java object is gone",
+    "Lock broken by another request with the 'steal' option",
+  ],
 
   // Грешки, произхождащи от скриптове, инжектирани от in-app браузъри
   // (Facebook, Instagram и др.) се сервират през app:// scheme и никога не са

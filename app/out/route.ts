@@ -1,6 +1,9 @@
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+
+const DEDUP_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const MAX_LABEL_LEN = 200;
 const MAX_TARGET_LEN = 4096;
@@ -53,6 +56,59 @@ async function resolveClickActor(): Promise<{ userId: string | null; isStaff: bo
   }
 }
 
+/** First client IP from the proxy headers Vercel sets, or "" when unavailable. */
+function clientIp(request: NextRequest): string {
+  const xff = request.headers.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0]!.trim();
+  return request.headers.get("x-real-ip")?.trim() ?? "";
+}
+
+/**
+ * Salted fingerprint of an anonymous visitor (IP + User-Agent) used only to
+ * dedup repeated clicks. Salted with JOBS_SECRET so the stored hash can't be
+ * trivially reversed to an IP. Returns null when there is no IP to hash.
+ */
+function computeVisitorHash(request: NextRequest, userAgent: string): string | null {
+  const ip = clientIp(request);
+  if (!ip) return null;
+  const salt = process.env.JOBS_SECRET ?? "";
+  return createHash("sha256").update(`${ip}|${userAgent}|${salt}`).digest("hex");
+}
+
+/**
+ * True when the same actor already clicked the same (festival, destination_type)
+ * within the dedup window. Actor = user_id for logged-in clicks, visitor_hash
+ * for anonymous. Fail-open: any error (incl. missing column pre-migration)
+ * returns false so the click is still recorded.
+ */
+async function isDuplicateClick(args: {
+  admin: NonNullable<ReturnType<typeof supabaseAdmin>>;
+  festivalId: string | null;
+  destinationType: string;
+  userId: string | null;
+  visitorHash: string | null;
+}): Promise<boolean> {
+  if (!args.userId && !args.visitorHash) return false;
+
+  const since = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString();
+  let q = args.admin
+    .from("outbound_clicks")
+    .select("id")
+    .eq("destination_type", args.destinationType)
+    .gte("created_at", since)
+    .limit(1);
+
+  q = args.festivalId ? q.eq("festival_id", args.festivalId) : q.is("festival_id", null);
+  q = args.userId ? q.eq("user_id", args.userId) : q.eq("visitor_hash", args.visitorHash!);
+
+  const { data, error } = await q;
+  if (error) {
+    console.warn("[outbound] dedup check failed", error.message);
+    return false;
+  }
+  return Array.isArray(data) && data.length > 0;
+}
+
 function trimLabel(value: string | null, max: number): string {
   const t = value?.trim() ?? "";
   if (!t) return "";
@@ -95,15 +151,26 @@ export async function GET(request: NextRequest) {
     const { userId, isStaff } = await resolveClickActor();
     const admin = supabaseAdmin();
     if (admin && !isStaff) {
-      const { error: insertError } = await admin.from("outbound_clicks").insert({
-        festival_id,
-        user_id: userId,
-        destination_type,
-        target_url: target,
-        source,
+      const visitor_hash = userId ? null : computeVisitorHash(request, userAgent);
+      const duplicate = await isDuplicateClick({
+        admin,
+        festivalId: festival_id,
+        destinationType: destination_type,
+        userId,
+        visitorHash: visitor_hash,
       });
-      if (insertError) {
-        console.warn("[outbound] insert failed", insertError.message);
+      if (!duplicate) {
+        const { error: insertError } = await admin.from("outbound_clicks").insert({
+          festival_id,
+          user_id: userId,
+          destination_type,
+          target_url: target,
+          source,
+          visitor_hash,
+        });
+        if (insertError) {
+          console.warn("[outbound] insert failed", insertError.message);
+        }
       }
     }
   }

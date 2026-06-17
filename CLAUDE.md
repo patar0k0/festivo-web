@@ -150,7 +150,7 @@ Every migration must include: tables · indexes · constraints · RLS policies.
 
 ### Important tables
 
-`cities` · `festivals` · `pending_festivals` · `ingest_jobs` · `festival_days` · `festival_schedule_items` · `festival_media` · `festival_organizers` · `organizers` · `organizer_members` · `organizer_promotion_credits` · `user_plan_festivals` · `user_plan_items` · `user_plan_reminders` · `user_notification_settings` · `user_email_preferences` · `user_followed_cities` · `user_followed_organizers` · `notification_jobs` · `notification_logs` · `push_delivery_audit` · `email_jobs` · `email_events` · `device_tokens` · `location_cache` · `discovery_sources` · `discovery_config` · `discovery_run_requests` · `cron_locks` · `admin_audit_logs` · `user_sweep_retry_queue` · `admin_config` · `research_smart_cache`
+`cities` · `festivals` · `pending_festivals` · `ingest_jobs` · `festival_days` · `festival_schedule_items` · `festival_media` · `festival_organizers` · `organizers` · `organizer_members` · `organizer_promotion_credits` · `user_plan_festivals` · `user_plan_items` · `user_plan_reminders` · `user_notification_settings` · `user_email_preferences` · `user_followed_cities` · `user_followed_organizers` · `notification_jobs` · `notification_logs` · `push_delivery_audit` · `email_jobs` · `email_events` · `device_tokens` · `location_cache` · `discovery_sources` · `discovery_config` · `discovery_run_requests` · `cron_locks` · `admin_audit_logs` · `user_sweep_retry_queue` · `admin_config` · `research_smart_cache` · `poster_ingest_jobs`
 
 ### Table naming conventions
 
@@ -376,6 +376,30 @@ Telegram bot (FB link)
 
 ---
 
+## Telegram poster ingest bot
+
+Send a festival poster photo to a separate Telegram bot → Gemini vision extracts the data → Zod validation → geocode → dedup → insert as `pending_festivals` draft (always `needs_review`, never auto-published).
+
+```
+Telegram poster photo
+  → POST /api/telegram/poster-bot (this repo, Vercel webhook — whitelist-gated)
+      → download bytes (getTelegramFile) → sharp resize → Gemini vision extraction
+      → Zod parse (posterExtractionSchema) → year resolution (resolveMissingYear)
+      → upload poster → hero bucket → buildResearchPendingRowFromRequest
+      → findDuplicateFestivals (same-year gate, score ≥ 0.5) → dup-confirm keyboard or
+      → insert pending_festivals (needs_review) → Telegram link to /admin/pending-festivals/[id]
+```
+
+- **Separate bot** — own token/secret, does NOT touch the social-repost route.
+- **Whitelist:** reuses `social_repost_allowed_users` (same operator).
+- **Idempotency:** `poster_ingest_jobs` (dedupe_key = sha256(chatId::fileUniqueId)[0:32]).
+- **source_type:** `"research"` + `extraction_version = "telegram_poster_vision_v1"` + `evidence_json.ingest_channel = "telegram_poster"`.
+- **Contact info:** stored in `evidence_json.contact` and appended to `description`; no new festival column.
+- **Key files:** `lib/admin/poster/` (schema, prompt, extractor, builder, orchestrator), `lib/telegram/posterBot.mjs`, `app/api/telegram/poster-bot/route.ts`.
+- **Env:** `TELEGRAM_POSTER_BOT_TOKEN`, `TELEGRAM_POSTER_WEBHOOK_SECRET`.
+
+---
+
 ## Organizer portal
 
 Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending/active/revoked`). Active owners access `/organizer/dashboard`. Submissions use `submission_source=organizer_portal` and still require admin approval. Admin reviews claims at `/admin/organizer-claims`. See `docs/system-architecture.md` — *Organizer portal* section.
@@ -423,6 +447,7 @@ Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending
 | `TAVILY_API_KEY` · `SERPAPI_KEY` | Provider-specific keys for Tavily / SerpAPI URL discovery |
 | `OPENAI_API_KEY` | OpenAI key for `lib/admin/research/openai-extract.ts` (gpt-4o-mini field extraction, alternative to Gemini) |
 | `TELEGRAM_BOT_TOKEN` · `TELEGRAM_WEBHOOK_SECRET` | Social repost bot — Telegram Bot API token + webhook secret-token header check |
+| `TELEGRAM_POSTER_BOT_TOKEN` · `TELEGRAM_POSTER_WEBHOOK_SECRET` | Poster ingest bot — separate Telegram bot token + webhook secret for `/api/telegram/poster-bot` |
 | `TIKTOK_CLIENT_KEY` · `TIKTOK_CLIENT_SECRET` · `TIKTOK_REDIRECT_URI` | TikTok Content Posting API OAuth (social repost) |
 | `TIKTOK_PRIVACY_LEVEL` | TikTok post privacy (default `SELF_ONLY`; set `PUBLIC_TO_EVERYONE` after app audit) |
 | `META_APP_ID` · `META_APP_SECRET` | Instagram Graph API (Meta) OAuth for social repost |

@@ -342,3 +342,34 @@ Screens and workflows:
 - **Approve integration:** `POST /admin/api/pending-festivals/[id]/approve` builds the published festival’s organizer list from `organizer_entries` when present (each row: optional `organizer_id` or name-only via `resolveOrCreateOrganizerId`), otherwise legacy `organizer_id` / `organizer_name`; syncs **all** IDs to `festival_organizers`.
 - **Migration:** `scripts/sql/20260328_organizer_members_portal.sql`; `public.festivals_source_type_check` includes `organizer_portal` so portal approvals can persist that value on `festivals.source_type` (`scripts/sql/20260330_festivals_source_type_organizer_portal.sql`). Claim verification contacts: `scripts/sql/20260401_organizer_members_contact.sql`. Organizer preview drafts: `pending_festivals.status` includes `draft` (`scripts/sql/20260428_pending_festivals_draft_status.sql`).
 
+
+
+## Telegram poster ingest bot
+
+Operator sends a festival poster photo to a dedicated Telegram bot (`@FestivoPosterBot`) → inline Gemini vision extraction → Zod validation → geocode → dedup → insert as `pending_festivals` draft.
+
+**Flow:**
+```
+Telegram photo message (whitelist-gated)
+  → POST /api/telegram/poster-bot (Vercel, maxDuration=60, nodejs runtime)
+      → poster_ingest_jobs upsert (dedupe_key = sha256(chatId::fileUniqueId)[0:32])
+      → downloadTelegramFile → Buffer
+      → posterBufferToInline (sharp, 1280px JPEG) → base64 inline image
+      → uploadPosterImage → hero bucket (telegram-poster/ prefix)
+      → geminiExtractJsonWithImages → posterExtractionSchema (Zod) → PosterExtraction
+      → resolveMissingYear (weekday cross-check, explicit year preferred)
+      → buildResearchPendingRowFromRequest (geocode + quality pipeline)
+      → findDuplicateFestivals (score ≥ 0.5 + same_year → ask operator)
+      ├── duplicate → poster_ingest_jobs status=awaiting_dup_confirm + inline keyboard
+      │    └── "Все пак създай" callback → insertFromStoredExtraction
+      └── no dup → pending_festivals INSERT → Telegram link to /admin/pending-festivals/[id]
+```
+
+**Key decisions:**
+- `source_type = "research"` (passes existing constraint). Provenance in `extraction_version = "telegram_poster_vision_v1"` and `evidence_json.ingest_channel = "telegram_poster"`.
+- `verification_status = "needs_review"` always — never auto-published.
+- Contact phone/person stored in `evidence_json.contact` and appended to `description`; no new column.
+- Whitelist: `social_repost_allowed_users` (shared with social-bot).
+- Separate env: `TELEGRAM_POSTER_BOT_TOKEN`, `TELEGRAM_POSTER_WEBHOOK_SECRET`.
+
+**Key files:** `lib/admin/poster/` · `lib/telegram/posterBot.mjs` · `app/api/telegram/poster-bot/route.ts` · `scripts/sql/20260617_poster_ingest_jobs.sql`

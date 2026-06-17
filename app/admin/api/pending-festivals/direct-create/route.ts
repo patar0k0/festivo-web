@@ -66,6 +66,17 @@ export async function POST(request: Request) {
   const { data: inserted, error } = await admin.from("pending_festivals").insert(insertRow).select("id").single();
 
   if (error) {
+    // Duplicate source_url → find the existing pending festival and redirect to it
+    if (error.code === "23505" && insertRow.source_url) {
+      const { data: existing } = await admin
+        .from("pending_festivals")
+        .select("id")
+        .eq("source_url", insertRow.source_url as string)
+        .maybeSingle();
+      if (existing?.id) {
+        return NextResponse.json({ ok: true, id: String(existing.id), duplicate: true }, { status: 200 });
+      }
+    }
     console.error("[admin/pending-festivals/direct-create] insert", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

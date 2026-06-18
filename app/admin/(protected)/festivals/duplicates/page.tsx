@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import FestivalDuplicatesTable from "@/components/admin/FestivalDuplicatesTable";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { buildDuplicateRows, type FestivalRow, type FestivalDuplicateRow } from "@/lib/admin/festivalDuplicates";
+import { buildDuplicateRows, type FestivalRow } from "@/lib/admin/festivalDuplicates";
 
 export type { FestivalDuplicateRow } from "@/lib/admin/festivalDuplicates";
 

@@ -1,1 +1,1 @@
-export function normalizeFacebookEventUrl(input: string): { value: string } | { error: string };
+export function normalizeFacebookEventUrl(input: unknown): { value: string } | { error: string };

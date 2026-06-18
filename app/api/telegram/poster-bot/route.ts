@@ -6,7 +6,9 @@ import {
   buildPosterDedupeKey,
   formatInserted,
   formatDuplicate,
+  formatAlreadyDone,
   dupKeyboard,
+  reprocessKeyboard,
 } from "@/lib/telegram/posterBot.mjs";
 import {
   processPosterFromFile,
@@ -66,8 +68,16 @@ export async function POST(req: Request) {
       .select("id,status,pending_festival_id")
       .eq("dedupe_key", dedupe_key)
       .maybeSingle();
-    if (existing && (existing.status === "done" || existing.status === "processing")) {
-      await tg("sendMessage", { chat_id: action.chatId, text: "Този плакат вече е обработен/в обработка." });
+    if (existing?.status === "processing") {
+      await tg("sendMessage", { chat_id: action.chatId, text: "⏳ Плакатът се обработва в момента — изчакай малко." });
+      return NextResponse.json({ ok: true });
+    }
+    if (existing?.status === "done") {
+      await tg("sendMessage", {
+        chat_id: action.chatId,
+        text: formatAlreadyDone({ pendingId: existing.pending_festival_id ?? null, baseUrl }),
+        reply_markup: reprocessKeyboard(String(existing.id)),
+      });
       return NextResponse.json({ ok: true });
     }
 
@@ -99,13 +109,28 @@ export async function POST(req: Request) {
   if (action.kind === "dup-decision") {
     const { data: job } = await supabase
       .from("poster_ingest_jobs")
-      .select("id,status,extraction_json,telegram_chat_id")
+      .select("id,status,extraction_json,telegram_chat_id,tg_file_id")
       .eq("id", action.jobId)
       .maybeSingle();
 
     await tg("answerCallbackQuery", { callback_query_id: action.callbackQueryId, text: "ок" });
 
-    if (!job || job.status !== "awaiting_dup_confirm") {
+    if (!job) {
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action.decision === "reprocess") {
+      await supabase
+        .from("poster_ingest_jobs")
+        .update({ status: "processing", pending_festival_id: null, error: null, updated_at: new Date().toISOString() })
+        .eq("id", job.id);
+      await tg("sendMessage", { chat_id: action.chatId, text: "⏳ Преработвам плаката…" });
+      const result = await processPosterFromFile(supabase, String(job.tg_file_id), "");
+      await applyResult(supabase, tg, baseUrl, action.chatId, String(job.id), result);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (job.status !== "awaiting_dup_confirm") {
       return NextResponse.json({ ok: true });
     }
 

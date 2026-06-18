@@ -1,15 +1,47 @@
 import { z } from "zod";
 
-/** Wraps a value with the model's self-reported confidence + review flag. */
+/**
+ * Wraps a value with the model's self-reported confidence + review flag.
+ * Uses z.preprocess so that if Gemini returns a plain scalar (e.g. city: "Бутово"
+ * instead of {value: "Бутово", confidence: 0.9, needs_review: false}), we wrap it
+ * rather than losing the data entirely.
+ */
 function conf<T extends z.ZodTypeAny>(inner: T) {
-  const schema = z.object({
-    value: inner,
-    confidence: z.number().min(0).max(1).catch(0),
-    needs_review: z.boolean().catch(false),
-  });
-  // When Gemini returns a plain scalar instead of the conf-object shape, default
-  // to null / needs_review so the extraction still succeeds and the admin reviews.
-  return schema.catch({ value: null, confidence: 0, needs_review: true } as z.infer<typeof schema>);
+  return z.preprocess(
+    (val) => {
+      if (val !== null && val !== undefined && typeof val === "object" && "value" in val) {
+        return val; // already the correct {value, confidence, needs_review} shape
+      }
+      // Plain scalar from Gemini — wrap it so data is not lost
+      return { value: val ?? null, confidence: 0.5, needs_review: true };
+    },
+    z.object({
+      value: inner,
+      confidence: z.number().min(0).max(1).catch(0.5),
+      needs_review: z.boolean().catch(true),
+    }),
+  );
+}
+
+const emptyDate = { day: null, month: null, year: null, year_explicit: false, weekday: null };
+
+function preprocessDate(val: unknown): unknown {
+  if (!val) return emptyDate;
+  if (typeof val === "object") return val; // already {day, month, year, ...}
+  if (typeof val === "string") {
+    // ISO date "YYYY-MM-DD"
+    const iso = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+      return { year: Number(iso[1]), month: Number(iso[2]), day: Number(iso[3]), year_explicit: true, weekday: null };
+    }
+    // Bulgarian "DD.MM.YYYY" or "DD.MM.YY"
+    const bg = val.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
+    if (bg) {
+      const y = Number(bg[3]);
+      return { day: Number(bg[1]), month: Number(bg[2]), year: y < 100 ? 2000 + y : y, year_explicit: true, weekday: null };
+    }
+  }
+  return emptyDate;
 }
 
 const dateComponents = z.object({
@@ -20,11 +52,11 @@ const dateComponents = z.object({
   weekday: z.string().nullable().catch(null),
 });
 
-const emptyDate = { day: null, month: null, year: null, year_explicit: false, weekday: null };
+const preprocessedDate = z.preprocess(preprocessDate, dateComponents.catch(emptyDate));
 
 const programItem = z.object({
   title: z.string(),
-  start_time: z.string().nullable().catch(null), // "HH:mm" or null
+  start_time: z.string().nullable().catch(null),
   end_time: z.string().nullable().catch(null),
   stage: z.string().nullable().catch(null),
   description: z.string().nullable().catch(null),
@@ -42,9 +74,8 @@ export const posterExtractionSchema = z.object({
   title_candidates: z.array(z.string()).catch([]),
   category: conf(z.string().nullable()),
 
-  start_date: dateComponents.catch(emptyDate),
-  end_date: dateComponents.catch(emptyDate),
-  // Non-event dates (e.g. "срок за записване"); never used as start/end.
+  start_date: preprocessedDate,
+  end_date: preprocessedDate,
   other_dates: z
     .array(z.object({ label: z.string(), day: z.number().int().nullable(), month: z.number().int().nullable(), year: z.number().int().nullable() }))
     .catch([]),

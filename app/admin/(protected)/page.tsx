@@ -62,6 +62,24 @@ async function getDiscoveryRecentCount(supabase: SupabaseAdmin | null) {
   return count ?? 0;
 }
 
+/** Discovered links in the 7d *before* the last 7d — for a trend delta. Null on error. */
+async function getDiscoveryPreviousCount(supabase: SupabaseAdmin | null): Promise<number | null> {
+  if (!supabase) return null;
+  const now = Date.now();
+  const from = new Date(now - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const to = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { count, error } = await supabase
+    .from("discovered_links")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", from)
+    .lt("created_at", to);
+  if (error) {
+    console.error("admin dashboard discovery previous count:", error.message);
+    return null;
+  }
+  return count ?? 0;
+}
+
 async function getActiveOrganizersCount(supabase: SupabaseAdmin | null) {
   if (!supabase) return 0;
   const { count } = await supabase.from("organizers").select("id", { count: "exact", head: true }).eq("is_active", true);
@@ -167,6 +185,24 @@ function shortUserId(id: string) {
   return `${id.slice(0, 8)}…`;
 }
 
+/**
+ * Period-over-period delta line for a flow metric. Returns null when either
+ * value is missing (so the caller can fall back to its default hint).
+ * Up = green (growth), down = amber, flat = muted.
+ */
+function trendDelta(current: number | null | undefined, previous: number | null | undefined, label: string) {
+  if (current == null || previous == null) return null;
+  const delta = current - previous;
+  const color = delta > 0 ? "text-emerald-700" : delta < 0 ? "text-[#9a6b16]" : "text-black/40";
+  const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
+  const sign = delta > 0 ? `+${delta}` : String(delta);
+  return (
+    <p className={`mt-0.5 text-[11px] font-medium ${color}`}>
+      {arrow} {sign} {label}
+    </p>
+  );
+}
+
 async function loadPendingQueue(supabase: SupabaseAdmin | null): Promise<PendingQueueDbRow[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -218,6 +254,7 @@ export default async function AdminDashboardPage() {
     rejected,
     archived,
     discoveryRecent,
+    discoveryPrevious,
     queueRows,
     orgQueueRows,
     organizersTotal,
@@ -236,6 +273,7 @@ export default async function AdminDashboardPage() {
     getStatusCount(supabase, "rejected"),
     getStatusCount(supabase, "archived"),
     getDiscoveryRecentCount(supabase),
+    getDiscoveryPreviousCount(supabase),
     loadPendingQueue(supabase),
     loadPendingOrganizerClaimsQueue(supabase),
     getActiveOrganizersCount(supabase),
@@ -319,7 +357,9 @@ export default async function AdminDashboardPage() {
           <Link href="/admin/discovery" className={kpiCardClass}>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45">Нови открития (7 дни)</p>
             <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">{discoveryRecent}</p>
-            <p className="mt-0.5 text-[11px] text-black/45">Открития →</p>
+            {trendDelta(discoveryRecent, discoveryPrevious, "спрямо мин. седмица") ?? (
+              <p className="mt-0.5 text-[11px] text-black/45">Открития →</p>
+            )}
           </Link>
 
           <Link href="/admin/festivals?status=draft" className={`${kpiCardClass} ${priorityHighlight(draft > 0)}`}>
@@ -646,12 +686,23 @@ export default async function AdminDashboardPage() {
           </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             {[
-              { key: "d1", label: "Нови (24ч)", value: userGrowth.new24h },
-              { key: "d7", label: "Нови (7 дни)", value: userGrowth.new7d },
+              {
+                key: "d1",
+                label: "Нови (24ч)",
+                value: userGrowth.new24h,
+                delta: trendDelta(userGrowth.new24h, userGrowth.prev24h, "спрямо вчера"),
+              },
+              {
+                key: "d7",
+                label: "Нови (7 дни)",
+                value: userGrowth.new7d,
+                delta: trendDelta(userGrowth.new7d, userGrowth.prev7d, "спрямо мин. седмица"),
+              },
               {
                 key: "total",
                 label: userGrowth.capped ? "Общо регистрирани (≥)" : "Общо регистрирани",
                 value: userGrowth.total,
+                delta: null,
               },
             ].map((item) => (
               <Link key={item.key} href="/admin/users" className={kpiCardClass}>
@@ -659,7 +710,7 @@ export default async function AdminDashboardPage() {
                 <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">
                   {item.value == null ? "—" : item.value}
                 </p>
-                <p className="mt-0.5 text-[11px] text-black/45">Потребители →</p>
+                {item.delta ?? <p className="mt-0.5 text-[11px] text-black/45">Потребители →</p>}
               </Link>
             ))}
           </div>

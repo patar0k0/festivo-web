@@ -135,11 +135,20 @@ export default async function AdminPendingFestivalEditPage({
 
   const categories = categoriesResult.status === "fulfilled" ? categoriesResult.value : [];
 
+  const enrichedFields = Array.isArray(pendingFestivalData.enriched_fields)
+    ? (pendingFestivalData.enriched_fields as string[])
+    : null;
+
   return (
     <>
       {isDuplicateRedirect && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           ⚠️ Фестивал с тази source URL вече съществува — пренасочен си към него. Провери дали е същият или редактирай данните.
+        </div>
+      )}
+      {enrichedFields && enrichedFields.length > 0 && (
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          📷 <strong>Обогатено от плакат:</strong> {enrichedFields.join(", ")}
         </div>
       )}
       <PendingFestivalEditForm

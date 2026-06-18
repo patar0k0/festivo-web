@@ -7,12 +7,14 @@ import {
   formatInserted,
   formatDuplicate,
   dupKeyboard,
+  formatUrlResultLine,
 } from "@/lib/telegram/posterBot.mjs";
 import {
   processPosterFromFile,
   insertFromStoredExtraction,
   type ProcessResult,
 } from "@/lib/admin/poster/processPosterJob";
+import { enqueueFacebookEventIngest } from "@/lib/admin/ingest/enqueueFacebookEventIngest";
 import { getBaseUrl } from "@/lib/config/baseUrl";
 
 export const runtime = "nodejs";
@@ -54,6 +56,24 @@ export async function POST(req: Request) {
     .maybeSingle();
   if (!allowed) {
     await tg("sendMessage", { chat_id: action.chatId, text: "Нямаш достъп до този бот." });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action.kind === "url") {
+    const urls = "urls" in action && Array.isArray(action.urls) && action.urls.length > 0 ? action.urls : [action.url];
+    const lines: string[] = [];
+    let anyQueued = false;
+
+    for (const url of urls) {
+      const result = await enqueueFacebookEventIngest(supabase, url, "telegram", { telegramUserId: action.userId });
+      lines.push(formatUrlResultLine(url, result, baseUrl));
+      if (result.ok && (result.kind === "queued" || result.kind === "duplicate_warning")) {
+        anyQueued = true;
+      }
+    }
+
+    const footer = anyQueued ? `\n\nОпашка: ${baseUrl.replace(/\/$/, "")}/admin/ingest` : "";
+    await tg("sendMessage", { chat_id: action.chatId, text: lines.join("\n") + footer });
     return NextResponse.json({ ok: true });
   }
 

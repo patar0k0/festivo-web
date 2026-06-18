@@ -7,6 +7,7 @@ import { extractFestivalFromPoster } from "@/lib/admin/poster/posterExtractor";
 import { buildPosterPendingRow } from "@/lib/admin/poster/buildPosterPendingRow";
 import { findDuplicateFestivals, type DuplicateMatch } from "@/lib/admin/research/findDuplicateFestivals";
 import type { PosterExtraction } from "@/lib/admin/poster/posterExtractionSchema";
+import { enrichPosterFromWeb } from "@/lib/admin/poster/enrichPosterFromWeb";
 
 const DUP_BLOCK_SCORE = 0.5;
 
@@ -26,7 +27,10 @@ export async function processPosterFromFile(
     const inline = await posterBufferToInline(buffer);
     const heroUrl = await uploadPosterImage(supabase, buffer, mimeType);
 
-    const extraction = await extractFestivalFromPoster({ image: inline, caption });
+    const rawExtraction = await extractFestivalFromPoster({ image: inline, caption });
+
+    // Pass 2: web enrichment — fills null/needs_review fields from grounded search
+    const extraction = await enrichPosterFromWeb(rawExtraction, rawExtraction.title.value ?? caption);
 
     const built = await buildPosterPendingRow(extraction, heroUrl);
     if (!built.ok) return { kind: "error", message: built.error };

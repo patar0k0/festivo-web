@@ -4,7 +4,7 @@ import { downloadTelegramFile } from "@/lib/telegram/getTelegramFile";
 import { posterBufferToInline } from "@/lib/admin/poster/posterImageToInline";
 import { uploadPosterImage } from "@/lib/admin/poster/uploadPosterImage";
 import { extractFestivalFromPoster } from "@/lib/admin/poster/posterExtractor";
-import { buildPosterPendingRow } from "@/lib/admin/poster/buildPosterPendingRow";
+import { buildPosterPendingRow } from "@/lib/admin/poster/posterPendingRowBuilder";
 import { findDuplicateFestivals, type DuplicateMatch } from "@/lib/admin/research/findDuplicateFestivals";
 import type { PosterExtraction } from "@/lib/admin/poster/posterExtractionSchema";
 

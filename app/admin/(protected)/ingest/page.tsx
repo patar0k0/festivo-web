@@ -199,10 +199,6 @@ export default async function AdminIngestPage({ searchParams }: { searchParams?:
                 ? "open_festival"
                 : "no_pending_record";
 
-    const consideredPending = pendingCandidates
-      .map((candidate) => `${candidate.id}:${candidate.status}:${candidate.created_at}`)
-      .join(",");
-
     const fbCtx = row.fb_browser_context;
     const fb_browser_context: IngestJobRow["fb_browser_context"] =
       fbCtx === "authenticated" || fbCtx === "anonymous" ? fbCtx : null;

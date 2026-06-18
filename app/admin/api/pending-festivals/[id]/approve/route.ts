@@ -578,7 +578,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     console.info(`[pending-approve] pending_id=${id} published festival_id=${insertedFestival.id}`);
 
     try {
-      await syncFestivalOrganizers(adminCtx.supabase, insertedFestival.id, publishedOrganizerIds);
+      const ownerOrganizerIdForApprove =
+        pending.submission_source === "organizer_portal" && pending.organizer_id
+          ? pending.organizer_id
+          : null;
+
+      await syncFestivalOrganizers(
+        adminCtx.supabase,
+        insertedFestival.id,
+        publishedOrganizerIds,
+        { ownerOrganizerId: ownerOrganizerIdForApprove },
+      );
     } catch (syncError) {
       await adminCtx.supabase.from("festivals").delete().eq("id", insertedFestival.id);
       const message = syncError instanceof Error ? syncError.message : "festival_organizers sync failed";

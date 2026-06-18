@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { format, formatDistanceToNow } from "date-fns";
 import { bg } from "date-fns/locale";
 import { requireOrganizerOwnerPortalSession } from "@/lib/organizer/portal";
+import { FestivalRoleBadge } from "@/components/organizer/FestivalRoleBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,21 @@ type SubmissionRow = {
   status: string;
   created_at: string;
   organizer_id: string | null;
+};
+
+type MyFestivalRow = {
+  role: "owner" | "co_host";
+  organizer_id: string;
+  festivals: {
+    id: string;
+    slug: string;
+    title: string;
+    start_date: string | null;
+    end_date: string | null;
+    hero_image: string | null;
+    status: string;
+    is_verified: boolean;
+  } | null;
 };
 
 type OrgRow = {
@@ -111,6 +127,38 @@ export default async function OrganizerDashboardPage() {
 
   const orgRows = (orgsRes.data ?? []) as OrgRow[];
   const submissions = (submissionsRes.data ?? []) as SubmissionRow[];
+
+  // Published festivals where any of my organizers are linked (owner or co_host).
+  const festivalsRes =
+    orgIds.length > 0
+      ? await admin
+          .from("festival_organizers")
+          .select(
+            "role, organizer_id, festivals!inner(id,slug,title,start_date,end_date,hero_image,status,is_verified)",
+          )
+          .in("organizer_id", orgIds)
+          .order("role", { ascending: false })
+      : { data: [] as MyFestivalRow[] };
+
+  const festivalLinks = (festivalsRes.data ?? []) as unknown as MyFestivalRow[];
+
+  // Dedupe by festival_id, owner wins over co_host.
+  const festivalMap = new Map<
+    string,
+    { role: "owner" | "co_host"; festival: NonNullable<MyFestivalRow["festivals"]> }
+  >();
+  for (const row of festivalLinks) {
+    const f = row.festivals;
+    if (!f?.id) continue;
+    const existing = festivalMap.get(f.id);
+    if (!existing || (existing.role === "co_host" && row.role === "owner")) {
+      festivalMap.set(f.id, { role: row.role, festival: f });
+    }
+  }
+  const myFestivals = Array.from(festivalMap.values()).sort((a, b) => {
+    if (a.role !== b.role) return a.role === "owner" ? -1 : 1;
+    return (b.festival.start_date ?? "").localeCompare(a.festival.start_date ?? "");
+  });
 
   const hasOrgs = orgRows.length > 0;
   const hasSubmissions = submissions.length > 0;
@@ -288,6 +336,65 @@ export default async function OrganizerDashboardPage() {
           </ul>
         )}
       </section>
+
+      {/* ── My festivals (published) ────────────────────────────── */}
+      {myFestivals.length > 0 ? (
+        <section className="rounded-2xl border border-black/[0.06] bg-white/95 p-6 shadow-sm md:p-7">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold text-[#0c0e14]">Моите фестивали</h2>
+            <span className="text-xs text-black/45">{myFestivals.length} общо</span>
+          </div>
+          <ul className="mt-5 divide-y divide-black/[0.06]">
+            {myFestivals.map(({ role, festival }) => {
+              const startDate = festival.start_date ? new Date(festival.start_date) : null;
+              const startValid = startDate && !Number.isNaN(startDate.getTime());
+              return (
+                <li
+                  key={festival.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3.5"
+                >
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    {festival.hero_image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={festival.hero_image}
+                        alt=""
+                        className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="h-12 w-12 shrink-0 rounded-lg bg-black/[0.05]" />
+                    )}
+                    <div className="min-w-0">
+                      <Link
+                        href={`/organizer/festivals/${festival.id}`}
+                        className="truncate text-sm font-semibold text-[#0c0e14] hover:underline"
+                      >
+                        {festival.title}
+                      </Link>
+                      {startValid ? (
+                        <p className="mt-0.5 text-xs text-black/55">
+                          {format(startDate, "d MMM yyyy", { locale: bg })}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <FestivalRoleBadge role={role} />
+                    {role === "owner" ? (
+                      <Link
+                        href={`/organizer/festivals/${festival.id}/edit`}
+                        className="inline-flex items-center gap-1 rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c0e14] transition hover:bg-black/[0.04]"
+                      >
+                        Редактирай
+                      </Link>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       {/* ── Submissions ──────────────────────────────────────────── */}
       <section className="rounded-2xl border border-black/[0.06] bg-white/95 p-6 shadow-sm md:p-7">

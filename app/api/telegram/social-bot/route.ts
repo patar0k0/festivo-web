@@ -103,20 +103,19 @@ export async function POST(req: Request) {
     }
   } else if (action.kind === "weekend-decision") {
     if (action.decision === "schedule") {
-      // Default schedule: upcoming Saturday 09:00 Europe/Sofia (UTC+3 in summer → 06:00Z).
+      // Schedule for the weekend's Friday 09:00 Europe/Sofia (UTC+3 in summer → 06:00Z).
+      // period_start is already the Friday of the weekend.
       const { data: post } = await supabase
         .from("social_scheduled_posts")
         .select("period_start")
         .eq("id", action.postId)
         .maybeSingle();
-      const friday = post?.period_start ? new Date(`${post.period_start}T00:00:00Z`) : null;
-      const satDate = friday ? new Date(friday.getTime() + 24 * 60 * 60 * 1000) : null;
-      const sat = satDate ? `${satDate.toISOString().slice(0, 10)}T06:00:00Z` : new Date().toISOString();
+      const fri = post?.period_start ? `${post.period_start}T06:00:00Z` : new Date().toISOString();
       await supabase
         .from("social_scheduled_posts")
-        .update({ status: "scheduled", scheduled_at: sat })
+        .update({ status: "scheduled", scheduled_at: fri })
         .eq("id", action.postId);
-      await tg("answerCallbackQuery", { callback_query_id: action.callbackQueryId, text: "Насрочено за събота 9:00" });
+      await tg("answerCallbackQuery", { callback_query_id: action.callbackQueryId, text: "Насрочено за петък 9:00" });
     } else if (action.decision === "regenerate") {
       // Reset to draft; the worker will regenerate on its next trigger run.
       await supabase.from("social_scheduled_posts").update({ status: "draft" }).eq("id", action.postId);

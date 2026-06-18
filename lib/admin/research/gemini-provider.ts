@@ -49,17 +49,21 @@ function is429(err: unknown): boolean {
   // GoogleGenerativeAIFetchError carries a structured HTTP status; prefer it over
   // message parsing, since the SDK wraps 429s as "Error fetching from <url>: ..."
   // and the status code text can be truncated/reformatted before it reaches us.
+  // 503 (service unavailable / high demand) is also transient → fall back to next model.
   const status = (err as { status?: number } | null | undefined)?.status;
-  if (status === 429) return true;
+  if (status === 429 || status === 503) return true;
   if (err instanceof Error) {
     const m = err.message.toLowerCase();
     return (
       m.includes("429") ||
+      m.includes("503") ||
       m.includes("quota") ||
       m.includes("too many requests") ||
       m.includes("resource_exhausted") ||
       m.includes("rate limit") ||
-      m.includes("rate-limit")
+      m.includes("rate-limit") ||
+      m.includes("service unavailable") ||
+      m.includes("high demand")
     );
   }
   return false;

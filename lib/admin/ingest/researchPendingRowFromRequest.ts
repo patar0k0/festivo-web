@@ -231,8 +231,9 @@ export async function buildResearchPendingRowFromRequest(
 
     const heroResolved = await resolveHeroImageFieldForInsert(sanitizeNullableString(ai.hero_image));
     if ("error" in heroResolved) {
-      return { ok: false, error: `Hero image: ${heroResolved.error}`, status: 422 };
+      console.warn("[research-pending-row] hero image skipped, will be null:", heroResolved.error);
     }
+    const heroPatch = "error" in heroResolved ? { hero_image: null } : heroResolved.patch;
 
     // Collect candidate gallery URLs (≤3 unique http(s) URLs from AI result).
     const galleryCandidatesRaw: string[] = (() => {
@@ -380,7 +381,7 @@ export async function buildResearchPendingRowFromRequest(
       facebook_url: sanitizeNullableString(ai.facebook_url),
       instagram_url: sanitizeNullableString(ai.instagram_url),
       ticket_url: sanitizeNullableString(ai.ticket_url),
-      ...heroResolved.patch,
+      ...heroPatch,
       gallery_image_urls: galleryUrlsAi,
       is_free: isFreeAi,
       tags: Array.isArray((ai as unknown as { tags?: unknown }).tags)
@@ -474,8 +475,9 @@ export async function buildResearchPendingRowFromRequest(
 
   const heroResolvedLegacy = await resolveHeroImageFieldForInsert(sanitizeNullableString(finalValues.hero_image));
   if ("error" in heroResolvedLegacy) {
-    return { ok: false, error: `Hero image: ${heroResolvedLegacy.error}`, status: 422 };
+    console.warn("[research-pending-row] hero image skipped, will be null:", heroResolvedLegacy.error);
   }
+  const heroPatchLegacy = "error" in heroResolvedLegacy ? { hero_image: null } : heroResolvedLegacy.patch;
 
   const websiteFromForm = sanitizeNullableString(finalValues.website_url);
   const orgEntriesResearch = buildOrganizerEntriesFromResearch(finalValues);
@@ -553,7 +555,7 @@ export async function buildResearchPendingRowFromRequest(
     location_name: venueText,
     organizer_entries: orgEntriesResearch,
     organizer_name: primaryNameFromEntries(orgEntriesResearch, finalValues.organizer),
-    ...heroResolvedLegacy.patch,
+    ...heroPatchLegacy,
     tags: Array.isArray(finalValues.tags)
       ? finalValues.tags.map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
       : [],

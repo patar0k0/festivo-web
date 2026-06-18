@@ -461,10 +461,11 @@ export async function geminiExtractJsonWithImages<T>(options: {
     if (!text.trim()) throw new Error("Gemini returned empty JSON");
     try {
       let parsed = JSON.parse(text) as T;
-      // Gemini occasionally double-encodes the JSON (returns a string value instead
-      // of an object). Parse once more if needed.
-      if (typeof parsed === "string") {
+      // Gemini occasionally multi-encodes the JSON. Unwrap until we have a non-string.
+      let unwrapAttempts = 0;
+      while (typeof parsed === "string" && unwrapAttempts < 3) {
         parsed = JSON.parse(parsed) as T;
+        unwrapAttempts++;
       }
       options.onModelUsed?.(modelId);
       return parsed;

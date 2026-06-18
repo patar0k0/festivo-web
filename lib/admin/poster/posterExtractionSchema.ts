@@ -17,6 +17,8 @@ const dateComponents = z.object({
   weekday: z.string().nullable().catch(null),
 });
 
+const emptyDate = { day: null, month: null, year: null, year_explicit: false, weekday: null };
+
 const programItem = z.object({
   title: z.string(),
   start_time: z.string().nullable().catch(null), // "HH:mm" or null
@@ -37,8 +39,8 @@ export const posterExtractionSchema = z.object({
   title_candidates: z.array(z.string()).catch([]),
   category: conf(z.string().nullable()),
 
-  start_date: dateComponents,
-  end_date: dateComponents,
+  start_date: dateComponents.catch(emptyDate),
+  end_date: dateComponents.catch(emptyDate),
   // Non-event dates (e.g. "срок за записване"); never used as start/end.
   other_dates: z
     .array(z.object({ label: z.string(), day: z.number().int().nullable(), month: z.number().int().nullable(), year: z.number().int().nullable() }))

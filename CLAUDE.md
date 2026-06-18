@@ -397,6 +397,7 @@ Telegram poster photo
 - **Contact info:** stored in `evidence_json.contact` and appended to `description`; no new festival column.
 - **Key files:** `lib/admin/poster/` (schema, prompt, extractor, builder, orchestrator), `lib/telegram/posterBot.mjs`, `app/api/telegram/poster-bot/route.ts`.
 - **Env:** `TELEGRAM_POSTER_BOT_TOKEN`, `TELEGRAM_POSTER_WEBHOOK_SECRET`.
+- **Also accepts FB event links:** a text message containing a `facebook.com/events/...` URL is enqueued into `ingest_jobs` (`payload_json.submission_source="telegram"`, `telegram_user_id`) via the shared `enqueueFacebookEventIngest` helper — same path as the `/admin/ingest` web form. Photos still go to the poster pipeline (photo wins over a link in the caption). Dedup is "warn but allow": already-queued → reply "вече в опашката"; already a pending/published festival → warned but still enqueued.
 
 ---
 

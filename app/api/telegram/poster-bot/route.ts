@@ -230,7 +230,7 @@ async function applyResult(
     await tg("sendMessage", {
       chat_id: chatId,
       text: formatDuplicate(result.matches, baseUrl),
-      reply_markup: jobId ? dupKeyboard(jobId) : undefined,
+      reply_markup: jobId ? dupKeyboard(jobId, result.matches[0]?.id ?? "") : undefined,
     });
     return;
   }

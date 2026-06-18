@@ -6,12 +6,15 @@ import {
   buildPosterDedupeKey,
   formatInserted,
   formatDuplicate,
+  formatEnriched,
   formatAlreadyDone,
   formatRejected,
   dupKeyboard,
   reprocessKeyboard,
   formatUrlResultLine,
 } from "@/lib/telegram/posterBot.mjs";
+import { applyPosterEnrichment } from "@/lib/admin/poster/applyPosterEnrichment";
+import type { DuplicateMatch } from "@/lib/admin/research/findDuplicateFestivals";
 import {
   processPosterFromFile,
   insertFromStoredExtraction,
@@ -161,6 +164,45 @@ export async function POST(req: Request) {
       await tg("sendMessage", { chat_id: action.chatId, text: "⏳ Преработвам плаката…" });
       const result = await processPosterFromFile(supabase, String(job.tg_file_id), "");
       await applyResult(supabase, tg, baseUrl, action.chatId, String(job.id), result);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action.decision === "enrich") {
+      const stored = job.extraction_json as { extraction?: unknown; heroUrl?: string } | null;
+      if (!stored?.extraction) {
+        await tg("sendMessage", { chat_id: action.chatId, text: "❌ Липсват запазени данни за обогатяване." });
+        return NextResponse.json({ ok: true });
+      }
+      const matches = (job as { dup_matches?: unknown }).dup_matches;
+      const target = Array.isArray(matches)
+        ? (matches as DuplicateMatch[]).find((m) => m.id === action.dupId) ?? null
+        : null;
+      if (!target) {
+        await tg("sendMessage", { chat_id: action.chatId, text: "❌ Не намерих записа за обогатяване." });
+        return NextResponse.json({ ok: true });
+      }
+      const enrichResult = await applyPosterEnrichment(
+        supabase,
+        stored.extraction as Parameters<typeof applyPosterEnrichment>[1],
+        target,
+        String(job.id),
+      );
+      if (!enrichResult.ok) {
+        await tg("sendMessage", { chat_id: action.chatId, text: `❌ Грешка при обогатяване: ${enrichResult.error}` });
+        return NextResponse.json({ ok: true });
+      }
+      await supabase.from("poster_ingest_jobs").update({ status: "enriched", updated_at: new Date().toISOString() }).eq("id", job.id);
+      await tg("sendMessage", {
+        chat_id: action.chatId,
+        text: formatEnriched({
+          kind: enrichResult.kind,
+          fields: enrichResult.kind !== "nothing_to_patch" ? enrichResult.fields : [],
+          baseUrl,
+          targetId: target.id,
+          targetTable: target.table,
+        }),
+        disable_web_page_preview: true,
+      });
       return NextResponse.json({ ok: true });
     }
 

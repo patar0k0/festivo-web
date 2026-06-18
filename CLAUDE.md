@@ -351,6 +351,12 @@ ingest_jobs (admin enqueue or discovery worker)
 
 **AI values on `pending_festivals` are advisory only** — shown as hints, applied only by explicit admin action. Core moderated fields are always authoritative at approve time.
 
+### Festival merge
+
+Admin merges near-duplicate festivals at `/admin/festivals/duplicates`:
+- Detection: exact signals + token-containment fuzzy match (`lib/admin/festivalDuplicates.ts`).
+- Merge: `POST /admin/api/festivals/merge` — winner keeps its values, empty fields back-filled from loser (`computeFillNullPatch`), media/organizers/followers/likes transferred with dedup, program moved only if winner has none, stats repointed; loser set to `status=archived` with `festivals.merged_into_festival_id` pointing to the winner (recoverable, never deleted).
+
 ---
 
 ## Social repost bot (Telegram → TikTok + Instagram)

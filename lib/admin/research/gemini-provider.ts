@@ -432,7 +432,7 @@ export async function geminiExtractJsonWithImages<T>(options: {
   const generationConfig: Record<string, unknown> = {
     temperature: 0.1,
     topP: 0.95,
-    maxOutputTokens: 2048,
+    maxOutputTokens: 8192,
     responseMimeType: "application/json",
   };
 
@@ -456,7 +456,12 @@ export async function geminiExtractJsonWithImages<T>(options: {
     const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
     if (!text.trim()) throw new Error("Gemini returned empty JSON");
     try {
-      const parsed = JSON.parse(text) as T;
+      let parsed = JSON.parse(text) as T;
+      // Gemini occasionally double-encodes the JSON (returns a string value instead
+      // of an object). Parse once more if needed.
+      if (typeof parsed === "string") {
+        parsed = JSON.parse(parsed) as T;
+      }
       options.onModelUsed?.(modelId);
       return parsed;
     } catch {

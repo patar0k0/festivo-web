@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { computeEnrichmentPatch } from "./computeEnrichmentPatch.js";
+import type { PosterExtraction } from "./posterExtractionSchema.js";
 
 function makeExtraction(overrides: Record<string, unknown> = {}) {
   const conf = (v: unknown) => ({ value: v ?? null, confidence: 0.9, needs_review: false });
@@ -28,7 +29,7 @@ function makeExtraction(overrides: Record<string, unknown> = {}) {
     contact: { phone: null, person: null },
     tags: [],
     program: overrides.program ?? null,
-  };
+  } as unknown as PosterExtraction;
 }
 
 test("returns patch with description when target is empty", () => {

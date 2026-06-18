@@ -90,6 +90,7 @@ export async function POST(req: Request) {
         chat_id: action.chatId,
         text,
         reply_markup: reprocessKeyboard(String(existing.id)),
+        disable_web_page_preview: true,
       });
       return NextResponse.json({ ok: true });
     }
@@ -190,6 +191,7 @@ async function applyResult(
     await tg("sendMessage", {
       chat_id: chatId,
       text: formatInserted({ pendingId: result.pendingId, title: result.title, needsReview: result.needsReview, baseUrl }),
+      disable_web_page_preview: true,
     });
     return;
   }

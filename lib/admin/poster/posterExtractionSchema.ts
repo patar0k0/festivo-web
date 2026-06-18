@@ -2,11 +2,14 @@ import { z } from "zod";
 
 /** Wraps a value with the model's self-reported confidence + review flag. */
 function conf<T extends z.ZodTypeAny>(inner: T) {
-  return z.object({
+  const schema = z.object({
     value: inner,
     confidence: z.number().min(0).max(1).catch(0),
     needs_review: z.boolean().catch(false),
   });
+  // When Gemini returns a plain scalar instead of the conf-object shape, default
+  // to null / needs_review so the extraction still succeeds and the admin reviews.
+  return schema.catch({ value: null, confidence: 0, needs_review: true } as z.infer<typeof schema>);
 }
 
 const dateComponents = z.object({

@@ -25,7 +25,7 @@ import { getBaseUrl } from "@/lib/config/baseUrl";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const TG = (m: string) => `https://api.telegram.org/bot${process.env.TELEGRAM_POSTER_BOT_TOKEN}/${m}`;
 

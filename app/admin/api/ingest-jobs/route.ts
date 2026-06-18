@@ -3,32 +3,8 @@ import { getAdminContext } from "@/lib/admin/isAdmin";
 import { logAdminAction } from "@/lib/admin/audit-log";
 import { insertDiscoveryIngestJob } from "@/lib/admin/ingest/insertDiscoveryIngestJob";
 import { insertResearchIngestJob } from "@/lib/admin/ingest/insertResearchIngestJob";
+import { enqueueFacebookEventIngest } from "@/lib/admin/ingest/enqueueFacebookEventIngest";
 import type { ResearchEnqueueBody } from "@/lib/admin/ingest/researchPendingRowFromRequest";
-
-function normalizeFacebookEventUrl(input: string) {
-  const trimmed = input.trim();
-
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    return { error: "Invalid URL." } as const;
-  }
-
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return { error: "URL must start with http or https." } as const;
-  }
-
-  if (!parsed.hostname.toLowerCase().includes("facebook.com") || !parsed.pathname.toLowerCase().includes("/events/")) {
-    return { error: "URL must contain facebook.com/events/." } as const;
-  }
-
-  parsed.protocol = "https:";
-  parsed.hash = "";
-  parsed.pathname = parsed.pathname.replace(/\/+$/, "") || "/";
-
-  return { value: parsed.toString().replace(/\/$/, "") } as const;
-}
 
 type IngestJobsPostBody = ResearchEnqueueBody & {
   source_type?: unknown;
@@ -115,31 +91,12 @@ export async function POST(request: Request) {
 
   const sourceUrl = body && typeof body.source_url === "string" ? body.source_url : "";
 
-  const normalized = normalizeFacebookEventUrl(sourceUrl);
-  if ("error" in normalized) {
-    return NextResponse.json({ error: normalized.error }, { status: 400 });
+  const result = await enqueueFacebookEventIngest(ctx.supabase, sourceUrl, "ingest");
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
-
-  const { data, error } = await ctx.supabase
-    .from("ingest_jobs")
-    .insert({
-      source_url: normalized.value,
-      source_type: "facebook_event",
-      status: "pending",
-      payload_json: {
-        schema_version: 1,
-        submission_source: "ingest",
-      },
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    if (error.code === "23505") {
-      return NextResponse.json({ error: "Already queued" }, { status: 409 });
-    }
-
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (result.kind === "already_queued") {
+    return NextResponse.json({ error: "Already queued" }, { status: 409 });
   }
 
   try {
@@ -147,17 +104,15 @@ export async function POST(request: Request) {
       actor_user_id: ctx.user.id,
       action: "ingest_job.created",
       entity_type: "ingest_job",
-      entity_id: String(data.id),
+      entity_id: result.jobId,
       route: "/admin/api/ingest-jobs",
       method: "POST",
-      details: {
-        source_type: "facebook_event",
-      },
+      details: { source_type: "facebook_event" },
     });
   } catch (auditError) {
     const message = auditError instanceof Error ? auditError.message : "unknown";
     console.error("[admin/audit] ingest_job.created failed", { message });
   }
 
-  return NextResponse.json({ ok: true, id: String(data.id), job_id: String(data.id), status: "pending" });
+  return NextResponse.json({ ok: true, id: result.jobId, job_id: result.jobId, status: result.status });
 }

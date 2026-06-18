@@ -18,6 +18,7 @@ type IngestJobRow = {
   finished_at: string | null;
   error: string | null;
   fb_browser_context: "authenticated" | "anonymous" | null;
+  submission_source: string;
 };
 
 type PendingFestivalLookupRow = {
@@ -41,18 +42,23 @@ function pickLatestPending(
   return new Date(incoming.created_at).getTime() > new Date(current.created_at).getTime() ? incoming : current;
 }
 
-export default async function AdminIngestPage() {
+const PAGE_SIZE = 50;
+
+export default async function AdminIngestPage({ searchParams }: { searchParams?: { page?: string } }) {
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
     redirect("/login?next=/admin/ingest");
   }
 
+  const page = Math.max(1, parseInt(searchParams?.page ?? "1", 10) || 1);
+  const offset = (page - 1) * PAGE_SIZE;
+
   const adminClient = createSupabaseAdmin();
-  const { data, error } = await adminClient
+  const { data, error, count } = await adminClient
     .from("ingest_jobs")
-    .select("id,status,source_url,source_type,created_at,started_at,finished_at,error,fb_browser_context")
+    .select("id,status,source_url,source_type,created_at,started_at,finished_at,error,fb_browser_context,payload_json", { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(50);
+    .range(offset, offset + PAGE_SIZE - 1);
 
   if (error) {
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{error.message}</div>;
@@ -197,10 +203,6 @@ export default async function AdminIngestPage() {
       .map((candidate) => `${candidate.id}:${candidate.status}:${candidate.created_at}`)
       .join(",");
 
-    console.info(
-      `[admin-ingest] job=${String(row.id)} matched_pending=${consideredPending || "none"} pending_id=${pendingFestivalId ?? "null"} pending_status=${pendingStatus ?? "null"} published_festival_id=${publishedFestivalId ?? "null"} chosen_status=${pendingStatus ?? "none"} chosen_action=${moderationAction}`,
-    );
-
     const fbCtx = row.fb_browser_context;
     const fb_browser_context: IngestJobRow["fb_browser_context"] =
       fbCtx === "authenticated" || fbCtx === "anonymous" ? fbCtx : null;
@@ -223,8 +225,14 @@ export default async function AdminIngestPage() {
       finished_at: row.finished_at ?? null,
       error: row.error ?? null,
       fb_browser_context,
+      submission_source:
+        row.payload_json && typeof row.payload_json === "object" && row.payload_json !== null
+          ? typeof (row.payload_json as { submission_source?: unknown }).submission_source === "string"
+            ? (row.payload_json as { submission_source: string }).submission_source
+            : ""
+          : "",
     };
   });
 
-  return <IngestJobsPanel rows={rows} />;
+  return <IngestJobsPanel rows={rows} page={page} pageSize={PAGE_SIZE} total={count ?? rows.length} />;
 }

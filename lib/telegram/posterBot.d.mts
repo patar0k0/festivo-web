@@ -1,9 +1,11 @@
 export function verifyWebhookSecret(headerSecret: string | null | undefined, expected: string | null | undefined): boolean;
 export function buildPosterDedupeKey(chatId: number | string, fileUniqueId: string): string;
+export function extractUrlsFromMessage(message: unknown): string[];
 
 export type PosterAction =
   | { kind: "ignore" }
   | { kind: "photo"; chatId: number; userId: number; fileId: string; fileUniqueId: string; caption: string }
+  | { kind: "url"; chatId: number; userId: number; url: string; urls: string[] }
   | { kind: "dup-decision"; chatId: number; userId: number; callbackQueryId: string; jobId: string; decision: "create" | "discard" | "reprocess" };
 
 export function mapPosterUpdate(update: unknown): PosterAction;
@@ -14,3 +16,12 @@ export function reprocessKeyboard(jobId: string): { inline_keyboard: Array<Array
 export function formatDuplicate(matches: Array<{ title: string; href: string }>, baseUrl: string): string;
 export function formatAlreadyDone(input: { pendingId: string | null; baseUrl: string }): string;
 export function formatRejected(input: { pendingId: string | null; baseUrl: string }): string;
+
+export function formatUrlResultLine(
+  url: string,
+  result:
+    | { ok: true; kind: "queued" | "already_queued" }
+    | { ok: true; kind: "duplicate_warning"; existing: { type: "pending" | "published"; id: string } }
+    | { ok: false; kind: "error"; error: string },
+  baseUrl: string,
+): string;

@@ -7,6 +7,7 @@ import {
   formatInserted,
   formatDuplicate,
   formatAlreadyDone,
+  formatRejected,
   dupKeyboard,
   reprocessKeyboard,
 } from "@/lib/telegram/posterBot.mjs";
@@ -73,9 +74,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
     if (existing?.status === "done") {
+      let isRejected = false;
+      if (existing.pending_festival_id) {
+        const { data: pf } = await supabase
+          .from("pending_festivals")
+          .select("status")
+          .eq("id", existing.pending_festival_id)
+          .maybeSingle();
+        isRejected = pf?.status === "rejected";
+      }
+      const text = isRejected
+        ? formatRejected({ pendingId: existing.pending_festival_id ?? null, baseUrl })
+        : formatAlreadyDone({ pendingId: existing.pending_festival_id ?? null, baseUrl });
       await tg("sendMessage", {
         chat_id: action.chatId,
-        text: formatAlreadyDone({ pendingId: existing.pending_festival_id ?? null, baseUrl }),
+        text,
         reply_markup: reprocessKeyboard(String(existing.id)),
       });
       return NextResponse.json({ ok: true });

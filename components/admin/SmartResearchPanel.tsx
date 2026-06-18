@@ -657,9 +657,13 @@ export default function SmartResearchPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ data, confidence_score: confidenceScore }),
       });
-      const payload = (await res.json().catch(() => null)) as { ok?: boolean; id?: string; error?: string } | null;
+      const payload = (await res.json().catch(() => null)) as { ok?: boolean; id?: string; error?: string; duplicate?: boolean } | null;
       if (!res.ok || !payload?.id) throw new Error(payload?.error ?? "Неуспешно създаване.");
-      router.push(`/admin/pending-festivals/${payload.id}`);
+      if (payload.duplicate) {
+        router.push(`/admin/pending-festivals/${payload.id}?notice=duplicate_source_url`);
+      } else {
+        router.push(`/admin/pending-festivals/${payload.id}`);
+      }
     } catch (e) {
       setSendStatus(`Грешка: ${e instanceof Error ? e.message : "Неочаквана грешка."}`);
       setIsSending(false);

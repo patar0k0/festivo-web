@@ -42,8 +42,16 @@ function normalizeCityRelation(city: unknown): PendingFestivalCityRelation | nul
   };
 }
 
-export default async function AdminPendingFestivalEditPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminPendingFestivalEditPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
+  const sp = await searchParams;
+  const isDuplicateRedirect = sp.notice === "duplicate_source_url";
   const ctx = await getAdminContext();
   if (!ctx || !ctx.isAdmin) {
     redirect(`/login?next=/admin/pending-festivals/${id}`);
@@ -128,12 +136,19 @@ export default async function AdminPendingFestivalEditPage({ params }: { params:
   const categories = categoriesResult.status === "fulfilled" ? categoriesResult.value : [];
 
   return (
-    <PendingFestivalEditForm
-      pendingFestival={pendingFestival}
-      qualityDiagnostics={qualityDiagnostics}
-      lastIngestJobMeta={lastIngestJobMeta}
-      organizers={organizers}
-      categories={categories}
-    />
+    <>
+      {isDuplicateRedirect && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          ⚠️ Фестивал с тази source URL вече съществува — пренасочен си към него. Провери дали е същият или редактирай данните.
+        </div>
+      )}
+      <PendingFestivalEditForm
+        pendingFestival={pendingFestival}
+        qualityDiagnostics={qualityDiagnostics}
+        lastIngestJobMeta={lastIngestJobMeta}
+        organizers={organizers}
+        categories={categories}
+      />
+    </>
   );
 }

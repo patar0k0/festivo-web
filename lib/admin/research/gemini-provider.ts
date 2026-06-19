@@ -427,6 +427,13 @@ export type GeminiInlineImage = { mimeType: string; /** base64 (no data: prefix)
  * `geminiExtractJson` but with inline image parts attached to the user turn.
  * Used by the image reranker to score candidate festival covers by relevance.
  */
+/** Strips ```json ... ``` / ``` ... ``` fences some models wrap JSON-mode output in. */
+function stripJsonFences(text: string): string {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced ? fenced[1].trim() : trimmed;
+}
+
 export async function geminiExtractJsonWithImages<T>(options: {
   systemInstruction: string;
   userText: string;
@@ -436,7 +443,7 @@ export async function geminiExtractJsonWithImages<T>(options: {
   const generationConfig: Record<string, unknown> = {
     temperature: 0.1,
     topP: 0.95,
-    maxOutputTokens: 8192,
+    maxOutputTokens: 16384,
     responseMimeType: "application/json",
   };
 
@@ -457,7 +464,8 @@ export async function geminiExtractJsonWithImages<T>(options: {
       { timeout: DEFAULT_TIMEOUT_MS },
     );
     const json = toGeminiGenerateResponse(result);
-    const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+    const finishReason = (json.candidates?.[0] as Record<string, unknown> | undefined)?.finishReason;
+    const text = stripJsonFences(json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "");
     if (!text.trim()) throw new Error("Gemini returned empty JSON");
     try {
       let parsed = JSON.parse(text) as T;
@@ -470,6 +478,9 @@ export async function geminiExtractJsonWithImages<T>(options: {
       options.onModelUsed?.(modelId);
       return parsed;
     } catch {
+      console.error(
+        `[gemini] JSON parse failed (model=${modelId}, finishReason=${finishReason ?? "unknown"}, len=${text.length}): ${text.slice(0, 500)}`,
+      );
       throw new Error("Gemini JSON parse failed");
     }
   }

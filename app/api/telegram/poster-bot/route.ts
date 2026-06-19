@@ -89,10 +89,12 @@ export async function POST(req: Request) {
     // Idempotency: skip if this exact poster was already processed to a result.
     const { data: existing } = await supabase
       .from("poster_ingest_jobs")
-      .select("id,status,pending_festival_id")
+      .select("id,status,pending_festival_id,updated_at")
       .eq("dedupe_key", dedupe_key)
       .maybeSingle();
-    if (existing?.status === "processing") {
+    const STALE_PROCESSING_MS = 6 * 60 * 1000; // longer than maxDuration=300s — a still-"processing" row past this is a dead invocation, not a live one
+    const isStale = existing?.updated_at ? Date.now() - new Date(existing.updated_at).getTime() > STALE_PROCESSING_MS : true;
+    if (existing?.status === "processing" && !isStale) {
       await tg("sendMessage", { chat_id: action.chatId, text: "⏳ Плакатът се обработва в момента — изчакай малко." });
       return NextResponse.json({ ok: true });
     }

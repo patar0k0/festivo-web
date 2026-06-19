@@ -138,7 +138,9 @@ export async function POST(req: Request) {
     const jobId = job?.id ? String(job.id) : null;
     await tg("sendMessage", { chat_id: action.chatId, text: "⏳ Разчитам плаката…" });
 
-    const result = await processPosterFromFile(supabase, action.fileId, action.caption);
+    const result = await processPosterFromFile(supabase, action.fileId, action.caption, (label) =>
+      tg("sendMessage", { chat_id: action.chatId, text: label }),
+    );
     await applyResult(supabase, tg, baseUrl, action.chatId, jobId, result);
     return NextResponse.json({ ok: true });
   }
@@ -162,7 +164,9 @@ export async function POST(req: Request) {
         .update({ status: "processing", pending_festival_id: null, error: null, updated_at: new Date().toISOString() })
         .eq("id", job.id);
       await tg("sendMessage", { chat_id: action.chatId, text: "⏳ Преработвам плаката…" });
-      const result = await processPosterFromFile(supabase, String(job.tg_file_id), "");
+      const result = await processPosterFromFile(supabase, String(job.tg_file_id), "", (label) =>
+        tg("sendMessage", { chat_id: action.chatId, text: label }),
+      );
       await applyResult(supabase, tg, baseUrl, action.chatId, String(job.id), result);
       return NextResponse.json({ ok: true });
     }

@@ -30,10 +30,13 @@ export function computeEnrichmentPatch(
   };
 
   tryFill("description", extraction.description.value?.trim() || null);
-  tryFill("facebook_url", extraction.facebook_url.value?.trim() || null);
   tryFill("website_url", extraction.website_url.value?.trim() || null);
-  tryFill("instagram_url", extraction.instagram_url.value?.trim() || null);
   tryFill("ticket_url", extraction.ticket_url.value?.trim() || null);
+  // facebook_url / instagram_url only exist on pending_festivals — festivals has no such columns
+  if (targetType === "pending") {
+    tryFill("facebook_url", extraction.facebook_url.value?.trim() || null);
+    tryFill("instagram_url", extraction.instagram_url.value?.trim() || null);
+  }
   tryFill("location_name", extraction.venue_name.value?.trim() || null);
   tryFill("address", extraction.address.value?.trim() || null);
   tryFill("category", extraction.category.value?.trim() || null);

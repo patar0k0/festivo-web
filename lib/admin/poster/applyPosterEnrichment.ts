@@ -55,12 +55,10 @@ export async function applyPosterEnrichment(
       return { ok: true, kind: "patched_pending", fields };
     }
 
-    // published festival target
+    // published festival target — festivals has no facebook_url/instagram_url columns
     const { data: current, error: fetchErr } = await supabase
       .from("festivals")
-      .select(
-        "description,facebook_url,website_url,instagram_url,ticket_url,location_name,address,is_free,category",
-      )
+      .select("description,website_url,ticket_url,location_name,address,is_free,category")
       .eq("id", target.id)
       .maybeSingle();
 

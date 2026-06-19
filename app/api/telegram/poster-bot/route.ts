@@ -180,9 +180,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
       }
       const matches = (job as { dup_matches?: unknown }).dup_matches;
-      const target = Array.isArray(matches)
-        ? (matches as DuplicateMatch[]).find((m) => m.id === action.dupId) ?? null
-        : null;
+      const target = Array.isArray(matches) ? (matches as DuplicateMatch[])[Number(action.dupId)] ?? null : null;
       if (!target) {
         await tg("sendMessage", { chat_id: action.chatId, text: "❌ Не намерих записа за обогатяване." });
         return NextResponse.json({ ok: true });
@@ -278,7 +276,7 @@ async function applyResult(
     await tg("sendMessage", {
       chat_id: chatId,
       text: formatDuplicate(result.matches, baseUrl),
-      reply_markup: jobId ? dupKeyboard(jobId, result.matches[0]?.id ?? "") : undefined,
+      reply_markup: jobId ? dupKeyboard(jobId, "0") : undefined,
     });
     return;
   }

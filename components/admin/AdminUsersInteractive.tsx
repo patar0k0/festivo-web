@@ -238,7 +238,14 @@ export default function AdminUsersInteractive({
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <StatusBadge kind={statusKind} />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <StatusBadge kind={statusKind} />
+                          {!row.email_confirmed_at ? (
+                            <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-orange-100 text-orange-800 ring-1 ring-orange-200/90">
+                              НЕПОТВЪРДЕН ИМЕЙЛ
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <span

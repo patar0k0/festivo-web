@@ -58,3 +58,4 @@ next-env.d.ts
 
 # Generated performance reports
 lighthouse-report.json
+.env*.local

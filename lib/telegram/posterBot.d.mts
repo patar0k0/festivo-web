@@ -1,5 +1,6 @@
 export function verifyWebhookSecret(headerSecret: string | null | undefined, expected: string | null | undefined): boolean;
 export function buildPosterDedupeKey(chatId: number | string, fileUniqueId: string): string;
+export function buildPosterUrlDedupeKey(chatId: number | string, normalizedUrl: string): string;
 export function extractUrlsFromMessage(message: unknown): string[];
 
 export type PosterAction =

@@ -273,9 +273,13 @@ async function applyResult(
         })
         .eq("id", jobId);
     }
-    await tg("sendMessage", {
+    // Show the actual poster (already uploaded) so the operator can visually compare
+    // it against the matched duplicates, instead of a generic festivo.bg link preview.
+    const dupCaption = formatDuplicate(result.matches, baseUrl).slice(0, 1024);
+    await tg("sendPhoto", {
       chat_id: chatId,
-      text: formatDuplicate(result.matches, baseUrl),
+      photo: result.heroUrl,
+      caption: dupCaption,
       reply_markup: jobId ? dupKeyboard(jobId, "0") : undefined,
     });
     return;

@@ -193,15 +193,15 @@ export async function POST(req: Request) {
     }
 
     // create anyway, from the stored extraction
-    const stored = job.extraction_json as { extraction?: unknown; heroUrl?: string } | null;
-    if (!stored?.extraction || !stored.heroUrl) {
+    const stored = job.extraction_json as { extraction?: unknown; heroUrl?: string | null } | null;
+    if (!stored?.extraction) {
       await tg("sendMessage", { chat_id: action.chatId, text: "❌ Липсват запазени данни за повторно създаване." });
       return NextResponse.json({ ok: true });
     }
     const result = await insertFromStoredExtraction(
       supabase,
       stored.extraction as Parameters<typeof insertFromStoredExtraction>[1],
-      stored.heroUrl,
+      stored.heroUrl ?? null,
     );
     await applyResult(supabase, tg, baseUrl, action.chatId, String(job.id), result);
     return NextResponse.json({ ok: true });

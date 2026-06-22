@@ -16,7 +16,7 @@ export type BuildPosterRowResult =
  */
 export async function buildPosterPendingRow(
   ext: PosterExtraction,
-  heroPublicUrl: string,
+  heroPublicUrl: string | null,
   now: Date = new Date(),
 ): Promise<BuildPosterRowResult> {
   const startDate = isoFromComponents(ext.start_date, now);

@@ -89,6 +89,8 @@ type FestivalRecord = {
   video_url?: string | null;
   place_id?: string | null;
   coords_override?: boolean | null;
+  facebook_post_id?: string | null;
+  facebook_posted_at?: string | null;
   [key: string]: unknown;
 };
 
@@ -354,6 +356,10 @@ export default function FestivalEditForm({
   const [debouncedHeroUrl, setDebouncedHeroUrl] = useState(festival.hero_image ?? festival.image_url ?? "");
   const [actionPending, setActionPending] = useState<"archive" | "restore" | "delete" | null>(null);
   const [deleteConfirmPending, setDeleteConfirmPending] = useState(false);
+  const [fbDialogOpen, setFbDialogOpen] = useState(false);
+  const [fbPosting, setFbPosting] = useState(false);
+  const [fbPostId, setFbPostId] = useState<string | null>(festival.facebook_post_id ?? null);
+  const [fbPostedAt, setFbPostedAt] = useState<string | null>(festival.facebook_posted_at ?? null);
   const [occurrenceDays, setOccurrenceDays] = useState<string[]>(() => normalizeOccurrenceDatesInput(festival.occurrence_dates) ?? []);
   const [programDraft, setProgramDraft] = useState<ProgramDraft>(() => initialProgramDraft ?? emptyProgramDraft());
   const [savingProgram, setSavingProgram] = useState(false);
@@ -866,6 +872,58 @@ export default function FestivalEditForm({
       toast.error(e instanceof Error ? e.message : "Грешка при запис");
     } finally {
       setSavingForm(false);
+    }
+  };
+
+  const defaultFacebookMessage = useMemo(() => {
+    const titlePart = form.title?.trim() ?? "";
+    const cityLabel = festival.city_name || form.city || "";
+    const datePart = form.start_date
+      ? new Date(form.start_date).toLocaleDateString("bg-BG", { day: "numeric", month: "long", year: "numeric" })
+      : "";
+    const tail = [cityLabel, datePart].filter(Boolean).join(", ");
+    return tail ? `${titlePart} — ${tail}` : titlePart;
+  }, [form.title, form.city, form.start_date, festival.city_name]);
+
+  const [fbMessage, setFbMessage] = useState(defaultFacebookMessage);
+
+  const openFacebookDialog = () => {
+    setFbMessage(defaultFacebookMessage);
+    setFbDialogOpen(true);
+  };
+
+  const runFacebookPost = async () => {
+    if (fbPosting) return;
+    const message = fbMessage.trim();
+    if (!message) {
+      toast.error("Текстът на поста е празен.");
+      return;
+    }
+    setFbPosting(true);
+    try {
+      const response = await fetch(`/admin/api/festivals/${festival.id}/facebook-post`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        postId?: string;
+        postedAt?: string;
+        error?: string;
+      };
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Публикуването се провали.");
+      }
+      setFbPostId(data.postId ?? null);
+      setFbPostedAt(data.postedAt ?? new Date().toISOString());
+      setFbDialogOpen(false);
+      toast.success("Публикувано във Facebook.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Възникна грешка.");
+    } finally {
+      setFbPosting(false);
     }
   };
 
@@ -1701,6 +1759,14 @@ export default function FestivalEditForm({
           )}
           {/* Secondary actions */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openFacebookDialog}
+              disabled={savingForm || importingHeroFromUrl || Boolean(actionPending) || galleryOpsBusy || videoBusy}
+              className="rounded-xl border border-[#1877F2]/30 bg-[#1877F2]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#1877F2] disabled:opacity-50"
+            >
+              {fbPostedAt ? "Публикувай отново във FB" : "Публикувай във Facebook"}
+            </button>
             <Link href="/admin/festivals" className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]">
               Откажи
             </Link>
@@ -1732,6 +1798,59 @@ export default function FestivalEditForm({
           </div>
         </div>
       </div>
+      {fbDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-black/[0.08] bg-white p-6 shadow-xl">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.14em]">Публикувай във Facebook</h3>
+            {fbPostedAt && (
+              <p className="mt-2 rounded-lg bg-[#fff7ed] px-3 py-2 text-xs text-[#b13a1a]">
+                Вече публикувано на {new Date(fbPostedAt).toLocaleString("bg-BG")}
+                {fbPostId && (
+                  <>
+                    {" — "}
+                    <a
+                      href={`https://www.facebook.com/${fbPostId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      виж поста
+                    </a>
+                  </>
+                )}
+              </p>
+            )}
+            <p className="mt-3 text-xs text-black/60">
+              Линкът към фестивала се добавя автоматично — Facebook ще покаже визитка с картинка от страницата.
+            </p>
+            <textarea
+              value={fbMessage}
+              onChange={(e) => setFbMessage(e.target.value)}
+              rows={5}
+              className="mt-2 w-full rounded-xl border border-black/[0.1] p-3 text-sm"
+              placeholder="Текст на поста…"
+            />
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setFbDialogOpen(false)}
+                disabled={fbPosting}
+                className="rounded-xl border border-black/[0.1] bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] disabled:opacity-50"
+              >
+                Откажи
+              </button>
+              <button
+                type="button"
+                onClick={runFacebookPost}
+                disabled={fbPosting}
+                className="rounded-xl bg-[#1877F2] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
+              >
+                {fbPosting ? "Публикуване…" : "Публикувай"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

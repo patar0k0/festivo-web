@@ -14,6 +14,8 @@ import { applyPosterEnrichment } from "@/lib/admin/poster/applyPosterEnrichment"
 import type { DuplicateMatch } from "@/lib/admin/research/findDuplicateFestivals";
 import { processPosterFromFile, insertFromStoredExtraction } from "@/lib/admin/poster/processPosterJob";
 import { enqueueFacebookEventIngest } from "@/lib/admin/ingest/enqueueFacebookEventIngest";
+import { normalizeFacebookEventUrl } from "@/lib/admin/ingest/normalizeFacebookEventUrl.mjs";
+import { enqueueFacebookPostScrape } from "@/lib/admin/ingest/enqueueFacebookPostScrape";
 import { getBaseUrl } from "@/lib/config/baseUrl";
 import { sendPosterBotMessage as tg } from "@/lib/telegram/sendPosterBotMessage";
 import { applyPosterProcessResult as applyResult } from "@/lib/admin/poster/applyProcessResult";
@@ -53,7 +55,10 @@ export async function POST(req: Request) {
     let anyQueued = false;
 
     for (const url of urls) {
-      const result = await enqueueFacebookEventIngest(supabase, url, "telegram", { telegramUserId: action.userId });
+      const isEvent = !("error" in normalizeFacebookEventUrl(url));
+      const result = isEvent
+        ? await enqueueFacebookEventIngest(supabase, url, "telegram", { telegramUserId: action.userId })
+        : await enqueueFacebookPostScrape(supabase, url, { telegramChatId: action.chatId, telegramUserId: action.userId });
       lines.push(formatUrlResultLine(url, result, baseUrl));
       if (result.ok && (result.kind === "queued" || result.kind === "duplicate_warning")) {
         anyQueued = true;

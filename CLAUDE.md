@@ -414,6 +414,12 @@ Telegram poster photo
 
 ---
 
+## Publish festival to Facebook (admin)
+
+The admin festival edit page (`/admin/festivals/[id]`) has a "Публикувай във Facebook" button that publishes a **link post** about the festival to the Festivo Facebook Page via the Graph API (`POST /{FB_PAGE_ID}/feed`, `message` + canonical `link`). The post is sent synchronously from `app/admin/api/festivals/[id]/facebook-post/route.ts` using `lib/admin/facebook/postToPage.ts`; on success `festivals.facebook_post_id` + `facebook_posted_at` are recorded. Token via `FB_PAGE_ID` / `FB_PAGE_ACCESS_TOKEN` (same env token used by the festivo-workers weekend-post publisher). Re-posting is allowed and overwrites the recorded id/timestamp.
+
+---
+
 ## Organizer portal
 
 Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending/active/revoked`). Active owners access `/organizer/dashboard`. Submissions use `submission_source=organizer_portal` and still require admin approval. Admin reviews claims at `/admin/organizer-claims`. See `docs/system-architecture.md` — *Organizer portal* section.
@@ -466,6 +472,8 @@ Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending
 | `TIKTOK_PRIVACY_LEVEL` | TikTok post privacy (default `SELF_ONLY`; set `PUBLIC_TO_EVERYONE` after app audit) |
 | `META_APP_ID` · `META_APP_SECRET` | Instagram Graph API (Meta) OAuth for social repost |
 | `SOCIAL_REPOST_BUCKET` | Supabase Storage bucket for temp repost clips (default `social-repost-temp`) |
+| `FB_PAGE_ID` · `FB_PAGE_ACCESS_TOKEN` | Facebook Page id + long-lived/System-User Page access token for posting festivals/weekend roundups to the Festivo Page (Graph API). Shared with festivo-workers. |
+| `FB_GRAPH_VERSION` | Graph API version override (default `v21.0`) |
 
 Full list with descriptions: `README.md`.
 

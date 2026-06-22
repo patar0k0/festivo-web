@@ -11,7 +11,7 @@ export async function GET() {
   const supabase = createSupabaseAdmin();
   const { data, error } = await supabase
     .from("festival_enrichment_proposals")
-    .select("id,status,patch_json,created_at,reviewed_at,target_festival_id,festivals(id,name,start_date)")
+    .select("id,status,patch_json,created_at,reviewed_at,target_festival_id,festivals(id,title,start_date)")
     .order("created_at", { ascending: false })
     .limit(100);
 

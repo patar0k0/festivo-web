@@ -26,7 +26,7 @@ export default async function EnrichmentProposalsPage() {
   const supabase = createSupabaseAdmin();
   const { data, error } = await supabase
     .from("festival_enrichment_proposals")
-    .select("id,status,patch_json,created_at,reviewed_at,target_festival_id,festivals(id,name,start_date)")
+    .select("id,status,patch_json,created_at,reviewed_at,target_festival_id,festivals(id,title,start_date)")
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -67,7 +67,7 @@ export default async function EnrichmentProposalsPage() {
             </thead>
             <tbody className="divide-y divide-black/[0.06]">
               {rows.map((row) => {
-                const festival = row.festivals as { id?: string; name?: string; start_date?: string } | null;
+                const festival = row.festivals as { id?: string; title?: string; start_date?: string } | null;
                 const patch = row.patch_json as Record<string, unknown> | null;
                 const fields = patch ? Object.keys(patch).join(", ") : "—";
                 const statusLabel = STATUS_LABELS[row.status] ?? row.status;
@@ -80,7 +80,7 @@ export default async function EnrichmentProposalsPage() {
                           href={`/admin/festivals/${festival.id}`}
                           className="font-medium underline hover:opacity-75"
                         >
-                          {festival.name ?? festival.id}
+                          {festival.title ?? festival.id}
                         </Link>
                       ) : (
                         <span className="text-black/40">—</span>

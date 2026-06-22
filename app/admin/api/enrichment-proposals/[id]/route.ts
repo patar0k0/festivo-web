@@ -11,7 +11,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const supabase = createSupabaseAdmin();
   const { data, error } = await supabase
     .from("festival_enrichment_proposals")
-    .select("*,festivals(id,name,start_date,description,facebook_url,website_url,instagram_url,ticket_url,location_name,address,is_free,category)")
+    .select("*,festivals(id,title,start_date,description,website_url,ticket_url,location_name,address,is_free,category)")
     .eq("id", params.id)
     .maybeSingle();
 

@@ -150,7 +150,7 @@ export async function POST(req: Request) {
   if (action.kind === "dup-decision") {
     const { data: job } = await supabase
       .from("poster_ingest_jobs")
-      .select("id,status,extraction_json,telegram_chat_id,tg_file_id")
+      .select("id,status,extraction_json,telegram_chat_id,tg_file_id,dup_matches")
       .eq("id", action.jobId)
       .maybeSingle();
 

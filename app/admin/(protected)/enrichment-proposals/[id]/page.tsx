@@ -28,7 +28,7 @@ export default async function EnrichmentProposalDetailPage({ params }: { params:
   const { data, error } = await supabase
     .from("festival_enrichment_proposals")
     .select(
-      "id,status,patch_json,created_at,reviewed_at,target_festival_id,festivals(id,name,start_date,description,facebook_url,website_url,instagram_url,ticket_url,location_name,address,is_free,category)",
+      "id,status,patch_json,created_at,reviewed_at,target_festival_id,festivals(id,title,start_date,description,website_url,ticket_url,location_name,address,is_free,category)",
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -55,7 +55,7 @@ export default async function EnrichmentProposalDetailPage({ params }: { params:
               href={`/admin/festivals/${festival.id}`}
               className="text-sm font-semibold underline hover:opacity-75"
             >
-              {String(festival.name ?? festival.id)}
+              {String(festival.title ?? festival.id)}
             </Link>
           )}
           <span

@@ -86,12 +86,6 @@ export default async function LoginPage({
         <h1 className="text-xl font-semibold tracking-tight text-black">Влез в профила си</h1>
         <p className="mt-1 text-sm text-black/60">за да запазваш фестивали и да получаваш напомняния</p>
 
-        {errorMessage ? (
-          <p className="mt-4 rounded-xl bg-[#ff4c1f]/10 px-3 py-2 text-sm text-[#b13a1a]" role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
-
         {user ? (
           <div className="mt-6 space-y-4">
             <p className="rounded-xl bg-black/[0.04] px-3 py-2 text-sm text-[#0c0e14]">Имаш активна сесия.</p>
@@ -111,7 +105,10 @@ export default async function LoginPage({
             </div>
           </div>
         ) : (
-          <LoginForm next={afterLoginTarget.startsWith("/") ? afterLoginTarget : "/"} />
+          <LoginForm
+            next={afterLoginTarget.startsWith("/") ? afterLoginTarget : "/"}
+            initialError={errorMessage}
+          />
         )}
       </div>
     </div>

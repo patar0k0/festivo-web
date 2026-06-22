@@ -9,7 +9,34 @@ import { loginErrorMessage } from "./authErrors";
 
 type LoginFormProps = {
   next: string;
+  initialError?: string;
 };
+
+/**
+ * Supabase redirects expired/invalid email links (confirmation, magic link, recovery)
+ * to the site URL with `#error=...&error_code=...` in the hash, never the query string
+ * (hashes aren't sent to the server). `/auth/callback` only sees a missing `code` and
+ * redirects with a generic `?error=oauth`, so the real reason has to be read client-side
+ * from `location.hash` and used to override that misleading message.
+ */
+function hashLinkErrorMessage(): string | null {
+  if (typeof window === "undefined") return null;
+  const hash = window.location.hash;
+  if (!hash || !hash.includes("error")) return null;
+
+  const params = new URLSearchParams(hash.replace(/^#/, ""));
+  const errorCode = params.get("error_code");
+  const error = params.get("error");
+  if (!errorCode && !error) return null;
+
+  if (errorCode === "otp_expired") {
+    return "Линкът е невалиден или вече е изтекъл. Регистрирай се отново или поискай нов линк.";
+  }
+  if (error === "access_denied") {
+    return "Линкът е невалиден. Опитай отново или поискай нов линк.";
+  }
+  return null;
+}
 
 function EyeOpenIcon() {
   return (
@@ -46,14 +73,14 @@ function EyeClosedIcon() {
   );
 }
 
-export function LoginForm({ next }: LoginFormProps) {
+export function LoginForm({ next, initialError }: LoginFormProps) {
   const router = useRouter();
   const emailId = useId();
   const passwordId = useId();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [bannerError, setBannerError] = useState("");
+  const [bannerError, setBannerError] = useState(initialError ?? "");
   const [resetNotice, setResetNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResetSubmitting, setIsResetSubmitting] = useState(false);
@@ -63,6 +90,14 @@ export function LoginForm({ next }: LoginFormProps) {
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
       setDevRedirectHint(`${window.location.origin}/auth/callback`);
+    }
+  }, []);
+
+  useEffect(() => {
+    const message = hashLinkErrorMessage();
+    if (message) {
+      setBannerError(message);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
     }
   }, []);
 

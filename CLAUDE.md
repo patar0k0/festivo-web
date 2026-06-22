@@ -14,6 +14,12 @@ Festivo.bg е в активен 14-дневен launch sprint. Преди ВСЯ
 
 ---
 
+## Session close
+
+When the user says they are closing the session (e.g. "затварям сесията", "closing", "I'm done"), save any important unsaved context to memory before they go.
+
+---
+
 ## Language
 
 Always respond in **Bulgarian**. This applies to all messages, explanations, code comments, and commit messages. Only exception: code identifiers, API names, and technical strings stay in English as they appear in the codebase.

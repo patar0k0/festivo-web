@@ -1,4 +1,3 @@
-import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatInserted, formatDuplicate, dupKeyboard } from "@/lib/telegram/posterBot.mjs";
 import type { ProcessResult } from "@/lib/admin/poster/processPosterJob";
@@ -40,13 +39,23 @@ export async function applyPosterProcessResult(
     }
     // Show the actual poster (already uploaded) so the operator can visually compare
     // it against the matched duplicates, instead of a generic festivo.bg link preview.
-    const dupCaption = formatDuplicate(result.matches, baseUrl).slice(0, 1024);
-    await tg("sendPhoto", {
-      chat_id: chatId,
-      photo: result.heroUrl,
-      caption: dupCaption,
-      reply_markup: jobId ? dupKeyboard(jobId, "0") : undefined,
-    });
+    // Text-only Facebook post submissions have no hero image (result.heroUrl is null) — fall back to sendMessage.
+    if (result.heroUrl) {
+      const dupCaption = formatDuplicate(result.matches, baseUrl).slice(0, 1024);
+      await tg("sendPhoto", {
+        chat_id: chatId,
+        photo: result.heroUrl,
+        caption: dupCaption,
+        reply_markup: jobId ? dupKeyboard(jobId, "0") : undefined,
+      });
+    } else {
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: formatDuplicate(result.matches, baseUrl),
+        disable_web_page_preview: true,
+        reply_markup: jobId ? dupKeyboard(jobId, "0") : undefined,
+      });
+    }
     return;
   }
   // error

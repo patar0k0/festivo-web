@@ -17,6 +17,7 @@ import { enqueueFacebookEventIngest } from "@/lib/admin/ingest/enqueueFacebookEv
 import { getBaseUrl } from "@/lib/config/baseUrl";
 import { sendPosterBotMessage as tg } from "@/lib/telegram/sendPosterBotMessage";
 import { applyPosterProcessResult as applyResult } from "@/lib/admin/poster/applyProcessResult";
+import { checkExistingPosterJob } from "@/lib/admin/poster/posterJobIdempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,34 +69,19 @@ export async function POST(req: Request) {
     const dedupe_key = buildPosterDedupeKey(action.chatId, action.fileUniqueId);
 
     // Idempotency: skip if this exact poster was already processed to a result.
-    const { data: existing } = await supabase
-      .from("poster_ingest_jobs")
-      .select("id,status,pending_festival_id,updated_at")
-      .eq("dedupe_key", dedupe_key)
-      .maybeSingle();
-    const STALE_PROCESSING_MS = 6 * 60 * 1000; // longer than maxDuration=300s — a still-"processing" row past this is a dead invocation, not a live one
-    const isStale = existing?.updated_at ? Date.now() - new Date(existing.updated_at).getTime() > STALE_PROCESSING_MS : true;
-    if (existing?.status === "processing" && !isStale) {
+    const { existingId, decision } = await checkExistingPosterJob(supabase, dedupe_key);
+    if (decision.action === "still_processing") {
       await tg("sendMessage", { chat_id: action.chatId, text: "⏳ Плакатът се обработва в момента — изчакай малко." });
       return NextResponse.json({ ok: true });
     }
-    if (existing?.status === "done") {
-      let isRejected = false;
-      if (existing.pending_festival_id) {
-        const { data: pf } = await supabase
-          .from("pending_festivals")
-          .select("status")
-          .eq("id", existing.pending_festival_id)
-          .maybeSingle();
-        isRejected = pf?.status === "rejected";
-      }
-      const text = isRejected
-        ? formatRejected({ pendingId: existing.pending_festival_id ?? null, baseUrl })
-        : formatAlreadyDone({ pendingId: existing.pending_festival_id ?? null, baseUrl });
+    if (decision.action === "already_done") {
+      const text = decision.rejected
+        ? formatRejected({ pendingId: decision.pendingId, baseUrl })
+        : formatAlreadyDone({ pendingId: decision.pendingId, baseUrl });
       await tg("sendMessage", {
         chat_id: action.chatId,
         text,
-        reply_markup: reprocessKeyboard(String(existing.id)),
+        reply_markup: reprocessKeyboard(String(existingId)),
         disable_web_page_preview: true,
       });
       return NextResponse.json({ ok: true });

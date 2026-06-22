@@ -4,42 +4,26 @@ import {
   verifyWebhookSecret,
   mapPosterUpdate,
   buildPosterDedupeKey,
-  formatInserted,
-  formatDuplicate,
   formatEnriched,
   formatAlreadyDone,
   formatRejected,
-  dupKeyboard,
   reprocessKeyboard,
   formatUrlResultLine,
 } from "@/lib/telegram/posterBot.mjs";
 import { applyPosterEnrichment } from "@/lib/admin/poster/applyPosterEnrichment";
 import type { DuplicateMatch } from "@/lib/admin/research/findDuplicateFestivals";
-import {
-  processPosterFromFile,
-  insertFromStoredExtraction,
-  type ProcessResult,
-} from "@/lib/admin/poster/processPosterJob";
+import { processPosterFromFile, insertFromStoredExtraction } from "@/lib/admin/poster/processPosterJob";
 import { enqueueFacebookEventIngest } from "@/lib/admin/ingest/enqueueFacebookEventIngest";
+import { normalizeFacebookEventUrl } from "@/lib/admin/ingest/normalizeFacebookEventUrl.mjs";
+import { enqueueFacebookPostScrape } from "@/lib/admin/ingest/enqueueFacebookPostScrape";
 import { getBaseUrl } from "@/lib/config/baseUrl";
+import { sendPosterBotMessage as tg } from "@/lib/telegram/sendPosterBotMessage";
+import { applyPosterProcessResult as applyResult } from "@/lib/admin/poster/applyProcessResult";
+import { checkExistingPosterJob } from "@/lib/admin/poster/posterJobIdempotency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-
-const TG = (m: string) => `https://api.telegram.org/bot${process.env.TELEGRAM_POSTER_BOT_TOKEN}/${m}`;
-
-async function tg(method: string, payload: unknown) {
-  try {
-    await fetch(TG(method), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  } catch {
-    // best-effort; never fail the webhook on delivery errors
-  }
-}
 
 export async function POST(req: Request) {
   const secret = req.headers.get("x-telegram-bot-api-secret-token");
@@ -71,7 +55,10 @@ export async function POST(req: Request) {
     let anyQueued = false;
 
     for (const url of urls) {
-      const result = await enqueueFacebookEventIngest(supabase, url, "telegram", { telegramUserId: action.userId });
+      const isEvent = !("error" in normalizeFacebookEventUrl(url));
+      const result = isEvent
+        ? await enqueueFacebookEventIngest(supabase, url, "telegram", { telegramUserId: action.userId })
+        : await enqueueFacebookPostScrape(supabase, url, { telegramChatId: action.chatId, telegramUserId: action.userId });
       lines.push(formatUrlResultLine(url, result, baseUrl));
       if (result.ok && (result.kind === "queued" || result.kind === "duplicate_warning")) {
         anyQueued = true;
@@ -87,34 +74,19 @@ export async function POST(req: Request) {
     const dedupe_key = buildPosterDedupeKey(action.chatId, action.fileUniqueId);
 
     // Idempotency: skip if this exact poster was already processed to a result.
-    const { data: existing } = await supabase
-      .from("poster_ingest_jobs")
-      .select("id,status,pending_festival_id,updated_at")
-      .eq("dedupe_key", dedupe_key)
-      .maybeSingle();
-    const STALE_PROCESSING_MS = 6 * 60 * 1000; // longer than maxDuration=300s — a still-"processing" row past this is a dead invocation, not a live one
-    const isStale = existing?.updated_at ? Date.now() - new Date(existing.updated_at).getTime() > STALE_PROCESSING_MS : true;
-    if (existing?.status === "processing" && !isStale) {
+    const { existingId, decision } = await checkExistingPosterJob(supabase, dedupe_key);
+    if (decision.action === "still_processing") {
       await tg("sendMessage", { chat_id: action.chatId, text: "⏳ Плакатът се обработва в момента — изчакай малко." });
       return NextResponse.json({ ok: true });
     }
-    if (existing?.status === "done") {
-      let isRejected = false;
-      if (existing.pending_festival_id) {
-        const { data: pf } = await supabase
-          .from("pending_festivals")
-          .select("status")
-          .eq("id", existing.pending_festival_id)
-          .maybeSingle();
-        isRejected = pf?.status === "rejected";
-      }
-      const text = isRejected
-        ? formatRejected({ pendingId: existing.pending_festival_id ?? null, baseUrl })
-        : formatAlreadyDone({ pendingId: existing.pending_festival_id ?? null, baseUrl });
+    if (decision.action === "already_done") {
+      const text = decision.rejected
+        ? formatRejected({ pendingId: decision.pendingId, baseUrl })
+        : formatAlreadyDone({ pendingId: decision.pendingId, baseUrl });
       await tg("sendMessage", {
         chat_id: action.chatId,
         text,
-        reply_markup: reprocessKeyboard(String(existing.id)),
+        reply_markup: reprocessKeyboard(String(existingId)),
         disable_web_page_preview: true,
       });
       return NextResponse.json({ ok: true });
@@ -221,72 +193,19 @@ export async function POST(req: Request) {
     }
 
     // create anyway, from the stored extraction
-    const stored = job.extraction_json as { extraction?: unknown; heroUrl?: string } | null;
-    if (!stored?.extraction || !stored.heroUrl) {
+    const stored = job.extraction_json as { extraction?: unknown; heroUrl?: string | null } | null;
+    if (!stored?.extraction) {
       await tg("sendMessage", { chat_id: action.chatId, text: "❌ Липсват запазени данни за повторно създаване." });
       return NextResponse.json({ ok: true });
     }
     const result = await insertFromStoredExtraction(
       supabase,
       stored.extraction as Parameters<typeof insertFromStoredExtraction>[1],
-      stored.heroUrl,
+      stored.heroUrl ?? null,
     );
     await applyResult(supabase, tg, baseUrl, action.chatId, String(job.id), result);
     return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ ok: true });
-}
-
-async function applyResult(
-  supabase: ReturnType<typeof createSupabaseAdmin>,
-  tg: (m: string, p: unknown) => Promise<void>,
-  baseUrl: string,
-  chatId: number,
-  jobId: string | null,
-  result: ProcessResult,
-) {
-  const now = new Date().toISOString();
-  if (result.kind === "inserted") {
-    if (jobId) {
-      await supabase
-        .from("poster_ingest_jobs")
-        .update({ status: "done", pending_festival_id: result.pendingId, updated_at: now })
-        .eq("id", jobId);
-    }
-    await tg("sendMessage", {
-      chat_id: chatId,
-      text: formatInserted({ pendingId: result.pendingId, title: result.title, needsReview: result.needsReview, baseUrl }),
-      disable_web_page_preview: true,
-    });
-    return;
-  }
-  if (result.kind === "duplicate") {
-    if (jobId) {
-      await supabase
-        .from("poster_ingest_jobs")
-        .update({
-          status: "awaiting_dup_confirm",
-          dup_matches: result.matches,
-          extraction_json: { extraction: result.extraction, heroUrl: result.heroUrl },
-          updated_at: now,
-        })
-        .eq("id", jobId);
-    }
-    // Show the actual poster (already uploaded) so the operator can visually compare
-    // it against the matched duplicates, instead of a generic festivo.bg link preview.
-    const dupCaption = formatDuplicate(result.matches, baseUrl).slice(0, 1024);
-    await tg("sendPhoto", {
-      chat_id: chatId,
-      photo: result.heroUrl,
-      caption: dupCaption,
-      reply_markup: jobId ? dupKeyboard(jobId, "0") : undefined,
-    });
-    return;
-  }
-  // error
-  if (jobId) {
-    await supabase.from("poster_ingest_jobs").update({ status: "error", error: result.message, updated_at: now }).eq("id", jobId);
-  }
-  await tg("sendMessage", { chat_id: chatId, text: `❌ Грешка при обработка: ${result.message}` });
 }

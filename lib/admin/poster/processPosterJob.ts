@@ -13,7 +13,7 @@ const DUP_BLOCK_SCORE = 0.5;
 
 export type ProcessResult =
   | { kind: "inserted"; pendingId: string; title: string; needsReview: boolean }
-  | { kind: "duplicate"; matches: DuplicateMatch[]; extraction: PosterExtraction; heroUrl: string; title: string }
+  | { kind: "duplicate"; matches: DuplicateMatch[]; extraction: PosterExtraction; heroUrl: string | null; title: string }
   | { kind: "error"; message: string };
 
 export type PosterProgress = (label: string) => void | Promise<void>;
@@ -87,7 +87,7 @@ export async function insertPosterRow(
 export async function insertFromStoredExtraction(
   supabase: SupabaseClient,
   extraction: PosterExtraction,
-  heroUrl: string,
+  heroUrl: string | null,
 ): Promise<ProcessResult> {
   const built = await buildPosterPendingRow(extraction, heroUrl);
   if (!built.ok) return { kind: "error", message: built.error };

@@ -1298,6 +1298,10 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
     ? firstResolvedOrganizer?.name.trim() || firstResolvedOrganizerEntry?.name.trim() || "—"
     : "Организаторът не е потвърден";
 
+  // The approve/reject endpoints 409 if pending_festivals.status isn't "pending" anymore —
+  // disable the buttons up front instead of letting the admin hit that error after a click.
+  const alreadyReviewed = form.status !== "pending";
+
   const summaryItems = useMemo(
     () => [
       { label: ADMIN_FIELD_LABEL.status, value: form.status || "—" },
@@ -1332,16 +1336,18 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
             <button
               type="button"
               onClick={() => runDecision("reject")}
-              disabled={savingForm || Boolean(runningAction)}
-              className="rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-amber-800 disabled:opacity-50"
+              disabled={savingForm || Boolean(runningAction) || alreadyReviewed}
+              title={alreadyReviewed ? `Вече е "${form.status}" — смени статуса на "pending" и запази, за да прегледаш отново.` : undefined}
+              className="rounded-xl border border-amber-300/70 bg-amber-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {runningAction === "reject" ? "Отхвърляне..." : "Отхвърли"}
             </button>
             <button
               type="button"
               onClick={() => runDecision("approve")}
-              disabled={savingForm || Boolean(runningAction)}
-              className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:opacity-50"
+              disabled={savingForm || Boolean(runningAction) || alreadyReviewed}
+              title={alreadyReviewed ? `Вече е "${form.status}" — смени статуса на "pending" и запази, за да прегледаш отново.` : undefined}
+              className="rounded-xl bg-[#0c0e14] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {runningAction === "approve" ? "Одобряване..." : "Одобри"}
             </button>
@@ -2426,8 +2432,9 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
           <button
             type="button"
             onClick={() => runDecision("reject")}
-            disabled={savingForm || Boolean(runningAction)}
-            className="mr-auto rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-amber-800 disabled:opacity-50"
+            disabled={savingForm || Boolean(runningAction) || alreadyReviewed}
+            title={alreadyReviewed ? `Вече е "${form.status}" — смени статуса на "pending" и запази, за да прегледаш отново.` : undefined}
+            className="mr-auto rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {runningAction === "reject" ? "Отхвърляне..." : "Отхвърли"}
           </button>
@@ -2458,8 +2465,9 @@ const heroImageScore = normalizeOptionalScore(pendingFestival.hero_image_score);
             <button
               type="button"
               onClick={() => runDecision("approve")}
-              disabled={savingForm || Boolean(runningAction)}
-              className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:opacity-50"
+              disabled={savingForm || Boolean(runningAction) || alreadyReviewed}
+              title={alreadyReviewed ? `Вече е "${form.status}" — смени статуса на "pending" и запази, за да прегледаш отново.` : undefined}
+              className="rounded-xl bg-[#0c0e14] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {runningAction === "approve" ? "Одобряване..." : "Одобри"}
             </button>

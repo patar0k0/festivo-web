@@ -178,11 +178,16 @@ export default function OrganizerClaimPage() {
           turnstileToken: needsTurnstile ? turnstileToken : "",
         }),
       });
-      await res.json().catch(() => null);
+      const payload = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
         setTurnstileToken("");
         turnstileRef.current?.reset();
-        throw new Error("Request failed");
+        const serverMessage =
+          payload && typeof payload.error === "string" && payload.error.trim()
+            ? payload.error.trim()
+            : "Възникна грешка. Опитай пак.";
+        setError(serverMessage);
+        return;
       }
       setSubmitted(true);
       try {

@@ -212,6 +212,7 @@ export default async function Page({
                   day: "numeric",
                   month: "long",
                   year: "numeric",
+                  timeZone: "Europe/Sofia",
                 })}
               </p>
             )}

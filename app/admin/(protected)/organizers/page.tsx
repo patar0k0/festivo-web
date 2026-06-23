@@ -233,7 +233,7 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
                   <td className="px-4 py-3 text-black/70">{row.slug ?? "-"}</td>
                   <td className="px-4 py-3 text-black/70">{row.verified ? "Yes" : "No"}</td>
                   <td className="px-4 py-3 text-black/70">
-                    {row.created_at ? new Date(row.created_at).toLocaleDateString("bg-BG") : "-"}
+                    {row.created_at ? new Date(row.created_at).toLocaleDateString("bg-BG", { timeZone: "Europe/Sofia" }) : "-"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

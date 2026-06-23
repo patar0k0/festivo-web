@@ -30,6 +30,7 @@ function formatBgDate(iso: string): string {
       day: "numeric",
       month: "long",
       year: "numeric",
+      timeZone: "Europe/Sofia",
     });
   } catch {
     return iso;

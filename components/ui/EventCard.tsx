@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import Link from "next/link";
 import FallbackImage from "@/components/ui/FallbackImage";
 import FestivalCardSaveOverlay from "@/components/plan/FestivalCardSaveOverlay";
@@ -8,7 +7,7 @@ import { pub } from "@/lib/public-ui/styles";
 import { formatContinuousFestivalRangeBg } from "@/lib/festival/listingDates";
 import { categoryLabel } from "@/lib/festival/categoryLabel";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
-import { getFestivalTemporalState } from "@/lib/festival/temporal";
+import { getFestivalTemporalState, sofiaWallClockNow } from "@/lib/festival/temporal";
 
 /** Кратко име на месец за оранжева значка (3–4 знака). */
 const BADGE_MONTH_BG: Record<number, string> = {
@@ -57,25 +56,30 @@ type EventCardProps = {
   isCancelled?: boolean;
 };
 
+/** Parses a `YYYY-MM-DD` (or ISO-prefixed) date as a Sofia civil date, never via local/UTC instant parsing. */
+function parseYmd(date: string): { y: number; mo: number; d: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date.trim());
+  if (!m) return null;
+  return { y: Number(m[1]), mo: Number(m[2]), d: Number(m[3]) };
+}
+
 function getDateBadge(date?: string | null) {
   if (!date) return { month: "TBA", day: "--" };
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return { month: "TBA", day: "--" };
-  const idx = parsed.getMonth();
-  const month = BADGE_MONTH_BG[idx] ?? "—";
+  const ymd = parseYmd(date);
+  if (!ymd) return { month: "TBA", day: "--" };
+  const month = BADGE_MONTH_BG[ymd.mo - 1] ?? "—";
   return {
     month: month.toLocaleUpperCase("bg-BG"),
-    day: format(parsed, "dd"),
+    day: String(ymd.d).padStart(2, "0"),
   };
 }
 
 function getWeekendTag(startDate?: string | null) {
   if (!startDate) return null;
+  const ymd = parseYmd(startDate);
+  if (!ymd) return null;
 
-  const parsed = new Date(startDate);
-  if (Number.isNaN(parsed.getTime())) return null;
-
-  const day = parsed.getDay();
+  const day = new Date(Date.UTC(ymd.y, ymd.mo - 1, ymd.d)).getUTCDay();
   if (day === 0 || day === 6) return "Уикенд";
 
   return null;
@@ -83,16 +87,15 @@ function getWeekendTag(startDate?: string | null) {
 
 function getUrgencyTag(startDate?: string | null) {
   if (!startDate) return null;
-  const parsed = new Date(startDate);
-  if (Number.isNaN(parsed.getTime())) return null;
+  const ymd = parseYmd(startDate);
+  if (!ymd) return null;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const startUtc = Date.UTC(ymd.y, ymd.mo - 1, ymd.d);
+  const todayYmd = sofiaWallClockNow().ymd;
+  const [ty, tm, td] = todayYmd.split("-").map(Number);
+  const todayUtc = Date.UTC(ty, tm - 1, td);
 
-  const start = new Date(parsed);
-  start.setHours(0, 0, 0, 0);
-
-  const diffInDays = Math.round((start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const diffInDays = Math.round((startUtc - todayUtc) / (1000 * 60 * 60 * 24));
   if (diffInDays === 0) return "Днес";
   if (diffInDays === 1) return "Утре";
   return null;

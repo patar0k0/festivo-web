@@ -154,7 +154,7 @@ export default async function AdminFestivalReportsPage({
                     <span className="line-clamp-2">{row.message}</span>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-black/70">
-                    {new Date(row.created_at).toLocaleDateString("bg-BG")}
+                    {new Date(row.created_at).toLocaleDateString("bg-BG", { timeZone: "Europe/Sofia" })}
                   </td>
                   <td className="px-4 py-3">
                     {row.reviewed ? (

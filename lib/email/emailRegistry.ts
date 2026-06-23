@@ -4,6 +4,7 @@ import { AdminFestivalCancelledEmail } from "@/emails/templates/AdminFestivalCan
 import { AdminFestivalReportEmail } from "@/emails/templates/AdminFestivalReportEmail";
 import { AdminNewClaimEmail } from "@/emails/templates/AdminNewClaimEmail";
 import { AdminNewSubmissionEmail } from "@/emails/templates/AdminNewSubmissionEmail";
+import { AdminAutoClaimGrantedEmail } from "@/emails/templates/AdminAutoClaimGrantedEmail";
 import { FestivalApprovedEmail } from "@/emails/templates/FestivalApprovedEmail";
 import { FestivalRejectedEmail } from "@/emails/templates/FestivalRejectedEmail";
 import { FestivalReminderEmail } from "@/emails/templates/FestivalReminderEmail";
@@ -23,6 +24,7 @@ import {
   EMAIL_JOB_TYPE_ADMIN_FESTIVAL_REPORT,
   EMAIL_JOB_TYPE_ADMIN_NEW_CLAIM,
   EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION,
+  EMAIL_JOB_TYPE_ADMIN_AUTO_CLAIM_GRANTED,
   EMAIL_JOB_TYPE_CONTACT_FORM,
   EMAIL_JOB_TYPE_FESTIVAL_APPROVED,
   EMAIL_JOB_TYPE_FESTIVAL_CANCELLED,
@@ -44,6 +46,7 @@ import {
   parseOrganizerOutreachPayload,
   parseAdminNewClaimPayload,
   parseAdminNewSubmissionPayload,
+  parseAdminAutoClaimGrantedPayload,
   parseContactFormPayload,
   parseFestivalApprovedPayload,
   parseFestivalCancelledPayload,
@@ -244,6 +247,27 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
           cityDisplay: p.cityDisplay,
           startDateDisplay: p.startDateDisplay,
           reviewUrl: p.reviewUrl,
+        }),
+      );
+      return { subject, html, text };
+    },
+  },
+
+  [EMAIL_JOB_TYPE_ADMIN_AUTO_CLAIM_GRANTED]: {
+    buildDefaultSubject: (pl) => {
+      const p = parseAdminAutoClaimGrantedPayload(pl as Record<string, unknown>);
+      return `Festivo админ — автоматични права: „${p.organizerName.slice(0, 60)}"`;
+    },
+    build: async (payload) => {
+      const p = parseAdminAutoClaimGrantedPayload(payload as Record<string, unknown>);
+      const siteUrl = siteOrigin();
+      const subject = `Festivo админ — автоматични права: „${p.organizerName.slice(0, 60)}"`;
+      const { html, text } = await renderEmail(
+        createElement(AdminAutoClaimGrantedEmail, {
+          siteUrl,
+          organizerName: p.organizerName,
+          userEmail: p.userEmail,
+          organizerAdminUrl: p.organizerAdminUrl,
         }),
       );
       return { subject, html, text };

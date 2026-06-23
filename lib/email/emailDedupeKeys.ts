@@ -1,6 +1,7 @@
 import {
   EMAIL_JOB_TYPE_ADMIN_NEW_CLAIM,
   EMAIL_JOB_TYPE_ADMIN_NEW_SUBMISSION,
+  EMAIL_JOB_TYPE_ADMIN_AUTO_CLAIM_GRANTED,
   EMAIL_JOB_TYPE_FESTIVAL_APPROVED,
   EMAIL_JOB_TYPE_FESTIVAL_REJECTED,
   EMAIL_JOB_TYPE_FESTIVAL_SUBMISSION_RECEIVED,
@@ -56,4 +57,13 @@ export function dedupeKeyReminderOneDayBefore(userId: string, festivalId: string
 /** Maps to `reminder_subkind` `2h` (~2h before start); `email_jobs.type` stays `reminder-same-day` for stability. */
 export function dedupeKeyReminderSameDay(userId: string, festivalId: string) {
   return `${EMAIL_JOB_TYPE_REMINDER_SAME_DAY}:${userId}:${festivalId}`;
+}
+
+/** Reuses the existing organizer-claim-approved email type for the auto-claim path; keyed by organizer+user (no pre-existing member-row id at enqueue time). */
+export function dedupeKeyOrganizerAutoClaimApproved(organizerId: string, userId: string) {
+  return `${EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED}:auto:${organizerId}:${userId}`;
+}
+
+export function dedupeKeyAdminAutoClaimGranted(organizerId: string, userId: string) {
+  return `${EMAIL_JOB_TYPE_ADMIN_AUTO_CLAIM_GRANTED}:${organizerId}:${userId}`;
 }

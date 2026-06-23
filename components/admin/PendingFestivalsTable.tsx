@@ -294,9 +294,9 @@ export default function PendingFestivalsTable({
 
                   {/* Created */}
                   <td className="px-3 py-3 text-xs text-black/55 whitespace-nowrap">
-                    {new Date(row.created_at).toLocaleDateString("bg-BG")}
+                    {new Date(row.created_at).toLocaleDateString("bg-BG", { timeZone: "Europe/Sofia" })}
                     <br />
-                    <span className="text-black/35">{new Date(row.created_at).toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit" })}</span>
+                    <span className="text-black/35">{new Date(row.created_at).toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Sofia" })}</span>
                   </td>
 
                   {/* Actions */}

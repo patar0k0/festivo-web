@@ -97,7 +97,7 @@ export default function PromotionRequestsTableClient({ rows }: Props) {
                 <td className="px-3">{row.userEmail || "—"}</td>
                 <td className="px-3">{row.city || "—"}</td>
                 <td className="px-3 py-2">
-                  <div>{hasValidStartDate ? (parsedStartDate as Date).toLocaleDateString("bg-BG") : "—"}</div>
+                  <div>{hasValidStartDate ? (parsedStartDate as Date).toLocaleDateString("bg-BG", { timeZone: "Europe/Sofia" }) : "—"}</div>
                   {typeof daysDiff === "number" && daysDiff <= 7 ? (
                     <span className="text-xs text-red-600">Спешно</span>
                   ) : null}

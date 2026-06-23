@@ -141,7 +141,7 @@ export default function PromotionsOverviewClient({ data }: { data: PromotedFesti
 
                     <td>
                       {f.promotion_expires_at
-                        ? new Date(f.promotion_expires_at).toLocaleDateString("bg-BG")
+                        ? new Date(f.promotion_expires_at).toLocaleDateString("bg-BG", { timeZone: "Europe/Sofia" })
                         : "—"}
                     </td>
 

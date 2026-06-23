@@ -879,7 +879,7 @@ export default function FestivalEditForm({
     const titlePart = form.title?.trim() ?? "";
     const cityLabel = festival.city_name || form.city || "";
     const datePart = form.start_date
-      ? new Date(form.start_date).toLocaleDateString("bg-BG", { day: "numeric", month: "long", year: "numeric" })
+      ? new Date(form.start_date).toLocaleDateString("bg-BG", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Sofia" })
       : "";
     const tail = [cityLabel, datePart].filter(Boolean).join(", ");
     return tail ? `${titlePart} — ${tail}` : titlePart;

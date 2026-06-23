@@ -46,6 +46,34 @@ function providerBadge(provider: string) {
   };
 }
 
+function organizerChipClass(status: string): string {
+  if (status === "pending") return "bg-amber-100 text-amber-950 ring-amber-200/90";
+  if (status === "active") return "bg-emerald-50 text-emerald-900 ring-emerald-200";
+  return "bg-black/[0.06] text-black/70 ring-black/[0.1]";
+}
+
+function organizerRoleLabel(role: string): string {
+  switch (role) {
+    case "owner":
+      return "собственик";
+    case "admin":
+      return "админ";
+    case "editor":
+      return "редактор";
+    case "viewer":
+      return "наблюдател";
+    default:
+      return role || "член";
+  }
+}
+
+function organizerStatusLabel(status: string): string {
+  if (status === "active") return "активен";
+  if (status === "pending") return "чакащ";
+  if (status === "revoked") return "отнет";
+  return status || "—";
+}
+
 export default function AdminUsersInteractive({
   rows,
   total,
@@ -258,14 +286,37 @@ export default function AdminUsersInteractive({
                         <RoleBadge role={row.app_role} />
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-gray-800">{row.organizer_count}</span>
-                          {row.pending_claim_count > 0 ? (
-                            <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold tracking-tight bg-amber-100 text-amber-950 ring-1 ring-amber-200/90">
-                              ЧАКАЩ
-                            </span>
-                          ) : null}
-                        </div>
+                        {row.organizer_links.length === 0 ? (
+                          <span className="text-gray-400">—</span>
+                        ) : (
+                          <div className="flex max-w-[220px] flex-wrap items-center gap-1.5">
+                            {row.organizer_links.map((org) => {
+                              const title = `${org.name} — ${organizerRoleLabel(org.role)}, ${organizerStatusLabel(org.status)}`;
+                              const chip = (
+                                <span
+                                  title={title}
+                                  className={`inline-flex max-w-[160px] items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium ring-1 ${organizerChipClass(org.status)}`}
+                                >
+                                  <span className="truncate">{org.name}</span>
+                                  {org.status === "pending" ? <span className="shrink-0">⏳</span> : null}
+                                </span>
+                              );
+                              return org.slug ? (
+                                <Link
+                                  key={org.id}
+                                  href={`/organizers/${org.slug}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="hover:opacity-80"
+                                >
+                                  {chip}
+                                </Link>
+                              ) : (
+                                <span key={org.id}>{chip}</span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {row.created_at ? new Date(row.created_at).toLocaleString() : "—"}

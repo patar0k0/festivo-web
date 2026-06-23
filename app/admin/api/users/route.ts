@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import {
   emailMatchesQuery,
+  emptyAdminUserListEnrich,
   enrichUsersForAdminList,
   lastSignInMatchesLastLoginFilter,
   nameMatchesQuery,
@@ -151,17 +152,7 @@ export async function GET(request: Request) {
         users.map((u) => u.id),
       );
       let rows: AdminUserListRow[] = users.map((u) =>
-        userToAdminListRow(
-          u,
-          enrich.get(u.id) ?? {
-            is_admin: false,
-            app_role: "user",
-            deleted_at: null,
-            banned_until_db: null,
-            organizer_count: 0,
-            pending_claim_count: 0,
-          },
-        ),
+        userToAdminListRow(u, enrich.get(u.id) ?? emptyAdminUserListEnrich()),
       );
 
       rows = applyListFilters(rows, { role, hasOrganizer, banned, lastLogin, status: status || "active" });
@@ -189,17 +180,7 @@ export async function GET(request: Request) {
     );
 
     let rows: AdminUserListRow[] = candidates.map((u) =>
-      userToAdminListRow(
-        u,
-        enrich.get(u.id) ?? {
-          is_admin: false,
-          app_role: "user",
-          deleted_at: null,
-          banned_until_db: null,
-          organizer_count: 0,
-          pending_claim_count: 0,
-        },
-      ),
+      userToAdminListRow(u, enrich.get(u.id) ?? emptyAdminUserListEnrich()),
     );
 
     rows = applyListFilters(rows, { role, hasOrganizer, banned, lastLogin, status });

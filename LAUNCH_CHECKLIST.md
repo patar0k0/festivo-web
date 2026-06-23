@@ -13,9 +13,11 @@
 - **Sprint ден:** 14 / 14 — 🚀 LAUNCHED
 - **Launch стабилност:** 🟢 сайтът е публично качен
 - **Блокери в момента:** няма
-- **Последно обновяване:** 31 май 2026
+- **Последно обновяване:** 23 юни 2026
 - **Прогрес:** ~70 ✅ / 85 — остатъкът е post-launch backlog
 - **Следва:** post-launch — съдържание, social media, Lighthouse audit, soft launch с близки.
+
+> 💡 Claude Code note (23 юни): Post-launch bug fix извън sprint backlog-а — пълен audit на date/timezone обработката в проекта; поправени реални Europe/Sofia bug-ове (EventCard badge/urgency tags, admin таблици, cancellation имейли) — [PR #641](https://github.com/patar0k0/festivo-web/pull/641).
 
 ### 📌 За утре (23 май, продължение)
 

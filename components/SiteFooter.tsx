@@ -33,8 +33,8 @@ export default function SiteFooter() {
   const contactHref = "/contact";
 
   const legalLinks = [
-    { href: "/privacy", label: "Политика за поверителност" },
-    { href: "/cookies", label: "Политика за бисквитки" },
+    { href: "/privacy", label: "Поверителност" },
+    { href: "/cookies", label: "Бисквитки" },
     { href: "/terms", label: "Общи условия" },
     { href: "/terms-organizers", label: "Условия за организатори" },
   ];
@@ -70,8 +70,8 @@ export default function SiteFooter() {
       )}
     >
       <Container className="py-12 md:py-14">
-        <div className="grid gap-14 lg:grid-cols-12 lg:gap-16">
-          <div className="lg:col-span-5">
+        <div className="grid gap-14 lg:grid-cols-12 lg:gap-x-12">
+          <div className="lg:col-span-4">
             <Link
               href="/"
               className="inline-flex items-center gap-2.5 text-[#0c0e14] no-underline"
@@ -115,7 +115,7 @@ export default function SiteFooter() {
             </div>
           </div>
 
-          <div className="grid gap-12 sm:grid-cols-2 lg:col-span-7 lg:grid-cols-4 lg:gap-x-14">
+          <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:col-span-8 lg:grid-cols-4 lg:gap-x-10">
             <div>
               <p className={sectionTitleClass}>Открий</p>
               <nav aria-label="Открий" className="mt-4 space-y-0.5">

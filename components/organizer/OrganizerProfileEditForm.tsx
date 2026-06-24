@@ -14,10 +14,9 @@ import {
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
 import { useDebouncedSave } from "@/lib/hooks/useDebouncedSave";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
-import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
+import { computeOrganizerCompleteness } from "@/lib/organizer/profileCompleteness";
 import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +82,8 @@ type OrganizerProfileEditFormProps = {
   /** Public profile path segment: `/organizers/{slug}` */
   publicProfileSlug: string;
   initialCity: OrganizerCityOption | null;
+  /** Published festival count for this organizer — feeds the completeness indicator. */
+  festivalCount: number;
   initial: {
     name: string;
     description: string;
@@ -92,7 +93,6 @@ type OrganizerProfileEditFormProps = {
     instagram_url: string;
     email: string;
     phone: string;
-    verified: boolean;
     city_id: number | null;
   };
 };
@@ -162,37 +162,6 @@ function getFieldErrors(s: PatchSnapshot): Record<string, string> {
     err.instagram_url = "Невалиден URL";
   }
   return err;
-}
-
-function organizerInitialsFromName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
-  }
-  const single = parts[0] ?? name;
-  return single.slice(0, 2).toUpperCase();
-}
-
-function telHref(phone: string): string {
-  const digits = phone.replace(/[^\d+]/g, "");
-  return digits ? `tel:${digits}` : `tel:${phone.trim()}`;
-}
-
-function ExternalLinkIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-      <path
-        fillRule="evenodd"
-        d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 16h-8.5A2.25 2.25 0 0 1 2 13.75v-8.5A2.25 2.25 0 0 1 4.25 3h4a.75.75 0 0 1 0 1.5h-4Z"
-        clipRule="evenodd"
-      />
-      <path
-        fillRule="evenodd"
-        d="M6.194 13.915a.75.75 0 0 0 1.06.053l7.25-6.5a.75.75 0 0 0-1-1.12l-7.25 6.5a.75.75 0 0 0-.053 1.06ZM16.78 3.22a.75.75 0 1 0-1.06 1.06L9.47 10.53l1.06 1.06 6.25-6.25a.75.75 0 0 0 0-1.06Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
 }
 
 function isValidUrl(value: string) {
@@ -273,6 +242,7 @@ export default function OrganizerProfileEditForm({
   organizerId,
   publicProfileSlug,
   initialCity,
+  festivalCount,
   initial,
 }: OrganizerProfileEditFormProps) {
   const [form, setForm] = useState({
@@ -288,7 +258,6 @@ export default function OrganizerProfileEditForm({
     city_name: null as string | null,
   });
   const { setLastSaved, checkDirty } = useDirtyState(initialPatchSnapshot(initial));
-  const [verifiedPreview, setVerifiedPreview] = useState(initial.verified);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
@@ -316,22 +285,21 @@ export default function OrganizerProfileEditForm({
   const isValid = Object.keys(fieldErrors).length === 0;
 
   const previewLogoUrl = (localLogoObjectUrl ?? form.logo_url.trim()) || null;
-  const previewInitials = organizerInitialsFromName(form.name);
-  const previewWebsiteHref = normalizeExternalHttpHref(form.website_url);
-  const previewFacebookHref = normalizeExternalHttpHref(form.facebook_url);
-  const previewInstagramHref = normalizeExternalHttpHref(form.instagram_url);
-  const hasSocialOrWeb = Boolean(previewWebsiteHref || previewFacebookHref || previewInstagramHref);
-  const previewEmail = form.email.trim() || null;
-  const previewPhone = form.phone.trim() || null;
-  const previewCityName =
-    form.city_name?.trim() ||
-    (form.city_id != null && initialCity?.id === form.city_id ? initialCity?.name_bg : null) ||
-    citySuggestions.find((c) => c.id === form.city_id)?.name_bg ||
-    (form.city_id != null ? cityQuery.trim() : null) ||
-    null;
-  const previewCityLabel =
-    previewCityName ?? (form.city_id == null ? "Без избран град" : "Град не е наличен");
-  const previewCityIsFallback = previewCityName === null;
+
+  const completeness = useMemo(
+    () =>
+      computeOrganizerCompleteness({
+        logo_url: snapshot.logo_url,
+        description: snapshot.description,
+        website_url: snapshot.website_url,
+        facebook_url: snapshot.facebook_url,
+        instagram_url: snapshot.instagram_url,
+        email: snapshot.email,
+        phone: snapshot.phone,
+        festivalCount,
+      }),
+    [snapshot, festivalCount],
+  );
 
   const executePatch = useCallback(async (): Promise<boolean> => {
     const f = formRef.current;
@@ -369,7 +337,6 @@ export default function OrganizerProfileEditForm({
 
       const body = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
-        verified?: boolean;
         city_id?: number | null;
         error?: string;
       };
@@ -378,10 +345,6 @@ export default function OrganizerProfileEditForm({
         setSaveStatus("error");
         setApiError(typeof body.error === "string" ? body.error : SUBMIT_ERROR_FALLBACK);
         return false;
-      }
-
-      if (typeof body.verified === "boolean") {
-        setVerifiedPreview(body.verified);
       }
 
       const reconciled =
@@ -706,15 +669,34 @@ export default function OrganizerProfileEditForm({
     </div>
   );
 
+  const missingLabels = completeness.items.filter((item) => !item.done).map((item) => item.label);
+  const completenessPercent = Math.round((completeness.doneCount / completeness.total) * 100);
+
   return (
-    <div
-      ref={rootRef}
-      className="grid gap-6 lg:grid-cols-[minmax(0,1fr),minmax(280px,380px)] lg:items-start"
-      onClickCapture={handleNavigation}
-    >
+    <div ref={rootRef} className="max-w-2xl" onClickCapture={handleNavigation}>
       <form onSubmit={onSubmit} className="flex flex-col rounded-2xl border border-black/[0.08] bg-white/90 shadow-sm md:pb-0">
         <div className="space-y-0 px-6 pb-6 pt-6 md:px-8 md:pt-8">
-          <div className="flex flex-col gap-6">
+          <div className="rounded-xl border border-amber-200/55 bg-amber-50/40 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[#0c0e14]">Пълнота на профила</p>
+              <span className="text-xs font-medium text-black/55">
+                {completeness.doneCount}/{completeness.total} попълнени
+              </span>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-black/[0.06]">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all"
+                style={{ width: `${completenessPercent}%` }}
+              />
+            </div>
+            {missingLabels.length > 0 ? (
+              <p className="mt-2 text-xs text-black/55">Липсва: {missingLabels.join(", ")}</p>
+            ) : (
+              <p className="mt-2 text-xs font-medium text-emerald-700">Профилът е напълно попълнен 🎉</p>
+            )}
+          </div>
+
+          <div className="mt-6 flex flex-col gap-6">
             <FormSection
               isPrimary
               title="Основна информация"
@@ -1119,182 +1101,6 @@ export default function OrganizerProfileEditForm({
           </p>
         </div>
       </form>
-
-      <div className="space-y-2">
-        <p className="text-xs font-medium tracking-wide text-black/50">Преглед (в реално време)</p>
-        <div
-          className={cn(
-            pub.heroMainCard,
-            "relative overflow-hidden transition-shadow duration-150 hover:shadow-md lg:sticky lg:top-6",
-          )}
-        >
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-amber-50/80 to-transparent"
-            aria-hidden
-          />
-          <div className="relative space-y-5 p-5 sm:p-6">
-            <div className="flex items-start justify-between gap-3">
-              <p className={cn(pub.eyebrowMuted, "leading-snug")}>Преглед на публичния профил</p>
-              {publicProfileSlug.trim() ? (
-                <a
-                  href={`/organizers/${publicProfileSlug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(
-                    "shrink-0 rounded-full border border-amber-200/50 bg-white/95 px-3 py-1.5 text-xs font-medium text-[#0c0e14] ring-1 ring-amber-100/35 transition hover:bg-amber-50/50 hover:opacity-90",
-                    pub.focusRing,
-                  )}
-                >
-                  Отвори ↗
-                </a>
-              ) : null}
-            </div>
-
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-8">
-              <OrganizerProfileLogo
-                variant="hero"
-                logoUrl={previewLogoUrl}
-                name={form.name.trim() || "Организатор"}
-                initials={previewInitials}
-                resetKey={organizerId}
-              />
-
-              <div className="min-w-0 flex-1 space-y-4">
-                <div>
-                  <p className={pub.eyebrow}>Организатор на събития</p>
-                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
-                    <h2 className={cn(pub.displayH1, "text-[1.35rem] leading-tight sm:text-2xl")}>
-                      {form.name.trim() || "Име на организатора"}
-                    </h2>
-                    {verifiedPreview ? (
-                      <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-100/80">
-                        <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                          <path
-                            fillRule="evenodd"
-                            d="M16.403 8.064C15.796 7.597 15.25 7.053 14.78 6.443a.75.75 0 0 0-1.06-.093l-4.47 3.73-1.94-1.94a.75.75 0 0 0-1.06 1.06l2.5 2.5a.75.75 0 0 0 1.09-.04l5-4.17a.75.75 0 0 0 .053-1.06Z"
-                            clipRule="evenodd"
-                          />
-                          <path d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM3.5 10a6.5 6.5 0 0 1 13 0 6.5 6.5 0 0 1-13 0Z" />
-                        </svg>
-                        Потвърден във Festivo
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-2.5 rounded-full border px-3 py-1.5 text-sm ring-1",
-                    previewCityIsFallback
-                      ? "border-dashed border-amber-200/55 bg-amber-50/35 font-medium text-black/50 ring-amber-100/20"
-                      : "border-amber-200/45 bg-white font-medium text-[#0c0e14] ring-amber-100/25",
-                  )}
-                >
-                  <svg className="h-3.5 w-3.5 shrink-0 text-black/40" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
-                    <path
-                      fillRule="evenodd"
-                      d="M9.69 1.87a.75.75 0 0 1 .62 0l6.25 2.858a.75.75 0 0 1 .44.684v6.728a5.75 5.75 0 0 1-2.33 4.63l-4.21 3.37a.75.75 0 0 1-.94 0l-4.21-3.37a5.75 5.75 0 0 1-2.33-4.63V5.412a.75.75 0 0 1 .44-.684L9.69 1.87ZM10 3.16 4.25 5.79v5.19a4.25 4.25 0 0 0 1.72 3.42l3.53 2.82 3.53-2.82a4.25 4.25 0 0 0 1.72-3.42V5.79L10 3.16Z"
-                      clipRule="evenodd"
-                    />
-                    <path d="M10 7.25a2.25 2.25 0 1 0 0 4.5 2.25 2.25 0 0 0 0-4.5ZM6.25 9.5a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0Z" />
-                  </svg>
-                  {previewCityLabel}
-                </span>
-
-                {hasSocialOrWeb ? (
-                  <div className="space-y-2">
-                    <p className={pub.eyebrowMuted}>Връзки</p>
-                    <div className="flex flex-wrap gap-2">
-                      {previewWebsiteHref ? (
-                        <a
-                          href={previewWebsiteHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            pub.btnSecondary,
-                            "gap-2 rounded-full px-4 py-2 text-sm normal-case transition hover:opacity-80",
-                            pub.focusRing,
-                          )}
-                        >
-                          Уебсайт
-                          <ExternalLinkIcon className="h-3.5 w-3.5 text-black/40" />
-                        </a>
-                      ) : null}
-                      {previewFacebookHref ? (
-                        <a
-                          href={previewFacebookHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 rounded-full bg-[#1877F2]/12 px-4 py-2 text-sm font-semibold text-[#145dbf] ring-1 ring-[#1877F2]/25 transition hover:bg-[#1877F2]/18 hover:opacity-90"
-                        >
-                          Facebook
-                          <ExternalLinkIcon className="h-3.5 w-3.5 opacity-70" />
-                        </a>
-                      ) : null}
-                      {previewInstagramHref ? (
-                        <a
-                          href={previewInstagramHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 rounded-full bg-[#E1306C]/10 px-4 py-2 text-sm font-semibold text-[#bf2558] ring-1 ring-[#E1306C]/22 transition hover:bg-[#E1306C]/14 hover:opacity-90"
-                        >
-                          Instagram
-                          <ExternalLinkIcon className="h-3.5 w-3.5 opacity-70" />
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-
-                {previewEmail || previewPhone ? (
-                  <div className={cn(pub.railCard, "p-4 sm:p-5")}>
-                    <p className={pub.eyebrowMuted}>Контакт</p>
-                    <dl className="mt-3 space-y-1 text-sm">
-                      {previewEmail ? (
-                        <div>
-                          <dt className="text-xs font-medium text-black/50">Имейл</dt>
-                          <dd className="mt-0.5">
-                            <a
-                              href={`mailto:${previewEmail}`}
-                              className={cn(pub.linkInline, "inline-block underline-offset-4 transition hover:underline")}
-                            >
-                              {previewEmail}
-                            </a>
-                          </dd>
-                        </div>
-                      ) : null}
-                      {previewPhone ? (
-                        <div>
-                          <dt className="text-xs font-medium text-black/50">Телефон</dt>
-                          <dd className="mt-0.5">
-                            <a
-                              href={telHref(previewPhone)}
-                              className={cn(pub.linkInline, "inline-block underline-offset-4 transition hover:underline")}
-                            >
-                              {previewPhone}
-                            </a>
-                          </dd>
-                        </div>
-                      ) : null}
-                    </dl>
-                  </div>
-                ) : null}
-
-                <div className="border-t border-amber-200/35 pt-4">
-                  {form.description.trim() ? (
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed text-black/70">{form.description}</p>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-amber-200/55 bg-amber-50/40 px-4 py-4 text-center ring-1 ring-amber-100/25">
-                      <p className="text-sm font-medium text-black/70">Няма добавено описание за този организатор.</p>
-                      <p className="mt-1 text-xs leading-relaxed text-black/55">Добави текст в полето „Описание“ отляво.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

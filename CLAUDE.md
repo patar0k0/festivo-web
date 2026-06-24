@@ -462,6 +462,7 @@ Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` · `TURNSTILE_SECRET_KEY` | Bot protection on public forms |
 | `SUPABASE_HERO_IMAGES_BUCKET` | Storage bucket for festival hero images (default `festival-hero-images`) |
 | `SUPABASE_ORGANIZER_LOGOS_BUCKET` | Storage bucket for organizer logos (default `organizer-logos`) |
+| `BOOKING_AFFILIATE_AID` · `BOOKING_AFFILIATE_LABEL_PREFIX` | Booking.com affiliate attribution for the festival „Настаняване наблизо" link (`components/festival/FestivalNearbyBookingCard.tsx` via `lib/outbound/affiliate.ts`). `AID` from a direct Booking affiliate account or Travelpayouts; unset → plain non-earning URL. `LABEL_PREFIX` defaults to `festivo`. `aid` is public (appears in the outbound URL) |
 | `FESTIVO_SETTLEMENT_UNKNOWNS_LOG` | Set to `1` to log unclassified settlement names to `settlement_unknowns` |
 | `WEB_RESEARCH_PROVIDER` | Alternative research backend: `tavily` or `serpapi` (used by `lib/admin/research/web-provider.ts`) |
 | `WEB_RESEARCH_SEARCH_URL` · `WEB_RESEARCH_API_KEY` | Search endpoint + key for the web research provider above |

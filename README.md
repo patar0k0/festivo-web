@@ -52,6 +52,8 @@ Environment variables (no secrets in repo):
 - `CSRF_ALLOWED_HOSTS` (optional, comma-separated extra hostnames for `POST /api/*` Origin/Referer checks; Vercel sets `VERCEL_URL` automatically for preview deploys)
 - `BOOKING_ACCOMMODATION_ENABLED=1` (optional, registers the Booking.com provider stub in `lib/accommodation`; returns no offers until the API is wired)
 - `ACCOMMODATION_MOCK_PROVIDER=1` / `ACCOMMODATION_MOCK_SAMPLE=1` (optional, dev-only mock accommodation; do not use for fake production inventory)
+- `BOOKING_AFFILIATE_AID` (optional, server-only; Booking.com affiliate id — от директен Booking affiliate акаунт или от Travelpayouts Booking програма. Добавя се към „Настаняване наблизо" линка на страницата на фестивал, за да носи комисия. Без него линкът остава чист, непечеливш URL. `aid` не е тайна — вижда се в публичния outbound линк)
+- `BOOKING_AFFILIATE_LABEL_PREFIX` (optional; префикс на per-festival Booking `label` за статистика; подразбиране `festivo`)
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only; jobs и admin bypass към базата)
 - `JOBS_SECRET` (споделен секрет за cron/worker повиквания към `/api/cron/*`, `/api/jobs/*` и `/api/notifications/*`, header `x-job-secret`; production Vercel cron извиква `GET /api/cron/worker`; отделните job URL-и остават достъпни със същия секрет)
 - `FCM_SERVER_KEY` (legacy FCM server key за push през `/api/jobs/push` и `/api/notifications/run`)

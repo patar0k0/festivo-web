@@ -45,13 +45,28 @@ const nextConfig = {
     // - *.googletagmanager.com + *.google-analytics.com: GA4 / Tag Manager
     // Sentry uses tunnelRoute="/monitoring" → same origin, no external CSP entry needed
     // Fonts are self-hosted via next/font → no fonts.googleapis.com needed
+    // Next.js webpack dev server (next dev, non-Turbopack) wraps modules with eval()
+    // for its default devtool — without 'unsafe-eval' the browser silently refuses to
+    // run ANY client JS in dev (no hydration, no onClick/onSubmit). Production builds
+    // don't use eval-based source maps, so this stays out of the deployed CSP.
+    const isDev = process.env.NODE_ENV !== "production";
+    const scriptSrc = [
+      "'self'",
+      "'unsafe-inline'",
+      "connect.facebook.net",
+      "challenges.cloudflare.com",
+      "cloud.umami.is",
+      "*.googletagmanager.com",
+      ...(isDev ? ["'unsafe-eval'"] : []),
+    ].join(" ");
+
     const csp = [
       "default-src 'self'",
       // Next.js App Router requires 'unsafe-inline' for streaming/hydration scripts.
       // Meta Pixel base code loads from connect.facebook.net.
       // Turnstile loads its widget script from challenges.cloudflare.com.
       // Umami script: cloud.umami.is. GA4/GTM scripts: *.googletagmanager.com.
-      "script-src 'self' 'unsafe-inline' connect.facebook.net challenges.cloudflare.com cloud.umami.is *.googletagmanager.com",
+      `script-src ${scriptSrc}`,
       // Tailwind CSS uses inline styles
       "style-src 'self' 'unsafe-inline'",
       // Images: Supabase storage, Facebook CDN, YouTube thumbnails, Unsplash,

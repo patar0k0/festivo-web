@@ -111,4 +111,24 @@ describe("attemptOrganizerAutoClaimByEmail", () => {
     const result = await attemptOrganizerAutoClaimByEmail(admin, "user-1", "race@example.bg");
     expect(result).toEqual({ claimed: false });
   });
+
+  it("still returns claimed:true even if building notification URLs throws (e.g. missing NEXT_PUBLIC_SITE_URL)", async () => {
+    const admin = makeAdmin({
+      organizers: { data: [{ id: "org-1", name: "Org One", slug: "org-one" }], error: null },
+      organizerMembersSelect: { data: [], error: null },
+    });
+    const previous = process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    try {
+      const result = await attemptOrganizerAutoClaimByEmail(admin, "user-1", "url-failure@example.bg");
+      expect(result).toEqual({
+        claimed: true,
+        organizerId: "org-1",
+        organizerName: "Org One",
+        organizerSlug: "org-one",
+      });
+    } finally {
+      process.env.NEXT_PUBLIC_SITE_URL = previous;
+    }
+  });
 });

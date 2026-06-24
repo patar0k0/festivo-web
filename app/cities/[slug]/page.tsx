@@ -3,6 +3,7 @@ import { format, endOfMonth, parseISO, startOfMonth } from "date-fns";
 import { notFound, permanentRedirect } from "next/navigation";
 import Container from "@/components/ui/Container";
 import EventCard from "@/components/ui/EventCard";
+import FollowCityButton from "@/components/follow/FollowCityButton";
 import Pagination from "@/components/Pagination";
 import Section from "@/components/ui/Section";
 import { cityHref } from "@/lib/cities";
@@ -197,6 +198,8 @@ export default async function CityLandingPage({
               </p>
 
               <div className="mt-5 space-y-3">
+                <FollowCityButton citySlug={citySlug} cityName={cityName} />
+
                 {/* Бързи филтри */}
                 <div className="flex flex-wrap gap-2">
                   <Link

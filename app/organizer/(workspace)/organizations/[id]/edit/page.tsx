@@ -33,7 +33,7 @@ export default async function OrganizerEditPage({ params }: OrganizerEditPagePro
   const { data: organizer, error: organizerError } = await admin
     .from("organizers")
     .select(
-      "id,slug,name,description,logo_url,website_url,facebook_url,instagram_url,email,phone,verified,city_id",
+      "id,slug,name,description,logo_url,website_url,facebook_url,instagram_url,email,phone,city_id",
     )
     .eq("id", id)
     .eq("is_active", true)
@@ -51,19 +51,32 @@ export default async function OrganizerEditPage({ params }: OrganizerEditPagePro
   const currentCityId =
     organizer.city_id != null && Number.isFinite(Number(organizer.city_id)) ? Number(organizer.city_id) : null;
 
+  const [cityRes, festivalCountRes] = await Promise.all([
+    currentCityId != null
+      ? admin.from("cities").select("id,name_bg").eq("id", currentCityId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    admin
+      .from("festivals")
+      .select("id", { count: "exact", head: true })
+      .eq("organizer_id", id)
+      .in("status", ["verified", "published"]),
+  ]);
+
   let initialCity: { id: number; name_bg: string } | null = null;
   if (currentCityId != null) {
-    const { data: cityRow, error: cityError } = await admin
-      .from("cities")
-      .select("id,name_bg")
-      .eq("id", currentCityId)
-      .maybeSingle();
+    const { data: cityRow, error: cityError } = cityRes;
     if (cityError) {
       console.error("[organizer/organizations/[id]/edit] load city failed", cityError.message);
     } else if (cityRow && typeof cityRow.name_bg === "string") {
       initialCity = { id: cityRow.id as number, name_bg: fixMojibakeBG(cityRow.name_bg.trim()) };
     }
   }
+
+  if (festivalCountRes.error) {
+    console.error("[organizer/organizations/[id]/edit] load festival count failed", festivalCountRes.error.message);
+  }
+
+  const festivalCount = festivalCountRes.count ?? 0;
 
   const organizerName = organizer.name ?? "Организатор";
   const publicSlug = organizer.slug ?? "";
@@ -110,6 +123,7 @@ export default async function OrganizerEditPage({ params }: OrganizerEditPagePro
         organizerId={id}
         publicProfileSlug={publicSlug}
         initialCity={initialCity}
+        festivalCount={festivalCount}
         initial={{
           name: organizer.name ?? "",
           description: organizer.description ?? "",
@@ -119,7 +133,6 @@ export default async function OrganizerEditPage({ params }: OrganizerEditPagePro
           instagram_url: organizer.instagram_url ?? "",
           email: organizer.email ?? "",
           phone: organizer.phone ?? "",
-          verified: Boolean(organizer.verified),
           city_id: currentCityId,
         }}
       />

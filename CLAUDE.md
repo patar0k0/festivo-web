@@ -423,6 +423,7 @@ The admin festival edit page (`/admin/festivals/[id]`) has a "Публикува
 ## Organizer portal
 
 Users link to organizers via `organizer_members` (`owner/admin/editor`, `pending/active/revoked`). Active owners access `/organizer/dashboard`. Submissions use `submission_source=organizer_portal` and still require admin approval. Admin reviews claims at `/admin/organizer-claims`. See `docs/system-architecture.md` — *Organizer portal* section.
+- **Auto-claim by matching email:** a new user's confirmed signup email matching exactly one unclaimed, active organizer's `email` field auto-grants `owner`/`active` membership on `/organizer` landing — no admin approval. See `docs/system-architecture.md` (Organizer portal — Auto-claim) and `lib/organizer/autoClaimOrganizersByEmail.ts`.
 
 ---
 

@@ -2,8 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   fetchOrganizerPortalMembershipSummaryCached,
+  getPortalAdminClient,
   getPortalSessionUser,
 } from "@/lib/organizer/portal";
+import { attemptOrganizerAutoClaimByEmail } from "@/lib/organizer/autoClaimOrganizersByEmail";
 import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
 
@@ -108,6 +110,25 @@ export default async function OrganizerEntryPage() {
 
   // Active organizer owners go straight to their dashboard — they don't need this landing.
   if (loggedIn && summary?.isOrganizerOwner) {
+    redirect("/organizer/dashboard");
+  }
+
+  // Not an owner yet — check whether the confirmed account email exactly matches one
+  // unclaimed organizer profile, and auto-grant ownership if so. `redirect()` throws
+  // internally, so it must run outside the try/catch below (a caught NEXT_REDIRECT
+  // would silently swallow the navigation).
+  // See docs/superpowers/specs/2026-06-23-organizer-auto-claim-by-email-design.md
+  let autoClaimGranted = false;
+  if (loggedIn && session?.user?.id && session.user.email) {
+    try {
+      const adminClient = getPortalAdminClient();
+      const result = await attemptOrganizerAutoClaimByEmail(adminClient, session.user.id, session.user.email);
+      autoClaimGranted = result.claimed;
+    } catch (err) {
+      console.error("[organizer_auto_claim] unexpected error on /organizer landing", err);
+    }
+  }
+  if (autoClaimGranted) {
     redirect("/organizer/dashboard");
   }
 

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { assertCanEditOrganizer } from "@/lib/organizer/permissions";
 import { getPortalAdminClient, getPortalSessionUser } from "@/lib/organizer/portal";
+import { decideCityResolution } from "@/lib/organizer/resolveCityUpdate";
+import { resolveOrCreateCity } from "@/lib/admin/resolveOrCreateCity";
 
 type OrganizerPatchBody = {
   name?: unknown;
@@ -12,26 +14,13 @@ type OrganizerPatchBody = {
   email?: unknown;
   phone?: unknown;
   city_id?: unknown;
+  city_name?: unknown;
 };
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
-}
-
-function normalizeOptionalCityId(value: unknown): number | null {
-  if (value === null || value === undefined) return null;
-  if (value === "") return null;
-  if (typeof value === "number" && Number.isFinite(value)) {
-    const n = Math.trunc(value);
-    return n > 0 ? n : null;
-  }
-  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
-    const n = Number(value.trim());
-    return n > 0 ? n : null;
-  }
-  return null;
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -65,7 +54,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Името е задължително." }, { status: 400 });
   }
 
-  const cityId = normalizeOptionalCityId(body.city_id);
+  let cityId: number | null = null;
+  const cityResolution = decideCityResolution({ city_name: body.city_name, city_id: body.city_id });
+  if (cityResolution.mode === "create") {
+    try {
+      const resolved = await resolveOrCreateCity(cityResolution.name);
+      cityId = resolved.city?.id ?? null;
+    } catch (error) {
+      console.error("[api/organizers/[id]] city resolve failed", error);
+      return NextResponse.json({ error: "Невалидно населено място." }, { status: 400 });
+    }
+  } else if (cityResolution.mode === "existing") {
+    cityId = cityResolution.id;
+  }
 
   const { data: updatedRows, error } = await admin
     .from("organizers")
@@ -82,7 +83,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     })
     .eq("id", id)
     .eq("is_active", true)
-    .select("verified")
+    .select("verified,city_id")
     .limit(1);
 
   if (error) {
@@ -95,5 +96,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, verified: Boolean(updated.verified) });
+  return NextResponse.json({ ok: true, verified: Boolean(updated.verified), city_id: updated.city_id ?? null });
 }

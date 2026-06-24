@@ -41,6 +41,7 @@ type PatchSnapshot = {
   email: string;
   phone: string;
   city_id: number | null;
+  city_name: string | null;
 };
 
 /** Same-window internal navigation away from the current URL (needs unsaved guard). */
@@ -75,11 +76,13 @@ function normalizeUrl(url: string): string {
 
 export type OrganizerCityOption = { id: number; name_bg: string };
 
+type CitySuggestionApi = { id: number; name_bg: string; slug: string; is_village: boolean | null };
+
 type OrganizerProfileEditFormProps = {
   organizerId: string;
   /** Public profile path segment: `/organizers/{slug}` */
   publicProfileSlug: string;
-  cities: OrganizerCityOption[];
+  initialCity: OrganizerCityOption | null;
   initial: {
     name: string;
     description: string;
@@ -105,6 +108,7 @@ function normalizeFormData(f: {
   email: string;
   phone: string;
   city_id: number | null;
+  city_name: string | null;
 }): PatchSnapshot {
   const websiteNorm = normalizeUrl(f.website_url.trim());
   const fbRaw = f.facebook_url.trim();
@@ -121,6 +125,7 @@ function normalizeFormData(f: {
     email: f.email.trim(),
     phone: f.phone.trim(),
     city_id: f.city_id ?? null,
+    city_name: f.city_name ?? null,
   };
 }
 
@@ -135,6 +140,7 @@ function initialPatchSnapshot(initial: OrganizerProfileEditFormProps["initial"])
     email: initial.email,
     phone: initial.phone,
     city_id: initial.city_id,
+    city_name: null,
   });
 }
 
@@ -266,7 +272,7 @@ function inputClass(invalid: boolean, validHighlight?: boolean) {
 export default function OrganizerProfileEditForm({
   organizerId,
   publicProfileSlug,
-  cities,
+  initialCity,
   initial,
 }: OrganizerProfileEditFormProps) {
   const [form, setForm] = useState({
@@ -279,6 +285,7 @@ export default function OrganizerProfileEditForm({
     email: initial.email,
     phone: initial.phone,
     city_id: initial.city_id,
+    city_name: null as string | null,
   });
   const { setLastSaved, checkDirty } = useDirtyState(initialPatchSnapshot(initial));
   const [verifiedPreview, setVerifiedPreview] = useState(initial.verified);
@@ -289,6 +296,12 @@ export default function OrganizerProfileEditForm({
   const [localLogoObjectUrl, setLocalLogoObjectUrl] = useState<string | null>(null);
   const [isDraggingLogo, setIsDraggingLogo] = useState(false);
   const [touched, setTouched] = useState<Partial<Record<TouchedFieldKey, true>>>({});
+
+  const [cityQuery, setCityQuery] = useState(initialCity?.name_bg ?? "");
+  const [citySuggestions, setCitySuggestions] = useState<CitySuggestionApi[]>([]);
+  const [cityHasExactMatch, setCityHasExactMatch] = useState(false);
+  const [cityBusy, setCityBusy] = useState(false);
+  const cityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const confirmRef = useRef(false);
@@ -310,7 +323,12 @@ export default function OrganizerProfileEditForm({
   const hasSocialOrWeb = Boolean(previewWebsiteHref || previewFacebookHref || previewInstagramHref);
   const previewEmail = form.email.trim() || null;
   const previewPhone = form.phone.trim() || null;
-  const previewCityName = cities.find((c) => c.id === form.city_id)?.name_bg ?? null;
+  const previewCityName =
+    form.city_name?.trim() ||
+    (form.city_id != null && initialCity?.id === form.city_id ? initialCity?.name_bg : null) ||
+    citySuggestions.find((c) => c.id === form.city_id)?.name_bg ||
+    (form.city_id != null ? cityQuery.trim() : null) ||
+    null;
   const previewCityLabel =
     previewCityName ?? (form.city_id == null ? "Без избран град" : "Град не е наличен");
   const previewCityIsFallback = previewCityName === null;
@@ -335,6 +353,7 @@ export default function OrganizerProfileEditForm({
       email: snap.email,
       phone: snap.phone,
       city_id: snap.city_id,
+      city_name: snap.city_name,
     };
 
     inFlightRef.current = true;
@@ -351,6 +370,7 @@ export default function OrganizerProfileEditForm({
       const body = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
         verified?: boolean;
+        city_id?: number | null;
         error?: string;
       };
 
@@ -364,7 +384,16 @@ export default function OrganizerProfileEditForm({
         setVerifiedPreview(body.verified);
       }
 
-      setLastSaved(snap);
+      const reconciled =
+        snap.city_name && typeof body.city_id === "number"
+          ? { ...snap, city_id: body.city_id, city_name: null }
+          : snap;
+      if (reconciled !== snap) {
+        setForm((f) => ({ ...f, city_id: body.city_id ?? f.city_id, city_name: null }));
+        setCityQuery((prev) => prev); // запазваме показаното име
+      }
+
+      setLastSaved(reconciled);
       setSaveStatus("saved");
       setLastSavedAt(Date.now());
 
@@ -463,6 +492,45 @@ export default function OrganizerProfileEditForm({
       }
     };
   }, [localLogoObjectUrl]);
+
+  useEffect(() => {
+    if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current);
+    const q = cityQuery.trim();
+
+    // Picked existing city whose name matches the field → nothing to search.
+    if (form.city_id != null && q === (initialCity?.id === form.city_id ? initialCity?.name_bg.trim() : q)) {
+      // fall through; handled below by clearing suggestions when query unchanged
+    }
+
+    if (!q) {
+      setCitySuggestions([]);
+      setCityHasExactMatch(false);
+      setCityBusy(false);
+      return;
+    }
+
+    setCityBusy(true);
+    cityDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/cities/search?q=${encodeURIComponent(q)}`);
+        const data = (await res.json().catch(() => ({}))) as {
+          suggestions?: CitySuggestionApi[];
+          hasExactMatch?: boolean;
+        };
+        setCitySuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+        setCityHasExactMatch(Boolean(data.hasExactMatch));
+      } catch {
+        setCitySuggestions([]);
+        setCityHasExactMatch(false);
+      } finally {
+        setCityBusy(false);
+      }
+    }, 250);
+
+    return () => {
+      if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current);
+    };
+  }, [cityQuery, form.city_id, initialCity]);
 
   useEffect(() => {
     if (!dirty || saveStatus === "saving") return;
@@ -930,28 +998,86 @@ export default function OrganizerProfileEditForm({
                 title="Локация"
                 description="Основен град на организатора — показва се в публичния профил, когато е зададен."
               >
-                <div>
-                  <label htmlFor="city_id" className={pub.label}>
+                <div className="relative">
+                  <label htmlFor="city_query" className={pub.label}>
                     Град
                   </label>
-                  <select
-                    id="city_id"
-                    name="city_id"
-                    value={form.city_id === null ? "" : String(form.city_id)}
+                  <input
+                    id="city_query"
+                    name="city_query"
+                    type="text"
+                    autoComplete="off"
+                    placeholder="Започни да пишеш населено място…"
+                    value={cityQuery}
                     onChange={(e) => {
                       handleFieldChange("city_id");
                       const v = e.target.value;
-                      setForm((f) => ({ ...f, city_id: v === "" ? null : Number(v) }));
+                      setCityQuery(v);
+                      // Editing the text invalidates any picked/created city until re-selected.
+                      setForm((f) => ({ ...f, city_id: null, city_name: null }));
                     }}
-                    className={cn(inputClass(false))}
-                  >
-                    <option value="">— Без избран град —</option>
-                    {cities.map((c) => (
-                      <option key={c.id} value={String(c.id)}>
-                        {c.name_bg}
-                      </option>
-                    ))}
-                  </select>
+                    className={inputClass(false)}
+                  />
+                  {cityBusy ? <p className="mt-1 text-xs text-black/45">Търсене…</p> : null}
+
+                  {form.city_id != null || form.city_name ? (
+                    <p className="mt-1 flex items-center gap-2 text-xs font-medium text-[#1f7a37]">
+                      Избрано: {form.city_name?.trim() || cityQuery.trim()}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleFieldChange("city_id");
+                          setForm((f) => ({ ...f, city_id: null, city_name: null }));
+                          setCityQuery("");
+                          setCitySuggestions([]);
+                          setCityHasExactMatch(false);
+                        }}
+                        className="text-black/45 underline-offset-2 hover:text-black hover:underline"
+                      >
+                        Изчисти
+                      </button>
+                    </p>
+                  ) : null}
+
+                  {(citySuggestions.length > 0 || (cityQuery.trim() && !cityHasExactMatch && !cityBusy)) &&
+                  form.city_id == null &&
+                  !form.city_name ? (
+                    <ul className="mt-2 divide-y divide-black/[0.06] overflow-hidden rounded-lg border border-black/[0.12] bg-white">
+                      {citySuggestions.map((c) => (
+                        <li key={c.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleFieldChange("city_id");
+                              setForm((f) => ({ ...f, city_id: c.id, city_name: null }));
+                              setCityQuery(c.name_bg);
+                              setCitySuggestions([]);
+                              setCityHasExactMatch(true);
+                            }}
+                            className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-black/[0.03]"
+                          >
+                            {c.name_bg}
+                          </button>
+                        </li>
+                      ))}
+                      {cityQuery.trim() && !cityHasExactMatch ? (
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleFieldChange("city_id");
+                              const name = cityQuery.trim();
+                              setForm((f) => ({ ...f, city_id: null, city_name: name }));
+                              setCitySuggestions([]);
+                            }}
+                            className="flex w-full items-center px-3 py-2 text-left text-sm font-medium text-[#7c2d12] hover:bg-amber-50/60"
+                          >
+                            ➕ Добави „{cityQuery.trim()}“
+                          </button>
+                        </li>
+                      ) : null}
+                    </ul>
+                  ) : null}
                 </div>
               </FormSection>
             </div>

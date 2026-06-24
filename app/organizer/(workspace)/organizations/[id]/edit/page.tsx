@@ -48,26 +48,22 @@ export default async function OrganizerEditPage({ params }: OrganizerEditPagePro
     redirect("/organizer");
   }
 
-  const { data: cityRows, error: citiesError } = await admin
-    .from("cities")
-    .select("id,name_bg")
-    .order("name_bg", { ascending: true });
+  const currentCityId =
+    organizer.city_id != null && Number.isFinite(Number(organizer.city_id)) ? Number(organizer.city_id) : null;
 
-  if (citiesError) {
-    console.error("[organizer/organizations/[id]/edit] load cities failed", citiesError.message);
-    throw new Error(citiesError.message);
+  let initialCity: { id: number; name_bg: string } | null = null;
+  if (currentCityId != null) {
+    const { data: cityRow, error: cityError } = await admin
+      .from("cities")
+      .select("id,name_bg")
+      .eq("id", currentCityId)
+      .maybeSingle();
+    if (cityError) {
+      console.error("[organizer/organizations/[id]/edit] load city failed", cityError.message);
+    } else if (cityRow && typeof cityRow.name_bg === "string") {
+      initialCity = { id: cityRow.id as number, name_bg: fixMojibakeBG(cityRow.name_bg.trim()) };
+    }
   }
-
-  const cityOptions = (cityRows ?? [])
-    .map((row) => {
-      const rawId = row.id as number | string | null | undefined;
-      const nid = typeof rawId === "string" ? Number(rawId) : rawId;
-      if (typeof nid !== "number" || !Number.isFinite(nid) || nid <= 0) return null;
-      const label = typeof row.name_bg === "string" ? fixMojibakeBG(row.name_bg.trim()) : "";
-      if (!label) return null;
-      return { id: nid, name_bg: label };
-    })
-    .filter((x): x is { id: number; name_bg: string } => x !== null);
 
   const organizerName = organizer.name ?? "Организатор";
   const publicSlug = organizer.slug ?? "";
@@ -113,7 +109,7 @@ export default async function OrganizerEditPage({ params }: OrganizerEditPagePro
       <OrganizerProfileEditForm
         organizerId={id}
         publicProfileSlug={publicSlug}
-        cities={cityOptions}
+        initialCity={initialCity}
         initial={{
           name: organizer.name ?? "",
           description: organizer.description ?? "",
@@ -124,10 +120,7 @@ export default async function OrganizerEditPage({ params }: OrganizerEditPagePro
           email: organizer.email ?? "",
           phone: organizer.phone ?? "",
           verified: Boolean(organizer.verified),
-          city_id:
-            organizer.city_id != null && Number.isFinite(Number(organizer.city_id))
-              ? Number(organizer.city_id)
-              : null,
+          city_id: currentCityId,
         }}
       />
     </div>

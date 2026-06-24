@@ -91,6 +91,10 @@ type Props = {
   programItemPlanActions?: boolean;
   /** Organizer draft preview: same layout as public page without plan/outbound/app CTAs. */
   previewMode?: boolean;
+  /** Booking affiliate id (public; appears in the outbound URL). Unset → plain non-earning link. */
+  bookingAffiliateAid?: string | null;
+  /** Optional prefix for the per-festival Booking `label` (stats). Defaults to "festivo". */
+  bookingAffiliateLabelPrefix?: string | null;
 };
 
 type GroupedDay = {
@@ -219,6 +223,8 @@ export default function FestivalDetailClient({
   showPendingApprovalBadge = false,
   programItemPlanActions = true,
   previewMode = false,
+  bookingAffiliateAid,
+  bookingAffiliateLabelPrefix,
 }: Props) {
   const groupedDays = useMemo(() => getGroupedDays(days, scheduleItems), [days, scheduleItems]);
   const sortedScheduleItems = useMemo(() => sortScheduleItems(scheduleItems), [scheduleItems]);
@@ -1220,6 +1226,8 @@ export default function FestivalDetailClient({
               startDate={festival.start_date}
               endDate={festival.end_date}
               festivalId={String(festival.id)}
+              affiliateAid={bookingAffiliateAid}
+              affiliateLabelPrefix={bookingAffiliateLabelPrefix}
             />
           ) : null}
 

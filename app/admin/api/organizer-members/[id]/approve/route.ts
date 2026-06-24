@@ -111,12 +111,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const accountEmail = await resolveAuthUserEmail(admin, row.user_id);
   const recipient = accountEmail?.trim() || (typeof row.contact_email === "string" ? row.contact_email.trim() : "");
   if (recipient && prevStatus !== "active") {
-    const profilePath = organizerSlug ? `/organizers/${organizerSlug}` : "/organizer/dashboard";
-    const profileUrl = absoluteSiteUrl(profilePath);
+    const dashboardUrl = absoluteSiteUrl("/organizer/dashboard");
     const payload = {
       organizerName,
       organizerSlug,
-      dashboardUrl: profileUrl,
+      dashboardUrl,
     };
     await buildEmailJobContent(EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED, null, payload);
     await enqueueEmailJobSafe(

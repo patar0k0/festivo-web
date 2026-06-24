@@ -331,3 +331,21 @@ export function parseAdminFestivalCancelledPayload(raw: Record<string, unknown>)
     cancelledAt: reqString(raw, "cancelledAt", 100),
   };
 }
+
+export type AdminAutoClaimGrantedPayload = {
+  organizerName: string;
+  organizerSlug: string | null;
+  userId: string;
+  userEmail: string;
+  organizerAdminUrl: string;
+};
+
+export function parseAdminAutoClaimGrantedPayload(raw: Record<string, unknown>): AdminAutoClaimGrantedPayload {
+  return {
+    organizerName: reqString(raw, "organizerName", 400),
+    organizerSlug: optString(raw, "organizerSlug", 200),
+    userId: reqString(raw, "userId", 80),
+    userEmail: reqString(raw, "userEmail", 320),
+    organizerAdminUrl: reqString(raw, "organizerAdminUrl", 2000),
+  };
+}

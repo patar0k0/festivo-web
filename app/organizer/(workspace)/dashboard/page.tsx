@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { format, formatDistanceToNow } from "date-fns";
 import { bg } from "date-fns/locale";
 import { requireOrganizerOwnerPortalSession } from "@/lib/organizer/portal";
+import { getOptionalUser } from "@/lib/authUser";
 
 export const dynamic = "force-dynamic";
 
@@ -60,10 +61,21 @@ function statusMeta(status: string): {
   }
 }
 
+/** First token of a person's display name (e.g. "Иван Петров" → "Иван"). */
 function firstNameFrom(name: string | null | undefined): string | null {
   if (!name) return null;
   const first = name.trim().split(/\s+/)[0];
   return first && first.length > 0 ? first : null;
+}
+
+/** Humanish first name derived from an email local-part (e.g. "ivan.petrov" → "Ivan"). */
+function firstNameFromEmail(email: string | null | undefined): string | null {
+  if (!email) return null;
+  const local = email.split("@")[0] ?? "";
+  const cleaned = local.replace(/[^\p{L}\p{N}]/gu, " ").trim();
+  const first = cleaned.split(/\s+/)[0];
+  if (!first || first.length < 2) return null;
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
 }
 
 function initialsFrom(name: string): string {
@@ -89,8 +101,9 @@ export default async function OrganizerDashboardPage() {
 
   const { admin, orgIds } = gate;
 
-  // Fetch organizations (with logo) and submissions in parallel.
-  const [orgsRes, submissionsRes] = await Promise.all([
+  // Fetch the session user (for the greeting), organizations (with logo) and submissions in parallel.
+  const [sessionUser, orgsRes, submissionsRes] = await Promise.all([
+    getOptionalUser(),
     orgIds.length > 0
       ? admin
           .from("organizers")
@@ -123,7 +136,10 @@ export default async function OrganizerDashboardPage() {
     ? `/organizer/organizations/${orgRows[0].id}/edit`
     : "/organizer/profile/new";
 
-  const greetingName = firstNameFrom(orgRows[0]?.name) ?? "";
+  // Greet the user (the dashboard belongs to the person, not a single organization —
+  // a user may own several organizer profiles). Falls back to email, then a neutral greeting.
+  const greetingName =
+    firstNameFrom(sessionUser?.displayName) ?? firstNameFromEmail(sessionUser?.email) ?? "";
   const greeting = greetingName ? `Добре дошъл, ${greetingName}!` : "Добре дошъл!";
 
   return (

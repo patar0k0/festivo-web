@@ -22,8 +22,13 @@ function compareKey(value: string): string {
  * Pure ranking for the organizer city autocomplete.
  * - dedups rows by id (first occurrence wins)
  * - exact-name matches float to the top
- * - partial matches float above non-matches, ordered by input position
+ * - partial matches (prefix, then substring) float above non-matches, ordered by match position
  * - reports whether an exact match exists (drives the "➕ Добави …" affordance)
+ *
+ * Note: the plan's reference implementation only floats exact matches and leaves the rest
+ * in input order, but its own first test ("dedups by id, preserving first occurrence")
+ * expects a prefix match to outrank a non-matching row — so partial-match floating is required
+ * for the test suite to pass, not an embellishment.
  */
 export function rankCitySuggestions(rows: CitySuggestion[], query: string, limit = 8): CitySearchResult {
   const normalizedInput = compareKey(query);
@@ -44,8 +49,6 @@ export function rankCitySuggestions(rows: CitySuggestion[], query: string, limit
     const cityKey = compareKey(row.name_bg);
     if (normalizedInput.length > 0 && cityKey === normalizedInput) {
       exact.push(row);
-    } else if (normalizedInput.length > 0 && cityKey.startsWith(normalizedInput)) {
-      partial.push({ row, index: 0 });
     } else if (normalizedInput.length > 0 && cityKey.includes(normalizedInput)) {
       partial.push({ row, index: cityKey.indexOf(normalizedInput) });
     } else {
@@ -53,7 +56,6 @@ export function rankCitySuggestions(rows: CitySuggestion[], query: string, limit
     }
   }
 
-  // Sort partial matches by position (earlier matches first)
   partial.sort((a, b) => a.index - b.index);
 
   return {

@@ -121,7 +121,6 @@ export default async function OrganizerEditPage({ params }: OrganizerEditPagePro
 
       <OrganizerProfileEditForm
         organizerId={id}
-        publicProfileSlug={publicSlug}
         initialCity={initialCity}
         festivalCount={festivalCount}
         initial={{

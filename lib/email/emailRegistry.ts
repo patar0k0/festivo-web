@@ -13,6 +13,7 @@ import { OrganizerClaimApprovedEmail } from "@/emails/templates/OrganizerClaimAp
 import { OrganizerClaimReceivedEmail } from "@/emails/templates/OrganizerClaimReceivedEmail";
 import { OrganizerClaimRejectedEmail } from "@/emails/templates/OrganizerClaimRejectedEmail";
 import { OrganizerOutreachEmail } from "@/emails/templates/OrganizerOutreachEmail";
+import { OrganizerVipGrantedEmail } from "@/emails/templates/OrganizerVipGrantedEmail";
 import { FestivalCancelledEmail } from "@/emails/templates/FestivalCancelledEmail";
 import { ContactFormEmail } from "@/emails/templates/ContactFormEmail";
 import { TestEmail } from "@/emails/templates/TestEmail";
@@ -34,6 +35,7 @@ import {
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_RECEIVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED,
   EMAIL_JOB_TYPE_ORGANIZER_OUTREACH,
+  EMAIL_JOB_TYPE_ORGANIZER_VIP_GRANTED,
   EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE,
   EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
   EMAIL_JOB_TYPE_TEST,
@@ -55,6 +57,7 @@ import {
   parseOrganizerClaimApprovedPayload,
   parseOrganizerClaimReceivedPayload,
   parseOrganizerClaimRejectedPayload,
+  parseOrganizerVipGrantedPayload,
   parseSavedFestivalReminderEmailPayload,
   parseTestEmailPayload,
   parseWelcomeEmailPayload,
@@ -146,6 +149,23 @@ const REGISTRY: Record<EmailJobType, RegistryEntry> = {
         createElement(OrganizerClaimRejectedEmail, { siteUrl, organizerName: p.organizerName }),
       );
       return { subject: "Festivo — отговор по заявката за профил", html, text };
+    },
+  },
+
+  [EMAIL_JOB_TYPE_ORGANIZER_VIP_GRANTED]: {
+    buildDefaultSubject: () => "Festivo — профилът ти вече е VIP",
+    build: async (payload) => {
+      const p = parseOrganizerVipGrantedPayload(payload as Record<string, unknown>);
+      const siteUrl = siteOrigin();
+      const { html, text } = await renderEmail(
+        createElement(OrganizerVipGrantedEmail, {
+          siteUrl,
+          organizerName: p.organizerName,
+          dashboardUrl: p.dashboardUrl,
+          planExpiresAtDisplay: p.planExpiresAtDisplay,
+        }),
+      );
+      return { subject: "Festivo — профилът ти вече е VIP", html, text };
     },
   },
 

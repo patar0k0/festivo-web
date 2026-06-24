@@ -9,6 +9,13 @@ import {
   normalizeImageToLocalStorage,
   takeOrganizerLogoUploadRateLimit,
 } from "@/lib/admin/normalizeImageToLocalStorage";
+import { buildEmailJobContent } from "@/lib/email/emailRegistry";
+import { dedupeKeyOrganizerVipGranted } from "@/lib/email/emailDedupeKeys";
+import { EMAIL_JOB_TYPE_ORGANIZER_VIP_GRANTED } from "@/lib/email/emailJobTypes";
+import { enqueueEmailJobSafe } from "@/lib/email/enqueueSafe";
+import { absoluteSiteUrl } from "@/lib/email/emailUrls";
+import { formatBgDateFromIso } from "@/lib/email/formatBg";
+import { resolveAuthUserEmail } from "@/lib/email/resolveAuthUserEmail";
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -143,10 +150,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
 
   let previousLogoUrlForStorageCleanup: string | null | undefined;
-  if ("logo_url" in finalPatch) {
+  let previousPlan: string | null | undefined;
+  const needsExistingLookup = "logo_url" in finalPatch || "plan" in finalPatch;
+  if (needsExistingLookup) {
     const { data: existingOrganizer, error: existingError } = await adminClient
       .from("organizers")
-      .select("logo_url")
+      .select("logo_url,plan")
       .eq("id", id)
       .maybeSingle();
 
@@ -157,6 +166,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     previousLogoUrlForStorageCleanup = existingOrganizer.logo_url;
+    previousPlan = existingOrganizer.plan;
   }
 
   if (typeof finalPatch.logo_url === "string") {
@@ -201,6 +211,62 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const next = finalPatch.logo_url;
     if (prev && prev !== next) {
       await deleteOrganizerLogoFromStorageIfOwned(prev, prev);
+    }
+  }
+
+  if (finalPatch.plan === "vip" && previousPlan !== "vip") {
+    try {
+      const { data: organizerRow, error: organizerRowError } = await adminClient
+        .from("organizers")
+        .select("name,slug,email,plan_expires_at")
+        .eq("id", data.id)
+        .maybeSingle();
+
+      if (organizerRowError) throw organizerRowError;
+
+      if (organizerRow) {
+        const { data: ownerMember } = await adminClient
+          .from("organizer_members")
+          .select("user_id")
+          .eq("organizer_id", data.id)
+          .eq("role", "owner")
+          .eq("status", "active")
+          .limit(1)
+          .maybeSingle();
+
+        const ownerEmail = ownerMember?.user_id ? await resolveAuthUserEmail(adminClient, ownerMember.user_id) : null;
+        const recipient = ownerEmail?.trim() || organizerRow.email?.trim() || "";
+
+        if (recipient) {
+          const organizerName = organizerRow.name?.trim() || "Организатор";
+          const organizerSlug = organizerRow.slug?.trim() || null;
+          const payload = {
+            organizerName,
+            organizerSlug,
+            dashboardUrl: absoluteSiteUrl("/organizer/dashboard"),
+            planExpiresAtDisplay: formatBgDateFromIso(organizerRow.plan_expires_at),
+          };
+          await buildEmailJobContent(EMAIL_JOB_TYPE_ORGANIZER_VIP_GRANTED, null, payload);
+          await enqueueEmailJobSafe(
+            adminClient,
+            {
+              type: EMAIL_JOB_TYPE_ORGANIZER_VIP_GRANTED,
+              recipientEmail: recipient,
+              recipientUserId: ownerMember?.user_id ?? null,
+              payload,
+              dedupeKey: dedupeKeyOrganizerVipGranted(data.id, organizerRow.plan_expires_at ?? "no-expiry"),
+            },
+            "organizer-vip-granted",
+          );
+        } else {
+          console.warn("[admin/api/organizers/[id]][PATCH] skip VIP granted email: no recipient", {
+            organizerId: data.id,
+          });
+        }
+      }
+    } catch (vipEmailError) {
+      const message = vipEmailError instanceof Error ? vipEmailError.message : "unknown";
+      console.error("[admin/api/organizers/[id]][PATCH] VIP granted email failed", { message, organizerId: data.id });
     }
   }
 

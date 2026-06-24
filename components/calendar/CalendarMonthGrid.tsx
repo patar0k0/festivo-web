@@ -48,7 +48,9 @@ export default function CalendarMonthGrid({
 
   const prevMonth = format(addMonths(monthStart, -1), "yyyy-MM");
   const nextMonth = format(addMonths(monthStart, 1), "yyyy-MM");
-  const todayMonth = format(new Date(), "yyyy-MM");
+  const todayMonth = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Sofia", year: "numeric", month: "2-digit" }).format(
+    new Date(),
+  );
   const isOnCurrentMonth = month === todayMonth;
 
   return (

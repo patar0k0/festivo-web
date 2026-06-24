@@ -364,9 +364,9 @@ export default function FestivalsTable({
                   <td className="px-3 py-3 text-xs text-black/55 whitespace-nowrap">
                     {row.updated_at ? (
                       <>
-                        {new Date(row.updated_at).toLocaleDateString("bg-BG")}
+                        {new Date(row.updated_at).toLocaleDateString("bg-BG", { timeZone: "Europe/Sofia" })}
                         <br />
-                        <span className="text-black/35">{new Date(row.updated_at).toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit" })}</span>
+                        <span className="text-black/35">{new Date(row.updated_at).toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Sofia" })}</span>
                       </>
                     ) : "—"}
                   </td>

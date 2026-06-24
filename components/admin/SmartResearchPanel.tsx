@@ -617,7 +617,7 @@ export default function SmartResearchPanel() {
       const confidenceScore = confidence === "high" ? 90 : confidence === "medium" ? 60 : 30;
 
       // Append year to title if not already present
-      const year = fields.start_date ? new Date(fields.start_date).getFullYear().toString() : null;
+      const year = fields.start_date ? fields.start_date.slice(0, 4) : null;
       const titleWithYear =
         fields.title && year && !fields.title.includes(year)
           ? `${fields.title} ${year}`

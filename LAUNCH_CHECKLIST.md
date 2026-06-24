@@ -13,11 +13,13 @@
 - **Sprint ден:** 14 / 14 — 🚀 LAUNCHED
 - **Launch стабилност:** 🟢 сайтът е публично качен
 - **Блокери в момента:** няма
-- **Последно обновяване:** 31 май 2026
+- **Последно обновяване:** 23 юни 2026
 - **Прогрес:** ~70 ✅ / 85 — остатъкът е post-launch backlog
 - **Следва:** post-launch — съдържание, social media, Lighthouse audit, soft launch с близки.
 
-### 📌 За утре (23 май, продължение)
+> 💡 Claude Code note (23 юни): Post-launch bug fix извън sprint backlog-а — пълен audit на date/timezone обработката в проекта; поправени реални Europe/Sofia bug-ове (EventCard badge/urgency tags, admin таблици, cancellation имейли) — [PR #641](https://github.com/patar0k0/festivo-web/pull/641).
+
+### 📌 Organizer submissions — Pro UX (завършено 26 май)
 
 - [x] **Pro UX за `/organizer/submissions`** — следваща страница в organizer redesign sprint-а. Pattern: header card + sticky info sidebar + status badges + relative dates (като /organizer/dashboard). Reference: PRs #372-#378 за подобни pages.
 > 💡 Claude Code note (26 май): Имплементирано — header card с gradient, stats bar (4 StatChip компонента), status badges с dot-индикатор, relative dates (date-fns/bg), empty state, action buttons контекстни по статус, success banner при ?submitted=1. Беше направено но чеклистът не беше обновен.
@@ -324,7 +326,7 @@
 - [ ] First newsletter (~12 юни): „Добре дошли в Festivo — топ фестивали за юли"
 - [ ] React Email template `NewsletterBaseTemplate` (потенциално за бъдещ swap към Опция B)
 
-**Кога да се mъжdame към Опция B (custom email_jobs):** ако имаме 5000+ subscribers, или искаме персонализация по град/любими, или Resend цена надхвърли $20/мес.
+**Кога да се местим към Опция B (custom email_jobs):** ако имаме 5000+ subscribers, или искаме персонализация по град/любими, или Resend цена надхвърли $20/мес.
 
 #### Ден 13: Подготовка на launch комуникация
 
@@ -338,6 +340,8 @@
 - [ ] 5 готови поста (carousels с топ фестивали) за следващите 2 седмици
 
 #### 🚀 Ден 14: PUBLIC LAUNCH (сряда 28 май)
+
+> 💡 Claude Code note (23 юни): Сайтът е публично качен и стабилен (виж статуса горе). Кутийките по-долу проследяват еднократните launch-day промо действия — оставени са в текущото си състояние, защото изпълнението им не е потвърдено в чеклиста. Отметни ги ръчно според реално направеното.
 
 **Сутрин (9:00–10:00):**
 - [ ] Reddit r/bulgaria пост
@@ -558,4 +562,4 @@ V1 е admin-only badge на festival page-а (виж `docs/superpowers/specs/202
 
 ---
 
-_Last updated: 29 май 2026 от Claude Code_
+_Last updated: 23 юни 2026 от Claude Code_

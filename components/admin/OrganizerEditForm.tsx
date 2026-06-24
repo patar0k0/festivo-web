@@ -468,8 +468,8 @@ export default function OrganizerEditForm({
                 {outreachHistory.length > 0 && (() => {
                   const last = outreachHistory[0]!;
                   const date = new Date(last.sent_at ?? last.created_at);
-                  const dateStr = date.toLocaleDateString("bg-BG", { day: "numeric", month: "short" });
-                  const timeStr = date.toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit" });
+                  const dateStr = date.toLocaleDateString("bg-BG", { day: "numeric", month: "short", timeZone: "Europe/Sofia" });
+                  const timeStr = date.toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Sofia" });
                   const statusDot = last.status === "sent" ? "bg-emerald-500" : last.status === "failed" ? "bg-red-500" : "bg-amber-400";
                   return (
                     <p className="flex items-center gap-1 text-[10px] text-black/45">

@@ -58,6 +58,13 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">Organizer list is temporarily unavailable.</div>;
   }
 
+  // `origin` (Тип) is derived in JS from organizer_members.status, not a DB column,
+  // so it can't be filtered/paginated in SQL. When a type filter is active we must
+  // fetch the full matching set, classify, filter, THEN paginate in JS — otherwise
+  // the filter only sees the current 50-row DB page and both the row list and the
+  // total/page count come out wrong. Without a type filter we keep efficient DB paging.
+  const hasTypeFilter = Boolean(typeFilter && typeFilter !== "all");
+
   let query = adminClient
     .schema("public")
     .from("organizers")
@@ -71,8 +78,11 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
 
   query = query
     .order("created_at", { ascending: false, nullsFirst: false })
-    .order("name", { ascending: true })
-    .range(from, to);
+    .order("name", { ascending: true });
+
+  if (!hasTypeFilter) {
+    query = query.range(from, to);
+  }
 
   const { data, error, count } = await query;
 
@@ -101,12 +111,18 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
     };
   });
 
-  // Client-side type filter (origin is derived, not in DB)
-  if (typeFilter && typeFilter !== "all") {
+  // Type filter + pagination. When filtering by derived origin we fetched the full
+  // set above, so filter then slice here and use the FILTERED length as the total —
+  // this keeps the counter and page count consistent with what's actually shown.
+  let totalCount: number;
+  if (hasTypeFilter) {
     rows = rows.filter((r) => r.origin === typeFilter);
+    totalCount = rows.length;
+    rows = rows.slice(from, to + 1);
+  } else {
+    totalCount = count ?? 0;
   }
 
-  const totalCount = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / PER_PAGE));
   const prevQs = page > 1 ? buildQs({ q, type: typeFilter, page: page - 1 }) : null;
   const nextQs = page < totalPages ? buildQs({ q, type: typeFilter, page: page + 1 }) : null;

@@ -132,9 +132,15 @@ export default async function OrganizerDashboardPage() {
   const pendingCount = submissions.filter((s) => s.status === "pending").length;
   const approvedCount = submissions.filter((s) => s.status === "approved").length;
 
-  const profileEditHref = orgRows[0]?.id
-    ? `/organizer/organizations/${orgRows[0].id}/edit`
-    : "/organizer/profile/new";
+  // Onboarding "edit profile" CTA. With a single profile, link straight to its edit page.
+  // With several, the link is ambiguous — point to the "Моите организации" section, where
+  // each profile has its own edit button. With none, offer to create one.
+  const profileEditCta =
+    orgRows.length === 1 && orgRows[0]?.id
+      ? { label: "Редактирай профила", href: `/organizer/organizations/${orgRows[0].id}/edit` }
+      : orgRows.length > 1
+        ? { label: "Виж профилите", href: "#organizations" }
+        : { label: "Създай профил", href: "/organizer/profile/new" };
 
   // Greet the user (the dashboard belongs to the person, not a single organization —
   // a user may own several organizer profiles). Falls back to email, then a neutral greeting.
@@ -208,7 +214,7 @@ export default async function OrganizerDashboardPage() {
               title="Профил готов"
               done
               body="Имаш активен организаторски профил във Festivo."
-              cta={{ label: "Редактирай профила", href: profileEditHref }}
+              cta={profileEditCta}
             />
             <ChecklistItem
               n={2}
@@ -236,7 +242,10 @@ export default async function OrganizerDashboardPage() {
       ) : null}
 
       {/* ── My organizations ──────────────────────────────────────── */}
-      <section className="rounded-2xl border border-black/[0.06] bg-white/95 p-6 shadow-sm md:p-7">
+      <section
+        id="organizations"
+        className="scroll-mt-24 rounded-2xl border border-black/[0.06] bg-white/95 p-6 shadow-sm md:p-7"
+      >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold text-[#0c0e14]">Моите организации</h2>
           {hasOrgs ? (

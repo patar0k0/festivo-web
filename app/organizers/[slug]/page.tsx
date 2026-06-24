@@ -3,6 +3,7 @@ import Link from "next/link";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import EventCard from "@/components/ui/EventCard";
+import FollowOrganizerButton from "@/components/follow/FollowOrganizerButton";
 import { getFestivalLocationDisplay } from "@/lib/location/getFestivalLocationDisplay";
 import { normalizeExternalHttpHref } from "@/lib/urls/externalHref";
 import OrganizerProfileLogo from "@/components/organizers/OrganizerProfileLogo";
@@ -246,6 +247,7 @@ export default async function OrganizerPage({ params }: { params: Promise<{ slug
                     >
                       Към каталога
                     </Link>
+                    <FollowOrganizerButton organizerId={organizer.id} />
                   </div>
 
                   {hasSocialOrWeb ? (

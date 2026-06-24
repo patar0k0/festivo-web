@@ -4,6 +4,10 @@ import { format, formatDistanceToNow } from "date-fns";
 import { bg } from "date-fns/locale";
 import { requireOrganizerOwnerPortalSession } from "@/lib/organizer/portal";
 import { getOptionalUser } from "@/lib/authUser";
+import {
+  computeOrganizerCompleteness,
+  type OrganizerCompletenessResult,
+} from "@/lib/organizer/profileCompleteness";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +24,16 @@ type OrgRow = {
   name: string;
   slug: string;
   logo_url: string | null;
+  description: string | null;
+  website_url: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
+type FestivalOrgIdRow = {
+  organizer_id: string | null;
 };
 
 function statusMeta(status: string): {
@@ -101,13 +115,14 @@ export default async function OrganizerDashboardPage() {
 
   const { admin, orgIds } = gate;
 
-  // Fetch the session user (for the greeting), organizations (with logo) and submissions in parallel.
-  const [sessionUser, orgsRes, submissionsRes] = await Promise.all([
+  // Fetch the session user (for the greeting), organizations (with profile fields), submissions,
+  // and published-festival counts in parallel.
+  const [sessionUser, orgsRes, submissionsRes, festivalsRes] = await Promise.all([
     getOptionalUser(),
     orgIds.length > 0
       ? admin
           .from("organizers")
-          .select("id,name,slug,logo_url")
+          .select("id,name,slug,logo_url,description,website_url,facebook_url,instagram_url,email,phone")
           .in("id", orgIds)
           .eq("is_active", true)
       : Promise.resolve({ data: [] as OrgRow[] }),
@@ -120,10 +135,23 @@ export default async function OrganizerDashboardPage() {
           .order("created_at", { ascending: false })
           .limit(40)
       : Promise.resolve({ data: [] as SubmissionRow[] }),
+    orgIds.length > 0
+      ? admin
+          .from("festivals")
+          .select("organizer_id")
+          .in("organizer_id", orgIds)
+          .in("status", ["verified", "published"])
+      : Promise.resolve({ data: [] as FestivalOrgIdRow[] }),
   ]);
 
   const orgRows = (orgsRes.data ?? []) as OrgRow[];
   const submissions = (submissionsRes.data ?? []) as SubmissionRow[];
+
+  const festivalCountByOrg = new Map<string, number>();
+  for (const row of (festivalsRes.data ?? []) as FestivalOrgIdRow[]) {
+    if (!row.organizer_id) continue;
+    festivalCountByOrg.set(row.organizer_id, (festivalCountByOrg.get(row.organizer_id) ?? 0) + 1);
+  }
 
   const hasOrgs = orgRows.length > 0;
   const hasSubmissions = submissions.length > 0;
@@ -278,38 +306,51 @@ export default async function OrganizerDashboardPage() {
           </div>
         ) : (
           <ul className="mt-5 space-y-3">
-            {orgRows.map((org) => (
-              <li
-                key={org.id}
-                className="group rounded-xl border border-black/[0.07] bg-white px-4 py-3.5 transition-all duration-150 hover:border-black/[0.15] hover:shadow-sm md:px-5 md:py-4"
-              >
-                <div className="flex flex-wrap items-center gap-4">
-                  <OrganizerLogo name={org.name} logoUrl={org.logo_url} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-[#0c0e14] md:text-base">
-                      {org.name}
-                    </p>
-                    <p className="mt-0.5 truncate text-xs text-black/50">
-                      festivo.bg/organizers/{org.slug}
-                    </p>
+            {orgRows.map((org) => {
+              const completeness = computeOrganizerCompleteness({
+                logo_url: org.logo_url ?? "",
+                description: org.description ?? "",
+                website_url: org.website_url ?? "",
+                facebook_url: org.facebook_url ?? "",
+                instagram_url: org.instagram_url ?? "",
+                email: org.email ?? "",
+                phone: org.phone ?? "",
+                festivalCount: festivalCountByOrg.get(org.id) ?? 0,
+              });
+              return (
+                <li
+                  key={org.id}
+                  className="group rounded-xl border border-black/[0.07] bg-white px-4 py-3.5 transition-all duration-150 hover:border-black/[0.15] hover:shadow-sm md:px-5 md:py-4"
+                >
+                  <div className="flex flex-wrap items-center gap-4">
+                    <OrganizerLogo name={org.name} logoUrl={org.logo_url} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-[#0c0e14] md:text-base">
+                        {org.name}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-black/50">
+                        festivo.bg/organizers/{org.slug}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/organizer/organizations/${org.id}/edit`}
+                        className="inline-flex items-center gap-1 rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c0e14] transition hover:bg-black/[0.04]"
+                      >
+                        Редактирай
+                      </Link>
+                      <Link
+                        href={`/organizers/${org.slug}`}
+                        className="inline-flex items-center gap-1 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-black/55 transition hover:text-[#0c0e14] hover:underline hover:underline-offset-2"
+                      >
+                        Публичен профил →
+                      </Link>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      href={`/organizer/organizations/${org.id}/edit`}
-                      className="inline-flex items-center gap-1 rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-xs font-semibold text-[#0c0e14] transition hover:bg-black/[0.04]"
-                    >
-                      Редактирай
-                    </Link>
-                    <Link
-                      href={`/organizers/${org.slug}`}
-                      className="inline-flex items-center gap-1 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-black/55 transition hover:text-[#0c0e14] hover:underline hover:underline-offset-2"
-                    >
-                      Публичен профил →
-                    </Link>
-                  </div>
-                </div>
-              </li>
-            ))}
+                  <CompletenessBar completeness={completeness} />
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
@@ -498,6 +539,31 @@ function ChecklistItem({
         </Link>
       </div>
     </li>
+  );
+}
+
+function CompletenessBar({ completeness }: { completeness: OrganizerCompletenessResult }) {
+  const missing = completeness.items.filter((item) => !item.done).map((item) => item.label);
+  const percent = Math.round((completeness.doneCount / completeness.total) * 100);
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[11px] font-medium text-black/50">Пълнота на профила</span>
+        <span className="text-[11px] font-medium text-black/50">
+          {completeness.doneCount}/{completeness.total}
+        </span>
+      </div>
+      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-black/[0.06]">
+        <div
+          className="h-full rounded-full bg-emerald-500 transition-all"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      {missing.length > 0 ? (
+        <p className="mt-1.5 text-[11px] text-black/45">Липсва: {missing.join(", ")}</p>
+      ) : null}
+    </div>
   );
 }
 

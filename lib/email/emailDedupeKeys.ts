@@ -8,6 +8,7 @@ import {
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_RECEIVED,
   EMAIL_JOB_TYPE_ORGANIZER_CLAIM_REJECTED,
+  EMAIL_JOB_TYPE_ORGANIZER_VIP_GRANTED,
   EMAIL_JOB_TYPE_REMINDER_1_DAY_BEFORE,
   EMAIL_JOB_TYPE_REMINDER_SAME_DAY,
 } from "./emailJobTypes";
@@ -66,4 +67,9 @@ export function dedupeKeyOrganizerAutoClaimApproved(organizerId: string, userId:
 
 export function dedupeKeyAdminAutoClaimGranted(organizerId: string, userId: string) {
   return `${EMAIL_JOB_TYPE_ADMIN_AUTO_CLAIM_GRANTED}:${organizerId}:${userId}`;
+}
+
+/** Keyed by organizer + plan_started_at so re-granting a later VIP window sends again. */
+export function dedupeKeyOrganizerVipGranted(organizerId: string, planStartedAt: string) {
+  return `${EMAIL_JOB_TYPE_ORGANIZER_VIP_GRANTED}:${organizerId}:${planStartedAt}`;
 }

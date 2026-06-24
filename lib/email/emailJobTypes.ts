@@ -16,6 +16,7 @@ export const EMAIL_JOB_TYPE_ADMIN_FESTIVAL_REPORT = "admin-festival-report" as c
 export const EMAIL_JOB_TYPE_ORGANIZER_OUTREACH = "organizer-outreach" as const;
 export const EMAIL_JOB_TYPE_FESTIVAL_CANCELLED = "festival-cancelled" as const;
 export const EMAIL_JOB_TYPE_ADMIN_FESTIVAL_CANCELLED = "admin-festival-cancelled" as const;
+export const EMAIL_JOB_TYPE_ORGANIZER_VIP_GRANTED = "organizer-vip-granted" as const;
 
 export type EmailJobPriority = "high" | "normal" | "low";
 
@@ -45,6 +46,7 @@ export const EMAIL_JOB_TYPES = [
   EMAIL_JOB_TYPE_ORGANIZER_OUTREACH,
   EMAIL_JOB_TYPE_FESTIVAL_CANCELLED,
   EMAIL_JOB_TYPE_ADMIN_FESTIVAL_CANCELLED,
+  EMAIL_JOB_TYPE_ORGANIZER_VIP_GRANTED,
 ] as const;
 
 export type EmailJobType = (typeof EMAIL_JOB_TYPES)[number];

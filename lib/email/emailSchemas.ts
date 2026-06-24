@@ -69,6 +69,22 @@ export function parseOrganizerClaimRejectedPayload(raw: Record<string, unknown>)
   };
 }
 
+export type OrganizerVipGrantedPayload = {
+  organizerName: string;
+  organizerSlug: string | null;
+  dashboardUrl: string;
+  planExpiresAtDisplay: string | null;
+};
+
+export function parseOrganizerVipGrantedPayload(raw: Record<string, unknown>): OrganizerVipGrantedPayload {
+  return {
+    organizerName: reqString(raw, "organizerName", 400),
+    organizerSlug: optString(raw, "organizerSlug", 200),
+    dashboardUrl: reqString(raw, "dashboardUrl", 2000),
+    planExpiresAtDisplay: optString(raw, "planExpiresAtDisplay", 100),
+  };
+}
+
 export type FestivalSubmissionReceivedPayload = {
   submissionId: string;
   festivalTitle: string;

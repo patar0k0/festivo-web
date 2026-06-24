@@ -327,6 +327,7 @@ export default function OrganizerProfileEditForm({
     form.city_name?.trim() ||
     (form.city_id != null && initialCity?.id === form.city_id ? initialCity?.name_bg : null) ||
     citySuggestions.find((c) => c.id === form.city_id)?.name_bg ||
+    (form.city_id != null ? cityQuery.trim() : null) ||
     null;
   const previewCityLabel =
     previewCityName ?? (form.city_id == null ? "Без избран град" : "Град не е наличен");

@@ -93,7 +93,7 @@ export default async function ProfileFollowsPage() {
           </Link>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">Любими</h1>
           <p className="mt-1 text-sm text-black/55">
-            Следвай градове и организатори, за да получаваш известие по имейл, когато се появи нов фестивал.
+            Събери любимите си градове и организатори на едно място.
           </p>
         </div>
 

@@ -98,37 +98,49 @@ export async function attemptOrganizerAutoClaimByEmail(
     console.error("[organizer_auto_claim] verified flag update failed", { message: verifyErr.message });
   }
 
-  void enqueueEmailJobSafe(
-    admin,
-    {
-      type: EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED,
-      recipientEmail: email,
-      recipientUserId: userId,
-      payload: {
-        organizerName: match.name,
-        organizerSlug: match.slug ?? null,
-        dashboardUrl: absoluteSiteUrl("/organizer/dashboard"),
+  // The grant itself (membership + verified flag) already succeeded above. None of the
+  // following notification/audit steps may throw past this point — a failure building a
+  // URL or reaching the email queue must never look like the grant itself failed (the
+  // function must still report claimed:true), and must not silently skip the audit trail.
+  try {
+    void enqueueEmailJobSafe(
+      admin,
+      {
+        type: EMAIL_JOB_TYPE_ORGANIZER_CLAIM_APPROVED,
+        recipientEmail: email,
+        recipientUserId: userId,
+        payload: {
+          organizerName: match.name,
+          organizerSlug: match.slug ?? null,
+          dashboardUrl: absoluteSiteUrl("/organizer/dashboard"),
+        },
+        dedupeKey: dedupeKeyOrganizerAutoClaimApproved(match.id, userId),
       },
-      dedupeKey: dedupeKeyOrganizerAutoClaimApproved(match.id, userId),
-    },
-    "organizer_auto_claim_user",
-  );
+      "organizer_auto_claim_user",
+    );
+  } catch (err) {
+    console.error("[organizer_auto_claim] user notification enqueue failed", err);
+  }
 
-  void enqueueAdminEmailJobSafe(
-    admin,
-    {
-      type: EMAIL_JOB_TYPE_ADMIN_AUTO_CLAIM_GRANTED,
-      payload: {
-        organizerName: match.name,
-        organizerSlug: match.slug ?? null,
-        userId,
-        userEmail: email,
-        organizerAdminUrl: absoluteSiteUrl(`/admin/organizers/${match.id}/edit`),
+  try {
+    void enqueueAdminEmailJobSafe(
+      admin,
+      {
+        type: EMAIL_JOB_TYPE_ADMIN_AUTO_CLAIM_GRANTED,
+        payload: {
+          organizerName: match.name,
+          organizerSlug: match.slug ?? null,
+          userId,
+          userEmail: email,
+          organizerAdminUrl: absoluteSiteUrl(`/admin/organizers/${match.id}/edit`),
+        },
+        dedupeKey: dedupeKeyAdminAutoClaimGranted(match.id, userId),
       },
-      dedupeKey: dedupeKeyAdminAutoClaimGranted(match.id, userId),
-    },
-    "organizer_auto_claim_admin",
-  );
+      "organizer_auto_claim_admin",
+    );
+  } catch (err) {
+    console.error("[organizer_auto_claim] admin notification enqueue failed", err);
+  }
 
   void logAdminAction({
     actor_user_id: userId,

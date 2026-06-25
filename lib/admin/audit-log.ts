@@ -99,3 +99,16 @@ export async function logAdminAction(input: AdminAuditActionInput): Promise<void
     }, 1600);
   }
 }
+
+/** Shallow-pick `keys` present on `source` — used to build before/after audit diffs. */
+export function pickFields<T extends Record<string, unknown>>(
+  source: T | null | undefined,
+  keys: string[],
+): Record<string, unknown> {
+  if (!source) return {};
+  const out: Record<string, unknown> = {};
+  for (const key of keys) {
+    if (key in source) out[key] = source[key];
+  }
+  return out;
+}

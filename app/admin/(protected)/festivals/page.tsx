@@ -74,6 +74,7 @@ export type AdminFestivalRow = {
   status: "draft" | "verified" | "rejected" | "archived" | null;
   updated_at: string | null;
   source_type: string | null;
+  last_edited_by_organizer_at: string | null;
   quality_score: number;
   quality_bucket: PendingQualityBucket;
   missing_fields: string[];

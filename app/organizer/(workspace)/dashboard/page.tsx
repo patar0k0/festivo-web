@@ -377,8 +377,8 @@ export default async function OrganizerDashboardPage() {
             </span>
           </div>
           <p className="mt-1 text-sm text-black/60">
-            Тези фестивали вече са одобрени и видими на festivo.bg. Не подавай нов, ако
-            искаш промяна по тях — пиши ни и ще го коригираме.
+            Тези фестивали вече са одобрени и видими на festivo.bg. Можеш да редактираш
+            директно — промените излизат веднага, без чакане за одобрение.
           </p>
           <ul className="mt-4 space-y-2.5">
             {publishedFestivals.map((festival) => {
@@ -399,13 +399,21 @@ export default async function OrganizerDashboardPage() {
                         : "Без дата"}
                     </p>
                   </div>
-                  <Link
-                    href={`/festivals/${festival.slug}`}
-                    target="_blank"
-                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-300/80 bg-emerald-50/70 px-3 py-1.5 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
-                  >
-                    Виж на сайта →
-                  </Link>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Link
+                      href={`/organizer/festivals/${festival.id}/edit`}
+                      className="inline-flex items-center gap-1 rounded-lg border border-[#7c2d12]/30 bg-[#7c2d12]/10 px-3 py-1.5 text-xs font-semibold text-[#7c2d12] transition hover:bg-[#7c2d12]/20"
+                    >
+                      Редактирай
+                    </Link>
+                    <Link
+                      href={`/festivals/${festival.slug}`}
+                      target="_blank"
+                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-300/80 bg-emerald-50/70 px-3 py-1.5 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
+                    >
+                      Виж на сайта →
+                    </Link>
+                  </div>
                 </li>
               );
             })}

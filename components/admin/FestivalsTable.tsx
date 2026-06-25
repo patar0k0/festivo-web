@@ -308,6 +308,14 @@ export default function FestivalsTable({
                     <Link href={`/admin/festivals/${row.id}`} className="hover:underline">
                       {row.title}
                     </Link>
+                    {row.last_edited_by_organizer_at ? (
+                      <span
+                        className="ml-2 inline-flex rounded-full border border-[#7c2d12]/30 bg-[#7c2d12]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#7c2d12]"
+                        title={`Последно редактирано от организатор: ${new Date(row.last_edited_by_organizer_at).toLocaleString("bg-BG")}`}
+                      >
+                        Ред. от организатор
+                      </span>
+                    ) : null}
                   </td>
 
                   {/* Quality */}

@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { classifyOrganizerOriginFromMembers, type OrganizerOriginKind } from "@/lib/admin/organizers";
+import {
+  classifyOutreachStatus,
+  fetchAllOrganizerOutreachContactedMap,
+  type OrganizerOutreachStatus,
+} from "@/lib/admin/organizerOutreachStatus";
 import { getAdminContext } from "@/lib/admin/isAdmin";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -19,6 +24,21 @@ const ORIGIN_BADGE: Record<OrganizerOriginKind, { label: string; className: stri
   },
 };
 
+const OUTREACH_BADGE: Record<OrganizerOutreachStatus, { label: string; className: string }> = {
+  contacted: {
+    label: "Писан",
+    className: "bg-emerald-100 text-emerald-950 ring-1 ring-emerald-200/90",
+  },
+  not_contacted: {
+    label: "Не писан",
+    className: "bg-amber-100 text-amber-950 ring-1 ring-amber-200/90",
+  },
+  no_email: {
+    label: "Без имейл",
+    className: "bg-black/[0.06] text-black/65 ring-1 ring-black/[0.1]",
+  },
+};
+
 const PER_PAGE = 50;
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -27,10 +47,11 @@ function asString(v: string | string[] | undefined) {
   return typeof v === "string" ? v : "";
 }
 
-function buildQs(params: { q: string; type: string; page: number }) {
+function buildQs(params: { q: string; type: string; outreach: string; page: number }) {
   const sp = new URLSearchParams();
   if (params.q) sp.set("q", params.q);
   if (params.type && params.type !== "all") sp.set("type", params.type);
+  if (params.outreach && params.outreach !== "all") sp.set("outreach", params.outreach);
   if (params.page > 1) sp.set("page", String(params.page));
   return sp.toString();
 }
@@ -44,6 +65,7 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
   const params = await searchParams;
   const q = asString(params.q).trim();
   const typeFilter = asString(params.type);
+  const outreachFilter = asString(params.outreach);
   const pageRaw = Number.parseInt(asString(params.page) || "1", 10);
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
   const from = (page - 1) * PER_PAGE;
@@ -58,18 +80,21 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">Organizer list is temporarily unavailable.</div>;
   }
 
-  // `origin` (Тип) is derived in JS from organizer_members.status, not a DB column,
-  // so it can't be filtered/paginated in SQL. When a type filter is active we must
-  // fetch the full matching set, classify, filter, THEN paginate in JS — otherwise
-  // the filter only sees the current 50-row DB page and both the row list and the
-  // total/page count come out wrong. Without a type filter we keep efficient DB paging.
+  // `origin` (Тип) and outreach status are both derived in JS (from organizer_members.status
+  // and from email_jobs respectively), not DB columns, so neither can be filtered/paginated
+  // in SQL. When either filter is active we must fetch the full matching set, classify,
+  // filter, THEN paginate in JS — otherwise the filter only sees the current 50-row DB page
+  // and both the row list and the total/page count come out wrong. With no derived filter
+  // active we keep efficient DB-side paging.
   const hasTypeFilter = Boolean(typeFilter && typeFilter !== "all");
+  const hasOutreachFilter = Boolean(outreachFilter && outreachFilter !== "all");
+  const hasDerivedFilter = hasTypeFilter || hasOutreachFilter;
 
   let query = adminClient
     .schema("public")
     .from("organizers")
     // FK hint required: festival_organizers is M2M, so plain `festivals(count)` is ambiguous.
-    .select("id,name,slug,verified,created_at,organizer_members(status),festivals!festivals_organizer_id_fkey(count),festival_organizers(count)", { count: "exact" })
+    .select("id,name,slug,email,verified,created_at,organizer_members(status),festivals!festivals_organizer_id_fkey(count),festival_organizers(count)", { count: "exact" })
     .eq("is_active", true);
 
   if (q) {
@@ -80,7 +105,7 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
     .order("created_at", { ascending: false, nullsFirst: false })
     .order("name", { ascending: true });
 
-  if (!hasTypeFilter) {
+  if (!hasDerivedFilter) {
     query = query.range(from, to);
   }
 
@@ -90,6 +115,8 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
     console.error("[admin/organizers/page] organizers query failed", { message: error.message });
     return <div className="rounded-2xl border border-black/[0.08] bg-white/85 p-6 text-sm text-[#b13a1a]">{error.message}</div>;
   }
+
+  const contactedMap = await fetchAllOrganizerOutreachContactedMap(adminClient);
 
   let rows = (data ?? []).map((row) => {
     const members = row.organizer_members as { status: string }[] | null | undefined;
@@ -103,20 +130,28 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
       festivalsRaw?.[0]?.count ?? 0,
       m2mRaw?.[0]?.count ?? 0,
     );
+    const outreach = classifyOutreachStatus(row.email, row.id, contactedMap);
     return {
       ...row,
       members,
       origin: classifyOrganizerOriginFromMembers(members),
       festivalCount,
+      outreachStatus: outreach.status,
+      lastContactedAt: outreach.lastContactedAt,
     };
   });
 
-  // Type filter + pagination. When filtering by derived origin we fetched the full
-  // set above, so filter then slice here and use the FILTERED length as the total —
-  // this keeps the counter and page count consistent with what's actually shown.
+  // Derived-filter + pagination. When filtering by origin and/or outreach status we
+  // fetched the full set above, so filter then slice here and use the FILTERED length
+  // as the total — this keeps the counter and page count consistent with what's shown.
   let totalCount: number;
-  if (hasTypeFilter) {
-    rows = rows.filter((r) => r.origin === typeFilter);
+  if (hasDerivedFilter) {
+    if (hasTypeFilter) {
+      rows = rows.filter((r) => r.origin === typeFilter);
+    }
+    if (hasOutreachFilter) {
+      rows = rows.filter((r) => r.outreachStatus === outreachFilter);
+    }
     totalCount = rows.length;
     rows = rows.slice(from, to + 1);
   } else {
@@ -124,8 +159,8 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
   }
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PER_PAGE));
-  const prevQs = page > 1 ? buildQs({ q, type: typeFilter, page: page - 1 }) : null;
-  const nextQs = page < totalPages ? buildQs({ q, type: typeFilter, page: page + 1 }) : null;
+  const prevQs = page > 1 ? buildQs({ q, type: typeFilter, outreach: outreachFilter, page: page - 1 }) : null;
+  const nextQs = page < totalPages ? buildQs({ q, type: typeFilter, outreach: outreachFilter, page: page + 1 }) : null;
 
   return (
     <div className="space-y-4">
@@ -188,6 +223,19 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
               <option value="virtual">Виртуален</option>
             </select>
           </label>
+          <label className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-black/50">
+            Кореспонденция
+            <select
+              name="outreach"
+              defaultValue={outreachFilter || "all"}
+              className="mt-1 block rounded-lg border border-black/[0.12] bg-white px-2.5 py-1.5 text-sm text-black focus:outline-none focus:ring-1 focus:ring-black/20"
+            >
+              <option value="all">Всички</option>
+              <option value="not_contacted">Неписани</option>
+              <option value="contacted">Писани</option>
+              <option value="no_email">Без имейл</option>
+            </select>
+          </label>
           <div className="flex gap-2">
             <button
               type="submit"
@@ -195,7 +243,7 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
             >
               Търси
             </button>
-            {(q || (typeFilter && typeFilter !== "all")) && (
+            {(q || (typeFilter && typeFilter !== "all") || (outreachFilter && outreachFilter !== "all")) && (
               <Link
                 href="/admin/organizers"
                 className="rounded-lg border border-black/[0.12] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] hover:bg-black/[0.04]"
@@ -213,6 +261,7 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
             <tr>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Тип</th>
+              <th className="px-4 py-3">Кореспонденция</th>
               <th className="px-4 py-3">Фестивали</th>
               <th className="px-4 py-3">Slug</th>
               <th className="px-4 py-3">Verified</th>
@@ -238,6 +287,21 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
                     <span className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight ${badge.className}`}>
                       {badge.label}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {(() => {
+                      const outreachBadge = OUTREACH_BADGE[row.outreachStatus];
+                      return (
+                        <span className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold tracking-tight ${outreachBadge.className}`}>
+                          {outreachBadge.label}
+                          {row.lastContactedAt && (
+                            <span className="ml-1 font-normal opacity-70">
+                              · {new Date(row.lastContactedAt).toLocaleDateString("bg-BG", { timeZone: "Europe/Sofia" })}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3 tabular-nums">
                     {row.festivalCount > 0 ? (
@@ -278,7 +342,7 @@ export default async function AdminOrganizersPage({ searchParams }: { searchPara
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-black/60">
+                <td colSpan={8} className="px-4 py-8 text-center text-black/60">
                   {q ? `Няма резултати за „${q}".` : "No organizers found."}
                 </td>
               </tr>

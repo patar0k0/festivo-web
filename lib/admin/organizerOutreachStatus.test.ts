@@ -1,8 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   parseOutreachDedupeKey,
   buildOutreachContactedMap,
   classifyOutreachStatus,
+  fetchAllOrganizerOutreachContactedMap,
 } from "./organizerOutreachStatus";
 
 describe("parseOutreachDedupeKey", () => {
@@ -90,5 +91,66 @@ describe("classifyOutreachStatus", () => {
       status: "not_contacted",
       lastContactedAt: null,
     });
+  });
+});
+
+describe("fetchAllOrganizerOutreachContactedMap", () => {
+  type Row = { dedupe_key: string | null; created_at: string };
+
+  /** Minimal fake mimicking the .from().select().eq().range() chain this function uses. */
+  function makeClient(pages: { data: Row[] | null; error: unknown }[]) {
+    let call = 0;
+    const rangeCalls: Array<[number, number]> = [];
+    const client = {
+      from(table: string) {
+        if (table !== "email_jobs") throw new Error(`unexpected table: ${table}`);
+        const query: Record<string, unknown> = {};
+        query.select = vi.fn(() => query);
+        query.eq = vi.fn(() => query);
+        query.range = vi.fn((from: number, to: number) => {
+          rangeCalls.push([from, to]);
+          const result = pages[call] ?? { data: [], error: null };
+          call += 1;
+          return Promise.resolve(result);
+        });
+        return query;
+      },
+    };
+    return { client, rangeCalls };
+  }
+
+  it("aggregates rows across multiple pages and stops once a short page is returned", async () => {
+    const { client, rangeCalls } = makeClient([
+      {
+        data: [
+          { dedupe_key: "organizer-outreach:org-1:a@b.bg:2026-06-01", created_at: "2026-06-01T10:00:00Z" },
+          { dedupe_key: "organizer-outreach:org-2:c@d.bg:2026-06-02", created_at: "2026-06-02T10:00:00Z" },
+        ],
+        error: null,
+      },
+      {
+        data: [
+          { dedupe_key: "organizer-outreach:org-3:e@f.bg:2026-06-03", created_at: "2026-06-03T10:00:00Z" },
+        ],
+        error: null,
+      },
+    ]);
+
+    const map = await fetchAllOrganizerOutreachContactedMap(client as never, 2);
+
+    expect(map.size).toBe(3);
+    expect(map.get("org-3")).toBe("2026-06-03T10:00:00Z");
+    expect(rangeCalls).toEqual([[0, 1], [2, 3]]);
+  });
+
+  it("returns an empty map when there are no outreach jobs", async () => {
+    const { client } = makeClient([{ data: [], error: null }]);
+    const map = await fetchAllOrganizerOutreachContactedMap(client as never, 2);
+    expect(map.size).toBe(0);
+  });
+
+  it("throws when the underlying query errors", async () => {
+    const { client } = makeClient([{ data: null, error: { message: "boom" } }]);
+    await expect(fetchAllOrganizerOutreachContactedMap(client as never, 2)).rejects.toThrow("boom");
   });
 });

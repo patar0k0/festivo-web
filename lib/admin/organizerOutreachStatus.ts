@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 export type OrganizerOutreachStatus = "contacted" | "not_contacted" | "no_email";
 
 export type OutreachStatusInfo = {
@@ -56,4 +58,41 @@ export function classifyOutreachStatus(
     return { status: "no_email", lastContactedAt: null };
   }
   return { status: "not_contacted", lastContactedAt: null };
+}
+
+const DEFAULT_OUTREACH_FETCH_PAGE_SIZE = 1000;
+
+/**
+ * Fetches every `organizer-outreach` email_jobs row (paginated, since there's no upper
+ * bound on how many outreach emails will be sent over time) and reduces them into an
+ * organizerId -> most recent contacted-at map.
+ */
+export async function fetchAllOrganizerOutreachContactedMap(
+  client: SupabaseClient,
+  pageSize: number = DEFAULT_OUTREACH_FETCH_PAGE_SIZE,
+): Promise<Map<string, string>> {
+  const rows: { dedupe_key: string | null; created_at: string }[] = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + pageSize - 1;
+    const { data, error } = await client
+      .from("email_jobs")
+      .select("dedupe_key,created_at")
+      .eq("type", OUTREACH_DEDUPE_PREFIX)
+      .range(from, to);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    // Supabase's default (un-generic'd) client types `data` as `any`; the actual
+    // shape is constrained by the `.select("dedupe_key,created_at")` above.
+    const page = (data ?? []) as { dedupe_key: string | null; created_at: string }[];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return buildOutreachContactedMap(rows);
 }

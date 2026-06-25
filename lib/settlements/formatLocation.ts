@@ -51,6 +51,19 @@ export function resolveSettlementKind(
   return null;
 }
 
+/**
+ * Курортни/резортни комплекси ("к.к. …") не са нито град, нито село — името носи
+ * собствен тип. За тях не показваме "град"/"село" на вторичния ред, независимо от
+ * стойността на `is_village` (която е NOT NULL и затова е принудена на false).
+ */
+// `\b` is ASCII-only in JS regex (never fires after Cyrillic), so anchor the end
+// of the prefix token with a lookahead for whitespace or end-of-string instead.
+const RESORT_COMPLEX_PREFIX = /^\s*(?:к\.?\s*к\.?|кк|курортен\s+комплекс)(?=\s|$)/iu;
+
+export function isResortComplexName(name: string | null | undefined): boolean {
+  return RESORT_COMPLEX_PREFIX.test((name ?? "").trim());
+}
+
 function settlementKindToBgLabel(kind: "city" | "village"): string {
   return kind === "village" ? "село" : "град";
 }
@@ -89,7 +102,8 @@ export function formatSettlementLocationLines(
   const cleanPrimary = stripBulgarianSettlementPrefix(firstSeg).trim() || firstSeg.trim();
   if (!cleanPrimary) return null;
 
-  const resolvedFromData = resolveSettlementKind(isVillage);
+  // Resort complexes carry their own type in the name → no "град"/"село" label.
+  const resolvedFromData = isResortComplexName(firstSeg) ? null : resolveSettlementKind(isVillage);
   const secondary = buildSecondaryLine(resolvedFromData, regionFromText);
   const geoLine = secondary ? `${cleanPrimary}, ${secondary}` : cleanPrimary;
 

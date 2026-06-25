@@ -8,14 +8,33 @@ export function settlementPrefix(isVillage: boolean | null | undefined): string 
   return "";
 }
 
-export function getCityLabel(city: { name_bg: string; is_village?: boolean | null }) {
-  return settlementPrefix(city.is_village) + city.name_bg;
+/**
+ * Detects a locality prefix already present in the name (гр./с./к.к. and word forms).
+ * Names that carry their own prefix — resort complexes ("к.к. Мальовица") or
+ * pre-prefixed input — must not get a second one prepended.
+ */
+// NB: `\b` is ASCII-only in JS regex, so it never fires after Cyrillic — use
+// explicit `\s` / dots as separators instead.
+const LEADING_LOCALITY_PREFIX = /^(?:гр\.|град\s|с\.|село\s|к\.\s*к\.?|кк\s|курортен\s+комплекс)/iu;
+
+/**
+ * Prepends "гр. "/"с. " from `is_village`, but skips it when the name already
+ * begins with a locality prefix (avoids "гр. к.к. Мальовица" double prefixes).
+ */
+export function applySettlementPrefix(name: string, isVillage: boolean | null | undefined): string {
+  const n = (name ?? "").trim();
+  if (!n || LEADING_LOCALITY_PREFIX.test(n)) return n;
+  return settlementPrefix(isVillage) + n;
 }
 
-/** Dropdown label when `cities.region_bg` is present (disambiguate duplicate names). */
-export function getCitySelectLabel(city: { name_bg: string; is_village?: boolean | null; region_bg?: string | null }) {
-  const label = settlementPrefix(city.is_village) + city.name_bg;
-  const r = city.region_bg?.trim();
+export function getCityLabel(city: { name_bg: string; is_village?: boolean | null }) {
+  return applySettlementPrefix(city.name_bg, city.is_village);
+}
+
+/** Dropdown label when `cities.region` is present (disambiguate duplicate names). */
+export function getCitySelectLabel(city: { name_bg: string; is_village?: boolean | null; region?: string | null }) {
+  const label = applySettlementPrefix(city.name_bg, city.is_village);
+  const r = city.region?.trim();
   return r ? `${label} — ${r}` : label;
 }
 

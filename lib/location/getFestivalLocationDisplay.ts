@@ -1,6 +1,6 @@
 import { normalizeFestivalLocationText } from "@/lib/festival/publicLocationDisplay";
 import { fixMojibakeBG } from "@/lib/text/fixMojibake";
-import { settlementPrefix } from "@/lib/settlements/getCityLabel";
+import { applySettlementPrefix } from "@/lib/settlements/getCityLabel";
 
 export type FestivalLocationDisplayInput = {
   location_name?: string | null;
@@ -11,7 +11,7 @@ export function getFestivalLocationDisplay(festival: FestivalLocationDisplayInpu
   const locationName = festival.location_name?.trim() || null;
   const rawCity = festival.cities?.name_bg?.trim() || null;
   const city = rawCity
-    ? settlementPrefix(festival.cities?.is_village) + fixMojibakeBG(rawCity)
+    ? applySettlementPrefix(fixMojibakeBG(rawCity), festival.cities?.is_village)
     : null;
 
   return {

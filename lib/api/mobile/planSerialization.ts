@@ -1,7 +1,7 @@
 import type { ReminderType } from "@/lib/plan/server";
 import { aggregateSnapshotUpdatedAtIso, type SavedFestivalBasicRow } from "@/lib/plan/queries";
 import { getFestivalHeroImage } from "@/lib/festival/getFestivalHeroImage";
-import { settlementPrefix } from "@/lib/settlements/getCityLabel";
+import { applySettlementPrefix } from "@/lib/settlements/getCityLabel";
 import type { Festival } from "@/lib/types";
 
 type PlanReminderWireType = ReminderType;
@@ -123,7 +123,7 @@ function buildCityLabel(row: SavedFestivalBasicRow): string | null {
   const c = Array.isArray(row.cities) ? row.cities[0] : row.cities;
   const name = c?.name_bg?.trim();
   if (!name) return null;
-  return settlementPrefix(c?.is_village) + name;
+  return applySettlementPrefix(name, c?.is_village);
 }
 
 function normalizeSavedFestivals(rows: SavedFestivalBasicRow[]): SavedFestivalBasicDto[] {

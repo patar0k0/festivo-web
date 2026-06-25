@@ -665,7 +665,7 @@ export default function OrganizerEditForm({
                   />
                   {cityBusy ? <p className="mt-1 text-xs text-black/45">Търсене…</p> : null}
                   {pickedCity ? (
-                    <p className="mt-1 text-xs font-medium text-[#1f7a37]">Избрано: {pickedCity.name_bg}</p>
+                    <p className="mt-1 text-xs font-medium text-[#1f7a37]">Избрано: {getCityLabel({ name_bg: pickedCity.name_bg, is_village: pickedCity.is_village })}</p>
                   ) : cityQuery.trim() ? (
                     <p className="mt-1 text-xs text-amber-800/90">Няма избран запис — изберете от подсказките или уточнете текста.</p>
                   ) : null}
@@ -687,7 +687,7 @@ export default function OrganizerEditForm({
                               setCitySuggestions([]);
                             }}
                           >
-                            {c.name_bg}
+                            {getCityLabel({ name_bg: c.name_bg, is_village: c.is_village })}
                           </button>
                         </li>
                       ))}

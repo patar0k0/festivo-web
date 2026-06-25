@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useDebouncedSave } from "@/lib/hooks/useDebouncedSave";
 import { useDirtyState } from "@/lib/hooks/useDirtyState";
 import { computeOrganizerCompleteness } from "@/lib/organizer/profileCompleteness";
+import { getCityLabel } from "@/lib/settlements/getCityLabel";
 import { pub } from "@/lib/public-ui/styles";
 import { cn } from "@/lib/utils";
 
@@ -1035,7 +1036,7 @@ export default function OrganizerProfileEditForm({
                             }}
                             className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-black/[0.03]"
                           >
-                            {c.name_bg}
+                            {getCityLabel({ name_bg: c.name_bg, is_village: c.is_village })}
                           </button>
                         </li>
                       ))}

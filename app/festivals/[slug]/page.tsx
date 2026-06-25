@@ -237,6 +237,8 @@ export default async function Page({
             showTravelPopularLabel={showTravelPopularLabel}
             programItemPlanActions={!data.usedProgramDraftFallback}
             showPendingApprovalBadge={showPendingApprovalBadge}
+            bookingAffiliateAid={process.env.BOOKING_AFFILIATE_AID ?? null}
+            bookingAffiliateLabelPrefix={process.env.BOOKING_AFFILIATE_LABEL_PREFIX ?? null}
           />
         </Container>
       </Section>

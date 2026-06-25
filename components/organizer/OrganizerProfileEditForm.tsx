@@ -79,8 +79,6 @@ type CitySuggestionApi = { id: number; name_bg: string; slug: string; is_village
 
 type OrganizerProfileEditFormProps = {
   organizerId: string;
-  /** Public profile path segment: `/organizers/{slug}` */
-  publicProfileSlug: string;
   initialCity: OrganizerCityOption | null;
   /** Published festival count for this organizer — feeds the completeness indicator. */
   festivalCount: number;
@@ -240,7 +238,6 @@ function inputClass(invalid: boolean, validHighlight?: boolean) {
 
 export default function OrganizerProfileEditForm({
   organizerId,
-  publicProfileSlug,
   initialCity,
   festivalCount,
   initial,

@@ -1,5 +1,6 @@
 import { addDays, format, isValid, parseISO } from "date-fns";
 import { outboundClickHref } from "@/lib/outbound/outboundLink";
+import { withBookingAffiliate } from "@/lib/outbound/affiliate";
 
 function buildBookingSearchUrl(place: string, startDateIso: string, endDateIso?: string | null): string | null {
   const trimmed = place.trim();
@@ -24,14 +25,28 @@ type Props = {
   startDate: string;
   endDate?: string | null;
   festivalId: string;
+  affiliateAid?: string | null;
+  affiliateLabelPrefix?: string | null;
 };
 
-export default function FestivalNearbyBookingCard({ place, startDate, endDate, festivalId }: Props) {
+export default function FestivalNearbyBookingCard({
+  place,
+  startDate,
+  endDate,
+  festivalId,
+  affiliateAid,
+  affiliateLabelPrefix,
+}: Props) {
   const href = buildBookingSearchUrl(place, startDate, endDate);
   if (!href) return null;
 
+  const affiliateHref = withBookingAffiliate(href, festivalId, {
+    aid: affiliateAid,
+    labelPrefix: affiliateLabelPrefix,
+  });
+
   const trackedHref = outboundClickHref({
-    targetUrl: href,
+    targetUrl: affiliateHref,
     festivalId,
     type: "booking",
     source: "festival_detail",

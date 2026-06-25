@@ -78,11 +78,8 @@ export default function QuickLinks({
           icon="📅"
           emptyCta="Запази първия си фестивал"
         />
-        {/* TODO: replace /festivals with dedicated /profile/cities once that view ships.
-            Currently cities/organizers follow management is mobile-only — web users land on
-            discovery (/festivals) where they can pick a city/organizer. */}
         <QuickLinkCard
-          href="/festivals"
+          href="/profile/follows"
           title="Любими градове"
           count={followedCitiesCount}
           noun={{ one: "град", few: "града", many: "града" }}
@@ -90,7 +87,7 @@ export default function QuickLinks({
           emptyCta="Разгледай по градове"
         />
         <QuickLinkCard
-          href="/festivals"
+          href="/profile/follows"
           title="Любими организатори"
           count={followedOrganizersCount}
           noun={{ one: "организатор", few: "организатора", many: "организатора" }}

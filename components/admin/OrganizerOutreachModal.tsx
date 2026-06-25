@@ -68,7 +68,7 @@ function applyPlaceholders(text: string, organizerName: string, festivals: Festi
   return text
     .replace(/\{\{organizerName\}\}/g, organizerName)
     .replace(/\{\{festivalList\}\}/g, festivalLines || "(няма публикувани фестивали)")
-    .replace(/\{\{claimUrl\}\}/g, `${SITE_URL}/organizer/claim`);
+    .replace(/\{\{claimUrl\}\}/g, `${SITE_URL}/organizer`);
 }
 
 /** Default body shown before templates load. */
@@ -89,7 +89,7 @@ ${festivalLines}
 Хората, които намерят вашия фестивал, могат да го запазят в „Моят план" и получават напомняне преди началото — полезно, защото такива неща лесно се забравят.
 
 Ако поемете профила си, можете сами да редактирате информацията, да добавяте снимки и да виждате колко души са проявили интерес. Процесът е бърз:
-${SITE_URL}/organizer/claim
+${SITE_URL}/organizer
 
 За тази година давам безплатен VIP статус на читалища, общини и по-малки организатори — по-добро класиране в сайта и малка отличителна значка. Без скрити условия.
 

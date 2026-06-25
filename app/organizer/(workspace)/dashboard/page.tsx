@@ -32,7 +32,12 @@ type OrgRow = {
   phone: string | null;
 };
 
-type FestivalOrgIdRow = {
+type PublishedFestivalRow = {
+  id: string;
+  title: string;
+  slug: string;
+  start_date: string | null;
+  end_date: string | null;
   organizer_id: string | null;
 };
 
@@ -138,20 +143,23 @@ export default async function OrganizerDashboardPage() {
     orgIds.length > 0
       ? admin
           .from("festivals")
-          .select("organizer_id")
+          .select("id,title,slug,start_date,end_date,organizer_id")
           .in("organizer_id", orgIds)
           .in("status", ["verified", "published"])
-      : Promise.resolve({ data: [] as FestivalOrgIdRow[] }),
+          .order("start_date", { ascending: false })
+      : Promise.resolve({ data: [] as PublishedFestivalRow[] }),
   ]);
 
   const orgRows = (orgsRes.data ?? []) as OrgRow[];
   const submissions = (submissionsRes.data ?? []) as SubmissionRow[];
+  const publishedFestivals = (festivalsRes.data ?? []) as PublishedFestivalRow[];
 
   const festivalCountByOrg = new Map<string, number>();
-  for (const row of (festivalsRes.data ?? []) as FestivalOrgIdRow[]) {
+  for (const row of publishedFestivals) {
     if (!row.organizer_id) continue;
     festivalCountByOrg.set(row.organizer_id, (festivalCountByOrg.get(row.organizer_id) ?? 0) + 1);
   }
+  const hasPublishedFestivals = publishedFestivals.length > 0;
 
   const hasOrgs = orgRows.length > 0;
   const hasSubmissions = submissions.length > 0;
@@ -354,6 +362,56 @@ export default async function OrganizerDashboardPage() {
           </ul>
         )}
       </section>
+
+      {/* ── Published festivals (must come before "Submissions" — organizers kept
+          missing that they already own a live festival and submitted a duplicate) ── */}
+      {hasPublishedFestivals ? (
+        <section className="rounded-2xl border-2 border-emerald-300/70 bg-gradient-to-br from-emerald-50/70 via-white to-white/95 p-6 shadow-sm md:p-7">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-[#0c0e14]">
+              <span aria-hidden="true">✅</span> Вече публикувани фестивали
+            </h2>
+            <span className="text-xs font-medium text-emerald-900/70">
+              {publishedFestivals.length}{" "}
+              {publishedFestivals.length === 1 ? "фестивал" : "фестивала"} активни на сайта
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-black/60">
+            Тези фестивали вече са одобрени и видими на festivo.bg. Не подавай нов, ако
+            искаш промяна по тях — пиши ни и ще го коригираме.
+          </p>
+          <ul className="mt-4 space-y-2.5">
+            {publishedFestivals.map((festival) => {
+              const orgName = orgRows.find((o) => o.id === festival.organizer_id)?.name;
+              return (
+                <li
+                  key={festival.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200/70 bg-white px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[#0c0e14]">
+                      {festival.title}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-black/50">
+                      {orgName ? `${orgName} · ` : ""}
+                      {festival.start_date
+                        ? format(new Date(festival.start_date), "d MMM yyyy", { locale: bg })
+                        : "Без дата"}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/festivals/${festival.slug}`}
+                    target="_blank"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-300/80 bg-emerald-50/70 px-3 py-1.5 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
+                  >
+                    Виж на сайта →
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       {/* ── Submissions ──────────────────────────────────────────── */}
       <section className="rounded-2xl border border-black/[0.06] bg-white/95 p-6 shadow-sm md:p-7">

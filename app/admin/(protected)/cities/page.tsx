@@ -11,7 +11,11 @@ export default async function AdminCitiesPage() {
   if (!ctx?.isAdmin) redirect("/login?next=/admin");
 
   const admin = createSupabaseAdmin();
-  const { data } = await admin.from("cities").select("id,name_bg,slug,region,is_village");
+  const { data, error } = await admin.from("cities").select("id,name_bg,slug,region,is_village");
+
+  if (error) {
+    console.error("[admin/cities] failed to load cities", error.message);
+  }
 
   const cities = ((data ?? []) as AdminCityRow[]).sort((a, b) =>
     a.name_bg.localeCompare(b.name_bg, "bg-BG"),

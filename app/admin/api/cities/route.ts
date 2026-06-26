@@ -36,7 +36,15 @@ export async function GET() {
 type PatchCityBody = {
   id?: unknown;
   is_village?: unknown;
+  region?: unknown;
 };
+
+function normalizeRegionInput(value: unknown): { ok: true; region: string | null } | { ok: false } {
+  if (value === null) return { ok: true, region: null };
+  if (typeof value !== "string") return { ok: false };
+  const trimmed = value.trim();
+  return { ok: true, region: trimmed === "" ? null : trimmed };
+}
 
 export async function PATCH(request: Request) {
   const ctx = await getAdminContext();
@@ -50,19 +58,38 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "id трябва да е число" }, { status: 400 });
   }
 
-  const is_village = body?.is_village;
-  if (is_village !== true && is_village !== false && is_village !== null) {
-    return NextResponse.json(
-      { error: "is_village трябва да е true, false или null" },
-      { status: 400 },
-    );
+  const hasIsVillage = body?.is_village !== undefined;
+  const hasRegion = body?.region !== undefined;
+  if (!hasIsVillage && !hasRegion) {
+    return NextResponse.json({ error: "Няма какво да се обнови" }, { status: 400 });
+  }
+
+  let is_village: boolean | null | undefined;
+  if (hasIsVillage) {
+    const v = body?.is_village;
+    if (v !== true && v !== false && v !== null) {
+      return NextResponse.json(
+        { error: "is_village трябва да е true, false или null" },
+        { status: 400 },
+      );
+    }
+    is_village = v;
+  }
+
+  let region: string | null | undefined;
+  if (hasRegion) {
+    const normalized = normalizeRegionInput(body?.region);
+    if (!normalized.ok) {
+      return NextResponse.json({ error: "region трябва да е текст или null" }, { status: 400 });
+    }
+    region = normalized.region;
   }
 
   const admin = createSupabaseAdmin();
 
   const { data: existing, error: readError } = await admin
     .from("cities")
-    .select("id,is_village")
+    .select("id,is_village,region")
     .eq("id", id)
     .maybeSingle();
 
@@ -73,19 +100,27 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Населеното място не е намерено" }, { status: 404 });
   }
 
-  const { error: updateError } = await admin.from("cities").update({ is_village }).eq("id", id);
+  const updatePayload: { is_village?: boolean | null; region?: string | null } = {};
+  if (hasIsVillage) updatePayload.is_village = is_village;
+  if (hasRegion) updatePayload.region = region;
+
+  const { error: updateError } = await admin.from("cities").update(updatePayload).eq("id", id);
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  const details: Record<string, { from: unknown; to: unknown }> = {};
+  if (hasIsVillage) details.is_village = { from: existing.is_village, to: is_village };
+  if (hasRegion) details.region = { from: existing.region, to: region };
+
   await logAdminAction({
     actor_user_id: ctx.user.id,
-    action: "update_is_village",
+    action: "update_city",
     entity_type: "city",
     entity_id: String(id),
     route: "/admin/api/cities",
     method: "PATCH",
-    details: { from: existing.is_village, to: is_village },
+    details,
   });
 
   return NextResponse.json({ ok: true });

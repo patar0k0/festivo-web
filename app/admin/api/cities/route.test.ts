@@ -120,10 +120,10 @@ describe("PATCH /admin/api/cities", () => {
     expect(updateEq).toHaveBeenCalledWith("id", 1);
     expect(mockLogAdminAction).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: "update_is_village",
+        action: "update_city",
         entity_type: "city",
         entity_id: "1",
-        details: { from: false, to: true },
+        details: { is_village: { from: false, to: true } },
       }),
     );
   });
@@ -141,5 +141,96 @@ describe("PATCH /admin/api/cities", () => {
 
     const res = await PATCH(patchRequest({ id: 1, is_village: true }));
     expect(res.status).toBe(500);
+  });
+
+  it("returns 400 when neither is_village nor region is present", async () => {
+    mockGetAdminContext.mockResolvedValue(adminCtx());
+    const res = await PATCH(patchRequest({ id: 1 }));
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when region is not a string or null", async () => {
+    mockGetAdminContext.mockResolvedValue(adminCtx());
+    const res = await PATCH(patchRequest({ id: 1, region: 42 }));
+    expect(res.status).toBe(400);
+  });
+
+  it("updates only region, logs audit details with only region, and returns 200", async () => {
+    mockGetAdminContext.mockResolvedValue(adminCtx());
+    const updateEq = vi.fn(() => Promise.resolve({ error: null }));
+    let updatePayload: unknown;
+    mockFrom.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () =>
+            Promise.resolve({ data: { id: 1, is_village: false, region: null }, error: null }),
+        }),
+      }),
+      update: (payload: unknown) => {
+        updatePayload = payload;
+        return { eq: updateEq };
+      },
+    });
+
+    const res = await PATCH(patchRequest({ id: 1, region: "обл. Пловдив" }));
+    expect(res.status).toBe(200);
+    expect(updatePayload).toEqual({ region: "обл. Пловдив" });
+    expect(mockLogAdminAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "update_city",
+        details: { region: { from: null, to: "обл. Пловдив" } },
+      }),
+    );
+  });
+
+  it("normalizes an empty-string region to null", async () => {
+    mockGetAdminContext.mockResolvedValue(adminCtx());
+    const updateEq = vi.fn(() => Promise.resolve({ error: null }));
+    let updatePayload: unknown;
+    mockFrom.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () =>
+            Promise.resolve({
+              data: { id: 1, is_village: false, region: "обл. Пловдив" },
+              error: null,
+            }),
+        }),
+      }),
+      update: (payload: unknown) => {
+        updatePayload = payload;
+        return { eq: updateEq };
+      },
+    });
+
+    const res = await PATCH(patchRequest({ id: 1, region: "" }));
+    expect(res.status).toBe(200);
+    expect(updatePayload).toEqual({ region: null });
+  });
+
+  it("updates both is_village and region in one call, with both in audit details", async () => {
+    mockGetAdminContext.mockResolvedValue(adminCtx());
+    const updateEq = vi.fn(() => Promise.resolve({ error: null }));
+    mockFrom.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () =>
+            Promise.resolve({ data: { id: 1, is_village: false, region: null }, error: null }),
+        }),
+      }),
+      update: () => ({ eq: updateEq }),
+    });
+
+    const res = await PATCH(patchRequest({ id: 1, is_village: true, region: "обл. Враца" }));
+    expect(res.status).toBe(200);
+    expect(mockLogAdminAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "update_city",
+        details: {
+          is_village: { from: false, to: true },
+          region: { from: null, to: "обл. Враца" },
+        },
+      }),
+    );
   });
 });

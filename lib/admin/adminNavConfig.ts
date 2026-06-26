@@ -32,6 +32,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: "/admin/pending-festivals", label: "Чакащи", match: "prefix" },
       { href: "/admin/festivals", label: "Фестивали", match: "exact" },
       { href: "/admin/categories", label: "Категории", match: "prefix" },
+      { href: "/admin/cities", label: "Населени места", match: "prefix" },
       { href: "/admin/festivals/duplicates", label: "Дублирани", match: "prefix" },
       { href: "/admin/enrichment-proposals", label: "Обогатявания", match: "prefix" },
       { href: "/admin/festival-reports", label: "Сигнали", match: "prefix" },

@@ -28,7 +28,7 @@ export default async function AdminCitiesPage() {
         <p className="mt-1 text-sm text-black/55">
           Управлявай тип град/село за всяко населено място (
           <code className="rounded bg-black/5 px-1 font-mono text-xs">cities.is_village</code>
-          ). „Без тип" означава курорт/местност — без префикс на сайта.
+          ). „Без тип&quot; означава курорт/местност — без префикс на сайта.
         </p>
       </div>
       <CitiesManager initial={cities} />

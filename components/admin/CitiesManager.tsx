@@ -41,7 +41,8 @@ export default function CitiesManager({ initial }: { initial: AdminCityRow[] }) 
   async function setIsVillage(id: number, next: boolean | null) {
     const previous = cities.find((c) => c.id === id)?.is_village ?? null;
     setErrorById((prev) => {
-      const { [id]: _drop, ...rest } = prev;
+      const rest = { ...prev };
+      delete rest[id];
       return rest;
     });
     setCities((prev) => prev.map((c) => (c.id === id ? { ...c, is_village: next } : c)));

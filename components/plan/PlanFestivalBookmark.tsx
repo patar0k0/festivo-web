@@ -4,6 +4,7 @@ import Link from "next/link";
 import { SyntheticEvent, useState } from "react";
 import { usePlanState } from "@/components/plan/PlanStateProvider";
 import { fbqTrackCustom } from "@/lib/pixel";
+import { gaTrack } from "@/lib/ga";
 import { isFestivalPast } from "@/lib/festival/isFestivalPast";
 import type { ReminderType } from "@/lib/plan/server";
 
@@ -108,6 +109,7 @@ export default function PlanFestivalBookmark({
       setFestivalInPlan(String(festivalId), Boolean(payload.inPlan));
       if (payload.inPlan) {
         fbqTrackCustom("AddToPlan", { content_ids: [String(festivalId)] });
+        gaTrack("save_festival", { festival_id: String(festivalId) });
       }
     } finally {
       setLoading(false);

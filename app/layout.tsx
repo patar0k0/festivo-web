@@ -37,10 +37,10 @@ export function generateMetadata(): Metadata {
   return {
     metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://festivo.bg"),
     title: {
-      default: "Festivo — Discover festivals in Bulgaria",
+      default: "Festivo — Открий фестивалите в България",
       template: "%s · Festivo",
     },
-    description: "Browse published festivals, find dates, and plan weekends across Bulgaria.",
+    description: "Разгледай одобрените фестивали, намери дати и планирай уикенда си из България.",
     icons: {
       icon: [
         { url: "/brand/festivo-icon.svg", type: "image/svg+xml" },

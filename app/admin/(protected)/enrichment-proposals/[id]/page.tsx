@@ -16,6 +16,10 @@ const FIELD_LABELS: Record<string, string> = {
   address: "Адрес",
   is_free: "Безплатен",
   category: "Категория",
+  start_time: "Начален час",
+  end_time: "Краен час",
+  tags: "Тагове",
+  program_draft: "Програма",
 };
 
 export default async function EnrichmentProposalDetailPage({ params }: { params: { id: string } }) {
@@ -89,6 +93,39 @@ export default async function EnrichmentProposalDetailPage({ params }: { params:
             {Object.entries(patch).map(([field, proposed]) => {
               const current = festival?.[field];
               const isEmpty = current === null || current === undefined || current === "";
+
+              if (field === "program_draft") {
+                const draft = proposed as { days?: Array<{ date: string; title?: string | null; items: Array<{ title: string; start_time?: string | null }> }> };
+                return (
+                  <tr key={field}>
+                    <td className="px-4 py-3 font-medium align-top">{FIELD_LABELS[field] ?? field}</td>
+                    <td className="max-w-[300px] px-4 py-3 text-black/45 align-top">
+                      <span className="italic">няма програма</span>
+                    </td>
+                    <td className="max-w-[400px] px-4 py-3 align-top">
+                      <div className="space-y-2">
+                        {(draft.days ?? []).map((day) => (
+                          <div key={day.date} className="rounded bg-emerald-50 px-2 py-1 ring-1 ring-emerald-200">
+                            <p className="text-xs font-semibold text-emerald-900">
+                              {day.date}
+                              {day.title ? ` — ${day.title}` : ""}
+                            </p>
+                            <ul className="mt-1 space-y-0.5 text-xs text-emerald-900">
+                              {day.items.map((item, idx) => (
+                                <li key={idx}>
+                                  {item.start_time ? `${item.start_time} — ` : ""}
+                                  {item.title}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
+
               return (
                 <tr key={field}>
                   <td className="px-4 py-3 font-medium">{FIELD_LABELS[field] ?? field}</td>
@@ -101,7 +138,7 @@ export default async function EnrichmentProposalDetailPage({ params }: { params:
                   </td>
                   <td className="max-w-[300px] px-4 py-3">
                     <span className="whitespace-pre-wrap break-words rounded bg-emerald-50 px-2 py-0.5 text-xs text-emerald-900 ring-1 ring-emerald-200">
-                      {String(proposed)}
+                      {Array.isArray(proposed) ? proposed.join(", ") : String(proposed)}
                     </span>
                   </td>
                 </tr>

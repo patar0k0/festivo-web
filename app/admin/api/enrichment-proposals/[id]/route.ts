@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { getAdminContext } from "@/lib/admin/isAdmin";
+import {
+  parseProgramDraftUnknown,
+  programDraftHasContent,
+  replaceFestivalScheduleFromProgramDraft,
+} from "@/lib/festival/programDraft";
 
 export const dynamic = "force-dynamic";
 
@@ -44,11 +49,41 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   if (action === "approve") {
-    const { error: updateFestivalErr } = await supabase
-      .from("festivals")
-      .update(proposal.patch_json as Record<string, unknown>)
-      .eq("id", proposal.target_festival_id);
-    if (updateFestivalErr) return NextResponse.json({ error: updateFestivalErr.message }, { status: 500 });
+    const patch = { ...(proposal.patch_json as Record<string, unknown>) };
+    const programDraftRaw = patch.program_draft;
+    delete patch.program_draft;
+
+    if (Object.keys(patch).length > 0) {
+      const { error: updateFestivalErr } = await supabase
+        .from("festivals")
+        .update(patch)
+        .eq("id", proposal.target_festival_id);
+      if (updateFestivalErr) return NextResponse.json({ error: updateFestivalErr.message }, { status: 500 });
+    }
+
+    if (programDraftRaw) {
+      const { count: existingDaysCount, error: daysCountErr } = await supabase
+        .from("festival_days")
+        .select("id", { count: "exact", head: true })
+        .eq("festival_id", proposal.target_festival_id);
+      if (daysCountErr) return NextResponse.json({ error: daysCountErr.message }, { status: 500 });
+
+      if ((existingDaysCount ?? 0) === 0) {
+        const parsedDraft = parseProgramDraftUnknown(programDraftRaw);
+        if (parsedDraft.ok && programDraftHasContent(parsedDraft.value)) {
+          try {
+            await replaceFestivalScheduleFromProgramDraft(supabase, proposal.target_festival_id, parsedDraft.value);
+          } catch (scheduleErr) {
+            return NextResponse.json(
+              { error: scheduleErr instanceof Error ? scheduleErr.message : "schedule insert failed" },
+              { status: 500 },
+            );
+          }
+        }
+      }
+      // else: a program was added concurrently after the proposal was created —
+      // skip the program portion silently, the scalar fields above were still applied.
+    }
   }
 
   const { error: proposalErr } = await supabase

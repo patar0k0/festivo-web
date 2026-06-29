@@ -36,6 +36,7 @@ import {
 import { getListingShortFromEvidenceJson } from "@/lib/admin/festivalListingShort";
 import { ADMIN_FIELD_LABEL, getAdminFieldLabel } from "@/lib/admin/entitySchema";
 import AdminMonetizationSummaryCard from "@/components/admin/AdminMonetizationSummaryCard";
+import FestivalSmartEnrichButton from "@/components/admin/FestivalSmartEnrichButton";
 import ProgramDraftEditor, { type ProgramDraftEditorHandle } from "@/components/admin/ProgramDraftEditor";
 import AdminTimeInput from "@/components/admin/inputs/AdminTimeInput";
 import { DatePickerButton } from "@/components/admin/DateTimePickerButtons";
@@ -1029,6 +1030,8 @@ export default function FestivalEditForm({
           expiresAtInput: form.promotion_expires_at,
         }}
       />
+
+      <FestivalSmartEnrichButton festivalId={festival.id} />
 
       <AdminFieldSection
         title={ADMIN_ENTITY_SECTION.mainInfo.title}

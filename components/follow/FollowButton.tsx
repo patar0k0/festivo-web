@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fbqTrackCustom } from "@/lib/pixel";
+import { gaTrack } from "@/lib/ga";
 
 type FollowButtonProps = {
   /** API route that exposes GET (status) + POST/DELETE (toggle). */
@@ -17,6 +18,8 @@ type FollowButtonProps = {
   icon: "heart" | "star";
   /** Optional Meta Pixel custom event fired on follow (not unfollow). */
   pixelEvent?: string;
+  /** Optional GA4 event name fired on follow (not unfollow). */
+  gaEvent?: string;
   /**
    * When the caller already knows the state (e.g. the profile follows list),
    * pass these to skip the initial GET round-trip.
@@ -70,6 +73,7 @@ export default function FollowButton({
   loginLabel,
   icon,
   pixelEvent,
+  gaEvent,
   initialAuthenticated,
   initialFollowing,
 }: FollowButtonProps) {
@@ -126,6 +130,9 @@ export default function FollowButton({
       }
       if (next && pixelEvent) {
         fbqTrackCustom(pixelEvent, { [paramKey]: paramValue });
+      }
+      if (next && gaEvent) {
+        gaTrack(gaEvent, { [paramKey]: paramValue });
       }
     } catch {
       setFollowing(!next);

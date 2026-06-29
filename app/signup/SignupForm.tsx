@@ -7,6 +7,7 @@ import { createSupabaseBrowser } from "@/lib/supabase/client";
 import { OAuthButtons } from "@/app/auth/_components/OAuthButtons";
 import { signupErrorMessage } from "@/app/login/authErrors";
 import { fbqTrack } from "@/lib/pixel";
+import { gaTrack } from "@/lib/ga";
 import type { TurnstileWidgetHandle } from "@/components/TurnstileWidget";
 import { SignupTurnstileBlock } from "./SignupTurnstileBlock";
 
@@ -157,12 +158,14 @@ export function SignupForm({ next }: SignupFormProps) {
 
       if (payload?.hasSession) {
         fbqTrack("CompleteRegistration");
+        gaTrack("sign_up_complete");
         router.push(safeNext);
         router.refresh();
         return;
       }
 
       fbqTrack("CompleteRegistration");
+      gaTrack("sign_up_complete");
       setNotice("Профилът е създаден. Провери имейла си за потвърждение и след това влез.");
       setTurnstileToken("");
       turnstileRef.current?.reset();

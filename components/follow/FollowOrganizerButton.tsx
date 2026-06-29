@@ -26,6 +26,7 @@ export default function FollowOrganizerButton({
       loginLabel="Влез, за да следваш"
       icon="star"
       pixelEvent="FollowOrganizer"
+      gaEvent="follow_organizer"
       initialAuthenticated={initialAuthenticated}
       initialFollowing={initialFollowing}
     />

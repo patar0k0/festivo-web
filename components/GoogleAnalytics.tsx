@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import Script from "next/script";
 
 const MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID;
@@ -23,6 +25,17 @@ const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
  *   window.gtag?.("event", "save_festival", { festival_id: "..." });
  */
 export default function GoogleAnalytics() {
+  const pathname = usePathname();
+
+  // Admin panel usage is internal/operator traffic, not real visitors — suppress GA4 hits
+  // there. `ga-disable-<id>` is gtag.js's own opt-out flag, so it also covers SPA
+  // navigation into/out of /admin after the tag has already loaded.
+  useEffect(() => {
+    if (!MEASUREMENT_ID) return;
+    const w = window as unknown as Record<string, boolean>;
+    w[`ga-disable-${MEASUREMENT_ID}`] = pathname?.startsWith("/admin") ?? false;
+  }, [pathname]);
+
   // Prefer GTM if present (it loads GA4 internally), else fall back to direct gtag.js.
   if (GTM_ID) {
     return (

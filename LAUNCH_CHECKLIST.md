@@ -13,8 +13,8 @@
 - **Sprint ден:** 14 / 14 — 🚀 LAUNCHED
 - **Launch стабилност:** 🟢 сайтът е публично качен
 - **Блокери в момента:** няма
-- **Последно обновяване:** 23 юни 2026
-- **Прогрес:** ~70 ✅ / 85 — остатъкът е post-launch backlog
+- **Последно обновяване:** 30 юни 2026
+- **Прогрес:** ~71 ✅ / 85 — остатъкът е post-launch backlog
 - **Следва:** post-launch — съдържание, social media, Lighthouse audit, soft launch с близки.
 
 > 💡 Claude Code note (23 юни): Post-launch bug fix извън sprint backlog-а — пълен audit на date/timezone обработката в проекта; поправени реални Europe/Sofia bug-ове (EventCard badge/urgency tags, admin таблици, cancellation имейли) — [PR #641](https://github.com/patar0k0/festivo-web/pull/641).
@@ -129,7 +129,8 @@
 ### Performance
 - [ ] Font loading optimization (`display: swap`, preload)
 - [ ] Unused JS / CSS removal
-- [ ] Lighthouse audit + fix за `/signup`, `/login`, `/festival-detail`
+- [x] Lighthouse audit + fix за `/signup`, `/login`, `/festival-detail`
+> 💡 Claude Code note (30 юни): Mobile audit (homepage + 3-те страници) намери и оправи: Umami CSP bug (`gateway.umami.is` липсваше от `connect-src` — analytics-ът не записваше нищо), Sentry Session Replay сваляне (-19% shared JS, PR #671), FallbackImage quality 72→60 (-11% per image, PR #672). Homepage Performance 57→66, Best Practices 92→100. Festival detail (`/festivals/[slug]`) остава най-тежка (Performance 51, LCP 10s) заради interactive Google Maps embed (~308KB) — съзнателно оставено непипнато (продуктово решение, не bug). Signup Turnstile (~380KB) също оставено — нужно за anti-bot защита.
 - [x] Favicons full set (16/32/180/512) — дублиращ запис; генерирани с sharp от brand SVG (PR #435, ден 3-4)
 
 ### Operational

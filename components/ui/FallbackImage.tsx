@@ -75,7 +75,7 @@ export default function FallbackImage({
     if (!normalizedSrc) return null;
     return toSupabaseTransformUrl(normalizedSrc, {
       width: deriveTransformWidth(props.sizes, props.width),
-      quality: 72,
+      quality: 60,
     });
   }, [normalizedSrc, props.sizes, props.width]);
 

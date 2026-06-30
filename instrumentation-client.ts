@@ -49,20 +49,10 @@ Sentry.init({
   // хабят quota-та.
   enabled: process.env.NODE_ENV === "production",
 
-  // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
-
   // 10% от transactions — достатъчно за production insights без излишни разходи
   tracesSampleRate: 0.1,
   // Enable logs to be sent to Sentry
   enableLogs: true,
-
-  // Session replay — изключен за нормални сесии (GDPR и bandwidth)
-  replaysSessionSampleRate: 0.0,
-
-  // Session replay — включен само при част от грешките за debugging
-  // (намален от 1.0, за да не изчерпва месечната replays квота)
-  replaysOnErrorSampleRate: 0.5,
 
   // GDPR: не изпращаме PII (IP адреси, email адреси и т.н.)
   sendDefaultPii: false,

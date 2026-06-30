@@ -36,7 +36,7 @@ export default async function SiteHeader() {
           />
           <span className="text-[17px] font-bold tracking-tight text-[#7c2d12] md:text-[19px]">
             Festivo
-            <span className="text-[10px] font-semibold text-[#7c2d12]/55 md:text-[11px]">.bg</span>
+            <span className="text-[10px] font-semibold text-[#7c2d12]/75 md:text-[11px]">.bg</span>
           </span>
         </Link>
         <SiteNavClient isAuthenticated={isAuthenticated} isAdmin={isAdmin} userEmail={userEmail} />

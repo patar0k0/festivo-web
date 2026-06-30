@@ -23,7 +23,7 @@ export default function CategoriesSection({ categories }: { categories: HomeCate
             className={cn(pub.chip, pub.focusRing, "inline-flex items-baseline gap-1.5 hover:bg-[#f7f6f3]")}
           >
             <span>{category.label}</span>
-            <span className="tabular-nums text-black/35">{category.count}</span>
+            <span className="tabular-nums text-black/55">{category.count}</span>
           </Link>
         ))}
       </div>
